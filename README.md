@@ -1,6 +1,6 @@
 # shenas
 
-Health metrics aggregation platform. Collects data from multiple sources, normalizes it into a canonical schema, and visualizes it through pluggable web components.
+Health and finance metrics aggregation platform. Collects data from multiple sources, normalizes it into canonical schemas, and visualizes it through pluggable web components.
 
 ## Quick start
 
@@ -11,27 +11,34 @@ uv run shenas --help
 
 ## Development setup
 
-Install pipes and schemas for local development:
-
 ```bash
-uv pip install -e schemas/fitness_tracker
-uv pip install -e pipes/garmin
+make dev-install    # editable install all pipes, schemas, components
+make setup-hooks    # install pre-commit hook (ruff + ty)
 ```
 
 ## Data pipeline
 
 ```bash
-# Authenticate with Garmin Connect
+# Authenticate
 uv run shenas pipe garmin auth
+uv run shenas pipe lunchmoney auth
 
-# Sync raw data into DuckDB
+# Sync raw data into DuckDB (also runs transform automatically)
 uv run shenas pipe garmin sync
-
-# Transform raw data into canonical metrics
-uv run shenas pipe garmin transform
+uv run shenas pipe lunchmoney sync
 
 # Check what's loaded
 uv run shenas data status
+```
+
+## Package management
+
+```bash
+uv run shenas pipe list                # list installed pipes
+uv run shenas pipe add garmin          # install from repository
+uv run shenas pipe remove garmin       # uninstall
+uv run shenas schema list              # list installed schemas
+uv run shenas component list           # list installed components
 ```
 
 ## Visualization
@@ -48,7 +55,7 @@ uv run shenas ui
 
 ## Package distribution
 
-All pipes, schemas, and components are distributed as signed Python wheels via a PEP 503 repository server.
+All pipes, schemas, and components are distributed as Ed25519-signed Python wheels via a PEP 503 repository server.
 
 ```bash
 # Generate signing keys
@@ -66,21 +73,39 @@ make vendor PIPE=garmin
 make repository_server
 
 # Install from the repository (in another terminal)
-uv run shenas install pipe garmin
+uv run shenas pipe add garmin
+```
+
+## Testing
+
+```bash
+make test           # run all tests (161)
+make coverage       # tests with coverage report
+make lint           # ruff check + format + ty
 ```
 
 ## Architecture
 
 ```
-pipes/                   dlt connectors (standalone packages)
-schemas/                 canonical metric schemas (standalone packages)
-local_frontend/          FastAPI UI server (Arrow IPC queries)
-components/     web components (Lit + uPlot, built as wheels)
-repository_server/       PEP 503 package server
-registry/                Ed25519 signing
-cli/                     shenas CLI
+pipes/
+  core/              shared pipe utilities (shenas-pipe-core)
+  garmin/            Garmin Connect connector
+  lunchmoney/        Lunch Money connector
+schemas/
+  core/              shared schema utilities (shenas-schema-core)
+  fitness_tracker/   HRV, sleep, vitals, body metrics
+  finance/           transactions, spending, budgets
+components/
+  fitness-dashboard/ Lit + uPlot dashboard (built as wheel)
+local_frontend/      FastAPI UI server (Arrow IPC queries)
+repository_server/   PEP 503 package server
+registry/            Ed25519 signing
+cli/                 shenas CLI
+tests/               repository server, frontend, CLI, signing tests
 ```
 
 **Data flow**: Source API -> dlt -> raw DuckDB tables -> SQL transform -> canonical `metrics.*` tables -> Arrow IPC -> web component
 
 **Plugin system**: Pipes register via `shenas.pipes` entry points, schemas via `shenas.schemas`, components via `shenas.components`. The CLI and UI discover them at runtime.
+
+**Core packages**: `shenas-pipe-core` and `shenas-schema-core` provide shared utilities (DRY). They are internal dependencies, not user-facing.
