@@ -2,7 +2,7 @@ PACKAGES_DIR := $(CURDIR)/packages
 SIGN = uv run --no-sync shenas registry sign
 BUMP = python scripts/bump-version.py
 
-.PHONY: repository_server build-pipes build-schemas build-components vendor sign-all dev-install dev-uninstall setup-hooks lint
+.PHONY: repository_server build-pipes build-schemas build-components vendor sign-all dev-install dev-uninstall setup-hooks lint test coverage
 
 repository_server:
 	uv run python -m repository_server.main $(PACKAGES_DIR)
@@ -116,3 +116,11 @@ lint:
 	uv run ruff check .
 	uv run ruff format --check .
 	uv run ty check cli/ registry/ repository_server/ local_frontend/
+
+test:
+	uv run pytest
+
+coverage:
+	uv run pytest --cov=cli --cov=registry --cov=repository_server --cov=local_frontend \
+		--cov=shenas_pipes --cov=shenas_schemas \
+		--cov-report=term-missing --cov-report=html:htmlcov
