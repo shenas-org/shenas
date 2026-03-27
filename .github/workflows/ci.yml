@@ -121,7 +121,6 @@ jobs:
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
       - name: Update coverage badge
         if: github.ref == 'refs/heads/main' && vars.COVERAGE_GIST_ID != ''
-        continue-on-error: true
         uses: schneegans/dynamic-badges-action@v1.7.0
         with:
           auth: ${{ secrets.GIST_TOKEN }}
