@@ -65,11 +65,11 @@ jobs:
           uv pip install -e schemas/core -e schemas/fitness_tracker -e schemas/finance -e pipes/core -e pipes/garmin -e pipes/lunchmoney
           rm -f schemas/fitness_tracker/pyproject.toml schemas/finance/pyproject.toml
       - name: Test pipe core
-        run: uv run pytest pipes/core/tests/ --tb=short
+        run: uv run --no-sync pytest pipes/core/tests/ --tb=short
       - name: Test pipe garmin
-        run: uv run pytest pipes/garmin/tests/ --tb=short
+        run: uv run --no-sync pytest pipes/garmin/tests/ --tb=short
       - name: Test pipe lunchmoney
-        run: uv run pytest pipes/lunchmoney/tests/ --tb=short
+        run: uv run --no-sync pytest pipes/lunchmoney/tests/ --tb=short
 
   test-schemas:
     name: Test schemas (Python ${{ matrix.python-version }})
@@ -91,9 +91,9 @@ jobs:
           uv pip install -e schemas/core -e schemas/fitness_tracker -e schemas/finance
           rm -f schemas/fitness_tracker/pyproject.toml schemas/finance/pyproject.toml
       - name: Test schema fitness_tracker
-        run: uv run pytest schemas/fitness_tracker/tests/ --tb=short
+        run: uv run --no-sync pytest schemas/fitness_tracker/tests/ --tb=short
       - name: Test schema finance
-        run: uv run pytest schemas/finance/tests/ --tb=short
+        run: uv run --no-sync pytest schemas/finance/tests/ --tb=short
 
   coverage:
     name: Coverage
@@ -114,7 +114,7 @@ jobs:
       - name: Run tests with coverage
         id: coverage
         run: |
-          uv run pytest --cov=cli --cov=repository --cov=local_frontend \
+          uv run --no-sync pytest --cov=cli --cov=repository --cov=local_frontend \
             --cov=shenas_pipes --cov=shenas_schemas \
             --cov-report=term-missing --cov-report=json:coverage.json
           TOTAL=$(python -c "import json; print(int(json.load(open('coverage.json'))['totals']['percent_covered']))")
