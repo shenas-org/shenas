@@ -76,3 +76,45 @@ class TestApiQuery:
         resp = client.get("/api/query?sql=SELECT rmssd FROM metrics.daily_hrv")
         table = pa.ipc.open_stream(resp.content).read_all()
         assert table.column("rmssd").to_pylist() == [42.0]
+
+
+class TestAuth:
+    def test_api_rejects_without_token(self, test_con: duckdb.DuckDBPyConnection) -> None:
+        app.state.api_token = "secret123"
+        with patch("local_frontend.server.connect", return_value=test_con):
+            c = TestClient(app)
+            resp = c.get("/api/tables")
+        assert resp.status_code == 401
+        app.state.api_token = None
+
+    def test_api_accepts_with_token(self, test_con: duckdb.DuckDBPyConnection) -> None:
+        app.state.api_token = "secret123"
+        with patch("local_frontend.server.connect", return_value=test_con):
+            c = TestClient(app)
+            resp = c.get("/api/tables", headers={"Authorization": "Bearer secret123"})
+        assert resp.status_code == 200
+        app.state.api_token = None
+
+    def test_api_rejects_wrong_token(self, test_con: duckdb.DuckDBPyConnection) -> None:
+        app.state.api_token = "secret123"
+        with patch("local_frontend.server.connect", return_value=test_con):
+            c = TestClient(app)
+            resp = c.get("/api/tables", headers={"Authorization": "Bearer wrongtoken"})
+        assert resp.status_code == 401
+        app.state.api_token = None
+
+    def test_index_includes_token_meta(self, test_con: duckdb.DuckDBPyConnection) -> None:
+        app.state.api_token = "mytoken"
+        with patch("local_frontend.server.connect", return_value=test_con):
+            c = TestClient(app)
+            resp = c.get("/")
+        assert 'content="mytoken"' in resp.text
+        app.state.api_token = None
+
+    def test_index_accessible_without_token_header(self, test_con: duckdb.DuckDBPyConnection) -> None:
+        app.state.api_token = "secret123"
+        with patch("local_frontend.server.connect", return_value=test_con):
+            c = TestClient(app)
+            resp = c.get("/")
+        assert resp.status_code == 200
+        app.state.api_token = None

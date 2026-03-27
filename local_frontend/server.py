@@ -1,13 +1,27 @@
 from importlib.metadata import entry_points
 
 import duckdb
-from fastapi import FastAPI, Response
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from cli.db import DB_PATH, connect
 
 app = FastAPI(title="shenas ui", docs_url=None, redoc_url=None)
+
+
+async def _auth_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
+    """Check bearer token for /api/* routes."""
+    if request.url.path.startswith("/api/"):
+        token = getattr(request.app.state, "api_token", None)
+        if token is not None:
+            auth = request.headers.get("authorization", "")
+            if auth != f"Bearer {token}":
+                return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+    return await call_next(request)
+
+
+app.middleware("http")(_auth_middleware)
 
 
 def _discover_components() -> list[dict]:
@@ -23,23 +37,56 @@ def _discover_components() -> list[dict]:
     return components
 
 
+def _get_token(request: Request) -> str:
+    return getattr(request.app.state, "api_token", "")
+
+
+def _inject_token(html: str, token: str) -> str:
+    """Inject the API token as a meta tag into an HTML page."""
+    return html.replace("<head>", f'<head>\n    <meta name="shenas-api-token" content="{token}">', 1)
+
+
 def _mount_components() -> None:
-    """Mount static dirs for each installed component."""
+    """Mount static dirs and register HTML routes for each installed component."""
     for comp in _discover_components():
         static_dir = comp["static_dir"]
-        if static_dir.is_dir():
-            app.mount(
-                f"/components/{comp['name']}",
-                StaticFiles(directory=str(static_dir)),
-                name=f"component-{comp['name']}",
-            )
+        if not static_dir.is_dir():
+            continue
+
+        comp_name = comp["name"]
+
+        # Register a dynamic route for the component's HTML file
+        # This injects the API token before serving
+        html_file = comp.get("html", "index.html")
+        html_path = static_dir / html_file
+
+        if html_path.exists():
+            # Capture variables for closure
+            _html_content = html_path.read_text()
+            _route_path = f"/components/{comp_name}/{html_file}"
+
+            def _make_handler(content: str):  # type: ignore[no-untyped-def]
+                def handler(request: Request) -> HTMLResponse:
+                    return HTMLResponse(content=_inject_token(content, _get_token(request)))
+
+                return handler
+
+            app.get(_route_path, response_class=HTMLResponse)(_make_handler(_html_content))
+
+        # Mount static files for JS/CSS/etc (routes take precedence for HTML)
+        app.mount(
+            f"/components/{comp_name}",
+            StaticFiles(directory=str(static_dir)),
+            name=f"component-{comp_name}",
+        )
 
 
 _mount_components()
 
 
 @app.get("/", response_class=HTMLResponse)
-def index() -> HTMLResponse:
+def index(request: Request) -> HTMLResponse:
+    token = _get_token(request)
     components = _discover_components()
     if components:
         cards = "\n".join(
@@ -55,6 +102,7 @@ def index() -> HTMLResponse:
 <html>
   <head>
     <meta charset="utf-8">
+    <meta name="shenas-api-token" content="{token}">
     <title>shenas ui</title>
     <style>
       body {{ font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; color: #222; }}
@@ -71,8 +119,8 @@ def index() -> HTMLResponse:
     </ul>
     <h2>API</h2>
     <ul>
-      <li><a href="/api/tables">GET /api/tables</a> — list canonical metric tables</li>
-      <li>GET /api/query?sql=... — returns Arrow IPC stream (use Apache Arrow JS to read)</li>
+      <li>GET /api/tables — list canonical metric tables (requires Authorization header)</li>
+      <li>GET /api/query?sql=... — Arrow IPC stream (requires Authorization header)</li>
     </ul>
   </body>
 </html>"""

@@ -1,3 +1,4 @@
+import secrets
 from pathlib import Path
 
 import typer
@@ -6,6 +7,25 @@ import uvicorn
 app = typer.Typer(help="Start the shenas UI server.", invoke_without_command=True)
 
 DEFAULT_CERT_DIR = Path(".shenas")
+
+KEYRING_SERVICE = "shenas"
+KEYRING_TOKEN_KEY = "ui_token"
+
+
+def _get_or_create_token() -> str:
+    """Load API token from keyring, or generate and store a new one."""
+    import keyring
+
+    token = keyring.get_password(KEYRING_SERVICE, KEYRING_TOKEN_KEY)
+    if token:
+        return token
+    token = secrets.token_urlsafe(32)
+    try:
+        keyring.delete_password(KEYRING_SERVICE, KEYRING_TOKEN_KEY)
+    except Exception:
+        pass
+    keyring.set_password(KEYRING_SERVICE, KEYRING_TOKEN_KEY, token)
+    return token
 
 
 @app.callback()
@@ -21,14 +41,18 @@ def serve(
     cert_file: Path = typer.Option(DEFAULT_CERT_DIR / "cert.pem", "--cert", help="TLS certificate file"),
     key_file: Path = typer.Option(DEFAULT_CERT_DIR / "key.pem", "--key", help="TLS private key file"),
 ) -> None:
-    """Start the UI web server over HTTPS."""
+    """Start the UI web server over HTTPS with bearer token auth."""
     from local_frontend.server import app as fastapi_app
 
     if not cert_file.exists() or not key_file.exists():
         typer.echo("TLS certificate not found. Generate one with:\n\n  shenas ui generate-cert\n")
         raise typer.Exit(code=1)
 
+    token = _get_or_create_token()
+    fastapi_app.state.api_token = token
+
     typer.echo(f"Starting HTTPS server on https://{host}:{port}")
+    typer.echo(f"API token: {token}")
     uvicorn.run(
         fastapi_app,
         host=host,
