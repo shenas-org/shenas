@@ -17,6 +17,8 @@ dependencies = [
 [dependency-groups]
 dev = [
     "commitizen>=4.13.9",
+    "httpx>=0.28.1",
+    "pytest>=9.0.2",
     "ruff>=0.15.8",
     "ty>=0.0.26",
 ]
@@ -32,6 +34,10 @@ members = []
 
 [tool.setuptools.packages.find]
 include = ["cli*", "local_frontend*", "registry*", "repository_server*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "pipes/garmin/tests", "pipes/lunchmoney/tests"]
+addopts = "--import-mode=importlib"
 
 [tool.ruff]
 line-length = 127
