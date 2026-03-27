@@ -31,6 +31,10 @@ def _store_tokens(token_dir: Path) -> None:
     for f in token_dir.iterdir():
         if f.suffix == ".json":
             tokens[f.name] = f.read_text()
+    try:
+        keyring.delete_password(KEYRING_SERVICE, KEYRING_KEY)
+    except Exception:
+        pass
     keyring.set_password(KEYRING_SERVICE, KEYRING_KEY, json.dumps(tokens))
 
 

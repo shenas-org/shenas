@@ -20,6 +20,10 @@ def _store_key(api_key: str) -> None:
     """Write API key to OS keyring."""
     import keyring
 
+    try:
+        keyring.delete_password(KEYRING_SERVICE, KEYRING_KEY)
+    except Exception:
+        pass
     keyring.set_password(KEYRING_SERVICE, KEYRING_KEY, api_key)
 
 
