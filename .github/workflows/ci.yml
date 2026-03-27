@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Ruff check
+        run: uv run ruff check .
+
+      - name: Ruff format
+        run: uv run ruff format --check .
+
+      - name: Type check
+        run: uv run ty check cli/ registry/ repository_server/ local_frontend/
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set Python version
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --python ${{ matrix.python-version }}
+
+      - name: Install local packages for testing
+        run: |
+          cp schemas/fitness_tracker/pyproject.build.toml schemas/fitness_tracker/pyproject.toml
+          cp schemas/finance/pyproject.build.toml schemas/finance/pyproject.toml
+          uv pip install -e schemas/core -e schemas/fitness_tracker -e schemas/finance -e pipes/core -e pipes/garmin -e pipes/lunchmoney --find-links packages/
+          rm -f schemas/fitness_tracker/pyproject.toml schemas/finance/pyproject.toml
+
+      - name: Run tests
+        run: uv run pytest --tb=short
+
+      - name: Run tests with coverage
+        if: matrix.python-version == '3.11'
+        run: |
+          uv run pytest --cov=cli --cov=registry --cov=repository_server --cov=local_frontend \
+            --cov=shenas_pipes --cov=shenas_schemas \
+            --cov-report=term-missing --cov-report=xml:coverage.xml
+
+      - name: Upload coverage
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
