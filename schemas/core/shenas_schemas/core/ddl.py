@@ -4,7 +4,7 @@ from typing import Annotated, get_args, get_origin, get_type_hints
 
 import duckdb
 
-from shenas_schemas.fitness_tracker.metrics import ALL_TABLES
+from shenas_schemas.core.field import Field
 
 _TYPE_MAP = {
     str: "VARCHAR",
@@ -14,8 +14,6 @@ _TYPE_MAP = {
 
 
 def _duckdb_type(hint: type) -> str:
-    from shenas_schemas.fitness_tracker.field import Field
-
     origin = get_origin(hint)
     if origin is Annotated:
         meta = get_args(hint)[1]
@@ -31,6 +29,7 @@ def _duckdb_type(hint: type) -> str:
 
 
 def generate_ddl(cls: type) -> str:
+    """Generate CREATE TABLE DDL from a dataclass with __table__ and __pk__."""
     table = cls.__table__
     pk = cls.__pk__
     hints = get_type_hints(cls, include_extras=True)
@@ -43,10 +42,8 @@ def generate_ddl(cls: type) -> str:
     return f"CREATE TABLE IF NOT EXISTS metrics.{table} (\n" + ",\n".join(lines) + "\n)"
 
 
-CANONICAL_TABLES = [cls.__table__ for cls in ALL_TABLES]
-
-
-def ensure_schema(con: duckdb.DuckDBPyConnection) -> None:
+def ensure_schema(con: duckdb.DuckDBPyConnection, all_tables: list[type]) -> None:
+    """Create the metrics schema and all tables from the given dataclass list."""
     con.execute("CREATE SCHEMA IF NOT EXISTS metrics")
-    for cls in ALL_TABLES:
+    for cls in all_tables:
         con.execute(generate_ddl(cls))

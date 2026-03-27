@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
-from shenas_schemas.fitness_tracker.field import Field
+from shenas_schemas.core.field import Field
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", category="time")]
 Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier (e.g. garmin, oura)")]

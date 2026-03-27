@@ -1,18 +1,15 @@
 [project]
-name = "shenas-schema-fitness-tracker"
+name = "shenas-schema-core"
 dynamic = ["version"]
-description = "Canonical fitness tracker metrics schema for shenas"
+description = "Shared utilities for shenas canonical schemas"
 requires-python = ">=3.11"
 dependencies = [
-    "shenas-schema-core",
+    "duckdb>=1.2.0",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[project.entry-points."shenas.schemas"]
-fitness-tracker = "shenas_schemas.fitness_tracker:SCHEMA"
 
 [tool.hatch.version]
 path = "VERSION"

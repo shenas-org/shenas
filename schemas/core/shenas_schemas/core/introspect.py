@@ -4,11 +4,10 @@ import dataclasses
 import types
 from typing import Annotated, get_args, get_origin, get_type_hints
 
-from shenas_schemas.fitness_tracker.field import Field
-from shenas_schemas.fitness_tracker.metrics import ALL_TABLES
+from shenas_schemas.core.field import Field
 
 
-def _extract_field_meta(hint) -> dict:
+def _extract_field_meta(hint: type) -> dict:
     origin = get_origin(hint)
     if origin is Annotated:
         meta = get_args(hint)[1]
@@ -21,7 +20,7 @@ def _extract_field_meta(hint) -> dict:
     return {}
 
 
-def table_metadata(cls) -> dict:
+def table_metadata(cls: type) -> dict:
     """Return full metadata for a table class, suitable for LLM context."""
     hints = get_type_hints(cls, include_extras=True)
     columns = []
@@ -36,6 +35,6 @@ def table_metadata(cls) -> dict:
     }
 
 
-def schema_metadata() -> list[dict]:
+def schema_metadata(all_tables: list[type]) -> list[dict]:
     """Return metadata for all canonical tables."""
-    return [table_metadata(cls) for cls in ALL_TABLES]
+    return [table_metadata(cls) for cls in all_tables]

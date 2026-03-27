@@ -1,6 +1,8 @@
-from shenas_schemas.finance.ddl import CANONICAL_TABLES, ensure_schema, generate_ddl
-from shenas_schemas.finance.field import Field
-from shenas_schemas.finance.introspect import schema_metadata, table_metadata
+from functools import partial
+
+from shenas_schemas.core import Field, MetricProvider, generate_ddl, table_metadata
+from shenas_schemas.core.ddl import ensure_schema as _ensure_schema
+from shenas_schemas.core.introspect import schema_metadata as _schema_metadata
 from shenas_schemas.finance.metrics import (
     ALL_TABLES,
     DailySpending,
@@ -8,7 +10,11 @@ from shenas_schemas.finance.metrics import (
     MonthlyOverview,
     Transaction,
 )
-from shenas_schemas.finance.provider import MetricProvider
+
+CANONICAL_TABLES = [cls.__table__ for cls in ALL_TABLES]
+
+ensure_schema = partial(_ensure_schema, all_tables=ALL_TABLES)
+schema_metadata = partial(_schema_metadata, all_tables=ALL_TABLES)
 
 try:
     from importlib.metadata import version
