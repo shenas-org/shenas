@@ -8,6 +8,6 @@ echo "Running ruff format check..."
 uv run ruff format --check .
 
 echo "Running ty check..."
-uv run ty check cli/ registry/ repository_server/ local_frontend/
+uv run ty check cli/ repository/ local_frontend/
 
 echo "All checks passed."

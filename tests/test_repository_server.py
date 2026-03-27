@@ -4,13 +4,13 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from repository_server.main import app
-from repository_server.repository import (
+from repository.main import app
+from repository.repository import (
     PackageRepository,
     normalize,
     package_name_from_filename,
 )
-import repository_server.main as server_module
+import repository.main as server_module
 
 
 @pytest.fixture()

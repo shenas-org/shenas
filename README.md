@@ -73,7 +73,7 @@ make build-components
 make vendor PIPE=garmin
 
 # Start the repository server
-make repository_server
+make repository
 
 # Install from the repository (in another terminal)
 uv run shenas pipe add garmin
@@ -101,8 +101,7 @@ schemas/
 components/
   fitness-dashboard/ Lit + uPlot dashboard (built as wheel)
 local_frontend/      FastAPI UI server (Arrow IPC queries)
-repository_server/   PEP 503 package server
-registry/            Ed25519 signing
+repository/          PEP 503 package server + Ed25519 signing
 cli/                 shenas CLI
 tests/               repository server, frontend, CLI, signing tests
 ```

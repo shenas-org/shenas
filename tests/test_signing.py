@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from registry.signing import (
+from repository.signing import (
     generate_keypair,
     load_private_key,
     load_public_key,

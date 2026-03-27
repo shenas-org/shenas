@@ -1,5 +1,3 @@
-.dlt/secrets.toml
-.dlt/garmin_tokens/
 data/
 .venv/
 __pycache__/
@@ -11,5 +9,4 @@ node_modules/
 components/*/shenas_components/*/static/
 htmlcov/
 .coverage
-.dlt/lunchmoney_token
 shenas.egg-info/
