@@ -1,19 +1,7 @@
 import { tableFromIPC } from "apache-arrow";
 
-function getApiToken() {
-  const meta = document.querySelector('meta[name="shenas-api-token"]');
-  return meta ? meta.getAttribute("content") : "";
-}
-
-function authHeaders() {
-  const token = getApiToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 export async function query(apiBase, sql) {
-  const res = await fetch(`${apiBase}/query?sql=${encodeURIComponent(sql)}`, {
-    headers: authHeaders(),
-  });
+  const res = await fetch(`${apiBase}/query?sql=${encodeURIComponent(sql)}`);
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text);
