@@ -14,10 +14,15 @@ _TYPE_MAP = {
 
 
 def _duckdb_type(hint: type) -> str:
+    from shenas_schemas.fitness_tracker.field import Field
+
     origin = get_origin(hint)
     if origin is Annotated:
-        return get_args(hint)[1]
-    if origin is types.UnionType:
+        meta = get_args(hint)[1]
+        if isinstance(meta, Field):
+            return meta.db_type
+        return meta
+    if origin is types.UnionType or str(origin) == "typing.Union":
         inner = [a for a in get_args(hint) if a is not type(None)]
         return _duckdb_type(inner[0])
     if hint in _TYPE_MAP:
