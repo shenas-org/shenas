@@ -1,7 +1,7 @@
 [project]
-name = "shenas-component-dashboard"
+name = "shenas-component-fitness-dashboard"
 dynamic = ["version"]
-description = "Canonical metrics dashboard for shenas"
+description = "Canonical fitness metrics dashboard for shenas"
 requires-python = ">=3.11"
 dependencies = [
     "shenas-schema-fitness-tracker",
@@ -12,7 +12,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.entry-points."shenas.components"]
-dashboard = "shenas_components.dashboard:COMPONENT"
+fitness-dashboard = "shenas_components.fitness_dashboard:COMPONENT"
 
 [tool.hatch.version]
 path = "VERSION"

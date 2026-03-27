@@ -38,8 +38,8 @@ uv run shenas data status
 
 ```bash
 # Build and install the dashboard component
-make build-components COMPONENT=dashboard
-uv pip install packages/shenas_component_dashboard-*.whl
+make build-components COMPONENT=fitness-dashboard
+uv pip install packages/shenas_component_fitness_dashboard-*.whl
 
 # Start the UI
 uv run shenas ui

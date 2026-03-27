@@ -32,15 +32,16 @@ build-schemas:
 #        make build-components COMPONENT=dashboard (one)
 build-components:
 	@for comp in $(or $(COMPONENT),$(patsubst frontend_components/%/pyproject.build.toml,%,$(wildcard frontend_components/*/pyproject.build.toml))); do \
+		pkg=$$(echo $$comp | tr '-' '_'); \
 		version=$$($(BUMP) frontend_components/$$comp/VERSION); \
 		echo "Building component: $$comp v$$version"; \
 		cd frontend_components/$$comp && node -e "let p=JSON.parse(require('fs').readFileSync('package.json')); p.version='$$version'; require('fs').writeFileSync('package.json', JSON.stringify(p,null,2)+'\n')" && cd $(CURDIR); \
 		cd frontend_components/$$comp && npm run build && cd $(CURDIR); \
-		cp frontend_components/$$comp/$$comp.html frontend_components/$$comp/shenas_components/$$comp/static/$$comp.html; \
+		cp frontend_components/$$comp/$$comp.html frontend_components/$$comp/shenas_components/$$pkg/static/$$comp.html; \
 		cp frontend_components/$$comp/pyproject.build.toml frontend_components/$$comp/pyproject.toml; \
 		cd frontend_components/$$comp && uv build --out-dir $(PACKAGES_DIR) && cd $(CURDIR); \
 		rm frontend_components/$$comp/pyproject.toml; \
-		$(SIGN) $(PACKAGES_DIR)/shenas_component_$${comp}-$$version-*.whl; \
+		$(SIGN) $(PACKAGES_DIR)/shenas_component_$${pkg}-$$version-*.whl; \
 	done
 
 # Download a pipe wheel + all its transitive deps into packages/
