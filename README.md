@@ -1,6 +1,7 @@
 # shenas
 
 [![CI](https://github.com/afuncke/shenas/actions/workflows/ci.yml/badge.svg)](https://github.com/afuncke/shenas/actions/workflows/ci.yml)
+![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/afuncke/244bc7a96fa33c93b77c16950e287366/raw/shenas-coverage.json)
 
 Health and finance metrics aggregation platform. Collects data from multiple sources, normalizes it into canonical schemas, and visualizes it through pluggable web components.
 
