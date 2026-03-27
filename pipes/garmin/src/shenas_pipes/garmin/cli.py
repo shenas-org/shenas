@@ -60,7 +60,8 @@ def sync(
     ),
     full_refresh: bool = typer.Option(False, "--full-refresh", help="Drop all data and re-download from start_date."),
 ) -> None:
-    """Sync Garmin Connect data into DuckDB. Only fetches data not already loaded."""
+    """Sync Garmin Connect data into DuckDB and transform into canonical metrics."""
+    from shenas_pipes.core.db import dlt_destination
     from shenas_pipes.core.utils import resolve_start_date
     from shenas_pipes.garmin.auth import build_client
     from shenas_pipes.garmin.source import activities, body_composition, daily_stats, hrv, sleep, spo2
@@ -73,8 +74,6 @@ def sync(
 
     resolved = resolve_start_date(start_date)
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-    from shenas_pipes.core.db import dlt_destination
 
     pipeline = dlt.pipeline(
         pipeline_name="garmin",
@@ -93,27 +92,15 @@ def sync(
         body_composition(client, resolved),
     ]
 
-    run_sync(pipeline, resources, full_refresh, _run_transform)
+    def _transform() -> None:
+        from shenas_pipes.garmin.transform import GarminMetricProvider
+        from shenas_schemas.fitness_tracker import ensure_schema
 
+        con = connect()
+        ensure_schema(con)
+        provider = GarminMetricProvider()
+        console.print("Transforming garmin...", style="dim")
+        provider.transform(con)
+        console.print("[green]done[/green]")
 
-def _run_transform() -> None:
-    from shenas_pipes.garmin.transform import GarminMetricProvider
-    from shenas_schemas.fitness_tracker import ensure_schema
-
-    con = connect()
-    ensure_schema(con)
-
-    provider = GarminMetricProvider()
-    console.print("Transforming garmin...", style="dim")
-    provider.transform(con)
-    console.print("[green]done[/green]")
-    con.close()
-
-
-@app.command()
-def transform() -> None:
-    """Transform raw Garmin data into canonical metrics tables."""
-    if not DB_PATH.exists():
-        console.print(f"[red]Database not found at {DB_PATH}. Run sync first.[/red]")
-        raise typer.Exit(code=1)
-    _run_transform()
+    run_sync(pipeline, resources, full_refresh, _transform)
