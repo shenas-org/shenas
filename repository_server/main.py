@@ -5,7 +5,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 
-from pipe_repository_server.repository import PackageRepository, normalize
+from repository_server.repository import PackageRepository, normalize
 
 app = FastAPI(title="Simple Package Repository", docs_url=None, redoc_url=None)
 
@@ -34,10 +34,7 @@ def _package_html(repo: PackageRepository, name: str) -> str:
     pkg = repo.get_package(name)
     if pkg is None:
         raise HTTPException(status_code=404, detail=f"No package {name!r} found")
-    links = "\n".join(
-        f'    <a href="/packages/{f.path.name}#sha256={f.sha256}">{f.path.name}</a>'
-        for f in pkg.files
-    )
+    links = "\n".join(f'    <a href="/packages/{f.path.name}#sha256={f.sha256}">{f.path.name}</a>' for f in pkg.files)
     return f"""<!DOCTYPE html>
 <html>
   <head><title>Links for {pkg.name}</title></head>

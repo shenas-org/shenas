@@ -30,7 +30,7 @@ package = true
 members = ["pipes/*"]
 
 [tool.setuptools.packages.find]
-include = ["cli*", "local_frontend*", "registry*", "schema*", "pipe_repository_server*"]
+include = ["cli*", "local_frontend*", "registry*", "schema*", "repository_server*"]
 
 [tool.ruff]
 line-length = 127
