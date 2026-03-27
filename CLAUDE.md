@@ -79,4 +79,4 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 
 ## Hooks
 
-Ruff check and format run automatically after every file edit via PostToolUse hook — no need to run manually.
+Ruff check, ruff format, and ty check run automatically after every .py file edit via PostToolUse hook — no need to run manually.
