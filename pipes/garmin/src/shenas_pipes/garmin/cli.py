@@ -1,6 +1,5 @@
 import logging
 
-import dlt
 import typer
 
 from shenas_pipes.core.cli import console, create_pipe_app, run_sync
@@ -61,7 +60,6 @@ def sync(
     full_refresh: bool = typer.Option(False, "--full-refresh", help="Drop all data and re-download from start_date."),
 ) -> None:
     """Sync Garmin Connect data into DuckDB and transform into canonical metrics."""
-    from shenas_pipes.core.db import dlt_destination
     from shenas_pipes.core.utils import resolve_start_date
     from shenas_pipes.garmin.auth import build_client
     from shenas_pipes.garmin.source import activities, body_composition, daily_stats, hrv, sleep, spo2
@@ -73,25 +71,6 @@ def sync(
         raise typer.Exit(code=1)
 
     resolved = resolve_start_date(start_date)
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-    # TEMPORARY WORKAROUND: dlt (as of v1.24) does not support DuckDB's ATTACH-based
-    # encryption. DuckDB only supports encryption via the ATTACH statement with an
-    # ENCRYPTION_KEY parameter -- there is no way to open an encrypted .duckdb file
-    # directly via duckdb.connect(). Since dlt's DuckDB destination creates its own
-    # connection internally and has no hook for ATTACH-based encryption, we work around
-    # this by having dlt write to an in-memory DuckDB (data never touches disk
-    # unencrypted), then flushing the in-memory tables into the encrypted database file
-    # via flush_to_encrypted(). This should be replaced with a direct encrypted
-    # destination once dlt adds support for DuckDB encryption keys.
-    # See: https://github.com/dlt-hub/dlt/issues/ (no issue filed yet)
-    dest, mem_con = dlt_destination()
-
-    pipeline = dlt.pipeline(
-        pipeline_name="garmin",
-        destination=dest,
-        dataset_name="garmin",
-    )
 
     console.print(f"Syncing Garmin data into [bold]{DB_PATH}[/bold]...", style="dim")
 
@@ -115,4 +94,4 @@ def sync(
         provider.transform(con)
         console.print("[green]done[/green]")
 
-    run_sync(pipeline, resources, full_refresh, "garmin", mem_con, _transform)
+    run_sync("garmin", "garmin", resources, full_refresh, _transform)

@@ -1,4 +1,3 @@
-import dlt
 import typer
 
 from shenas_pipes.core.cli import console, create_pipe_app, run_sync
@@ -34,7 +33,6 @@ def sync(
     full_refresh: bool = typer.Option(False, "--full-refresh", help="Drop all data and re-download from start_date."),
 ) -> None:
     """Sync Lunch Money data into DuckDB and transform into canonical metrics."""
-    from shenas_pipes.core.db import dlt_destination
     from shenas_pipes.core.utils import resolve_start_date
     from shenas_pipes.lunchmoney.auth import build_client
     from shenas_pipes.lunchmoney.source import (
@@ -54,18 +52,6 @@ def sync(
         raise typer.Exit(code=1)
 
     resolved = resolve_start_date(start_date)
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-    # TEMPORARY WORKAROUND: see garmin/cli.py for full explanation.
-    # dlt writes to in-memory DuckDB, then flush_to_encrypted() copies to the
-    # encrypted database file. Replace when dlt adds DuckDB encryption support.
-    dest, mem_con = dlt_destination()
-
-    pipeline = dlt.pipeline(
-        pipeline_name="lunchmoney",
-        destination=dest,
-        dataset_name="lunchmoney",
-    )
 
     console.print(f"Syncing Lunch Money data into [bold]{DB_PATH}[/bold]...", style="dim")
 
@@ -90,4 +76,4 @@ def sync(
         provider.transform(con)
         console.print("[green]done[/green]")
 
-    run_sync(pipeline, resources, full_refresh, "lunchmoney", mem_con, _transform)
+    run_sync("lunchmoney", "lunchmoney", resources, full_refresh, _transform)
