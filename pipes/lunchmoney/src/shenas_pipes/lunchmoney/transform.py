@@ -1,7 +1,9 @@
 import duckdb
 
+from shenas_pipes.core.transform import MetricProviderBase
 
-class LunchMoneyMetricProvider:
+
+class LunchMoneyMetricProvider(MetricProviderBase):
     source = "lunchmoney"
 
     def transform(self, con: duckdb.DuckDBPyConnection) -> None:
@@ -11,8 +13,10 @@ class LunchMoneyMetricProvider:
         self._monthly_overview(con)
 
     def _transactions(self, con: duckdb.DuckDBPyConnection) -> None:
-        con.execute("DELETE FROM metrics.transactions WHERE source = 'lunchmoney'")
-        con.execute("""
+        self._upsert(
+            con,
+            "transactions",
+            """
             INSERT INTO metrics.transactions
                 (id, source, date, amount, payee, category, category_group, account, currency, is_income, notes, recurring)
             SELECT
@@ -30,11 +34,14 @@ class LunchMoneyMetricProvider:
                 CASE WHEN recurring_id IS NOT NULL THEN 1 ELSE 0 END
             FROM lunchmoney.transactions
             WHERE status != 'pending'
-        """)
+            """,
+        )
 
     def _daily_spending(self, con: duckdb.DuckDBPyConnection) -> None:
-        con.execute("DELETE FROM metrics.daily_spending WHERE source = 'lunchmoney'")
-        con.execute("""
+        self._upsert(
+            con,
+            "daily_spending",
+            """
             INSERT INTO metrics.daily_spending (date, source, total_spent, total_income, transaction_count)
             SELECT
                 date::DATE,
@@ -45,11 +52,14 @@ class LunchMoneyMetricProvider:
             FROM lunchmoney.transactions
             WHERE status != 'pending'
             GROUP BY date
-        """)
+            """,
+        )
 
     def _monthly_category(self, con: duckdb.DuckDBPyConnection) -> None:
-        con.execute("DELETE FROM metrics.monthly_category WHERE source = 'lunchmoney'")
-        con.execute("""
+        self._upsert(
+            con,
+            "monthly_category",
+            """
             INSERT INTO metrics.monthly_category (month, category, source, amount_spent, transaction_count)
             SELECT
                 STRFTIME(date::DATE, '%Y-%m'),
@@ -60,11 +70,14 @@ class LunchMoneyMetricProvider:
             FROM lunchmoney.transactions
             WHERE status != 'pending' AND NOT is_income
             GROUP BY STRFTIME(date::DATE, '%Y-%m'), COALESCE(category_name, 'Uncategorized')
-        """)
+            """,
+        )
 
     def _monthly_overview(self, con: duckdb.DuckDBPyConnection) -> None:
-        con.execute("DELETE FROM metrics.monthly_overview WHERE source = 'lunchmoney'")
-        con.execute("""
+        self._upsert(
+            con,
+            "monthly_overview",
+            """
             INSERT INTO metrics.monthly_overview
                 (month, source, total_income, total_spent, net, transaction_count, savings_rate)
             SELECT
@@ -83,4 +96,5 @@ class LunchMoneyMetricProvider:
             FROM lunchmoney.transactions
             WHERE status != 'pending'
             GROUP BY STRFTIME(date::DATE, '%Y-%m')
-        """)
+            """,
+        )
