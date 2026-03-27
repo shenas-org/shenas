@@ -14,9 +14,9 @@ import sys
 from pathlib import Path
 
 HASH_DIR = Path(".build-hashes")
-SKIP_NAMES = {"__pycache__", "node_modules", "dist", ".build-hashes"}
+SKIP_NAMES = {"__pycache__", "node_modules", "dist", ".build-hashes", "static"}
 SKIP_SUFFIXES = {".pyc"}
-SKIP_FILES = {"VERSION", "package-lock.json"}
+SKIP_FILES = {"VERSION", "package.json", "package-lock.json"}
 
 
 def _source_hash(pkg_dir: Path) -> str:
