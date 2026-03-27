@@ -12,7 +12,7 @@ repository:
 #        make build-pipes PIPE=garmin  (one)
 build-pipes:
 	@for pipe in $(or $(PIPE),$(patsubst pipes/%/pyproject.toml,%,$(wildcard pipes/*/pyproject.toml))); do \
-		version=$$($(BUMP) pipes/$$pipe/VERSION); \
+		version=$$($(BUMP) pipes/$$pipe/VERSION) || { echo "Skipping pipe $$pipe (unchanged)"; continue; }; \
 		echo "Building pipe: $$pipe v$$version"; \
 		cd pipes/$$pipe && uv build --out-dir $(PACKAGES_DIR) && cd $(CURDIR); \
 		$(SIGN) $(PACKAGES_DIR)/shenas_pipe_$${pipe}-$$version-*.whl; \
@@ -23,7 +23,7 @@ build-pipes:
 #        make build-schemas SCHEMA=fitness_tracker      (one)
 build-schemas:
 	@for schema in $(or $(SCHEMA),$(patsubst schemas/%/VERSION,%,$(wildcard schemas/*/VERSION))); do \
-		version=$$($(BUMP) schemas/$$schema/VERSION); \
+		version=$$($(BUMP) schemas/$$schema/VERSION) || { echo "Skipping schema $$schema (unchanged)"; continue; }; \
 		echo "Building schema: $$schema v$$version"; \
 		if [ -f schemas/$$schema/pyproject.build.toml ] && [ ! -f schemas/$$schema/pyproject.toml ]; then \
 			cp schemas/$$schema/pyproject.build.toml schemas/$$schema/pyproject.toml; \
@@ -42,7 +42,7 @@ build-schemas:
 build-components:
 	@for comp in $(or $(COMPONENT),$(patsubst components/%/pyproject.build.toml,%,$(wildcard components/*/pyproject.build.toml))); do \
 		pkg=$$(echo $$comp | tr '-' '_'); \
-		version=$$($(BUMP) components/$$comp/VERSION); \
+		version=$$($(BUMP) components/$$comp/VERSION) || { echo "Skipping component $$comp (unchanged)"; continue; }; \
 		echo "Building component: $$comp v$$version"; \
 		cd components/$$comp && node -e "let p=JSON.parse(require('fs').readFileSync('package.json')); p.version='$$version'; require('fs').writeFileSync('package.json', JSON.stringify(p,null,2)+'\n')" && cd $(CURDIR); \
 		cd components/$$comp && npm run build && cd $(CURDIR); \
