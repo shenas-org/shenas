@@ -1,7 +1,8 @@
-"""Database connection for pipes — delegates to cli.db."""
+"""Database connection for pipes with encryption at rest."""
 
 import os
 from pathlib import Path
+from typing import Any
 
 import duckdb
 
@@ -32,10 +33,8 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
     return con
 
 
-def get_dlt_credentials() -> str:
-    """Return a dlt-compatible DuckDB credentials string.
+def dlt_destination() -> Any:
+    """Return a dlt DuckDB destination using an encrypted connection."""
+    import dlt
 
-    For encrypted databases, dlt needs to connect through our connect() function.
-    This returns the DB path as a string — dlt pipelines should use a custom connection.
-    """
-    return str(DB_PATH)
+    return dlt.destinations.duckdb(credentials=connect())
