@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Read VERSION file, bump patch, write back, print new version."""
+
 import sys
 from pathlib import Path
 
