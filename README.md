@@ -75,7 +75,7 @@ uv run shenas install pipe garmin
 pipes/                   dlt connectors (standalone packages)
 schemas/                 canonical metric schemas (standalone packages)
 local_frontend/          FastAPI UI server (Arrow IPC queries)
-frontend_components/     web components (Lit + uPlot, built as wheels)
+components/     web components (Lit + uPlot, built as wheels)
 repository_server/       PEP 503 package server
 registry/                Ed25519 signing
 cli/                     shenas CLI

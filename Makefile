@@ -40,16 +40,16 @@ build-schemas:
 # Usage: make build-components                    (all)
 #        make build-components COMPONENT=dashboard (one)
 build-components:
-	@for comp in $(or $(COMPONENT),$(patsubst frontend_components/%/pyproject.build.toml,%,$(wildcard frontend_components/*/pyproject.build.toml))); do \
+	@for comp in $(or $(COMPONENT),$(patsubst components/%/pyproject.build.toml,%,$(wildcard components/*/pyproject.build.toml))); do \
 		pkg=$$(echo $$comp | tr '-' '_'); \
-		version=$$($(BUMP) frontend_components/$$comp/VERSION); \
+		version=$$($(BUMP) components/$$comp/VERSION); \
 		echo "Building component: $$comp v$$version"; \
-		cd frontend_components/$$comp && node -e "let p=JSON.parse(require('fs').readFileSync('package.json')); p.version='$$version'; require('fs').writeFileSync('package.json', JSON.stringify(p,null,2)+'\n')" && cd $(CURDIR); \
-		cd frontend_components/$$comp && npm run build && cd $(CURDIR); \
-		cp frontend_components/$$comp/$$comp.html frontend_components/$$comp/shenas_components/$$pkg/static/$$comp.html; \
-		cp frontend_components/$$comp/pyproject.build.toml frontend_components/$$comp/pyproject.toml; \
-		cd frontend_components/$$comp && uv build --out-dir $(PACKAGES_DIR) && cd $(CURDIR); \
-		rm frontend_components/$$comp/pyproject.toml; \
+		cd components/$$comp && node -e "let p=JSON.parse(require('fs').readFileSync('package.json')); p.version='$$version'; require('fs').writeFileSync('package.json', JSON.stringify(p,null,2)+'\n')" && cd $(CURDIR); \
+		cd components/$$comp && npm run build && cd $(CURDIR); \
+		cp components/$$comp/$$comp.html components/$$comp/shenas_components/$$pkg/static/$$comp.html; \
+		cp components/$$comp/pyproject.build.toml components/$$comp/pyproject.toml; \
+		cd components/$$comp && uv build --out-dir $(PACKAGES_DIR) && cd $(CURDIR); \
+		rm components/$$comp/pyproject.toml; \
 		$(SIGN) $(PACKAGES_DIR)/shenas_component_$${pkg}-$$version-*.whl; \
 	done
 
@@ -77,13 +77,13 @@ dev-install:
 		uv pip install -e pipes/$$pipe; \
 	done
 	@echo "Installing components..."
-	@for comp in $(patsubst frontend_components/%/VERSION,%,$(wildcard frontend_components/*/VERSION)); do \
-		if [ -f frontend_components/$$comp/pyproject.build.toml ] && [ ! -f frontend_components/$$comp/pyproject.toml ]; then \
-			cp frontend_components/$$comp/pyproject.build.toml frontend_components/$$comp/pyproject.toml; \
-			uv pip install -e frontend_components/$$comp; \
-			rm frontend_components/$$comp/pyproject.toml; \
+	@for comp in $(patsubst components/%/VERSION,%,$(wildcard components/*/VERSION)); do \
+		if [ -f components/$$comp/pyproject.build.toml ] && [ ! -f components/$$comp/pyproject.toml ]; then \
+			cp components/$$comp/pyproject.build.toml components/$$comp/pyproject.toml; \
+			uv pip install -e components/$$comp; \
+			rm components/$$comp/pyproject.toml; \
 		else \
-			uv pip install -e frontend_components/$$comp; \
+			uv pip install -e components/$$comp; \
 		fi; \
 	done
 	@echo "Dev install complete."
