@@ -27,10 +27,10 @@ shenas = "cli.main:main"
 package = true
 
 [tool.uv.workspace]
-members = ["pipes/*"]
+members = ["pipes/*", "schemas/*"]
 
 [tool.setuptools.packages.find]
-include = ["cli*", "local_frontend*", "registry*", "schema*", "repository_server*"]
+include = ["cli*", "local_frontend*", "registry*", "repository_server*"]
 
 [tool.ruff]
 line-length = 127

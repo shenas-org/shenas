@@ -3,7 +3,9 @@ name = "shenas-component-dashboard"
 dynamic = ["version"]
 description = "Canonical metrics dashboard for shenas"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "shenas-schema-fitness-tracker",
+]
 
 [build-system]
 requires = ["hatchling"]

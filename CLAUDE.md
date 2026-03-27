@@ -8,13 +8,14 @@ Don't ask about doing 'cat', 'find', 'diff' or similar. Do not use emojis in cod
 
 ```bash
 uv run shenas                       # CLI entry point
-uv run shenas --dev pipe garmin sync # run pipe from local source (not installed)
+uv run shenas pipe garmin sync       # run pipe (must be installed first)
 uv run ruff check .                 # lint
 uv run ruff format .                # format
 uv run cz commit                    # conventional commit
 uv add <package>                    # add a dependency
 uv sync                             # install dependencies
 make build-pipes                    # build all pipe wheels (auto-bumps VERSION)
+make build-schemas                  # build all schema wheels
 make build-components               # build all component wheels
 make repository_server              # start PEP 503 package server on :8080
 ```
@@ -37,7 +38,7 @@ make repository_server              # start PEP 503 package server on :8080
 
 Pipes register `[project.entry-points."shenas.pipes"]` and components register `[project.entry-points."shenas.components"]`. The CLI and UI server discover them at runtime via `importlib.metadata.entry_points()`. Nothing is hardcoded to specific pipes or components.
 
-`--dev` mode bypasses entry points and loads pipes directly from `pipes/*/src/` using `importlib.util.spec_from_file_location`. This happens at import time in `cli/commands/pipe.py` (checks `"--dev" in sys.argv`), not in the typer callback.
+Pipes and schemas must be installed to be discovered. For development, install them as editable workspace members with `uv pip install -e pipes/garmin` or build and install the wheel.
 
 ### Data flow: raw -> canonical
 
@@ -47,7 +48,7 @@ Pipes register `[project.entry-points."shenas.pipes"]` and components register `
 
 ### Canonical schema is dataclass-driven
 
-`schema/metrics.py` defines dataclasses with `__table__`, `__pk__`, and `Annotated` type hints. `schema/ddl.py` generates DDL from these — no hand-written SQL. Adding a column means editing the dataclass.
+`schemas/fitness_tracker/shenas_schemas/fitness_tracker/metrics.py` defines dataclasses with `__table__`, `__pk__`, and `Annotated` type hints. DDL is generated from these — no hand-written SQL. Adding a column means editing the dataclass. The schema is a standalone package (`shenas-schema-fitness-tracker`) that pipes and components depend on.
 
 ### Package distribution
 
@@ -62,14 +63,14 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - **Naming**: `shenas-pipe-*`, `shenas-component-*`, `shenas-schema-*`
 - **Versioning**: Each package has a `VERSION` file read by hatchling. `scripts/bump-version.py` auto-increments patch on every build.
 - **Transforms are idempotent**: DELETE WHERE source = X, then INSERT
-- **Python namespace**: `shenas_pipes.*` (not `pipes.*` — conflicts with stdlib)
+- **Python namespaces**: `shenas_pipes.*`, `shenas_schemas.*`, `shenas_components.*` (not `pipes.*` — conflicts with stdlib)
 - **DuckDB schemas**: raw data in `garmin.*`, canonical in `metrics.*`
 
 ## Modules
 
 - `cli/` — `shenas` CLI; subcommands under `cli/commands/`
 - `pipes/` — dlt connectors as standalone packages (e.g. `pipes/garmin/`)
-- `schema/` — canonical metric types, DDL generation, MetricProvider protocol
+- `schemas/` — canonical schemas as standalone packages (e.g. `schemas/fitness_tracker/`)
 - `registry/` — Ed25519 signing/verification
 - `repository_server/` — PEP 503 Simple Repository API server
 - `local_frontend/` — FastAPI UI server; discovers components via entry points, serves Arrow IPC

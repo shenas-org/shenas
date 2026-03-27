@@ -16,6 +16,17 @@ build-pipes:
 		$(SIGN) $(PACKAGES_DIR)/shenas_pipe_$${pipe}-$$version-*.whl; \
 	done
 
+# Build schema wheels into packages/ and sign them
+# Usage: make build-schemas                             (all)
+#        make build-schemas SCHEMA=fitness_tracker      (one)
+build-schemas:
+	@for schema in $(or $(SCHEMA),$(patsubst schemas/%/pyproject.toml,%,$(wildcard schemas/*/pyproject.toml))); do \
+		version=$$($(BUMP) schemas/$$schema/VERSION); \
+		echo "Building schema: $$schema v$$version"; \
+		cd schemas/$$schema && uv build --out-dir $(PACKAGES_DIR) && cd $(CURDIR); \
+		$(SIGN) $(PACKAGES_DIR)/shenas_schema_$${schema}-$$version-*.whl; \
+	done
+
 # Build component wheels into packages/ and sign them
 # Usage: make build-components                    (all)
 #        make build-components COMPONENT=dashboard (one)
