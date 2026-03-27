@@ -1,0 +1,3 @@
+[sources.garmin_connect]
+start_date = "30 days ago"
+token_store = ".dlt/garmin_tokens"
