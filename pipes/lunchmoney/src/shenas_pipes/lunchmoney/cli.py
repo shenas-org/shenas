@@ -4,11 +4,11 @@ import dlt
 import typer
 
 from shenas_pipes.core.cli import console, create_pipe_app, run_sync
+from shenas_pipes.core.db import DB_PATH, connect
 
 app = create_pipe_app("Lunch Money commands.")
 
 TOKEN_STORE = Path(".dlt") / "lunchmoney_token"
-DB_PATH = Path("data") / "local.duckdb"
 
 
 @app.command()
@@ -80,12 +80,10 @@ def sync(
 
 
 def _run_transform() -> None:
-    import duckdb
-
     from shenas_pipes.lunchmoney.transform import LunchMoneyMetricProvider
     from shenas_schemas.finance import ensure_schema
 
-    con = duckdb.connect(str(DB_PATH))
+    con = connect()
     ensure_schema(con)
 
     provider = LunchMoneyMetricProvider()

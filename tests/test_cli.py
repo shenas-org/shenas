@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import patch
 
 import duckdb
 import pytest
@@ -21,6 +22,7 @@ class TestMainCLI:
         assert "data" in result.output
         assert "ui" in result.output
         assert "registry" in result.output
+        assert "db" in result.output
 
     def test_no_args_shows_help(self) -> None:
         result = runner.invoke(main_app, [])
@@ -29,9 +31,8 @@ class TestMainCLI:
 
 
 class TestDataStatus:
-    def test_discover_schemas(self, tmp_path: Path) -> None:
-        db_path = tmp_path / "test.duckdb"
-        con = duckdb.connect(str(db_path))
+    def test_discover_schemas(self) -> None:
+        con = duckdb.connect(":memory:")
         con.execute("CREATE SCHEMA myschema")
         con.execute("CREATE TABLE myschema.mytable (id INTEGER)")
         schemas = _discover_schemas(con)
@@ -39,46 +40,41 @@ class TestDataStatus:
         assert "mytable" in schemas["myschema"]
         con.close()
 
-    def test_discover_schemas_excludes_system(self, tmp_path: Path) -> None:
-        db_path = tmp_path / "test.duckdb"
-        con = duckdb.connect(str(db_path))
+    def test_discover_schemas_excludes_system(self) -> None:
+        con = duckdb.connect(":memory:")
         schemas = _discover_schemas(con)
         assert "information_schema" not in schemas
         assert "main" not in schemas
         con.close()
 
-    def test_discover_schemas_empty(self, tmp_path: Path) -> None:
-        db_path = tmp_path / "test.duckdb"
-        con = duckdb.connect(str(db_path))
+    def test_discover_schemas_empty(self) -> None:
+        con = duckdb.connect(":memory:")
         schemas = _discover_schemas(con)
         assert schemas == {}
         con.close()
 
-    def test_status_no_db(self) -> None:
-        import cli.commands.data as data_mod
+    def test_status_no_db(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import cli.db as db_mod
 
-        original = data_mod.DB_PATH
-        data_mod.DB_PATH = Path("/nonexistent/path/db.duckdb")
+        monkeypatch.setattr(db_mod, "DB_PATH", Path("/nonexistent/path/db.duckdb"))
+        monkeypatch.setattr("cli.commands.data.DB_PATH", Path("/nonexistent/path/db.duckdb"))
         result = runner.invoke(data_app, ["status"])
         assert result.exit_code == 1
-        data_mod.DB_PATH = original
 
-    def test_status_with_data(self, tmp_path: Path) -> None:
-        import cli.commands.data as data_mod
-
-        db_path = tmp_path / "test.duckdb"
-        con = duckdb.connect(str(db_path))
+    def test_status_with_data(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        con = duckdb.connect(":memory:")
         con.execute("CREATE SCHEMA test_schema")
         con.execute("CREATE TABLE test_schema.items (date DATE, val INTEGER)")
         con.execute("INSERT INTO test_schema.items VALUES ('2026-03-15', 42)")
-        con.close()
 
-        original = data_mod.DB_PATH
-        data_mod.DB_PATH = db_path
-        result = runner.invoke(data_app, ["status"])
+        monkeypatch.setattr("cli.commands.data.DB_PATH", Path("fake_exists.duckdb"))
+        with patch("cli.commands.data.connect", return_value=con):
+            with patch("cli.commands.data.DB_PATH", Path("fake_exists.duckdb")):
+                # Patch exists() to return True
+                with patch.object(Path, "exists", return_value=True):
+                    result = runner.invoke(data_app, ["status"])
         assert result.exit_code == 0
         assert "items" in result.output
-        data_mod.DB_PATH = original
 
 
 class TestCheckSignature:

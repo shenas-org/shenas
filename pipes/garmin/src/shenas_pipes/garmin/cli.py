@@ -5,6 +5,7 @@ import dlt
 import typer
 
 from shenas_pipes.core.cli import console, create_pipe_app, run_sync
+from shenas_pipes.core.db import DB_PATH, connect
 
 logging.getLogger("garth").setLevel(logging.CRITICAL)
 logging.getLogger("garminconnect").setLevel(logging.CRITICAL)
@@ -12,7 +13,6 @@ logging.getLogger("garminconnect").setLevel(logging.CRITICAL)
 app = create_pipe_app("Garmin Connect commands.")
 
 TOKEN_STORE = Path(".dlt") / "garmin_tokens"
-DB_PATH = Path("data") / "local.duckdb"
 
 BROWSER_UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -101,12 +101,10 @@ def sync(
 
 
 def _run_transform() -> None:
-    import duckdb
-
     from shenas_pipes.garmin.transform import GarminMetricProvider
     from shenas_schemas.fitness_tracker import ensure_schema
 
-    con = duckdb.connect(str(DB_PATH))
+    con = connect()
     ensure_schema(con)
 
     provider = GarminMetricProvider()

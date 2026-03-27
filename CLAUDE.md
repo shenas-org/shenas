@@ -31,7 +31,7 @@ make setup-hooks                    # install git pre-commit hook
 ## Stack
 
 - **dlt** — data ingestion/pipeline framework (`@dlt.source`, `@dlt.resource`, incremental cursors)
-- **DuckDB** — local destination at `./data/local.duckdb` (also available via MCP server `duckdb`)
+- **DuckDB** — local destination at `./data/shenas.duckdb` (also available via MCP server `duckdb`)
 - **uv** — package manager (do not use pip directly)
 - **typer** — CLI framework; **rich** — terminal formatting
 - **FastAPI** — repository server + local frontend

@@ -6,7 +6,7 @@
       "args": [
         "mcp-server-motherduck",
         "--db-path",
-        "./data/local.duckdb",
+        "./data/shenas.duckdb",
         "--read-write"
       ],
       "env": {}
