@@ -17,9 +17,6 @@ build-backend = "hatchling.build"
 [project.entry-points."shenas.pipes"]
 garmin = "shenas_pipes.garmin.cli:app"
 
-[tool.uv.sources]
-shenas-schema-fitness-tracker = { workspace = true }
-
 [tool.hatch.version]
 path = "VERSION"
 pattern = "(?P<version>.+)"
