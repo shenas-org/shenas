@@ -3,18 +3,18 @@
 # commit history about bearer tokens, mTLS, and Unix sockets as future options.
 
 from importlib.metadata import entry_points
+from pathlib import Path as _Path
 
-import duckdb
-from fastapi import FastAPI, Response
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from cli.db import DB_PATH, connect
-
-from pathlib import Path as _Path
+from cli.db import DB_PATH
+from local_frontend.api import api_router
 
 app = FastAPI(title="shenas ui", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")
+app.include_router(api_router)
 
 
 def _discover_components() -> list[dict]:
@@ -84,39 +84,13 @@ def index() -> HTMLResponse:
     </ul>
     <h2>API</h2>
     <ul>
-      <li><a href="/api/tables">GET /api/tables</a> — list canonical metric tables</li>
+      <li><a href="/api/tables">GET /api/tables</a> — list metric tables</li>
       <li>GET /api/query?sql=... — returns Arrow IPC stream</li>
+      <li><a href="/api/config">GET /api/config</a> — list config entries</li>
+      <li><a href="/api/db/status">GET /api/db/status</a> — database status</li>
+      <li>GET /api/packages/{{kind}} — list installed packages</li>
+      <li>POST /api/sync — sync all pipes (SSE)</li>
     </ul>
   </body>
 </html>"""
     return HTMLResponse(content=html)
-
-
-@app.get("/api/tables")
-def api_tables() -> list[dict]:
-    con = connect(read_only=True)
-    rows = con.execute(
-        "SELECT table_schema, table_name FROM information_schema.tables "
-        "WHERE table_schema IN ('garmin', 'metrics') ORDER BY table_schema, table_name"
-    ).fetchall()
-    con.close()
-    return [{"schema": r[0], "table": r[1]} for r in rows]
-
-
-@app.get("/api/query")
-def api_query(sql: str) -> Response:
-    import pyarrow as pa
-
-    con = connect(read_only=True)
-    try:
-        arrow_table = con.execute(sql).arrow().read_all()
-    except duckdb.Error as exc:
-        con.close()
-        return Response(content=str(exc), status_code=400, media_type="text/plain")
-    con.close()
-
-    sink = pa.BufferOutputStream()
-    with pa.ipc.new_stream(sink, arrow_table.schema) as writer:
-        writer.write_table(arrow_table)
-
-    return Response(content=sink.getvalue().to_pybytes(), media_type="application/vnd.apache.arrow.stream")

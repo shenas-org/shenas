@@ -24,8 +24,9 @@ def test_con() -> duckdb.DuckDBPyConnection:
 
 @pytest.fixture()
 def client(test_con: duckdb.DuckDBPyConnection) -> TestClient:
-    with patch("local_frontend.server.connect", return_value=test_con):
-        yield TestClient(app)
+    with patch("local_frontend.api.query.connect", return_value=test_con):
+        with patch("local_frontend.api.db.connect", return_value=test_con):
+            yield TestClient(app)
 
 
 class TestIndex:
@@ -46,6 +47,13 @@ class TestIndex:
             resp = client.get("/")
         assert "test-dash" in resp.text
         assert "v1.0" in resp.text
+
+
+class TestHealth:
+    def test_health(self, client: TestClient) -> None:
+        resp = client.get("/api/health")
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok"}
 
 
 class TestApiTables:
@@ -76,3 +84,28 @@ class TestApiQuery:
         resp = client.get("/api/query?sql=SELECT rmssd FROM metrics.daily_hrv")
         table = pa.ipc.open_stream(resp.content).read_all()
         assert table.column("rmssd").to_pylist() == [42.0]
+
+
+class TestDbStatus:
+    def test_db_status(self, client: TestClient) -> None:
+        with patch("local_frontend.api.db.DB_PATH") as mock_path:
+            mock_path.exists.return_value = False
+            mock_path.__str__ = lambda _: "data/shenas.duckdb"
+            resp = client.get("/api/db/status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "key_source" in data
+        assert "db_path" in data
+
+    def test_db_status_with_tables(self, client: TestClient) -> None:
+        with patch("local_frontend.api.db.DB_PATH") as mock_path:
+            mock_path.exists.return_value = True
+            mock_path.stat.return_value.st_size = 1024 * 1024
+            mock_path.__str__ = lambda _: "data/shenas.duckdb"
+            resp = client.get("/api/db/status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["size_mb"] is not None
+        schemas = {s["name"] for s in data["schemas"]}
+        assert "metrics" in schemas
+        assert "garmin" in schemas
