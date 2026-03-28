@@ -130,10 +130,11 @@ def list_cmd() -> None:
 
     table = Table(show_lines=False)
     table.add_column("Pipe", style="green")
+    table.add_column("Version", justify="right")
     table.add_column("Commands")
     for p in pipes:
         cmds = ", ".join(c["name"] for c in p.get("commands", []))
-        table.add_row(p["name"], cmds or "[dim]none[/dim]")
+        table.add_row(p["name"], p.get("version", ""), cmds or "[dim]none[/dim]")
     console.print(table)
 
 
