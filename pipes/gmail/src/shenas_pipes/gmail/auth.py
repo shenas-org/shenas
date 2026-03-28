@@ -93,13 +93,13 @@ def authenticate(credentials: dict[str, str]) -> None:
 
     The server stores the pending flow between phases.
     """
+    import threading
+
     from google_auth_oauthlib.flow import InstalledAppFlow
     from app.api.auth import _pending_mfa
 
     if credentials.get("auth_complete") == "true" and "gmail" in _pending_mfa:
         # Phase 2: flow already running in background, wait for it
-        import threading
-
         state = _pending_mfa.pop("gmail")
         thread = state["thread"]
         thread.join(timeout=120)
