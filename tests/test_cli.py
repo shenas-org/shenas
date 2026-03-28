@@ -1,13 +1,12 @@
 from pathlib import Path
-from unittest.mock import patch
 
 import duckdb
 import pytest
 from typer.testing import CliRunner
 
-from cli.commands.db_cmd import _discover_schemas, app as db_app
 from cli.commands.pkg import check_signature
 from cli.main import app as main_app
+from local_frontend.api.db import _discover_schemas
 
 runner = CliRunner()
 
@@ -39,7 +38,7 @@ class TestMainCLI:
         assert "TLS certificate not found" in result.output
 
 
-class TestDbStatus:
+class TestDiscoverSchemas:
     def test_discover_schemas(self) -> None:
         con = duckdb.connect(":memory:")
         con.execute("CREATE SCHEMA myschema")
@@ -61,27 +60,6 @@ class TestDbStatus:
         schemas = _discover_schemas(con)
         assert schemas == {}
         con.close()
-
-    def test_status_no_db(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr("cli.commands.db_cmd.DB_PATH", Path("/nonexistent/path/db.duckdb"))
-        result = runner.invoke(db_app, ["status"])
-        assert result.exit_code == 0
-
-    def test_status_with_data(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        con = duckdb.connect(":memory:")
-        con.execute("CREATE SCHEMA test_schema")
-        con.execute("CREATE TABLE test_schema.items (date DATE, val INTEGER)")
-        con.execute("INSERT INTO test_schema.items VALUES ('2026-03-15', 42)")
-
-        monkeypatch.setattr("cli.commands.db_cmd.DB_PATH", Path("fake_exists.duckdb"))
-        with patch("cli.commands.db_cmd.connect", return_value=con):
-            with patch("cli.commands.db_cmd.DB_PATH", Path("fake_exists.duckdb")):
-                with patch.object(Path, "exists", return_value=True):
-                    with patch.object(Path, "stat") as mock_stat:
-                        mock_stat.return_value.st_size = 1024 * 1024
-                        result = runner.invoke(db_app, ["status"])
-        assert result.exit_code == 0
-        assert "items" in result.output
 
 
 class TestCheckSignature:
