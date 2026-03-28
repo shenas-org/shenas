@@ -29,7 +29,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["cli/tests", "app/tests", "repository/tests", "pipes/core/tests", "pipes/garmin/tests", "pipes/gmail/tests", "pipes/lunchmoney/tests", "pipes/obsidian/tests", "schemas/fitness/tests", "schemas/finance/tests", "schemas/outcomes/tests"]
+testpaths = ["cli/tests", "app/tests", "repository/tests", "telemetry/tests", "pipes/core/tests", "pipes/garmin/tests", "pipes/gmail/tests", "pipes/lunchmoney/tests", "pipes/obsidian/tests", "schemas/fitness/tests", "schemas/finance/tests", "schemas/outcomes/tests"]
 addopts = "--import-mode=importlib"
 pythonpath = ["."]
 

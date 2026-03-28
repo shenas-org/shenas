@@ -1,9 +1,13 @@
+import logging
 from typing import Any, Callable
 
 import typer
+from opentelemetry import trace
 from rich.console import Console
 
 console = Console()
+logger = logging.getLogger("shenas.pipes")
+tracer = trace.get_tracer("shenas.pipes")
 
 
 def create_pipe_app(help_text: str) -> typer.Typer:
@@ -41,33 +45,36 @@ def run_sync(
     3. Flush in-memory data to the encrypted database
     4. Optionally run a transform function
     """
-    import dlt
+    with tracer.start_as_current_span("pipe.sync", attributes={"pipe.name": pipeline_name, "pipe.dataset": dataset_name}):
+        import dlt
 
-    from shenas_pipes.core.db import DB_PATH, dlt_destination, flush_to_encrypted
+        from shenas_pipes.core.db import DB_PATH, dlt_destination, flush_to_encrypted
 
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    # TEMPORARY WORKAROUND: dlt does not support DuckDB encryption. We write to
-    # in-memory DuckDB (data never touches disk unencrypted), then flush to the
-    # encrypted file. Replace when dlt adds DuckDB encryption support.
-    dest, mem_con = dlt_destination()
+        with tracer.start_as_current_span("pipe.fetch"):
+            dest, mem_con = dlt_destination()
 
-    pipeline = dlt.pipeline(
-        pipeline_name=pipeline_name,
-        destination=dest,
-        dataset_name=dataset_name,
-    )
+            pipeline = dlt.pipeline(
+                pipeline_name=pipeline_name,
+                destination=dest,
+                dataset_name=dataset_name,
+            )
 
-    load_info = pipeline.run(resources, refresh="drop_sources" if full_refresh else None)
-    print_load_info(load_info)
+            load_info = pipeline.run(resources, refresh="drop_sources" if full_refresh else None)
+            print_load_info(load_info)
 
-    console.print("Flushing to encrypted database...", style="dim")
-    flush_to_encrypted(mem_con, dataset_name)
+        with tracer.start_as_current_span("pipe.flush"):
+            logger.info("Flushing to encrypted database")
+            console.print("Flushing to encrypted database...", style="dim")
+            flush_to_encrypted(mem_con, dataset_name)
 
-    if transform_fn:
-        transform_fn()
+        if transform_fn:
+            with tracer.start_as_current_span("pipe.transform"):
+                logger.info("Running transform")
+                transform_fn()
 
-    # Close the active connection so the next pipe sync gets a clean slate
-    from shenas_pipes.core.db import close
+        # Close the active connection so the next pipe sync gets a clean slate
+        from shenas_pipes.core.db import close
 
-    close()
+        close()
