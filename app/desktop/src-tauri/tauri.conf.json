@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicegui-reference/tauri-v2-schemas/main/tauri.conf.json",
+  "productName": "shenas",
+  "version": "0.1.0",
+  "identifier": "com.shenas.app",
+  "build": {
+    "frontendDist": "../src",
+    "devUrl": "http://localhost:7280"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "shenas",
+        "width": 1200,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:7280 https://localhost:7280; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.png"
+    ]
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    }
+  }
+}

@@ -13,3 +13,4 @@ shenas.egg-info/
 .build-hashes/
 .moon/cache/
 .moon/docker/
+app/desktop/src-tauri/target/

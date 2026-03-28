@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>shenas</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background: #f5f5f5;
+        color: #333;
+      }
+      .loading {
+        text-align: center;
+      }
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #ddd;
+        border-top-color: #0066cc;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 16px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div class="loading">
+      <div class="spinner"></div>
+      <p>Starting shenas server...</p>
+    </div>
+    <script>
+      async function waitForServer() {
+        const url = 'http://localhost:7280/api/health';
+        for (let i = 0; i < 150; i++) {
+          try {
+            const resp = await fetch(url);
+            if (resp.ok) {
+              window.location.href = 'http://localhost:7280';
+              return;
+            }
+          } catch {}
+          await new Promise(r => setTimeout(r, 200));
+        }
+        document.querySelector('.loading p').textContent = 'Server failed to start.';
+      }
+      waitForServer();
+    </script>
+  </body>
+</html>

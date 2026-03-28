@@ -1,0 +1,8 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'rust'
+stack: 'frontend'
+tags: ['desktop']
+
+dependsOn:
+  - 'app'
