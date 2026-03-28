@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'desktop/v*'
 
 permissions:
   contents: write
@@ -40,7 +40,7 @@ jobs:
       - name: Sync version from tag
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${GITHUB_REF_NAME#desktop/v}"
           uv run python scripts/sync-desktop-version.py "$VERSION"
 
       - name: Install npm dependencies

@@ -57,9 +57,6 @@ jobs:
           echo "sign=$SIGN" >> "$GITHUB_OUTPUT"
           echo "Building $PREFIX v$VERSION from $DIR (sign=$SIGN)"
 
-      - name: Set version
-        run: echo "${{ steps.parse.outputs.version }}" > "${{ steps.parse.outputs.dir }}/VERSION"
-
       - name: Prepare build toml
         shell: bash
         run: |

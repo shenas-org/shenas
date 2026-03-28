@@ -1724,6 +1724,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "shenas-app" },
     { name = "shenas-cli" },
     { name = "ty" },
 ]
@@ -1737,6 +1738,7 @@ dev = [
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "ruff", specifier = ">=0.15.8" },
+    { name = "shenas-app", editable = "app" },
     { name = "shenas-cli", editable = "cli" },
     { name = "ty", specifier = ">=0.0.26" },
 ]
