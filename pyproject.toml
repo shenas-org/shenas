@@ -36,7 +36,7 @@ members = []
 include = ["cli*", "local_frontend*", "registry*", "repository_server*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "pipes/garmin/tests", "pipes/lunchmoney/tests"]
+testpaths = ["tests", "pipes/garmin/tests", "pipes/lunchmoney/tests", "schemas/fitness_tracker/tests", "schemas/finance/tests"]
 addopts = "--import-mode=importlib"
 
 [tool.ruff]
