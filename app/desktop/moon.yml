@@ -9,19 +9,12 @@ dependsOn:
 
 tasks:
   build:
-    command: 'npx tauri build'
+    script: 'npx tauri build && makepkg -sf'
     inputs:
       - 'src-tauri/**/*'
       - 'src/**/*'
       - 'package.json'
+      - 'PKGBUILD'
     outputs:
       - 'src-tauri/target/release/shenas-desktop'
       - 'src-tauri/target/release/bundle/'
-  pkg:
-    command: 'makepkg -sf'
-    inputs:
-      - 'PKGBUILD'
-      - 'src-tauri/**/*'
-      - 'src/**/*'
-    deps:
-      - '~:build'
