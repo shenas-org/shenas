@@ -1,7 +1,9 @@
-"""Shared install/uninstall/list logic for all package types."""
+"""Shared install/uninstall/list logic for all package types (used by API server).
 
-import json
-import subprocess
+The data-returning functions (list_packages_data, install_package, uninstall_package)
+are called by both the REST API and the CLI display helpers below.
+"""
+
 from pathlib import Path
 from urllib.request import urlopen
 
@@ -9,6 +11,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from cli.client import ShenasClient, ShenasServerError
 from repository.signing import load_public_key, verify_bytes
 
 console = Console()
@@ -23,82 +26,26 @@ PREFIXES = {
     "component": "shenas-component-",
 }
 
-
-def install(
-    name: str,
-    kind: str,
-    index_url: str = DEFAULT_INDEX,
-    public_key_path: Path = Path(".shenas/shenas.pub"),
-    skip_verify: bool = False,
-) -> None:
-    if name == "core":
-        console.print(f"[red]shenas-{kind}-core is an internal package and cannot be installed directly.[/red]")
-        raise typer.Exit(code=1)
-
-    prefix = PREFIXES[kind]
-    pkg_name = f"{prefix}{name}"
-
-    if not skip_verify:
-        if not public_key_path.exists():
-            console.print(f"[red]Public key not found at {public_key_path}[/red]")
-            console.print("Run [bold]shenas registry keygen[/bold] first, or use --skip-verify")
-            raise typer.Exit(code=1)
-        pub_key = load_public_key(public_key_path)
-        _verify_from_index(pkg_name, index_url, pub_key)
-
-    simple_url = f"{index_url}/simple/"
-    result = subprocess.run(
-        ["uv", "pip", "install", pkg_name, "--index-url", simple_url],
-        capture_output=True,
-        text=True,
-    )
-
-    if result.returncode == 0:
-        console.print(f"[green]Installed {pkg_name}[/green]")
-        if result.stdout.strip():
-            console.print(result.stdout.strip(), style="dim")
-    else:
-        console.print(f"[red]Failed to install {pkg_name}[/red]")
-        if result.stderr.strip():
-            console.print(result.stderr.strip(), style="dim")
-        raise typer.Exit(code=1)
+SIG_STYLE = {
+    "valid": "[green]verified[/green]",
+    "invalid": "[red]INVALID[/red]",
+    "unsigned": "[yellow]unsigned[/yellow]",
+    "no key": "[dim]no key[/dim]",
+}
 
 
-def uninstall(name: str, kind: str) -> None:
-    if name == "core":
-        console.print(f"[red]shenas-{kind}-core is an internal package and cannot be removed directly.[/red]")
-        raise typer.Exit(code=1)
-
-    pkg_name = f"{PREFIXES[kind]}{name}"
-
-    result = subprocess.run(
-        ["uv", "pip", "uninstall", pkg_name],
-        capture_output=True,
-        text=True,
-    )
-
-    if result.returncode == 0:
-        console.print(f"[green]Uninstalled {pkg_name}[/green]")
-        if result.stdout.strip():
-            console.print(result.stdout.strip(), style="dim")
-    else:
-        console.print(f"[red]Failed to uninstall {pkg_name}[/red]")
-        if result.stderr.strip():
-            console.print(result.stderr.strip(), style="dim")
-        raise typer.Exit(code=1)
+# --- CLI display functions (call server) ---
 
 
 def list_packages(kind: str) -> None:
-    prefix = PREFIXES[kind]
-    result = subprocess.run(["uv", "pip", "list", "--format", "json"], capture_output=True, text=True)
-    if result.returncode != 0:
-        console.print("[red]Failed to list packages[/red]")
+    """List packages via the REST API and display as a rich table."""
+    try:
+        items = ShenasClient().packages_list(kind)
+    except ShenasServerError as exc:
+        console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
 
-    packages = json.loads(result.stdout)
-    matched = [p for p in packages if p["name"].startswith(prefix) and not p["name"].endswith("-core")]
-
-    if not matched:
+    if not items:
         console.print(f"[dim]No {kind} packages installed[/dim]")
         return
 
@@ -107,11 +54,48 @@ def list_packages(kind: str) -> None:
     table.add_column("Package")
     table.add_column("Version", justify="right")
     table.add_column("Signature", justify="right")
-    for p in sorted(matched, key=lambda x: x["name"]):
-        short_name = p["name"].removeprefix(prefix)
-        sig_status = check_signature(p["name"], p["version"])
-        table.add_row(short_name, p["name"], p["version"], SIG_STYLE[sig_status])
+    for p in items:
+        table.add_row(p["name"], p["package"], p["version"], SIG_STYLE.get(p["signature"], p["signature"]))
     console.print(table)
+
+
+def install(
+    name: str,
+    kind: str,
+    index_url: str = DEFAULT_INDEX,
+    skip_verify: bool = False,
+) -> None:
+    """Install a package via the REST API."""
+    try:
+        result = ShenasClient().packages_add(kind, [name], index_url=index_url, skip_verify=skip_verify)
+    except ShenasServerError as exc:
+        console.print(f"[red]{exc.detail}[/red]")
+        raise typer.Exit(code=1)
+
+    for r in result.get("results", []):
+        if r["ok"]:
+            console.print(f"[green]{r['message']}[/green]")
+        else:
+            console.print(f"[red]{r['message']}[/red]")
+            raise typer.Exit(code=1)
+
+
+def uninstall(name: str, kind: str) -> None:
+    """Uninstall a package via the REST API."""
+    try:
+        result = ShenasClient().packages_remove(kind, name)
+    except ShenasServerError as exc:
+        console.print(f"[red]{exc.detail}[/red]")
+        raise typer.Exit(code=1)
+
+    if result["ok"]:
+        console.print(f"[green]{result['message']}[/green]")
+    else:
+        console.print(f"[red]{result['message']}[/red]")
+        raise typer.Exit(code=1)
+
+
+# --- Signature checking (used by API server) ---
 
 
 def check_signature(pkg_name: str, version: str) -> str:
@@ -133,14 +117,6 @@ def check_signature(pkg_name: str, version: str) -> str:
     from repository.signing import verify_file
 
     return "valid" if verify_file(pub_key, wheel_path, sig_b64) else "invalid"
-
-
-SIG_STYLE = {
-    "valid": "[green]verified[/green]",
-    "invalid": "[red]INVALID[/red]",
-    "unsigned": "[yellow]unsigned[/yellow]",
-    "no key": "[dim]no key[/dim]",
-}
 
 
 def _verify_from_index(pkg_name: str, index_url: str, pub_key) -> None:
