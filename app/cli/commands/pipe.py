@@ -128,6 +128,20 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
                 console.print(f"[red]{exc.detail}[/red]")
                 raise typer.Exit(code=1)
 
+        # Handle OAuth URL (e.g. Gmail)
+        if result.get("oauth_url"):
+            import webbrowser
+
+            url = result["oauth_url"]
+            console.print(f"Open this URL to authorize:\n\n  [bold]{url}[/bold]\n")
+            webbrowser.open(url)
+            console.print("[dim]Waiting for authorization...[/dim]")
+            try:
+                result = client.pipe_auth(pipe_name, {"auth_complete": "true"})
+            except ShenasServerError as exc:
+                console.print(f"[red]{exc.detail}[/red]")
+                raise typer.Exit(code=1)
+
         if result.get("ok"):
             console.print(f"[green]{result.get('message', 'Authenticated')}[/green]")
         else:

@@ -41,6 +41,9 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> dict:
         msg = str(exc)
         if "MFA code required" in msg:
             return {"ok": False, "needs_mfa": True, "message": "MFA code required"}
+        if msg.startswith("OAUTH_URL:"):
+            auth_url = msg.removeprefix("OAUTH_URL:")
+            return {"ok": False, "oauth_url": auth_url, "message": "Open this URL in your browser to authorize"}
         return {"ok": False, "error": msg}
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
