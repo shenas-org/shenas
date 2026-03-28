@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from cli.db import DB_PATH
-from local_frontend.api import api_router
+from app.api import api_router
 
 app = FastAPI(title="shenas ui", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")

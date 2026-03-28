@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from local_frontend.server import app
+from app.server import app
 
 client = TestClient(app)
 
@@ -22,8 +22,8 @@ class TestListPackages:
         )
         mock_result = MagicMock(returncode=0, stdout=fake_output)
         with (
-            patch("local_frontend.api.packages.subprocess.run", return_value=mock_result),
-            patch("local_frontend.api.packages.check_signature", return_value="no key"),
+            patch("app.api.packages.subprocess.run", return_value=mock_result),
+            patch("app.api.packages.check_signature", return_value="no key"),
         ):
             resp = client.get("/api/packages/pipe")
 
@@ -45,8 +45,8 @@ class TestListPackages:
         )
         mock_result = MagicMock(returncode=0, stdout=fake_output)
         with (
-            patch("local_frontend.api.packages.subprocess.run", return_value=mock_result),
-            patch("local_frontend.api.packages.check_signature", return_value="unsigned"),
+            patch("app.api.packages.subprocess.run", return_value=mock_result),
+            patch("app.api.packages.check_signature", return_value="unsigned"),
         ):
             resp = client.get("/api/packages/schema")
 
@@ -58,7 +58,7 @@ class TestListPackages:
 
     def test_list_empty(self) -> None:
         mock_result = MagicMock(returncode=0, stdout="[]")
-        with patch("local_frontend.api.packages.subprocess.run", return_value=mock_result):
+        with patch("app.api.packages.subprocess.run", return_value=mock_result):
             resp = client.get("/api/packages/component")
 
         assert resp.status_code == 200
@@ -71,7 +71,7 @@ class TestListPackages:
 
     def test_list_subprocess_failure(self) -> None:
         mock_result = MagicMock(returncode=1)
-        with patch("local_frontend.api.packages.subprocess.run", return_value=mock_result):
+        with patch("app.api.packages.subprocess.run", return_value=mock_result):
             resp = client.get("/api/packages/pipe")
         assert resp.status_code == 500
 
@@ -79,7 +79,7 @@ class TestListPackages:
 class TestInstallPackage:
     def test_install_skip_verify(self) -> None:
         mock_result = MagicMock(returncode=0, stdout="ok")
-        with patch("local_frontend.api.packages.subprocess.run", return_value=mock_result):
+        with patch("app.api.packages.subprocess.run", return_value=mock_result):
             resp = client.post("/api/packages/pipe", json={"names": ["garmin"], "skip_verify": True})
 
         assert resp.status_code == 200
@@ -97,7 +97,7 @@ class TestInstallPackage:
 
     def test_install_multiple(self) -> None:
         mock_result = MagicMock(returncode=0, stdout="ok")
-        with patch("local_frontend.api.packages.subprocess.run", return_value=mock_result):
+        with patch("app.api.packages.subprocess.run", return_value=mock_result):
             resp = client.post("/api/packages/schema", json={"names": ["fitness", "finance"], "skip_verify": True})
 
         results = resp.json()["results"]
@@ -106,7 +106,7 @@ class TestInstallPackage:
 
     def test_install_failure(self) -> None:
         mock_result = MagicMock(returncode=1, stderr="not found")
-        with patch("local_frontend.api.packages.subprocess.run", return_value=mock_result):
+        with patch("app.api.packages.subprocess.run", return_value=mock_result):
             resp = client.post("/api/packages/pipe", json={"names": ["nonexistent"], "skip_verify": True})
 
         results = resp.json()["results"]
@@ -120,7 +120,7 @@ class TestInstallPackage:
 class TestUninstallPackage:
     def test_uninstall_success(self) -> None:
         mock_result = MagicMock(returncode=0, stdout="ok")
-        with patch("local_frontend.api.packages.subprocess.run", return_value=mock_result):
+        with patch("app.api.packages.subprocess.run", return_value=mock_result):
             resp = client.delete("/api/packages/pipe/garmin")
 
         assert resp.status_code == 200
@@ -134,7 +134,7 @@ class TestUninstallPackage:
 
     def test_uninstall_failure(self) -> None:
         mock_result = MagicMock(returncode=1, stderr="not installed")
-        with patch("local_frontend.api.packages.subprocess.run", return_value=mock_result):
+        with patch("app.api.packages.subprocess.run", return_value=mock_result):
             resp = client.delete("/api/packages/pipe/nonexistent")
 
         assert resp.json()["ok"] is False

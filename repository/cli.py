@@ -1,7 +1,11 @@
+"""Registry CLI commands: keygen, sign, verify."""
+
 from pathlib import Path
 
 import typer
 from rich.console import Console
+
+from repository.signing import generate_keypair, load_private_key, load_public_key, verify_file, write_signature
 
 console = Console()
 
@@ -22,8 +26,6 @@ def keygen(
     key_dir: Path = typer.Option(DEFAULT_KEY_DIR, help="Directory to write keypair"),
 ) -> None:
     """Generate an Ed25519 signing keypair."""
-    from repository.signing import generate_keypair
-
     priv_path, pub_path = generate_keypair(key_dir)
     console.print(f"[green]Private key:[/green] {priv_path}")
     console.print(f"[green]Public key:[/green]  {pub_path}")
@@ -36,14 +38,12 @@ def sign(
     private_key: Path = typer.Option(DEFAULT_KEY_DIR / "shenas.key", "--key", help="Path to Ed25519 private key"),
 ) -> None:
     """Sign a wheel file, creating a .sig file next to it."""
-    from repository.signing import load_private_key, write_signature
-
     if not wheel.exists():
         console.print(f"[red]File not found: {wheel}[/red]")
         raise typer.Exit(code=1)
     if not private_key.exists():
         console.print(f"[red]Private key not found: {private_key}[/red]")
-        console.print("Run [bold]shenas registry keygen[/bold] first.")
+        console.print("Run [bold]shenasrepoctl keygen[/bold] first.")
         raise typer.Exit(code=1)
 
     key = load_private_key(private_key)
@@ -57,8 +57,6 @@ def verify(
     public_key: Path = typer.Option(DEFAULT_KEY_DIR / "shenas.pub", "--public-key", help="Path to Ed25519 public key"),
 ) -> None:
     """Verify a wheel's signature."""
-    from repository.signing import load_public_key, verify_file
-
     sig_path = wheel.with_suffix(wheel.suffix + ".sig")
     if not sig_path.exists():
         console.print(f"[red]No signature file found: {sig_path}[/red]")
@@ -72,3 +70,7 @@ def verify(
     else:
         console.print("[red]INVALID signature[/red]")
         raise typer.Exit(code=1)
+
+
+if __name__ == "__main__":
+    app()

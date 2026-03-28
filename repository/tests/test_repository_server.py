@@ -1,4 +1,5 @@
 import hashlib
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -26,7 +27,7 @@ def packages_dir(tmp_path: Path) -> Path:
 
 
 @pytest.fixture()
-def client(packages_dir: Path) -> TestClient:
+def client(packages_dir: Path) -> Iterator[TestClient]:
     """TestClient with initialized repository."""
     server_module._repo = PackageRepository(packages_dir)
     yield TestClient(app)

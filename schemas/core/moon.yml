@@ -1,0 +1,10 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'schema-core'
+
+language: 'python'
+stack: 'data'
+tags: ['schema', 'core']
+
+workspace:
+  inheritedTasks:
+    exclude: ['test']

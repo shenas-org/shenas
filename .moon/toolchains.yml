@@ -1,0 +1,7 @@
+javascript:
+  packageManager: 'npm'
+
+node:
+  version: '22'
+
+npm: {}

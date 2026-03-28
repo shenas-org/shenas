@@ -1,0 +1,28 @@
+[project]
+name = "shenas-app"
+dynamic = ["version"]
+description = "FastAPI UI server for the shenas metrics platform"
+requires-python = ">=3.11"
+dependencies = [
+    "cryptography>=46.0.6",
+    "duckdb>=1.2.0",
+    "fastapi>=0.135.2",
+    "pyarrow>=23.0.1",
+    "typer>=0.24.1",
+    "uvicorn>=0.42.0",
+]
+
+[project.scripts]
+shenas = "app.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "VERSION"
+pattern = "(?P<version>.+)"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+dev-mode-dirs = [".."]

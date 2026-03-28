@@ -3,7 +3,7 @@ from pathlib import Path
 import typer
 import uvicorn
 
-app = typer.Typer(help="Start the shenas UI server.", invoke_without_command=True)
+app = typer.Typer(name="shenas", help="Start the shenas server.", invoke_without_command=True)
 
 DEFAULT_CERT_DIR = Path(".shenas")
 
@@ -27,10 +27,10 @@ def serve(
     key_file: Path = typer.Option(DEFAULT_CERT_DIR / "key.pem", "--key", help="TLS private key file"),
 ) -> None:
     """Start the UI web server over HTTPS."""
-    from local_frontend.server import app as fastapi_app
+    from app.server import app as fastapi_app
 
     if not cert_file.exists() or not key_file.exists():
-        typer.echo("TLS certificate not found. Generate one with:\n\n  shenas ui generate-cert\n")
+        typer.echo("TLS certificate not found. Generate one with:\n\n  shenas generate-cert\n")
         raise typer.Exit(code=1)
 
     typer.echo(f"Starting HTTPS server on https://{host}:{port}")

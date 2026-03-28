@@ -11,3 +11,5 @@ htmlcov/
 .coverage
 shenas.egg-info/
 .build-hashes/
+.moon/cache/
+.moon/docker/

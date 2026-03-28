@@ -1,5 +1,5 @@
 PACKAGES_DIR := $(CURDIR)/packages
-SIGN = uv run --no-sync shenas registry sign
+SIGN = uv run --no-sync shenasrepoctl sign
 BUMP = python scripts/bump-version.py
 
 .PHONY: repository build build-pipes build-schemas build-components vendor sign-all dev-install dev-uninstall setup-hooks lint test coverage
@@ -117,7 +117,7 @@ setup-hooks:
 lint:
 	uv run ruff check .
 	uv run ruff format --check .
-	uv run ty check cli/ repository/ local_frontend/
+	uv run ty check cli/ repository/ app/
 
 test:
 	uv run --no-sync pytest
@@ -128,6 +128,6 @@ test:
 	done
 
 coverage:
-	uv run --no-sync pytest --cov=cli --cov=repository --cov=local_frontend \
+	uv run --no-sync pytest --cov=cli --cov=repository --cov=app \
 		--cov=shenas_pipes --cov=shenas_schemas \
 		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
