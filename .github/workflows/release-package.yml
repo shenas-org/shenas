@@ -41,21 +41,23 @@ jobs:
           PREFIX="${TAG%/v*}"
 
           # Map tag prefix to directory
+          SIGN=false
           case "$PREFIX" in
-            pipe-*)    NAME="${PREFIX#pipe-}"; DIR="pipes/$NAME" ;;
-            schema-*)  NAME="${PREFIX#schema-}"; DIR="schemas/$NAME" ;;
-            component-*) NAME="${PREFIX#component-}"; DIR="components/$NAME" ;;
-            cli)       NAME="cli"; DIR="cli" ;;
-            app)       NAME="app"; DIR="app" ;;
-            repository) NAME="repository"; DIR="repository" ;;
-            *)         echo "Unknown tag prefix: $PREFIX"; exit 1 ;;
+            pipe-*)      NAME="${PREFIX#pipe-}"; DIR="pipes/$NAME"; SIGN=true ;;
+            schema-*)    NAME="${PREFIX#schema-}"; DIR="schemas/$NAME"; SIGN=true ;;
+            component-*) NAME="${PREFIX#component-}"; DIR="components/$NAME"; SIGN=true ;;
+            cli)         NAME="cli"; DIR="cli" ;;
+            app)         NAME="app"; DIR="app" ;;
+            repository)  NAME="repository"; DIR="repository" ;;
+            *)           echo "Unknown tag prefix: $PREFIX"; exit 1 ;;
           esac
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "prefix=$PREFIX" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
-          echo "Building $PREFIX v$VERSION from $DIR"
+          echo "sign=$SIGN" >> "$GITHUB_OUTPUT"
+          echo "Building $PREFIX v$VERSION from $DIR (sign=$SIGN)"
 
       - name: Set version
         run: echo "${{ steps.parse.outputs.version }}" > "${{ steps.parse.outputs.dir }}/VERSION"
@@ -87,12 +89,14 @@ jobs:
         run: rm "${{ steps.parse.outputs.dir }}/pyproject.toml"
 
       - name: Setup signing key
+        if: steps.parse.outputs.sign == 'true'
         run: |
           mkdir -p .shenas
           echo "${{ secrets.SHENAS_SIGNING_KEY }}" | base64 -d > .shenas/shenas.key
           chmod 600 .shenas/shenas.key
 
       - name: Sign wheel
+        if: steps.parse.outputs.sign == 'true'
         run: |
           for whl in dist/*.whl; do
             uv run --no-sync shenasrepoctl sign "$whl"
