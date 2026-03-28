@@ -2,6 +2,8 @@
 # Currently relies on HTTPS + localhost binding for security. See discussion in
 # commit history about bearer tokens, mTLS, and Unix sockets as future options.
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from importlib.metadata import entry_points
 from pathlib import Path as _Path
 
@@ -9,15 +11,21 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from cli.db import DB_PATH
 from app.api import api_router
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from telemetry.setup import init_telemetry
+from cli.db import DB_PATH
 
-init_telemetry("shenas-server")
 
-app = FastAPI(title="shenas ui", docs_url=None, redoc_url=None)
-FastAPIInstrumentor.instrument_app(app)
+@asynccontextmanager
+async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from telemetry.setup import init_telemetry
+
+    init_telemetry("shenas-server")
+    FastAPIInstrumentor.instrument_app(application)
+    yield
+
+
+app = FastAPI(title="shenas ui", docs_url=None, redoc_url=None, lifespan=_lifespan)
 app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")
 app.include_router(api_router)
 
