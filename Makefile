@@ -130,4 +130,4 @@ test:
 coverage:
 	uv run pytest --cov=cli --cov=repository --cov=local_frontend \
 		--cov=shenas_pipes --cov=shenas_schemas \
-		--cov-report=term-missing --cov-report=html:htmlcov
+		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
