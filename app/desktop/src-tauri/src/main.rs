@@ -11,10 +11,10 @@ use tauri::Manager;
 struct ServerProcess(Mutex<Option<Child>>);
 
 fn start_server() -> Child {
-    Command::new("shenas")
-        .args(["serve", "--no-tls"])
+    Command::new("uv")
+        .args(["run", "--no-sync", "shenas", "serve", "--no-tls"])
         .spawn()
-        .expect("Failed to start shenas server. Is shenas-app installed?")
+        .expect("Failed to start shenas server. Is uv and shenas-app installed?")
 }
 
 fn wait_for_server(url: &str, timeout: Duration) -> bool {
