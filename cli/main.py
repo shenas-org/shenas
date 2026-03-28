@@ -1,12 +1,11 @@
 import typer
 
-from cli.commands import component, config_cmd, data, db_cmd, pipe, registry_cmd, schema_cmd, ui
+from cli.commands import component, config_cmd, db_cmd, pipe, registry_cmd, schema_cmd, ui
 
 app = typer.Typer(name="shenas", invoke_without_command=True)
 app.add_typer(pipe.app, name="pipe")
 app.add_typer(component.app, name="component")
 app.add_typer(schema_cmd.app, name="schema")
-app.add_typer(data.app, name="data")
 app.add_typer(config_cmd.app, name="config")
 app.add_typer(db_cmd.app, name="db")
 app.add_typer(ui.app, name="ui")
