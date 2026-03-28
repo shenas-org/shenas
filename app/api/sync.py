@@ -28,7 +28,6 @@ def _sse_event(event: str, data: dict) -> str:
 
 def _installed_pipe_names() -> list[str]:
     """Get installed pipe names via uv pip list (avoids entry_points cache)."""
-    import sys
 
     result = subprocess.run(
         ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
@@ -91,27 +90,15 @@ def _run_pipe_sync(ep_name: str, pipe_app: typer.Typer, start_date: str | None, 
     if full_refresh and "full_refresh" in kwargs:
         kwargs["full_refresh"] = True
 
-    import io as _io
-
-    # Capture stdout so pipe error messages (console.print) are forwarded via SSE
-    captured = _io.StringIO()
-    old_stdout = sys.stdout
-
     try:
-        sys.stdout = captured
         sync_callback(**kwargs)
-        sys.stdout = old_stdout
         yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
     except SystemExit as exc:
-        sys.stdout = old_stdout
         if exc.code and exc.code != 0:
-            error_output = captured.getvalue().strip()
-            msg = error_output or f"Pipe exited with code {exc.code}"
-            yield _sse_event("error", {"pipe": ep_name, "message": msg})
+            yield _sse_event("error", {"pipe": ep_name, "message": f"Sync failed (exit code {exc.code}). Check server logs."})
         else:
             yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
     except Exception as exc:
-        sys.stdout = old_stdout
         yield _sse_event("error", {"pipe": ep_name, "message": str(exc)})
 
 
