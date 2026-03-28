@@ -57,19 +57,22 @@ def sync(
     total_size = sum(a["size"] for a in archives)
     total_mb = total_size / (1024 * 1024)
 
+    # Use data/ directory for temp files (same partition as DuckDB, avoids /tmp size limits)
+    cache_dir = DB_PATH.parent / "takeout_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
     # Check disk space
-    tmp_root = Path(tempfile.gettempdir())
-    free_mb = shutil.disk_usage(tmp_root).free / (1024 * 1024)
+    free_mb = shutil.disk_usage(cache_dir).free / (1024 * 1024)
     needed_mb = total_mb * 2
     if free_mb < needed_mb:
         raise RuntimeError(
-            f"Insufficient disk space. Need ~{needed_mb:.0f} MB but only {free_mb:.0f} MB free in {tmp_root}. "
+            f"Insufficient disk space. Need ~{needed_mb:.0f} MB but only {free_mb:.0f} MB free in {cache_dir}. "
             f"Use --latest N or --filter to process fewer archives."
         )
 
     console.print(f"Processing {len(archives)} archive(s) ({total_mb:.0f} MB) into [bold]{DB_PATH}[/bold]", style="dim")
 
-    tmp_dir = Path(tempfile.mkdtemp(prefix="takeout_"))
+    tmp_dir = Path(tempfile.mkdtemp(prefix="takeout_", dir=str(cache_dir)))
     try:
         for archive_info in archives:
             size_mb = archive_info["size"] / (1024 * 1024)
