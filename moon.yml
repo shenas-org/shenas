@@ -2,7 +2,7 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 
 tasks:
   lint:
-    script: 'uv run ruff check . && uv run ruff format --check . && uv run ty check cli/ repository/ app/'
+    script: 'uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync ty check cli/ repository/ app/'
     inputs:
       - '**/*.py'
   test:
