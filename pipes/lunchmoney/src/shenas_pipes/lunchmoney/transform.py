@@ -23,10 +23,10 @@ class LunchMoneyMetricProvider:
                 payee,
                 category_name,
                 category_group_name,
-                COALESCE(asset_name, plaid_account_name),
+                COALESCE(account_display_name, plaid_account_name),
                 currency,
                 CASE WHEN is_income THEN 1 ELSE 0 END,
-                notes,
+                display_notes,
                 CASE WHEN recurring_id IS NOT NULL THEN 1 ELSE 0 END
             FROM lunchmoney.transactions
             WHERE status != 'pending'
