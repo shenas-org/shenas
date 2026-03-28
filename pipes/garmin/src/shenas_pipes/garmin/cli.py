@@ -111,7 +111,7 @@ def transform() -> None:
     """Transform raw Garmin data into canonical metrics tables."""
     import duckdb
 
-    from schema.ddl import ensure_schema
+    from shenas_schemas.fitness_tracker import ensure_schema
     from shenas_pipes.garmin.transform import GarminMetricProvider
 
     if not DB_PATH.exists():

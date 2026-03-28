@@ -4,7 +4,7 @@ from typing import Annotated, get_args, get_origin, get_type_hints
 
 import duckdb
 
-from schema.metrics import ALL_TABLES
+from shenas_schemas.fitness_tracker.metrics import ALL_TABLES
 
 _TYPE_MAP = {
     str: "VARCHAR",

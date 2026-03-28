@@ -9,17 +9,26 @@ uv sync
 uv run shenas --help
 ```
 
+## Development setup
+
+Install pipes and schemas for local development:
+
+```bash
+uv pip install -e schemas/fitness_tracker
+uv pip install -e pipes/garmin
+```
+
 ## Data pipeline
 
 ```bash
 # Authenticate with Garmin Connect
-uv run shenas --dev pipe garmin auth
+uv run shenas pipe garmin auth
 
 # Sync raw data into DuckDB
-uv run shenas --dev pipe garmin sync
+uv run shenas pipe garmin sync
 
 # Transform raw data into canonical metrics
-uv run shenas --dev pipe garmin transform
+uv run shenas pipe garmin transform
 
 # Check what's loaded
 uv run shenas data status
@@ -39,13 +48,14 @@ uv run shenas ui
 
 ## Package distribution
 
-All pipes and components are distributed as signed Python wheels via a PEP 503 repository server.
+All pipes, schemas, and components are distributed as signed Python wheels via a PEP 503 repository server.
 
 ```bash
 # Generate signing keys
 uv run shenas registry keygen
 
 # Build and sign packages
+make build-schemas
 make build-pipes
 make build-components
 
@@ -59,27 +69,18 @@ make repository_server
 uv run shenas install pipe garmin
 ```
 
-## Development
-
-Use `--dev` to load pipes from local source without installing:
-
-```bash
-uv run shenas --dev pipe garmin sync
-uv run shenas --dev pipe list          # shows "dev" instead of signature status
-```
-
 ## Architecture
 
 ```
 pipes/                   dlt connectors (standalone packages)
-schema/                  canonical metric types + DDL generation
+schemas/                 canonical metric schemas (standalone packages)
 local_frontend/          FastAPI UI server (Arrow IPC queries)
 frontend_components/     web components (Lit + uPlot, built as wheels)
-repository_server/  PEP 503 package server
+repository_server/       PEP 503 package server
 registry/                Ed25519 signing
 cli/                     shenas CLI
 ```
 
 **Data flow**: Source API -> dlt -> raw DuckDB tables -> SQL transform -> canonical `metrics.*` tables -> Arrow IPC -> web component
 
-**Plugin system**: Pipes register via `shenas.pipes` entry points, components via `shenas.components`. The CLI and UI discover them at runtime.
+**Plugin system**: Pipes register via `shenas.pipes` entry points, schemas via `shenas.schemas`, components via `shenas.components`. The CLI and UI discover them at runtime.

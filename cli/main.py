@@ -12,10 +12,7 @@ app.add_typer(registry_cmd.app, name="registry")
 
 
 @app.callback()
-def root(
-    ctx: typer.Context,
-    dev: bool = typer.Option(False, "--dev", help="Load pipes from local pipes/ directory instead of installed packages."),
-) -> None:
+def root(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
         raise typer.Exit()

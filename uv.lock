@@ -12,6 +12,7 @@ resolution-markers = [
 members = [
     "shenas",
     "shenas-pipe-garmin",
+    "shenas-schema-fitness-tracker",
 ]
 
 [[package]]
@@ -1287,6 +1288,7 @@ dependencies = [
     { name = "dlt", extra = ["duckdb"] },
     { name = "garminconnect" },
     { name = "pendulum" },
+    { name = "shenas-schema-fitness-tracker" },
 ]
 
 [package.metadata]
@@ -1294,7 +1296,18 @@ requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "garminconnect", specifier = ">=0.2.40" },
     { name = "pendulum", specifier = ">=3.0.0" },
+    { name = "shenas-schema-fitness-tracker", editable = "schemas/fitness_tracker" },
 ]
+
+[[package]]
+name = "shenas-schema-fitness-tracker"
+source = { editable = "schemas/fitness_tracker" }
+dependencies = [
+    { name = "duckdb" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "duckdb", specifier = ">=1.2.0" }]
 
 [[package]]
 name = "simplejson"
