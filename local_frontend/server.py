@@ -1,12 +1,11 @@
 from importlib.metadata import entry_points
-from pathlib import Path
 
 import duckdb
 from fastapi import FastAPI, Response
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-DB_PATH = Path("data") / "local.duckdb"
+from cli.db import DB_PATH, connect
 
 app = FastAPI(title="shenas ui", docs_url=None, redoc_url=None)
 
@@ -82,7 +81,7 @@ def index() -> HTMLResponse:
 
 @app.get("/api/tables")
 def api_tables() -> list[dict]:
-    con = duckdb.connect(str(DB_PATH), read_only=True)
+    con = connect(read_only=True)
     rows = con.execute(
         "SELECT table_schema, table_name FROM information_schema.tables "
         "WHERE table_schema IN ('garmin', 'metrics') ORDER BY table_schema, table_name"
@@ -95,7 +94,7 @@ def api_tables() -> list[dict]:
 def api_query(sql: str) -> Response:
     import pyarrow as pa
 
-    con = duckdb.connect(str(DB_PATH), read_only=True)
+    con = connect(read_only=True)
     try:
         arrow_table = con.execute(sql).arrow().read_all()
     except duckdb.Error as exc:

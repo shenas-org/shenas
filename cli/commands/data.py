@@ -1,9 +1,9 @@
-from pathlib import Path
-
 import duckdb
 import typer
 from rich.console import Console
 from rich.table import Table
+
+from cli.db import DB_PATH, connect
 
 console = Console()
 
@@ -15,9 +15,6 @@ def _default(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
         raise typer.Exit()
-
-
-DB_PATH = Path("data") / "local.duckdb"
 
 
 def _discover_schemas(con: duckdb.DuckDBPyConnection) -> dict[str, list[str]]:
@@ -41,7 +38,7 @@ def status() -> None:
         console.print(f"[red]Database not found at {DB_PATH}[/red]")
         raise typer.Exit(code=1)
 
-    con = duckdb.connect(str(DB_PATH), read_only=True)
+    con = connect(read_only=True)
     schemas = _discover_schemas(con)
 
     def make_table(title: str) -> Table:
@@ -58,7 +55,6 @@ def status() -> None:
         row = con.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()
         rows = row[0] if row else 0
         cols = len(con.execute(f"DESCRIBE {qualified}").fetchall())
-        # Try common date column names
         for date_col in ("date", "calendar_date", "start_time_local"):
             try:
                 res = con.execute(f"SELECT MIN({date_col}), MAX({date_col}) FROM {qualified}").fetchone()

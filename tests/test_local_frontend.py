@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import patch
 
 import duckdb
@@ -11,25 +10,22 @@ from local_frontend.server import app
 
 
 @pytest.fixture()
-def test_db(tmp_path: Path) -> Path:
-    db_path = tmp_path / "test.duckdb"
-    con = duckdb.connect(str(db_path))
+def test_con() -> duckdb.DuckDBPyConnection:
+    """In-memory DuckDB with test data."""
+    con = duckdb.connect(":memory:")
     con.execute("CREATE SCHEMA metrics")
     con.execute("CREATE TABLE metrics.daily_hrv (date DATE, source VARCHAR, rmssd DOUBLE)")
     con.execute("INSERT INTO metrics.daily_hrv VALUES ('2026-03-15', 'garmin', 42.0)")
     con.execute("CREATE SCHEMA garmin")
     con.execute("CREATE TABLE garmin.activities (id INTEGER, start_time_local DATE)")
     con.execute("INSERT INTO garmin.activities VALUES (1, '2026-03-15')")
-    con.close()
-    return db_path
+    return con
 
 
 @pytest.fixture()
-def client(test_db: Path) -> TestClient:
-    original = server_module.DB_PATH
-    server_module.DB_PATH = test_db
-    yield TestClient(app)
-    server_module.DB_PATH = original
+def client(test_con: duckdb.DuckDBPyConnection) -> TestClient:
+    with patch("local_frontend.server.connect", return_value=test_con):
+        yield TestClient(app)
 
 
 class TestIndex:
