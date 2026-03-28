@@ -2,10 +2,35 @@ from importlib.metadata import entry_points
 
 import typer
 from rich.console import Console
-from typer.testing import CliRunner
 
 console = Console()
-runner = CliRunner()
+
+
+def _find_sync_callback(pipe_app: typer.Typer):  # type: ignore[no-untyped-def]
+    """Find the sync command's callback function from a pipe's typer app."""
+    for cmd_info in pipe_app.registered_commands:
+        cb = cmd_info.callback
+        name = cmd_info.name or (getattr(cb, "__name__", None) if cb else None)
+        if name == "sync" and cmd_info.callback:
+            return cmd_info.callback
+    return None
+
+
+def _resolve_defaults(func):  # type: ignore[no-untyped-def]
+    """Call a typer command function with its declared defaults resolved."""
+    import inspect
+
+    kwargs = {}
+    sig = inspect.signature(func)
+    for param_name, param in sig.parameters.items():
+        default = param.default
+        if isinstance(default, typer.models.OptionInfo):
+            kwargs[param_name] = default.default
+        elif isinstance(default, typer.models.ArgumentInfo):
+            kwargs[param_name] = default.default
+        elif default is not inspect.Parameter.empty:
+            kwargs[param_name] = default
+    return func(**kwargs)
 
 
 def sync_all() -> None:
@@ -23,14 +48,13 @@ def sync_all() -> None:
         console.print(f"\n[bold]--- {name} ---[/bold]")
         try:
             pipe_app = ep.load()
-            # Invoke the sync command through typer so defaults resolve correctly
-            tmp_app = typer.Typer()
-            tmp_app.add_typer(pipe_app, name=name)
-            result = runner.invoke(tmp_app, [name, "sync"])
-            if result.output:
-                console.print(result.output.rstrip())
-            if result.exit_code != 0:
-                failed.append(name)
+            sync_fn = _find_sync_callback(pipe_app)
+            if sync_fn is None:
+                console.print(f"[dim]No sync command for {name}, skipping.[/dim]")
+                continue
+            _resolve_defaults(sync_fn)
+        except SystemExit:
+            pass
         except Exception as exc:
             console.print(f"[red]{name} sync failed:[/red] {exc}")
             failed.append(name)
