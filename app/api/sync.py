@@ -41,11 +41,23 @@ def _installed_pipe_names() -> list[str]:
 def _load_pipe_app(name: str) -> typer.Typer:
     """Load a pipe's typer app by importing its CLI module directly."""
     module_name = f"shenas_pipes.{name}.cli"
+    # Invalidate caches so packages installed after server start are found
+    importlib.invalidate_caches()
     try:
         mod = importlib.import_module(module_name)
-    except ModuleNotFoundError as exc:
-        msg = f"Cannot import {module_name}: {exc}. Run the server from the workspace: uv run shenas serve"
-        raise ImportError(msg) from exc
+    except ModuleNotFoundError:
+        # Module might be installed but the namespace package path is stale.
+        # Refresh sys.path entries by re-importing the namespace package.
+        import sys
+
+        for key in list(sys.modules):
+            if key == "shenas_pipes" or key.startswith("shenas_pipes."):
+                del sys.modules[key]
+        try:
+            mod = importlib.import_module(module_name)
+        except ModuleNotFoundError as exc:
+            msg = f"Cannot import {module_name}: {exc}. Ensure pipes are installed and server is running from the workspace."
+            raise ImportError(msg) from exc
     return mod.app
 
 
