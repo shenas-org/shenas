@@ -59,20 +59,23 @@ build-components:
 # Editable install of all local packages (source changes take effect immediately)
 # SETUPTOOLS_SCM_PRETEND_VERSION avoids local version identifiers (+gXXX)
 # that break cross-package dependency resolution during dev installs.
+# Schemas install with deps (they only depend on schema-core which is a workspace member).
+# Pipes and components use --no-deps since their shenas cross-deps (schemas) aren't on PyPI
+# but are already installed above. External deps (garminconnect etc) come from uv sync.
 dev-install:
 	@echo "Installing schemas..."
 	@for schema in $(patsubst schemas/%/pyproject.build.toml,%,$(wildcard schemas/*/pyproject.build.toml)); do \
 		if [ ! -f schemas/$$schema/pyproject.toml ]; then \
 			cp schemas/$$schema/pyproject.build.toml schemas/$$schema/pyproject.toml; \
-			SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install --no-deps -e schemas/$$schema; \
+			SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install -e schemas/$$schema; \
 			rm schemas/$$schema/pyproject.toml; \
 		else \
-			SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install --no-deps -e schemas/$$schema; \
+			SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install -e schemas/$$schema; \
 		fi; \
 	done
 	@echo "Installing pipes..."
 	@for pipe in $(patsubst pipes/%/pyproject.toml,%,$(wildcard pipes/*/pyproject.toml)); do \
-		SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install --no-deps -e pipes/$$pipe; \
+		SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install -e pipes/$$pipe; \
 	done
 	@echo "Installing components..."
 	@for comp in $(patsubst components/%/pyproject.build.toml,%,$(wildcard components/*/pyproject.build.toml)); do \
