@@ -1,6 +1,9 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  test: {
+    environment: "happy-dom",
+  },
   build: {
     outDir: "shenas_components/fitness_dashboard/static",
     emptyOutDir: true,

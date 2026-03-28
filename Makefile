@@ -121,6 +121,11 @@ lint:
 
 test:
 	uv run pytest
+	@for comp in $(wildcard components/*/package.json); do \
+		dir=$$(dirname $$comp); \
+		echo "Testing component: $$dir"; \
+		cd $$dir && npm test && cd $(CURDIR); \
+	done
 
 coverage:
 	uv run pytest --cov=cli --cov=repository --cov=local_frontend \
