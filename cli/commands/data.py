@@ -25,6 +25,7 @@ def _discover_schemas(con: duckdb.DuckDBPyConnection) -> dict[str, list[str]]:
     rows = con.execute(
         "SELECT table_schema, table_name FROM information_schema.tables "
         "WHERE table_schema NOT IN ('information_schema', 'main') "
+        "AND table_schema NOT LIKE '%\\_staging' ESCAPE '\\' "
         "ORDER BY table_schema, table_name"
     ).fetchall()
     schemas: dict[str, list[str]] = {}
