@@ -54,12 +54,15 @@ def status() -> None:
 
     def add_row(t: Table, schema: str, name: str) -> None:
         qualified = f"{schema}.{name}"
-        rows = con.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()[0]
+        row = con.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()
+        rows = row[0] if row else 0
         cols = len(con.execute(f"DESCRIBE {qualified}").fetchall())
         # Try common date column names
         for date_col in ("date", "calendar_date", "start_time_local"):
             try:
                 res = con.execute(f"SELECT MIN({date_col}), MAX({date_col}) FROM {qualified}").fetchone()
+                if res is None:
+                    continue
                 earliest = str(res[0])[:10] if res[0] else "—"
                 latest = str(res[1])[:10] if res[1] else "—"
                 t.add_row(name, str(rows), earliest, latest, str(cols))

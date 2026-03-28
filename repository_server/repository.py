@@ -62,10 +62,7 @@ class PackageRepository:
             key = normalize(raw_name)
             by_name.setdefault(key, []).append(DistFile(path=path))
 
-        return [
-            Package(name=normalized, normalized=normalized, files=files)
-            for normalized, files in sorted(by_name.items())
-        ]
+        return [Package(name=normalized, normalized=normalized, files=files) for normalized, files in sorted(by_name.items())]
 
     def get_package(self, name: str) -> Package | None:
         target = normalize(name)

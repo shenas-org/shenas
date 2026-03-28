@@ -46,7 +46,7 @@ def index() -> HTMLResponse:
         cards = "\n".join(
             f'      <li><a href="/components/{c["name"]}/{c.get("html", "index.html")}">'
             f'{c["name"]}</a> <span style="color:#888">v{c.get("version", "?")}</span>'
-            f' — {c.get("description", "")}</li>'
+            f" — {c.get('description', '')}</li>"
             for c in components
         )
     else:

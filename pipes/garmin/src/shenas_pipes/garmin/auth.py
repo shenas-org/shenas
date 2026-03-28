@@ -17,10 +17,7 @@ def build_client(email: str | None = None, password: str | None = None, token_st
 
     # Fall back to credential login
     if not email or not password:
-        raise RuntimeError(
-            f"No valid tokens found at {token_path}. "
-            "Run 'shenas pipe garmin auth' first."
-        )
+        raise RuntimeError(f"No valid tokens found at {token_path}. Run 'shenas pipe garmin auth' first.")
 
     token_path.mkdir(parents=True, exist_ok=True)
     client = Garmin(email=email, password=password)

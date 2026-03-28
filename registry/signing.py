@@ -23,14 +23,10 @@ def generate_keypair(key_dir: Path) -> tuple[Path, Path]:
     priv_path = key_dir / "shenas.key"
     pub_path = key_dir / "shenas.pub"
 
-    priv_path.write_bytes(
-        private_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
-    )
+    priv_path.write_bytes(private_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
     priv_path.chmod(0o600)
 
-    pub_path.write_bytes(
-        private_key.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
-    )
+    pub_path.write_bytes(private_key.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo))
 
     return priv_path, pub_path
 
@@ -38,7 +34,10 @@ def generate_keypair(key_dir: Path) -> tuple[Path, Path]:
 def load_private_key(path: Path) -> Ed25519PrivateKey:
     from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
-    return load_pem_private_key(path.read_bytes(), password=None)
+    key = load_pem_private_key(path.read_bytes(), password=None)
+    if not isinstance(key, Ed25519PrivateKey):
+        raise TypeError(f"Expected Ed25519 private key, got {type(key)}")
+    return key
 
 
 def load_public_key(path: Path) -> Ed25519PublicKey:

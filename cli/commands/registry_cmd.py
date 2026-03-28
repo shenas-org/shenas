@@ -68,7 +68,7 @@ def verify(
     sig_b64 = sig_path.read_text().strip()
 
     if verify_file(pub_key, wheel, sig_b64):
-        console.print(f"[green]Valid signature[/green]")
+        console.print("[green]Valid signature[/green]")
     else:
-        console.print(f"[red]INVALID signature[/red]")
+        console.print("[red]INVALID signature[/red]")
         raise typer.Exit(code=1)
