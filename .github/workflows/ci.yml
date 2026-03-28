@@ -12,111 +12,53 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+      - run: uv sync
+      - name: Lint
+        run: make lint
 
-      - name: Install dependencies
-        run: uv sync
-
-      - name: Ruff check
-        run: uv run ruff check .
-
-      - name: Ruff format
-        run: uv run ruff format --check .
-
-      - name: Type check
-        run: uv run ty check cli/ repository/ local_frontend/
-
-  test-main:
-    name: Test main (Python ${{ matrix.python-version }})
+  test:
+    name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
       - run: uv python install ${{ matrix.python-version }}
       - run: uv sync --python ${{ matrix.python-version }}
-      - name: Run tests
-        run: uv run pytest tests/ --tb=short
-
-  test-pipes:
-    name: Test pipes (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12", "3.13"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-      - run: uv python install ${{ matrix.python-version }}
-      - run: uv sync --python ${{ matrix.python-version }}
-      - name: Install pipe packages
-        run: |
-          cp schemas/fitness/pyproject.build.toml schemas/fitness/pyproject.toml
-          cp schemas/finance/pyproject.build.toml schemas/finance/pyproject.toml
-          uv pip install schemas/core schemas/fitness schemas/finance pipes/core pipes/garmin pipes/lunchmoney
-          rm -f schemas/fitness/pyproject.toml schemas/finance/pyproject.toml
-      - name: Test pipe core
-        run: uv run --no-sync pytest pipes/core/tests/ --tb=short
-      - name: Test pipe garmin
-        run: uv run --no-sync pytest pipes/garmin/tests/ --tb=short
-      - name: Test pipe lunchmoney
-        run: uv run --no-sync pytest pipes/lunchmoney/tests/ --tb=short
-
-  test-schemas:
-    name: Test schemas (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12", "3.13"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-      - run: uv python install ${{ matrix.python-version }}
-      - run: uv sync --python ${{ matrix.python-version }}
-      - name: Install schema packages
-        run: |
-          cp schemas/fitness/pyproject.build.toml schemas/fitness/pyproject.toml
-          cp schemas/finance/pyproject.build.toml schemas/finance/pyproject.toml
-          uv pip install schemas/core schemas/fitness schemas/finance
-          rm -f schemas/fitness/pyproject.toml schemas/finance/pyproject.toml
-      - name: Test schema fitness
-        run: uv run --no-sync pytest schemas/fitness/tests/ --tb=short
-      - name: Test schema finance
-        run: uv run --no-sync pytest schemas/finance/tests/ --tb=short
+      - name: Install all packages
+        run: make dev-install
+      - name: Run all tests
+        run: make test
 
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
-    needs: [test-main, test-pipes, test-schemas]
+    needs: [test]
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
       - run: uv sync
       - name: Install all packages
-        run: |
-          cp schemas/fitness/pyproject.build.toml schemas/fitness/pyproject.toml
-          cp schemas/finance/pyproject.build.toml schemas/finance/pyproject.toml
-          uv pip install schemas/core schemas/fitness schemas/finance pipes/core pipes/garmin pipes/lunchmoney
-          rm -f schemas/fitness/pyproject.toml schemas/finance/pyproject.toml
+        run: make dev-install
       - name: Run tests with coverage
         id: coverage
         run: |
-          uv run --no-sync pytest --cov=cli --cov=repository --cov=local_frontend \
-            --cov=shenas_pipes --cov=shenas_schemas \
-            --cov-report=term-missing --cov-report=json:coverage.json
+          make coverage
           TOTAL=$(python -c "import json; print(int(json.load(open('coverage.json'))['totals']['percent_covered']))")
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
       - name: Update coverage badge
