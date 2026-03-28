@@ -6,7 +6,6 @@ on:
       - 'pipe-*/v*'
       - 'schema-*/v*'
       - 'component-*/v*'
-      - 'cli/v*'
       - 'app/v*'
       - 'repository/v*'
 
