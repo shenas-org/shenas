@@ -11,8 +11,3 @@ tasks:
       - '**/*.py'
     deps:
       - '~:lint'
-  dev-install:
-    command: 'make dev-install'
-    options:
-      cache: false
-      runInCI: false
