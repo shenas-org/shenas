@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "duckdb": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "mcp-server-motherduck",
+        "--db-path",
+        "./data/local.duckdb",
+        "--read-write"
+      ],
+      "env": {}
+    }
+  }
+}
