@@ -11,12 +11,8 @@ KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "gmail_token"
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
-# Desktop OAuth client credentials for shenas.
-# These identify the app, not the user. Safe to embed per Google's docs:
-# https://developers.google.com/identity/protocols/oauth2#installed-applications
-# Override via SHENAS_GMAIL_CLIENT_ID / SHENAS_GMAIL_CLIENT_SECRET env vars.
-GMAIL_CLIENT_ID = ""  # TODO: paste your client_id here
-GMAIL_CLIENT_SECRET = ""  # TODO: paste your client_secret here
+GMAIL_CLIENT_ID = "232211553387-3c4sog0fokns7ri2o6oj8d3s5v3r9jh6.apps.googleusercontent.com"
+GMAIL_CLIENT_SECRET = "REDACTED_GOOGLE_OAUTH_CLIENT_SECRET"
 
 
 def _get_client_config() -> dict:
