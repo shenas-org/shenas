@@ -13,6 +13,10 @@ from googleapiclient.discovery import build
 
 KEYRING_SERVICE = "shenas"
 
+# Shared state for multi-step OAuth flows (e.g. URL passback).
+# Keys are pipe names, values are dicts with thread + state.
+pending_oauth: dict[str, dict] = {}
+
 # Shared OAuth client (Desktop app -- safe to embed)
 DEFAULT_CLIENT_ID = "232211553387-3c4sog0fokns7ri2o6oj8d3s5v3r9jh6.apps.googleusercontent.com"
 DEFAULT_CLIENT_SECRET = "REDACTED_GOOGLE_OAUTH_CLIENT_SECRET"
@@ -102,10 +106,10 @@ class GoogleAuth:
     def authenticate(self, credentials: dict[str, str]) -> None:
         """OAuth2 browser flow with URL passback for the REST auth API."""
         from google_auth_oauthlib.flow import InstalledAppFlow
-        from app.api.auth import _pending_mfa
+        from shenas_pipes.core.google_auth import pending_oauth
 
-        if credentials.get("auth_complete") == "true" and self.name in _pending_mfa:
-            state = _pending_mfa.pop(self.name)
+        if credentials.get("auth_complete") == "true" and self.name in pending_oauth:
+            state = pending_oauth.pop(self.name)
             thread = state["thread"]
             thread.join(timeout=120)
             if thread.is_alive():
@@ -153,7 +157,7 @@ class GoogleAuth:
             time.sleep(0.1)
 
         state["thread"] = thread
-        _pending_mfa[self.name] = state
+        pending_oauth[self.name] = state
 
         auth_url = state.get("url", "")
         if not auth_url:

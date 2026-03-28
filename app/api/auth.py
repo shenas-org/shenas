@@ -8,21 +8,35 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# In-memory store for pending MFA sessions (pipe_name -> state)
-_pending_mfa: dict[str, object] = {}
-
 
 class AuthRequest(BaseModel):
     credentials: dict[str, str] = {}
 
 
+def _get_pending_state(pipe_name: str) -> dict | None:
+    """Look up pending MFA/OAuth state from the pipe's auth module."""
+    try:
+        mod = _load_auth_module(pipe_name)
+        # Google pipes use pending_oauth from core
+        try:
+            from shenas_pipes.core.google_auth import pending_oauth
+
+            if pipe_name in pending_oauth:
+                return pending_oauth.pop(pipe_name)
+        except ImportError:
+            pass
+        # Garmin uses its own pending_mfa dict
+        pending = getattr(mod, "pending_mfa", None)
+        if pending and pipe_name in pending:
+            return pending.pop(pipe_name)
+    except Exception:
+        pass
+    return None
+
+
 @router.post("/{pipe_name}")
 def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> dict:
-    """Start or continue a pipe's auth flow.
-
-    Step 1: Send credentials (email, password). Returns {"ok": true} or {"needs_mfa": true}.
-    Step 2: If MFA needed, send {"credentials": {"mfa_code": "123456"}} to complete.
-    """
+    """Start or continue a pipe's auth flow."""
     body = body or AuthRequest()
 
     mod = _load_auth_module(pipe_name)
@@ -30,9 +44,14 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> dict:
     if auth_fn is None:
         return {"ok": False, "error": f"Pipe {pipe_name} has no authenticate() function"}
 
-    # If this is an MFA completion step
-    if "mfa_code" in body.credentials and pipe_name in _pending_mfa:
+    # MFA completion step
+    if "mfa_code" in body.credentials:
         return _complete_mfa(pipe_name, mod, body.credentials["mfa_code"])
+
+    # OAuth completion step
+    if "auth_complete" in body.credentials:
+        # Pass through to authenticate() which handles the completion
+        pass
 
     try:
         auth_fn(body.credentials)
@@ -53,11 +72,13 @@ def _complete_mfa(pipe_name: str, mod: object, mfa_code: str) -> dict:
     """Complete an MFA auth flow using stored session state."""
     complete_fn = getattr(mod, "complete_mfa", None)
     if complete_fn is None:
-        _pending_mfa.pop(pipe_name, None)
         return {"ok": False, "error": f"Pipe {pipe_name} does not support MFA completion"}
 
+    state = _get_pending_state(pipe_name)
+    if state is None:
+        return {"ok": False, "error": "No pending MFA session. Start auth again."}
+
     try:
-        state = _pending_mfa.pop(pipe_name)
         complete_fn(state, mfa_code)
         return {"ok": True, "message": f"Authenticated {pipe_name}"}
     except Exception as exc:

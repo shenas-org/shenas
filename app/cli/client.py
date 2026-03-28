@@ -55,7 +55,7 @@ class ShenasClient:
 
         try:
             with self._client.stream(
-                method, path, timeout=httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0), **kwargs
+                method, path, timeout=httpx.Timeout(connect=30.0, read=3600.0, write=30.0, pool=30.0), **kwargs
             ) as resp:
                 if resp.status_code >= 400:
                     resp.read()
