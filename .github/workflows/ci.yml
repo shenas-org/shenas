@@ -52,7 +52,7 @@ jobs:
         run: |
           cp schemas/fitness_tracker/pyproject.build.toml schemas/fitness_tracker/pyproject.toml
           cp schemas/finance/pyproject.build.toml schemas/finance/pyproject.toml
-          uv pip install -e schemas/core -e schemas/fitness_tracker -e schemas/finance -e pipes/core -e pipes/garmin -e pipes/lunchmoney --find-links packages/
+          uv pip install -e schemas/core -e schemas/fitness_tracker -e schemas/finance -e pipes/core -e pipes/garmin -e pipes/lunchmoney
           rm -f schemas/fitness_tracker/pyproject.toml schemas/finance/pyproject.toml
 
       - name: Run tests
