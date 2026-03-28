@@ -2,7 +2,7 @@ PACKAGES_DIR := $(CURDIR)/packages
 SIGN = uv run --no-sync shenasrepoctl sign
 BUMP = python scripts/bump-version.py
 
-.PHONY: repository build build-pipes build-schemas build-components vendor sign-all dev-install dev-uninstall setup-hooks lint test coverage
+.PHONY: repository build build-pipes build-schemas build-components vendor sign-all dev-install dev-uninstall setup-hooks coverage
 
 repository:
 	uv run python -m repository.main $(PACKAGES_DIR)
@@ -112,20 +112,6 @@ setup-hooks:
 	cp scripts/pre-commit .git/hooks/pre-commit
 	chmod +x .git/hooks/pre-commit
 	@echo "Pre-commit hook installed."
-
-# Run all linters
-lint:
-	uv run ruff check .
-	uv run ruff format --check .
-	uv run ty check cli/ repository/ app/
-
-test:
-	uv run --no-sync pytest
-	@for comp in $(wildcard components/*/package.json); do \
-		dir=$$(dirname $$comp); \
-		echo "Testing component: $$dir"; \
-		cd $$dir && npm install --silent && npm test && cd $(CURDIR); \
-	done
 
 coverage:
 	uv run --no-sync pytest --cov=cli --cov=repository --cov=app \

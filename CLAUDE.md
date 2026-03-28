@@ -22,12 +22,11 @@ make build-pipes                    # build all pipe wheels (auto-bumps VERSION)
 make build-schemas                  # build all schema wheels
 make build-components               # build all component wheels
 make repository              # start PEP 503 package server on :7290
-make lint                           # run ruff + ty
-make test                           # run pytest
 make coverage                       # run tests with coverage report
 make setup-hooks                    # install git pre-commit hook
 moon run cli:test                   # run tests for a single project
 moon run :lint                      # run lint across all projects
+moon run :test                      # run tests across all projects
 ```
 
 ## Stack
