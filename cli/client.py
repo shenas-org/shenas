@@ -18,7 +18,7 @@ class ShenasServerError(Exception):
 
 
 def _connect_error(base_url: str) -> ShenasServerError:
-    return ShenasServerError(0, f"Cannot reach shenas server at {base_url}. Start it with: shenas ui serve")
+    return ShenasServerError(0, f"Cannot reach shenas server at {base_url}. Start it with: shenas serve")
 
 
 class ShenasClient:

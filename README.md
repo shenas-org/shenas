@@ -62,8 +62,8 @@ make build-components COMPONENT=fitness-dashboard
 uv pip install packages/shenas_component_fitness_dashboard-*.whl
 
 # Start the UI
-uv run shenasctl ui
-# Open http://127.0.0.1:7280
+uv run shenas
+# Open https://127.0.0.1:7280
 ```
 
 ## Package distribution

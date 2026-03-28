@@ -1,7 +1,15 @@
 PACKAGES_DIR := $(CURDIR)/packages
 SIGN = uv run --no-sync shenasrepoctl sign
 
-.PHONY: repository build build-pipes build-schemas build-components dev-uninstall setup-hooks coverage
+.PHONY: install repository build build-pipes build-schemas build-components dev-uninstall setup-hooks coverage
+
+# Install CLI tools globally (~/.local/bin/)
+install:
+	uv tool install --editable cli/ --force --with shenas-app
+	uv tool install --editable app/ --force
+	uv tool install --editable repository/ --force
+	@echo "Installed shenasctl, shenas, shenasrepoctl to ~/.local/bin/"
+	@echo "Run 'shenasctl --install-completion' for tab completion"
 
 repository:
 	uv run python -m repository.main $(PACKAGES_DIR)
