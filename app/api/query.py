@@ -3,7 +3,7 @@
 import duckdb
 from fastapi import APIRouter, Response
 
-from app.cli.db import connect
+from app.db import connect
 
 router = APIRouter()
 
