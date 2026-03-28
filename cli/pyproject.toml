@@ -11,7 +11,6 @@ dependencies = [
     "opentelemetry-instrumentation-httpx>=0.46b0",
     "rich>=14.3.3",
     "typer>=0.24.1",
-    "shenas-app",
 ]
 
 [project.scripts]
@@ -22,7 +21,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "VERSION"
+path = "../app/VERSION"
 pattern = "(?P<version>.+)"
 
 [tool.hatch.build.targets.wheel]
