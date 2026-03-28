@@ -1,7 +1,7 @@
 import duckdb
 import pytest
 
-from shenas_schemas.fitness_tracker import (
+from shenas_schemas.fitness import (
     ALL_TABLES,
     CANONICAL_TABLES,
     SCHEMA,
@@ -181,6 +181,6 @@ class TestIntrospect:
 
 class TestSchema:
     def test_schema_dict(self) -> None:
-        assert SCHEMA["name"] == "fitness-tracker"
+        assert SCHEMA["name"] == "fitness"
         assert "version" in SCHEMA
         assert SCHEMA["tables"] == CANONICAL_TABLES

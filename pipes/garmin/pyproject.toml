@@ -8,7 +8,7 @@ dependencies = [
     "garminconnect>=0.2.40",
     "pendulum>=3.0.0",
     "shenas-pipe-core",
-    "shenas-schema-fitness-tracker",
+    "shenas-schema-fitness",
 ]
 
 [build-system]

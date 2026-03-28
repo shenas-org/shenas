@@ -4,10 +4,10 @@ BUMP = python scripts/bump-version.py
 
 .PHONY: repository build build-pipes build-schemas build-components vendor sign-all dev-install dev-uninstall setup-hooks lint test coverage
 
-build: build-schemas build-pipes build-components
-
 repository:
 	uv run python -m repository.main $(PACKAGES_DIR)
+
+build: build-schemas build-pipes build-components
 
 # Build pipe wheels into packages/ and sign them
 # Usage: make build-pipes              (all)

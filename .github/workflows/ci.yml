@@ -60,10 +60,10 @@ jobs:
       - run: uv sync --python ${{ matrix.python-version }}
       - name: Install pipe packages
         run: |
-          cp schemas/fitness_tracker/pyproject.build.toml schemas/fitness_tracker/pyproject.toml
+          cp schemas/fitness/pyproject.build.toml schemas/fitness/pyproject.toml
           cp schemas/finance/pyproject.build.toml schemas/finance/pyproject.toml
-          uv pip install schemas/core schemas/fitness_tracker schemas/finance pipes/core pipes/garmin pipes/lunchmoney
-          rm -f schemas/fitness_tracker/pyproject.toml schemas/finance/pyproject.toml
+          uv pip install schemas/core schemas/fitness schemas/finance pipes/core pipes/garmin pipes/lunchmoney
+          rm -f schemas/fitness/pyproject.toml schemas/finance/pyproject.toml
       - name: Test pipe core
         run: uv run --no-sync pytest pipes/core/tests/ --tb=short
       - name: Test pipe garmin
@@ -86,12 +86,12 @@ jobs:
       - run: uv sync --python ${{ matrix.python-version }}
       - name: Install schema packages
         run: |
-          cp schemas/fitness_tracker/pyproject.build.toml schemas/fitness_tracker/pyproject.toml
+          cp schemas/fitness/pyproject.build.toml schemas/fitness/pyproject.toml
           cp schemas/finance/pyproject.build.toml schemas/finance/pyproject.toml
-          uv pip install schemas/core schemas/fitness_tracker schemas/finance
-          rm -f schemas/fitness_tracker/pyproject.toml schemas/finance/pyproject.toml
-      - name: Test schema fitness_tracker
-        run: uv run --no-sync pytest schemas/fitness_tracker/tests/ --tb=short
+          uv pip install schemas/core schemas/fitness schemas/finance
+          rm -f schemas/fitness/pyproject.toml schemas/finance/pyproject.toml
+      - name: Test schema fitness
+        run: uv run --no-sync pytest schemas/fitness/tests/ --tb=short
       - name: Test schema finance
         run: uv run --no-sync pytest schemas/finance/tests/ --tb=short
 
@@ -107,10 +107,10 @@ jobs:
       - run: uv sync
       - name: Install all packages
         run: |
-          cp schemas/fitness_tracker/pyproject.build.toml schemas/fitness_tracker/pyproject.toml
+          cp schemas/fitness/pyproject.build.toml schemas/fitness/pyproject.toml
           cp schemas/finance/pyproject.build.toml schemas/finance/pyproject.toml
-          uv pip install schemas/core schemas/fitness_tracker schemas/finance pipes/core pipes/garmin pipes/lunchmoney
-          rm -f schemas/fitness_tracker/pyproject.toml schemas/finance/pyproject.toml
+          uv pip install schemas/core schemas/fitness schemas/finance pipes/core pipes/garmin pipes/lunchmoney
+          rm -f schemas/fitness/pyproject.toml schemas/finance/pyproject.toml
       - name: Run tests with coverage
         id: coverage
         run: |
