@@ -1,0 +1,11 @@
+.dlt/secrets.toml
+.dlt/garmin_tokens/
+data/
+.venv/
+__pycache__/
+*.pyc
+.shenas/
+packages/
+dist/
+node_modules/
+frontend_components/*/shenas_components/*/static/
