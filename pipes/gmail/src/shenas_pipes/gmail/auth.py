@@ -116,8 +116,17 @@ def authenticate(credentials: dict[str, str]) -> None:
     state: dict = {}
 
     def _run_flow() -> None:
+        import io
+        import sys
+
         try:
-            creds = flow.run_local_server(port=0, open_browser=False)
+            # Suppress "Please visit this URL..." from google_auth_oauthlib
+            old_stdout = sys.stdout
+            sys.stdout = io.StringIO()
+            try:
+                creds = flow.run_local_server(port=0, open_browser=False)
+            finally:
+                sys.stdout = old_stdout
             _store_token(creds)
         except Exception as exc:
             state["error"] = str(exc)
