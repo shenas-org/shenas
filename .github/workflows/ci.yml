@@ -19,8 +19,6 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
-      - name: Install all packages
-        run: make dev-install
       - name: Lint
         run: |
           uv run ruff check .
@@ -46,8 +44,6 @@ jobs:
           enable-cache: true
       - run: uv python install ${{ matrix.python-version }}
       - run: uv sync --python ${{ matrix.python-version }}
-      - name: Install all packages
-        run: make dev-install
       - name: Run Python tests
         run: uv run --no-sync pytest
       - name: Run component tests
@@ -74,8 +70,6 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
-      - name: Install all packages
-        run: make dev-install
       - name: Run tests with coverage
         id: coverage
         run: |

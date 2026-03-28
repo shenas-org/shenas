@@ -1,7 +1,7 @@
 PACKAGES_DIR := $(CURDIR)/packages
 SIGN = uv run --no-sync shenasrepoctl sign
 
-.PHONY: repository build build-pipes build-schemas build-components dev-install dev-uninstall setup-hooks coverage
+.PHONY: repository build build-pipes build-schemas build-components dev-uninstall setup-hooks coverage
 
 repository:
 	uv run python -m repository.main $(PACKAGES_DIR)
@@ -24,15 +24,9 @@ build-pipes:
 # Usage: make build-schemas                        (all)
 #        make build-schemas SCHEMA=fitness         (one)
 build-schemas:
-	@for schema in $(or $(SCHEMA),$(patsubst schemas/%/pyproject.build.toml,%,$(wildcard schemas/*/pyproject.build.toml)) $(patsubst schemas/%/pyproject.toml,%,$(filter-out schemas/core/pyproject.toml,$(wildcard schemas/*/pyproject.toml)))); do \
+	@for schema in $(or $(SCHEMA),$(patsubst schemas/%/pyproject.toml,%,$(wildcard schemas/*/pyproject.toml))); do \
 		echo "Building schema: $$schema"; \
-		if [ -f schemas/$$schema/pyproject.build.toml ] && [ ! -f schemas/$$schema/pyproject.toml ]; then \
-			cp schemas/$$schema/pyproject.build.toml schemas/$$schema/pyproject.toml; \
-			cd schemas/$$schema && uv build --out-dir $(PACKAGES_DIR) && cd $(CURDIR); \
-			rm schemas/$$schema/pyproject.toml; \
-		else \
-			cd schemas/$$schema && uv build --out-dir $(PACKAGES_DIR) && cd $(CURDIR); \
-		fi; \
+		cd schemas/$$schema && uv build --out-dir $(PACKAGES_DIR) && cd $(CURDIR); \
 		pkg=$$(echo $$schema | tr '-' '_'); \
 		for whl in $(PACKAGES_DIR)/shenas_schema_$${pkg}-*.whl; do \
 			if [ ! -f "$$whl.sig" ]; then $(SIGN) "$$whl"; fi; \
@@ -43,51 +37,16 @@ build-schemas:
 # Usage: make build-components                          (all)
 #        make build-components COMPONENT=data-table     (one)
 build-components:
-	@for comp in $(or $(COMPONENT),$(patsubst components/%/pyproject.build.toml,%,$(wildcard components/*/pyproject.build.toml))); do \
+	@for comp in $(or $(COMPONENT),$(patsubst components/%/pyproject.toml,%,$(wildcard components/*/pyproject.toml))); do \
 		pkg=$$(echo $$comp | tr '-' '_'); \
 		echo "Building component: $$comp"; \
 		cd components/$$comp && npm run build && cd $(CURDIR); \
 		cp components/$$comp/$$comp.html components/$$comp/shenas_components/$$pkg/static/$$comp.html; \
-		cp components/$$comp/pyproject.build.toml components/$$comp/pyproject.toml; \
 		cd components/$$comp && uv build --out-dir $(PACKAGES_DIR) && cd $(CURDIR); \
-		rm components/$$comp/pyproject.toml; \
 		for whl in $(PACKAGES_DIR)/shenas_component_$${pkg}-*.whl; do \
 			if [ ! -f "$$whl.sig" ]; then $(SIGN) "$$whl"; fi; \
 		done; \
 	done
-
-# Editable install of all local packages (source changes take effect immediately)
-# SETUPTOOLS_SCM_PRETEND_VERSION avoids local version identifiers (+gXXX)
-# that break cross-package dependency resolution during dev installs.
-# Schemas install with deps (they only depend on schema-core which is a workspace member).
-# Pipes and components use --no-deps since their shenas cross-deps (schemas) aren't on PyPI
-# but are already installed above. External deps (garminconnect etc) come from uv sync.
-dev-install:
-	@echo "Installing schemas..."
-	@for schema in $(patsubst schemas/%/pyproject.build.toml,%,$(wildcard schemas/*/pyproject.build.toml)); do \
-		if [ ! -f schemas/$$schema/pyproject.toml ]; then \
-			cp schemas/$$schema/pyproject.build.toml schemas/$$schema/pyproject.toml; \
-			SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install -e schemas/$$schema; \
-			rm schemas/$$schema/pyproject.toml; \
-		else \
-			SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install -e schemas/$$schema; \
-		fi; \
-	done
-	@echo "Installing pipes..."
-	@for pipe in $(patsubst pipes/%/pyproject.toml,%,$(wildcard pipes/*/pyproject.toml)); do \
-		SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install -e pipes/$$pipe; \
-	done
-	@echo "Installing components..."
-	@for comp in $(patsubst components/%/pyproject.build.toml,%,$(wildcard components/*/pyproject.build.toml)); do \
-		if [ ! -f components/$$comp/pyproject.toml ]; then \
-			cp components/$$comp/pyproject.build.toml components/$$comp/pyproject.toml; \
-			SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install --no-deps -e components/$$comp; \
-			rm components/$$comp/pyproject.toml; \
-		else \
-			SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install --no-deps -e components/$$comp; \
-		fi; \
-	done
-	@echo "Dev install complete."
 
 # Uninstall all dev-installed shenas packages
 dev-uninstall:

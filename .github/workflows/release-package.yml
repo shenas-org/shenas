@@ -57,15 +57,6 @@ jobs:
           echo "sign=$SIGN" >> "$GITHUB_OUTPUT"
           echo "Building $PREFIX v$VERSION from $DIR (sign=$SIGN)"
 
-      - name: Prepare build toml
-        shell: bash
-        run: |
-          DIR="${{ steps.parse.outputs.dir }}"
-          if [ -f "$DIR/pyproject.build.toml" ] && [ ! -f "$DIR/pyproject.toml" ]; then
-            cp "$DIR/pyproject.build.toml" "$DIR/pyproject.toml"
-            echo "CLEANUP_TOML=1" >> "$GITHUB_ENV"
-          fi
-
       - name: Build component frontend
         if: startsWith(steps.parse.outputs.prefix, 'component-')
         shell: bash
@@ -78,10 +69,6 @@ jobs:
 
       - name: Build wheel
         run: cd "${{ steps.parse.outputs.dir }}" && uv build --out-dir "$GITHUB_WORKSPACE/dist"
-
-      - name: Cleanup build toml
-        if: env.CLEANUP_TOML == '1'
-        run: rm "${{ steps.parse.outputs.dir }}/pyproject.toml"
 
       - name: Setup signing key
         if: steps.parse.outputs.sign == 'true'
