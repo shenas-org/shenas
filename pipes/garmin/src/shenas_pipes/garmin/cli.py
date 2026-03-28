@@ -74,9 +74,11 @@ def sync(
     resolved = resolve_start_date(start_date)
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+    from shenas_pipes.core.db import dlt_destination
+
     pipeline = dlt.pipeline(
         pipeline_name="garmin",
-        destination=dlt.destinations.duckdb(credentials=str(DB_PATH)),
+        destination=dlt_destination(),
         dataset_name="garmin",
     )
 

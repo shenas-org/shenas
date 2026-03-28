@@ -2,7 +2,7 @@ import dlt
 import typer
 
 from shenas_pipes.core.cli import console, create_pipe_app, run_sync
-from shenas_pipes.core.db import DB_PATH, connect
+from shenas_pipes.core.db import DB_PATH, connect, dlt_destination
 
 app = create_pipe_app("Lunch Money commands.")
 
@@ -57,7 +57,7 @@ def sync(
 
     pipeline = dlt.pipeline(
         pipeline_name="lunchmoney",
-        destination=dlt.destinations.duckdb(credentials=str(DB_PATH)),
+        destination=dlt_destination(),
         dataset_name="lunchmoney",
     )
 
