@@ -16,6 +16,7 @@ def _default(ctx: typer.Context) -> None:
             port=7280,
             cert_file=DEFAULT_CERT_DIR / "cert.pem",
             key_file=DEFAULT_CERT_DIR / "key.pem",
+            no_tls=False,
         )
 
 
@@ -25,9 +26,15 @@ def serve(
     port: int = typer.Option(7280, help="Bind port"),
     cert_file: Path = typer.Option(DEFAULT_CERT_DIR / "cert.pem", "--cert", help="TLS certificate file"),
     key_file: Path = typer.Option(DEFAULT_CERT_DIR / "key.pem", "--key", help="TLS private key file"),
+    no_tls: bool = typer.Option(False, "--no-tls", help="Run plain HTTP (for desktop app sidecar)"),
 ) -> None:
-    """Start the UI web server over HTTPS."""
+    """Start the UI web server."""
     from app.server import app as fastapi_app
+
+    if no_tls:
+        typer.echo(f"Starting HTTP server on http://{host}:{port}")
+        uvicorn.run(fastapi_app, host=host, port=port)
+        return
 
     if not cert_file.exists() or not key_file.exists():
         typer.echo("TLS certificate not found. Generate one with:\n\n  shenas generate-cert\n")
