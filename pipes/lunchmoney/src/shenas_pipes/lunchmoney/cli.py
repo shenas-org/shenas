@@ -2,7 +2,7 @@ import dlt
 import typer
 
 from shenas_pipes.core.cli import console, create_pipe_app, run_sync
-from shenas_pipes.core.db import DB_PATH, connect, dlt_destination
+from shenas_pipes.core.db import DB_PATH, connect
 
 app = create_pipe_app("Lunch Money commands.")
 
@@ -33,7 +33,8 @@ def sync(
     start_date: str = typer.Option("90 days ago", help="Initial fetch window. Use 'YYYY-MM-DD' or 'N days ago'."),
     full_refresh: bool = typer.Option(False, "--full-refresh", help="Drop all data and re-download from start_date."),
 ) -> None:
-    """Sync Lunch Money data into DuckDB. Only fetches new transactions on subsequent runs."""
+    """Sync Lunch Money data into DuckDB and transform into canonical metrics."""
+    from shenas_pipes.core.db import dlt_destination
     from shenas_pipes.core.utils import resolve_start_date
     from shenas_pipes.lunchmoney.auth import build_client
     from shenas_pipes.lunchmoney.source import (
@@ -73,27 +74,15 @@ def sync(
         plaid_accounts(client),
     ]
 
-    run_sync(pipeline, resources, full_refresh, _run_transform)
+    def _transform() -> None:
+        from shenas_pipes.lunchmoney.transform import LunchMoneyMetricProvider
+        from shenas_schemas.finance import ensure_schema
 
+        con = connect()
+        ensure_schema(con)
+        provider = LunchMoneyMetricProvider()
+        console.print("Transforming lunchmoney...", style="dim")
+        provider.transform(con)
+        console.print("[green]done[/green]")
 
-def _run_transform() -> None:
-    from shenas_pipes.lunchmoney.transform import LunchMoneyMetricProvider
-    from shenas_schemas.finance import ensure_schema
-
-    con = connect()
-    ensure_schema(con)
-
-    provider = LunchMoneyMetricProvider()
-    console.print("Transforming lunchmoney...", style="dim")
-    provider.transform(con)
-    console.print("[green]done[/green]")
-    con.close()
-
-
-@app.command()
-def transform() -> None:
-    """Transform raw Lunch Money data into canonical metrics tables."""
-    if not DB_PATH.exists():
-        console.print(f"[red]Database not found at {DB_PATH}. Run sync first.[/red]")
-        raise typer.Exit(code=1)
-    _run_transform()
+    run_sync(pipeline, resources, full_refresh, _transform)
