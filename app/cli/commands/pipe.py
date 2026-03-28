@@ -55,11 +55,14 @@ def _register_pipe_commands() -> None:
 
         has_sync = any(c["name"] == "sync" for c in commands)
         has_auth = any(c["name"] == "auth" for c in commands)
+        has_config = any(c["name"] == "config" for c in commands)
 
         if has_sync:
             _add_sync_command(pipe_app, name)
         if has_auth:
             _add_auth_command(pipe_app, name)
+        if has_config:
+            _add_config_command(pipe_app, name)
 
         app.add_typer(pipe_app, name=name)
 
@@ -130,6 +133,58 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
         else:
             console.print(f"[red]{result.get('error', 'Authentication failed')}[/red]")
             raise typer.Exit(code=1)
+
+
+def _add_config_command(pipe_app: typer.Typer, pipe_name: str) -> None:
+    @pipe_app.command("config")
+    def config(
+        key: str = typer.Argument(None, help="Config key to get/set"),
+        value: str = typer.Argument(None, help="Value to set (omit to get current value)"),
+    ) -> None:
+        """View or set config for this pipe."""
+        from rich.table import Table
+
+        client = ShenasClient()
+        kind = "pipe"
+
+        if key and value:
+            # Set a config value
+            try:
+                client.config_set(kind, pipe_name, key, value)
+            except ShenasServerError as exc:
+                console.print(f"[red]{exc.detail}[/red]")
+                raise typer.Exit(code=1)
+            console.print(f"[green]Set {kind} {pipe_name}.{key}[/green]")
+        elif key:
+            # Get a single value
+            try:
+                result = client.config_get(kind, pipe_name, key)
+            except ShenasServerError as exc:
+                if exc.status_code == 404:
+                    console.print(f"[dim]Not set: {pipe_name}.{key}[/dim]")
+                    raise typer.Exit(code=1)
+                console.print(f"[red]{exc.detail}[/red]")
+                raise typer.Exit(code=1)
+            console.print(result["value"])
+        else:
+            # List all config
+            try:
+                configs = client.config_list(kind=kind, name=pipe_name)
+            except ShenasServerError as exc:
+                console.print(f"[red]{exc.detail}[/red]")
+                raise typer.Exit(code=1)
+            if not configs:
+                console.print(f"[dim]No config for {pipe_name}[/dim]")
+                return
+            for cfg in configs:
+                table = Table(title=f"[bold]{pipe_name} config[/bold]", show_lines=False)
+                table.add_column("Key", style="green")
+                table.add_column("Value")
+                table.add_column("Description", style="dim")
+                for entry in cfg["entries"]:
+                    val = entry["value"] if entry["value"] is not None else "[dim]not set[/dim]"
+                    table.add_row(entry["key"], val, entry.get("description", ""))
+                console.print(table)
 
 
 # Try to register pipe subcommands from the server at import time.

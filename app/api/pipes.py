@@ -1,7 +1,9 @@
 """Pipe discovery API -- lists installed pipes and their commands."""
 
+import importlib
 import json
 import subprocess
+import sys
 
 from fastapi import APIRouter
 
@@ -11,25 +13,47 @@ router = APIRouter(prefix="/pipes", tags=["pipes"])
 
 PIPE_PREFIX = "shenas-pipe-"
 
-# Standard commands for pipes -- avoids needing to import and introspect the pipe module
-# (which fails for freshly installed pipes in a running process due to metadata caching).
-STANDARD_PIPE_COMMANDS = [
-    {
-        "name": "sync",
-        "options": [
-            {"name": "start_date", "default": "30 days ago", "help": "Start date (YYYY-MM-DD or 'N days ago')"},
-            {"name": "full_refresh", "default": False, "help": "Drop and re-download all data"},
-        ],
-    },
-    {"name": "auth", "options": []},
+SYNC_OPTIONS = [
+    {"name": "start_date", "default": "30 days ago", "help": "Start date (YYYY-MM-DD or 'N days ago')"},
+    {"name": "full_refresh", "default": False, "help": "Drop and re-download all data"},
 ]
+
+
+def _pipe_commands(name: str) -> list[dict]:
+    """Detect available commands for a pipe by inspecting its modules."""
+    commands = [{"name": "sync", "options": SYNC_OPTIONS}]
+
+    # Check if pipe has auth (AUTH_FIELDS in auth module)
+    try:
+        importlib.invalidate_caches()
+        for key in list(sys.modules):
+            if key.startswith(f"shenas_pipes.{name}"):
+                del sys.modules[key]
+        auth_mod = importlib.import_module(f"shenas_pipes.{name}.auth")
+        fields = getattr(auth_mod, "AUTH_FIELDS", None)
+        if fields is not None:
+            commands.append({"name": "auth", "options": []})
+    except (ImportError, ModuleNotFoundError):
+        pass
+
+    # Check if pipe has config (a config module with a dataclass)
+    try:
+        config_mod = importlib.import_module(f"shenas_pipes.{name}.config")
+        # Any class with __table__ is a config class
+        for attr_name in dir(config_mod):
+            cls = getattr(config_mod, attr_name)
+            if hasattr(cls, "__table__") and isinstance(cls.__table__, str):
+                commands.append({"name": "config", "options": []})
+                break
+    except (ImportError, ModuleNotFoundError):
+        pass
+
+    return commands
 
 
 @router.get("")
 def list_pipes() -> list[dict]:
     """List installed pipes with their available commands."""
-    import sys
-
     result = subprocess.run(
         ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
     )
@@ -42,5 +66,6 @@ def list_pipes() -> list[dict]:
         if p["name"].startswith(PIPE_PREFIX) and not p["name"].endswith("-core"):
             name = p["name"].removeprefix(PIPE_PREFIX)
             sig = check_signature(p["name"], p["version"])
-            pipes.append({"name": name, "version": p["version"], "signature": sig, "commands": STANDARD_PIPE_COMMANDS})
+            commands = _pipe_commands(name)
+            pipes.append({"name": name, "version": p["version"], "signature": sig, "commands": commands})
     return pipes
