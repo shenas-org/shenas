@@ -1,14 +1,14 @@
-"""Parse YouTube data from Takeout exports."""
+"""Parse YouTube data from Takeout exports (streaming)."""
 
 import csv
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 
-def parse_watch_history(files: list[Path]) -> list[dict[str, Any]]:
-    """Parse YouTube watch history from watch-history.json."""
-    items = []
+def parse_watch_history(files: list[Path]) -> Iterator[dict[str, Any]]:
+    """Yield YouTube watch history entries."""
     for f in files:
         if f.name != "watch-history.json":
             continue
@@ -19,23 +19,18 @@ def parse_watch_history(files: list[Path]) -> list[dict[str, Any]]:
             continue
 
         for entry in data:
-            items.append(
-                {
-                    "title": entry.get("title", ""),
-                    "title_url": entry.get("titleUrl", ""),
-                    "time": entry.get("time", ""),
-                    "channel_name": (entry.get("subtitles", [{}])[0].get("name", "") if entry.get("subtitles") else ""),
-                    "channel_url": (entry.get("subtitles", [{}])[0].get("url", "") if entry.get("subtitles") else ""),
-                    "product": entry.get("header", ""),
-                }
-            )
-
-    return items
+            yield {
+                "title": entry.get("title", ""),
+                "title_url": entry.get("titleUrl", ""),
+                "time": entry.get("time", ""),
+                "channel_name": (entry.get("subtitles", [{}])[0].get("name", "") if entry.get("subtitles") else ""),
+                "channel_url": (entry.get("subtitles", [{}])[0].get("url", "") if entry.get("subtitles") else ""),
+                "product": entry.get("header", ""),
+            }
 
 
-def parse_search_history(files: list[Path]) -> list[dict[str, Any]]:
-    """Parse YouTube search history from search-history.json."""
-    items = []
+def parse_search_history(files: list[Path]) -> Iterator[dict[str, Any]]:
+    """Yield YouTube search history entries."""
     for f in files:
         if f.name != "search-history.json":
             continue
@@ -46,21 +41,16 @@ def parse_search_history(files: list[Path]) -> list[dict[str, Any]]:
             continue
 
         for entry in data:
-            items.append(
-                {
-                    "title": entry.get("title", ""),
-                    "title_url": entry.get("titleUrl", ""),
-                    "time": entry.get("time", ""),
-                    "product": entry.get("header", ""),
-                }
-            )
-
-    return items
+            yield {
+                "title": entry.get("title", ""),
+                "title_url": entry.get("titleUrl", ""),
+                "time": entry.get("time", ""),
+                "product": entry.get("header", ""),
+            }
 
 
-def parse_subscriptions(files: list[Path]) -> list[dict[str, Any]]:
-    """Parse YouTube subscriptions from subscriptions.csv."""
-    items = []
+def parse_subscriptions(files: list[Path]) -> Iterator[dict[str, Any]]:
+    """Yield YouTube subscriptions from CSV."""
     for f in files:
         if f.name != "subscriptions.csv":
             continue
@@ -72,12 +62,8 @@ def parse_subscriptions(files: list[Path]) -> list[dict[str, Any]]:
 
         reader = csv.DictReader(text.splitlines())
         for row in reader:
-            items.append(
-                {
-                    "channel_id": row.get("Channel Id", row.get("channel_id", "")),
-                    "channel_url": row.get("Channel Url", row.get("channel_url", "")),
-                    "channel_title": row.get("Channel Title", row.get("channel_title", "")),
-                }
-            )
-
-    return items
+            yield {
+                "channel_id": row.get("Channel Id", row.get("channel_id", "")),
+                "channel_url": row.get("Channel Url", row.get("channel_url", "")),
+                "channel_title": row.get("Channel Title", row.get("channel_title", "")),
+            }

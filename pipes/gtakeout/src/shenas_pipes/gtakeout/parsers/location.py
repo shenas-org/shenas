@@ -1,41 +1,54 @@
-"""Parse Location History from Takeout exports."""
+"""Parse Location History from Takeout exports (streaming)."""
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+# Use ijson for streaming large JSON if available, fallback to stdlib json
+try:
+    import ijson  # type: ignore[import-untyped]
 
-def parse_location_records(files: list[Path]) -> list[dict[str, Any]]:
-    """Parse location records from Records.json."""
-    items = []
+    _HAS_IJSON = True
+except ImportError:
+    _HAS_IJSON = False
+
+
+def parse_location_records(files: list[Path]) -> Iterator[dict[str, Any]]:
+    """Yield location records from Records.json (streaming for large files)."""
     for f in files:
         if f.name != "Records.json":
             continue
 
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            continue
-
-        for loc in data.get("locations", []):
-            items.append(
-                {
-                    "timestamp": loc.get("timestamp", ""),
-                    "latitude": loc.get("latitudeE7", 0) / 1e7,
-                    "longitude": loc.get("longitudeE7", 0) / 1e7,
-                    "accuracy": loc.get("accuracy", 0),
-                    "altitude": loc.get("altitude", 0),
-                    "source": loc.get("source", ""),
-                    "device_tag": loc.get("deviceTag", ""),
-                }
-            )
-
-    return items
+        if _HAS_IJSON:
+            # Stream large files without loading into memory
+            with open(f, "rb") as fh:
+                for loc in ijson.items(fh, "locations.item"):
+                    yield _record_to_dict(loc)
+        else:
+            # Fallback: load entire file (works for smaller exports)
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                continue
+            for loc in data.get("locations", []):
+                yield _record_to_dict(loc)
 
 
-def parse_semantic_locations(files: list[Path]) -> list[dict[str, Any]]:
-    """Parse Semantic Location History (place visits and activity segments)."""
-    visits = []
+def _record_to_dict(loc: dict) -> dict[str, Any]:
+    return {
+        "timestamp": loc.get("timestamp", ""),
+        "latitude": loc.get("latitudeE7", 0) / 1e7,
+        "longitude": loc.get("longitudeE7", 0) / 1e7,
+        "accuracy": loc.get("accuracy", 0),
+        "altitude": loc.get("altitude", 0),
+        "source": loc.get("source", ""),
+        "device_tag": loc.get("deviceTag", ""),
+    }
+
+
+def parse_semantic_locations(files: list[Path]) -> Iterator[dict[str, Any]]:
+    """Yield semantic location visits/activities from monthly JSON files."""
     for f in files:
         if not f.name.endswith(".json"):
             continue
@@ -50,36 +63,30 @@ def parse_semantic_locations(files: list[Path]) -> list[dict[str, Any]]:
             if visit:
                 location = visit.get("location", {})
                 duration = visit.get("duration", {})
-                visits.append(
-                    {
-                        "type": "visit",
-                        "place_name": location.get("name", ""),
-                        "place_address": location.get("address", ""),
-                        "place_id": location.get("placeId", ""),
-                        "latitude": location.get("latitudeE7", 0) / 1e7,
-                        "longitude": location.get("longitudeE7", 0) / 1e7,
-                        "start_timestamp": duration.get("startTimestamp", ""),
-                        "end_timestamp": duration.get("endTimestamp", ""),
-                        "confidence": visit.get("placeConfidence", ""),
-                    }
-                )
+                yield {
+                    "type": "visit",
+                    "place_name": location.get("name", ""),
+                    "place_address": location.get("address", ""),
+                    "place_id": location.get("placeId", ""),
+                    "latitude": location.get("latitudeE7", 0) / 1e7,
+                    "longitude": location.get("longitudeE7", 0) / 1e7,
+                    "start_timestamp": duration.get("startTimestamp", ""),
+                    "end_timestamp": duration.get("endTimestamp", ""),
+                    "confidence": visit.get("placeConfidence", ""),
+                }
 
             segment = obj.get("activitySegment")
             if segment:
                 duration = segment.get("duration", {})
                 start_loc = segment.get("startLocation", {})
-                visits.append(
-                    {
-                        "type": "activity",
-                        "place_name": segment.get("activityType", ""),
-                        "place_address": "",
-                        "place_id": "",
-                        "latitude": start_loc.get("latitudeE7", 0) / 1e7,
-                        "longitude": start_loc.get("longitudeE7", 0) / 1e7,
-                        "start_timestamp": duration.get("startTimestamp", ""),
-                        "end_timestamp": duration.get("endTimestamp", ""),
-                        "confidence": segment.get("confidence", ""),
-                    }
-                )
-
-    return visits
+                yield {
+                    "type": "activity",
+                    "place_name": segment.get("activityType", ""),
+                    "place_address": "",
+                    "place_id": "",
+                    "latitude": start_loc.get("latitudeE7", 0) / 1e7,
+                    "longitude": start_loc.get("longitudeE7", 0) / 1e7,
+                    "start_timestamp": duration.get("startTimestamp", ""),
+                    "end_timestamp": duration.get("endTimestamp", ""),
+                    "confidence": segment.get("confidence", ""),
+                }

@@ -11,14 +11,14 @@ from shenas_pipes.gtakeout.parsers.photos import parse_photos_metadata
 from shenas_pipes.gtakeout.parsers.youtube import parse_search_history, parse_subscriptions, parse_watch_history
 
 
-@dlt.resource(write_disposition="merge", primary_key="title")
+@dlt.resource(write_disposition="merge", primary_key=["title", "photo_taken_timestamp"])
 def photos_metadata(extract_dir: Path) -> Any:
     """Yield photo/video metadata from Google Photos Takeout."""
     files = iter_files(extract_dir, "Google Photos")
     yield from parse_photos_metadata(files)
 
 
-@dlt.resource(write_disposition="append")
+@dlt.resource(write_disposition="merge", primary_key=["timestamp", "latitude", "longitude"])
 def location_records(extract_dir: Path) -> Any:
     """Yield raw location records from Location History."""
     files = iter_files(extract_dir, "Location History (Timeline)")
@@ -27,7 +27,7 @@ def location_records(extract_dir: Path) -> Any:
     yield from parse_location_records(files)
 
 
-@dlt.resource(write_disposition="append")
+@dlt.resource(write_disposition="merge", primary_key=["start_timestamp", "place_name", "type"])
 def location_visits(extract_dir: Path) -> Any:
     """Yield semantic location visits/activities."""
     files = iter_files(extract_dir, "Location History (Timeline)/Semantic Location History")
@@ -36,14 +36,14 @@ def location_visits(extract_dir: Path) -> Any:
     yield from parse_semantic_locations(files)
 
 
-@dlt.resource(write_disposition="append")
+@dlt.resource(write_disposition="merge", primary_key=["title_url", "time"])
 def youtube_watch_history(extract_dir: Path) -> Any:
     """Yield YouTube watch history."""
     files = iter_files(extract_dir, "YouTube and YouTube Music/history")
     yield from parse_watch_history(files)
 
 
-@dlt.resource(write_disposition="append")
+@dlt.resource(write_disposition="merge", primary_key=["title", "time"])
 def youtube_search_history(extract_dir: Path) -> Any:
     """Yield YouTube search history."""
     files = iter_files(extract_dir, "YouTube and YouTube Music/history")

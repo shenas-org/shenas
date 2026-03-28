@@ -31,7 +31,7 @@ class TestPhotosParser:
             )
         )
 
-        result = parse_photos_metadata([f])
+        result = list(parse_photos_metadata([f]))
         assert len(result) == 1
         assert result[0]["title"] == "IMG_001.jpg"
         assert result[0]["latitude"] == 59.33
@@ -40,12 +40,12 @@ class TestPhotosParser:
     def test_skips_album_metadata(self, tmp: Path) -> None:
         f = tmp / "metadata.json"
         f.write_text(json.dumps({"title": "Album", "description": ""}))
-        assert parse_photos_metadata([f]) == []
+        assert list(parse_photos_metadata([f])) == []
 
     def test_skips_non_photo_json(self, tmp: Path) -> None:
         f = tmp / "random.json"
         f.write_text(json.dumps({"unrelated": True}))
-        assert parse_photos_metadata([f]) == []
+        assert list(parse_photos_metadata([f])) == []
 
 
 class TestLocationParser:
@@ -66,7 +66,7 @@ class TestLocationParser:
             )
         )
 
-        result = parse_location_records([f])
+        result = list(parse_location_records([f]))
         assert len(result) == 1
         assert abs(result[0]["latitude"] - 59.33) < 0.001
         assert abs(result[0]["longitude"] - 18.07) < 0.001
@@ -89,7 +89,7 @@ class TestLocationParser:
             )
         )
 
-        result = parse_semantic_locations([f])
+        result = list(parse_semantic_locations([f]))
         assert len(result) == 1
         assert result[0]["type"] == "visit"
         assert result[0]["place_name"] == "Office"
@@ -112,7 +112,7 @@ class TestYouTubeParser:
             )
         )
 
-        result = parse_watch_history([f])
+        result = list(parse_watch_history([f]))
         assert len(result) == 1
         assert result[0]["title"] == "Watched a video"
         assert result[0]["channel_name"] == "Channel Name"
@@ -131,7 +131,7 @@ class TestYouTubeParser:
             )
         )
 
-        result = parse_search_history([f])
+        result = list(parse_search_history([f]))
         assert len(result) == 1
         assert "python" in result[0]["title"]
 
@@ -139,7 +139,7 @@ class TestYouTubeParser:
         f = tmp / "subscriptions.csv"
         f.write_text("Channel Id,Channel Url,Channel Title\nUC123,https://youtube.com/c/test,Test Channel\n")
 
-        result = parse_subscriptions([f])
+        result = list(parse_subscriptions([f]))
         assert len(result) == 1
         assert result[0]["channel_id"] == "UC123"
         assert result[0]["channel_title"] == "Test Channel"
