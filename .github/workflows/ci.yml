@@ -20,9 +20,9 @@ jobs:
         run: make dev-install
       - name: Lint
         run: |
-          uv run --no-sync ruff check .
-          uv run --no-sync ruff format --check .
-          uv run --no-sync ty check cli/ repository/ app/
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run ty check cli/ repository/ app/
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -43,7 +43,7 @@ jobs:
       - name: Install all packages
         run: make dev-install
       - name: Run Python tests
-        run: uv run --no-sync pytest
+        run: uv run pytest
       - name: Run component tests
         run: |
           for comp in components/*/package.json; do
