@@ -1,0 +1,112 @@
+name: Release Package
+
+on:
+  push:
+    tags:
+      - 'pipe-*/v*'
+      - 'schema-*/v*'
+      - 'component-*/v*'
+      - 'repository/v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and sign wheel
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv sync
+      - run: make dev-install
+
+      - name: Parse tag
+        id: parse
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG##*/v}"
+          PREFIX="${TAG%/v*}"
+
+          # Map tag prefix to directory
+          SIGN=false
+          case "$PREFIX" in
+            pipe-*)      NAME="${PREFIX#pipe-}"; DIR="pipes/$NAME"; SIGN=true ;;
+            schema-*)    NAME="${PREFIX#schema-}"; DIR="schemas/$NAME"; SIGN=true ;;
+            component-*) NAME="${PREFIX#component-}"; DIR="components/$NAME"; SIGN=true ;;
+            cli)         NAME="cli"; DIR="cli" ;;
+            app)         NAME="app"; DIR="app" ;;
+            repository)  NAME="repository"; DIR="repository" ;;
+            *)           echo "Unknown tag prefix: $PREFIX"; exit 1 ;;
+          esac
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "prefix=$PREFIX" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+          echo "sign=$SIGN" >> "$GITHUB_OUTPUT"
+          echo "Building $PREFIX v$VERSION from $DIR (sign=$SIGN)"
+
+      - name: Set version
+        run: echo "${{ steps.parse.outputs.version }}" > "${{ steps.parse.outputs.dir }}/VERSION"
+
+      - name: Prepare build toml
+        shell: bash
+        run: |
+          DIR="${{ steps.parse.outputs.dir }}"
+          if [ -f "$DIR/pyproject.build.toml" ] && [ ! -f "$DIR/pyproject.toml" ]; then
+            cp "$DIR/pyproject.build.toml" "$DIR/pyproject.toml"
+            echo "CLEANUP_TOML=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build component frontend
+        if: startsWith(steps.parse.outputs.prefix, 'component-')
+        shell: bash
+        run: |
+          DIR="${{ steps.parse.outputs.dir }}"
+          NAME="${{ steps.parse.outputs.name }}"
+          PKG=$(echo "$NAME" | tr '-' '_')
+          cd "$DIR" && npm install && npm run build && cd -
+          cp "$DIR/$NAME.html" "$DIR/shenas_components/$PKG/static/$NAME.html"
+
+      - name: Build wheel
+        run: cd "${{ steps.parse.outputs.dir }}" && uv build --out-dir "$GITHUB_WORKSPACE/dist"
+
+      - name: Cleanup build toml
+        if: env.CLEANUP_TOML == '1'
+        run: rm "${{ steps.parse.outputs.dir }}/pyproject.toml"
+
+      - name: Setup signing key
+        if: steps.parse.outputs.sign == 'true'
+        run: |
+          mkdir -p .shenas
+          echo "${{ secrets.SHENAS_SIGNING_KEY }}" | base64 -d > .shenas/shenas.key
+          chmod 600 .shenas/shenas.key
+
+      - name: Sign wheel
+        if: steps.parse.outputs.sign == 'true'
+        run: |
+          for whl in dist/*.whl; do
+            uv run --no-sync shenasrepoctl sign "$whl"
+          done
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "${{ steps.parse.outputs.prefix }} v${{ steps.parse.outputs.version }}"
+          files: |
+            dist/*.whl
+            dist/*.whl.sig
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

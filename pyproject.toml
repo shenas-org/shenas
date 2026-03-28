@@ -20,6 +20,7 @@ shenas-schema-core = { workspace = true }
 [dependency-groups]
 dev = [
     "shenas-cli",
+    "shenas-app",
     "commitizen>=4.13.9",
     "httpx>=0.28.1",
     "pytest>=9.0.2",
@@ -35,6 +36,7 @@ pythonpath = ["."]
 
 [tool.ruff]
 line-length = 127
+extend-exclude = ["app/desktop/src-tauri/target"]
 
 [tool.commitizen]
 version_provider = "uv"
