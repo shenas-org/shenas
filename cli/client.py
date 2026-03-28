@@ -48,22 +48,21 @@ class ShenasClient:
         import json
 
         try:
-            stream = self._client.stream(method, path, timeout=600.0, **kwargs)
+            with self._client.stream(method, path, timeout=600.0, **kwargs) as resp:
+                if resp.status_code >= 400:
+                    resp.read()
+                    raise ShenasServerError(resp.status_code, resp.text)
+                event_type = "message"
+                for line in resp.iter_lines():
+                    if line.startswith("event:"):
+                        event_type = line[6:].strip()
+                    elif line.startswith("data:"):
+                        data = json.loads(line[5:].strip())
+                        data["_event"] = event_type
+                        yield data
+                        event_type = "message"
         except (httpx.ConnectError, httpx.ConnectTimeout):
             raise _connect_error(self.base_url)
-        with stream as resp:
-            if resp.status_code >= 400:
-                resp.read()
-                raise ShenasServerError(resp.status_code, resp.text)
-            event_type = "message"
-            for line in resp.iter_lines():
-                if line.startswith("event:"):
-                    event_type = line[6:].strip()
-                elif line.startswith("data:"):
-                    data = json.loads(line[5:].strip())
-                    data["_event"] = event_type
-                    yield data
-                    event_type = "message"
 
     def is_server_running(self) -> bool:
         try:
