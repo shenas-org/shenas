@@ -1,11 +1,4 @@
 import { tableFromIPC } from "apache-arrow";
-import {
-  createTable,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-} from "@tanstack/table-core";
 import { LitElement, html, css } from "lit";
 
 export class ShenasDataTable extends LitElement {
@@ -16,13 +9,13 @@ export class ShenasDataTable extends LitElement {
     _selectedTable: { state: true },
     _columns: { state: true },
     _data: { state: true },
-    _sorting: { state: true },
-    _columnFilters: { state: true },
-    _pagination: { state: true },
-    _columnSizing: { state: true },
+    _sortCol: { state: true },
+    _sortDesc: { state: true },
+    _filters: { state: true },
+    _page: { state: true },
+    _colWidths: { state: true },
     _loading: { state: true },
     _error: { state: true },
-    _resizing: { state: true },
   };
 
   static styles = css`
@@ -49,22 +42,19 @@ export class ShenasDataTable extends LitElement {
       color: #333;
       white-space: nowrap;
       overflow: hidden;
+      cursor: pointer;
       user-select: none;
     }
-    th.sortable { cursor: pointer; }
-    th.sortable:hover { background: #eee; }
+    th:hover { background: #eee; }
     .sort-indicator { margin-left: 4px; color: #999; }
     .resize-handle {
       position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
+      right: 0; top: 0; bottom: 0;
       width: 4px;
       cursor: col-resize;
-      background: transparent;
     }
-    .resize-handle:hover, .resize-handle.active { background: #4a90d9; }
-    .filter-row th { padding: 4px 8px; background: #fafafa; border-bottom: 1px solid #eee; }
+    .resize-handle:hover { background: #4a90d9; }
+    .filter-row th { padding: 4px 8px; background: #fafafa; border-bottom: 1px solid #eee; cursor: default; }
     .filter-row input { width: 100%; box-sizing: border-box; padding: 4px 6px; font-size: 12px; }
     td { padding: 6px 12px; border-bottom: 1px solid #f0f0f0; color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     tr:hover td { background: #f8f8ff; }
@@ -85,18 +75,17 @@ export class ShenasDataTable extends LitElement {
     this._selectedTable = "";
     this._columns = [];
     this._data = [];
-    this._sorting = [];
-    this._columnFilters = [];
-    this._pagination = { pageIndex: 0, pageSize: 25 };
-    this._columnSizing = {};
+    this._sortCol = null;
+    this._sortDesc = false;
+    this._filters = {};
+    this._page = 0;
+    this._colWidths = {};
     this._loading = false;
     this._error = null;
-    this._resizing = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
-    this._pagination = { pageIndex: 0, pageSize: this.pageSize };
     this._fetchTables();
   }
 
@@ -123,66 +112,78 @@ export class ShenasDataTable extends LitElement {
       const buf = await res.arrayBuffer();
       const table = tableFromIPC(buf);
 
-      this._columns = table.schema.fields.map((f) => ({
-        id: f.name,
-        accessorKey: f.name,
-        header: f.name,
-        size: this._columnSizing[f.name] || 150,
-      }));
+      this._columns = table.schema.fields.map((f) => f.name);
 
       const rows = [];
       for (let i = 0; i < table.numRows; i++) {
         const row = {};
-        for (const field of table.schema.fields) {
-          const val = table.getChild(field.name).get(i);
-          row[field.name] = val;
+        for (const col of this._columns) {
+          row[col] = table.getChild(col).get(i);
         }
         rows.push(row);
       }
       this._data = rows;
-      this._pagination = { ...this._pagination, pageIndex: 0 };
+      this._page = 0;
+      this._filters = {};
+      this._sortCol = null;
     } catch (e) {
       this._error = e.message;
     }
     this._loading = false;
   }
 
-  _getTable() {
-    const self = this;
-    return createTable({
-      state: {
-        sorting: this._sorting,
-        columnFilters: this._columnFilters,
-        pagination: this._pagination,
-        columnSizing: this._columnSizing,
-      },
-      data: this._data,
-      columns: this._columns,
-      getCoreRowModel: getCoreRowModel(),
-      getSortedRowModel: getSortedRowModel(),
-      getFilteredRowModel: getFilteredRowModel(),
-      getPaginationRowModel: getPaginationRowModel(),
-      onSortingChange: (updater) => {
-        self._sorting = typeof updater === "function" ? updater(self._sorting) : updater;
-      },
-      onColumnFiltersChange: (updater) => {
-        self._columnFilters = typeof updater === "function" ? updater(self._columnFilters) : updater;
-      },
-      onPaginationChange: (updater) => {
-        self._pagination = typeof updater === "function" ? updater(self._pagination) : updater;
-      },
-      onColumnSizingChange: (updater) => {
-        self._columnSizing = typeof updater === "function" ? updater(self._columnSizing) : updater;
-      },
+  get _filteredData() {
+    return this._data.filter((row) =>
+      Object.entries(this._filters).every(([col, val]) => {
+        if (!val) return true;
+        const cell = row[col];
+        return cell != null && String(cell).toLowerCase().includes(val.toLowerCase());
+      })
+    );
+  }
+
+  get _sortedData() {
+    const data = [...this._filteredData];
+    if (!this._sortCol) return data;
+    const col = this._sortCol;
+    const desc = this._sortDesc;
+    return data.sort((a, b) => {
+      const va = a[col], vb = b[col];
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (va < vb) return desc ? 1 : -1;
+      if (va > vb) return desc ? -1 : 1;
+      return 0;
     });
+  }
+
+  get _pagedData() {
+    const start = this._page * this.pageSize;
+    return this._sortedData.slice(start, start + this.pageSize);
+  }
+
+  get _pageCount() {
+    return Math.max(1, Math.ceil(this._sortedData.length / this.pageSize));
   }
 
   _onTableChange(e) {
     this._selectedTable = e.target.value;
-    this._sorting = [];
-    this._columnFilters = [];
-    this._columnSizing = {};
     this._fetchData();
+  }
+
+  _onSort(col) {
+    if (this._sortCol === col) {
+      this._sortDesc = !this._sortDesc;
+    } else {
+      this._sortCol = col;
+      this._sortDesc = false;
+    }
+  }
+
+  _onFilter(col, value) {
+    this._filters = { ...this._filters, [col]: value };
+    this._page = 0;
   }
 
   _formatCell(value) {
@@ -192,21 +193,18 @@ export class ShenasDataTable extends LitElement {
     return String(value);
   }
 
-  _onResizeStart(e, headerId) {
+  _onResizeStart(e, col) {
     e.preventDefault();
+    e.stopPropagation();
     const startX = e.clientX;
-    const startWidth = this._columnSizing[headerId] || 150;
-
+    const startWidth = this._colWidths[col] || 150;
     const onMove = (ev) => {
-      const diff = ev.clientX - startX;
-      this._columnSizing = { ...this._columnSizing, [headerId]: Math.max(50, startWidth + diff) };
+      this._colWidths = { ...this._colWidths, [col]: Math.max(50, startWidth + ev.clientX - startX) };
     };
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
-      this._resizing = null;
     };
-    this._resizing = headerId;
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }
@@ -220,10 +218,7 @@ export class ShenasDataTable extends LitElement {
         <select @change=${this._onTableChange}>
           ${this._tables.map(
             (t) => html`
-              <option
-                value="${t.schema}.${t.table}"
-                ?selected=${`${t.schema}.${t.table}` === this._selectedTable}
-              >
+              <option value="${t.schema}.${t.table}" ?selected=${`${t.schema}.${t.table}` === this._selectedTable}>
                 ${t.schema}.${t.table}
               </option>
             `
@@ -235,62 +230,47 @@ export class ShenasDataTable extends LitElement {
     if (this._loading) return html`${tableSelector}<div class="loading">Loading...</div>`;
     if (this._data.length === 0) return html`${tableSelector}<div class="loading">No data</div>`;
 
-    const table = this._getTable();
-    const headerGroups = table.getHeaderGroups();
-    const rows = table.getRowModel().rows;
+    const rows = this._pagedData;
 
     return html`
       ${tableSelector}
       <div class="table-wrap">
         <table>
           <thead>
-            ${headerGroups.map(
-              (hg) => html`
-                <tr>
-                  ${hg.headers.map(
-                    (header) => html`
-                      <th
-                        class=${header.column.getCanSort() ? "sortable" : ""}
-                        style="width: ${header.getSize()}px"
-                        @click=${() => header.column.getCanSort() && header.column.toggleSorting()}
-                      >
-                        ${header.column.columnDef.header}
-                        ${header.column.getIsSorted() === "asc"
-                          ? html`<span class="sort-indicator">^</span>`
-                          : header.column.getIsSorted() === "desc"
-                            ? html`<span class="sort-indicator">v</span>`
-                            : ""}
-                        <div
-                          class="resize-handle ${this._resizing === header.id ? "active" : ""}"
-                          @mousedown=${(e) => this._onResizeStart(e, header.id)}
-                        ></div>
-                      </th>
-                    `
-                  )}
-                </tr>
-                <tr class="filter-row">
-                  ${hg.headers.map(
-                    (header) => html`
-                      <th>
-                        <input
-                          type="text"
-                          placeholder="Filter..."
-                          .value=${header.column.getFilterValue() ?? ""}
-                          @input=${(e) => header.column.setFilterValue(e.target.value || undefined)}
-                        />
-                      </th>
-                    `
-                  )}
-                </tr>
-              `
-            )}
+            <tr>
+              ${this._columns.map(
+                (col) => html`
+                  <th style="width:${this._colWidths[col] || 150}px" @click=${() => this._onSort(col)}>
+                    ${col}
+                    ${this._sortCol === col
+                      ? html`<span class="sort-indicator">${this._sortDesc ? "v" : "^"}</span>`
+                      : ""}
+                    <div class="resize-handle" @mousedown=${(e) => this._onResizeStart(e, col)}></div>
+                  </th>
+                `
+              )}
+            </tr>
+            <tr class="filter-row">
+              ${this._columns.map(
+                (col) => html`
+                  <th>
+                    <input
+                      type="text"
+                      placeholder="Filter..."
+                      .value=${this._filters[col] || ""}
+                      @input=${(e) => this._onFilter(col, e.target.value)}
+                    />
+                  </th>
+                `
+              )}
+            </tr>
           </thead>
           <tbody>
             ${rows.map(
               (row) => html`
                 <tr>
-                  ${row.getVisibleCells().map(
-                    (cell) => html`<td style="width: ${cell.column.getSize()}px">${this._formatCell(cell.getValue())}</td>`
+                  ${this._columns.map(
+                    (col) => html`<td style="width:${this._colWidths[col] || 150}px">${this._formatCell(row[col])}</td>`
                   )}
                 </tr>
               `
@@ -299,12 +279,12 @@ export class ShenasDataTable extends LitElement {
         </table>
       </div>
       <div class="pagination">
-        <button ?disabled=${!table.getCanPreviousPage()} @click=${() => table.previousPage()}>Previous</button>
+        <button ?disabled=${this._page === 0} @click=${() => this._page--}>Previous</button>
         <span class="page-info">
-          Page ${table.getState().pagination.pageIndex + 1} of ${table.getPageCount()}
-          (${table.getFilteredRowModel().rows.length} rows)
+          Page ${this._page + 1} of ${this._pageCount}
+          (${this._sortedData.length} rows)
         </span>
-        <button ?disabled=${!table.getCanNextPage()} @click=${() => table.nextPage()}>Next</button>
+        <button ?disabled=${this._page >= this._pageCount - 1} @click=${() => this._page++}>Next</button>
       </div>
     `;
   }

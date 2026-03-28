@@ -1,14 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { tableFromArrays } from "apache-arrow";
-import {
-  createTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-} from "@tanstack/table-core";
-
-// Test TanStack Table logic independently of Lit rendering
 
 function makeTestData() {
   return [
@@ -20,114 +11,116 @@ function makeTestData() {
   ];
 }
 
-function makeColumns() {
-  return [
-    { id: "date", accessorKey: "date", header: "date" },
-    { id: "mood", accessorKey: "mood", header: "mood" },
-    { id: "stress", accessorKey: "stress", header: "stress" },
-    { id: "exercise", accessorKey: "exercise", header: "exercise" },
-  ];
+// Test the sorting/filtering/pagination logic used by the component
+
+function filterData(data, filters) {
+  return data.filter((row) =>
+    Object.entries(filters).every(([col, val]) => {
+      if (!val) return true;
+      const cell = row[col];
+      return cell != null && String(cell).toLowerCase().includes(val.toLowerCase());
+    })
+  );
 }
 
-function makeTable(overrides = {}) {
-  let sorting = [];
-  let columnFilters = [];
-  let pagination = { pageIndex: 0, pageSize: 3 };
-
-  return createTable({
-    state: { sorting, columnFilters, pagination, ...overrides.state },
-    data: overrides.data || makeTestData(),
-    columns: overrides.columns || makeColumns(),
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: (updater) => {
-      sorting = typeof updater === "function" ? updater(sorting) : updater;
-    },
-    onColumnFiltersChange: (updater) => {
-      columnFilters = typeof updater === "function" ? updater(columnFilters) : updater;
-    },
-    onPaginationChange: (updater) => {
-      pagination = typeof updater === "function" ? updater(pagination) : updater;
-    },
+function sortData(data, sortCol, sortDesc) {
+  if (!sortCol) return data;
+  return [...data].sort((a, b) => {
+    const va = a[sortCol], vb = b[sortCol];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (va < vb) return sortDesc ? 1 : -1;
+    if (va > vb) return sortDesc ? -1 : 1;
+    return 0;
   });
 }
 
-describe("TanStack Table core", () => {
-  it("creates a table with correct row count", () => {
-    const table = makeTable();
-    expect(table.getCoreRowModel().rows.length).toBe(5);
-  });
+function pageData(data, page, pageSize) {
+  return data.slice(page * pageSize, (page + 1) * pageSize);
+}
 
-  it("paginates correctly", () => {
-    const table = makeTable();
-    const rows = table.getRowModel().rows;
-    expect(rows.length).toBe(3); // pageSize = 3
-    expect(table.getPageCount()).toBe(2);
-  });
-
+describe("Sorting", () => {
   it("sorts ascending by mood", () => {
-    const table = makeTable({
-      state: { sorting: [{ id: "mood", desc: false }], columnFilters: [], pagination: { pageIndex: 0, pageSize: 10 } },
-    });
-    const moods = table.getRowModel().rows.map((r) => r.getValue("mood"));
-    expect(moods).toEqual([4, 5, 7, 8, 9]);
+    const sorted = sortData(makeTestData(), "mood", false);
+    expect(sorted.map((r) => r.mood)).toEqual([4, 5, 7, 8, 9]);
   });
 
   it("sorts descending by stress", () => {
-    const table = makeTable({
-      state: { sorting: [{ id: "stress", desc: true }], columnFilters: [], pagination: { pageIndex: 0, pageSize: 10 } },
-    });
-    const stresses = table.getRowModel().rows.map((r) => r.getValue("stress"));
-    expect(stresses).toEqual([8, 6, 3, 2, 1]);
+    const sorted = sortData(makeTestData(), "stress", true);
+    expect(sorted.map((r) => r.stress)).toEqual([8, 6, 3, 2, 1]);
   });
 
-  it("filters by column value", () => {
-    const table = makeTable({
-      state: {
-        sorting: [],
-        columnFilters: [{ id: "exercise", value: "1" }],
-        pagination: { pageIndex: 0, pageSize: 10 },
-      },
-    });
-    const rows = table.getFilteredRowModel().rows;
-    expect(rows.length).toBe(3);
-    rows.forEach((r) => expect(String(r.getValue("exercise"))).toContain("1"));
+  it("returns unsorted when no sort column", () => {
+    const data = makeTestData();
+    const sorted = sortData(data, null, false);
+    expect(sorted.map((r) => r.mood)).toEqual([7, 5, 8, 4, 9]);
   });
 
-  it("returns correct page count with filter", () => {
-    const table = makeTable({
-      state: {
-        sorting: [],
-        columnFilters: [{ id: "exercise", value: "1" }],
-        pagination: { pageIndex: 0, pageSize: 2 },
-      },
-    });
-    expect(table.getPageCount()).toBe(2); // 3 filtered rows / pageSize 2
+  it("handles null values", () => {
+    const data = [{ v: null }, { v: 2 }, { v: 1 }];
+    const sorted = sortData(data, "v", false);
+    expect(sorted.map((r) => r.v)).toEqual([1, 2, null]);
+  });
+});
+
+describe("Filtering", () => {
+  it("filters by string match", () => {
+    const data = makeTestData();
+    const filtered = filterData(data, { date: "03-17" });
+    expect(filtered.length).toBe(1);
+    expect(filtered[0].date).toBe("2026-03-17");
+  });
+
+  it("filters by number as string", () => {
+    const filtered = filterData(makeTestData(), { exercise: "1" });
+    expect(filtered.length).toBe(3);
+  });
+
+  it("returns all with empty filter", () => {
+    const filtered = filterData(makeTestData(), { mood: "" });
+    expect(filtered.length).toBe(5);
+  });
+
+  it("is case insensitive", () => {
+    const data = [{ name: "Alice" }, { name: "Bob" }];
+    const filtered = filterData(data, { name: "alice" });
+    expect(filtered.length).toBe(1);
+  });
+});
+
+describe("Pagination", () => {
+  it("returns first page", () => {
+    const paged = pageData(makeTestData(), 0, 3);
+    expect(paged.length).toBe(3);
+    expect(paged[0].mood).toBe(7);
+  });
+
+  it("returns second page", () => {
+    const paged = pageData(makeTestData(), 1, 3);
+    expect(paged.length).toBe(2);
+    expect(paged[0].mood).toBe(4);
+  });
+
+  it("returns empty for out of range page", () => {
+    const paged = pageData(makeTestData(), 10, 3);
+    expect(paged.length).toBe(0);
   });
 });
 
 describe("Arrow IPC parsing", () => {
   it("converts arrow table to column names", () => {
-    const arrowTable = tableFromArrays({
-      date: ["2026-03-15", "2026-03-16"],
-      mood: [7, 5],
-    });
-    const columns = arrowTable.schema.fields.map((f) => f.name);
-    expect(columns).toEqual(["date", "mood"]);
+    const table = tableFromArrays({ date: ["2026-03-15"], mood: [7] });
+    expect(table.schema.fields.map((f) => f.name)).toEqual(["date", "mood"]);
   });
 
   it("converts arrow table to row objects", () => {
-    const arrowTable = tableFromArrays({
-      date: ["2026-03-15"],
-      mood: [7],
-    });
+    const table = tableFromArrays({ date: ["2026-03-15"], mood: [7] });
     const rows = [];
-    for (let i = 0; i < arrowTable.numRows; i++) {
+    for (let i = 0; i < table.numRows; i++) {
       const row = {};
-      for (const field of arrowTable.schema.fields) {
-        row[field.name] = arrowTable.getChild(field.name).get(i);
+      for (const field of table.schema.fields) {
+        row[field.name] = table.getChild(field.name).get(i);
       }
       rows.push(row);
     }
@@ -136,7 +129,6 @@ describe("Arrow IPC parsing", () => {
 });
 
 describe("Cell formatting", () => {
-  // Test the formatting logic used by the component
   function formatCell(value) {
     if (value == null) return "";
     if (value instanceof Date) return value.toISOString().slice(0, 10);
@@ -144,24 +136,8 @@ describe("Cell formatting", () => {
     return String(value);
   }
 
-  it("formats null as empty string", () => {
-    expect(formatCell(null)).toBe("");
-    expect(formatCell(undefined)).toBe("");
-  });
-
-  it("formats numbers", () => {
-    expect(formatCell(42)).toBe("42");
-  });
-
-  it("formats strings", () => {
-    expect(formatCell("hello")).toBe("hello");
-  });
-
-  it("formats bigint", () => {
-    expect(formatCell(42n)).toBe("42");
-  });
-
-  it("formats dates", () => {
-    expect(formatCell(new Date("2026-03-15T00:00:00Z"))).toBe("2026-03-15");
-  });
+  it("formats null as empty", () => { expect(formatCell(null)).toBe(""); });
+  it("formats numbers", () => { expect(formatCell(42)).toBe("42"); });
+  it("formats bigint", () => { expect(formatCell(42n)).toBe("42"); });
+  it("formats dates", () => { expect(formatCell(new Date("2026-03-15T00:00:00Z"))).toBe("2026-03-15"); });
 });
