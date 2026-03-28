@@ -9,6 +9,11 @@ from garminconnect import Garmin
 KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "garmin_tokens"
 
+AUTH_FIELDS = [
+    {"name": "email", "prompt": "Email", "hide": False},
+    {"name": "password", "prompt": "Password", "hide": True},
+]
+
 
 def _get_stored_tokens() -> dict | None:
     """Read serialized garth tokens from OS keyring."""

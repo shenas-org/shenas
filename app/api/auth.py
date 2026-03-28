@@ -61,6 +61,16 @@ def _complete_mfa(pipe_name: str, mod: object, mfa_code: str) -> dict:
         return {"ok": False, "error": str(exc)}
 
 
+@router.get("/{pipe_name}/fields")
+def auth_fields(pipe_name: str) -> list[dict]:
+    """Get the credential fields needed for a pipe's auth flow."""
+    try:
+        mod = _load_auth_module(pipe_name)
+    except ModuleNotFoundError:
+        return []
+    return getattr(mod, "AUTH_FIELDS", [])
+
+
 def _load_auth_module(pipe_name: str) -> object:
     importlib.invalidate_caches()
     for key in list(sys.modules):

@@ -5,6 +5,10 @@ from lunchable import LunchMoney
 KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "lunchmoney_api_key"
 
+AUTH_FIELDS = [
+    {"name": "api_key", "prompt": "API key", "hide": True},
+]
+
 
 def _get_stored_key() -> str | None:
     """Read API key from OS keyring."""
