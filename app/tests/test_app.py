@@ -1,12 +1,17 @@
+from collections.abc import Iterator
+from pathlib import Path
 from unittest.mock import patch
 
 import duckdb
 import pyarrow as pa
 import pytest
 from fastapi.testclient import TestClient
+from typer.testing import CliRunner
 
-import local_frontend.server as server_module
-from local_frontend.server import app
+import app.server as server_module
+from app.server import app
+
+runner = CliRunner()
 
 
 @pytest.fixture()
@@ -23,9 +28,9 @@ def test_con() -> duckdb.DuckDBPyConnection:
 
 
 @pytest.fixture()
-def client(test_con: duckdb.DuckDBPyConnection) -> TestClient:
-    with patch("local_frontend.api.query.connect", return_value=test_con):
-        with patch("local_frontend.api.db.connect", return_value=test_con):
+def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
+    with patch("app.api.query.connect", return_value=test_con):
+        with patch("app.api.db.connect", return_value=test_con):
             yield TestClient(app)
 
 
@@ -88,7 +93,7 @@ class TestApiQuery:
 
 class TestDbStatus:
     def test_db_status(self, client: TestClient) -> None:
-        with patch("local_frontend.api.db.DB_PATH") as mock_path:
+        with patch("app.api.db.DB_PATH") as mock_path:
             mock_path.exists.return_value = False
             mock_path.__str__ = lambda _: "data/shenas.duckdb"
             resp = client.get("/api/db/status")
@@ -98,7 +103,7 @@ class TestDbStatus:
         assert "db_path" in data
 
     def test_db_status_with_tables(self, client: TestClient) -> None:
-        with patch("local_frontend.api.db.DB_PATH") as mock_path:
+        with patch("app.api.db.DB_PATH") as mock_path:
             mock_path.exists.return_value = True
             mock_path.stat.return_value.st_size = 1024 * 1024
             mock_path.__str__ = lambda _: "data/shenas.duckdb"
@@ -109,3 +114,16 @@ class TestDbStatus:
         schemas = {s["name"] for s in data["schemas"]}
         assert "metrics" in schemas
         assert "garmin" in schemas
+
+
+class TestShenasCLI:
+    def test_no_cert(self, tmp_path: Path) -> None:
+        from app.cli import app as shenas_app
+
+        result = runner.invoke(
+            shenas_app,
+            ["serve", "--cert", str(tmp_path / "nonexistent.pem"), "--key", str(tmp_path / "nonexistent.key")],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 1
+        assert "TLS certificate not found" in result.output

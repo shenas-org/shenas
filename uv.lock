@@ -8,6 +8,16 @@ resolution-markers = [
     "(python_full_version < '3.14' and platform_python_implementation == 'PyPy') or (python_full_version < '3.14' and sys_platform == 'emscripten')",
 ]
 
+[manifest]
+members = [
+    "shenas-app",
+    "shenas-cli",
+    "shenas-pipe-core",
+    "shenas-repository",
+    "shenas-schema-core",
+    "shenas-workspace",
+]
+
 [[package]]
 name = "annotated-doc"
 version = "0.0.4"
@@ -1476,49 +1486,123 @@ wheels = [
 ]
 
 [[package]]
-name = "shenas"
-version = "0.1.0"
-source = { editable = "." }
+name = "shenas-app"
+source = { editable = "app" }
 dependencies = [
     { name = "cryptography" },
-    { name = "dlt", extra = ["duckdb"] },
+    { name = "duckdb" },
     { name = "fastapi" },
-    { name = "httpx" },
-    { name = "keyring" },
     { name = "pyarrow" },
-    { name = "rich" },
     { name = "typer" },
     { name = "uvicorn" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "commitizen" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-    { name = "ty" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "cryptography", specifier = ">=46.0.6" },
-    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "duckdb", specifier = ">=1.2.0" },
     { name = "fastapi", specifier = ">=0.135.2" },
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "keyring", specifier = ">=25.7.0" },
     { name = "pyarrow", specifier = ">=23.0.1" },
-    { name = "rich", specifier = ">=14.3.3" },
     { name = "typer", specifier = ">=0.24.1" },
     { name = "uvicorn", specifier = ">=0.42.0" },
 ]
 
+[[package]]
+name = "shenas-cli"
+source = { editable = "cli" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "keyring" },
+    { name = "rich" },
+    { name = "shenas-app" },
+    { name = "typer" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "keyring", specifier = ">=25.7.0" },
+    { name = "rich", specifier = ">=14.3.3" },
+    { name = "shenas-app", editable = "app" },
+    { name = "typer", specifier = ">=0.24.1" },
+]
+
+[[package]]
+name = "shenas-pipe-core"
+source = { editable = "pipes/core" }
+dependencies = [
+    { name = "duckdb" },
+    { name = "keyring" },
+    { name = "pendulum" },
+    { name = "rich" },
+    { name = "shenas-schema-core" },
+    { name = "typer" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "duckdb", specifier = ">=1.2.0" },
+    { name = "keyring", specifier = ">=25.0.0" },
+    { name = "pendulum", specifier = ">=3.0.0" },
+    { name = "rich", specifier = ">=14.0.0" },
+    { name = "shenas-schema-core", editable = "schemas/core" },
+    { name = "typer", specifier = ">=0.24.0" },
+]
+
+[[package]]
+name = "shenas-repository"
+source = { editable = "repository" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "fastapi" },
+    { name = "rich" },
+    { name = "typer" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cryptography", specifier = ">=46.0.6" },
+    { name = "fastapi", specifier = ">=0.135.2" },
+    { name = "rich", specifier = ">=14.3.3" },
+    { name = "typer", specifier = ">=0.24.1" },
+]
+
+[[package]]
+name = "shenas-schema-core"
+source = { editable = "schemas/core" }
+dependencies = [
+    { name = "duckdb" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "duckdb", specifier = ">=1.2.0" }]
+
+[[package]]
+name = "shenas-workspace"
+version = "0.0.0"
+source = { virtual = "." }
+
+[package.dev-dependencies]
+dev = [
+    { name = "commitizen" },
+    { name = "httpx" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+    { name = "shenas-cli" },
+    { name = "ty" },
+]
+
+[package.metadata]
+
 [package.metadata.requires-dev]
 dev = [
     { name = "commitizen", specifier = ">=4.13.9" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "ruff", specifier = ">=0.15.8" },
+    { name = "shenas-cli", editable = "cli" },
     { name = "ty", specifier = ">=0.0.26" },
 ]
 

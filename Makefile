@@ -1,8 +1,8 @@
 PACKAGES_DIR := $(CURDIR)/packages
-SIGN = uv run --no-sync shenas registry sign
+SIGN = uv run --no-sync shenasrepoctl sign
 BUMP = python scripts/bump-version.py
 
-.PHONY: repository build build-pipes build-schemas build-components vendor sign-all dev-install dev-uninstall setup-hooks lint test coverage
+.PHONY: repository build build-pipes build-schemas build-components dev-install dev-uninstall setup-hooks coverage
 
 repository:
 	uv run python -m repository.main $(PACKAGES_DIR)
@@ -55,13 +55,6 @@ build-components:
 		$(SIGN) $(PACKAGES_DIR)/shenas_component_$${pkg}-$$version-*.whl; \
 	done
 
-# Download a pipe wheel + all its transitive deps into packages/
-# Usage: make vendor PIPE=garmin
-vendor:
-	@test -n "$(PIPE)" || (echo "Usage: make vendor PIPE=<name>" && exit 1)
-	uv run pip download shenas-pipe-$(PIPE) --dest $(PACKAGES_DIR) --find-links $(PACKAGES_DIR)
-	@echo "Vendored shenas-pipe-$(PIPE) and dependencies into $(PACKAGES_DIR)"
-
 # Editable install of all local packages (source changes take effect immediately)
 dev-install:
 	@echo "Installing schemas..."
@@ -99,35 +92,13 @@ dev-uninstall:
 		uv pip uninstall $$pkgs; \
 	fi
 
-# Sign all unsigned wheels in packages/
-sign-all:
-	@for whl in $(PACKAGES_DIR)/*.whl; do \
-		if [ ! -f "$$whl.sig" ]; then \
-			$(SIGN) "$$whl"; \
-		fi; \
-	done
-
 # Install git pre-commit hook
 setup-hooks:
 	cp scripts/pre-commit .git/hooks/pre-commit
 	chmod +x .git/hooks/pre-commit
 	@echo "Pre-commit hook installed."
 
-# Run all linters
-lint:
-	uv run ruff check .
-	uv run ruff format --check .
-	uv run ty check cli/ repository/ local_frontend/
-
-test:
-	uv run --no-sync pytest
-	@for comp in $(wildcard components/*/package.json); do \
-		dir=$$(dirname $$comp); \
-		echo "Testing component: $$dir"; \
-		cd $$dir && npm install --silent && npm test && cd $(CURDIR); \
-	done
-
 coverage:
-	uv run --no-sync pytest --cov=cli --cov=repository --cov=local_frontend \
+	uv run --no-sync pytest --cov=cli --cov=repository --cov=app \
 		--cov=shenas_pipes --cov=shenas_schemas \
 		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json

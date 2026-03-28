@@ -7,11 +7,11 @@ Don't ask about doing 'cat', 'find', 'diff' or similar. Do not use emojis in cod
 ## Commands
 
 ```bash
-uv run shenas                       # CLI entry point
-uv run shenas pipe garmin sync       # run pipe (must be installed first)
+uv run shenasctl                       # CLI entry point
+uv run shenasctl pipe garmin sync       # run pipe (must be installed first)
 uv run ruff check .                 # lint
 uv run ruff format .                # format
-uv run ty check cli/ repository/ local_frontend/  # type check
+uv run ty check cli/ repository/ app/  # type check
 uv run pytest                       # run tests
 uv run cz commit                    # conventional commit
 uv add <package>                    # add a dependency
@@ -22,25 +22,41 @@ make build-pipes                    # build all pipe wheels (auto-bumps VERSION)
 make build-schemas                  # build all schema wheels
 make build-components               # build all component wheels
 make repository              # start PEP 503 package server on :7290
-make lint                           # run ruff + ty
-make test                           # run pytest
 make coverage                       # run tests with coverage report
 make setup-hooks                    # install git pre-commit hook
+moon run cli:test                   # run tests for a single project
+moon run :lint                      # run lint across all projects
+moon run :test                      # run tests across all projects
+shenasrepoctl sign-all packages/   # sign all unsigned wheels
+shenasrepoctl vendor garmin        # vendor a pipe and its deps
 ```
 
 ## Stack
 
 - **dlt** — data ingestion/pipeline framework (`@dlt.source`, `@dlt.resource`, incremental cursors)
 - **DuckDB** — local destination at `./data/shenas.duckdb` (also available via MCP server `duckdb`)
-- **uv** — package manager (do not use pip directly)
+- **uv** — package manager (do not use pip directly); workspace with 5 members (cli, app, repository, pipes/core, schemas/core)
+- **moon** — monorepo task runner; config in `.moon/`, per-project `moon.yml`
 - **typer** — CLI framework; **rich** — terminal formatting
-- **FastAPI** — repository server + local frontend
-- **pyarrow** — Arrow IPC streaming for frontend queries
+- **FastAPI** — repository server + app server
+- **pyarrow** — Arrow IPC streaming for app queries
 - **cryptography** — Ed25519 package signing
 - **hatchling** — wheel builder for pipes, schemas, and components
 - **Lit + uPlot + Vite** — frontend component stack
 
 ## Architecture
+
+### Workspace packages
+
+The monorepo is a uv workspace with 5 members, each a separate Python package:
+
+- **`shenas-cli`** (`cli/`) — CLI entry point, depends on shenas-app + shenas-repository
+- **`shenas-app`** (`app/`) — FastAPI UI server (renamed from local_frontend)
+- **`shenas-repository`** (`repository/`) — PEP 503 package server + Ed25519 signing
+- **`shenas-pipe-core`** (`pipes/core/`) — shared pipe utilities
+- **`shenas-schema-core`** (`schemas/core/`) — shared schema utilities
+
+Each has its own `pyproject.toml` with hatchling build, `VERSION` file, and `moon.yml` for task definitions. Cross-package imports (e.g. `cli` importing `repository.signing`, `app` importing `cli.db`) resolve via workspace editable installs with `dev-mode-dirs = [".."]` pointing to the repo root.
 
 ### Plugin discovery via entry points
 
@@ -84,7 +100,7 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 
 ## Modules
 
-- `cli/` — `shenas` CLI; subcommands under `cli/commands/`
+- `cli/` — `shenas` CLI (shenas-cli); subcommands under `cli/commands/`
 - `pipes/core/` — shared pipe utilities (shenas-pipe-core)
 - `pipes/garmin/` — Garmin Connect dlt connector
 - `pipes/lunchmoney/` — Lunch Money dlt connector
@@ -95,11 +111,11 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - `schemas/finance/` — canonical finance metrics (transactions, spending, budgets)
 - `schemas/outcomes/` — canonical outcome metrics (mood, stress, productivity, exercise, etc.)
 - `repository/` — PEP 503 Simple Repository API server + Ed25519 signing
-- `local_frontend/` — FastAPI UI server; discovers components via entry points, serves Arrow IPC
+- `app/` — FastAPI UI server (shenas-app); discovers components via entry points, serves Arrow IPC
 - `components/fitness-dashboard/` — Lit + uPlot fitness charts (built as wheel)
 - `components/data-table/` — Lit data table with sorting/filtering/pagination (built as wheel)
 - `scripts/` — build helpers (version bumping, pre-commit hook)
-- `tests/` — tests for repository, local_frontend, CLI, signing
+- `tests/` — tests for repository, app, CLI, signing
 
 ## Git workflow
 

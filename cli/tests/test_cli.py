@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from cli.commands.pkg import check_signature
 from cli.main import app as main_app
-from local_frontend.api.db import _discover_schemas
+from app.api.db import _discover_schemas
 
 runner = CliRunner()
 
@@ -18,24 +18,12 @@ class TestMainCLI:
         assert "pipe" in result.output
         assert "component" in result.output
         assert "schema" in result.output
-        assert "ui" in result.output
-        assert "registry" in result.output
         assert "db" in result.output
 
     def test_no_args_shows_help(self) -> None:
         result = runner.invoke(main_app, [])
         assert result.exit_code == 0
         assert "Usage" in result.output
-
-    def test_ui_no_cert(self, tmp_path: Path) -> None:
-        """shenas ui should exit with error when no TLS cert exists."""
-        result = runner.invoke(
-            main_app,
-            ["ui", "serve", "--cert", str(tmp_path / "nonexistent.pem"), "--key", str(tmp_path / "nonexistent.key")],
-            catch_exceptions=False,
-        )
-        assert result.exit_code == 1
-        assert "TLS certificate not found" in result.output
 
 
 class TestDiscoverSchemas:
