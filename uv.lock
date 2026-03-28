@@ -17,6 +17,7 @@ members = [
     "shenas-component-fitness-dashboard",
     "shenas-pipe-core",
     "shenas-pipe-garmin",
+    "shenas-pipe-gcalendar",
     "shenas-pipe-gmail",
     "shenas-pipe-lunchmoney",
     "shenas-pipe-obsidian",
@@ -1902,6 +1903,8 @@ name = "shenas-pipe-core"
 source = { editable = "pipes/core" }
 dependencies = [
     { name = "duckdb" },
+    { name = "google-api-python-client" },
+    { name = "google-auth-oauthlib" },
     { name = "keyring" },
     { name = "opentelemetry-api" },
     { name = "pendulum" },
@@ -1913,6 +1916,8 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "duckdb", specifier = ">=1.2.0" },
+    { name = "google-api-python-client", specifier = ">=2.0.0" },
+    { name = "google-auth-oauthlib", specifier = ">=1.0.0" },
     { name = "keyring", specifier = ">=25.0.0" },
     { name = "opentelemetry-api", specifier = ">=1.25.0" },
     { name = "pendulum", specifier = ">=3.0.0" },
@@ -1942,20 +1947,30 @@ requires-dist = [
 ]
 
 [[package]]
-name = "shenas-pipe-gmail"
-source = { editable = "pipes/gmail" }
+name = "shenas-pipe-gcalendar"
+source = { editable = "pipes/gcalendar" }
 dependencies = [
-    { name = "google-api-python-client" },
-    { name = "google-auth-oauthlib" },
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "pendulum" },
     { name = "shenas-pipe-core" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "google-api-python-client", specifier = ">=2.0.0" },
-    { name = "google-auth-oauthlib", specifier = ">=1.0.0" },
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "pendulum", specifier = ">=3.0.0" },
     { name = "shenas-pipe-core", editable = "pipes/core" },
 ]
+
+[[package]]
+name = "shenas-pipe-gmail"
+source = { editable = "pipes/gmail" }
+dependencies = [
+    { name = "shenas-pipe-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "shenas-pipe-core", editable = "pipes/core" }]
 
 [[package]]
 name = "shenas-pipe-lunchmoney"
@@ -2069,6 +2084,7 @@ dev = [
     { name = "shenas-component-data-table" },
     { name = "shenas-component-fitness-dashboard" },
     { name = "shenas-pipe-garmin" },
+    { name = "shenas-pipe-gcalendar" },
     { name = "shenas-pipe-gmail" },
     { name = "shenas-pipe-lunchmoney" },
     { name = "shenas-pipe-obsidian" },
@@ -2091,6 +2107,7 @@ dev = [
     { name = "shenas-component-data-table", editable = "components/data-table" },
     { name = "shenas-component-fitness-dashboard", editable = "components/fitness-dashboard" },
     { name = "shenas-pipe-garmin", editable = "pipes/garmin" },
+    { name = "shenas-pipe-gcalendar", editable = "pipes/gcalendar" },
     { name = "shenas-pipe-gmail", editable = "pipes/gmail" },
     { name = "shenas-pipe-lunchmoney", editable = "pipes/lunchmoney" },
     { name = "shenas-pipe-obsidian", editable = "pipes/obsidian" },

@@ -4,6 +4,7 @@ import importlib
 import inspect
 import json
 import subprocess
+import sys
 from collections.abc import Iterator
 
 import typer
@@ -27,7 +28,6 @@ def _sse_event(event: str, data: dict) -> str:
 
 def _installed_pipe_names() -> list[str]:
     """Get installed pipe names via uv pip list (avoids entry_points cache)."""
-    import sys
 
     result = subprocess.run(
         ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
@@ -93,8 +93,11 @@ def _run_pipe_sync(ep_name: str, pipe_app: typer.Typer, start_date: str | None, 
     try:
         sync_callback(**kwargs)
         yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
-    except SystemExit:
-        yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
+    except SystemExit as exc:
+        if exc.code and exc.code != 0:
+            yield _sse_event("error", {"pipe": ep_name, "message": f"Sync failed (exit code {exc.code}). Check server logs."})
+        else:
+            yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
     except Exception as exc:
         yield _sse_event("error", {"pipe": ep_name, "message": str(exc)})
 

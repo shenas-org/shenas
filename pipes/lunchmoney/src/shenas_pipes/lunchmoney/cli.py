@@ -45,12 +45,7 @@ def sync(
         transactions,
     )
 
-    try:
-        client = build_client()
-    except RuntimeError as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(code=1)
-
+    client = build_client()
     resolved = resolve_start_date(start_date)
 
     console.print(f"Syncing Lunch Money data into [bold]{DB_PATH}[/bold]...", style="dim")
