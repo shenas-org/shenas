@@ -11,7 +11,7 @@ uv run shenas                       # CLI entry point
 uv run shenas pipe garmin sync       # run pipe (must be installed first)
 uv run ruff check .                 # lint
 uv run ruff format .                # format
-uv run ty check cli/ registry/ repository_server/ local_frontend/  # type check
+uv run ty check cli/ repository/ local_frontend/  # type check
 uv run pytest                       # run tests
 uv run cz commit                    # conventional commit
 uv add <package>                    # add a dependency
@@ -21,7 +21,7 @@ make dev-uninstall                  # uninstall all shenas-* packages
 make build-pipes                    # build all pipe wheels (auto-bumps VERSION)
 make build-schemas                  # build all schema wheels
 make build-components               # build all component wheels
-make repository_server              # start PEP 503 package server on :8080
+make repository              # start PEP 503 package server on :8080
 make lint                           # run ruff + ty
 make test                           # run pytest
 make coverage                       # run tests with coverage report
@@ -67,7 +67,7 @@ Each schema package (e.g. `schemas/fitness_tracker/`) contains only a `metrics.p
 
 ### Package distribution
 
-All artifacts (pipes, components, schemas) are Python wheels served from a PEP 503 server (`repository_server/`). Wheels are Ed25519-signed (`.whl.sig` files alongside wheels in `packages/`). `shenas pipe add <name>` verifies the signature before installing.
+All artifacts (pipes, components, schemas) are Python wheels served from a PEP 503 server (`repository/`). Wheels are Ed25519-signed (`.whl.sig` files alongside wheels in `packages/`). `shenas pipe add <name>` verifies the signature before installing.
 
 ### Component packaging workaround
 
@@ -91,12 +91,11 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - `schemas/core/` — shared schema utilities (shenas-schema-core)
 - `schemas/fitness_tracker/` — canonical fitness metrics (HRV, sleep, vitals, body)
 - `schemas/finance/` — canonical finance metrics (transactions, spending, budgets)
-- `registry/` — Ed25519 signing/verification
-- `repository_server/` — PEP 503 Simple Repository API server
+- `repository/` — PEP 503 Simple Repository API server + Ed25519 signing
 - `local_frontend/` — FastAPI UI server; discovers components via entry points, serves Arrow IPC
 - `components/` — web component source (Lit/Vite); built into Python wheels
 - `scripts/` — build helpers (version bumping, pre-commit hook)
-- `tests/` — tests for repository_server, local_frontend, CLI, signing
+- `tests/` — tests for repository, local_frontend, CLI, signing
 
 ## Hooks
 

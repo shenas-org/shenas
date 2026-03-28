@@ -35,7 +35,7 @@ package = true
 members = []
 
 [tool.setuptools.packages.find]
-include = ["cli*", "local_frontend*", "registry*", "repository_server*"]
+include = ["cli*", "local_frontend*", "repository*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "pipes/core/tests", "pipes/garmin/tests", "pipes/lunchmoney/tests", "schemas/fitness_tracker/tests", "schemas/finance/tests"]

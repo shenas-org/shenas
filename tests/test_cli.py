@@ -100,7 +100,7 @@ class TestCheckSignature:
         assert check_signature("shenas-pipe-test", "1.0.0") == "unsigned"
 
     def test_valid_signature(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from registry.signing import generate_keypair, load_private_key, write_signature
+        from repository.signing import generate_keypair, load_private_key, write_signature
 
         priv, pub = generate_keypair(tmp_path / "keys")
         pkg_dir = tmp_path / "packages"
@@ -114,7 +114,7 @@ class TestCheckSignature:
         assert check_signature("shenas-pipe-test", "1.0.0") == "valid"
 
     def test_invalid_signature(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        from registry.signing import generate_keypair
+        from repository.signing import generate_keypair
 
         _, pub = generate_keypair(tmp_path / "keys")
         pkg_dir = tmp_path / "packages"

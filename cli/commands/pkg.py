@@ -9,7 +9,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from registry.signing import load_public_key, verify_bytes
+from repository.signing import load_public_key, verify_bytes
 
 console = Console()
 
@@ -130,7 +130,7 @@ def check_signature(pkg_name: str, version: str) -> str:
 
     pub_key = load_public_key(PUBLIC_KEY_PATH)
     sig_b64 = sig_path.read_text().strip()
-    from registry.signing import verify_file
+    from repository.signing import verify_file
 
     return "valid" if verify_file(pub_key, wheel_path, sig_b64) else "invalid"
 

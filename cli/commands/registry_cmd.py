@@ -22,7 +22,7 @@ def keygen(
     key_dir: Path = typer.Option(DEFAULT_KEY_DIR, help="Directory to write keypair"),
 ) -> None:
     """Generate an Ed25519 signing keypair."""
-    from registry.signing import generate_keypair
+    from repository.signing import generate_keypair
 
     priv_path, pub_path = generate_keypair(key_dir)
     console.print(f"[green]Private key:[/green] {priv_path}")
@@ -36,7 +36,7 @@ def sign(
     private_key: Path = typer.Option(DEFAULT_KEY_DIR / "shenas.key", "--key", help="Path to Ed25519 private key"),
 ) -> None:
     """Sign a wheel file, creating a .sig file next to it."""
-    from registry.signing import load_private_key, write_signature
+    from repository.signing import load_private_key, write_signature
 
     if not wheel.exists():
         console.print(f"[red]File not found: {wheel}[/red]")
@@ -57,7 +57,7 @@ def verify(
     public_key: Path = typer.Option(DEFAULT_KEY_DIR / "shenas.pub", "--public-key", help="Path to Ed25519 public key"),
 ) -> None:
     """Verify a wheel's signature."""
-    from registry.signing import load_public_key, verify_file
+    from repository.signing import load_public_key, verify_file
 
     sig_path = wheel.with_suffix(wheel.suffix + ".sig")
     if not sig_path.exists():
