@@ -1,7 +1,13 @@
-# shenas
+<p align="center">
+  <img src="local_frontend/static/images/shenas.png" width="96" alt="shenas">
+</p>
 
-[![CI](https://github.com/afuncke/shenas/actions/workflows/ci.yml/badge.svg)](https://github.com/afuncke/shenas/actions/workflows/ci.yml)
-![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/afuncke/244bc7a96fa33c93b77c16950e287366/raw/shenas-coverage.json)
+<h1 align="center">shenas</h1>
+
+<p align="center">
+  <a href="https://github.com/afuncke/shenas/actions/workflows/ci.yml"><img src="https://github.com/afuncke/shenas/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/afuncke/244bc7a96fa33c93b77c16950e287366/raw/shenas-coverage.json" alt="Coverage">
+</p>
 
 Health and finance metrics aggregation platform. Collects data from multiple sources, normalizes it into canonical schemas, and visualizes it through pluggable web components.
 
@@ -25,13 +31,17 @@ make setup-hooks    # install pre-commit hook (ruff + ty)
 # Authenticate
 uv run shenas pipe garmin auth
 uv run shenas pipe lunchmoney auth
+uv run shenas pipe gmail auth
+
+# Configure obsidian vault path
+uv run shenas config set pipe obsidian vault_path /path/to/vault
 
 # Sync raw data into DuckDB (also runs transform automatically)
-uv run shenas pipe garmin sync
-uv run shenas pipe lunchmoney sync
+uv run shenas pipe sync          # sync all installed pipes
+uv run shenas pipe garmin sync   # sync a single pipe
 
 # Check what's loaded
-uv run shenas data status
+uv run shenas db status
 ```
 
 ## Package management
@@ -94,12 +104,16 @@ pipes/
   core/              shared pipe utilities (shenas-pipe-core)
   garmin/            Garmin Connect connector
   lunchmoney/        Lunch Money connector
+  obsidian/          Obsidian daily notes (frontmatter)
+  gmail/             Gmail (OAuth2)
 schemas/
   core/              shared schema utilities (shenas-schema-core)
-  fitness/   HRV, sleep, vitals, body metrics
+  fitness/           HRV, sleep, vitals, body metrics
   finance/           transactions, spending, budgets
+  outcomes/          mood, stress, productivity, exercise, etc.
 components/
   fitness-dashboard/ Lit + uPlot dashboard (built as wheel)
+  data-table/        sortable/filterable data table (built as wheel)
 local_frontend/      FastAPI UI server (Arrow IPC queries)
 repository/          PEP 503 package server + Ed25519 signing
 cli/                 shenas CLI
