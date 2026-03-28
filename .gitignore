@@ -14,3 +14,7 @@ shenas.egg-info/
 .moon/cache/
 .moon/docker/
 app/desktop/src-tauri/target/
+app/desktop/src-tauri/gen/
+app/desktop/src-tauri/Cargo.lock
+app/desktop/pkg/
+app/desktop/*.pkg.tar.zst
