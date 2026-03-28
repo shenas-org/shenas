@@ -72,10 +72,20 @@ def _add_sync_command(pipe_app: typer.Typer, pipe_name: str) -> None:
     def sync(
         start_date: str = typer.Option("30 days ago", help="Start date (YYYY-MM-DD or 'N days ago')"),
         full_refresh: bool = typer.Option(False, "--full-refresh", help="Drop and re-download all data"),
+        latest: int = typer.Option(0, "--latest", help="Only process N most recent items (0 = all)"),
+        name_filter: str = typer.Option("", "--filter", help="Only process items matching this substring"),
+        list_only: bool = typer.Option(False, "--list", help="List available items without processing"),
     ) -> None:
         """Sync data from this pipe."""
+        extra: dict[str, str | int | bool] = {}
+        if latest > 0:
+            extra["latest"] = latest
+        if name_filter:
+            extra["name_filter"] = name_filter
+        if list_only:
+            extra["list_only"] = True
         try:
-            for event in ShenasClient().sync_pipe(pipe_name, start_date=start_date, full_refresh=full_refresh):
+            for event in ShenasClient().sync_pipe(pipe_name, start_date=start_date, full_refresh=full_refresh, **extra):
                 message = event.get("message", "")
                 event_type = event.get("_event", "message")
 
