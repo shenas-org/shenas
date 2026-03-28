@@ -138,10 +138,14 @@ class ShenasClient:
     def sync_all(self) -> Iterator[dict]:
         return self._stream_sse("POST", "/api/sync")
 
-    def sync_pipe(self, name: str, start_date: str | None = None, full_refresh: bool = False) -> Iterator[dict]:
+    def sync_pipe(
+        self, name: str, start_date: str | None = None, full_refresh: bool = False, **extra: str | int | bool
+    ) -> Iterator[dict]:
         body: dict = {}
         if start_date:
             body["start_date"] = start_date
         if full_refresh:
             body["full_refresh"] = True
+        if extra:
+            body["extra"] = extra
         return self._stream_sse("POST", f"/api/sync/{name}", json=body)

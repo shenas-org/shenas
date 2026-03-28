@@ -20,6 +20,7 @@ PIPE_PREFIX = "shenas-pipe-"
 class SyncRequest(BaseModel):
     start_date: str | None = None
     full_refresh: bool = False
+    extra: dict[str, str | int | bool] = {}
 
 
 def _sse_event(event: str, data: dict) -> str:
@@ -65,7 +66,9 @@ def _load_pipe_app(name: str) -> typer.Typer:
     return mod.app
 
 
-def _run_pipe_sync(ep_name: str, pipe_app: typer.Typer, start_date: str | None, full_refresh: bool) -> Iterator[str]:
+def _run_pipe_sync(
+    ep_name: str, pipe_app: typer.Typer, start_date: str | None, full_refresh: bool, extra: dict | None = None
+) -> Iterator[str]:
     """Run a single pipe's sync command, yielding SSE events."""
     yield _sse_event("progress", {"pipe": ep_name, "message": "starting sync"})
 
@@ -89,6 +92,11 @@ def _run_pipe_sync(ep_name: str, pipe_app: typer.Typer, start_date: str | None, 
         kwargs["start_date"] = start_date
     if full_refresh and "full_refresh" in kwargs:
         kwargs["full_refresh"] = True
+    # Pass extra options that match the callback's parameters
+    if extra:
+        for k, v in extra.items():
+            if k in kwargs:
+                kwargs[k] = v
 
     try:
         sync_callback(**kwargs)
@@ -133,7 +141,7 @@ def sync_pipe(name: str, body: SyncRequest | None = None) -> StreamingResponse:
     def _stream() -> Iterator[str]:
         try:
             pipe_app = _load_pipe_app(name)
-            yield from _run_pipe_sync(name, pipe_app, body.start_date, body.full_refresh)
+            yield from _run_pipe_sync(name, pipe_app, body.start_date, body.full_refresh, body.extra)
         except Exception as exc:
             yield _sse_event("error", {"pipe": name, "message": str(exc)})
 
