@@ -27,6 +27,8 @@ make setup-hooks                    # install git pre-commit hook
 moon run cli:test                   # run tests for a single project
 moon run :lint                      # run lint across all projects
 moon run :test                      # run tests across all projects
+shenasrepoctl sign-all packages/   # sign all unsigned wheels
+shenasrepoctl vendor garmin        # vendor a pipe and its deps
 ```
 
 ## Stack

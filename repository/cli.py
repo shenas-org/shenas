@@ -72,5 +72,53 @@ def verify(
         raise typer.Exit(code=1)
 
 
+@app.command("sign-all")
+def sign_all(
+    packages_dir: Path = typer.Argument(Path("packages"), help="Directory containing .whl files"),
+    private_key: Path = typer.Option(DEFAULT_KEY_DIR / "shenas.key", "--key", help="Path to Ed25519 private key"),
+) -> None:
+    """Sign all unsigned wheels in a directory."""
+    if not packages_dir.is_dir():
+        console.print(f"[red]Directory not found: {packages_dir}[/red]")
+        raise typer.Exit(code=1)
+
+    key = load_private_key(private_key)
+    signed = 0
+    for whl in sorted(packages_dir.glob("*.whl")):
+        sig_path = whl.with_suffix(whl.suffix + ".sig")
+        if not sig_path.exists():
+            write_signature(key, whl)
+            console.print(f"[green]Signed:[/green] {whl.name}")
+            signed += 1
+    if signed == 0:
+        console.print("[dim]No unsigned wheels found.[/dim]")
+    else:
+        console.print(f"\n[green]Signed {signed} wheel(s).[/green]")
+
+
+@app.command()
+def vendor(
+    pipe: str = typer.Argument(help="Pipe name, e.g. 'garmin'"),
+    packages_dir: Path = typer.Option(Path("packages"), "--dest", help="Destination directory"),
+) -> None:
+    """Download a pipe wheel and all its transitive dependencies."""
+    import subprocess
+
+    packages_dir.mkdir(parents=True, exist_ok=True)
+    pkg_name = f"shenas-pipe-{pipe}"
+    result = subprocess.run(
+        ["uv", "pip", "download", pkg_name, "--dest", str(packages_dir), "--find-links", str(packages_dir)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        console.print(f"[green]Vendored {pkg_name} and dependencies into {packages_dir}[/green]")
+    else:
+        console.print(f"[red]Failed to vendor {pkg_name}[/red]")
+        if result.stderr.strip():
+            console.print(result.stderr.strip(), style="dim")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()
