@@ -1,7 +1,8 @@
 """Pipe discovery API -- lists installed pipes and their commands."""
 
+import importlib
+import importlib.metadata
 import inspect
-from importlib.metadata import entry_points
 
 import typer
 from fastapi import APIRouter
@@ -12,8 +13,11 @@ router = APIRouter(prefix="/pipes", tags=["pipes"])
 @router.get("")
 def list_pipes() -> list[dict]:
     """List installed pipes with their available commands and options."""
+    # Invalidate cached package metadata so newly installed pipes are visible
+    importlib.invalidate_caches()
+
     pipes = []
-    for ep in sorted(entry_points(group="shenas.pipes"), key=lambda e: e.name):
+    for ep in sorted(importlib.metadata.entry_points(group="shenas.pipes"), key=lambda e: e.name):
         if ep.name == "core":
             continue
         try:
