@@ -1,44 +1,39 @@
 """Pipe discovery API -- lists installed pipes and their commands."""
 
-import importlib
-import importlib.metadata
-import inspect
+import json
+import subprocess
 
-import typer
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/pipes", tags=["pipes"])
 
+PIPE_PREFIX = "shenas-pipe-"
+
+# Standard commands for pipes -- avoids needing to import and introspect the pipe module
+# (which fails for freshly installed pipes in a running process due to metadata caching).
+STANDARD_PIPE_COMMANDS = [
+    {
+        "name": "sync",
+        "options": [
+            {"name": "start_date", "default": "30 days ago", "help": "Start date (YYYY-MM-DD or 'N days ago')"},
+            {"name": "full_refresh", "default": False, "help": "Drop and re-download all data"},
+        ],
+    },
+    {"name": "auth", "options": []},
+]
+
 
 @router.get("")
 def list_pipes() -> list[dict]:
-    """List installed pipes with their available commands and options."""
-    # Invalidate cached package metadata so newly installed pipes are visible
-    importlib.invalidate_caches()
+    """List installed pipes with their available commands."""
+    result = subprocess.run(["uv", "pip", "list", "--format", "json"], capture_output=True, text=True)
+    if result.returncode != 0:
+        return []
 
+    packages = json.loads(result.stdout)
     pipes = []
-    for ep in sorted(importlib.metadata.entry_points(group="shenas.pipes"), key=lambda e: e.name):
-        if ep.name == "core":
-            continue
-        try:
-            pipe_app = ep.load()
-            commands = []
-            for cmd in pipe_app.registered_commands:
-                cmd_name = cmd.name or (getattr(cmd.callback, "__name__", None) if cmd.callback else None)
-                if not cmd_name or not cmd.callback:
-                    continue
-                options = []
-                for p_name, p in inspect.signature(cmd.callback).parameters.items():
-                    if isinstance(p.default, typer.models.OptionInfo):
-                        options.append(
-                            {
-                                "name": p_name,
-                                "default": p.default.default,
-                                "help": p.default.help,
-                            }
-                        )
-                commands.append({"name": cmd_name, "options": options})
-            pipes.append({"name": ep.name, "commands": commands})
-        except Exception:
-            pipes.append({"name": ep.name, "commands": []})
+    for p in sorted(packages, key=lambda x: x["name"]):
+        if p["name"].startswith(PIPE_PREFIX) and not p["name"].endswith("-core"):
+            name = p["name"].removeprefix(PIPE_PREFIX)
+            pipes.append({"name": name, "version": p["version"], "commands": STANDARD_PIPE_COMMANDS})
     return pipes
