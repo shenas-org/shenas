@@ -22,18 +22,20 @@ def list_cmd() -> None:
 
 @app.command("add")
 def add_cmd(
-    name: str = typer.Argument(help="Schema name, e.g. 'fitness-tracker'"),
+    names: list[str] = typer.Argument(help="Schema names, e.g. 'fitness finance'"),
     index_url: str = typer.Option(DEFAULT_INDEX, "--index-url", help="Repository server URL"),
     public_key: Path = typer.Option(Path(".shenas/shenas.pub"), "--public-key", help="Path to Ed25519 public key"),
     skip_verify: bool = typer.Option(False, "--skip-verify", help="Skip signature verification"),
 ) -> None:
-    """Add a schema package from the repository."""
-    install(name, "schema", index_url, public_key, skip_verify)
+    """Add one or more schema packages from the repository."""
+    for name in names:
+        install(name, "schema", index_url, public_key, skip_verify)
 
 
 @app.command("remove")
 def remove_cmd(
-    name: str = typer.Argument(help="Schema name, e.g. 'fitness-tracker'"),
+    names: list[str] = typer.Argument(help="Schema names, e.g. 'fitness finance'"),
 ) -> None:
-    """Remove a schema package."""
-    uninstall(name, "schema")
+    """Remove one or more schema packages."""
+    for name in names:
+        uninstall(name, "schema")
