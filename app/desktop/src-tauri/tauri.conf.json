@@ -4,8 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.shenas.app",
   "build": {
-    "frontendDist": "../src",
-    "devUrl": "http://localhost:7280"
+    "frontendDist": "../src"
   },
   "app": {
     "windows": [
