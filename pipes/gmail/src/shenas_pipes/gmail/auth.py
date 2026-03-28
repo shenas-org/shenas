@@ -117,30 +117,39 @@ def authenticate(credentials: dict[str, str]) -> None:
     flow = InstalledAppFlow.from_client_config(_get_client_config(), SCOPES)
     state: dict = {"url": None}
 
+    class _UrlCapture(io.TextIOBase):
+        """Wraps stdout and captures the OAuth URL as it's printed."""
+
+        def __init__(self, original: io.TextIOBase) -> None:
+            self._original = original
+
+        def write(self, s: str) -> int:
+            if "accounts.google.com" in s:
+                # Extract URL from "Please visit this URL...: <URL>"
+                for part in s.split():
+                    if part.startswith("https://accounts.google.com"):
+                        state["url"] = part.strip()
+                        break
+            return self._original.write(s)
+
+        def flush(self) -> None:
+            self._original.flush()
+
     def _run_flow() -> None:
+        old_stdout = sys.stdout
+        sys.stdout = _UrlCapture(old_stdout)
         try:
-            # Capture stdout to extract the auth URL printed by run_local_server
-            capture = io.StringIO()
-            old_stdout = sys.stdout
-            sys.stdout = capture
-            try:
-                creds = flow.run_local_server(port=0, open_browser=False)
-            finally:
-                sys.stdout = old_stdout
-                output = capture.getvalue()
-                for line in output.splitlines():
-                    if "accounts.google.com" in line:
-                        # Extract URL from "Please visit this URL to authorize...: <URL>"
-                        url = line.split(": ", 1)[-1].strip()
-                        state["url"] = url
+            creds = flow.run_local_server(port=0, open_browser=False)
             _store_token(creds)
         except Exception as exc:
             state["error"] = str(exc)
+        finally:
+            sys.stdout = old_stdout
 
     thread = threading.Thread(target=_run_flow, daemon=True)
     thread.start()
 
-    # Wait for the URL to be captured (server needs a moment to start)
+    # Wait for the URL to be captured
     for _ in range(50):
         if state.get("url"):
             break
