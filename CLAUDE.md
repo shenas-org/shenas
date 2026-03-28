@@ -21,7 +21,7 @@ make dev-uninstall                  # uninstall all shenas-* packages
 make build-pipes                    # build all pipe wheels (auto-bumps VERSION)
 make build-schemas                  # build all schema wheels
 make build-components               # build all component wheels
-make repository              # start PEP 503 package server on :8080
+make repository              # start PEP 503 package server on :7290
 make lint                           # run ruff + ty
 make test                           # run pytest
 make coverage                       # run tests with coverage report

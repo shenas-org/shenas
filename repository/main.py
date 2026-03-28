@@ -71,7 +71,7 @@ cli = typer.Typer()
 def serve(
     packages_dir: Path = typer.Argument(Path("packages"), help="Directory containing distribution files"),
     host: str = typer.Option("127.0.0.1", help="Bind host"),
-    port: int = typer.Option(8080, help="Bind port"),
+    port: int = typer.Option(7290, help="Bind port"),
 ) -> None:
     global _repo
     packages_dir.mkdir(parents=True, exist_ok=True)
