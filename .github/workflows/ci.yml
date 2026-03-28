@@ -43,7 +43,7 @@ jobs:
       - name: Install all packages
         run: make dev-install
       - name: Run Python tests
-        run: uv run pytest
+        run: uv run --no-sync pytest
       - name: Run component tests
         run: |
           for comp in components/*/package.json; do
