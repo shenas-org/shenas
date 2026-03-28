@@ -120,7 +120,7 @@ lint:
 	uv run ty check cli/ repository/ local_frontend/
 
 test:
-	uv run pytest
+	uv run --no-sync pytest
 	@for comp in $(wildcard components/*/package.json); do \
 		dir=$$(dirname $$comp); \
 		echo "Testing component: $$dir"; \
@@ -128,6 +128,6 @@ test:
 	done
 
 coverage:
-	uv run pytest --cov=cli --cov=repository --cov=local_frontend \
+	uv run --no-sync pytest --cov=cli --cov=repository --cov=local_frontend \
 		--cov=shenas_pipes --cov=shenas_schemas \
 		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
