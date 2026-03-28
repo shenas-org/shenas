@@ -93,10 +93,22 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
     def auth() -> None:
         """Authenticate with this pipe's data source."""
         client = ShenasClient()
-        credentials: dict[str, str] = {}
 
-        credentials["email"] = typer.prompt("Email")
-        credentials["password"] = typer.prompt("Password", hide_input=True)
+        # Fetch the credential fields this pipe needs
+        try:
+            fields = client.pipe_auth_fields(pipe_name)
+        except ShenasServerError as exc:
+            console.print(f"[red]{exc.detail}[/red]")
+            raise typer.Exit(code=1)
+
+        # Collect credentials based on the pipe's declared fields
+        credentials: dict[str, str] = {}
+        for field in fields:
+            value = typer.prompt(field["prompt"], hide_input=field.get("hide", False))
+            credentials[field["name"]] = value
+
+        if not fields:
+            console.print("[dim]No credentials needed, starting auth flow...[/dim]")
 
         try:
             result = client.pipe_auth(pipe_name, credentials)
@@ -104,6 +116,7 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
             console.print(f"[red]{exc.detail}[/red]")
             raise typer.Exit(code=1)
 
+        # Handle MFA if needed
         if result.get("needs_mfa"):
             mfa_code = typer.prompt("MFA code")
             try:

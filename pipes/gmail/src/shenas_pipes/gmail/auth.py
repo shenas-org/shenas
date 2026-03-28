@@ -9,6 +9,8 @@ from googleapiclient.discovery import build
 
 KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "gmail_token"
+
+AUTH_FIELDS = []  # OAuth browser flow, no credentials needed
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
 GMAIL_CLIENT_ID = "232211553387-3c4sog0fokns7ri2o6oj8d3s5v3r9jh6.apps.googleusercontent.com"
