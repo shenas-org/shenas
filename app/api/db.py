@@ -5,7 +5,7 @@ import os
 import duckdb
 from fastapi import APIRouter
 
-from cli.db import DB_PATH, connect
+from app.cli.db import DB_PATH, connect
 
 router = APIRouter(prefix="/db", tags=["db"])
 

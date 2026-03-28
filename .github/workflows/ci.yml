@@ -23,7 +23,7 @@ jobs:
         run: |
           uv run ruff check .
           uv run ruff format --check .
-          uv run ty check cli/ repository/ app/
+          uv run ty check repository/ app/
 
   test:
     name: Test (Python ${{ matrix.python-version }})

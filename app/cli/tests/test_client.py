@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cli.client import ShenasClient, ShenasServerError
+from app.cli.client import ShenasClient, ShenasServerError
 
 
 class TestConnectionHandling:

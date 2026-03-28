@@ -5,7 +5,7 @@ import subprocess
 
 from fastapi import APIRouter
 
-from cli.commands.pkg import check_signature
+from app.cli.commands.pkg import check_signature
 
 router = APIRouter(prefix="/pipes", tags=["pipes"])
 
