@@ -3,7 +3,7 @@ from functools import partial
 from shenas_schemas.core import Field, MetricProvider, generate_ddl, table_metadata
 from shenas_schemas.core.ddl import ensure_schema as _ensure_schema
 from shenas_schemas.core.introspect import schema_metadata as _schema_metadata
-from shenas_schemas.fitness_tracker.metrics import ALL_TABLES, DailyBody, DailyHRV, DailySleep, DailyVitals
+from shenas_schemas.fitness.metrics import ALL_TABLES, DailyBody, DailyHRV, DailySleep, DailyVitals
 
 CANONICAL_TABLES = [cls.__table__ for cls in ALL_TABLES]
 
@@ -13,12 +13,12 @@ schema_metadata = partial(_schema_metadata, all_tables=ALL_TABLES)
 try:
     from importlib.metadata import version
 
-    _version = version("shenas-schema-fitness-tracker")
+    _version = version("shenas-schema-fitness")
 except Exception:
     _version = "dev"
 
 SCHEMA = {
-    "name": "fitness-tracker",
+    "name": "fitness",
     "version": _version,
     "tables": CANONICAL_TABLES,
 }

@@ -96,7 +96,7 @@ pipes/
   lunchmoney/        Lunch Money connector
 schemas/
   core/              shared schema utilities (shenas-schema-core)
-  fitness_tracker/   HRV, sleep, vitals, body metrics
+  fitness/   HRV, sleep, vitals, body metrics
   finance/           transactions, spending, budgets
 components/
   fitness-dashboard/ Lit + uPlot dashboard (built as wheel)

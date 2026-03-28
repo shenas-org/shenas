@@ -85,7 +85,7 @@ def sync(
 
     def _transform() -> None:
         from shenas_pipes.garmin.transform import GarminMetricProvider
-        from shenas_schemas.fitness_tracker import ensure_schema
+        from shenas_schemas.fitness import ensure_schema
 
         con = connect()
         ensure_schema(con)

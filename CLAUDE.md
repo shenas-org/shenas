@@ -63,7 +63,7 @@ Both are internal packages — hidden from `list`/`add`/`remove` commands. Pipes
 
 ### Canonical schema is dataclass-driven
 
-Each schema package (e.g. `schemas/fitness_tracker/`) contains only a `metrics.py` with dataclasses. Fields use `Annotated[type, Field(...)]` for structured metadata (description, unit, value_range, interpretation). DDL is generated from these by `shenas-schema-core` — no hand-written SQL.
+Each schema package (e.g. `schemas/fitness/`) contains only a `metrics.py` with dataclasses. Fields use `Annotated[type, Field(...)]` for structured metadata (description, unit, value_range, interpretation). DDL is generated from these by `shenas-schema-core` — no hand-written SQL.
 
 ### Package distribution
 
@@ -89,7 +89,7 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - `pipes/garmin/` — Garmin Connect dlt connector
 - `pipes/lunchmoney/` — Lunch Money dlt connector
 - `schemas/core/` — shared schema utilities (shenas-schema-core)
-- `schemas/fitness_tracker/` — canonical fitness metrics (HRV, sleep, vitals, body)
+- `schemas/fitness/` — canonical fitness metrics (HRV, sleep, vitals, body)
 - `schemas/finance/` — canonical finance metrics (transactions, spending, budgets)
 - `repository/` — PEP 503 Simple Repository API server + Ed25519 signing
 - `local_frontend/` — FastAPI UI server; discovers components via entry points, serves Arrow IPC
