@@ -1,52 +1,45 @@
-"""Parse YouTube data from Takeout exports (streaming)."""
+"""Parse YouTube data from Takeout exports (streaming with ijson)."""
 
 import csv
-import json
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+import ijson
+
 
 def parse_watch_history(files: list[Path]) -> Iterator[dict[str, Any]]:
-    """Yield YouTube watch history entries."""
+    """Yield YouTube watch history entries (streamed)."""
     for f in files:
         if f.name != "watch-history.json":
             continue
 
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            continue
-
-        for entry in data:
-            yield {
-                "title": entry.get("title", ""),
-                "title_url": entry.get("titleUrl", ""),
-                "time": entry.get("time", ""),
-                "channel_name": (entry.get("subtitles", [{}])[0].get("name", "") if entry.get("subtitles") else ""),
-                "channel_url": (entry.get("subtitles", [{}])[0].get("url", "") if entry.get("subtitles") else ""),
-                "product": entry.get("header", ""),
-            }
+        with open(f, "rb") as fh:
+            for entry in ijson.items(fh, "item"):
+                yield {
+                    "title": entry.get("title", ""),
+                    "title_url": entry.get("titleUrl", ""),
+                    "time": entry.get("time", ""),
+                    "channel_name": (entry.get("subtitles", [{}])[0].get("name", "") if entry.get("subtitles") else ""),
+                    "channel_url": (entry.get("subtitles", [{}])[0].get("url", "") if entry.get("subtitles") else ""),
+                    "product": entry.get("header", ""),
+                }
 
 
 def parse_search_history(files: list[Path]) -> Iterator[dict[str, Any]]:
-    """Yield YouTube search history entries."""
+    """Yield YouTube search history entries (streamed)."""
     for f in files:
         if f.name != "search-history.json":
             continue
 
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            continue
-
-        for entry in data:
-            yield {
-                "title": entry.get("title", ""),
-                "title_url": entry.get("titleUrl", ""),
-                "time": entry.get("time", ""),
-                "product": entry.get("header", ""),
-            }
+        with open(f, "rb") as fh:
+            for entry in ijson.items(fh, "item"):
+                yield {
+                    "title": entry.get("title", ""),
+                    "title_url": entry.get("titleUrl", ""),
+                    "time": entry.get("time", ""),
+                    "product": entry.get("header", ""),
+                }
 
 
 def parse_subscriptions(files: list[Path]) -> Iterator[dict[str, Any]]:
