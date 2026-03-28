@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import typer
 
 from shenas_pipes.core.cli import console, create_pipe_app, run_sync
@@ -8,23 +6,13 @@ app = create_pipe_app("Gmail commands.")
 
 
 @app.command()
-def auth(
-    credentials: Path = typer.Argument(help="Path to Google OAuth client_secret.json file"),
-) -> None:
-    """Authenticate with Gmail via OAuth2.
-
-    Download client_secret.json from Google Cloud Console:
-    APIs & Services > Credentials > Create OAuth Client ID > Desktop app
-    """
+def auth() -> None:
+    """Authenticate with Gmail via OAuth2. Opens browser for Google login."""
     from shenas_pipes.gmail.auth import build_client
-
-    if not credentials.exists():
-        console.print(f"[red]File not found: {credentials}[/red]")
-        raise typer.Exit(code=1)
 
     console.print("Opening browser for Google authentication...", style="dim")
     try:
-        service = build_client(client_secrets_path=str(credentials))
+        service = build_client(run_auth_flow=True)
         profile = service.users().getProfile(userId="me").execute()
         console.print(f"[green]Authenticated as {profile['emailAddress']}[/green]")
         console.print("[green]Token saved to OS keyring[/green]")
