@@ -1,9 +1,12 @@
 from importlib.metadata import entry_points
-from pathlib import Path
 
 import typer
+from rich.console import Console
 
+from cli.client import ShenasClient, ShenasServerError
 from cli.commands.pkg import DEFAULT_INDEX, install, list_packages, uninstall
+
+console = Console()
 
 app = typer.Typer(help="Pipeline commands.", invoke_without_command=True)
 
@@ -21,38 +24,29 @@ def _default(ctx: typer.Context) -> None:
 @app.command("sync")
 def sync_all() -> None:
     """Sync all installed pipes."""
-    from rich.console import Console
+    try:
+        for event in ShenasClient().sync_all():
+            pipe = event.get("pipe", "")
+            message = event.get("message", "")
+            event_type = event.get("_event", "message")
 
-    console = Console()
-    failed = []
-    for ep in sorted(entry_points(group="shenas.pipes"), key=lambda e: e.name):
-        if ep.name == "core":
-            continue
-        console.print(f"\n[bold]--- {ep.name} ---[/bold]")
-        try:
-            pipe_app = ep.load()
-            # Find and invoke the sync callback with resolved defaults
-            for cmd in pipe_app.registered_commands:
-                cmd_name = cmd.name or (getattr(cmd.callback, "__name__", None) if cmd.callback else None)
-                if cmd_name == "sync" and cmd.callback:
-                    import inspect
-
-                    kwargs = {}
-                    for p_name, p in inspect.signature(cmd.callback).parameters.items():
-                        if isinstance(p.default, typer.models.OptionInfo):
-                            kwargs[p_name] = p.default.default
-                    cmd.callback(**kwargs)
-                    break
-        except SystemExit:
-            pass
-        except Exception as exc:
-            console.print(f"[red]{ep.name} sync failed:[/red] {exc}")
-            failed.append(ep.name)
-
-    if failed:
-        console.print(f"\n[red]Failed: {', '.join(failed)}[/red]")
+            if event_type == "progress":
+                console.print(f"\n[bold]--- {pipe} ---[/bold]")
+                console.print(f"[dim]{message}[/dim]")
+            elif event_type == "complete":
+                if pipe:
+                    console.print(f"[green]{pipe}: {message}[/green]")
+                else:
+                    console.print(f"\n[green]{message}[/green]")
+            elif event_type == "error":
+                if pipe:
+                    console.print(f"[red]{pipe}: {message}[/red]")
+                else:
+                    console.print(f"\n[red]{message}[/red]")
+                    raise typer.Exit(code=1)
+    except ShenasServerError as exc:
+        console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
-    console.print("\n[green]All syncs complete.[/green]")
 
 
 @app.command("list")
@@ -65,12 +59,11 @@ def list_cmd() -> None:
 def add_cmd(
     names: list[str] = typer.Argument(help="Pipe names, e.g. 'garmin lunchmoney'"),
     index_url: str = typer.Option(DEFAULT_INDEX, "--index-url", help="Repository server URL"),
-    public_key: Path = typer.Option(Path(".shenas/shenas.pub"), "--public-key", help="Path to Ed25519 public key"),
     skip_verify: bool = typer.Option(False, "--skip-verify", help="Skip signature verification"),
 ) -> None:
     """Add one or more pipe packages from the repository."""
     for name in names:
-        install(name, "pipe", index_url, public_key, skip_verify)
+        install(name, "pipe", index_url, skip_verify)
 
 
 @app.command("remove")

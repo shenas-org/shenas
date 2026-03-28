@@ -16,6 +16,8 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
+      - name: Install all packages
+        run: make dev-install
       - name: Lint
         run: make lint
 
