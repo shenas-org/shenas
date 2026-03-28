@@ -1,6 +1,6 @@
 {
   "name": "shenas-data-table",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@tanstack/table-core": "^8.0.0",
     "apache-arrow": "^19.0.0",
     "lit": "^3.2.0"
   },
