@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=shenas
+Comment=Health and finance metrics platform
+Exec=shenas-desktop
+Icon=shenas-desktop
+Terminal=false
+Type=Application
+Categories=Utility;

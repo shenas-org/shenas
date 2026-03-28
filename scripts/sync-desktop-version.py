@@ -1,18 +1,20 @@
-"""Sync app/desktop/VERSION to tauri.conf.json, Cargo.toml, package.json, PKGBUILD."""
+"""Sync app/VERSION to desktop config files (tauri.conf.json, Cargo.toml, package.json, PKGBUILD)."""
 
 import json
 import re
 import sys
 from pathlib import Path
 
-DESKTOP = Path(__file__).resolve().parent.parent / "app" / "desktop"
+ROOT = Path(__file__).resolve().parent.parent
+APP_VERSION = ROOT / "app" / "VERSION"
+DESKTOP = ROOT / "app" / "desktop"
 
 
 def main() -> None:
-    version_file = DESKTOP / "VERSION"
-    version = version_file.read_text().strip()
+    version = APP_VERSION.read_text().strip()
     if len(sys.argv) > 1:
         version = sys.argv[1]
+        APP_VERSION.write_text(version + "\n")
 
     # tauri.conf.json
     tauri_conf = DESKTOP / "src-tauri" / "tauri.conf.json"
@@ -46,7 +48,7 @@ def main() -> None:
     text = re.sub(r"^pkgver=.*$", f"pkgver={version}", text, flags=re.MULTILINE)
     pkgbuild.write_text(text)
 
-    print(f"Synced desktop version to {version}")
+    print(f"Synced version to {version}")
 
 
 if __name__ == "__main__":
