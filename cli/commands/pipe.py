@@ -1,4 +1,4 @@
-from importlib.metadata import entry_points
+"""Pipeline commands. Pipe subcommands (auth, sync) are proxied to the server."""
 
 import typer
 from rich.console import Console
@@ -10,8 +10,72 @@ console = Console()
 
 app = typer.Typer(help="Pipeline commands.", invoke_without_command=True)
 
-for _ep in entry_points(group="shenas.pipes"):
-    app.add_typer(_ep.load(), name=_ep.name)
+
+def _register_pipe_commands() -> None:
+    """Discover installed pipes from the server and register CLI subcommands."""
+    try:
+        client = ShenasClient()
+        pipes = client.pipes_list()
+    except (ShenasServerError, Exception):
+        return
+
+    for pipe_info in pipes:
+        name = pipe_info["name"]
+        commands = pipe_info.get("commands", [])
+        pipe_app = typer.Typer(help=f"{name} pipe commands.", invoke_without_command=True)
+
+        @pipe_app.callback()
+        def _default(ctx: typer.Context) -> None:
+            if ctx.invoked_subcommand is None:
+                typer.echo(ctx.get_help())
+                raise typer.Exit()
+
+        has_sync = any(c["name"] == "sync" for c in commands)
+        has_auth = any(c["name"] == "auth" for c in commands)
+
+        if has_sync:
+            _add_sync_command(pipe_app, name)
+        if has_auth:
+            _add_auth_command(pipe_app, name)
+
+        app.add_typer(pipe_app, name=name)
+
+
+def _add_sync_command(pipe_app: typer.Typer, pipe_name: str) -> None:
+    @pipe_app.command("sync")
+    def sync(
+        start_date: str = typer.Option("30 days ago", help="Start date (YYYY-MM-DD or 'N days ago')"),
+        full_refresh: bool = typer.Option(False, "--full-refresh", help="Drop and re-download all data"),
+    ) -> None:
+        """Sync data from this pipe."""
+        try:
+            for event in ShenasClient().sync_pipe(pipe_name, start_date=start_date, full_refresh=full_refresh):
+                message = event.get("message", "")
+                event_type = event.get("_event", "message")
+
+                if event_type == "progress":
+                    console.print(f"[dim]{message}[/dim]")
+                elif event_type == "complete":
+                    console.print(f"[green]{message}[/green]")
+                elif event_type == "error":
+                    console.print(f"[red]{message}[/red]")
+                    raise typer.Exit(code=1)
+        except ShenasServerError as exc:
+            console.print(f"[red]{exc.detail}[/red]")
+            raise typer.Exit(code=1)
+
+
+def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
+    @pipe_app.command("auth")
+    def auth() -> None:
+        """Authenticate with this pipe's data source."""
+        console.print(f"[yellow]Auth must be run locally: uv run shenasctl pipe {pipe_name} auth[/yellow]")
+        raise typer.Exit(code=1)
+
+
+# Try to register pipe subcommands from the server at import time.
+# If the server is not running, only the static commands (sync, list, add, remove) are available.
+_register_pipe_commands()
 
 
 @app.callback()

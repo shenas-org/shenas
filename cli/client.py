@@ -77,6 +77,11 @@ class ShenasClient:
         except (httpx.ConnectError, httpx.ConnectTimeout):
             return False
 
+    # --- Pipes ---
+
+    def pipes_list(self) -> list[dict]:
+        return self._request("GET", "/api/pipes")
+
     # --- Config ---
 
     def config_list(self, kind: str | None = None, name: str | None = None) -> list[dict]:
