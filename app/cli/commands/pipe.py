@@ -1,5 +1,6 @@
 """Pipeline commands. Pipe subcommands (auth, sync) are proxied to the server."""
 
+import click
 import typer
 from rich.console import Console
 
@@ -8,15 +9,37 @@ from app.cli.commands.pkg import DEFAULT_INDEX, install, uninstall
 
 console = Console()
 
-app = typer.Typer(help="Pipeline commands.", invoke_without_command=True)
+
+class _PipeGroup(typer.core.TyperGroup):
+    """Custom group that shows a server error for unknown commands instead of the default error."""
+
+    def resolve_command(self, ctx, args):  # noqa: ANN001, ANN201
+        try:
+            return super().resolve_command(ctx, args)
+        except click.UsageError:
+            if not _server_available and args:
+                console.print(
+                    "[red]Cannot reach shenas server.[/red] Pipe commands require the server.\n"
+                    "Start it with: [bold]shenas serve[/bold]"
+                )
+                raise SystemExit(1)
+            raise
+
+
+app = typer.Typer(help="Pipeline commands.", invoke_without_command=True, cls=_PipeGroup)
+
+
+_server_available = False
 
 
 def _register_pipe_commands() -> None:
     """Discover installed pipes from the server and register CLI subcommands."""
+    global _server_available
     try:
         client = ShenasClient()
         pipes = client.pipes_list()
-    except (ShenasServerError, Exception):
+        _server_available = True
+    except Exception:
         return
 
     for pipe_info in pipes:
