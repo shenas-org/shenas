@@ -20,6 +20,7 @@ shenas-schema-core = { workspace = true }
 [dependency-groups]
 dev = [
     "shenas-cli",
+    "shenas-app",
     "commitizen>=4.13.9",
     "httpx>=0.28.1",
     "pytest>=9.0.2",
