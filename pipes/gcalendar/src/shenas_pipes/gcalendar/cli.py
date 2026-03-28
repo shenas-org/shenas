@@ -15,12 +15,7 @@ def sync(
     from shenas_pipes.gcalendar.auth import build_client
     from shenas_pipes.gcalendar.source import calendars, events
 
-    try:
-        service = build_client()
-    except RuntimeError as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(code=1)
-
+    service = build_client()
     console.print(f"Syncing Google Calendar data into [bold]{DB_PATH}[/bold]...", style="dim")
 
     resources = [

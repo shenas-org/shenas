@@ -18,20 +18,22 @@ def media_items(
     else:
         start = pendulum.parse(start_date).start_of("day")
 
-    date_filter = {
-        "dateFilter": {
-            "ranges": [
-                {
-                    "startDate": {"year": start.year, "month": start.month, "day": start.day},
-                    "endDate": {"year": 2099, "month": 12, "day": 31},
-                }
-            ]
+    filters = {
+        "filters": {
+            "dateFilter": {
+                "ranges": [
+                    {
+                        "startDate": {"year": start.year, "month": start.month, "day": start.day},
+                        "endDate": {"year": 2099, "month": 12, "day": 31},
+                    }
+                ]
+            }
         }
     }
 
     page_token = None
     while True:
-        body = {**date_filter, "pageSize": 100}
+        body = {**filters, "pageSize": 100}
         if page_token:
             body["pageToken"] = page_token
 

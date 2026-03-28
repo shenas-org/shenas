@@ -15,12 +15,7 @@ def sync(
     from shenas_pipes.gphotos.auth import build_client
     from shenas_pipes.gphotos.source import albums, media_items
 
-    try:
-        service = build_client()
-    except RuntimeError as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(code=1)
-
+    service = build_client()
     console.print(f"Syncing Google Photos data into [bold]{DB_PATH}[/bold]...", style="dim")
 
     resources = [
