@@ -18,6 +18,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - uses: actions/setup-node@v4
         with:
@@ -28,7 +31,6 @@ jobs:
           enable-cache: true
 
       - run: uv sync
-      - run: make dev-install
 
       - name: Parse tag
         id: parse
