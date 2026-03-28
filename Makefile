@@ -2,7 +2,7 @@ PACKAGES_DIR := $(CURDIR)/packages
 SIGN = uv run --no-sync shenasrepoctl sign
 BUMP = python scripts/bump-version.py
 
-.PHONY: repository build build-pipes build-schemas build-components vendor sign-all dev-install dev-uninstall setup-hooks coverage
+.PHONY: repository build build-pipes build-schemas build-components dev-install dev-uninstall setup-hooks coverage
 
 repository:
 	uv run python -m repository.main $(PACKAGES_DIR)
@@ -55,13 +55,6 @@ build-components:
 		$(SIGN) $(PACKAGES_DIR)/shenas_component_$${pkg}-$$version-*.whl; \
 	done
 
-# Download a pipe wheel + all its transitive deps into packages/
-# Usage: make vendor PIPE=garmin
-vendor:
-	@test -n "$(PIPE)" || (echo "Usage: make vendor PIPE=<name>" && exit 1)
-	uv run pip download shenas-pipe-$(PIPE) --dest $(PACKAGES_DIR) --find-links $(PACKAGES_DIR)
-	@echo "Vendored shenas-pipe-$(PIPE) and dependencies into $(PACKAGES_DIR)"
-
 # Editable install of all local packages (source changes take effect immediately)
 dev-install:
 	@echo "Installing schemas..."
@@ -98,14 +91,6 @@ dev-uninstall:
 	else \
 		uv pip uninstall $$pkgs; \
 	fi
-
-# Sign all unsigned wheels in packages/
-sign-all:
-	@for whl in $(PACKAGES_DIR)/*.whl; do \
-		if [ ! -f "$$whl.sig" ]; then \
-			$(SIGN) "$$whl"; \
-		fi; \
-	done
 
 # Install git pre-commit hook
 setup-hooks:

@@ -80,7 +80,7 @@ make build-pipes
 make build-components
 
 # Vendor transitive dependencies
-make vendor PIPE=garmin
+shenasrepoctl vendor garmin
 
 # Start the repository server
 make repository
