@@ -1,14 +1,10 @@
-from importlib.metadata import entry_points
 from pathlib import Path
 
 import typer
 
 from cli.commands.pkg import DEFAULT_INDEX, install, list_packages, uninstall
 
-app = typer.Typer(help="Pipeline commands.", invoke_without_command=True)
-
-for _ep in entry_points(group="shenas.pipes"):
-    app.add_typer(_ep.load(), name=_ep.name)
+app = typer.Typer(help="Component commands.", invoke_without_command=True)
 
 
 @app.callback()
@@ -20,24 +16,24 @@ def _default(ctx: typer.Context) -> None:
 
 @app.command("list")
 def list_cmd() -> None:
-    """List installed pipe packages."""
-    list_packages("pipe")
+    """List installed component packages."""
+    list_packages("component")
 
 
 @app.command("install")
 def install_cmd(
-    name: str = typer.Argument(help="Pipe name, e.g. 'garmin'"),
+    name: str = typer.Argument(help="Component name, e.g. 'fitness-dashboard'"),
     index_url: str = typer.Option(DEFAULT_INDEX, "--index-url", help="Repository server URL"),
     public_key: Path = typer.Option(Path(".shenas/shenas.pub"), "--public-key", help="Path to Ed25519 public key"),
     skip_verify: bool = typer.Option(False, "--skip-verify", help="Skip signature verification"),
 ) -> None:
-    """Install a pipe package from the repository."""
-    install(name, "pipe", index_url, public_key, skip_verify)
+    """Install a component package from the repository."""
+    install(name, "component", index_url, public_key, skip_verify)
 
 
 @app.command("uninstall")
 def uninstall_cmd(
-    name: str = typer.Argument(help="Pipe name, e.g. 'garmin'"),
+    name: str = typer.Argument(help="Component name, e.g. 'fitness-dashboard'"),
 ) -> None:
-    """Uninstall a pipe package."""
-    uninstall(name, "pipe")
+    """Uninstall a component package."""
+    uninstall(name, "component")

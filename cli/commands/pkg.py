@@ -1,40 +1,36 @@
+"""Shared install/uninstall/list logic for all package types."""
+
+import json
 import subprocess
-import tempfile
 from pathlib import Path
 from urllib.request import urlopen
 
 import typer
 from rich.console import Console
+from rich.table import Table
 
 from registry.signing import load_public_key, verify_bytes
 
 console = Console()
 
-app = typer.Typer(help="Install packages from the shenas repository.", invoke_without_command=True)
-
 DEFAULT_INDEX = "http://127.0.0.1:8080"
-PREFIXES = {"pipe": "shenas-pipe-", "schema": "shenas-schema-", "component": "shenas-component-"}
+PACKAGES_DIR = Path(__file__).resolve().parent.parent.parent / "packages"
+PUBLIC_KEY_PATH = Path(".shenas") / "shenas.pub"
+
+PREFIXES = {
+    "pipe": "shenas-pipe-",
+    "schema": "shenas-schema-",
+    "component": "shenas-component-",
+}
 
 
-@app.callback()
-def _default(ctx: typer.Context) -> None:
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
-
-
-@app.command()
-def pipe(
-    name: str = typer.Argument(help="Pipe name, e.g. 'garmin'"),
-    index_url: str = typer.Option(DEFAULT_INDEX, "--index-url", help="Repository server URL"),
-    public_key: Path = typer.Option(Path(".shenas/shenas.pub"), "--public-key", help="Path to Ed25519 public key for verification"),
-    skip_verify: bool = typer.Option(False, "--skip-verify", help="Skip signature verification"),
+def install(
+    name: str,
+    kind: str,
+    index_url: str = DEFAULT_INDEX,
+    public_key_path: Path = Path(".shenas/shenas.pub"),
+    skip_verify: bool = False,
 ) -> None:
-    """Install a pipe package from the repository."""
-    _install(name, "pipe", index_url, public_key, skip_verify)
-
-
-def _install(name: str, kind: str, index_url: str, public_key_path: Path, skip_verify: bool) -> None:
     prefix = PREFIXES[kind]
     pkg_name = f"{prefix}{name}"
 
@@ -64,11 +60,84 @@ def _install(name: str, kind: str, index_url: str, public_key_path: Path, skip_v
         raise typer.Exit(code=1)
 
 
+def uninstall(name: str, kind: str) -> None:
+    pkg_name = f"{PREFIXES[kind]}{name}"
+
+    result = subprocess.run(
+        ["uv", "pip", "uninstall", pkg_name],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode == 0:
+        console.print(f"[green]Uninstalled {pkg_name}[/green]")
+        if result.stdout.strip():
+            console.print(result.stdout.strip(), style="dim")
+    else:
+        console.print(f"[red]Failed to uninstall {pkg_name}[/red]")
+        if result.stderr.strip():
+            console.print(result.stderr.strip(), style="dim")
+        raise typer.Exit(code=1)
+
+
+def list_packages(kind: str) -> None:
+    prefix = PREFIXES[kind]
+    result = subprocess.run(["uv", "pip", "list", "--format", "json"], capture_output=True, text=True)
+    if result.returncode != 0:
+        console.print("[red]Failed to list packages[/red]")
+        raise typer.Exit(code=1)
+
+    packages = json.loads(result.stdout)
+    matched = [p for p in packages if p["name"].startswith(prefix)]
+
+    if not matched:
+        console.print(f"[dim]No {kind} packages installed[/dim]")
+        return
+
+    table = Table(show_lines=False)
+    table.add_column(kind.capitalize(), style="green")
+    table.add_column("Package")
+    table.add_column("Version", justify="right")
+    table.add_column("Signature", justify="right")
+    for p in sorted(matched, key=lambda x: x["name"]):
+        short_name = p["name"].removeprefix(prefix)
+        sig_status = check_signature(p["name"], p["version"])
+        table.add_row(short_name, p["name"], p["version"], SIG_STYLE[sig_status])
+    console.print(table)
+
+
+def check_signature(pkg_name: str, version: str) -> str:
+    if not PUBLIC_KEY_PATH.exists():
+        return "no key"
+
+    normalized = pkg_name.replace("-", "_")
+    matches = list(PACKAGES_DIR.glob(f"{normalized}-{version}*.whl")) if PACKAGES_DIR.is_dir() else []
+    if not matches:
+        return "unsigned"
+
+    wheel_path = matches[0]
+    sig_path = wheel_path.with_suffix(wheel_path.suffix + ".sig")
+    if not sig_path.exists():
+        return "unsigned"
+
+    pub_key = load_public_key(PUBLIC_KEY_PATH)
+    sig_b64 = sig_path.read_text().strip()
+    from registry.signing import verify_file
+
+    return "valid" if verify_file(pub_key, wheel_path, sig_b64) else "invalid"
+
+
+SIG_STYLE = {
+    "valid": "[green]verified[/green]",
+    "invalid": "[red]INVALID[/red]",
+    "unsigned": "[yellow]unsigned[/yellow]",
+    "no key": "[dim]no key[/dim]",
+}
+
+
 def _verify_from_index(pkg_name: str, index_url: str, pub_key) -> None:
-    """Fetch the wheel and its .sig from the index, verify before install."""
     from html.parser import HTMLParser
 
-    # Discover the wheel filename from the simple index
     normalized = pkg_name.replace("_", "-").lower()
     simple_pkg_url = f"{index_url}/simple/{normalized}/"
     try:
@@ -94,7 +163,6 @@ def _verify_from_index(pkg_name: str, index_url: str, pub_key) -> None:
         console.print(f"[red]No wheel found for {pkg_name} in repository[/red]")
         raise typer.Exit(code=1)
 
-    # Take the last found (latest) wheel
     wheel_url = f"{index_url}{wheel_href}" if wheel_href.startswith("/") else f"{index_url}/{wheel_href}"
     sig_url = f"{wheel_url}.sig"
 
@@ -120,4 +188,4 @@ def _verify_from_index(pkg_name: str, index_url: str, pub_key) -> None:
         console.print("The package may have been tampered with. Aborting.")
         raise typer.Exit(code=1)
 
-    console.print(f"[green]Signature verified[/green]")
+    console.print("[green]Signature verified[/green]")
