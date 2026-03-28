@@ -2,8 +2,10 @@ from importlib.metadata import entry_points
 
 import typer
 from rich.console import Console
+from typer.testing import CliRunner
 
 console = Console()
+runner = CliRunner()
 
 
 def sync_all() -> None:
@@ -21,18 +23,14 @@ def sync_all() -> None:
         console.print(f"\n[bold]--- {name} ---[/bold]")
         try:
             pipe_app = ep.load()
-            # Find the sync command in the pipe's typer app
-            sync_cmd = None
-            for cmd_info in pipe_app.registered_commands:
-                if cmd_info.name == "sync" or (cmd_info.callback and cmd_info.callback.__name__ == "sync"):
-                    sync_cmd = cmd_info.callback
-                    break
-            if sync_cmd is None:
-                console.print(f"[dim]No sync command found for {name}, skipping.[/dim]")
-                continue
-            sync_cmd()
-        except SystemExit:
-            pass
+            # Invoke the sync command through typer so defaults resolve correctly
+            tmp_app = typer.Typer()
+            tmp_app.add_typer(pipe_app, name=name)
+            result = runner.invoke(tmp_app, [name, "sync"])
+            if result.output:
+                console.print(result.output.rstrip())
+            if result.exit_code != 0:
+                failed.append(name)
         except Exception as exc:
             console.print(f"[red]{name} sync failed:[/red] {exc}")
             failed.append(name)
