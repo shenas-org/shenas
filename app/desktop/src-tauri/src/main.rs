@@ -74,6 +74,14 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(server_state)
+        .setup(|app| {
+            // Navigate the main window to the running server
+            let window = app.get_webview_window("main").unwrap();
+            window
+                .navigate("http://localhost:7280".parse().unwrap())
+                .unwrap();
+            Ok(())
+        })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
                 let state = window.state::<ServerProcess>();
