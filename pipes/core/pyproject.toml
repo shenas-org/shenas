@@ -8,6 +8,7 @@ dependencies = [
     "keyring>=25.0.0",
     "pendulum>=3.0.0",
     "rich>=14.0.0",
+    "shenas-schema-core",
     "typer>=0.24.0",
 ]
 
