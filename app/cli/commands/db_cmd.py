@@ -2,8 +2,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from cli.client import ShenasClient, ShenasServerError
-from cli.db import generate_db_key, set_db_key
+from app.cli.client import ShenasClient, ShenasServerError
+from app.cli.db import generate_db_key, set_db_key
 
 console = Console()
 

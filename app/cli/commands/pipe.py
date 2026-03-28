@@ -3,8 +3,8 @@
 import typer
 from rich.console import Console
 
-from cli.client import ShenasClient, ShenasServerError
-from cli.commands.pkg import DEFAULT_INDEX, install, uninstall
+from app.cli.client import ShenasClient, ShenasServerError
+from app.cli.commands.pkg import DEFAULT_INDEX, install, uninstall
 
 console = Console()
 

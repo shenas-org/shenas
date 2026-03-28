@@ -9,7 +9,6 @@ package = false
 
 [tool.uv.workspace]
 members = [
-    "cli",
     "app",
     "repository",
     "pipes/*",
@@ -18,7 +17,6 @@ members = [
 ]
 
 [tool.uv.sources]
-shenas-cli = { workspace = true }
 shenas-app = { workspace = true }
 shenas-repository = { workspace = true }
 shenas-pipe-core = { workspace = true }
@@ -35,7 +33,6 @@ shenas-component-data-table = { workspace = true }
 
 [dependency-groups]
 dev = [
-    "shenas-cli",
     "shenas-app",
     "shenas-pipe-garmin",
     "shenas-pipe-lunchmoney",
@@ -55,13 +52,13 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["cli/tests", "app/tests", "repository/tests", "telemetry/tests", "pipes/core/tests", "pipes/garmin/tests", "pipes/gmail/tests", "pipes/lunchmoney/tests", "pipes/obsidian/tests", "schemas/fitness/tests", "schemas/finance/tests", "schemas/outcomes/tests"]
+testpaths = ["app/cli/tests", "app/tests", "repository/tests", "telemetry/tests", "pipes/core/tests", "pipes/garmin/tests", "pipes/gmail/tests", "pipes/lunchmoney/tests", "pipes/obsidian/tests", "schemas/fitness/tests", "schemas/finance/tests", "schemas/outcomes/tests"]
 addopts = "--import-mode=importlib"
 pythonpath = ["."]
 
 [tool.ruff]
 line-length = 127
-extend-exclude = ["app/desktop/src-tauri/target"]
+extend-exclude = ["app/desktop/src-tauri/target", "cli/"]
 
 [tool.commitizen]
 version_provider = "uv"

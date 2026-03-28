@@ -118,7 +118,7 @@ class TestDbStatus:
 
 class TestShenasCLI:
     def test_no_cert(self, tmp_path: Path) -> None:
-        from app.cli import app as shenas_app
+        from app.server_cli import app as shenas_app
 
         result = runner.invoke(
             shenas_app,

@@ -5,10 +5,9 @@ SIGN = uv run --no-sync shenasrepoctl sign
 
 # Install CLI tools globally (~/.local/bin/)
 install:
-	uv tool install --editable cli/ --force --with shenas-app
 	uv tool install --editable app/ --force
 	uv tool install --editable repository/ --force
-	@echo "Installed shenasctl, shenas, shenasrepoctl to ~/.local/bin/"
+	@echo "Installed shenas, shenasctl, shenasrepoctl to ~/.local/bin/"
 	@echo "Run 'shenasctl --install-completion' for tab completion"
 
 repository:
@@ -72,6 +71,6 @@ setup-hooks:
 	@echo "Pre-commit hook installed."
 
 coverage:
-	uv run --no-sync pytest --cov=cli --cov=repository --cov=app \
+	uv run --no-sync pytest --cov=repository --cov=app \
 		--cov=shenas_pipes --cov=shenas_schemas \
 		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json

@@ -9,7 +9,7 @@ from urllib.request import urlopen
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from cli.commands.pkg import DEFAULT_INDEX, PREFIXES, PUBLIC_KEY_PATH, check_signature
+from app.cli.commands.pkg import DEFAULT_INDEX, PREFIXES, PUBLIC_KEY_PATH, check_signature
 from repository.signing import load_public_key, verify_bytes
 
 router = APIRouter(prefix="/packages", tags=["packages"])
