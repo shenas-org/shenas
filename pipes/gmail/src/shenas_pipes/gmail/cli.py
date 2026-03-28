@@ -30,12 +30,7 @@ def sync(
     from shenas_pipes.gmail.auth import build_client
     from shenas_pipes.gmail.source import labels, messages
 
-    try:
-        service = build_client()
-    except RuntimeError as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(code=1)
-
+    service = build_client()
     console.print("Syncing Gmail data...", style="dim")
 
     run_sync("gmail", "gmail", [messages(service, query), labels(service)], full_refresh)

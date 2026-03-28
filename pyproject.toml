@@ -24,6 +24,7 @@ shenas-pipe-garmin = { workspace = true }
 shenas-pipe-lunchmoney = { workspace = true }
 shenas-pipe-obsidian = { workspace = true }
 shenas-pipe-gmail = { workspace = true }
+shenas-pipe-gcalendar = { workspace = true }
 shenas-schema-core = { workspace = true }
 shenas-schema-fitness = { workspace = true }
 shenas-schema-finance = { workspace = true }
@@ -38,6 +39,7 @@ dev = [
     "shenas-pipe-lunchmoney",
     "shenas-pipe-obsidian",
     "shenas-pipe-gmail",
+    "shenas-pipe-gcalendar",
     "shenas-schema-fitness",
     "shenas-schema-finance",
     "shenas-schema-outcomes",
@@ -52,7 +54,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["app/cli/tests", "app/tests", "repository/tests", "telemetry/tests", "pipes/core/tests", "pipes/garmin/tests", "pipes/gmail/tests", "pipes/lunchmoney/tests", "pipes/obsidian/tests", "schemas/fitness/tests", "schemas/finance/tests", "schemas/outcomes/tests"]
+testpaths = ["app/cli/tests", "app/tests", "repository/tests", "telemetry/tests", "pipes/core/tests", "pipes/garmin/tests", "pipes/gmail/tests", "pipes/gcalendar/tests", "pipes/lunchmoney/tests", "pipes/obsidian/tests", "schemas/fitness/tests", "schemas/finance/tests", "schemas/outcomes/tests"]
 addopts = "--import-mode=importlib"
 pythonpath = ["."]
 
