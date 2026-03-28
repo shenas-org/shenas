@@ -26,6 +26,10 @@ def set_db_key(key: str) -> None:
     """Store the database encryption key in the OS keyring."""
     import keyring
 
+    try:
+        keyring.delete_password("shenas", "db_key")
+    except Exception:
+        pass
     keyring.set_password("shenas", "db_key", key)
 
 
