@@ -36,7 +36,7 @@ def _ns_to_iso(ns: int) -> str:
 
 
 def _connect() -> duckdb.DuckDBPyConnection:
-    from app.cli.db import connect
+    from app.db import connect
 
     con = connect()
     ensure_telemetry_schema(con)

@@ -108,6 +108,9 @@ class ShenasClient:
     def db_status(self) -> dict:
         return self._request("GET", "/api/db/status")
 
+    def db_keygen(self) -> dict:
+        return self._request("POST", "/api/db/keygen")
+
     # --- Packages ---
 
     def packages_list(self, kind: str) -> list[dict]:

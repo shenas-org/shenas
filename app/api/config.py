@@ -5,7 +5,7 @@ import importlib
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.cli.db import connect
+from app.db import connect
 
 router = APIRouter(prefix="/config", tags=["config"])
 
