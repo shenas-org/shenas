@@ -10,6 +10,8 @@ use std::time::Duration;
 
 use tauri::Manager;
 
+const DESKTOP_PORT: u16 = 7281;
+
 struct ServerProcess(Mutex<Option<Child>>);
 
 fn workspace_root() -> PathBuf {
@@ -26,15 +28,15 @@ fn workspace_root() -> PathBuf {
             break;
         }
     }
-    // Fallback: assume we're somewhere inside the repo
     env::current_dir().unwrap()
 }
 
 fn start_server() -> Child {
     let root = workspace_root();
-    eprintln!("Starting shenas server from: {}", root.display());
+    let port = DESKTOP_PORT.to_string();
+    eprintln!("Starting shenas server on port {} from: {}", port, root.display());
     Command::new("uv")
-        .args(["run", "--no-sync", "shenas", "serve", "--no-tls"])
+        .args(["run", "--no-sync", "shenas", "serve", "--no-tls", "--port", &port])
         .current_dir(&root)
         .spawn()
         .expect("Failed to start shenas server. Is uv and shenas-app installed?")
@@ -62,8 +64,10 @@ fn main() {
     let server = start_server();
     let server_state = ServerProcess(Mutex::new(Some(server)));
 
-    // Wait for the server to be ready
-    if !wait_for_server("http://localhost:7280/api/health", Duration::from_secs(30)) {
+    let url = format!("http://localhost:{}", DESKTOP_PORT);
+    let health_url = format!("{}/api/health", url);
+
+    if !wait_for_server(&health_url, Duration::from_secs(30)) {
         eprintln!("Server failed to start within 30 seconds");
         if let Some(mut child) = server_state.0.lock().unwrap().take() {
             let _ = child.kill();
@@ -74,11 +78,10 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(server_state)
-        .setup(|app| {
-            // Navigate the main window to the running server
+        .setup(move |app| {
             let window = app.get_webview_window("main").unwrap();
             window
-                .navigate("http://localhost:7280".parse().unwrap())
+                .navigate(url.parse().unwrap())
                 .unwrap();
             Ok(())
         })
