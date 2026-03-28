@@ -57,29 +57,31 @@ build-components:
 	done
 
 # Editable install of all local packages (source changes take effect immediately)
+# SETUPTOOLS_SCM_PRETEND_VERSION avoids local version identifiers (+gXXX)
+# that break cross-package dependency resolution during dev installs.
 dev-install:
 	@echo "Installing schemas..."
 	@for schema in $(patsubst schemas/%/pyproject.build.toml,%,$(wildcard schemas/*/pyproject.build.toml)); do \
 		if [ ! -f schemas/$$schema/pyproject.toml ]; then \
 			cp schemas/$$schema/pyproject.build.toml schemas/$$schema/pyproject.toml; \
-			uv pip install -e schemas/$$schema; \
+			SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install -e schemas/$$schema; \
 			rm schemas/$$schema/pyproject.toml; \
 		else \
-			uv pip install -e schemas/$$schema; \
+			SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install -e schemas/$$schema; \
 		fi; \
 	done
 	@echo "Installing pipes..."
 	@for pipe in $(patsubst pipes/%/pyproject.toml,%,$(wildcard pipes/*/pyproject.toml)); do \
-		uv pip install -e pipes/$$pipe; \
+		SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install -e pipes/$$pipe; \
 	done
 	@echo "Installing components..."
 	@for comp in $(patsubst components/%/pyproject.build.toml,%,$(wildcard components/*/pyproject.build.toml)); do \
 		if [ ! -f components/$$comp/pyproject.toml ]; then \
 			cp components/$$comp/pyproject.build.toml components/$$comp/pyproject.toml; \
-			uv pip install -e components/$$comp; \
+			SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install -e components/$$comp; \
 			rm components/$$comp/pyproject.toml; \
 		else \
-			uv pip install -e components/$$comp; \
+			SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 uv pip install -e components/$$comp; \
 		fi; \
 	done
 	@echo "Dev install complete."
