@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: moonrepo/setup-moon-action@v1
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -19,7 +20,7 @@ jobs:
       - name: Install all packages
         run: make dev-install
       - name: Lint
-        run: make lint
+        run: moon run :lint
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -29,6 +30,7 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+      - uses: moonrepo/setup-moon-action@v1
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -40,7 +42,7 @@ jobs:
       - name: Install all packages
         run: make dev-install
       - name: Run all tests
-        run: make test
+        run: moon run :test
 
   coverage:
     name: Coverage
