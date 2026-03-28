@@ -14,6 +14,10 @@ app = create_pipe_app("Google Takeout commands.")
 def sync(
     full_refresh: bool = typer.Option(False, "--full-refresh", help="Drop all data and re-download."),
     latest: int = typer.Option(0, "--latest", help="Only process the N most recent archives (0 = all)."),
+    name_filter: str = typer.Option(
+        "", "--filter", help="Only process archives matching this substring (e.g. '.tgz', '16-001')."
+    ),
+    list_only: bool = typer.Option(False, "--list", help="List available archives without downloading."),
 ) -> None:
     """Find Takeout archives on Google Drive, download, extract, and load into DuckDB."""
     from shenas_pipes.gtakeout.auth import build_client
@@ -35,8 +39,20 @@ def sync(
             "No Takeout archives found on Google Drive. Go to https://takeout.google.com and export to Google Drive first."
         )
 
+    if name_filter:
+        archives = [a for a in archives if name_filter in a["name"]]
+        if not archives:
+            raise RuntimeError(f"No archives matching '{name_filter}'. Use --list to see available archives.")
+
     if latest > 0:
         archives = archives[:latest]
+
+    # List mode: just show archives and exit
+    if list_only:
+        for a in archives:
+            size_mb = a["size"] / (1024 * 1024)
+            console.print(f"  {a['name']} ({size_mb:.0f} MB) {a['created_time'][:10]}")
+        return
 
     total_size = sum(a["size"] for a in archives)
     total_mb = total_size / (1024 * 1024)
@@ -44,12 +60,11 @@ def sync(
     # Check disk space
     tmp_root = Path(tempfile.gettempdir())
     free_mb = shutil.disk_usage(tmp_root).free / (1024 * 1024)
-    # Need ~2x archive size (download + extraction)
     needed_mb = total_mb * 2
     if free_mb < needed_mb:
         raise RuntimeError(
             f"Insufficient disk space. Need ~{needed_mb:.0f} MB but only {free_mb:.0f} MB free in {tmp_root}. "
-            f"Use --latest N to process fewer archives."
+            f"Use --latest N or --filter to process fewer archives."
         )
 
     console.print(f"Processing {len(archives)} archive(s) ({total_mb:.0f} MB) into [bold]{DB_PATH}[/bold]", style="dim")
