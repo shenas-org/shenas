@@ -5,6 +5,7 @@ description = "CLI for the shenas metrics platform"
 requires-python = ">=3.11"
 dependencies = [
     "dlt[duckdb]>=1.24.0",
+    "httpx>=0.28.1",
     "keyring>=25.7.0",
     "opentelemetry-api>=1.25.0",
     "opentelemetry-sdk>=1.25.0",
