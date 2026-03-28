@@ -11,6 +11,8 @@ uv run shenas                       # CLI entry point
 uv run shenas pipe garmin sync       # run pipe (must be installed first)
 uv run ruff check .                 # lint
 uv run ruff format .                # format
+uv run ty check cli/ registry/ repository_server/ local_frontend/  # type check
+uv run pytest                       # run tests
 uv run cz commit                    # conventional commit
 uv add <package>                    # add a dependency
 uv sync                             # install dependencies
