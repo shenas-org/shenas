@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
   build:
@@ -86,16 +85,6 @@ jobs:
           for whl in dist/*.whl; do
             uv run --no-sync shenasrepoctl sign "$whl"
           done
-
-      - name: Publish to GitHub Packages
-        run: |
-          uv pip install twine
-          twine upload \
-            --repository-url "https://upload.pypi.pkg.github.com/${{ github.repository_owner }}" \
-            dist/*.whl
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create release
         uses: softprops/action-gh-release@v2
