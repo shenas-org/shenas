@@ -1,7 +1,10 @@
 javascript:
   packageManager: 'npm'
+  syncProjectWorkspaceDependencies: false
 
 node:
   version: '22'
+  syncProjectWorkspaceDependencies: false
 
-npm: {}
+npm:
+  syncProjectWorkspaceDependencies: false

@@ -12,9 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: moonrepo/setup-moon-action@v1
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -22,7 +19,10 @@ jobs:
       - name: Install all packages
         run: make dev-install
       - name: Lint
-        run: moon run :lint
+        run: |
+          uv run --no-sync ruff check .
+          uv run --no-sync ruff format --check .
+          uv run --no-sync ty check cli/ repository/ app/
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -32,9 +32,6 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: moonrepo/setup-moon-action@v1
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -45,8 +42,15 @@ jobs:
       - run: uv sync --python ${{ matrix.python-version }}
       - name: Install all packages
         run: make dev-install
-      - name: Run all tests
-        run: moon run :test
+      - name: Run Python tests
+        run: uv run --no-sync pytest
+      - name: Run component tests
+        run: |
+          for comp in components/*/package.json; do
+            dir=$(dirname "$comp")
+            echo "Testing $dir"
+            cd "$dir" && npm install --silent && npm test && cd "$GITHUB_WORKSPACE"
+          done
 
   coverage:
     name: Coverage
