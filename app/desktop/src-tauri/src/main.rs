@@ -1,6 +1,8 @@
 // Prevents additional console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::env;
+use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::Mutex;
 use std::thread;
@@ -10,9 +12,30 @@ use tauri::Manager;
 
 struct ServerProcess(Mutex<Option<Child>>);
 
+fn workspace_root() -> PathBuf {
+    // SHENAS_ROOT env var, or walk up from current dir to find pyproject.toml
+    if let Ok(root) = env::var("SHENAS_ROOT") {
+        return PathBuf::from(root);
+    }
+    let mut dir = env::current_dir().unwrap();
+    loop {
+        if dir.join("pyproject.toml").exists() && dir.join("uv.lock").exists() {
+            return dir;
+        }
+        if !dir.pop() {
+            break;
+        }
+    }
+    // Fallback: assume we're somewhere inside the repo
+    env::current_dir().unwrap()
+}
+
 fn start_server() -> Child {
+    let root = workspace_root();
+    eprintln!("Starting shenas server from: {}", root.display());
     Command::new("uv")
         .args(["run", "--no-sync", "shenas", "serve", "--no-tls"])
+        .current_dir(&root)
         .spawn()
         .expect("Failed to start shenas server. Is uv and shenas-app installed?")
 }
