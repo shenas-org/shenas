@@ -16,17 +16,20 @@ def find_takeout_archives(service: Any) -> list[dict]:
     3. Any zip/tgz file with "takeout" in the name (case-insensitive)
     """
     # Search by multiple strategies and deduplicate by file ID
+    archive_mimes = (
+        "mimeType='application/zip' or mimeType='application/x-zip' or "
+        "mimeType='application/x-compressed-tar' or mimeType='application/gzip' or "
+        "mimeType='application/x-gzip' or mimeType='application/x-gtar'"
+    )
     queries = [
-        "name contains 'takeout-' and (mimeType='application/zip' or mimeType='application/x-compressed-tar' or mimeType='application/gzip')",
-        "name contains 'Takeout' and (mimeType='application/zip' or mimeType='application/x-compressed-tar' or mimeType='application/gzip')",
+        f"name contains 'takeout-' and ({archive_mimes})",
+        f"name contains 'Takeout' and ({archive_mimes})",
     ]
 
     # Also search for archives inside a "Takeout" folder
     takeout_folder_id = _find_folder(service, "Takeout")
     if takeout_folder_id:
-        queries.append(
-            f"'{takeout_folder_id}' in parents and (mimeType='application/zip' or mimeType='application/x-compressed-tar' or mimeType='application/gzip')"
-        )
+        queries.append(f"'{takeout_folder_id}' in parents and ({archive_mimes})")
 
     seen_ids: set[str] = set()
     archives = []
