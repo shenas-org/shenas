@@ -1,8 +1,14 @@
-from shenas_schemas.fitness_tracker.ddl import CANONICAL_TABLES, ensure_schema, generate_ddl
-from shenas_schemas.fitness_tracker.field import Field
-from shenas_schemas.fitness_tracker.introspect import schema_metadata, table_metadata
+from functools import partial
+
+from shenas_schemas.core import Field, MetricProvider, generate_ddl, table_metadata
+from shenas_schemas.core.ddl import ensure_schema as _ensure_schema
+from shenas_schemas.core.introspect import schema_metadata as _schema_metadata
 from shenas_schemas.fitness_tracker.metrics import ALL_TABLES, DailyBody, DailyHRV, DailySleep, DailyVitals
-from shenas_schemas.fitness_tracker.provider import MetricProvider
+
+CANONICAL_TABLES = [cls.__table__ for cls in ALL_TABLES]
+
+ensure_schema = partial(_ensure_schema, all_tables=ALL_TABLES)
+schema_metadata = partial(_schema_metadata, all_tables=ALL_TABLES)
 
 try:
     from importlib.metadata import version

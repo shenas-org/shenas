@@ -31,8 +31,8 @@ def install(
     public_key_path: Path = Path(".shenas/shenas.pub"),
     skip_verify: bool = False,
 ) -> None:
-    if name == "core" and kind == "pipe":
-        console.print("[red]shenas-pipe-core is an internal package and cannot be installed directly.[/red]")
+    if name == "core":
+        console.print(f"[red]shenas-{kind}-core is an internal package and cannot be installed directly.[/red]")
         raise typer.Exit(code=1)
 
     prefix = PREFIXES[kind]
@@ -65,8 +65,8 @@ def install(
 
 
 def uninstall(name: str, kind: str) -> None:
-    if name == "core" and kind == "pipe":
-        console.print("[red]shenas-pipe-core is an internal package and cannot be removed directly.[/red]")
+    if name == "core":
+        console.print(f"[red]shenas-{kind}-core is an internal package and cannot be removed directly.[/red]")
         raise typer.Exit(code=1)
 
     pkg_name = f"{PREFIXES[kind]}{name}"
@@ -96,7 +96,7 @@ def list_packages(kind: str) -> None:
         raise typer.Exit(code=1)
 
     packages = json.loads(result.stdout)
-    matched = [p for p in packages if p["name"].startswith(prefix) and p["name"] != "shenas-pipe-core"]
+    matched = [p for p in packages if p["name"].startswith(prefix) and not p["name"].endswith("-core")]
 
     if not matched:
         console.print(f"[dim]No {kind} packages installed[/dim]")
