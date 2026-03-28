@@ -1,4 +1,6 @@
 from shenas_schemas.fitness_tracker.ddl import CANONICAL_TABLES, ensure_schema, generate_ddl
+from shenas_schemas.fitness_tracker.field import Field
+from shenas_schemas.fitness_tracker.introspect import schema_metadata, table_metadata
 from shenas_schemas.fitness_tracker.metrics import ALL_TABLES, DailyBody, DailyHRV, DailySleep, DailyVitals
 from shenas_schemas.fitness_tracker.provider import MetricProvider
 
@@ -22,8 +24,11 @@ __all__ = [
     "DailyHRV",
     "DailySleep",
     "DailyVitals",
+    "Field",
     "MetricProvider",
     "SCHEMA",
     "ensure_schema",
     "generate_ddl",
+    "schema_metadata",
+    "table_metadata",
 ]

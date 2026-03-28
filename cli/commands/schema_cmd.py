@@ -20,20 +20,20 @@ def list_cmd() -> None:
     list_packages("schema")
 
 
-@app.command("install")
-def install_cmd(
+@app.command("add")
+def add_cmd(
     name: str = typer.Argument(help="Schema name, e.g. 'fitness-tracker'"),
     index_url: str = typer.Option(DEFAULT_INDEX, "--index-url", help="Repository server URL"),
     public_key: Path = typer.Option(Path(".shenas/shenas.pub"), "--public-key", help="Path to Ed25519 public key"),
     skip_verify: bool = typer.Option(False, "--skip-verify", help="Skip signature verification"),
 ) -> None:
-    """Install a schema package from the repository."""
+    """Add a schema package from the repository."""
     install(name, "schema", index_url, public_key, skip_verify)
 
 
-@app.command("uninstall")
-def uninstall_cmd(
+@app.command("remove")
+def remove_cmd(
     name: str = typer.Argument(help="Schema name, e.g. 'fitness-tracker'"),
 ) -> None:
-    """Uninstall a schema package."""
+    """Remove a schema package."""
     uninstall(name, "schema")
