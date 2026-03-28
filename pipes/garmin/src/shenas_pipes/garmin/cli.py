@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 
 import dlt
 import typer
@@ -12,8 +11,6 @@ logging.getLogger("garminconnect").setLevel(logging.CRITICAL)
 
 app = create_pipe_app("Garmin Connect commands.")
 
-TOKEN_STORE = Path(".dlt") / "garmin_tokens"
-
 BROWSER_UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 )
@@ -21,12 +18,10 @@ BROWSER_UA = (
 
 @app.command()
 def auth() -> None:
-    """Authenticate with Garmin Connect and save the session token to disk.
-
-    If Garmin is rate-limiting (429), run: uvx garth login
-    That saves tokens to ~/.garth which you can copy to .dlt/garmin_tokens/.
-    """
+    """Authenticate with Garmin Connect and save the session token to OS keyring."""
     from garminconnect import Garmin
+
+    from shenas_pipes.garmin.auth import save_tokens_from_client
 
     email = typer.prompt("Email")
     password = typer.prompt("Password", hide_input=True)
@@ -54,9 +49,8 @@ def auth() -> None:
             console.print(f"[red]Authentication failed:[/red] {msg}")
         raise typer.Exit(code=1)
 
-    TOKEN_STORE.mkdir(parents=True, exist_ok=True)
-    client.garth.dump(str(TOKEN_STORE))
-    console.print(f"[green]Token saved to {TOKEN_STORE}[/green]")
+    save_tokens_from_client(client)
+    console.print("[green]Token saved to OS keyring[/green]")
 
 
 @app.command()
@@ -72,7 +66,7 @@ def sync(
     from shenas_pipes.garmin.source import activities, body_composition, daily_stats, hrv, sleep, spo2
 
     try:
-        client = build_client(token_store=str(TOKEN_STORE))
+        client = build_client()
     except RuntimeError as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(code=1)

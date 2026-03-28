@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import dlt
 import typer
 
@@ -8,12 +6,10 @@ from shenas_pipes.core.db import DB_PATH, connect
 
 app = create_pipe_app("Lunch Money commands.")
 
-TOKEN_STORE = Path(".dlt") / "lunchmoney_token"
-
 
 @app.command()
 def auth() -> None:
-    """Store a Lunch Money API key.
+    """Store a Lunch Money API key in OS keyring.
 
     Get your key from: Lunch Money > Settings > Developers > Request new Access Token
     """
@@ -23,9 +19,10 @@ def auth() -> None:
 
     console.print("Verifying...", style="dim")
     try:
-        client = build_client(api_key=api_key, token_store=str(TOKEN_STORE))
+        client = build_client(api_key=api_key)
         user = client.get_user()
         console.print(f"[green]Authenticated as {user.user_name} ({user.user_email})[/green]")
+        console.print("[green]API key saved to OS keyring[/green]")
     except Exception as exc:
         console.print(f"[red]Authentication failed:[/red] {exc}")
         raise typer.Exit(code=1)
@@ -50,7 +47,7 @@ def sync(
     )
 
     try:
-        client = build_client(token_store=str(TOKEN_STORE))
+        client = build_client()
     except RuntimeError as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(code=1)
