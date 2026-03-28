@@ -18,6 +18,43 @@ def _default(ctx: typer.Context) -> None:
         raise typer.Exit()
 
 
+@app.command("sync")
+def sync_all() -> None:
+    """Sync all installed pipes."""
+    from rich.console import Console
+
+    console = Console()
+    failed = []
+    for ep in sorted(entry_points(group="shenas.pipes"), key=lambda e: e.name):
+        if ep.name == "core":
+            continue
+        console.print(f"\n[bold]--- {ep.name} ---[/bold]")
+        try:
+            pipe_app = ep.load()
+            # Find and invoke the sync callback with resolved defaults
+            for cmd in pipe_app.registered_commands:
+                cmd_name = cmd.name or (getattr(cmd.callback, "__name__", None) if cmd.callback else None)
+                if cmd_name == "sync" and cmd.callback:
+                    import inspect
+
+                    kwargs = {}
+                    for p_name, p in inspect.signature(cmd.callback).parameters.items():
+                        if isinstance(p.default, typer.models.OptionInfo):
+                            kwargs[p_name] = p.default.default
+                    cmd.callback(**kwargs)
+                    break
+        except SystemExit:
+            pass
+        except Exception as exc:
+            console.print(f"[red]{ep.name} sync failed:[/red] {exc}")
+            failed.append(ep.name)
+
+    if failed:
+        console.print(f"\n[red]Failed: {', '.join(failed)}[/red]")
+        raise typer.Exit(code=1)
+    console.print("\n[green]All syncs complete.[/green]")
+
+
 @app.command("list")
 def list_cmd() -> None:
     """List installed pipe packages."""
