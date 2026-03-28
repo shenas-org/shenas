@@ -8,6 +8,10 @@ dependsOn:
   - 'app'
 
 tasks:
+  sync-version:
+    script: 'python ../../scripts/sync-desktop-version.py'
+    inputs:
+      - 'VERSION'
   tauri:
     command: 'npx tauri build'
     inputs:
@@ -17,6 +21,8 @@ tasks:
     outputs:
       - 'src-tauri/target/release/shenas-desktop'
       - 'src-tauri/target/release/bundle/'
+    deps:
+      - '~:sync-version'
   build:
     command: 'makepkg -sf'
     inputs:
