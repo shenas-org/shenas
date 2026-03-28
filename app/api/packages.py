@@ -23,8 +23,12 @@ def _validate_kind(kind: str) -> None:
 
 
 def list_packages_data(kind: str) -> list[dict]:
+    import sys
+
     prefix = PREFIXES[kind]
-    result = subprocess.run(["uv", "pip", "list", "--format", "json"], capture_output=True, text=True)
+    result = subprocess.run(
+        ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
+    )
     if result.returncode != 0:
         raise HTTPException(status_code=500, detail="Failed to list packages")
 
@@ -106,9 +110,11 @@ def install_package(
         if error:
             return {"name": name, "ok": False, "message": error}
 
+    import sys
+
     simple_url = f"{index_url}/simple/"
     result = subprocess.run(
-        ["uv", "pip", "install", pkg_name, "--index-url", simple_url],
+        ["uv", "pip", "install", pkg_name, "--index-url", simple_url, "--python", sys.executable],
         capture_output=True,
         text=True,
     )
@@ -119,11 +125,13 @@ def install_package(
 
 
 def uninstall_package(name: str, kind: str) -> dict:
+    import sys
+
     if name == "core":
         return {"ok": False, "message": f"shenas-{kind}-core is an internal package"}
 
     pkg_name = f"{PREFIXES[kind]}{name}"
-    result = subprocess.run(["uv", "pip", "uninstall", pkg_name], capture_output=True, text=True)
+    result = subprocess.run(["uv", "pip", "uninstall", pkg_name, "--python", sys.executable], capture_output=True, text=True)
 
     if result.returncode == 0:
         return {"ok": True, "message": f"Uninstalled {pkg_name}"}

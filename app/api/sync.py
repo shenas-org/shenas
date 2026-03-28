@@ -27,7 +27,11 @@ def _sse_event(event: str, data: dict) -> str:
 
 def _installed_pipe_names() -> list[str]:
     """Get installed pipe names via uv pip list (avoids entry_points cache)."""
-    result = subprocess.run(["uv", "pip", "list", "--format", "json"], capture_output=True, text=True)
+    import sys
+
+    result = subprocess.run(
+        ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
+    )
     if result.returncode != 0:
         return []
     packages = json.loads(result.stdout)
