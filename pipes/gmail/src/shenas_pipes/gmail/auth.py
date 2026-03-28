@@ -109,22 +109,47 @@ def authenticate(credentials: dict[str, str]) -> None:
             raise RuntimeError(state["error"])
         return
 
-    # Phase 1: start the OAuth flow in a background thread
-    flow = InstalledAppFlow.from_client_config(_get_client_config(), SCOPES)
-    auth_url, _ = flow.authorization_url(access_type="offline")
+    # Phase 1: start the OAuth flow in a background thread and capture the auth URL
+    import io
+    import sys
+    import time
 
-    state: dict = {}
+    flow = InstalledAppFlow.from_client_config(_get_client_config(), SCOPES)
+    state: dict = {"url": None}
 
     def _run_flow() -> None:
         try:
-            creds = flow.run_local_server(port=0, open_browser=False)
+            # Capture stdout to extract the auth URL printed by run_local_server
+            capture = io.StringIO()
+            old_stdout = sys.stdout
+            sys.stdout = capture
+            try:
+                creds = flow.run_local_server(port=0, open_browser=False)
+            finally:
+                sys.stdout = old_stdout
+                output = capture.getvalue()
+                for line in output.splitlines():
+                    if "accounts.google.com" in line:
+                        # Extract URL from "Please visit this URL to authorize...: <URL>"
+                        url = line.split(": ", 1)[-1].strip()
+                        state["url"] = url
             _store_token(creds)
         except Exception as exc:
             state["error"] = str(exc)
 
     thread = threading.Thread(target=_run_flow, daemon=True)
     thread.start()
+
+    # Wait for the URL to be captured (server needs a moment to start)
+    for _ in range(50):
+        if state.get("url"):
+            break
+        time.sleep(0.1)
+
     state["thread"] = thread
     _pending_mfa["gmail"] = state
 
+    auth_url = state.get("url", "")
+    if not auth_url:
+        raise RuntimeError("Failed to get OAuth URL. Check server logs.")
     raise ValueError(f"OAUTH_URL:{auth_url}")
