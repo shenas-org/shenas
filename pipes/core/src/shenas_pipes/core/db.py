@@ -91,3 +91,4 @@ def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) ->
             mem_con.execute(f"CREATE TABLE enc.{schema}.{table_name} AS SELECT * FROM {schema}.{table_name}")
 
     mem_con.execute("DETACH enc")
+    mem_con.close()
