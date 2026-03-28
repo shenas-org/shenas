@@ -88,6 +88,10 @@ def build_client(run_auth_flow: bool = False):  # type: ignore[no-untyped-def]
 def authenticate(credentials: dict[str, str]) -> None:
     """Authenticate with Gmail via OAuth2 browser flow.
 
-    No credentials needed -- opens a browser for Google login.
+    Always runs a fresh OAuth flow, replacing any existing token.
     """
-    build_client(run_auth_flow=True)
+    from google_auth_oauthlib.flow import InstalledAppFlow
+
+    flow = InstalledAppFlow.from_client_config(_get_client_config(), SCOPES)
+    creds = flow.run_local_server(port=0)
+    _store_token(creds)
