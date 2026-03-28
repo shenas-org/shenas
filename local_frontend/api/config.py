@@ -53,35 +53,40 @@ class ConfigSetRequest(BaseModel):
 def list_configs(kind: str | None = None, name: str | None = None) -> list[dict]:
     from shenas_pipes.core.config import config_metadata, get_config
 
-    con = connect()
-    classes = _discover_config_classes()
+    con = connect(read_only=True)
+    try:
+        classes = _discover_config_classes()
 
-    if kind and name:
-        table_name = _resolve_table(kind, name)
-        if table_name not in classes:
-            raise HTTPException(status_code=404, detail=f"Unknown config: {kind} {name}")
-        classes = {table_name: classes[table_name]}
+        if kind and name:
+            table_name = _resolve_table(kind, name)
+            if table_name not in classes:
+                raise HTTPException(status_code=404, detail=f"Unknown config: {kind} {name}")
+            classes = {table_name: classes[table_name]}
+        elif kind:
+            classes = {k: v for k, v in classes.items() if k.startswith(f"{kind}_")}
 
-    result = []
-    for table_name, cls in sorted(classes.items()):
-        row = get_config(con, cls)
-        meta = config_metadata(cls)
-        parts = table_name.split("_", 1)
-        entries = []
-        for col in meta["columns"]:
-            if col["name"] == "id":
-                continue
-            val = row.get(col["name"]) if row else None
-            is_secret = col.get("category") == "secret"
-            display_val = "********" if (is_secret and val) else (str(val) if val is not None else None)
-            entries.append(
-                {
-                    "key": col["name"],
-                    "value": display_val,
-                    "description": col.get("description", ""),
-                }
-            )
-        result.append({"kind": parts[0], "name": parts[1] if len(parts) > 1 else parts[0], "entries": entries})
+        result = []
+        for table_name, cls in sorted(classes.items()):
+            row = get_config(con, cls)
+            meta = config_metadata(cls)
+            parts = table_name.split("_", 1)
+            entries = []
+            for col in meta["columns"]:
+                if col["name"] == "id":
+                    continue
+                val = row.get(col["name"]) if row else None
+                is_secret = col.get("category") == "secret"
+                display_val = "********" if (is_secret and val) else (str(val) if val is not None else None)
+                entries.append(
+                    {
+                        "key": col["name"],
+                        "value": display_val,
+                        "description": col.get("description", ""),
+                    }
+                )
+            result.append({"kind": parts[0], "name": parts[1] if len(parts) > 1 else parts[0], "entries": entries})
+    finally:
+        con.close()
 
     return result
 
@@ -91,8 +96,11 @@ def get_config_value(kind: str, name: str, key: str) -> dict:
     from shenas_pipes.core.config import get_config_value as _get_value
 
     cls = _get_config_class(kind, name)
-    con = connect()
-    val = _get_value(con, cls, key)
+    con = connect(read_only=True)
+    try:
+        val = _get_value(con, cls, key)
+    finally:
+        con.close()
     if val is None:
         raise HTTPException(status_code=404, detail=f"Not set: {kind} {name}.{key}")
     return {"key": key, "value": str(val)}
@@ -104,7 +112,10 @@ def set_config(kind: str, name: str, body: ConfigSetRequest) -> dict:
 
     cls = _get_config_class(kind, name)
     con = connect()
-    _set_config(con, cls, **{body.key: body.value})
+    try:
+        _set_config(con, cls, **{body.key: body.value})
+    finally:
+        con.close()
     return {"ok": True}
 
 
@@ -114,7 +125,10 @@ def delete_config_all(kind: str, name: str) -> dict:
 
     cls = _get_config_class(kind, name)
     con = connect()
-    delete_config(con, cls)
+    try:
+        delete_config(con, cls)
+    finally:
+        con.close()
     return {"ok": True}
 
 
@@ -124,5 +138,8 @@ def delete_config_key(kind: str, name: str, key: str) -> dict:
 
     cls = _get_config_class(kind, name)
     con = connect()
-    _set_config(con, cls, **{key: None})
+    try:
+        _set_config(con, cls, **{key: None})
+    finally:
+        con.close()
     return {"ok": True}
