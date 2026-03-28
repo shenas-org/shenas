@@ -1,0 +1,17 @@
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+
+inheritedBy:
+  language: 'typescript'
+
+fileGroups:
+  sources:
+    - 'src/**/*'
+  configs:
+    - 'package.json'
+
+tasks:
+  test:
+    command: 'npm test'
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'

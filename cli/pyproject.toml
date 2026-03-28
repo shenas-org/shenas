@@ -1,0 +1,27 @@
+[project]
+name = "shenas-cli"
+dynamic = ["version"]
+description = "CLI for the shenas metrics platform"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "keyring>=25.7.0",
+    "rich>=14.3.3",
+    "typer>=0.24.1",
+    "shenas-app",
+]
+
+[project.scripts]
+shenasctl = "cli.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "VERSION"
+pattern = "(?P<version>.+)"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+dev-mode-dirs = [".."]

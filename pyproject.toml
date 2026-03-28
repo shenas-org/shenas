@@ -1,45 +1,37 @@
 [project]
-name = "shenas"
-version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
+name = "shenas-workspace"
+version = "0.0.0"
+description = "Shenas metrics platform workspace"
 requires-python = ">=3.11"
-dependencies = [
-    "cryptography>=46.0.6",
-    "dlt[duckdb]>=1.24.0",
-    "fastapi>=0.135.2",
-    "httpx>=0.28.1",
-    "keyring>=25.7.0",
-    "pyarrow>=23.0.1",
-    "rich>=14.3.3",
-    "typer>=0.24.1",
-    "uvicorn>=0.42.0",
-]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["cli", "app", "repository", "pipes/core", "schemas/core"]
+
+[tool.uv.sources]
+shenas-cli = { workspace = true }
+shenas-app = { workspace = true }
+shenas-repository = { workspace = true }
+shenas-pipe-core = { workspace = true }
+shenas-schema-core = { workspace = true }
 
 [dependency-groups]
 dev = [
+    "shenas-cli",
     "commitizen>=4.13.9",
+    "httpx>=0.28.1",
     "pytest>=9.0.2",
     "pytest-cov>=7.1.0",
     "ruff>=0.15.8",
     "ty>=0.0.26",
 ]
 
-[project.scripts]
-shenas = "cli.main:main"
-
-[tool.uv]
-package = true
-
-[tool.uv.workspace]
-members = []
-
-[tool.setuptools.packages.find]
-include = ["cli*", "local_frontend*", "repository*"]
-
 [tool.pytest.ini_options]
-testpaths = ["tests", "pipes/core/tests", "pipes/garmin/tests", "pipes/gmail/tests", "pipes/lunchmoney/tests", "pipes/obsidian/tests", "schemas/fitness/tests", "schemas/finance/tests", "schemas/outcomes/tests"]
+testpaths = ["cli/tests", "app/tests", "repository/tests", "pipes/core/tests", "pipes/garmin/tests", "pipes/gmail/tests", "pipes/lunchmoney/tests", "pipes/obsidian/tests", "schemas/fitness/tests", "schemas/finance/tests", "schemas/outcomes/tests"]
 addopts = "--import-mode=importlib"
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 127

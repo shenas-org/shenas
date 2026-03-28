@@ -1,12 +1,13 @@
 """Tests for the config CRUD API endpoints."""
 
+from collections.abc import Iterator
 from unittest.mock import patch
 
 import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from local_frontend.server import app
+from app.server import app
 
 CONFIG_MOD = "shenas_pipes.core.config"
 
@@ -33,10 +34,10 @@ def test_con() -> duckdb.DuckDBPyConnection:
 
 
 @pytest.fixture()
-def client(test_con: duckdb.DuckDBPyConnection) -> TestClient:
+def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
     with (
-        patch("local_frontend.api.config.connect", return_value=test_con),
-        patch("local_frontend.api.config._discover_config_classes", return_value=FAKE_CLASSES),
+        patch("app.api.config.connect", return_value=test_con),
+        patch("app.api.config._discover_config_classes", return_value=FAKE_CLASSES),
     ):
         yield TestClient(app)
 

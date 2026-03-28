@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="local_frontend/static/images/shenas.png" width="96" alt="shenas">
+  <img src="app/static/images/shenas.png" width="96" alt="shenas">
 </p>
 
 <h1 align="center">shenas</h1>
@@ -15,7 +15,7 @@ Health and finance metrics aggregation platform. Collects data from multiple sou
 
 ```bash
 uv sync
-uv run shenas --help
+uv run shenasctl --help
 ```
 
 ## Development setup
@@ -29,29 +29,29 @@ make setup-hooks    # install pre-commit hook (ruff + ty)
 
 ```bash
 # Authenticate
-uv run shenas pipe garmin auth
-uv run shenas pipe lunchmoney auth
-uv run shenas pipe gmail auth
+uv run shenasctl pipe garmin auth
+uv run shenasctl pipe lunchmoney auth
+uv run shenasctl pipe gmail auth
 
 # Configure obsidian vault path
-uv run shenas config set pipe obsidian vault_path /path/to/vault
+uv run shenasctl config set pipe obsidian vault_path /path/to/vault
 
 # Sync raw data into DuckDB (also runs transform automatically)
-uv run shenas pipe sync          # sync all installed pipes
-uv run shenas pipe garmin sync   # sync a single pipe
+uv run shenasctl pipe sync          # sync all installed pipes
+uv run shenasctl pipe garmin sync   # sync a single pipe
 
 # Check what's loaded
-uv run shenas db status
+uv run shenasctl db status
 ```
 
 ## Package management
 
 ```bash
-uv run shenas pipe list                # list installed pipes
-uv run shenas pipe add garmin          # install from repository
-uv run shenas pipe remove garmin       # uninstall
-uv run shenas schema list              # list installed schemas
-uv run shenas component list           # list installed components
+uv run shenasctl pipe list                # list installed pipes
+uv run shenasctl pipe add garmin          # install from repository
+uv run shenasctl pipe remove garmin       # uninstall
+uv run shenasctl schema list              # list installed schemas
+uv run shenasctl component list           # list installed components
 ```
 
 ## Visualization
@@ -62,7 +62,7 @@ make build-components COMPONENT=fitness-dashboard
 uv pip install packages/shenas_component_fitness_dashboard-*.whl
 
 # Start the UI
-uv run shenas ui
+uv run shenasctl ui
 # Open http://127.0.0.1:7280
 ```
 
@@ -72,7 +72,7 @@ All pipes, schemas, and components are distributed as Ed25519-signed Python whee
 
 ```bash
 # Generate signing keys
-uv run shenas registry keygen
+uv run shenasrepoctl keygen
 
 # Build and sign packages
 make build-schemas
@@ -86,7 +86,7 @@ make vendor PIPE=garmin
 make repository
 
 # Install from the repository (in another terminal)
-uv run shenas pipe add garmin
+uv run shenasctl pipe add garmin
 ```
 
 ## Testing
@@ -114,7 +114,7 @@ schemas/
 components/
   fitness-dashboard/ Lit + uPlot dashboard (built as wheel)
   data-table/        sortable/filterable data table (built as wheel)
-local_frontend/      FastAPI UI server (Arrow IPC queries)
+app/                 FastAPI UI server (Arrow IPC queries)
 repository/          PEP 503 package server + Ed25519 signing
 cli/                 shenas CLI
 tests/               repository server, frontend, CLI, signing tests

@@ -1,0 +1,25 @@
+$schema: 'https://moonrepo.dev/schemas/tasks.json'
+
+inheritedBy:
+  language: 'python'
+
+implicitInputs:
+  - '/pyproject.toml'
+  - '/uv.lock'
+
+tasks:
+  lint:
+    script: 'uv run ruff check $MOON_PROJECT_SOURCE/'
+    inputs:
+      - '**/*.py'
+      - 'pyproject.toml'
+    options:
+      runFromWorkspaceRoot: true
+  test:
+    script: 'uv run --no-sync pytest $MOON_PROJECT_SOURCE/tests/ -q'
+    inputs:
+      - '**/*.py'
+    deps:
+      - '~:lint'
+    options:
+      runFromWorkspaceRoot: true
