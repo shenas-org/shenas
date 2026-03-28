@@ -11,7 +11,10 @@ from fastapi.staticfiles import StaticFiles
 
 from cli.db import DB_PATH, connect
 
+from pathlib import Path as _Path
+
 app = FastAPI(title="shenas ui", docs_url=None, redoc_url=None)
+app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")
 
 
 def _discover_components() -> list[dict]:
@@ -64,10 +67,16 @@ def index() -> HTMLResponse:
       body {{ font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; color: #222; }}
       a {{ color: #0066cc; }}
       li {{ margin: 0.4rem 0; }}
+      .header {{ display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }}
+      .header img {{ width: 48px; height: 48px; }}
+      .header h1 {{ margin: 0; }}
     </style>
   </head>
   <body>
-    <h1>shenas ui</h1>
+    <div class="header">
+      <img src="/static/images/shenas.png" alt="shenas">
+      <h1>shenas ui</h1>
+    </div>
     <p>Database: <code>{DB_PATH}</code></p>
     <h2>Components</h2>
     <ul>
