@@ -6,3 +6,22 @@ tags: ['desktop']
 
 dependsOn:
   - 'app'
+
+tasks:
+  build:
+    command: 'npx tauri build'
+    inputs:
+      - 'src-tauri/**/*'
+      - 'src/**/*'
+      - 'package.json'
+    outputs:
+      - 'src-tauri/target/release/shenas-desktop'
+      - 'src-tauri/target/release/bundle/'
+  pkg:
+    command: 'makepkg -sf'
+    inputs:
+      - 'PKGBUILD'
+      - 'src-tauri/**/*'
+      - 'src/**/*'
+    deps:
+      - '~:build'

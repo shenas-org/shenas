@@ -35,6 +35,7 @@ pythonpath = ["."]
 
 [tool.ruff]
 line-length = 127
+extend-exclude = ["app/desktop/src-tauri/target"]
 
 [tool.commitizen]
 version_provider = "uv"
