@@ -2,7 +2,9 @@ PACKAGES_DIR := $(CURDIR)/packages
 SIGN = uv run --no-sync shenas registry sign
 BUMP = python scripts/bump-version.py
 
-.PHONY: repository build-pipes build-schemas build-components vendor sign-all dev-install dev-uninstall setup-hooks lint test coverage
+.PHONY: repository build build-pipes build-schemas build-components vendor sign-all dev-install dev-uninstall setup-hooks lint test coverage
+
+build: build-schemas build-pipes build-components
 
 repository:
 	uv run python -m repository.main $(PACKAGES_DIR)
