@@ -92,30 +92,30 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
     @pipe_app.command("auth")
     def auth() -> None:
         """Authenticate with this pipe's data source."""
+        client = ShenasClient()
         credentials: dict[str, str] = {}
 
-        # Collect credentials interactively
         credentials["email"] = typer.prompt("Email")
         credentials["password"] = typer.prompt("Password", hide_input=True)
 
-        mfa = typer.prompt("MFA code (leave empty if not required)", default="")
-        if mfa:
-            credentials["mfa_code"] = mfa
-
         try:
-            for event in ShenasClient().pipe_auth(pipe_name, credentials):
-                message = event.get("message", "")
-                event_type = event.get("_event", "message")
-
-                if event_type == "progress":
-                    console.print(f"[dim]{message}[/dim]")
-                elif event_type == "complete":
-                    console.print(f"[green]{message}[/green]")
-                elif event_type == "error":
-                    console.print(f"[red]{message}[/red]")
-                    raise typer.Exit(code=1)
+            result = client.pipe_auth(pipe_name, credentials)
         except ShenasServerError as exc:
             console.print(f"[red]{exc.detail}[/red]")
+            raise typer.Exit(code=1)
+
+        if result.get("needs_mfa"):
+            mfa_code = typer.prompt("MFA code")
+            try:
+                result = client.pipe_auth(pipe_name, {"mfa_code": mfa_code})
+            except ShenasServerError as exc:
+                console.print(f"[red]{exc.detail}[/red]")
+                raise typer.Exit(code=1)
+
+        if result.get("ok"):
+            console.print(f"[green]{result.get('message', 'Authenticated')}[/green]")
+        else:
+            console.print(f"[red]{result.get('error', 'Authentication failed')}[/red]")
             raise typer.Exit(code=1)
 
 
