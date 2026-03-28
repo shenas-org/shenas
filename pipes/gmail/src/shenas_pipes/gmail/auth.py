@@ -9,6 +9,8 @@ from googleapiclient.discovery import build
 
 KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "gmail_token"
+
+AUTH_FIELDS = []  # OAuth browser flow, no manual credentials needed
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
 GMAIL_CLIENT_ID = "232211553387-3c4sog0fokns7ri2o6oj8d3s5v3r9jh6.apps.googleusercontent.com"
@@ -80,4 +82,83 @@ def build_client(run_auth_flow: bool = False):  # type: ignore[no-untyped-def]
         _store_token(creds)
         return build("gmail", "v1", credentials=creds)
 
-    raise RuntimeError("No valid Gmail credentials. Run 'shenas pipe gmail auth' first.")
+    raise RuntimeError("No valid Gmail credentials. Run 'shenasctl pipe gmail auth' first.")
+
+
+def authenticate(credentials: dict[str, str]) -> None:
+    """Authenticate with Gmail via OAuth2.
+
+    Phase 1: No credentials -> starts OAuth flow, raises ValueError with auth URL.
+    Phase 2: credentials["auth_complete"] == "true" -> waits for callback to complete.
+
+    The server stores the pending flow between phases.
+    """
+    import threading
+
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from app.api.auth import _pending_mfa
+
+    if credentials.get("auth_complete") == "true" and "gmail" in _pending_mfa:
+        # Phase 2: flow already running in background, wait for it
+        state = _pending_mfa.pop("gmail")
+        thread = state["thread"]
+        thread.join(timeout=120)
+        if thread.is_alive():
+            raise RuntimeError("OAuth flow timed out. Please try again.")
+        if state.get("error"):
+            raise RuntimeError(state["error"])
+        return
+
+    # Phase 1: start the OAuth flow in a background thread and capture the auth URL
+    import io
+    import sys
+    import time
+
+    flow = InstalledAppFlow.from_client_config(_get_client_config(), SCOPES)
+    state: dict = {"url": None}
+
+    class _UrlCapture(io.TextIOBase):
+        """Wraps stdout and captures the OAuth URL as it's printed."""
+
+        def __init__(self, original: io.TextIOBase) -> None:
+            self._original = original
+
+        def write(self, s: str) -> int:
+            if "accounts.google.com" in s:
+                # Extract URL from "Please visit this URL...: <URL>"
+                for part in s.split():
+                    if part.startswith("https://accounts.google.com"):
+                        state["url"] = part.strip()
+                        break
+            return self._original.write(s)
+
+        def flush(self) -> None:
+            self._original.flush()
+
+    def _run_flow() -> None:
+        old_stdout = sys.stdout
+        sys.stdout = _UrlCapture(old_stdout)
+        try:
+            creds = flow.run_local_server(port=0, open_browser=False)
+            _store_token(creds)
+        except Exception as exc:
+            state["error"] = str(exc)
+        finally:
+            sys.stdout = old_stdout
+
+    thread = threading.Thread(target=_run_flow, daemon=True)
+    thread.start()
+
+    # Wait for the URL to be captured
+    for _ in range(50):
+        if state.get("url"):
+            break
+        time.sleep(0.1)
+
+    state["thread"] = thread
+    _pending_mfa["gmail"] = state
+
+    auth_url = state.get("url", "")
+    if not auth_url:
+        raise RuntimeError("Failed to get OAuth URL. Check server logs.")
+    raise ValueError(f"OAUTH_URL:{auth_url}")

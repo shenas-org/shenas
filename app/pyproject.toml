@@ -1,23 +1,28 @@
 [project]
 name = "shenas-app"
 dynamic = ["version"]
-description = "FastAPI UI server for the shenas metrics platform"
+description = "Shenas metrics platform -- server and CLI"
 requires-python = ">=3.11"
 dependencies = [
     "cryptography>=46.0.6",
+    "dlt[duckdb]>=1.24.0",
     "duckdb>=1.2.0",
     "fastapi>=0.135.2",
+    "httpx>=0.28.1",
+    "keyring>=25.7.0",
     "opentelemetry-api>=1.25.0",
     "opentelemetry-sdk>=1.25.0",
     "opentelemetry-instrumentation-fastapi>=0.46b0",
+    "opentelemetry-instrumentation-httpx>=0.46b0",
     "pyarrow>=23.0.1",
+    "rich>=14.3.3",
     "typer>=0.24.1",
     "uvicorn>=0.42.0",
-    "shenas-cli",
 ]
 
 [project.scripts]
-shenas = "app.cli:app"
+shenas = "app.server_cli:app"
+shenasctl = "app.cli.main:main"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]

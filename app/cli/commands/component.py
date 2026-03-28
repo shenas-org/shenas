@@ -1,6 +1,6 @@
 import typer
 
-from cli.commands.pkg import DEFAULT_INDEX, install, list_packages, uninstall
+from app.cli.commands.pkg import DEFAULT_INDEX, install, list_packages, uninstall
 
 app = typer.Typer(help="Component commands.", invoke_without_command=True)
 

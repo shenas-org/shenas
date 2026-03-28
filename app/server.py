@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
-from cli.db import DB_PATH
+from app.db import DB_PATH
 
 
 @asynccontextmanager

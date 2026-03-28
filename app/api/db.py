@@ -5,7 +5,7 @@ import os
 import duckdb
 from fastapi import APIRouter
 
-from cli.db import DB_PATH, connect
+from app.db import DB_PATH, connect
 
 router = APIRouter(prefix="/db", tags=["db"])
 
@@ -72,7 +72,6 @@ def db_status() -> dict:
                     if not name.startswith("_dlt_"):
                         table_list.append(_table_stats(con, schema_name, name))
                 schemas_data.append({"name": schema_name, "tables": table_list})
-            con.close()
         except Exception:
             pass
 
@@ -82,3 +81,13 @@ def db_status() -> dict:
         "size_mb": size_mb,
         "schemas": schemas_data,
     }
+
+
+@router.post("/keygen")
+def db_keygen() -> dict:
+    """Generate a database encryption key and store it in the OS keyring."""
+    from app.db import generate_db_key, set_db_key
+
+    key = generate_db_key()
+    set_db_key(key)
+    return {"ok": True}

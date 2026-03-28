@@ -1,6 +1,6 @@
 import typer
 
-from cli.commands import component, config_cmd, db_cmd, pipe, schema_cmd
+from app.cli.commands import component, config_cmd, db_cmd, pipe, schema_cmd
 
 app = typer.Typer(name="shenasctl", invoke_without_command=True)
 app.add_typer(pipe.app, name="pipe")
