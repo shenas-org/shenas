@@ -56,9 +56,14 @@ def sync(
     resolved = resolve_start_date(start_date)
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+    # TEMPORARY WORKAROUND: see garmin/cli.py for full explanation.
+    # dlt writes to in-memory DuckDB, then flush_to_encrypted() copies to the
+    # encrypted database file. Replace when dlt adds DuckDB encryption support.
+    dest, mem_con = dlt_destination()
+
     pipeline = dlt.pipeline(
         pipeline_name="lunchmoney",
-        destination=dlt_destination(),
+        destination=dest,
         dataset_name="lunchmoney",
     )
 
@@ -85,4 +90,4 @@ def sync(
         provider.transform(con)
         console.print("[green]done[/green]")
 
-    run_sync(pipeline, resources, full_refresh, _transform)
+    run_sync(pipeline, resources, full_refresh, "lunchmoney", mem_con, _transform)

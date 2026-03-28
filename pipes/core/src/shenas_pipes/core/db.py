@@ -48,8 +48,39 @@ def close() -> None:
         _active_con = None
 
 
-def dlt_destination() -> Any:
-    """Return a dlt DuckDB destination using an encrypted connection."""
+def dlt_destination() -> tuple[Any, duckdb.DuckDBPyConnection]:
+    """Return a dlt DuckDB destination backed by an in-memory connection.
+
+    dlt writes to memory (nothing on disk unencrypted). After pipeline.run(),
+    call flush_to_encrypted() to copy the data into the encrypted DB.
+    """
     import dlt
 
-    return dlt.destinations.duckdb(credentials=connect())
+    mem_con = duckdb.connect(":memory:")
+    return dlt.destinations.duckdb(credentials=mem_con), mem_con
+
+
+def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) -> None:
+    """Copy all tables from an in-memory dlt connection into the encrypted DB."""
+    key = get_db_key()
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    mem_con.execute(f"ATTACH '{DB_PATH}' AS enc (ENCRYPTION_KEY '{key}')")
+
+    # Get all schemas written by dlt (dataset + staging)
+    schemas_to_copy = []
+    all_schemas = [r[0] for r in mem_con.execute("SELECT schema_name FROM information_schema.schemata").fetchall()]
+    for s in all_schemas:
+        if s in (dataset_name, f"{dataset_name}_staging"):
+            schemas_to_copy.append(s)
+
+    for schema in schemas_to_copy:
+        mem_con.execute(f"CREATE SCHEMA IF NOT EXISTS enc.{schema}")
+        tables = mem_con.execute(
+            f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
+        ).fetchall()
+        for (table_name,) in tables:
+            mem_con.execute(f"DROP TABLE IF EXISTS enc.{schema}.{table_name}")
+            mem_con.execute(f"CREATE TABLE enc.{schema}.{table_name} AS SELECT * FROM {schema}.{table_name}")
+
+    mem_con.execute("DETACH enc")
