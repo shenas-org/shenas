@@ -4,7 +4,7 @@ import typer
 from rich.console import Console
 
 from cli.client import ShenasClient, ShenasServerError
-from cli.commands.pkg import DEFAULT_INDEX, install, list_packages, uninstall
+from cli.commands.pkg import DEFAULT_INDEX, install, uninstall
 
 console = Console()
 
@@ -115,8 +115,26 @@ def sync_all() -> None:
 
 @app.command("list")
 def list_cmd() -> None:
-    """List installed pipe packages."""
-    list_packages("pipe")
+    """List installed pipes with their available commands."""
+    from rich.table import Table
+
+    try:
+        pipes = ShenasClient().pipes_list()
+    except ShenasServerError as exc:
+        console.print(f"[red]{exc.detail}[/red]")
+        raise typer.Exit(code=1)
+
+    if not pipes:
+        console.print("[dim]No pipes installed[/dim]")
+        return
+
+    table = Table(show_lines=False)
+    table.add_column("Pipe", style="green")
+    table.add_column("Commands")
+    for p in pipes:
+        cmds = ", ".join(c["name"] for c in p.get("commands", []))
+        table.add_row(p["name"], cmds or "[dim]none[/dim]")
+    console.print(table)
 
 
 @app.command("add")
