@@ -3,7 +3,8 @@
 from typing import Any
 
 import dlt
-import pendulum
+
+from shenas_pipes.core.utils import resolve_start_date
 
 
 @dlt.resource(write_disposition="merge", primary_key="id")
@@ -13,11 +14,10 @@ def events(
     calendar_id: str = "primary",
 ) -> Any:
     """Yield calendar events from the given date onwards."""
-    if "days ago" in start_date:
-        days = int(start_date.split()[0])
-        time_min = pendulum.now().subtract(days=days).start_of("day").isoformat()
-    else:
-        time_min = pendulum.parse(start_date).start_of("day").isoformat()
+    import pendulum
+
+    resolved = resolve_start_date(start_date)
+    time_min = pendulum.parse(resolved).start_of("day").isoformat()
 
     page_token = None
     while True:
@@ -65,15 +65,25 @@ def events(
 @dlt.resource(write_disposition="replace")
 def calendars(service: Any) -> Any:
     """Yield all calendars the user has access to."""
-    result = service.calendarList().list().execute()
-    for cal in result.get("items", []):
-        yield {
-            "id": cal["id"],
-            "summary": cal.get("summary", ""),
-            "description": cal.get("description", ""),
-            "primary": cal.get("primary", False),
-            "access_role": cal.get("accessRole", ""),
-            "time_zone": cal.get("timeZone", ""),
-            "background_color": cal.get("backgroundColor", ""),
-            "foreground_color": cal.get("foregroundColor", ""),
-        }
+    page_token = None
+    while True:
+        params: dict[str, Any] = {"maxResults": 250}
+        if page_token:
+            params["pageToken"] = page_token
+
+        result = service.calendarList().list(**params).execute()
+        for cal in result.get("items", []):
+            yield {
+                "id": cal["id"],
+                "summary": cal.get("summary", ""),
+                "description": cal.get("description", ""),
+                "primary": cal.get("primary", False),
+                "access_role": cal.get("accessRole", ""),
+                "time_zone": cal.get("timeZone", ""),
+                "background_color": cal.get("backgroundColor", ""),
+                "foreground_color": cal.get("foregroundColor", ""),
+            }
+
+        page_token = result.get("nextPageToken")
+        if not page_token:
+            break

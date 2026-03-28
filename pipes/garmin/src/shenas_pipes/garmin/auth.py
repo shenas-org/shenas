@@ -9,6 +9,9 @@ from garminconnect import Garmin
 KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "garmin_tokens"
 
+# Pending MFA state for multi-step auth flow
+pending_mfa: dict[str, object] = {}
+
 AUTH_FIELDS = [
     {"name": "email", "prompt": "Email", "hide": False},
     {"name": "password", "prompt": "Password", "hide": True},
@@ -113,11 +116,7 @@ def authenticate(credentials: dict[str, str]) -> None:
     result1, result2 = client.login()
 
     if result1 == "needs_mfa":
-        # Store the pending MFA state in the module-level dict so the
-        # server can pass it to complete_mfa() on the next request.
-        from app.api.auth import _pending_mfa
-
-        _pending_mfa["garmin"] = {"client": client, "mfa_state": result2}
+        pending_mfa["garmin"] = {"client": client, "mfa_state": result2}
         raise ValueError("MFA code required")
 
     save_tokens_from_client(client)

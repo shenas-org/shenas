@@ -11,16 +11,17 @@ def sync(
     start_date: str = typer.Option("30 days ago", help="Fetch events from this date. Use 'YYYY-MM-DD' or 'N days ago'."),
     full_refresh: bool = typer.Option(False, "--full-refresh", help="Drop all data and re-download."),
 ) -> None:
-    """Sync Google Calendar events into DuckDB."""
+    """Sync Google Calendar events from all calendars into DuckDB."""
     from shenas_pipes.gcalendar.auth import build_client
     from shenas_pipes.gcalendar.source import calendars, events
 
     service = build_client()
     console.print(f"Syncing Google Calendar data into [bold]{DB_PATH}[/bold]...", style="dim")
 
-    resources = [
-        events(service, start_date=start_date),
-        calendars(service),
-    ]
+    # Fetch events from all calendars, not just primary
+    cal_list = service.calendarList().list().execute().get("items", [])
+    event_resources = [events(service, start_date=start_date, calendar_id=cal["id"]) for cal in cal_list]
+
+    resources = [*event_resources, calendars(service)]
 
     run_sync("gcalendar", "gcalendar", resources, full_refresh)
