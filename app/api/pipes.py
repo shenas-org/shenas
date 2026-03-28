@@ -5,6 +5,8 @@ import subprocess
 
 from fastapi import APIRouter
 
+from cli.commands.pkg import check_signature
+
 router = APIRouter(prefix="/pipes", tags=["pipes"])
 
 PIPE_PREFIX = "shenas-pipe-"
@@ -35,5 +37,6 @@ def list_pipes() -> list[dict]:
     for p in sorted(packages, key=lambda x: x["name"]):
         if p["name"].startswith(PIPE_PREFIX) and not p["name"].endswith("-core"):
             name = p["name"].removeprefix(PIPE_PREFIX)
-            pipes.append({"name": name, "version": p["version"], "commands": STANDARD_PIPE_COMMANDS})
+            sig = check_signature(p["name"], p["version"])
+            pipes.append({"name": name, "version": p["version"], "signature": sig, "commands": STANDARD_PIPE_COMMANDS})
     return pipes

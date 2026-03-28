@@ -128,13 +128,22 @@ def list_cmd() -> None:
         console.print("[dim]No pipes installed[/dim]")
         return
 
+    SIG_STYLE = {
+        "valid": "[green]verified[/green]",
+        "invalid": "[red]INVALID[/red]",
+        "unsigned": "[yellow]unsigned[/yellow]",
+        "no key": "[dim]no key[/dim]",
+    }
+
     table = Table(show_lines=False)
     table.add_column("Pipe", style="green")
     table.add_column("Version", justify="right")
+    table.add_column("Signature", justify="right")
     table.add_column("Commands")
     for p in pipes:
         cmds = ", ".join(c["name"] for c in p.get("commands", []))
-        table.add_row(p["name"], p.get("version", ""), cmds or "[dim]none[/dim]")
+        sig = SIG_STYLE.get(p.get("signature", ""), p.get("signature", ""))
+        table.add_row(p["name"], p.get("version", ""), sig, cmds or "[dim]none[/dim]")
     console.print(table)
 
 
