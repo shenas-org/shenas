@@ -6,7 +6,6 @@ on:
       - 'pipe-*/v*'
       - 'schema-*/v*'
       - 'component-*/v*'
-      - 'app/v*'
       - 'repository/v*'
 
 permissions:
