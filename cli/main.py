@@ -18,4 +18,7 @@ def root(ctx: typer.Context) -> None:
 
 
 def main() -> None:
+    from telemetry.setup import init_telemetry
+
+    init_telemetry("shenas-cli")
     app()

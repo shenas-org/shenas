@@ -11,8 +11,13 @@ from fastapi.staticfiles import StaticFiles
 
 from cli.db import DB_PATH
 from app.api import api_router
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from telemetry.setup import init_telemetry
+
+init_telemetry("shenas-server")
 
 app = FastAPI(title="shenas ui", docs_url=None, redoc_url=None)
+FastAPIInstrumentor.instrument_app(app)
 app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")
 app.include_router(api_router)
 

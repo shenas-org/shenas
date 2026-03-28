@@ -25,6 +25,12 @@ class ShenasClient:
     def __init__(self, base_url: str | None = None):
         self.base_url = base_url or os.environ.get("SHENAS_SERVER_URL", DEFAULT_SERVER_URL)
         self._client = httpx.Client(base_url=self.base_url, verify=False, timeout=30.0)
+        try:
+            from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+            HTTPXClientInstrumentor.instrument_client(self._client)
+        except ImportError:
+            pass
 
     def close(self) -> None:
         self._client.close()
