@@ -5,6 +5,7 @@ description = "Google Takeout data connector for shenas (reads exports from Goog
 requires-python = ">=3.11"
 dependencies = [
     "dlt[duckdb]>=1.24.0",
+    "ijson>=3.0",
     "shenas-pipe-core",
 ]
 
