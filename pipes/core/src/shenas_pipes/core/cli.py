@@ -66,3 +66,8 @@ def run_sync(
 
     if transform_fn:
         transform_fn()
+
+    # Close the active connection so the next pipe sync gets a clean slate
+    from shenas_pipes.core.db import close
+
+    close()
