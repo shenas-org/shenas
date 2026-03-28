@@ -84,11 +84,11 @@ def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) ->
     for schema in schemas_to_copy:
         mem_con.execute(f"CREATE SCHEMA IF NOT EXISTS enc.{schema}")
         tables = mem_con.execute(
-            f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
+            f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}' AND table_catalog = 'memory'"
         ).fetchall()
         for (table_name,) in tables:
             mem_con.execute(f"DROP TABLE IF EXISTS enc.{schema}.{table_name}")
-            mem_con.execute(f"CREATE TABLE enc.{schema}.{table_name} AS SELECT * FROM {schema}.{table_name}")
+            mem_con.execute(f"CREATE TABLE enc.{schema}.{table_name} AS SELECT * FROM memory.{schema}.{table_name}")
 
     mem_con.execute("DETACH enc")
     mem_con.close()
