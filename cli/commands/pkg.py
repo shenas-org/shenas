@@ -13,7 +13,7 @@ from repository.signing import load_public_key, verify_bytes
 
 console = Console()
 
-DEFAULT_INDEX = "http://127.0.0.1:8080"
+DEFAULT_INDEX = "http://127.0.0.1:7290"
 PACKAGES_DIR = Path(__file__).resolve().parent.parent.parent / "packages"
 PUBLIC_KEY_PATH = Path(".shenas") / "shenas.pub"
 

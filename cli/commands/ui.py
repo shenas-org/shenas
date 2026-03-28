@@ -11,13 +11,18 @@ DEFAULT_CERT_DIR = Path(".shenas")
 @app.callback()
 def _default(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
-        serve(host="127.0.0.1", port=8000)
+        serve(
+            host="127.0.0.1",
+            port=7280,
+            cert_file=DEFAULT_CERT_DIR / "cert.pem",
+            key_file=DEFAULT_CERT_DIR / "key.pem",
+        )
 
 
 @app.command()
 def serve(
     host: str = typer.Option("127.0.0.1", help="Bind host"),
-    port: int = typer.Option(8000, help="Bind port"),
+    port: int = typer.Option(7280, help="Bind port"),
     cert_file: Path = typer.Option(DEFAULT_CERT_DIR / "cert.pem", "--cert", help="TLS certificate file"),
     key_file: Path = typer.Option(DEFAULT_CERT_DIR / "key.pem", "--key", help="TLS private key file"),
 ) -> None:

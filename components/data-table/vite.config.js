@@ -20,7 +20,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/api": "https://127.0.0.1:8000",
+      "/api": "https://127.0.0.1:7280",
     },
   },
 });

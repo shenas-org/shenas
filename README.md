@@ -53,7 +53,7 @@ uv pip install packages/shenas_component_fitness_dashboard-*.whl
 
 # Start the UI
 uv run shenas ui
-# Open http://127.0.0.1:8000
+# Open http://127.0.0.1:7280
 ```
 
 ## Package distribution

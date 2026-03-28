@@ -29,6 +29,16 @@ class TestMainCLI:
         assert result.exit_code == 0
         assert "Usage" in result.output
 
+    def test_ui_no_cert(self, tmp_path: Path) -> None:
+        """shenas ui should exit with error when no TLS cert exists."""
+        result = runner.invoke(
+            main_app,
+            ["ui", "serve", "--cert", str(tmp_path / "nonexistent.pem"), "--key", str(tmp_path / "nonexistent.key")],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 1
+        assert "TLS certificate not found" in result.output
+
 
 class TestDataStatus:
     def test_discover_schemas(self) -> None:
