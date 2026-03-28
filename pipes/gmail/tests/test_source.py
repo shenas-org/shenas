@@ -1,4 +1,12 @@
-from shenas_pipes.gmail.source import _get_header
+from shenas_pipes.gmail.source import _epoch_ms_to_iso, _get_header
+
+
+class TestEpochMsToIso:
+    def test_converts(self) -> None:
+        assert _epoch_ms_to_iso(1711584000000) == "2024-03-28T00:00:00+00:00"
+
+    def test_zero(self) -> None:
+        assert _epoch_ms_to_iso(0) == "1970-01-01T00:00:00+00:00"
 
 
 class TestGetHeader:
