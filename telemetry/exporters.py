@@ -35,11 +35,17 @@ def _ns_to_iso(ns: int) -> str:
     return dt.isoformat()
 
 
+_schema_ensured = False
+
+
 def _connect() -> duckdb.DuckDBPyConnection:
+    global _schema_ensured
     from app.db import connect
 
     con = connect()
-    ensure_telemetry_schema(con)
+    if not _schema_ensured:
+        ensure_telemetry_schema(con)
+        _schema_ensured = True
     return con
 
 
@@ -101,7 +107,6 @@ class DuckDBSpanExporter(SpanExporter):
 
                 if rows:
                     con.executemany(_SPAN_INSERT, rows)
-                con.close()
                 return SpanExportResult.SUCCESS
         except Exception:
             return SpanExportResult.FAILURE
@@ -164,7 +169,6 @@ class DuckDBLogExporter(LogExporter):
 
                 if rows:
                     con.executemany(_LOG_INSERT, rows)
-                con.close()
                 return LogExportResult.SUCCESS
         except Exception:
             return LogExportResult.FAILURE

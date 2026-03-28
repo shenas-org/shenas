@@ -22,7 +22,6 @@ def api_tables() -> list[dict]:
         "AND table_schema NOT LIKE '%\\_staging' ESCAPE '\\' "
         "ORDER BY table_schema, table_name"
     ).fetchall()
-    con.close()
     return [{"schema": r[0], "table": r[1]} for r in rows]
 
 
@@ -34,9 +33,7 @@ def api_query(sql: str) -> Response:
     try:
         arrow_table = con.execute(sql).arrow().read_all()
     except duckdb.Error as exc:
-        con.close()
         return Response(content=str(exc), status_code=400, media_type="text/plain")
-    con.close()
 
     sink = pa.BufferOutputStream()
     with pa.ipc.new_stream(sink, arrow_table.schema) as writer:
