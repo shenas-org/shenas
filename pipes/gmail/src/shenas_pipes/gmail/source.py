@@ -35,11 +35,6 @@ def messages(
             msg = service.users().messages().get(userId="me", id=msg_ref["id"], format="metadata").execute()
 
             internal_date = int(msg.get("internalDate", 0))
-
-            # Skip messages older than the cursor
-            if cursor.last_value and internal_date <= cursor.last_value:
-                return
-
             headers = msg.get("payload", {}).get("headers", [])
             labels = msg.get("labelIds", [])
 
