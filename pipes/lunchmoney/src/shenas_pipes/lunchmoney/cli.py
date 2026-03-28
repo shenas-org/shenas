@@ -89,3 +89,25 @@ def sync(
     for package in load_info.load_packages:
         for job in package.jobs.get("completed_jobs", []):
             console.print(f"  [green]{job.job_file_info.table_name}[/green] -- {job.job_file_info.job_id()}")
+
+
+@app.command()
+def transform() -> None:
+    """Transform raw Lunch Money data into canonical metrics tables."""
+    import duckdb
+
+    from shenas_schemas.finance import ensure_schema
+    from shenas_pipes.lunchmoney.transform import LunchMoneyMetricProvider
+
+    if not DB_PATH.exists():
+        console.print(f"[red]Database not found at {DB_PATH}. Run sync first.[/red]")
+        raise typer.Exit(code=1)
+
+    con = duckdb.connect(str(DB_PATH))
+    ensure_schema(con)
+
+    provider = LunchMoneyMetricProvider()
+    console.print("Transforming lunchmoney...", style="dim")
+    provider.transform(con)
+    console.print("[green]done[/green]")
+    con.close()

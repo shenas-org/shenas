@@ -1,5 +1,5 @@
 PACKAGES_DIR := $(CURDIR)/packages
-SIGN = uv run shenas registry sign
+SIGN = uv run --no-sync shenas registry sign
 BUMP = python scripts/bump-version.py
 
 repository_server:
@@ -20,11 +20,18 @@ build-pipes:
 # Usage: make build-schemas                             (all)
 #        make build-schemas SCHEMA=fitness_tracker      (one)
 build-schemas:
-	@for schema in $(or $(SCHEMA),$(patsubst schemas/%/pyproject.toml,%,$(wildcard schemas/*/pyproject.toml))); do \
+	@for schema in $(or $(SCHEMA),$(patsubst schemas/%/VERSION,%,$(wildcard schemas/*/VERSION))); do \
 		version=$$($(BUMP) schemas/$$schema/VERSION); \
 		echo "Building schema: $$schema v$$version"; \
-		cd schemas/$$schema && uv build --out-dir $(PACKAGES_DIR) && cd $(CURDIR); \
-		$(SIGN) $(PACKAGES_DIR)/shenas_schema_$${schema}-$$version-*.whl; \
+		if [ -f schemas/$$schema/pyproject.build.toml ] && [ ! -f schemas/$$schema/pyproject.toml ]; then \
+			cp schemas/$$schema/pyproject.build.toml schemas/$$schema/pyproject.toml; \
+			cd schemas/$$schema && uv build --out-dir $(PACKAGES_DIR) && cd $(CURDIR); \
+			rm schemas/$$schema/pyproject.toml; \
+		else \
+			cd schemas/$$schema && uv build --out-dir $(PACKAGES_DIR) && cd $(CURDIR); \
+		fi; \
+		pkg=$$(echo $$schema | tr '-' '_'); \
+		$(SIGN) $(PACKAGES_DIR)/shenas_schema_$${pkg}-$$version-*.whl; \
 	done
 
 # Build component wheels into packages/ and sign them
