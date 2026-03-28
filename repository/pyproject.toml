@@ -1,0 +1,26 @@
+[project]
+name = "shenas-repository"
+dynamic = ["version"]
+description = "PEP 503 package repository server with Ed25519 signing"
+requires-python = ">=3.11"
+dependencies = [
+    "cryptography>=46.0.6",
+    "fastapi>=0.135.2",
+    "rich>=14.3.3",
+    "typer>=0.24.1",
+]
+
+[project.scripts]
+shenasrepoctl = "repository.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "VERSION"
+pattern = "(?P<version>.+)"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+dev-mode-dirs = [".."]

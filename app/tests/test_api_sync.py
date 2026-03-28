@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import typer
 from fastapi.testclient import TestClient
 
-from local_frontend.server import app
+from app.server import app
 
 client = TestClient(app)
 
@@ -52,7 +52,7 @@ def _make_entry_point(name: str, pipe_app: typer.Typer) -> MagicMock:
 
 class TestSyncAll:
     def test_sync_all_no_pipes(self) -> None:
-        with patch("local_frontend.api.sync.entry_points", return_value=[]):
+        with patch("app.api.sync.entry_points", return_value=[]):
             resp = client.post("/api/sync")
 
         assert resp.status_code == 200
@@ -63,7 +63,7 @@ class TestSyncAll:
     def test_sync_all_with_pipe(self) -> None:
         pipe_app = _make_pipe_app()
         eps = [_make_entry_point("testpipe", pipe_app)]
-        with patch("local_frontend.api.sync.entry_points", return_value=eps):
+        with patch("app.api.sync.entry_points", return_value=eps):
             resp = client.post("/api/sync")
 
         events = _parse_sse(resp.text)
@@ -76,7 +76,7 @@ class TestSyncAll:
         core_app = _make_pipe_app()
         pipe_app = _make_pipe_app()
         eps = [_make_entry_point("core", core_app), _make_entry_point("mypipe", pipe_app)]
-        with patch("local_frontend.api.sync.entry_points", return_value=eps):
+        with patch("app.api.sync.entry_points", return_value=eps):
             resp = client.post("/api/sync")
 
         events = _parse_sse(resp.text)
@@ -93,7 +93,7 @@ class TestSyncAll:
 
         pipe_app = _make_pipe_app(failing_sync)
         eps = [_make_entry_point("badpipe", pipe_app)]
-        with patch("local_frontend.api.sync.entry_points", return_value=eps):
+        with patch("app.api.sync.entry_points", return_value=eps):
             resp = client.post("/api/sync")
 
         events = _parse_sse(resp.text)
@@ -105,7 +105,7 @@ class TestSyncPipe:
     def test_sync_single_pipe(self) -> None:
         pipe_app = _make_pipe_app()
         ep = _make_entry_point("garmin", pipe_app)
-        with patch("local_frontend.api.sync.entry_points", return_value=[ep]):
+        with patch("app.api.sync.entry_points", return_value=[ep]):
             resp = client.post("/api/sync/garmin")
 
         assert resp.status_code == 200
@@ -113,7 +113,7 @@ class TestSyncPipe:
         assert any(e.get("pipe") == "garmin" and e.get("message") == "done" for e in events)
 
     def test_sync_pipe_not_found(self) -> None:
-        with patch("local_frontend.api.sync.entry_points", return_value=[]):
+        with patch("app.api.sync.entry_points", return_value=[]):
             resp = client.post("/api/sync/nonexistent")
         assert resp.status_code == 404
 
@@ -129,7 +129,7 @@ class TestSyncPipe:
 
         pipe_app = _make_pipe_app(sync_fn)
         ep = _make_entry_point("garmin", pipe_app)
-        with patch("local_frontend.api.sync.entry_points", return_value=[ep]):
+        with patch("app.api.sync.entry_points", return_value=[ep]):
             resp = client.post("/api/sync/garmin", json={"start_date": "2026-01-01", "full_refresh": True})
 
         assert resp.status_code == 200
@@ -145,7 +145,7 @@ class TestSyncPipe:
 
         pipe_app = _make_pipe_app(failing_sync)
         ep = _make_entry_point("garmin", pipe_app)
-        with patch("local_frontend.api.sync.entry_points", return_value=[ep]):
+        with patch("app.api.sync.entry_points", return_value=[ep]):
             resp = client.post("/api/sync/garmin")
 
         events = _parse_sse(resp.text)
@@ -156,7 +156,7 @@ class TestSyncPipe:
         empty_app = typer.Typer()
         empty_app.command("auth")(lambda: None)
         ep = _make_entry_point("nosync", empty_app)
-        with patch("local_frontend.api.sync.entry_points", return_value=[ep]):
+        with patch("app.api.sync.entry_points", return_value=[ep]):
             resp = client.post("/api/sync/nosync")
 
         events = _parse_sse(resp.text)
