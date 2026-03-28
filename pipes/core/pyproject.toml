@@ -1,22 +1,18 @@
 [project]
-name = "shenas-pipe-lunchmoney"
+name = "shenas-pipe-core"
 dynamic = ["version"]
-description = "Lunch Money dlt connector for shenas"
+description = "Shared utilities for shenas pipes"
 requires-python = ">=3.11"
 dependencies = [
-    "dlt[duckdb]>=1.24.0",
-    "lunchable>=1.4.0",
+    "duckdb>=1.2.0",
     "pendulum>=3.0.0",
-    "shenas-pipe-core",
-    "shenas-schema-finance",
+    "rich>=14.0.0",
+    "typer>=0.24.0",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[project.entry-points."shenas.pipes"]
-lunchmoney = "shenas_pipes.lunchmoney.cli:app"
 
 [tool.hatch.version]
 path = "VERSION"

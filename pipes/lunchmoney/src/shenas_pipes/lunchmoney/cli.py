@@ -2,21 +2,13 @@ from pathlib import Path
 
 import dlt
 import typer
-from rich.console import Console
 
-console = Console()
+from shenas_pipes.core.cli import console, create_pipe_app, run_sync
 
-app = typer.Typer(help="Lunch Money commands.", invoke_without_command=True)
+app = create_pipe_app("Lunch Money commands.")
 
 TOKEN_STORE = Path(".dlt") / "lunchmoney_token"
 DB_PATH = Path("data") / "local.duckdb"
-
-
-@app.callback()
-def _default(ctx: typer.Context) -> None:
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
 
 
 @app.command()
@@ -45,6 +37,7 @@ def sync(
     full_refresh: bool = typer.Option(False, "--full-refresh", help="Drop all data and re-download from start_date."),
 ) -> None:
     """Sync Lunch Money data into DuckDB. Only fetches new transactions on subsequent runs."""
+    from shenas_pipes.core.utils import resolve_start_date
     from shenas_pipes.lunchmoney.auth import build_client
     from shenas_pipes.lunchmoney.source import (
         assets,
@@ -55,7 +48,6 @@ def sync(
         tags,
         transactions,
     )
-    from shenas_pipes.lunchmoney.utils import resolve_start_date
 
     try:
         client = build_client(token_store=str(TOKEN_STORE))
@@ -84,13 +76,7 @@ def sync(
         plaid_accounts(client),
     ]
 
-    load_info = pipeline.run(resources, refresh="drop_sources" if full_refresh else None)
-
-    for package in load_info.load_packages:
-        for job in package.jobs.get("completed_jobs", []):
-            console.print(f"  [green]{job.job_file_info.table_name}[/green] -- {job.job_file_info.job_id()}")
-
-    _run_transform()
+    run_sync(pipeline, resources, full_refresh, _run_transform)
 
 
 def _run_transform() -> None:

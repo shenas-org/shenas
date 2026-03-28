@@ -3,22 +3,13 @@ from pathlib import Path
 
 import dlt
 import typer
-from rich.console import Console
+
+from shenas_pipes.core.cli import console, create_pipe_app, run_sync
 
 logging.getLogger("garth").setLevel(logging.CRITICAL)
 logging.getLogger("garminconnect").setLevel(logging.CRITICAL)
 
-console = Console()
-
-app = typer.Typer(help="Garmin Connect commands.", invoke_without_command=True)
-
-
-@app.callback()
-def _default(ctx: typer.Context) -> None:
-    if ctx.invoked_subcommand is None:
-        typer.echo(ctx.get_help())
-        raise typer.Exit()
-
+app = create_pipe_app("Garmin Connect commands.")
 
 TOKEN_STORE = Path(".dlt") / "garmin_tokens"
 DB_PATH = Path("data") / "local.duckdb"
@@ -76,9 +67,9 @@ def sync(
     full_refresh: bool = typer.Option(False, "--full-refresh", help="Drop all data and re-download from start_date."),
 ) -> None:
     """Sync Garmin Connect data into DuckDB. Only fetches data not already loaded."""
+    from shenas_pipes.core.utils import resolve_start_date
     from shenas_pipes.garmin.auth import build_client
     from shenas_pipes.garmin.source import activities, body_composition, daily_stats, hrv, sleep, spo2
-    from shenas_pipes.garmin.utils import resolve_start_date
 
     try:
         client = build_client(token_store=str(TOKEN_STORE))
@@ -106,13 +97,7 @@ def sync(
         body_composition(client, resolved),
     ]
 
-    load_info = pipeline.run(resources, refresh="drop_sources" if full_refresh else None)
-
-    for package in load_info.load_packages:
-        for job in package.jobs.get("completed_jobs", []):
-            console.print(f"  [green]{job.job_file_info.table_name}[/green] — {job.job_file_info.job_id()}")
-
-    _run_transform()
+    run_sync(pipeline, resources, full_refresh, _run_transform)
 
 
 def _run_transform() -> None:
