@@ -82,8 +82,8 @@ class ShenasClient:
     def pipes_list(self) -> list[dict]:
         return self._request("GET", "/api/pipes")
 
-    def pipe_auth(self, name: str, credentials: dict[str, str]) -> Iterator[dict]:
-        return self._stream_sse("POST", f"/api/auth/{name}", json={"credentials": credentials})
+    def pipe_auth(self, name: str, credentials: dict[str, str]) -> dict:
+        return self._request("POST", f"/api/auth/{name}", json={"credentials": credentials})
 
     # --- Config ---
 

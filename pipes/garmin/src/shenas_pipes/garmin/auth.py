@@ -90,12 +90,12 @@ BROWSER_UA = (
 def authenticate(credentials: dict[str, str]) -> None:
     """Authenticate with Garmin Connect using provided credentials.
 
-    Expected keys: email, password, mfa_code (optional).
-    Saves tokens to OS keyring on success.
+    Expected keys: email, password.
+    Raises ValueError("MFA code required") if MFA is needed -- the caller
+    should store the pending state and call complete_mfa() with the code.
     """
     email = credentials.get("email")
     password = credentials.get("password")
-    mfa_code = credentials.get("mfa_code")
 
     if not email or not password:
         raise ValueError("email and password are required")
@@ -108,8 +108,19 @@ def authenticate(credentials: dict[str, str]) -> None:
     result1, result2 = client.login()
 
     if result1 == "needs_mfa":
-        if not mfa_code:
-            raise ValueError("MFA code required. Pass mfa_code in credentials.")
-        client.resume_login(result2, mfa_code)
+        # Store the pending MFA state in the module-level dict so the
+        # server can pass it to complete_mfa() on the next request.
+        from app.api.auth import _pending_mfa
 
+        _pending_mfa["garmin"] = {"client": client, "mfa_state": result2}
+        raise ValueError("MFA code required")
+
+    save_tokens_from_client(client)
+
+
+def complete_mfa(state: object, mfa_code: str) -> None:
+    """Complete a pending MFA login with the provided code."""
+    client = state["client"]
+    mfa_state = state["mfa_state"]
+    client.resume_login(mfa_state, mfa_code)
     save_tokens_from_client(client)
