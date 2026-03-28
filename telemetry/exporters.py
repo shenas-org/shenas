@@ -52,7 +52,11 @@ class DuckDBSpanExporter(SpanExporter):
     def export(self, spans: list[ReadableSpan]) -> SpanExportResult:
         try:
             with self._lock:
-                con = _connect()
+                try:
+                    con = _connect()
+                except Exception:
+                    # DB locked (e.g. during pipe sync) -- silently skip this batch
+                    return SpanExportResult.SUCCESS
 
                 rows = []
                 for span in spans:
@@ -100,7 +104,6 @@ class DuckDBSpanExporter(SpanExporter):
                 con.close()
                 return SpanExportResult.SUCCESS
         except Exception:
-            _logger.warning("Failed to export spans to DuckDB", exc_info=True)
             return SpanExportResult.FAILURE
 
     def shutdown(self) -> None:
@@ -122,7 +125,10 @@ class DuckDBLogExporter(LogExporter):
         self._exporting.active = True
         try:
             with self._lock:
-                con = _connect()
+                try:
+                    con = _connect()
+                except Exception:
+                    return LogExportResult.SUCCESS
 
                 rows = []
                 for record in batch:
@@ -161,7 +167,6 @@ class DuckDBLogExporter(LogExporter):
                 con.close()
                 return LogExportResult.SUCCESS
         except Exception:
-            _logger.warning("Failed to export logs to DuckDB", exc_info=True)
             return LogExportResult.FAILURE
         finally:
             self._exporting.active = False
