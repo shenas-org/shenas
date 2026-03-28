@@ -32,7 +32,7 @@ def auth() -> None:
     console.print("Verifying...", style="dim")
     try:
         client = build_client(api_key=api_key, token_store=str(TOKEN_STORE))
-        user = client.get_me()
+        user = client.get_user()
         console.print(f"[green]Authenticated as {user.user_name} ({user.user_email})[/green]")
     except Exception as exc:
         console.print(f"[red]Authentication failed:[/red] {exc}")
@@ -90,18 +90,14 @@ def sync(
         for job in package.jobs.get("completed_jobs", []):
             console.print(f"  [green]{job.job_file_info.table_name}[/green] -- {job.job_file_info.job_id()}")
 
+    _run_transform()
 
-@app.command()
-def transform() -> None:
-    """Transform raw Lunch Money data into canonical metrics tables."""
+
+def _run_transform() -> None:
     import duckdb
 
-    from shenas_schemas.finance import ensure_schema
     from shenas_pipes.lunchmoney.transform import LunchMoneyMetricProvider
-
-    if not DB_PATH.exists():
-        console.print(f"[red]Database not found at {DB_PATH}. Run sync first.[/red]")
-        raise typer.Exit(code=1)
+    from shenas_schemas.finance import ensure_schema
 
     con = duckdb.connect(str(DB_PATH))
     ensure_schema(con)
@@ -111,3 +107,12 @@ def transform() -> None:
     provider.transform(con)
     console.print("[green]done[/green]")
     con.close()
+
+
+@app.command()
+def transform() -> None:
+    """Transform raw Lunch Money data into canonical metrics tables."""
+    if not DB_PATH.exists():
+        console.print(f"[red]Database not found at {DB_PATH}. Run sync first.[/red]")
+        raise typer.Exit(code=1)
+    _run_transform()

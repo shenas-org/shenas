@@ -19,10 +19,13 @@ def _default(ctx: typer.Context) -> None:
         typer.echo(ctx.get_help())
         raise typer.Exit()
 
+
 TOKEN_STORE = Path(".dlt") / "garmin_tokens"
 DB_PATH = Path("data") / "local.duckdb"
 
-BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+BROWSER_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+)
 
 
 @app.command()
@@ -53,7 +56,9 @@ def auth() -> None:
     except Exception as exc:
         msg = str(exc)
         if "429" in msg:
-            console.print("[red]Rate limited by Garmin.[/red] Try again later, use a different network, or run: uvx garth login")
+            console.print(
+                "[red]Rate limited by Garmin.[/red] Try again later, use a different network, or run: uvx garth login"
+            )
         else:
             console.print(f"[red]Authentication failed:[/red] {msg}")
         raise typer.Exit(code=1)
@@ -65,7 +70,9 @@ def auth() -> None:
 
 @app.command()
 def sync(
-    start_date: str = typer.Option("30 days ago", help="Initial fetch window if no prior sync. Use 'YYYY-MM-DD' or 'N days ago'."),
+    start_date: str = typer.Option(
+        "30 days ago", help="Initial fetch window if no prior sync. Use 'YYYY-MM-DD' or 'N days ago'."
+    ),
     full_refresh: bool = typer.Option(False, "--full-refresh", help="Drop all data and re-download from start_date."),
 ) -> None:
     """Sync Garmin Connect data into DuckDB. Only fetches data not already loaded."""
@@ -105,18 +112,14 @@ def sync(
         for job in package.jobs.get("completed_jobs", []):
             console.print(f"  [green]{job.job_file_info.table_name}[/green] — {job.job_file_info.job_id()}")
 
+    _run_transform()
 
-@app.command()
-def transform() -> None:
-    """Transform raw Garmin data into canonical metrics tables."""
+
+def _run_transform() -> None:
     import duckdb
 
-    from shenas_schemas.fitness_tracker import ensure_schema
     from shenas_pipes.garmin.transform import GarminMetricProvider
-
-    if not DB_PATH.exists():
-        console.print(f"[red]Database not found at {DB_PATH}. Run sync first.[/red]")
-        raise typer.Exit(code=1)
+    from shenas_schemas.fitness_tracker import ensure_schema
 
     con = duckdb.connect(str(DB_PATH))
     ensure_schema(con)
@@ -126,3 +129,12 @@ def transform() -> None:
     provider.transform(con)
     console.print("[green]done[/green]")
     con.close()
+
+
+@app.command()
+def transform() -> None:
+    """Transform raw Garmin data into canonical metrics tables."""
+    if not DB_PATH.exists():
+        console.print(f"[red]Database not found at {DB_PATH}. Run sync first.[/red]")
+        raise typer.Exit(code=1)
+    _run_transform()
