@@ -77,6 +77,17 @@ class ShenasClient:
         except (httpx.ConnectError, httpx.ConnectTimeout):
             return False
 
+    # --- Pipes ---
+
+    def pipes_list(self) -> list[dict]:
+        return self._request("GET", "/api/pipes")
+
+    def pipe_auth_fields(self, name: str) -> list[dict]:
+        return self._request("GET", f"/api/auth/{name}/fields")
+
+    def pipe_auth(self, name: str, credentials: dict[str, str]) -> dict:
+        return self._request("POST", f"/api/auth/{name}", json={"credentials": credentials})
+
     # --- Config ---
 
     def config_list(self, kind: str | None = None, name: str | None = None) -> list[dict]:
@@ -102,6 +113,9 @@ class ShenasClient:
 
     def db_status(self) -> dict:
         return self._request("GET", "/api/db/status")
+
+    def db_keygen(self) -> dict:
+        return self._request("POST", "/api/db/keygen")
 
     # --- Packages ---
 

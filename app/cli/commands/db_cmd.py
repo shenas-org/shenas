@@ -2,8 +2,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from cli.client import ShenasClient, ShenasServerError
-from cli.db import generate_db_key, set_db_key
+from app.cli.client import ShenasClient, ShenasServerError
 
 console = Console()
 
@@ -20,8 +19,11 @@ def _default(ctx: typer.Context) -> None:
 @app.command()
 def keygen() -> None:
     """Generate a database encryption key and store it in the OS keyring."""
-    key = generate_db_key()
-    set_db_key(key)
+    try:
+        ShenasClient().db_keygen()
+    except ShenasServerError as exc:
+        console.print(f"[red]{exc.detail}[/red]")
+        raise typer.Exit(code=1)
     console.print("[green]Database encryption key generated and stored in OS keyring.[/green]")
 
 
@@ -43,7 +45,7 @@ def status() -> None:
     }
     console.print(key_labels.get(data["key_source"], f"Key source: {data['key_source']}"))
     if data["key_source"] == "not_set":
-        console.print("Run [bold]shenas db keygen[/bold] or set SHENAS_DB_KEY.")
+        console.print("Run [bold]shenasctl db keygen[/bold] or set SHENAS_DB_KEY.")
 
     # DB file
     if data["size_mb"] is not None:

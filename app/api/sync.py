@@ -1,9 +1,10 @@
 """Sync API endpoints with SSE streaming."""
 
+import importlib
 import inspect
 import json
+import subprocess
 from collections.abc import Iterator
-from importlib.metadata import entry_points
 
 import typer
 from fastapi import APIRouter, HTTPException
@@ -11,6 +12,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/sync", tags=["sync"])
+
+PIPE_PREFIX = "shenas-pipe-"
 
 
 class SyncRequest(BaseModel):
@@ -20,6 +23,46 @@ class SyncRequest(BaseModel):
 
 def _sse_event(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+def _installed_pipe_names() -> list[str]:
+    """Get installed pipe names via uv pip list (avoids entry_points cache)."""
+    import sys
+
+    result = subprocess.run(
+        ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        return []
+    packages = json.loads(result.stdout)
+    return [
+        p["name"].removeprefix(PIPE_PREFIX)
+        for p in packages
+        if p["name"].startswith(PIPE_PREFIX) and not p["name"].endswith("-core")
+    ]
+
+
+def _load_pipe_app(name: str) -> typer.Typer:
+    """Load a pipe's typer app by importing its CLI module directly."""
+    module_name = f"shenas_pipes.{name}.cli"
+    # Invalidate caches so packages installed after server start are found
+    importlib.invalidate_caches()
+    try:
+        mod = importlib.import_module(module_name)
+    except ModuleNotFoundError:
+        # Module might be installed but the namespace package path is stale.
+        # Refresh sys.path entries by re-importing the namespace package.
+        import sys
+
+        for key in list(sys.modules):
+            if key == "shenas_pipes" or key.startswith("shenas_pipes."):
+                del sys.modules[key]
+        try:
+            mod = importlib.import_module(module_name)
+        except ModuleNotFoundError as exc:
+            msg = f"Cannot import {module_name}: {exc}. Ensure pipes are installed and server is running from the workspace."
+            raise ImportError(msg) from exc
+    return mod.app
 
 
 def _run_pipe_sync(ep_name: str, pipe_app: typer.Typer, start_date: str | None, full_refresh: bool) -> Iterator[str]:
@@ -60,15 +103,13 @@ def _run_pipe_sync(ep_name: str, pipe_app: typer.Typer, start_date: str | None, 
 def sync_all() -> StreamingResponse:
     def _stream() -> Iterator[str]:
         failed = []
-        for ep in sorted(entry_points(group="shenas.pipes"), key=lambda e: e.name):
-            if ep.name == "core":
-                continue
+        for name in _installed_pipe_names():
             try:
-                pipe_app = ep.load()
-                yield from _run_pipe_sync(ep.name, pipe_app, start_date=None, full_refresh=False)
+                pipe_app = _load_pipe_app(name)
+                yield from _run_pipe_sync(name, pipe_app, start_date=None, full_refresh=False)
             except Exception as exc:
-                yield _sse_event("error", {"pipe": ep.name, "message": str(exc)})
-                failed.append(ep.name)
+                yield _sse_event("error", {"pipe": name, "message": str(exc)})
+                failed.append(name)
 
         if failed:
             yield _sse_event("error", {"message": f"Failed: {', '.join(failed)}"})
@@ -82,16 +123,13 @@ def sync_all() -> StreamingResponse:
 def sync_pipe(name: str, body: SyncRequest | None = None) -> StreamingResponse:
     body = body or SyncRequest()
 
-    # Find the pipe entry point
-    matching = [ep for ep in entry_points(group="shenas.pipes") if ep.name == name]
-    if not matching:
+    # Verify the pipe is installed
+    if name not in _installed_pipe_names():
         raise HTTPException(status_code=404, detail=f"Pipe not found: {name}")
-
-    ep = matching[0]
 
     def _stream() -> Iterator[str]:
         try:
-            pipe_app = ep.load()
+            pipe_app = _load_pipe_app(name)
             yield from _run_pipe_sync(name, pipe_app, body.start_date, body.full_refresh)
         except Exception as exc:
             yield _sse_event("error", {"pipe": name, "message": str(exc)})

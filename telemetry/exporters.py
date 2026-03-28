@@ -35,11 +35,17 @@ def _ns_to_iso(ns: int) -> str:
     return dt.isoformat()
 
 
+_schema_ensured = False
+
+
 def _connect() -> duckdb.DuckDBPyConnection:
-    from cli.db import connect
+    global _schema_ensured
+    from app.db import connect
 
     con = connect()
-    ensure_telemetry_schema(con)
+    if not _schema_ensured:
+        ensure_telemetry_schema(con)
+        _schema_ensured = True
     return con
 
 
@@ -47,15 +53,16 @@ class DuckDBSpanExporter(SpanExporter):
     """Export OpenTelemetry spans to DuckDB telemetry.spans table."""
 
     def __init__(self) -> None:
-        self._con: duckdb.DuckDBPyConnection | None = None
         self._lock = threading.Lock()
 
     def export(self, spans: list[ReadableSpan]) -> SpanExportResult:
         try:
             with self._lock:
-                if self._con is None:
-                    self._con = _connect()
-                con = self._con
+                try:
+                    con = _connect()
+                except Exception:
+                    # DB locked (e.g. during pipe sync) -- silently skip this batch
+                    return SpanExportResult.SUCCESS
 
                 rows = []
                 for span in spans:
@@ -102,21 +109,16 @@ class DuckDBSpanExporter(SpanExporter):
                     con.executemany(_SPAN_INSERT, rows)
                 return SpanExportResult.SUCCESS
         except Exception:
-            _logger.warning("Failed to export spans to DuckDB", exc_info=True)
             return SpanExportResult.FAILURE
 
     def shutdown(self) -> None:
-        with self._lock:
-            if self._con:
-                self._con.close()
-                self._con = None
+        pass
 
 
 class DuckDBLogExporter(LogExporter):
     """Export OpenTelemetry log records to DuckDB telemetry.logs table."""
 
     def __init__(self) -> None:
-        self._con: duckdb.DuckDBPyConnection | None = None
         self._lock = threading.Lock()
         self._exporting = threading.local()
 
@@ -128,9 +130,10 @@ class DuckDBLogExporter(LogExporter):
         self._exporting.active = True
         try:
             with self._lock:
-                if self._con is None:
-                    self._con = _connect()
-                con = self._con
+                try:
+                    con = _connect()
+                except Exception:
+                    return LogExportResult.SUCCESS
 
                 rows = []
                 for record in batch:
@@ -168,13 +171,9 @@ class DuckDBLogExporter(LogExporter):
                     con.executemany(_LOG_INSERT, rows)
                 return LogExportResult.SUCCESS
         except Exception:
-            _logger.warning("Failed to export logs to DuckDB", exc_info=True)
             return LogExportResult.FAILURE
         finally:
             self._exporting.active = False
 
     def shutdown(self) -> None:
-        with self._lock:
-            if self._con:
-                self._con.close()
-                self._con = None
+        pass

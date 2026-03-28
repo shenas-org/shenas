@@ -9,6 +9,11 @@ from garminconnect import Garmin
 KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "garmin_tokens"
 
+AUTH_FIELDS = [
+    {"name": "email", "prompt": "Email", "hide": False},
+    {"name": "password", "prompt": "Password", "hide": True},
+]
+
 
 def _get_stored_tokens() -> dict | None:
     """Read serialized garth tokens from OS keyring."""
@@ -80,3 +85,47 @@ def save_tokens_from_client(client: Garmin) -> None:
     with tempfile.TemporaryDirectory(prefix="garmin_tokens_") as tmp:
         client.garth.dump(tmp)
         _store_tokens(Path(tmp))
+
+
+BROWSER_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+)
+
+
+def authenticate(credentials: dict[str, str]) -> None:
+    """Authenticate with Garmin Connect using provided credentials.
+
+    Expected keys: email, password.
+    Raises ValueError("MFA code required") if MFA is needed -- the caller
+    should store the pending state and call complete_mfa() with the code.
+    """
+    email = credentials.get("email")
+    password = credentials.get("password")
+
+    if not email or not password:
+        raise ValueError("email and password are required")
+
+    client = Garmin(email=email, password=password, return_on_mfa=True)
+    client.garth.sess.headers.update({"User-Agent": BROWSER_UA})
+    client.garth.oauth1_token = None
+    client.garth.oauth2_token = None
+
+    result1, result2 = client.login()
+
+    if result1 == "needs_mfa":
+        # Store the pending MFA state in the module-level dict so the
+        # server can pass it to complete_mfa() on the next request.
+        from app.api.auth import _pending_mfa
+
+        _pending_mfa["garmin"] = {"client": client, "mfa_state": result2}
+        raise ValueError("MFA code required")
+
+    save_tokens_from_client(client)
+
+
+def complete_mfa(state: object, mfa_code: str) -> None:
+    """Complete a pending MFA login with the provided code."""
+    client = state["client"]
+    mfa_state = state["mfa_state"]
+    client.resume_login(mfa_state, mfa_code)
+    save_tokens_from_client(client)

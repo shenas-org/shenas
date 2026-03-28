@@ -13,7 +13,6 @@ resolution-markers = [
 [manifest]
 members = [
     "shenas-app",
-    "shenas-cli",
     "shenas-component-data-table",
     "shenas-component-fitness-dashboard",
     "shenas-pipe-core",
@@ -1851,13 +1850,17 @@ name = "shenas-app"
 source = { editable = "app" }
 dependencies = [
     { name = "cryptography" },
+    { name = "dlt", extra = ["duckdb"] },
     { name = "duckdb" },
     { name = "fastapi" },
+    { name = "httpx" },
+    { name = "keyring" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-instrumentation-fastapi" },
+    { name = "opentelemetry-instrumentation-httpx" },
     { name = "opentelemetry-sdk" },
     { name = "pyarrow" },
-    { name = "shenas-cli" },
+    { name = "rich" },
     { name = "typer" },
     { name = "uvicorn" },
 ]
@@ -1865,39 +1868,19 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "cryptography", specifier = ">=46.0.6" },
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "duckdb", specifier = ">=1.2.0" },
     { name = "fastapi", specifier = ">=0.135.2" },
-    { name = "opentelemetry-api", specifier = ">=1.25.0" },
-    { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.46b0" },
-    { name = "opentelemetry-sdk", specifier = ">=1.25.0" },
-    { name = "pyarrow", specifier = ">=23.0.1" },
-    { name = "shenas-cli", editable = "cli" },
-    { name = "typer", specifier = ">=0.24.1" },
-    { name = "uvicorn", specifier = ">=0.42.0" },
-]
-
-[[package]]
-name = "shenas-cli"
-source = { editable = "cli" }
-dependencies = [
-    { name = "dlt", extra = ["duckdb"] },
-    { name = "keyring" },
-    { name = "opentelemetry-api" },
-    { name = "opentelemetry-instrumentation-httpx" },
-    { name = "opentelemetry-sdk" },
-    { name = "rich" },
-    { name = "typer" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "keyring", specifier = ">=25.7.0" },
     { name = "opentelemetry-api", specifier = ">=1.25.0" },
+    { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.46b0" },
     { name = "opentelemetry-instrumentation-httpx", specifier = ">=0.46b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.25.0" },
+    { name = "pyarrow", specifier = ">=23.0.1" },
     { name = "rich", specifier = ">=14.3.3" },
     { name = "typer", specifier = ">=0.24.1" },
+    { name = "uvicorn", specifier = ">=0.42.0" },
 ]
 
 [[package]]
@@ -2083,7 +2066,6 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
     { name = "shenas-app" },
-    { name = "shenas-cli" },
     { name = "shenas-component-data-table" },
     { name = "shenas-component-fitness-dashboard" },
     { name = "shenas-pipe-garmin" },
@@ -2106,7 +2088,6 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "ruff", specifier = ">=0.15.8" },
     { name = "shenas-app", editable = "app" },
-    { name = "shenas-cli", editable = "cli" },
     { name = "shenas-component-data-table", editable = "components/data-table" },
     { name = "shenas-component-fitness-dashboard", editable = "components/fitness-dashboard" },
     { name = "shenas-pipe-garmin", editable = "pipes/garmin" },
