@@ -1,0 +1,85 @@
+name: Auto Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Detect changes and tag releases
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Detect changes and create tags
+        run: |
+          PACKAGES=(
+            "desktop:cli/ app/ app/desktop/"
+            "repository:repository/"
+            "pipe-core:pipes/core/"
+            "pipe-garmin:pipes/garmin/"
+            "pipe-lunchmoney:pipes/lunchmoney/"
+            "pipe-obsidian:pipes/obsidian/"
+            "pipe-gmail:pipes/gmail/"
+            "schema-core:schemas/core/"
+            "schema-fitness:schemas/fitness/"
+            "schema-finance:schemas/finance/"
+            "schema-outcomes:schemas/outcomes/"
+            "component-fitness-dashboard:components/fitness-dashboard/"
+            "component-data-table:components/data-table/"
+          )
+
+          TAGS_CREATED=0
+
+          for entry in "${PACKAGES[@]}"; do
+            PREFIX="${entry%%:*}"
+            DIRS="${entry#*:}"
+
+            # Check if any files changed in this push
+            CHANGED=$(git diff --name-only HEAD~1 -- $DIRS 2>/dev/null)
+            [ -z "$CHANGED" ] && continue
+
+            # Get latest tag for this package
+            LATEST=$(git describe --tags --match "$PREFIX/v*" --abbrev=0 2>/dev/null || echo "$PREFIX/v0.0.0")
+            VERSION="${LATEST##*/v}"
+
+            # Get conventional commits since last tag that touch this package
+            COMMITS=$(git log "$LATEST"..HEAD --pretty=format:"%s" -- $DIRS 2>/dev/null)
+            [ -z "$COMMITS" ] && continue
+
+            # Determine bump (highest wins: major > minor > patch)
+            BUMP="patch"
+            echo "$COMMITS" | grep -qiE "^feat(\(.*\))?:" && BUMP="minor"
+            echo "$COMMITS" | grep -qiE "^feat(\(.*\))?!:|BREAKING CHANGE" && BUMP="major"
+
+            # Compute new version
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            case "$BUMP" in
+              major) NEW="$((MAJOR+1)).0.0" ;;
+              minor) NEW="$MAJOR.$((MINOR+1)).0" ;;
+              patch) NEW="$MAJOR.$MINOR.$((PATCH+1))" ;;
+            esac
+
+            TAG="$PREFIX/v$NEW"
+            echo "::notice::Releasing $TAG ($BUMP bump from $VERSION)"
+            git tag "$TAG"
+            TAGS_CREATED=$((TAGS_CREATED+1))
+          done
+
+          if [ "$TAGS_CREATED" -gt 0 ]; then
+            echo "Pushing $TAGS_CREATED tag(s)"
+            git push --tags
+          else
+            echo "No packages changed, nothing to release"
+          fi
