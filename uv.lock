@@ -1904,6 +1904,8 @@ name = "shenas-pipe-core"
 source = { editable = "pipes/core" }
 dependencies = [
     { name = "duckdb" },
+    { name = "google-api-python-client" },
+    { name = "google-auth-oauthlib" },
     { name = "keyring" },
     { name = "opentelemetry-api" },
     { name = "pendulum" },
@@ -1915,6 +1917,8 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "duckdb", specifier = ">=1.2.0" },
+    { name = "google-api-python-client", specifier = ">=2.0.0" },
+    { name = "google-auth-oauthlib", specifier = ">=1.0.0" },
     { name = "keyring", specifier = ">=25.0.0" },
     { name = "opentelemetry-api", specifier = ">=1.25.0" },
     { name = "pendulum", specifier = ">=3.0.0" },
@@ -1948,8 +1952,6 @@ name = "shenas-pipe-gcalendar"
 source = { editable = "pipes/gcalendar" }
 dependencies = [
     { name = "dlt", extra = ["duckdb"] },
-    { name = "google-api-python-client" },
-    { name = "google-auth-oauthlib" },
     { name = "pendulum" },
     { name = "shenas-pipe-core" },
 ]
@@ -1957,8 +1959,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
-    { name = "google-api-python-client", specifier = ">=2.0.0" },
-    { name = "google-auth-oauthlib", specifier = ">=1.0.0" },
     { name = "pendulum", specifier = ">=3.0.0" },
     { name = "shenas-pipe-core", editable = "pipes/core" },
 ]
@@ -1967,25 +1967,17 @@ requires-dist = [
 name = "shenas-pipe-gmail"
 source = { editable = "pipes/gmail" }
 dependencies = [
-    { name = "google-api-python-client" },
-    { name = "google-auth-oauthlib" },
     { name = "shenas-pipe-core" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "google-api-python-client", specifier = ">=2.0.0" },
-    { name = "google-auth-oauthlib", specifier = ">=1.0.0" },
-    { name = "shenas-pipe-core", editable = "pipes/core" },
-]
+requires-dist = [{ name = "shenas-pipe-core", editable = "pipes/core" }]
 
 [[package]]
 name = "shenas-pipe-gphotos"
 source = { editable = "pipes/gphotos" }
 dependencies = [
     { name = "dlt", extra = ["duckdb"] },
-    { name = "google-api-python-client" },
-    { name = "google-auth-oauthlib" },
     { name = "pendulum" },
     { name = "shenas-pipe-core" },
 ]
@@ -1993,8 +1985,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
-    { name = "google-api-python-client", specifier = ">=2.0.0" },
-    { name = "google-auth-oauthlib", specifier = ">=1.0.0" },
     { name = "pendulum", specifier = ">=3.0.0" },
     { name = "shenas-pipe-core", editable = "pipes/core" },
 ]
