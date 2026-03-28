@@ -58,7 +58,7 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 
 ### Component packaging workaround
 
-`frontend_components/*/pyproject.build.toml` is renamed to `pyproject.toml` only during build (by the Makefile), then removed. This prevents uv from auto-discovering components as workspace members.
+`components/*/pyproject.build.toml` is renamed to `pyproject.toml` only during build (by the Makefile), then removed. This prevents uv from auto-discovering components as workspace members.
 
 ## Key conventions
 
@@ -76,7 +76,7 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - `registry/` — Ed25519 signing/verification
 - `repository_server/` — PEP 503 Simple Repository API server
 - `local_frontend/` — FastAPI UI server; discovers components via entry points, serves Arrow IPC
-- `frontend_components/` — web component source (Lit/Vite); built into Python wheels
+- `components/` — web component source (Lit/Vite); built into Python wheels
 - `scripts/` — build helpers (version bumping)
 
 ## Hooks

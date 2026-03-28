@@ -8,6 +8,8 @@ __pycache__/
 packages/
 dist/
 node_modules/
-frontend_components/*/shenas_components/*/static/
+components/*/shenas_components/*/static/
 htmlcov/
 .coverage
+.dlt/lunchmoney_token
+shenas.egg-info/
