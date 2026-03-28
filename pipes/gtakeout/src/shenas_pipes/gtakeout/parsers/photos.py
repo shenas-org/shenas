@@ -1,18 +1,15 @@
 """Parse Google Photos metadata from Takeout exports."""
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 
-def parse_photos_metadata(files: list[Path]) -> list[dict[str, Any]]:
-    """Parse photo/video metadata JSON files from Google Photos Takeout."""
-    items = []
+def parse_photos_metadata(files: list[Path]) -> Iterator[dict[str, Any]]:
+    """Yield photo/video metadata from Google Photos Takeout JSON files."""
     for f in files:
-        if not f.name.endswith(".json"):
-            continue
-        # Skip the metadata.json album files
-        if f.name == "metadata.json":
+        if not f.name.endswith(".json") or f.name == "metadata.json":
             continue
 
         try:
@@ -20,7 +17,6 @@ def parse_photos_metadata(files: list[Path]) -> list[dict[str, Any]]:
         except (json.JSONDecodeError, UnicodeDecodeError):
             continue
 
-        # Google Photos metadata JSON has a specific structure
         if "title" not in data and "photoTakenTime" not in data:
             continue
 
@@ -29,23 +25,19 @@ def parse_photos_metadata(files: list[Path]) -> list[dict[str, Any]]:
         photo_taken = data.get("photoTakenTime", {})
         creation = data.get("creationTime", {})
 
-        items.append(
-            {
-                "title": data.get("title", ""),
-                "description": data.get("description", ""),
-                "photo_taken_timestamp": photo_taken.get("timestamp", ""),
-                "photo_taken_formatted": photo_taken.get("formatted", ""),
-                "creation_timestamp": creation.get("timestamp", ""),
-                "creation_formatted": creation.get("formatted", ""),
-                "latitude": geo.get("latitude", 0.0),
-                "longitude": geo.get("longitude", 0.0),
-                "altitude": geo.get("altitude", 0.0),
-                "latitude_exif": geo_exif.get("latitude", 0.0),
-                "longitude_exif": geo_exif.get("longitude", 0.0),
-                "camera_make": data.get("googlePhotosOrigin", {}).get("mobileUpload", {}).get("deviceType", ""),
-                "url": data.get("url", ""),
-                "source_file": str(f.relative_to(f.parents[2]) if len(f.parents) > 2 else f.name),
-            }
-        )
-
-    return items
+        yield {
+            "title": data.get("title", ""),
+            "description": data.get("description", ""),
+            "photo_taken_timestamp": photo_taken.get("timestamp", ""),
+            "photo_taken_formatted": photo_taken.get("formatted", ""),
+            "creation_timestamp": creation.get("timestamp", ""),
+            "creation_formatted": creation.get("formatted", ""),
+            "latitude": geo.get("latitude", 0.0),
+            "longitude": geo.get("longitude", 0.0),
+            "altitude": geo.get("altitude", 0.0),
+            "latitude_exif": geo_exif.get("latitude", 0.0),
+            "longitude_exif": geo_exif.get("longitude", 0.0),
+            "camera_make": data.get("googlePhotosOrigin", {}).get("mobileUpload", {}).get("deviceType", ""),
+            "url": data.get("url", ""),
+            "source_file": f.name,
+        }
