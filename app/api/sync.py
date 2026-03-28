@@ -4,6 +4,7 @@ import importlib
 import inspect
 import json
 import subprocess
+import sys
 from collections.abc import Iterator
 
 import typer
@@ -90,12 +91,27 @@ def _run_pipe_sync(ep_name: str, pipe_app: typer.Typer, start_date: str | None, 
     if full_refresh and "full_refresh" in kwargs:
         kwargs["full_refresh"] = True
 
+    import io as _io
+
+    # Capture stdout so pipe error messages (console.print) are forwarded via SSE
+    captured = _io.StringIO()
+    old_stdout = sys.stdout
+
     try:
+        sys.stdout = captured
         sync_callback(**kwargs)
+        sys.stdout = old_stdout
         yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
-    except SystemExit:
-        yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
+    except SystemExit as exc:
+        sys.stdout = old_stdout
+        if exc.code and exc.code != 0:
+            error_output = captured.getvalue().strip()
+            msg = error_output or f"Pipe exited with code {exc.code}"
+            yield _sse_event("error", {"pipe": ep_name, "message": msg})
+        else:
+            yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
     except Exception as exc:
+        sys.stdout = old_stdout
         yield _sse_event("error", {"pipe": ep_name, "message": str(exc)})
 
 
