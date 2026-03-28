@@ -80,4 +80,12 @@ def build_client(run_auth_flow: bool = False):  # type: ignore[no-untyped-def]
         _store_token(creds)
         return build("gmail", "v1", credentials=creds)
 
-    raise RuntimeError("No valid Gmail credentials. Run 'shenas pipe gmail auth' first.")
+    raise RuntimeError("No valid Gmail credentials. Run 'shenasctl pipe gmail auth' first.")
+
+
+def authenticate(credentials: dict[str, str]) -> None:
+    """Authenticate with Gmail via OAuth2 browser flow.
+
+    No credentials needed -- opens a browser for Google login.
+    """
+    build_client(run_auth_flow=True)

@@ -80,3 +80,36 @@ def save_tokens_from_client(client: Garmin) -> None:
     with tempfile.TemporaryDirectory(prefix="garmin_tokens_") as tmp:
         client.garth.dump(tmp)
         _store_tokens(Path(tmp))
+
+
+BROWSER_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+)
+
+
+def authenticate(credentials: dict[str, str]) -> None:
+    """Authenticate with Garmin Connect using provided credentials.
+
+    Expected keys: email, password, mfa_code (optional).
+    Saves tokens to OS keyring on success.
+    """
+    email = credentials.get("email")
+    password = credentials.get("password")
+    mfa_code = credentials.get("mfa_code")
+
+    if not email or not password:
+        raise ValueError("email and password are required")
+
+    client = Garmin(email=email, password=password, return_on_mfa=True)
+    client.garth.sess.headers.update({"User-Agent": BROWSER_UA})
+    client.garth.oauth1_token = None
+    client.garth.oauth2_token = None
+
+    result1, result2 = client.login()
+
+    if result1 == "needs_mfa":
+        if not mfa_code:
+            raise ValueError("MFA code required. Pass mfa_code in credentials.")
+        client.resume_login(result2, mfa_code)
+
+    save_tokens_from_client(client)

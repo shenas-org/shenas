@@ -37,4 +37,17 @@ def build_client(api_key: str | None = None, **_kwargs: str) -> LunchMoney:
     if stored:
         return LunchMoney(access_token=stored)
 
-    raise RuntimeError("No API key found. Run 'shenas pipe lunchmoney auth' first.")
+    raise RuntimeError("No API key found. Run 'shenasctl pipe lunchmoney auth' first.")
+
+
+def authenticate(credentials: dict[str, str]) -> None:
+    """Authenticate with Lunch Money using an API key.
+
+    Expected keys: api_key (or password as alias).
+    """
+    api_key = credentials.get("api_key") or credentials.get("password")
+    if not api_key:
+        raise ValueError("api_key is required")
+
+    client = build_client(api_key=api_key)
+    client.get_user()  # verify the key works
