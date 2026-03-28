@@ -28,7 +28,11 @@ STANDARD_PIPE_COMMANDS = [
 @router.get("")
 def list_pipes() -> list[dict]:
     """List installed pipes with their available commands."""
-    result = subprocess.run(["uv", "pip", "list", "--format", "json"], capture_output=True, text=True)
+    import sys
+
+    result = subprocess.run(
+        ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
+    )
     if result.returncode != 0:
         return []
 
