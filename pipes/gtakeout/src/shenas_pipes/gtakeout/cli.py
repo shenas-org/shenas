@@ -31,9 +31,9 @@ def sync(
 
     archives = find_takeout_archives(service)
     if not archives:
-        console.print("[yellow]No Takeout archives found on Google Drive.[/yellow]")
-        console.print("Go to https://takeout.google.com and export to Google Drive first.")
-        return
+        raise RuntimeError(
+            "No Takeout archives found on Google Drive. Go to https://takeout.google.com and export to Google Drive first."
+        )
 
     console.print(f"Found {len(archives)} Takeout archive(s):", style="dim")
     for a in archives:
