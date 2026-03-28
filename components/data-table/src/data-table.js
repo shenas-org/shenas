@@ -174,8 +174,6 @@ export class ShenasDataTable extends LitElement {
       onColumnSizingChange: (updater) => {
         self._columnSizing = typeof updater === "function" ? updater(self._columnSizing) : updater;
       },
-      columnResizeMode: "onChange",
-      enableColumnResizing: true,
     });
   }
 
