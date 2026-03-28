@@ -10,3 +10,4 @@ components/*/shenas_components/*/static/
 htmlcov/
 .coverage
 shenas.egg-info/
+.build-hashes/
