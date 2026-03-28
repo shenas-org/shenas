@@ -10,7 +10,7 @@ from googleapiclient.discovery import build
 KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "gmail_token"
 
-AUTH_FIELDS = []  # OAuth browser flow, no credentials needed
+AUTH_FIELDS = []  # OAuth browser flow, no manual credentials needed
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
 GMAIL_CLIENT_ID = "232211553387-3c4sog0fokns7ri2o6oj8d3s5v3r9jh6.apps.googleusercontent.com"
@@ -86,12 +86,45 @@ def build_client(run_auth_flow: bool = False):  # type: ignore[no-untyped-def]
 
 
 def authenticate(credentials: dict[str, str]) -> None:
-    """Authenticate with Gmail via OAuth2 browser flow.
+    """Authenticate with Gmail via OAuth2.
 
-    Always runs a fresh OAuth flow, replacing any existing token.
+    Phase 1: No credentials -> starts OAuth flow, raises ValueError with auth URL.
+    Phase 2: credentials["auth_complete"] == "true" -> waits for callback to complete.
+
+    The server stores the pending flow between phases.
     """
     from google_auth_oauthlib.flow import InstalledAppFlow
+    from app.api.auth import _pending_mfa
 
+    if credentials.get("auth_complete") == "true" and "gmail" in _pending_mfa:
+        # Phase 2: flow already running in background, wait for it
+        import threading
+
+        state = _pending_mfa.pop("gmail")
+        thread = state["thread"]
+        thread.join(timeout=120)
+        if thread.is_alive():
+            raise RuntimeError("OAuth flow timed out. Please try again.")
+        if state.get("error"):
+            raise RuntimeError(state["error"])
+        return
+
+    # Phase 1: start the OAuth flow in a background thread
     flow = InstalledAppFlow.from_client_config(_get_client_config(), SCOPES)
-    creds = flow.run_local_server(port=0)
-    _store_token(creds)
+    auth_url, _ = flow.authorization_url(access_type="offline")
+
+    state: dict = {}
+
+    def _run_flow() -> None:
+        try:
+            creds = flow.run_local_server(port=0, open_browser=False)
+            _store_token(creds)
+        except Exception as exc:
+            state["error"] = str(exc)
+
+    thread = threading.Thread(target=_run_flow, daemon=True)
+    thread.start()
+    state["thread"] = thread
+    _pending_mfa["gmail"] = state
+
+    raise ValueError(f"OAUTH_URL:{auth_url}")
