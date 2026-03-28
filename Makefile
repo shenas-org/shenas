@@ -5,7 +5,9 @@ SIGN = uv run --no-sync shenasrepoctl sign
 
 # Install CLI tools globally (~/.local/bin/)
 install:
-	uv tool install --editable . --force
+	uv tool install --editable cli/ --force --with shenas-app
+	uv tool install --editable app/ --force
+	uv tool install --editable repository/ --force
 	@echo "Installed shenasctl, shenas, shenasrepoctl to ~/.local/bin/"
 	@echo "Run 'shenasctl --install-completion' for tab completion"
 
