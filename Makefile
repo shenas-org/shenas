@@ -3,7 +3,7 @@ SIGN = uv run shenas registry sign
 BUMP = python scripts/bump-version.py
 
 repository_server:
-	uv run python -m pipe_repository_server.main $(PACKAGES_DIR)
+	uv run python -m repository_server.main $(PACKAGES_DIR)
 
 # Build pipe wheels into packages/ and sign them
 # Usage: make build-pipes              (all)
