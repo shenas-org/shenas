@@ -54,9 +54,11 @@ fn main() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
                 let state = window.state::<ServerProcess>();
-                if let Some(mut child) = state.0.lock().unwrap().take() {
+                let mut guard = state.0.lock().unwrap();
+                if let Some(ref mut child) = *guard {
                     let _: Result<(), std::io::Error> = child.kill();
                 }
+                drop(guard);
             }
         })
         .run(tauri::generate_context!())
