@@ -1,6 +1,7 @@
 """Gmail OAuth2 token management via OS keyring."""
 
 import json
+import os
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -9,6 +10,34 @@ from googleapiclient.discovery import build
 KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "gmail_token"
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+
+# Desktop OAuth client credentials for shenas.
+# These identify the app, not the user. Safe to embed per Google's docs:
+# https://developers.google.com/identity/protocols/oauth2#installed-applications
+# Override via SHENAS_GMAIL_CLIENT_ID / SHENAS_GMAIL_CLIENT_SECRET env vars.
+GMAIL_CLIENT_ID = ""  # TODO: paste your client_id here
+GMAIL_CLIENT_SECRET = ""  # TODO: paste your client_secret here
+
+
+def _get_client_config() -> dict:
+    """Build the OAuth client config from embedded or env var credentials."""
+    client_id = os.environ.get("SHENAS_GMAIL_CLIENT_ID", GMAIL_CLIENT_ID)
+    client_secret = os.environ.get("SHENAS_GMAIL_CLIENT_SECRET", GMAIL_CLIENT_SECRET)
+    if not client_id or not client_secret:
+        raise RuntimeError(
+            "Gmail OAuth credentials not configured. Either:\n"
+            "  1. Set SHENAS_GMAIL_CLIENT_ID and SHENAS_GMAIL_CLIENT_SECRET env vars, or\n"
+            "  2. Embed them in pipes/gmail/src/shenas_pipes/gmail/auth.py"
+        )
+    return {
+        "installed": {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": ["http://localhost"],
+        }
+    }
 
 
 def _get_stored_token() -> Credentials | None:
@@ -35,7 +64,7 @@ def _store_token(creds: Credentials) -> None:
     keyring.set_password(KEYRING_SERVICE, KEYRING_KEY, creds.to_json())
 
 
-def build_client(client_secrets_path: str | None = None):  # type: ignore[no-untyped-def]
+def build_client(run_auth_flow: bool = False):  # type: ignore[no-untyped-def]
     """Build a Gmail API service from keyring tokens or OAuth flow."""
     creds = _get_stored_token()
 
@@ -47,10 +76,10 @@ def build_client(client_secrets_path: str | None = None):  # type: ignore[no-unt
         _store_token(creds)
         return build("gmail", "v1", credentials=creds)
 
-    if client_secrets_path:
+    if run_auth_flow:
         from google_auth_oauthlib.flow import InstalledAppFlow
 
-        flow = InstalledAppFlow.from_client_secrets_file(client_secrets_path, SCOPES)
+        flow = InstalledAppFlow.from_client_config(_get_client_config(), SCOPES)
         creds = flow.run_local_server(port=0)
         _store_token(creds)
         return build("gmail", "v1", credentials=creds)
