@@ -72,7 +72,6 @@ def db_status() -> dict:
                     if not name.startswith("_dlt_"):
                         table_list.append(_table_stats(con, schema_name, name))
                 schemas_data.append({"name": schema_name, "tables": table_list})
-            con.close()
         except Exception:
             pass
 

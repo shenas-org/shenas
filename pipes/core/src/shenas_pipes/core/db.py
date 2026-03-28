@@ -69,6 +69,14 @@ def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) ->
         _active_con.close()
         _active_con = None
 
+    # Also close the server's pooled connections to release the file lock
+    try:
+        from app.db import close_all
+
+        close_all()
+    except ImportError:
+        pass
+
     key = get_db_key()
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
