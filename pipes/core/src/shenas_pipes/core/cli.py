@@ -1,6 +1,5 @@
 from typing import Any, Callable
 
-import duckdb
 import typer
 from rich.console import Console
 
@@ -28,15 +27,36 @@ def print_load_info(load_info: Any) -> None:
 
 
 def run_sync(
-    pipeline: Any,
-    resources: list,
-    full_refresh: bool,
+    pipeline_name: str,
     dataset_name: str,
-    mem_con: duckdb.DuckDBPyConnection,
+    resources: list,
+    full_refresh: bool = False,
     transform_fn: Callable[[], None] | None = None,
 ) -> None:
-    """Run a dlt pipeline to memory, flush to encrypted DB, then transform."""
-    from shenas_pipes.core.db import flush_to_encrypted
+    """Create a dlt pipeline, run it to memory, flush to encrypted DB, then transform.
+
+    This handles the full sync lifecycle:
+    1. Create an in-memory dlt DuckDB destination (data never on disk unencrypted)
+    2. Run the pipeline with the given resources
+    3. Flush in-memory data to the encrypted database
+    4. Optionally run a transform function
+    """
+    import dlt
+
+    from shenas_pipes.core.db import DB_PATH, dlt_destination, flush_to_encrypted
+
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # TEMPORARY WORKAROUND: dlt does not support DuckDB encryption. We write to
+    # in-memory DuckDB (data never touches disk unencrypted), then flush to the
+    # encrypted file. Replace when dlt adds DuckDB encryption support.
+    dest, mem_con = dlt_destination()
+
+    pipeline = dlt.pipeline(
+        pipeline_name=pipeline_name,
+        destination=dest,
+        dataset_name=dataset_name,
+    )
 
     load_info = pipeline.run(resources, refresh="drop_sources" if full_refresh else None)
     print_load_info(load_info)
