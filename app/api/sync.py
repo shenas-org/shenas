@@ -41,7 +41,11 @@ def _installed_pipe_names() -> list[str]:
 def _load_pipe_app(name: str) -> typer.Typer:
     """Load a pipe's typer app by importing its CLI module directly."""
     module_name = f"shenas_pipes.{name}.cli"
-    mod = importlib.import_module(module_name)
+    try:
+        mod = importlib.import_module(module_name)
+    except ModuleNotFoundError as exc:
+        msg = f"Cannot import {module_name}: {exc}. Run the server from the workspace: uv run shenas serve"
+        raise ImportError(msg) from exc
     return mod.app
 
 
