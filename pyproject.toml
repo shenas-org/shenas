@@ -27,7 +27,7 @@ shenas = "cli.main:main"
 package = true
 
 [tool.uv.workspace]
-members = ["pipes/*", "schemas/fitness_tracker"]
+members = []
 
 [tool.setuptools.packages.find]
 include = ["cli*", "local_frontend*", "registry*", "repository_server*"]
