@@ -1,8 +1,14 @@
 """Gmail dlt resources — messages, labels, threads."""
 
+from datetime import datetime, timezone
 from typing import Any
 
 import dlt
+
+
+def _epoch_ms_to_iso(epoch_ms: int) -> str:
+    """Convert epoch milliseconds to ISO 8601 date string."""
+    return datetime.fromtimestamp(epoch_ms / 1000, tz=timezone.utc).isoformat()
 
 
 def _get_header(headers: list[dict], name: str) -> str:
@@ -47,7 +53,7 @@ def messages(
                 "id": msg["id"],
                 "thread_id": msg.get("threadId"),
                 "internal_date": internal_date,
-                "date": _get_header(headers, "Date"),
+                "date": _epoch_ms_to_iso(internal_date),
                 "from_address": _get_header(headers, "From"),
                 "to_address": _get_header(headers, "To"),
                 "subject": _get_header(headers, "Subject"),
