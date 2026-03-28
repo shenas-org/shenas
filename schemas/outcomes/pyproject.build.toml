@@ -1,0 +1,22 @@
+[project]
+name = "shenas-schema-outcomes"
+dynamic = ["version"]
+description = "Canonical daily outcomes schema for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-schema-core",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.schemas"]
+outcomes = "shenas_schemas.outcomes:SCHEMA"
+
+[tool.hatch.version]
+path = "VERSION"
+pattern = "(?P<version>.+)"
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_schemas"]

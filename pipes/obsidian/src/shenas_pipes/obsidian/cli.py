@@ -58,4 +58,16 @@ def sync(
 
     console.print(f"Syncing daily notes from [bold]{notes_folder}[/bold]...", style="dim")
 
-    run_sync("obsidian", "obsidian", [daily_notes(notes_folder)], full_refresh)
+    def _transform() -> None:
+        from shenas_pipes.core.db import connect
+        from shenas_pipes.obsidian.transform import ObsidianMetricProvider
+        from shenas_schemas.outcomes import ensure_schema
+
+        con = connect()
+        ensure_schema(con)
+        provider = ObsidianMetricProvider()
+        console.print("Transforming obsidian...", style="dim")
+        provider.transform(con)
+        console.print("[green]done[/green]")
+
+    run_sync("obsidian", "obsidian", [daily_notes(notes_folder)], full_refresh, _transform)
