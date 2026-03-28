@@ -124,7 +124,7 @@ test:
 	@for comp in $(wildcard components/*/package.json); do \
 		dir=$$(dirname $$comp); \
 		echo "Testing component: $$dir"; \
-		cd $$dir && npm test && cd $(CURDIR); \
+		cd $$dir && npm install --silent && npm test && cd $(CURDIR); \
 	done
 
 coverage:
