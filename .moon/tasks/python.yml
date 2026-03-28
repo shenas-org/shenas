@@ -9,7 +9,7 @@ implicitInputs:
 
 tasks:
   lint:
-    script: 'uv run ruff check $MOON_PROJECT_SOURCE/'
+    script: 'uv run --no-sync ruff check $MOON_PROJECT_SOURCE/'
     inputs:
       - '**/*.py'
       - 'pyproject.toml'
