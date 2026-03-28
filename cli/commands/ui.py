@@ -18,30 +18,24 @@ def _default(ctx: typer.Context) -> None:
 def serve(
     host: str = typer.Option("127.0.0.1", help="Bind host"),
     port: int = typer.Option(8000, help="Bind port"),
-    tls: bool = typer.Option(False, "--tls", help="Enable HTTPS with TLS"),
     cert_file: Path = typer.Option(DEFAULT_CERT_DIR / "cert.pem", "--cert", help="TLS certificate file"),
     key_file: Path = typer.Option(DEFAULT_CERT_DIR / "key.pem", "--key", help="TLS private key file"),
 ) -> None:
-    """Start the UI web server."""
+    """Start the UI web server over HTTPS."""
     from local_frontend.server import app as fastapi_app
 
-    kwargs: dict = {"host": host, "port": port}
+    if not cert_file.exists() or not key_file.exists():
+        typer.echo("TLS certificate not found. Generate one with:\n\n  shenas ui generate-cert\n")
+        raise typer.Exit(code=1)
 
-    if tls:
-        if not cert_file.exists() or not key_file.exists():
-            typer.echo(
-                "TLS certificate not found. Generate one with:\n\n"
-                "  shenas ui generate-cert\n\n"
-                "Or provide --cert and --key paths."
-            )
-            raise typer.Exit(code=1)
-        kwargs["ssl_certfile"] = str(cert_file)
-        kwargs["ssl_keyfile"] = str(key_file)
-        typer.echo(f"Starting HTTPS server on https://{host}:{port}")
-    else:
-        typer.echo(f"Starting HTTP server on http://{host}:{port}")
-
-    uvicorn.run(fastapi_app, **kwargs)
+    typer.echo(f"Starting HTTPS server on https://{host}:{port}")
+    uvicorn.run(
+        fastapi_app,
+        host=host,
+        port=port,
+        ssl_certfile=str(cert_file),
+        ssl_keyfile=str(key_file),
+    )
 
 
 @app.command("generate-cert")
@@ -49,7 +43,7 @@ def generate_cert(
     cert_dir: Path = typer.Option(DEFAULT_CERT_DIR, help="Directory to write cert and key"),
     hostname: str = typer.Option("localhost", help="Hostname for the certificate"),
 ) -> None:
-    """Generate a self-signed TLS certificate for local HTTPS."""
+    """Generate a self-signed TLS certificate for HTTPS."""
     import datetime
     import ipaddress
 
@@ -106,4 +100,3 @@ def generate_cert(
     typer.echo(f"Certificate: {cert_path}")
     typer.echo(f"Private key: {key_path}")
     typer.echo(f"Valid for: {hostname}, localhost, 127.0.0.1 (365 days)")
-    typer.echo("\nStart with: shenas ui serve --tls")
