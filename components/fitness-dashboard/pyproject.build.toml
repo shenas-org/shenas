@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "Canonical fitness metrics dashboard for shenas"
 requires-python = ">=3.11"
 dependencies = [
-    "shenas-schema-fitness-tracker",
+    "shenas-schema-fitness",
 ]
 
 [build-system]
