@@ -88,14 +88,24 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - `pipes/core/` — shared pipe utilities (shenas-pipe-core)
 - `pipes/garmin/` — Garmin Connect dlt connector
 - `pipes/lunchmoney/` — Lunch Money dlt connector
+- `pipes/obsidian/` — Obsidian daily notes (frontmatter extraction)
+- `pipes/gmail/` — Gmail (OAuth2, embedded client credentials)
 - `schemas/core/` — shared schema utilities (shenas-schema-core)
 - `schemas/fitness/` — canonical fitness metrics (HRV, sleep, vitals, body)
 - `schemas/finance/` — canonical finance metrics (transactions, spending, budgets)
+- `schemas/outcomes/` — canonical outcome metrics (mood, stress, productivity, exercise, etc.)
 - `repository/` — PEP 503 Simple Repository API server + Ed25519 signing
 - `local_frontend/` — FastAPI UI server; discovers components via entry points, serves Arrow IPC
-- `components/` — web component source (Lit/Vite); built into Python wheels
+- `components/fitness-dashboard/` — Lit + uPlot fitness charts (built as wheel)
+- `components/data-table/` — Lit data table with sorting/filtering/pagination (built as wheel)
 - `scripts/` — build helpers (version bumping, pre-commit hook)
 - `tests/` — tests for repository, local_frontend, CLI, signing
+
+## Git workflow
+
+- Never commit directly to main. Always create a feature branch first.
+- Use conventional branch names: `feat/`, `fix/`, `refactor/`, `chore/`
+- When done with changes, push the branch and open a PR via `gh pr create`.
 
 ## Hooks
 
