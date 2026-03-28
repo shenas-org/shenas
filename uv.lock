@@ -19,6 +19,7 @@ members = [
     "shenas-pipe-garmin",
     "shenas-pipe-gcalendar",
     "shenas-pipe-gmail",
+    "shenas-pipe-gtakeout",
     "shenas-pipe-lunchmoney",
     "shenas-pipe-obsidian",
     "shenas-repository",
@@ -1973,6 +1974,22 @@ dependencies = [
 requires-dist = [{ name = "shenas-pipe-core", editable = "pipes/core" }]
 
 [[package]]
+name = "shenas-pipe-gtakeout"
+source = { editable = "pipes/gtakeout" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "pendulum" },
+    { name = "shenas-pipe-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "pendulum", specifier = ">=3.0.0" },
+    { name = "shenas-pipe-core", editable = "pipes/core" },
+]
+
+[[package]]
 name = "shenas-pipe-lunchmoney"
 source = { editable = "pipes/lunchmoney" }
 dependencies = [
@@ -2086,6 +2103,7 @@ dev = [
     { name = "shenas-pipe-garmin" },
     { name = "shenas-pipe-gcalendar" },
     { name = "shenas-pipe-gmail" },
+    { name = "shenas-pipe-gtakeout" },
     { name = "shenas-pipe-lunchmoney" },
     { name = "shenas-pipe-obsidian" },
     { name = "shenas-schema-finance" },
@@ -2109,6 +2127,7 @@ dev = [
     { name = "shenas-pipe-garmin", editable = "pipes/garmin" },
     { name = "shenas-pipe-gcalendar", editable = "pipes/gcalendar" },
     { name = "shenas-pipe-gmail", editable = "pipes/gmail" },
+    { name = "shenas-pipe-gtakeout", editable = "pipes/gtakeout" },
     { name = "shenas-pipe-lunchmoney", editable = "pipes/lunchmoney" },
     { name = "shenas-pipe-obsidian", editable = "pipes/obsidian" },
     { name = "shenas-schema-finance", editable = "schemas/finance" },
