@@ -11,7 +11,7 @@ tasks:
   sync-version:
     script: 'python ../../scripts/sync-desktop-version.py'
     inputs:
-      - '../VERSION'
+      - '/app/VERSION'
   tauri:
     command: 'npx tauri build'
     inputs:
