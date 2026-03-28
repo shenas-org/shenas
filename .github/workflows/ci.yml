@@ -12,12 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
       - run: uv sync
-      - name: Install all packages
-        run: make dev-install
       - name: Lint
         run: |
           uv run ruff check .
@@ -32,6 +33,9 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -40,8 +44,6 @@ jobs:
           enable-cache: true
       - run: uv python install ${{ matrix.python-version }}
       - run: uv sync --python ${{ matrix.python-version }}
-      - name: Install all packages
-        run: make dev-install
       - name: Run Python tests
         run: uv run --no-sync pytest
       - name: Run component tests
@@ -58,6 +60,9 @@ jobs:
     needs: [test]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -65,8 +70,6 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
-      - name: Install all packages
-        run: make dev-install
       - name: Run tests with coverage
         id: coverage
         run: |

@@ -16,7 +16,6 @@ uv run pytest                       # run tests
 uv run cz commit                    # conventional commit
 uv add <package>                    # add a dependency
 uv sync                             # install dependencies
-make dev-install                    # editable install all local packages
 make dev-uninstall                  # uninstall all shenas-* packages
 make build-pipes                    # build all pipe wheels (auto-bumps VERSION)
 make build-schemas                  # build all schema wheels
@@ -62,7 +61,7 @@ Each has its own `pyproject.toml` with hatchling build, `VERSION` file, and `moo
 
 Pipes register `[project.entry-points."shenas.pipes"]`, schemas register `shenas.schemas`, and components register `shenas.components`. The CLI and UI server discover them at runtime via `importlib.metadata.entry_points()`. Nothing is hardcoded to specific pipes or components.
 
-Pipes and schemas must be installed to be discovered. For development, use `make dev-install` for editable installs of all local packages.
+All plugins are uv workspace members. `uv sync` installs everything for development. For production, users install plugins separately via `shenasctl pipe add`.
 
 ### Data flow: raw -> canonical
 

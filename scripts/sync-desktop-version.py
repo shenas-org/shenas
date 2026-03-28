@@ -1,20 +1,33 @@
-"""Sync app/VERSION to desktop config files (tauri.conf.json, Cargo.toml, package.json, PKGBUILD)."""
+"""Sync version to desktop config files (tauri.conf.json, Cargo.toml, package.json, PKGBUILD).
+
+Reads version from argument, or from the latest desktop/v* git tag.
+"""
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-APP_VERSION = ROOT / "app" / "VERSION"
 DESKTOP = ROOT / "app" / "desktop"
 
 
+def version_from_git() -> str:
+    """Get version from the latest desktop/v* tag."""
+    result = subprocess.run(
+        ["git", "describe", "--tags", "--match", "desktop/v*", "--abbrev=0"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    if result.returncode != 0:
+        return "0.0.0"
+    return result.stdout.strip().removeprefix("desktop/v")
+
+
 def main() -> None:
-    version = APP_VERSION.read_text().strip()
-    if len(sys.argv) > 1:
-        version = sys.argv[1]
-        APP_VERSION.write_text(version + "\n")
+    version = sys.argv[1] if len(sys.argv) > 1 else version_from_git()
 
     # tauri.conf.json
     tauri_conf = DESKTOP / "src-tauri" / "tauri.conf.json"
@@ -48,7 +61,7 @@ def main() -> None:
     text = re.sub(r"^pkgver=.*$", f"pkgver={version}", text, flags=re.MULTILINE)
     pkgbuild.write_text(text)
 
-    print(f"Synced version to {version}")
+    print(f"Synced desktop version to {version}")
 
 
 if __name__ == "__main__":

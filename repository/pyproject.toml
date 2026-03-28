@@ -14,12 +14,14 @@ dependencies = [
 shenasrepoctl = "repository.cli:app"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "VERSION"
-pattern = "(?P<version>.+)"
+source = "vcs"
+tag-pattern = "repository/v(?P<version>[^+]+)"
+raw-options.root = ".."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "repository/v*"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
