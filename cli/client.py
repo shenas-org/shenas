@@ -9,7 +9,7 @@ DEFAULT_SERVER_URL = "https://localhost:7280"
 
 
 class ShenasServerError(Exception):
-    """Raised when the server returns a non-2xx response."""
+    """Raised when the server returns a non-2xx response or is unreachable."""
 
     def __init__(self, status_code: int, detail: str):
         self.status_code = status_code
@@ -17,13 +17,23 @@ class ShenasServerError(Exception):
         super().__init__(f"Server error {status_code}: {detail}")
 
 
+def _connect_error(base_url: str) -> ShenasServerError:
+    return ShenasServerError(0, f"Cannot reach shenas server at {base_url}. Start it with: shenas ui serve")
+
+
 class ShenasClient:
     def __init__(self, base_url: str | None = None):
         self.base_url = base_url or os.environ.get("SHENAS_SERVER_URL", DEFAULT_SERVER_URL)
         self._client = httpx.Client(base_url=self.base_url, verify=False, timeout=30.0)
 
+    def close(self) -> None:
+        self._client.close()
+
     def _request(self, method: str, path: str, **kwargs):  # noqa: ANN202
-        resp = self._client.request(method, path, **kwargs)
+        try:
+            resp = self._client.request(method, path, **kwargs)
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            raise _connect_error(self.base_url)
         if resp.status_code >= 400:
             try:
                 body = resp.json()
@@ -37,7 +47,11 @@ class ShenasClient:
         """Stream Server-Sent Events, yielding parsed data dicts."""
         import json
 
-        with self._client.stream(method, path, timeout=600.0, **kwargs) as resp:
+        try:
+            stream = self._client.stream(method, path, timeout=600.0, **kwargs)
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            raise _connect_error(self.base_url)
+        with stream as resp:
             if resp.status_code >= 400:
                 resp.read()
                 raise ShenasServerError(resp.status_code, resp.text)
@@ -49,12 +63,13 @@ class ShenasClient:
                     data = json.loads(line[5:].strip())
                     data["_event"] = event_type
                     yield data
+                    event_type = "message"
 
     def is_server_running(self) -> bool:
         try:
             self._client.get("/api/health")
             return True
-        except httpx.ConnectError:
+        except (httpx.ConnectError, httpx.ConnectTimeout):
             return False
 
     # --- Config ---

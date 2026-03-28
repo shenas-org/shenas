@@ -2,12 +2,15 @@
 
 import json
 import subprocess
+from html.parser import HTMLParser
 from pathlib import Path
+from urllib.request import urlopen
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from cli.commands.pkg import DEFAULT_INDEX, PREFIXES, PUBLIC_KEY_PATH, check_signature
+from repository.signing import load_public_key, verify_bytes
 
 router = APIRouter(prefix="/packages", tags=["packages"])
 
@@ -36,6 +39,52 @@ def list_packages_data(kind: str) -> list[dict]:
     return items
 
 
+def _verify_from_index(pkg_name: str, index_url: str, pub_key) -> str | None:
+    """Verify a package signature from the index. Returns error message or None on success."""
+    normalized = pkg_name.replace("_", "-").lower()
+    simple_pkg_url = f"{index_url}/simple/{normalized}/"
+    try:
+        with urlopen(simple_pkg_url) as resp:
+            html = resp.read().decode()
+    except Exception as exc:
+        return f"Cannot reach repository: {exc}"
+
+    wheel_href = None
+
+    class LinkParser(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            nonlocal wheel_href
+            if tag == "a":
+                for attr_name, attr_val in attrs:
+                    if attr_name == "href" and attr_val and ".whl" in attr_val:
+                        wheel_href = attr_val.split("#")[0]
+
+    LinkParser().feed(html)
+
+    if not wheel_href:
+        return f"No wheel found for {pkg_name} in repository"
+
+    wheel_url = f"{index_url}{wheel_href}" if wheel_href.startswith("/") else f"{index_url}/{wheel_href}"
+    sig_url = f"{wheel_url}.sig"
+
+    try:
+        with urlopen(sig_url) as resp:
+            sig_b64 = resp.read().decode().strip()
+    except Exception:
+        return f"No signature found for {pkg_name}"
+
+    try:
+        with urlopen(wheel_url) as resp:
+            wheel_bytes = resp.read()
+    except Exception as exc:
+        return f"Cannot download wheel: {exc}"
+
+    if not verify_bytes(pub_key, wheel_bytes, sig_b64):
+        return f"SIGNATURE VERIFICATION FAILED for {pkg_name}"
+
+    return None
+
+
 def install_package(
     name: str,
     kind: str,
@@ -52,14 +101,10 @@ def install_package(
     if not skip_verify:
         if not public_key_path.exists():
             return {"name": name, "ok": False, "message": f"Public key not found at {public_key_path}"}
-        from cli.commands.pkg import _verify_from_index
-        from repository.signing import load_public_key
-
         pub_key = load_public_key(public_key_path)
-        try:
-            _verify_from_index(pkg_name, index_url, pub_key)
-        except SystemExit:
-            return {"name": name, "ok": False, "message": "Signature verification failed"}
+        error = _verify_from_index(pkg_name, index_url, pub_key)
+        if error:
+            return {"name": name, "ok": False, "message": error}
 
     simple_url = f"{index_url}/simple/"
     result = subprocess.run(
