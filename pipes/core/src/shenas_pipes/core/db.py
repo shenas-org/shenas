@@ -62,6 +62,13 @@ def dlt_destination() -> tuple[Any, duckdb.DuckDBPyConnection]:
 
 def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) -> None:
     """Copy all tables from an in-memory dlt connection into the encrypted DB."""
+    global _active_con
+
+    # Close any active connection to avoid "already attached" conflicts
+    if _active_con is not None:
+        _active_con.close()
+        _active_con = None
+
     key = get_db_key()
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
