@@ -7,6 +7,7 @@ class ShenasApp extends LitElement {
     _dbStatus: { state: true },
     _components: { state: true },
     _loading: { state: true },
+    _activeTab: { state: true },
   };
 
   static styles = css`
@@ -31,6 +32,31 @@ class ShenasApp extends LitElement {
       margin: 0;
       font-size: 1.5rem;
     }
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid #e0e0e0;
+      margin-bottom: 1.5rem;
+    }
+    .tab {
+      padding: 0.6rem 1.2rem;
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-size: 0.95rem;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab:hover {
+      color: #222;
+    }
+    .tab[aria-selected="true"] {
+      color: #222;
+      border-bottom-color: #0066cc;
+      font-weight: 600;
+    }
     .cards {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -51,18 +77,10 @@ class ShenasApp extends LitElement {
       color: #888;
       font-size: 0.85rem;
     }
-    .card .commands {
+    .card .desc {
       margin-top: 0.5rem;
       font-size: 0.85rem;
       color: #555;
-    }
-    .section {
-      margin: 2rem 0;
-    }
-    .section h2 {
-      font-size: 1.1rem;
-      border-bottom: 1px solid #e0e0e0;
-      padding-bottom: 0.5rem;
     }
     .status {
       font-size: 0.9rem;
@@ -72,6 +90,15 @@ class ShenasApp extends LitElement {
       background: #f0f0f0;
       padding: 2px 6px;
       border-radius: 3px;
+    }
+    .schema-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.3rem 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .schema-row:last-child {
+      border-bottom: none;
     }
     a {
       color: #0066cc;
@@ -84,6 +111,10 @@ class ShenasApp extends LitElement {
       color: #888;
       font-style: italic;
     }
+    .empty {
+      color: #888;
+      padding: 1rem 0;
+    }
   `;
 
   constructor() {
@@ -93,6 +124,7 @@ class ShenasApp extends LitElement {
     this._dbStatus = null;
     this._components = [];
     this._loading = true;
+    this._activeTab = "database";
   }
 
   connectedCallback() {
@@ -123,6 +155,10 @@ class ShenasApp extends LitElement {
     return resp.json();
   }
 
+  _selectTab(tab) {
+    this._activeTab = tab;
+  }
+
   render() {
     if (this._loading) {
       return html`<p class="loading">Loading...</p>`;
@@ -134,82 +170,102 @@ class ShenasApp extends LitElement {
         <h1>shenas</h1>
       </div>
 
-      ${this._renderDb()} ${this._renderPipes()} ${this._renderComponents()}
+      <div class="tabs" role="tablist">
+        ${this._renderTab("database", "Database")}
+        ${this._renderTab("pipes", "Pipes")}
+        ${this._renderTab("components", "Components")}
+      </div>
+
+      ${this._activeTab === "database" ? this._renderDb() : ""}
+      ${this._activeTab === "pipes" ? this._renderPipes() : ""}
+      ${this._activeTab === "components" ? this._renderComponents() : ""}
+    `;
+  }
+
+  _renderTab(id, label) {
+    return html`
+      <button
+        class="tab"
+        role="tab"
+        aria-selected=${this._activeTab === id}
+        @click=${() => this._selectTab(id)}
+      >
+        ${label}
+      </button>
     `;
   }
 
   _renderDb() {
     const db = this._dbStatus;
-    if (!db) return html``;
+    if (!db) return html`<p class="empty">No database info available</p>`;
     return html`
-      <div class="section">
-        <h2>Database</h2>
-        <div class="status">
-          <p>Path: <code>${db.db_path}</code></p>
-          ${db.size_mb != null
-            ? html`<p>Size: ${db.size_mb} MB</p>`
-            : html`<p>Not created yet</p>`}
-          ${(db.schemas || []).map(
-            (s) => html`
-              <p>
-                <strong>${s.name}</strong>: ${s.tables.length} tables,
-                ${s.tables.reduce((sum, t) => sum + t.rows, 0)} rows
-              </p>
+      <div class="status">
+        <p>Path: <code>${db.db_path}</code></p>
+        ${db.size_mb != null
+          ? html`<p>Size: ${db.size_mb} MB</p>`
+          : html`<p>Not created yet</p>`}
+      </div>
+      ${(db.schemas || []).map(
+        (s) => html`
+          <h3>${s.name}</h3>
+          ${s.tables.map(
+            (t) => html`
+              <div class="schema-row">
+                <span>${t.name}</span>
+                <span class="meta">
+                  ${t.rows} rows
+                  ${t.earliest ? html` &middot; ${t.earliest} - ${t.latest}` : ""}
+                </span>
+              </div>
             `,
           )}
-        </div>
-      </div>
+        `,
+      )}
     `;
   }
 
   _renderPipes() {
+    if (this._pipes.length === 0) {
+      return html`<p class="empty">No pipes installed</p>`;
+    }
     return html`
-      <div class="section">
-        <h2>Pipes</h2>
-        ${this._pipes.length === 0
-          ? html`<p class="status">No pipes installed</p>`
-          : html`
-              <div class="cards">
-                ${this._pipes.map(
-                  (p) => html`
-                    <div class="card">
-                      <h3>${p.name}</h3>
-                      <div class="meta">${p.version}</div>
-                      <div class="commands">
-                        ${(p.commands || []).join(", ")}
-                      </div>
-                    </div>
-                  `,
-                )}
-              </div>
-            `}
+      <div class="cards">
+        ${this._pipes.map(
+          (p) => html`
+            <div class="card">
+              <h3>${p.name}</h3>
+              <div class="meta">${p.version}</div>
+              ${p.description
+                ? html`<div class="desc">${p.description}</div>`
+                : ""}
+            </div>
+          `,
+        )}
       </div>
     `;
   }
 
   _renderComponents() {
+    if (this._components.length === 0) {
+      return html`<p class="empty">No components installed</p>`;
+    }
     return html`
-      <div class="section">
-        <h2>Components</h2>
-        ${this._components.length === 0
-          ? html`<p class="status">No components installed</p>`
-          : html`
-              <div class="cards">
-                ${this._components.map(
-                  (c) => html`
-                    <div class="card">
-                      <h3>
-                        <a href="/components/${c.name}/${c.html || "index.html"}">${c.name}</a>
-                      </h3>
-                      <div class="meta">${c.version}</div>
-                      ${c.description
-                        ? html`<div class="commands">${c.description}</div>`
-                        : ""}
-                    </div>
-                  `,
-                )}
-              </div>
-            `}
+      <div class="cards">
+        ${this._components.map(
+          (c) => html`
+            <div class="card">
+              <h3>
+                <a href="/components/${c.name}/${c.html || "index.html"}"
+                  >${c.name}</a
+                >
+              </h3>
+              <div class="meta">${c.version}</div>
+              ${c.description
+                ? html`<div class="desc">${c.description}</div>`
+                : ""}
+            </div>
+          `,
+        )}
       </div>
     `;
   }
