@@ -13,8 +13,6 @@ DESCRIPTION = """Syncs listening data from Spotify.
 Uses OAuth2 PKCE flow (no client secret needed). Create an app at
 developer.spotify.com/dashboard with redirect URI http://127.0.0.1:8090/callback.
 
-Resources: recently_played (incremental, last 50 tracks per sync),
-top_tracks, top_artists (by time range), saved_tracks.
 Import: shenasctl pipe spotify import /path/to/export/ for historical data.
 Poll frequently (~1-2 hours) to build complete listening history."""
 

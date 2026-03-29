@@ -18,8 +18,6 @@ Uses Google OAuth2 to search Drive for Takeout zip/tgz files, downloads
 them to a local cache, extracts, and parses the contents with streaming
 JSON parsers (ijson) for large files.
 
-Resources: photos_metadata, location_records, location_visits,
-youtube_watch_history, youtube_search_history, youtube_subscriptions.
 Options: --filter, --list, --latest for selective archive processing."""
 
 
