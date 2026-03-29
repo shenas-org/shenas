@@ -5,7 +5,9 @@ from __future__ import annotations
 import os
 
 import duckdb
-from fastapi import APIRouter
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
 
 from app.db import DB_PATH, connect
 from app.models import DBStatusResponse, OkResponse, SchemaInfo, TableStats
@@ -120,6 +122,22 @@ def schema_plugin_tables() -> dict[str, list[str]]:
     for schema in result:
         result[schema] = sorted(set(result[schema]))
     return result
+
+
+@router.get("/preview/{schema}/{table}")
+def table_preview(schema: str, table: str, limit: int = 50) -> list[dict[str, Any]]:
+    """Return the first N rows of a table as JSON."""
+    try:
+        con = connect(read_only=True)
+        cur = con.cursor()
+        cur.execute("USE db")
+        qualified = f'"{schema}"."{table}"'
+        rows = cur.execute(f"SELECT * FROM {qualified} LIMIT {int(limit)}").fetchall()
+        cols = [desc[0] for desc in cur.description]
+        cur.close()
+        return [dict(zip(cols, row)) for row in rows]
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.post("/keygen")
