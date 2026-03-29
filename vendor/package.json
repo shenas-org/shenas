@@ -10,6 +10,9 @@
     "@lit-labs/router": "^0.1.4",
     "apache-arrow": "^19.0.0",
     "lit": "^3.2.0",
+    "cytoscape": "^3.30.0",
+    "cytoscape-dagre": "^2.5.0",
+    "dagre": "^0.8.5",
     "uplot": "^1.6.31"
   },
   "devDependencies": {
