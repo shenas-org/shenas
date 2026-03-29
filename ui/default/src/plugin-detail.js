@@ -12,6 +12,7 @@ class PluginDetail extends LitElement {
     _message: { state: true },
     _hasConfig: { state: true },
     _hasAuth: { state: true },
+    _tables: { state: true },
   };
 
   static styles = [
@@ -34,13 +35,14 @@ class PluginDetail extends LitElement {
         font-size: 1.3rem;
       }
       .kind-badge {
-        display: inline-block;
         background: #f0f0f0;
         color: #555;
         padding: 0.15rem 0.5rem;
         border-radius: 3px;
-        font-size: 0.8rem;
-        margin-bottom: 1rem;
+        font-size: 0.65rem;
+        font-weight: 400;
+        vertical-align: middle;
+        margin-left: 0.3rem;
       }
       .description {
         color: #444;
@@ -77,6 +79,36 @@ class PluginDetail extends LitElement {
         padding: 0.5rem 1rem;
         font-size: 0.9rem;
       }
+      .section-title {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        color: #888;
+        letter-spacing: 0.05em;
+        margin: 1.5rem 0 0.5rem;
+      }
+      .resource-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 0.3rem 0;
+        border-bottom: 1px solid #f5f5f5;
+        font-size: 0.85rem;
+      }
+      .resource-row:last-child {
+        border-bottom: none;
+      }
+      .resource-name {
+        font-family: monospace;
+        color: #333;
+      }
+      .resource-stats {
+        color: #888;
+        font-size: 0.8rem;
+      }
+      .resource-range {
+        font-size: 0.75rem;
+        color: #aaa;
+      }
     `,
   ];
 
@@ -91,6 +123,7 @@ class PluginDetail extends LitElement {
     this._message = null;
     this._hasConfig = false;
     this._hasAuth = false;
+    this._tables = [];
   }
 
   willUpdate(changed) {
@@ -107,10 +140,13 @@ class PluginDetail extends LitElement {
       `${this.apiBase}/plugins/${this.kind}/${this.name}/info`,
     );
     this._info = resp.ok ? await resp.json() : null;
-    const [configResp, authResp] = await Promise.all([
+    const [configResp, authResp, dbResp] = await Promise.all([
       fetch(`${this.apiBase}/config?kind=${this.kind}&name=${this.name}`),
       this.kind === "pipe"
         ? fetch(`${this.apiBase}/auth/${this.name}/fields`)
+        : Promise.resolve(null),
+      this.kind === "pipe"
+        ? fetch(`${this.apiBase}/db/status`)
         : Promise.resolve(null),
     ]);
     if (configResp.ok) {
@@ -120,6 +156,11 @@ class PluginDetail extends LitElement {
     if (authResp?.ok) {
       const data = await authResp.json();
       this._hasAuth = (data.fields?.length > 0) || !!data.instructions;
+    }
+    if (dbResp?.ok) {
+      const db = await dbResp.json();
+      const schema = (db.schemas || []).find((s) => s.name === this.name);
+      this._tables = schema ? schema.tables.filter((t) => !t.name.startsWith("_dlt_")) : [];
     }
     this._loading = false;
   }
@@ -169,8 +210,7 @@ class PluginDetail extends LitElement {
     return html`
       <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
 
-      <h2>${info.display_name || info.name}</h2>
-      <span class="kind-badge">${info.kind}</span>
+      <h2>${info.display_name || info.name} <span class="kind-badge">${info.kind}</span></h2>
 
       ${this._hasConfig || this._hasAuth
         ? html`
@@ -217,8 +257,23 @@ class PluginDetail extends LitElement {
         ${this._stateRow("Status changed", info.status_changed_at)}
       </div>
 
+      ${this.kind === "pipe" && this._tables.length > 0
+        ? html`
+          <h4 class="section-title">Resources</h4>
+          ${this._tables.map((t) => html`
+            <div class="resource-row">
+              <span class="resource-name">${t.name}</span>
+              <span class="resource-stats">
+                ${t.rows} rows${t.earliest ? html` <span class="resource-range">${t.earliest} - ${t.latest}</span>` : ""}
+              </span>
+            </div>
+          `)}`
+        : ""}
+
       ${this.kind === "pipe"
-        ? html`<shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`
+        ? html`
+          <h4 class="section-title">Transforms</h4>
+          <shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`
         : ""}
 
       <div class="actions">
