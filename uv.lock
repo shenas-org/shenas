@@ -23,6 +23,7 @@ members = [
     "shenas-pipe-gtakeout",
     "shenas-pipe-lunchmoney",
     "shenas-pipe-obsidian",
+    "shenas-pipe-strava",
     "shenas-repository",
     "shenas-schema-core",
     "shenas-schema-finance",
@@ -2132,6 +2133,26 @@ requires-dist = [
 ]
 
 [[package]]
+name = "shenas-pipe-strava"
+source = { editable = "pipes/strava" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "httpx" },
+    { name = "pendulum" },
+    { name = "shenas-pipe-core" },
+    { name = "shenas-schema-fitness" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pendulum", specifier = ">=3.0.0" },
+    { name = "shenas-pipe-core", editable = "pipes/core" },
+    { name = "shenas-schema-fitness", editable = "schemas/fitness" },
+]
+
+[[package]]
 name = "shenas-repository"
 source = { editable = "repository" }
 dependencies = [
@@ -2221,6 +2242,7 @@ dev = [
     { name = "shenas-pipe-gtakeout" },
     { name = "shenas-pipe-lunchmoney" },
     { name = "shenas-pipe-obsidian" },
+    { name = "shenas-pipe-strava" },
     { name = "shenas-schema-finance" },
     { name = "shenas-schema-fitness" },
     { name = "shenas-schema-habits" },
@@ -2247,6 +2269,7 @@ dev = [
     { name = "shenas-pipe-gtakeout", editable = "pipes/gtakeout" },
     { name = "shenas-pipe-lunchmoney", editable = "pipes/lunchmoney" },
     { name = "shenas-pipe-obsidian", editable = "pipes/obsidian" },
+    { name = "shenas-pipe-strava", editable = "pipes/strava" },
     { name = "shenas-schema-finance", editable = "schemas/finance" },
     { name = "shenas-schema-fitness", editable = "schemas/fitness" },
     { name = "shenas-schema-habits", editable = "schemas/habits" },

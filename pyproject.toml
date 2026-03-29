@@ -27,6 +27,7 @@ shenas-pipe-gmail = { workspace = true }
 shenas-pipe-gcalendar = { workspace = true }
 shenas-pipe-gtakeout = { workspace = true }
 shenas-pipe-duolingo = { workspace = true }
+shenas-pipe-strava = { workspace = true }
 shenas-schema-core = { workspace = true }
 shenas-schema-fitness = { workspace = true }
 shenas-schema-finance = { workspace = true }
@@ -45,6 +46,7 @@ dev = [
     "shenas-pipe-gcalendar",
     "shenas-pipe-gtakeout",
     "shenas-pipe-duolingo",
+    "shenas-pipe-strava",
     "shenas-schema-fitness",
     "shenas-schema-finance",
     "shenas-schema-outcomes",
@@ -60,7 +62,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["app/cli/tests", "app/tests", "repository/tests", "telemetry/tests", "pipes/core/tests", "pipes/garmin/tests", "pipes/gmail/tests", "pipes/gcalendar/tests", "pipes/gtakeout/tests", "pipes/lunchmoney/tests", "pipes/obsidian/tests", "pipes/duolingo/tests", "schemas/fitness/tests", "schemas/finance/tests", "schemas/outcomes/tests", "schemas/habits/tests"]
+testpaths = ["app/cli/tests", "app/tests", "repository/tests", "telemetry/tests", "pipes/core/tests", "pipes/garmin/tests", "pipes/gmail/tests", "pipes/gcalendar/tests", "pipes/gtakeout/tests", "pipes/lunchmoney/tests", "pipes/obsidian/tests", "pipes/duolingo/tests", "pipes/strava/tests", "schemas/fitness/tests", "schemas/finance/tests", "schemas/outcomes/tests", "schemas/habits/tests"]
 addopts = "--import-mode=importlib"
 pythonpath = ["."]
 
