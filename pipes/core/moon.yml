@@ -7,3 +7,7 @@ tags: ['pipe', 'core']
 
 dependsOn:
   - 'schema-core'
+
+workspace:
+  inheritedTasks:
+    exclude: ['build']

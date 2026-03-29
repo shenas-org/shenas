@@ -61,7 +61,7 @@ uv run shenasctl component list           # list installed components
 
 ```bash
 # Build and install the dashboard component
-make build-components COMPONENT=fitness-dashboard
+moon run fitness-dashboard:build
 uv pip install packages/shenas_component_fitness_dashboard-*.whl
 
 # Start the UI
@@ -78,9 +78,7 @@ All pipes, schemas, and components are distributed as Ed25519-signed Python whee
 uv run shenasrepoctl keygen
 
 # Build and sign packages
-make build-schemas
-make build-pipes
-make build-components
+moon run :build
 
 # Vendor transitive dependencies
 shenasrepoctl vendor garmin
@@ -95,9 +93,9 @@ uv run shenasctl pipe add garmin
 ## Testing
 
 ```bash
-make test           # run all tests (271)
+moon run :test      # run all tests (271)
+moon run :lint      # ruff check across all projects
 make coverage       # tests with coverage report
-make lint           # ruff check + format + ty
 ```
 
 ## Architecture
