@@ -784,7 +784,10 @@ var D=Object.defineProperty;var P=(h,e,t)=>e in h?D(h,e,{enumerable:!0,configura
     `]);customElements.define("shenas-settings",z);class T extends u{constructor(){super(),this.apiBase="/api",this.kind="",this.name="",this.activeTab="details",this._info=null,this._loading=!0,this._message=null,this._hasConfig=!1,this._hasAuth=!1,this._tables=[]}willUpdate(e){(e.has("kind")||e.has("name"))&&this._fetchInfo()}async _fetchInfo(){var a;if(!this.kind||!this.name)return;this._loading=!0,this._message=null;const e=await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/info`);this._info=e.ok?await e.json():null;const[t,s,n]=await Promise.all([fetch(`${this.apiBase}/config?kind=${this.kind}&name=${this.name}`),this.kind==="pipe"?fetch(`${this.apiBase}/auth/${this.name}/fields`):Promise.resolve(null),this.kind==="pipe"?fetch(`${this.apiBase}/db/status`):Promise.resolve(null)]);if(t.ok){const o=await t.json();this._hasConfig=o.length>0&&o[0].entries.length>0}if(s!=null&&s.ok){const o=await s.json();this._hasAuth=((a=o.fields)==null?void 0:a.length)>0||!!o.instructions}if(n!=null&&n.ok){const d=((await n.json()).schemas||[]).find(r=>r.name===this.name);this._tables=d?d.tables.filter(r=>!r.name.startsWith("_dlt_")):[]}this._loading=!1}async _toggle(){var n;const e=((n=this._info)==null?void 0:n.enabled)!==!1?"disable":"enable",s=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/${e}`,{method:"POST"})).json();this._message={type:s.ok?"success":"error",text:s.message||`${e} failed`},await this._fetchInfo(),this.dispatchEvent(new CustomEvent("plugin-state-changed",{bubbles:!0,composed:!0}))}async _remove(){const t=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}`,{method:"DELETE"})).json();t.ok?(window.history.pushState({},"",`/settings/${this.kind}`),window.dispatchEvent(new PopStateEvent("popstate"))):this._message={type:"error",text:t.message||"Remove failed"}}render(){if(this._loading)return i`<p class="loading">Loading...</p>`;if(!this._info)return i`<p>Plugin not found.</p>`;const e=this._info,t=e.enabled!==!1,s=`/settings/${this.kind}/${this.name}`;return i`
       <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
 
-      <h2>${e.display_name||e.name} <span class="kind-badge">${e.kind}</span></h2>
+      <div class="title-row">
+        <h2>${e.display_name||e.name} <span class="kind-badge">${e.kind}</span></h2>
+        <button class="danger" @click=${this._remove}>Remove</button>
+      </div>
 
       ${this._hasConfig||this._hasAuth?i`
           <div class="tabs">
@@ -825,9 +828,6 @@ var D=Object.defineProperty;var P=(h,e,t)=>e in h?D(h,e,{enumerable:!0,configura
           <h4 class="section-title">Transforms</h4>
           <shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`:""}
 
-      <div class="actions">
-        <button class="danger" @click=${this._remove}>Remove</button>
-      </div>
     `}_stateRow(e,t){return t?i`
       <div class="state-row">
         <span class="state-label">${e}</span>
@@ -842,8 +842,13 @@ var D=Object.defineProperty;var P=(h,e,t)=>e in h?D(h,e,{enumerable:!0,configura
         display: inline-block;
         margin-bottom: 1rem;
       }
+      .title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
       h2 {
-        margin: 0 0 0.3rem;
+        margin: 0;
         font-size: 1.3rem;
       }
       .kind-badge {
@@ -881,11 +886,6 @@ var D=Object.defineProperty;var P=(h,e,t)=>e in h?D(h,e,{enumerable:!0,configura
       }
       .state-value {
         color: #333;
-      }
-      .actions {
-        display: flex;
-        gap: 0.6rem;
-        margin-top: 1.5rem;
       }
       button {
         padding: 0.5rem 1rem;

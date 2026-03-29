@@ -30,8 +30,13 @@ class PluginDetail extends LitElement {
         display: inline-block;
         margin-bottom: 1rem;
       }
+      .title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
       h2 {
-        margin: 0 0 0.3rem;
+        margin: 0;
         font-size: 1.3rem;
       }
       .kind-badge {
@@ -69,11 +74,6 @@ class PluginDetail extends LitElement {
       }
       .state-value {
         color: #333;
-      }
-      .actions {
-        display: flex;
-        gap: 0.6rem;
-        margin-top: 1.5rem;
       }
       button {
         padding: 0.5rem 1rem;
@@ -187,7 +187,10 @@ class PluginDetail extends LitElement {
     return html`
       <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
 
-      <h2>${info.display_name || info.name} <span class="kind-badge">${info.kind}</span></h2>
+      <div class="title-row">
+        <h2>${info.display_name || info.name} <span class="kind-badge">${info.kind}</span></h2>
+        <button class="danger" @click=${this._remove}>Remove</button>
+      </div>
 
       ${this._hasConfig || this._hasAuth
         ? html`
@@ -254,9 +257,6 @@ class PluginDetail extends LitElement {
           <shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`
         : ""}
 
-      <div class="actions">
-        <button class="danger" @click=${this._remove}>Remove</button>
-      </div>
     `;
   }
 
