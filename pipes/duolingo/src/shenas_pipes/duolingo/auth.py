@@ -1,4 +1,13 @@
-"""Duolingo JWT token management via OS keyring."""
+"""Duolingo JWT token management via OS keyring.
+
+Duolingo has no official API and blocks programmatic login with CAPTCHA.
+Authentication requires a JWT token extracted from the browser:
+
+1. Log into duolingo.com
+2. Open DevTools console (F12)
+3. Run: document.cookie.match(new RegExp('(^| )jwt_token=([^;]+)'))[0].slice(11)
+4. Paste the token when prompted
+"""
 
 from __future__ import annotations
 
@@ -8,8 +17,7 @@ KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "duolingo_jwt"
 
 AUTH_FIELDS: list[dict[str, str | bool]] = [
-    {"name": "username", "prompt": "Username or email", "hide": False},
-    {"name": "password", "prompt": "Password", "hide": True},
+    {"name": "jwt_token", "prompt": "JWT token (from browser DevTools)", "hide": True},
 ]
 
 
@@ -43,16 +51,14 @@ def build_client() -> DuolingoClient:
 
 
 def authenticate(credentials: dict[str, str]) -> None:
-    """Authenticate with Duolingo using username/password.
+    """Store a Duolingo JWT token extracted from the browser.
 
-    Stores the resulting JWT in the OS keyring.
+    Expected keys: jwt_token.
     """
-    username = credentials.get("username")
-    password = credentials.get("password")
-    if not username or not password:
-        raise ValueError("username and password are required")
+    jwt = credentials.get("jwt_token")
+    if not jwt:
+        raise ValueError("jwt_token is required")
 
-    jwt = DuolingoClient.login(username, password)
     # Verify the token works
     client = DuolingoClient(jwt)
     try:

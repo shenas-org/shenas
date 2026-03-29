@@ -1,51 +1,8 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from shenas_pipes.duolingo.client import DuolingoClient
-
-
-class TestLogin:
-    @patch("shenas_pipes.duolingo.client.httpx.post")
-    def test_returns_jwt(self, mock_post: MagicMock) -> None:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.headers = {"jwt": "token-abc"}
-        mock_post.return_value = mock_resp
-
-        jwt = DuolingoClient.login("user", "pass")
-        assert jwt == "token-abc"
-
-    @patch("shenas_pipes.duolingo.client.httpx.post")
-    def test_invalid_credentials_401(self, mock_post: MagicMock) -> None:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 401
-        mock_post.return_value = mock_resp
-
-        with pytest.raises(ValueError, match="Invalid credentials"):
-            DuolingoClient.login("user", "wrong")
-
-    @patch("shenas_pipes.duolingo.client.httpx.post")
-    def test_invalid_credentials_403(self, mock_post: MagicMock) -> None:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 403
-        mock_post.return_value = mock_resp
-
-        with pytest.raises(ValueError, match="Invalid credentials"):
-            DuolingoClient.login("user", "wrong")
-
-    @patch("shenas_pipes.duolingo.client.httpx.post")
-    def test_no_jwt_in_response(self, mock_post: MagicMock) -> None:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.headers = {}
-        mock_resp.raise_for_status = MagicMock()
-        mock_post.return_value = mock_resp
-
-        with pytest.raises(ValueError, match="No JWT token"):
-            DuolingoClient.login("user", "pass")
 
 
 class TestGetCourses:

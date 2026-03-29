@@ -10,16 +10,24 @@ app = create_pipe_app("Duolingo commands.")
 
 @app.command()
 def auth() -> None:
-    """Authenticate with Duolingo and save the JWT token to OS keyring."""
-    from shenas_pipes.duolingo.client import DuolingoClient
+    """Store a Duolingo JWT token in OS keyring.
+
+    Duolingo blocks programmatic login. Extract the token from your browser:
+
+    1. Log into duolingo.com
+    2. Open DevTools (F12) > Console
+    3. Run: document.cookie.match(new RegExp('(^| )jwt_token=([^;]+)'))[0].slice(11)
+    4. Paste the token below
+    """
     from shenas_pipes.duolingo.auth import _store_jwt
+    from shenas_pipes.duolingo.client import DuolingoClient
 
-    username = typer.prompt("Username or email")
-    password = typer.prompt("Password", hide_input=True)
+    console.print("Extract your JWT from the browser DevTools console:")
+    console.print("  document.cookie.match(new RegExp('(^| )jwt_token=([^;]+)'))[0].slice(11)", style="dim")
+    jwt = typer.prompt("JWT token", hide_input=True)
 
-    console.print("Authenticating...", style="dim")
+    console.print("Verifying token...", style="dim")
     try:
-        jwt = DuolingoClient.login(username, password)
         client = DuolingoClient(jwt)
         try:
             user = client.get_user()
@@ -30,7 +38,7 @@ def auth() -> None:
         console.print(f"[green]Authenticated as {name}[/green]")
         console.print("[green]JWT saved to OS keyring[/green]")
     except Exception as exc:
-        console.print(f"[red]Authentication failed:[/red] {exc}")
+        console.print(f"[red]Invalid token:[/red] {exc}")
         raise typer.Exit(code=1)
 
 
