@@ -1,8 +1,9 @@
 """Centralized DuckDB connection with encryption at rest.
 
-Uses a single shared connection for all reads and writes, serialized
-via a threading lock. The connection is closed and recreated when
-exclusive file access is needed (e.g. flush_to_encrypted).
+Single shared connection for all reads, writes, and pipeline flushes.
+Serialized via a threading RLock. Pipeline data flows from dlt's
+in-memory connection through Arrow table registration into the
+encrypted database -- no second file ATTACH needed.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ import os
 import secrets
 import threading
 from pathlib import Path
+from typing import Any
 
 import duckdb
 
@@ -69,15 +71,43 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
         return _con
 
 
-def close_all() -> None:
-    """Close the shared connection and release the file lock.
+def dlt_destination() -> tuple[Any, duckdb.DuckDBPyConnection]:
+    """Return a dlt DuckDB destination backed by an in-memory connection.
 
-    Called before operations that need exclusive file access from
-    a different connection (e.g. flush_to_encrypted).
-    The connection is lazily recreated on next use.
+    dlt writes to memory (nothing on disk unencrypted). After pipeline.run(),
+    call flush_from_memory() to copy the data into the encrypted DB.
     """
-    global _con
+    import dlt
+
+    mem_con = duckdb.connect(":memory:")
+    return dlt.destinations.duckdb(credentials=mem_con), mem_con
+
+
+def flush_from_memory(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) -> None:
+    """Copy tables from an in-memory dlt connection into the encrypted DB.
+
+    Uses Arrow table registration to transfer data through the server's
+    existing connection. No second ATTACH needed -- avoids file lock conflicts.
+    """
     with _lock:
-        if _con is not None:
-            _con.close()
-            _con = None
+        server_con = connect()
+
+        schemas_to_copy = []
+        all_schemas = [r[0] for r in mem_con.execute("SELECT schema_name FROM information_schema.schemata").fetchall()]
+        for s in all_schemas:
+            if s in (dataset_name, f"{dataset_name}_staging"):
+                schemas_to_copy.append(s)
+
+        for schema in schemas_to_copy:
+            server_con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+            tables = mem_con.execute(
+                f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}' AND table_catalog = 'memory'"
+            ).fetchall()
+            for (table_name,) in tables:
+                tmp_name = f"_flush_{schema}_{table_name}"
+                arrow_tbl = mem_con.execute(f"SELECT * FROM memory.{schema}.{table_name}").arrow()
+                server_con.register(tmp_name, arrow_tbl)
+                server_con.execute(f"CREATE OR REPLACE TABLE {schema}.{table_name} AS SELECT * FROM {tmp_name}")
+                server_con.unregister(tmp_name)
+
+    mem_con.close()
