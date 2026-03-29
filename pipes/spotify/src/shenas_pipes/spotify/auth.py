@@ -15,7 +15,7 @@ from spotipy.oauth2 import SpotifyPKCE
 
 KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "spotify_tokens"
-REDIRECT_URI = "http://localhost:8090/callback"
+REDIRECT_URI = "http://127.0.0.1:8090/callback"
 SCOPES = "user-read-recently-played user-top-read user-library-read"
 
 AUTH_FIELDS: list[dict[str, str | bool]] = [
@@ -27,7 +27,7 @@ AUTH_INSTRUCTIONS = (
     "\n"
     "  1. Go to https://developer.spotify.com/dashboard\n"
     "  2. Create an app (select 'Web API')\n"
-    "  3. Add Redirect URI: http://localhost:8090/callback\n"
+    "  3. Add Redirect URI: http://127.0.0.1:8090/callback\n"
     "  4. Enter the Client ID below"
 )
 
