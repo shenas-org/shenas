@@ -20,6 +20,10 @@ class ShenasApp extends LitElement {
       path: "/settings/:kind",
       render: ({ kind }) => this._renderSettings(kind),
     },
+    {
+      path: "/settings/:kind/:name",
+      render: ({ kind, name }) => this._renderPluginDetail(kind, name),
+    },
     { path: "/:tab", render: ({ tab }) => this._renderDynamicTab(tab) },
   ]);
 
@@ -228,6 +232,14 @@ class ShenasApp extends LitElement {
     return html`<div class="component-host">
       ${this._getOrCreateElement(comp)}
     </div>`;
+  }
+
+  _renderPluginDetail(kind, name) {
+    return html`<shenas-plugin-detail
+      api-base="${this.apiBase}"
+      kind="${kind}"
+      name="${name}"
+    ></shenas-plugin-detail>`;
   }
 
   _renderSettings(kind) {

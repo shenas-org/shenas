@@ -87,6 +87,13 @@ class SettingsPage extends LitElement {
     .name {
       font-weight: 600;
     }
+    .name a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    .name a:hover {
+      text-decoration: underline;
+    }
     .version {
       color: #888;
       font-family: monospace;
@@ -294,29 +301,18 @@ class SettingsPage extends LitElement {
                   <th>Name</th>
                   <th>Version</th>
                   <th>Added</th>
-                  <th></th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 ${plugins.map(
                   (p) => html`
                     <tr style="${p.enabled === false ? "opacity: 0.5" : ""}">
-                      <td class="name">${p.name}</td>
+                      <td class="name"><a href="/settings/${kind}/${p.name}">${p.name}</a></td>
                       <td class="version">${p.version}</td>
                       <td class="version">${p.added_at ? p.added_at.slice(0, 10) : ""}</td>
-                      <td class="actions">
-                        <button
-                          class="action"
-                          @click=${() => this._toggleEnabled(kind, p.name, p.enabled !== false)}
-                        >
-                          ${p.enabled === false ? "Enable" : "Disable"}
-                        </button>
-                        <button
-                          class="action remove"
-                          @click=${() => this._remove(kind, p.name)}
-                        >
-                          Remove
-                        </button>
+                      <td class="status-cell">
+                        ${p.enabled === false ? html`<span style="color:#c00; font-size:0.8rem">disabled</span>` : ""}
                       </td>
                     </tr>
                   `,
