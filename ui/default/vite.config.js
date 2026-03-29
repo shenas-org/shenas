@@ -6,7 +6,7 @@ export default defineConfig({
   },
   build: {
     outDir: "shenas_ui/default/static",
-    emptyOutDir: true,
+    emptyOutDir: false,
     cssCodeSplit: false,
     rollupOptions: {
       input: "src/index.js",

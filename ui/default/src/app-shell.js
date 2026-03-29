@@ -130,6 +130,7 @@ class ShenasApp extends LitElement {
     this._loading = true;
     this._activeTab = "database";
     this._loadedScripts = new Set();
+    this._elementCache = new Map();
   }
 
   connectedCallback() {
@@ -213,14 +214,17 @@ class ShenasApp extends LitElement {
     const comp = this._components.find((c) => c.name === this._activeTab);
     if (!comp) return html``;
     return html`
-      <div class="component-host">${this._createComponentElement(comp)}</div>
+      <div class="component-host">${this._getOrCreateElement(comp)}</div>
     `;
   }
 
-  _createComponentElement(comp) {
-    const el = document.createElement(comp.tag);
-    el.setAttribute("api-base", this.apiBase);
-    return el;
+  _getOrCreateElement(comp) {
+    if (!this._elementCache.has(comp.name)) {
+      const el = document.createElement(comp.tag);
+      el.setAttribute("api-base", this.apiBase);
+      this._elementCache.set(comp.name, el);
+    }
+    return this._elementCache.get(comp.name);
   }
 
   _renderDb() {
