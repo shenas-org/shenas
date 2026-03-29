@@ -24,7 +24,7 @@ def auth() -> None:
 
     console.print("Extract your JWT from the browser DevTools console:")
     console.print("  document.cookie.match(new RegExp('(^| )jwt_token=([^;]+)'))[0].slice(11)", style="dim")
-    jwt = typer.prompt("JWT token", hide_input=True)
+    jwt = typer.prompt("JWT token")
 
     console.print("Verifying token...", style="dim")
     try:
