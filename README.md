@@ -32,13 +32,16 @@ make setup-hooks    # install pre-commit hook (ruff + ty)
 uv run shenasctl pipe garmin auth
 uv run shenasctl pipe lunchmoney auth
 uv run shenasctl pipe gmail auth
+uv run shenasctl pipe gcalendar auth
+uv run shenasctl pipe gtakeout auth
 
 # Configure obsidian vault path
-uv run shenasctl config set pipe obsidian vault_path /path/to/vault
+uv run shenasctl config set pipe obsidian daily_notes_folder /path/to/vault/daily
 
 # Sync raw data into DuckDB (also runs transform automatically)
-uv run shenasctl pipe sync          # sync all installed pipes
-uv run shenasctl pipe garmin sync   # sync a single pipe
+uv run shenasctl pipe sync              # sync all installed pipes
+uv run shenasctl pipe garmin sync       # sync a single pipe
+uv run shenasctl pipe gtakeout sync     # sync Google Takeout (downloads from Drive)
 
 # Check what's loaded
 uv run shenasctl db status
@@ -92,7 +95,7 @@ uv run shenasctl pipe add garmin
 ## Testing
 
 ```bash
-make test           # run all tests (161)
+make test           # run all tests (271)
 make coverage       # tests with coverage report
 make lint           # ruff check + format + ty
 ```
@@ -100,12 +103,19 @@ make lint           # ruff check + format + ty
 ## Architecture
 
 ```
+app/                 FastAPI server + CLI (shenas-app)
+  api/               REST API endpoints (Pydantic request/response models)
+  cli/               CLI commands (pure REST client, no direct DB access)
+  models/            shared Pydantic models for API types
+  tests/             API endpoint tests
 pipes/
   core/              shared pipe utilities (shenas-pipe-core)
   garmin/            Garmin Connect connector
   lunchmoney/        Lunch Money connector
-  obsidian/          Obsidian daily notes (frontmatter)
+  obsidian/          Obsidian daily notes (frontmatter extraction)
   gmail/             Gmail (OAuth2)
+  gcalendar/         Google Calendar (OAuth2)
+  gtakeout/          Google Takeout (Drive download + parse)
 schemas/
   core/              shared schema utilities (shenas-schema-core)
   fitness/           HRV, sleep, vitals, body metrics
@@ -114,10 +124,8 @@ schemas/
 components/
   fitness-dashboard/ Lit + uPlot dashboard (built as wheel)
   data-table/        sortable/filterable data table (built as wheel)
-app/                 FastAPI UI server (Arrow IPC queries)
 repository/          PEP 503 package server + Ed25519 signing
-cli/                 shenas CLI
-tests/               repository server, frontend, CLI, signing tests
+telemetry/           OpenTelemetry tracing/logging with DuckDB backend
 ```
 
 **Data flow**: Source API -> dlt -> raw DuckDB tables -> SQL transform -> canonical `metrics.*` tables -> Arrow IPC -> web component

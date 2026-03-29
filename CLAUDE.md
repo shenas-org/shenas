@@ -17,13 +17,13 @@ uv run cz commit                    # conventional commit
 uv add <package>                    # add a dependency
 uv sync                             # install dependencies
 make dev-uninstall                  # uninstall all shenas-* packages
-make build-pipes                    # build all pipe wheels (auto-bumps VERSION)
+make build-pipes                    # build all pipe wheels
 make build-schemas                  # build all schema wheels
 make build-components               # build all component wheels
 make repository              # start PEP 503 package server on :7290
 make coverage                       # run tests with coverage report
 make setup-hooks                    # install git pre-commit hook
-moon run cli:test                   # run tests for a single project
+moon run app:test                   # run tests for a single project
 moon run :lint                      # run lint across all projects
 moon run :test                      # run tests across all projects
 shenasrepoctl sign-all packages/   # sign all unsigned wheels
@@ -34,12 +34,15 @@ shenasrepoctl vendor garmin        # vendor a pipe and its deps
 
 - **dlt** — data ingestion/pipeline framework (`@dlt.source`, `@dlt.resource`, incremental cursors)
 - **DuckDB** — local destination at `./data/shenas.duckdb` (also available via MCP server `duckdb`)
-- **uv** — package manager (do not use pip directly); workspace with 5 members (cli, app, repository, pipes/core, schemas/core)
+- **Pydantic** — API request/response models in `app/models/`
+- **uv** — package manager (do not use pip directly); workspace with glob-based member discovery (app, repository, pipes/*, schemas/*, components/*)
 - **moon** — monorepo task runner; config in `.moon/`, per-project `moon.yml`
 - **typer** — CLI framework; **rich** — terminal formatting
 - **FastAPI** — repository server + app server
 - **pyarrow** — Arrow IPC streaming for app queries
 - **cryptography** — Ed25519 package signing
+- **OpenTelemetry** — tracing and logging with custom DuckDB exporters
+- **ijson** — streaming JSON parser for GB-scale Takeout files
 - **hatchling** — wheel builder for pipes, schemas, and components
 - **Lit + uPlot + Vite** — frontend component stack
 
@@ -47,15 +50,15 @@ shenasrepoctl vendor garmin        # vendor a pipe and its deps
 
 ### Workspace packages
 
-The monorepo is a uv workspace with 5 members, each a separate Python package:
+The monorepo is a uv workspace with glob-based member discovery:
 
-- **`shenas-cli`** (`cli/`) — CLI entry point, depends on shenas-app + shenas-repository
-- **`shenas-app`** (`app/`) — FastAPI UI server (renamed from local_frontend)
+- **`shenas-app`** (`app/`) — FastAPI server + CLI (provides both `shenas` and `shenasctl` entry points)
 - **`shenas-repository`** (`repository/`) — PEP 503 package server + Ed25519 signing
 - **`shenas-pipe-core`** (`pipes/core/`) — shared pipe utilities
 - **`shenas-schema-core`** (`schemas/core/`) — shared schema utilities
+- All pipes (`pipes/*`), schemas (`schemas/*`), and components (`components/*`) are workspace members
 
-Each has its own `pyproject.toml` with hatchling build, `VERSION` file, and `moon.yml` for task definitions. Cross-package imports (e.g. `cli` importing `repository.signing`, `app` importing `cli.db`) resolve via workspace editable installs with `dev-mode-dirs = [".."]` pointing to the repo root.
+Each has its own `pyproject.toml` with hatchling build and `moon.yml` for task definitions. The CLI is a pure REST client -- it talks to the FastAPI server via HTTP and never touches DuckDB directly.
 
 ### Plugin discovery via entry points
 
@@ -84,37 +87,41 @@ Each schema package (e.g. `schemas/fitness/`) contains only a `metrics.py` with 
 
 All artifacts (pipes, components, schemas) are Python wheels served from a PEP 503 server (`repository/`). Wheels are Ed25519-signed (`.whl.sig` files alongside wheels in `packages/`). `shenas pipe add <name>` verifies the signature before installing.
 
-### Component packaging workaround
+### API models
 
-`components/*/pyproject.build.toml` is renamed to `pyproject.toml` only during build (by the Makefile), then removed. This prevents uv from auto-discovering components as workspace members. Same for non-workspace schemas (e.g. `schemas/finance/`).
+All API request/response types are defined as Pydantic models in `app/models/__init__.py`. API endpoints use these models for type-safe request bodies and response serialization. The CLI client (`app/cli/client.py`) deserializes JSON responses from the server.
 
 ## Key conventions
 
 - **Naming**: `shenas-pipe-*`, `shenas-component-*`, `shenas-schema-*`
 - **Core packages**: `shenas-pipe-core`, `shenas-schema-core` (internal, not user-facing)
-- **Versioning**: Each package has a `VERSION` file read by hatchling. `scripts/bump-version.py` auto-increments patch on every build.
+- **Versioning**: hatch-vcs with scoped git tag patterns (e.g. `pipe-garmin/v*`, `desktop/v*`)
 - **Transforms are idempotent**: `MetricProviderBase._upsert()` does DELETE WHERE source, then INSERT
 - **Python namespaces**: `shenas_pipes.*`, `shenas_schemas.*`, `shenas_components.*` (not `pipes.*` — conflicts with stdlib)
 - **DuckDB schemas**: raw data in source-specific schemas (`garmin.*`, `lunchmoney.*`), canonical in `metrics.*`
 
 ## Modules
 
-- `cli/` — `shenas` CLI (shenas-cli); subcommands under `cli/commands/`
+- `app/` — FastAPI server + CLI (shenas-app); REST API, CLI commands, Pydantic models
+- `app/api/` — REST API endpoints (auth, config, db, packages, pipes, query, sync)
+- `app/cli/` — CLI commands (pure REST client via `app/cli/client.py`)
+- `app/models/` — shared Pydantic models for API request/response types
 - `pipes/core/` — shared pipe utilities (shenas-pipe-core)
 - `pipes/garmin/` — Garmin Connect dlt connector
 - `pipes/lunchmoney/` — Lunch Money dlt connector
 - `pipes/obsidian/` — Obsidian daily notes (frontmatter extraction)
-- `pipes/gmail/` — Gmail (OAuth2, embedded client credentials)
+- `pipes/gmail/` — Gmail (OAuth2, shared GoogleAuth)
+- `pipes/gcalendar/` — Google Calendar (OAuth2, shared GoogleAuth)
+- `pipes/gtakeout/` — Google Takeout (Drive download, ijson streaming parsers)
 - `schemas/core/` — shared schema utilities (shenas-schema-core)
 - `schemas/fitness/` — canonical fitness metrics (HRV, sleep, vitals, body)
 - `schemas/finance/` — canonical finance metrics (transactions, spending, budgets)
 - `schemas/outcomes/` — canonical outcome metrics (mood, stress, productivity, exercise, etc.)
 - `repository/` — PEP 503 Simple Repository API server + Ed25519 signing
-- `app/` — FastAPI UI server (shenas-app); discovers components via entry points, serves Arrow IPC
+- `telemetry/` — OpenTelemetry tracing/logging with DuckDB exporters
 - `components/fitness-dashboard/` — Lit + uPlot fitness charts (built as wheel)
 - `components/data-table/` — Lit data table with sorting/filtering/pagination (built as wheel)
 - `scripts/` — build helpers (version bumping, pre-commit hook)
-- `tests/` — tests for repository, app, CLI, signing
 
 ## Git workflow
 
