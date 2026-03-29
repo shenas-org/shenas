@@ -14,18 +14,21 @@ class CommandPalette extends LitElement {
       display: none;
     }
     :host([open]) {
-      display: flex;
+      display: block;
       position: fixed;
       inset: 0;
-      align-items: flex-start;
-      justify-content: center;
-      background: rgba(0, 0, 0, 0.4);
       z-index: 10000;
-      padding-top: 80px;
+    }
+    .backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
     }
     .panel {
+      position: relative;
       width: 90%;
       max-width: 560px;
+      margin: 80px auto 0;
       background: #fff;
       border-radius: 8px;
       box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
@@ -72,7 +75,7 @@ class CommandPalette extends LitElement {
       font-size: 0.85rem;
     }
     .item:hover,
-    .item[aria-selected="true"] {
+    .item.selected {
       background: #f0f4ff;
     }
     .item-category {
@@ -150,7 +153,9 @@ class CommandPalette extends LitElement {
   _onKeydown(e) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      this._selectedIndex = Math.min(this._selectedIndex + 1, this._filtered.length - 1);
+      if (this._filtered.length > 0) {
+        this._selectedIndex = Math.min(this._selectedIndex + 1, this._filtered.length - 1);
+      }
       this._scrollToSelected();
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
@@ -167,60 +172,51 @@ class CommandPalette extends LitElement {
 
   _scrollToSelected() {
     requestAnimationFrame(() => {
-      const item = this.renderRoot.querySelector('.item[aria-selected="true"]');
+      const item = this.renderRoot.querySelector(".item.selected");
       if (item) item.scrollIntoView({ block: "nearest" });
     });
   }
 
   _execute(cmd) {
     this.dispatchEvent(new CustomEvent("execute", { detail: cmd, bubbles: true, composed: true }));
-    this._close();
   }
 
   _close() {
     this.dispatchEvent(new CustomEvent("close", { bubbles: true, composed: true }));
   }
 
-  _onBackdropClick(e) {
-    if (e.target === e.currentTarget) {
-      this._close();
-    }
-  }
-
   render() {
     if (!this.open) return html``;
     return html`
-      <div @click=${this._onBackdropClick} style="display:contents">
-        <div class="panel">
-          <div class="input-row">
-            <span class="search-icon">></span>
-            <input
-              type="text"
-              placeholder="Type a command..."
-              .value=${this._query}
-              @input=${this._onInput}
-              @keydown=${this._onKeydown}
-            />
-            <span class="hint">esc</span>
-          </div>
-          <div class="results">
-            ${this._filtered.length === 0
-              ? html`<div class="empty">No matching commands</div>`
-              : this._filtered.map(
-                  (cmd, i) => html`
-                    <div
-                      class="item"
-                      aria-selected=${i === this._selectedIndex}
-                      @click=${() => this._execute(cmd)}
-                      @mouseenter=${() => { this._selectedIndex = i; }}
-                    >
-                      <span class="item-category">${cmd.category}</span>
-                      <span class="item-label">${cmd.label}</span>
-                      ${cmd.description ? html`<span class="item-desc">${cmd.description}</span>` : ""}
-                    </div>
-                  `,
-                )}
-          </div>
+      <div class="backdrop" @click=${this._close}></div>
+      <div class="panel">
+        <div class="input-row">
+          <span class="search-icon">></span>
+          <input
+            type="text"
+            placeholder="Type a command..."
+            .value=${this._query}
+            @input=${this._onInput}
+            @keydown=${this._onKeydown}
+          />
+          <span class="hint">esc</span>
+        </div>
+        <div class="results">
+          ${this._filtered.length === 0
+            ? html`<div class="empty">No matching commands</div>`
+            : this._filtered.map(
+                (cmd, i) => html`
+                  <div
+                    class="item ${i === this._selectedIndex ? "selected" : ""}"
+                    @click=${() => this._execute(cmd)}
+                    @mouseenter=${() => { this._selectedIndex = i; }}
+                  >
+                    <span class="item-category">${cmd.category}</span>
+                    <span class="item-label">${cmd.label}</span>
+                    ${cmd.description ? html`<span class="item-desc">${cmd.description}</span>` : ""}
+                  </div>
+                `,
+              )}
         </div>
       </div>
     `;

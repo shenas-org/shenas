@@ -240,7 +240,7 @@ class ShenasApp extends LitElement {
     this.addEventListener("inspect-table", (e) => this._inspect(e.detail.schema, e.detail.table));
     this.addEventListener("navigate", (e) => this._router.goto(e.detail.path));
     this._keyHandler = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "p") {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         this._togglePalette();
       }
@@ -258,8 +258,8 @@ class ShenasApp extends LitElement {
       this._paletteOpen = false;
       return;
     }
-    this._paletteOpen = true;
     await this._buildCommands();
+    this._paletteOpen = true;
   }
 
   async _buildCommands() {
@@ -279,18 +279,23 @@ class ShenasApp extends LitElement {
     commands.push({ id: "nav:settings:ui", category: "Navigate", label: "Settings > UI", path: "/settings/ui" });
 
     // Fetch plugins
-    const [pipes, schemas] = await Promise.all([
-      this._fetch("/plugins/pipe"),
-      this._fetch("/plugins/schema"),
-    ]);
+    let pipes = [], schemas = [];
+    try {
+      [pipes, schemas] = await Promise.all([
+        this._fetch("/plugins/pipe"),
+        this._fetch("/plugins/schema"),
+      ]);
+      pipes = pipes || [];
+      schemas = schemas || [];
+    } catch { /* use empty arrays */ }
 
-    for (const p of pipes || []) {
+    for (const p of pipes) {
       const name = p.display_name || p.name;
       commands.push({ id: `nav:pipe:${p.name}`, category: "Pipe", label: name, description: "Open details", path: `/settings/pipe/${p.name}` });
       commands.push({ id: `sync:${p.name}`, category: "Pipe", label: `Sync ${name}`, description: "Run sync now", action: () => this._syncPipe(p.name) });
     }
 
-    for (const s of schemas || []) {
+    for (const s of schemas) {
       commands.push({ id: `nav:schema:${s.name}`, category: "Schema", label: s.display_name || s.name, description: "Open details", path: `/settings/schema/${s.name}` });
     }
 
@@ -451,7 +456,7 @@ class ShenasApp extends LitElement {
   _renderSettings(kind) {
     return html`<shenas-settings
       api-base="${this.apiBase}"
-      active-kind="${kind || 'pipe'}"
+      active-kind="${kind || 'overview'}"
       .onNavigate=${(k) => {
         this._router.goto(`/settings/${k}`);
       }}

@@ -239,7 +239,7 @@ class PipelineOverview extends LitElement {
 
     this._cy.on("tap", "node", (evt) => {
       const data = evt.target.data();
-      const name = data.id.split(":")[1];
+      const name = data.id.substring(data.id.indexOf(":") + 1);
       const path = data.kind === "pipe"
         ? `/settings/pipe/${name}`
         : `/settings/schema/${name}`;
