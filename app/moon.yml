@@ -3,3 +3,7 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 language: 'python'
 stack: 'backend'
 tags: ['app']
+
+workspace:
+  inheritedTasks:
+    exclude: ['build']

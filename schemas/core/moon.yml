@@ -7,4 +7,4 @@ tags: ['schema', 'core']
 
 workspace:
   inheritedTasks:
-    exclude: ['test']
+    exclude: ['test', 'build']

@@ -25,7 +25,7 @@ jobs:
       - name: Detect changes and create tags
         run: |
           PACKAGES=(
-            "desktop:cli/ app/ app/desktop/"
+            "desktop:app/ app/desktop/"
             "repository:repository/"
             "pipe-core:pipes/core/"
             "pipe-garmin:pipes/garmin/"

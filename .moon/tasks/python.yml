@@ -23,3 +23,20 @@ tasks:
       - '~:lint'
     options:
       runFromWorkspaceRoot: true
+  build:
+    script: |
+      cd $MOON_PROJECT_SOURCE && uv build --out-dir $MOON_WORKSPACE_ROOT/packages/
+      cd $MOON_WORKSPACE_ROOT
+      if [ -f .shenas/shenas.key ]; then
+        pkg=$(echo $MOON_PROJECT_SOURCE | sed 's|.*/||; s|-|_|g')
+        for whl in packages/shenas_*${pkg}-*.whl; do
+          [ -f "$whl.sig" ] || uv run --no-sync shenasrepoctl sign "$whl"
+        done
+      fi
+    inputs:
+      - '**/*.py'
+      - 'pyproject.toml'
+    deps:
+      - '~:test'
+    options:
+      runFromWorkspaceRoot: true

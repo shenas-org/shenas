@@ -15,3 +15,26 @@ tasks:
     inputs:
       - '@group(sources)'
       - '@group(configs)'
+  build:
+    script: |
+      cd $MOON_PROJECT_SOURCE
+      npm run build
+      name=$(basename $MOON_PROJECT_SOURCE)
+      pkg=$(echo $name | tr '-' '_')
+      cp ${name}.html shenas_components/${pkg}/static/${name}.html
+      uv build --out-dir $MOON_WORKSPACE_ROOT/packages/
+      cd $MOON_WORKSPACE_ROOT
+      if [ -f .shenas/shenas.key ]; then
+        for whl in packages/shenas_component_${pkg}-*.whl; do
+          [ -f "$whl.sig" ] || uv run --no-sync shenasrepoctl sign "$whl"
+        done
+      fi
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - '**/*.py'
+      - 'pyproject.toml'
+    deps:
+      - '~:test'
+    options:
+      runFromWorkspaceRoot: true
