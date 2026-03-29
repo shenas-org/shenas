@@ -24,7 +24,7 @@ moon run app:test                   # run tests for a single project
 moon run :lint                      # run lint across all projects
 moon run :test                      # run tests across all projects
 moon run :build                     # build + sign all distributable wheels
-moon run garmin:build               # build + sign a single pipe
+moon run pipe-garmin:build           # build + sign a single pipe
 shenasrepoctl sign-all packages/   # sign all unsigned wheels
 shenasrepoctl vendor garmin        # vendor a pipe and its deps
 ```
