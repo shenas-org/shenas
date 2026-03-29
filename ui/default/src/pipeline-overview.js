@@ -146,6 +146,7 @@ class PipelineOverview extends LitElement {
           target: targetId,
           label,
           enabled: t.enabled ? "yes" : "no",
+          sourcePlugin: t.source_plugin,
         },
       });
     }
@@ -188,11 +189,11 @@ class PipelineOverview extends LitElement {
         },
         {
           selector: 'node[kind="pipe"]',
-          style: { "background-color": "#4a90d9" },
+          style: { "background-color": "#4a90d9", "cursor": "pointer" },
         },
         {
           selector: 'node[kind="schema"]',
-          style: { "background-color": "#66bb6a" },
+          style: { "background-color": "#66bb6a", "cursor": "pointer" },
         },
         {
           selector: "edge",
@@ -201,6 +202,7 @@ class PipelineOverview extends LitElement {
             "target-arrow-shape": "triangle",
             "target-arrow-color": "#999",
             "line-color": "#999",
+            "cursor": "pointer",
             width: 2,
             label: "data(label)",
             "font-size": 9,
@@ -233,6 +235,22 @@ class PipelineOverview extends LitElement {
       userZoomingEnabled: true,
       userPanningEnabled: true,
       boxSelectionEnabled: false,
+    });
+
+    this._cy.on("tap", "node", (evt) => {
+      const data = evt.target.data();
+      const name = data.id.substring(data.id.indexOf(":") + 1);
+      const path = data.kind === "pipe"
+        ? `/settings/pipe/${name}`
+        : `/settings/schema/${name}`;
+      this.dispatchEvent(new CustomEvent("navigate", { bubbles: true, composed: true, detail: { path } }));
+    });
+
+    this._cy.on("tap", "edge", (evt) => {
+      const plugin = evt.target.data("sourcePlugin");
+      if (plugin) {
+        this.dispatchEvent(new CustomEvent("navigate", { bubbles: true, composed: true, detail: { path: `/settings/pipe/${plugin}` } }));
+      }
     });
 
     if (this._resizeObserver) {
