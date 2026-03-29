@@ -1,14 +1,10 @@
 """Strava OAuth2 token management via OS keyring.
 
-Strava uses OAuth2 with short-lived access tokens (~6 hours) and
-long-lived refresh tokens. The user must create an app at
-https://www.strava.com/settings/api to get client_id and client_secret.
-
 Auth flow:
-1. User provides client_id and client_secret
-2. Opens the authorize URL in the browser
-3. Authorizes the app on Strava
-4. Strava redirects to localhost -- we capture the code and exchange it for tokens
+1. User provides client_id and client_secret (from strava.com/settings/api)
+2. We open Strava's authorize URL in the browser
+3. User authorizes, Strava redirects to localhost with a code
+4. We exchange the code for access + refresh tokens (stored in keyring)
 """
 
 from __future__ import annotations
@@ -19,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from shenas_pipes.strava.client import StravaClient
+from shenas_pipes.strava.client import authorize_url, exchange_code
 
 KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "strava_tokens"
@@ -67,7 +63,7 @@ def _store_tokens(tokens: dict[str, Any]) -> None:
 
 
 def _on_token_refresh(access_token: str, refresh_token: str, expires_at: int) -> None:
-    """Callback for StravaClient to persist refreshed tokens."""
+    """Callback to persist refreshed tokens."""
     stored = _get_stored_tokens() or {}
     stored["access_token"] = access_token
     stored["refresh_token"] = refresh_token
@@ -75,12 +71,14 @@ def _on_token_refresh(access_token: str, refresh_token: str, expires_at: int) ->
     _store_tokens(stored)
 
 
-def build_client() -> StravaClient:
-    """Build a Strava client from stored tokens."""
+def build_client() -> Any:
+    """Build a stravalib Client from stored tokens."""
+    from shenas_pipes.strava.client import build_strava_client
+
     tokens = _get_stored_tokens()
     if not tokens or "access_token" not in tokens:
         raise RuntimeError("No Strava tokens found. Run 'shenasctl pipe strava auth' first.")
-    return StravaClient(
+    return build_strava_client(
         access_token=tokens["access_token"],
         refresh_token=tokens["refresh_token"],
         expires_at=tokens["expires_at"],
@@ -131,11 +129,9 @@ def authenticate(credentials: dict[str, str]) -> None:
     Step 1 (initial call): Starts a callback server in a background thread,
     then raises ValueError("OAUTH_URL:...") so the REST API returns the URL.
 
-    Step 2 (auth_complete call): Waits for the background thread to finish,
-    exchanges the code, and stores tokens.
+    Step 2 (auth_complete call): Waits for the background thread to finish.
     """
     if credentials.get("auth_complete") == "true":
-        # Step 2: wait for the background flow to complete
         state = _pending_auth.pop("strava", None)
         if state is None:
             raise ValueError("No pending auth flow. Start auth again.")
@@ -151,14 +147,14 @@ def authenticate(credentials: dict[str, str]) -> None:
     if not client_id or not client_secret:
         raise ValueError("client_id and client_secret are required")
 
-    auth_url = StravaClient.authorize_url(client_id)
+    auth_url = authorize_url(client_id)
 
     state: dict[str, Any] = {}
 
     def _run_flow() -> None:
         try:
             code = _wait_for_code()
-            token_data = StravaClient.exchange_code(client_id, client_secret, code)
+            token_data = exchange_code(client_id, client_secret, code)
             _store_tokens(
                 {
                     "access_token": token_data["access_token"],

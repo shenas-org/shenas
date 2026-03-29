@@ -23,10 +23,12 @@ class TestBuildClient:
             "client_id": "123",
             "client_secret": "sec",
         }
-        with patch(f"{MODULE}._get_stored_tokens", return_value=tokens):
-            client = build_client()
-        assert client._access_token == "tok"
-        client.close()
+        with (
+            patch(f"{MODULE}._get_stored_tokens", return_value=tokens),
+            patch("shenas_pipes.strava.client.build_strava_client") as mock_build,
+        ):
+            build_client()
+            mock_build.assert_called_once()
 
 
 class TestAuthenticate:
