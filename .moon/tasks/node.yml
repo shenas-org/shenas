@@ -21,7 +21,6 @@ tasks:
       npm run build
       name=$(basename $MOON_PROJECT_SOURCE)
       pkg=$(echo $name | tr '-' '_')
-      cp ${name}.html shenas_components/${pkg}/static/${name}.html
       uv build --out-dir $MOON_WORKSPACE_ROOT/packages/
       cd $MOON_WORKSPACE_ROOT
       if [ -f .shenas/shenas.key ]; then
