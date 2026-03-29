@@ -1,4 +1,18 @@
-var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configurable:!0,writable:!0,value:e}):d[t]=e;var o=(d,t,e)=>$(d,typeof t!="symbol"?t+"":t,e);import{LitElement as l,css as c,html as a}from"lit";import{Router as w}from"@lit-labs/router";class h extends l{constructor(){super();o(this,"_router",new w(this,[{path:"/",render:()=>this._renderDb()},{path:"/database",render:()=>this._renderDb()},{path:"/pipes",render:()=>this._renderPipes()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:e})=>this._renderSettings(e)},{path:"/settings/:kind/:name",render:({kind:e,name:s})=>this._renderPluginDetail(e,s)},{path:"/settings/:kind/:name/transforms",render:({kind:e,name:s})=>this._renderPluginDetail(e,s,"transforms")},{path:"/:tab",render:({tab:e})=>this._renderDynamicTab(e)}]));this.apiBase="/api",this._pipes=[],this._dbStatus=null,this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map}connectedCallback(){super.connectedCallback(),this._fetchData()}async _fetchData(){this._loading=!0;try{const[e,s,i]=await Promise.all([this._fetch("/plugins/pipe"),this._fetch("/db/status"),this._fetch("/components")]);this._pipes=e||[],this._dbStatus=s,this._components=i||[]}catch(e){console.error("Failed to fetch data:",e)}this._loading=!1}async _fetch(e){const s=await fetch(`${this.apiBase}${e}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"database").split("/")[0]}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const e=this._activeTab();return a`
+var $=Object.defineProperty;var w=(d,t,e)=>t in d?$(d,t,{enumerable:!0,configurable:!0,writable:!0,value:e}):d[t]=e;var n=(d,t,e)=>w(d,typeof t!="symbol"?t+"":t,e);import{LitElement as l,css as c,html as a}from"lit";import{Router as v}from"@lit-labs/router";class h extends l{constructor(){super(),this.enabled=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return a``}}n(h,"properties",{enabled:{type:Boolean}}),n(h,"styles",c`
+    :host {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      vertical-align: middle;
+    }
+    :host([enabled]) {
+      background: #2e7d32;
+    }
+    :host(:not([enabled])) {
+      background: #c62828;
+    }
+  `);customElements.define("status-dot",h);class m extends l{constructor(){super();n(this,"_router",new v(this,[{path:"/",render:()=>this._renderDb()},{path:"/database",render:()=>this._renderDb()},{path:"/pipes",render:()=>this._renderPipes()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:e})=>this._renderSettings(e)},{path:"/settings/:kind/:name",render:({kind:e,name:s})=>this._renderPluginDetail(e,s)},{path:"/settings/:kind/:name/transforms",render:({kind:e,name:s})=>this._renderPluginDetail(e,s,"transforms")},{path:"/:tab",render:({tab:e})=>this._renderDynamicTab(e)}]));this.apiBase="/api",this._pipes=[],this._dbStatus=null,this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map}connectedCallback(){super.connectedCallback(),this._fetchData()}async _fetchData(){this._loading=!0;try{const[e,s,i]=await Promise.all([this._fetch("/plugins/pipe"),this._fetch("/db/status"),this._fetch("/components")]);this._pipes=e||[],this._dbStatus=s,this._components=i||[]}catch(e){console.error("Failed to fetch data:",e)}this._loading=!1}async _fetch(e){const s=await fetch(`${this.apiBase}${e}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"database").split("/")[0]}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const e=this._activeTab();return a`
       <div class="header">
         <img src="/static/images/shenas.png" alt="shenas" />
         <h1>shenas</h1>
@@ -59,7 +73,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
             </div>
           `)}
       </div>
-    `}}o(h,"properties",{apiBase:{type:String,attribute:"api-base"},_pipes:{state:!0},_dbStatus:{state:!0},_components:{state:!0},_loading:{state:!0},_loadedScripts:{state:!0}}),o(h,"styles",c`
+    `}}n(m,"properties",{apiBase:{type:String,attribute:"api-base"},_pipes:{state:!0},_dbStatus:{state:!0},_components:{state:!0},_loading:{state:!0},_loadedScripts:{state:!0}}),n(m,"styles",c`
     :host {
       display: block;
       max-width: 960px;
@@ -168,7 +182,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
     .component-host {
       margin-top: 1rem;
     }
-  `);customElements.define("shenas-app",h);const p=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class m extends l{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const t={};await Promise.all(p.map(async({id:e})=>{const s=await fetch(`${this.apiBase}/plugins/${e}`);t[e]=s.ok?await s.json():[]})),this._plugins=t,this._loading=!1}async _remove(t,e){this._actionMessage=null;const i=await(await fetch(`${this.apiBase}/plugins/${t}/${e}`,{method:"DELETE"})).json();i.ok?(this._actionMessage={type:"success",text:i.message},await this._fetchAll()):this._actionMessage={type:"error",text:i.message||"Remove failed"}}async _toggleEnabled(t,e,s){this._actionMessage=null;const i=s?"disable":"enable",n=await(await fetch(`${this.apiBase}/plugins/${t}/${e}/${i}`,{method:"POST"})).json();n.ok?(this._actionMessage={type:"success",text:n.message},await this._fetchAll()):this._actionMessage={type:"error",text:n.message||`${i} failed`}}async _install(t){var b,f;const e=this.shadowRoot.querySelector(`#install-${t}`),s=(b=e==null?void 0:e.value)==null?void 0:b.trim();if(!s)return;this._actionMessage=null;const n=(f=(await(await fetch(`${this.apiBase}/plugins/${t}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:f[0];n!=null&&n.ok?(this._actionMessage={type:"success",text:n.message},e.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(n==null?void 0:n.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
+  `);customElements.define("shenas-app",m);const p=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class g extends l{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const t={};await Promise.all(p.map(async({id:e})=>{const s=await fetch(`${this.apiBase}/plugins/${e}`);t[e]=s.ok?await s.json():[]})),this._plugins=t,this._loading=!1}async _remove(t,e){this._actionMessage=null;const i=await(await fetch(`${this.apiBase}/plugins/${t}/${e}`,{method:"DELETE"})).json();i.ok?(this._actionMessage={type:"success",text:i.message},await this._fetchAll()):this._actionMessage={type:"error",text:i.message||"Remove failed"}}async _toggleEnabled(t,e,s){this._actionMessage=null;const i=s?"disable":"enable",o=await(await fetch(`${this.apiBase}/plugins/${t}/${e}/${i}`,{method:"POST"})).json();o.ok?(this._actionMessage={type:"success",text:o.message},await this._fetchAll()):this._actionMessage={type:"error",text:o.message||`${i} failed`}}async _install(t){var f,_;const e=this.shadowRoot.querySelector(`#install-${t}`),s=(f=e==null?void 0:e.value)==null?void 0:f.trim();if(!s)return;this._actionMessage=null;const o=(_=(await(await fetch(`${this.apiBase}/plugins/${t}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:_[0];o!=null&&o.ok?(this._actionMessage={type:"success",text:o.message},e.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(o==null?void 0:o.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
       ${this._actionMessage?a`<div class="message ${this._actionMessage.type}">
             ${this._actionMessage.text}
           </div>`:""}
@@ -211,7 +225,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
                       <td class="version">${r.version}</td>
                       <td class="version">${r.added_at?r.added_at.slice(0,10):""}</td>
                       <td class="status-cell">
-                        <span class="status-dot ${r.enabled===!1?"red":"green"}"></span>
+                        <status-dot ?enabled=${r.enabled!==!1}></status-dot>
                       </td>
                     </tr>
                   `)}
@@ -229,7 +243,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
           Install
         </button>
       </div>
-    `}}o(m,"properties",{apiBase:{type:String,attribute:"api-base"},activeKind:{type:String,attribute:"active-kind"},onNavigate:{type:Function},_plugins:{state:!0},_loading:{state:!0},_actionMessage:{state:!0}}),o(m,"styles",c`
+    `}}n(g,"properties",{apiBase:{type:String,attribute:"api-base"},activeKind:{type:String,attribute:"active-kind"},onNavigate:{type:Function},_plugins:{state:!0},_loading:{state:!0},_actionMessage:{state:!0}}),n(g,"styles",c`
     :host {
       display: block;
     }
@@ -369,23 +383,11 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
       color: #888;
       padding: 0.5rem 0;
     }
-    .status-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-    }
-    .status-dot.green {
-      background: #2e7d32;
-    }
-    .status-dot.red {
-      background: #c62828;
-    }
     .loading {
       color: #888;
       font-style: italic;
     }
-  `);customElements.define("shenas-settings",m);class g extends l{constructor(){super(),this.apiBase="/api",this.kind="",this.name="",this.activeTab="details",this._info=null,this._loading=!0,this._message=null}willUpdate(t){(t.has("kind")||t.has("name"))&&this._fetchInfo()}async _fetchInfo(){if(!this.kind||!this.name)return;this._loading=!0,this._message=null;const t=await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/info`);this._info=t.ok?await t.json():null,this._loading=!1}async _toggle(){var i;const t=((i=this._info)==null?void 0:i.enabled)!==!1?"disable":"enable",s=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/${t}`,{method:"POST"})).json();this._message={type:s.ok?"success":"error",text:s.message||`${t} failed`},await this._fetchInfo()}async _remove(){const e=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}`,{method:"DELETE"})).json();e.ok?(window.history.pushState({},"",`/settings/${this.kind}`),window.dispatchEvent(new PopStateEvent("popstate"))):this._message={type:"error",text:e.message||"Remove failed"}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;if(!this._info)return a`<p>Plugin not found.</p>`;const t=this._info,e=t.enabled!==!1,s=`/settings/${this.kind}/${this.name}`;return a`
+  `);customElements.define("shenas-settings",g);class b extends l{constructor(){super(),this.apiBase="/api",this.kind="",this.name="",this.activeTab="details",this._info=null,this._loading=!0,this._message=null}willUpdate(t){(t.has("kind")||t.has("name"))&&this._fetchInfo()}async _fetchInfo(){if(!this.kind||!this.name)return;this._loading=!0,this._message=null;const t=await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/info`);this._info=t.ok?await t.json():null,this._loading=!1}async _toggle(){var i;const t=((i=this._info)==null?void 0:i.enabled)!==!1?"disable":"enable",s=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/${t}`,{method:"POST"})).json();this._message={type:s.ok?"success":"error",text:s.message||`${t} failed`},await this._fetchInfo()}async _remove(){const e=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}`,{method:"DELETE"})).json();e.ok?(window.history.pushState({},"",`/settings/${this.kind}`),window.dispatchEvent(new PopStateEvent("popstate"))):this._message={type:"error",text:e.message||"Remove failed"}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;if(!this._info)return a`<p>Plugin not found.</p>`;const t=this._info,e=t.enabled!==!1,s=`/settings/${this.kind}/${this.name}`;return a`
       <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
 
       <h2>${t.display_name||t.name}</h2>
@@ -408,7 +410,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
         <div class="state-row">
           <span class="state-label">Status</span>
           <span class="state-value">
-            <span class="status-dot ${e?"green":"red"}"></span>
+            <status-dot ?enabled=${e}></status-dot>
           </span>
         </div>
         ${this._stateRow("Added",t.added_at)}
@@ -427,7 +429,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
         <span class="state-label">${t}</span>
         <span class="state-value">${e.slice(0,19)}</span>
       </div>
-    `:""}}o(g,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},activeTab:{type:String,attribute:"active-tab"},_info:{state:!0},_loading:{state:!0},_message:{state:!0}}),o(g,"styles",c`
+    `:""}}n(b,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},activeTab:{type:String,attribute:"active-tab"},_info:{state:!0},_loading:{state:!0},_message:{state:!0}}),n(b,"styles",c`
     :host {
       display: block;
     }
@@ -487,20 +489,6 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
     .disabled {
       color: #c62828;
       font-weight: 600;
-    }
-    .status-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-right: 6px;
-      vertical-align: middle;
-    }
-    .status-dot.green {
-      background: #2e7d32;
-    }
-    .status-dot.red {
-      background: #c62828;
     }
     .actions {
       display: flex;
@@ -568,7 +556,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
       color: #888;
       font-style: italic;
     }
-  `);customElements.define("shenas-plugin-detail",g);class u extends l{constructor(){super(),this.apiBase="/api",this.source="",this._transforms=[],this._loading=!0,this._editing=null,this._editSql="",this._message=null,this._previewRows=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const t=this.source?`?source=${this.source}`:"",e=await fetch(`${this.apiBase}/transforms${t}`);this._transforms=e.ok?await e.json():[],this._loading=!1}async _toggle(t){const e=t.enabled?"disable":"enable";await fetch(`${this.apiBase}/transforms/${t.id}/${e}`,{method:"POST"}),await this._fetchAll()}async _delete(t){const s=await(await fetch(`${this.apiBase}/transforms/${t.id}`,{method:"DELETE"})).json();s.ok?(this._message={type:"success",text:s.message},await this._fetchAll()):this._message={type:"error",text:s.detail||s.message||"Delete failed"}}_startEdit(t){this._editing=t.id,this._editSql=t.sql,this._previewRows=null}_cancelEdit(){this._editing=null,this._editSql="",this._previewRows=null}async _saveEdit(){const t=await fetch(`${this.apiBase}/transforms/${this._editing}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({sql:this._editSql})});if(t.ok)this._message={type:"success",text:"Transform updated"},this._editing=null,await this._fetchAll();else{const e=await t.json();this._message={type:"error",text:e.detail||"Update failed"}}}async _preview(){const t=await fetch(`${this.apiBase}/transforms/${this._editing}/test?limit=5`,{method:"POST"});if(t.ok)this._previewRows=await t.json();else{const e=await t.json();this._message={type:"error",text:e.detail||"Preview failed"}}}render(){return this._loading?a`<p class="loading">Loading transforms...</p>`:a`
+  `);customElements.define("shenas-plugin-detail",b);class u extends l{constructor(){super(),this.apiBase="/api",this.source="",this._transforms=[],this._loading=!0,this._editing=null,this._editSql="",this._message=null,this._previewRows=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const t=this.source?`?source=${this.source}`:"",e=await fetch(`${this.apiBase}/transforms${t}`);this._transforms=e.ok?await e.json():[],this._loading=!1}async _toggle(t){const e=t.enabled?"disable":"enable";await fetch(`${this.apiBase}/transforms/${t.id}/${e}`,{method:"POST"}),await this._fetchAll()}async _delete(t){const s=await(await fetch(`${this.apiBase}/transforms/${t.id}`,{method:"DELETE"})).json();s.ok?(this._message={type:"success",text:s.message},await this._fetchAll()):this._message={type:"error",text:s.detail||s.message||"Delete failed"}}_startEdit(t){this._editing=t.id,this._editSql=t.sql,this._previewRows=null}_cancelEdit(){this._editing=null,this._editSql="",this._previewRows=null}async _saveEdit(){const t=await fetch(`${this.apiBase}/transforms/${this._editing}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({sql:this._editSql})});if(t.ok)this._message={type:"success",text:"Transform updated"},this._editing=null,await this._fetchAll();else{const e=await t.json();this._message={type:"error",text:e.detail||"Update failed"}}}async _preview(){const t=await fetch(`${this.apiBase}/transforms/${this._editing}/test?limit=5`,{method:"POST"});if(t.ok)this._previewRows=await t.json();else{const e=await t.json();this._message={type:"error",text:e.detail||"Preview failed"}}}render(){return this._loading?a`<p class="loading">Loading transforms...</p>`:a`
       ${this._message?a`<div class="message ${this._message.type}">
             ${this._message.text}
           </div>`:""}
@@ -599,7 +587,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
                   ${t.is_default?a`<span class="default-badge">default</span>`:""}
                 </td>
                 <td class="status">
-                  <span class="status-dot ${t.enabled?"green":"red"}"></span>
+                  <status-dot ?enabled=${t.enabled}></status-dot>
                 </td>
                 <td class="actions">
                   ${t.is_default?a`<button @click=${()=>this._startEdit(t)}>View</button>`:a`<button @click=${()=>this._startEdit(t)}>Edit</button>`}
@@ -653,7 +641,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
           </tbody>
         </table>
       </div>
-    `}}o(u,"properties",{apiBase:{type:String,attribute:"api-base"},source:{type:String},_transforms:{state:!0},_loading:{state:!0},_editing:{state:!0},_editSql:{state:!0},_message:{state:!0},_previewRows:{state:!0}}),o(u,"styles",c`
+    `}}n(u,"properties",{apiBase:{type:String,attribute:"api-base"},source:{type:String},_transforms:{state:!0},_loading:{state:!0},_editing:{state:!0},_editSql:{state:!0},_message:{state:!0},_previewRows:{state:!0}}),n(u,"styles",c`
     :host {
       display: block;
     }
@@ -686,20 +674,6 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
     }
     .status {
       font-size: 0.85rem;
-    }
-    .status-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-right: 4px;
-      vertical-align: middle;
-    }
-    .status-dot.green {
-      background: #2e7d32;
-    }
-    .status-dot.red {
-      background: #c62828;
     }
     .actions {
       white-space: nowrap;
