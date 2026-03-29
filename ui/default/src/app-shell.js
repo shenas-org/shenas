@@ -46,7 +46,7 @@ class ShenasApp extends LitElement {
       :host {
         display: block;
         height: 100vh;
-        color: #222;
+        color: var(--shenas-text, #222);
       }
       .layout {
         display: flex;
@@ -56,7 +56,7 @@ class ShenasApp extends LitElement {
         flex-shrink: 0;
         overflow-y: auto;
         padding: 1.5rem 1rem;
-        border-right: 1px solid #e0e0e0;
+        border-right: 1px solid var(--shenas-border, #e0e0e0);
       }
       .panel-middle {
         flex: 1;
@@ -68,7 +68,7 @@ class ShenasApp extends LitElement {
         flex-shrink: 0;
         overflow-y: auto;
         padding: 1.5rem 1rem;
-        border-left: 1px solid #e0e0e0;
+        border-left: 1px solid var(--shenas-border, #e0e0e0);
       }
       .divider {
         width: 4px;
@@ -78,7 +78,7 @@ class ShenasApp extends LitElement {
       }
       .divider:hover,
       .divider.dragging {
-        background: #d0d0d0;
+        background: var(--shenas-border, #e0e0e0);
       }
       .header {
         display: flex;
@@ -104,7 +104,7 @@ class ShenasApp extends LitElement {
         display: block;
         padding: 0.5rem 0.8rem;
         font-size: 0.9rem;
-        color: #666;
+        color: var(--shenas-text-secondary, #666);
         text-decoration: none;
         border-radius: 4px;
         border: none;
@@ -113,12 +113,12 @@ class ShenasApp extends LitElement {
         text-align: left;
       }
       .nav-item:hover {
-        background: #f5f5f5;
-        color: #222;
+        background: var(--shenas-bg-hover, #f5f5f5);
+        color: var(--shenas-text, #222);
       }
       .nav-item[aria-selected="true"] {
-        background: #f0f4ff;
-        color: #222;
+        background: var(--shenas-bg-selected, #f0f4ff);
+        color: var(--shenas-text, #222);
         font-weight: 600;
       }
       .component-host {
@@ -127,7 +127,7 @@ class ShenasApp extends LitElement {
       .db-section h4 {
         font-size: 0.75rem;
         text-transform: uppercase;
-        color: #888;
+        color: var(--shenas-text-muted, #888);
         letter-spacing: 0.05em;
         margin: 1rem 0 0.4rem;
       }
@@ -136,11 +136,11 @@ class ShenasApp extends LitElement {
       }
       .db-meta {
         font-size: 0.8rem;
-        color: #666;
+        color: var(--shenas-text-secondary, #666);
         margin: 0 0 0.8rem;
       }
       .db-meta code {
-        background: #f0f0f0;
+        background: var(--shenas-border-light, #f0f0f0);
         padding: 1px 4px;
         border-radius: 2px;
         font-size: 0.75rem;
@@ -150,21 +150,21 @@ class ShenasApp extends LitElement {
         justify-content: space-between;
         padding: 0.2rem 0;
         font-size: 0.8rem;
-        border-bottom: 1px solid #f5f5f5;
+        border-bottom: 1px solid var(--shenas-border-light, #f0f0f0);
       }
       .db-table-row:last-child {
         border-bottom: none;
       }
       .db-table-name {
-        color: #333;
+        color: var(--shenas-text, #222);
       }
       .db-table-count {
-        color: #888;
+        color: var(--shenas-text-muted, #888);
         font-size: 0.75rem;
       }
       .db-date-range {
         font-size: 0.7rem;
-        color: #aaa;
+        color: var(--shenas-text-faint, #aaa);
         display: block;
       }
       .inspect-header {
@@ -176,7 +176,7 @@ class ShenasApp extends LitElement {
       .inspect-header h4 {
         margin: 0;
         font-size: 0.85rem;
-        color: #222;
+        color: var(--shenas-text, #222);
         text-transform: none;
         letter-spacing: normal;
       }
@@ -184,13 +184,13 @@ class ShenasApp extends LitElement {
         background: none;
         border: none;
         cursor: pointer;
-        color: #888;
+        color: var(--shenas-text-muted, #888);
         font-size: 1rem;
         padding: 0;
         line-height: 1;
       }
       .inspect-close:hover {
-        color: #222;
+        color: var(--shenas-text, #222);
       }
       .inspect-table {
         width: 100%;
@@ -201,14 +201,14 @@ class ShenasApp extends LitElement {
       .inspect-table th {
         text-align: left;
         padding: 0.25rem 0.4rem;
-        color: #666;
+        color: var(--shenas-text-secondary, #666);
         font-weight: 500;
-        border-bottom: 1px solid #e0e0e0;
+        border-bottom: 1px solid var(--shenas-border, #e0e0e0);
         white-space: nowrap;
       }
       .inspect-table td {
         padding: 0.2rem 0.4rem;
-        border-bottom: 1px solid #f5f5f5;
+        border-bottom: 1px solid var(--shenas-border-light, #f0f0f0);
         max-width: 120px;
         overflow: hidden;
         text-overflow: ellipsis;

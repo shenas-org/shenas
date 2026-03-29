@@ -29,7 +29,7 @@ class CommandPalette extends LitElement {
       width: 90%;
       max-width: 560px;
       margin: 80px auto 0;
-      background: #fff;
+      background: var(--shenas-bg, #fff);
       border-radius: 8px;
       box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
       display: flex;
@@ -41,10 +41,10 @@ class CommandPalette extends LitElement {
       display: flex;
       align-items: center;
       padding: 0 1rem;
-      border-bottom: 1px solid #e0e0e0;
+      border-bottom: 1px solid var(--shenas-border, #e0e0e0);
     }
     .search-icon {
-      color: #aaa;
+      color: var(--shenas-text-faint, #aaa);
       font-size: 0.9rem;
       margin-right: 0.5rem;
     }
@@ -58,7 +58,7 @@ class CommandPalette extends LitElement {
     }
     .hint {
       font-size: 0.7rem;
-      color: #aaa;
+      color: var(--shenas-text-faint, #aaa);
       font-family: monospace;
     }
     .results {
@@ -76,19 +76,19 @@ class CommandPalette extends LitElement {
     }
     .item:hover,
     .item.selected {
-      background: #f0f4ff;
+      background: var(--shenas-bg-selected, #f0f4ff);
     }
     .item-category {
-      color: #888;
+      color: var(--shenas-text-muted, #888);
       font-size: 0.75rem;
       min-width: 60px;
     }
     .item-label {
       flex: 1;
-      color: #222;
+      color: var(--shenas-text, #222);
     }
     .item-desc {
-      color: #aaa;
+      color: var(--shenas-text-faint, #aaa);
       font-size: 0.75rem;
       max-width: 200px;
       overflow: hidden;
@@ -98,7 +98,7 @@ class CommandPalette extends LitElement {
     .empty {
       padding: 1.5rem;
       text-align: center;
-      color: #888;
+      color: var(--shenas-text-muted, #888);
       font-size: 0.85rem;
     }
   `;
