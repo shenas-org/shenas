@@ -131,5 +131,7 @@ def index() -> HTMLResponse:
 
 @app.get("/{path:path}", response_class=HTMLResponse, include_in_schema=False)
 def spa_fallback(request: Request, path: str) -> HTMLResponse:
-    """SPA catch-all: serve the UI HTML for any path not matched by API or static mounts."""
+    """SPA catch-all: serve the UI HTML for paths without file extensions."""
+    if "." in path.split("/")[-1]:
+        return HTMLResponse(status_code=404, content="Not found")
     return _serve_ui_html()

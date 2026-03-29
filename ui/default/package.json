@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@lit-labs/router": "^0.1.4",
     "lit": "^3.2.0"
   },
   "devDependencies": {
