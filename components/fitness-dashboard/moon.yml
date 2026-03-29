@@ -4,3 +4,6 @@ id: 'component-fitness-dashboard'
 language: 'typescript'
 stack: 'frontend'
 tags: ['component']
+
+dependsOn:
+  - 'vendor'

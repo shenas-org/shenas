@@ -7,6 +7,8 @@ packages/
 dist/
 node_modules/
 components/*/shenas_components/*/static/
+ui/*/shenas_ui/*/static/*.js
+vendor/dist/
 htmlcov/
 .coverage
 .cache
