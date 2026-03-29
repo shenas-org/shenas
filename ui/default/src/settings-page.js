@@ -181,6 +181,11 @@ class SettingsPage extends LitElement {
       <div class="layout">
         <nav class="sidebar">
           <ul>
+            <li>
+              <a href="/settings/overview" aria-selected=${this.activeKind === "overview"}>
+                Overview
+              </a>
+            </li>
             ${PLUGIN_KINDS.map(
               ({ id, label }) => html`
                 <li>
@@ -198,7 +203,11 @@ class SettingsPage extends LitElement {
             )}
           </ul>
         </nav>
-        <div class="content">${this._renderKind(this.activeKind)}</div>
+        <div class="content">
+          ${this.activeKind === "overview"
+            ? html`<shenas-pipeline-overview api-base="${this.apiBase}"></shenas-pipeline-overview>`
+            : this._renderKind(this.activeKind)}
+        </div>
       </div>
     `;
   }
