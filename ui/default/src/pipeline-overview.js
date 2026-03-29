@@ -1,9 +1,8 @@
 import { LitElement, html, css } from "lit";
-import cytoscape from "cytoscape";
-import ELK from "elkjs";
+import cytoscape, { dagre } from "cytoscape";
 import { utilityStyles } from "./shared-styles.js";
 
-const elk = new ELK();
+let _dagreRegistered = false;
 
 class PipelineOverview extends LitElement {
   static properties = {
@@ -156,46 +155,14 @@ class PipelineOverview extends LitElement {
     this._empty = transforms.length === 0;
   }
 
-  async _layoutWithElk(cy) {
-    const nodes = cy.nodes().map((n) => ({
-      id: n.id(),
-      width: 120,
-      height: 40,
-    }));
-    const edges = cy.edges().map((e) => ({
-      id: e.id(),
-      sources: [e.source().id()],
-      targets: [e.target().id()],
-    }));
-
-    const graph = await elk.layout({
-      id: "root",
-      layoutOptions: {
-        "elk.algorithm": "layered",
-        "elk.direction": "RIGHT",
-        "elk.spacing.nodeNode": "60",
-        "elk.layered.spacing.nodeNodeBetweenLayers": "150",
-        "elk.padding": "[top=30,left=30,bottom=30,right=30]",
-      },
-      children: nodes,
-      edges,
-    });
-
-    cy.batch(() => {
-      for (const elkNode of graph.children) {
-        const cyNode = cy.getElementById(elkNode.id);
-        cyNode.position({
-          x: elkNode.x + elkNode.width / 2,
-          y: elkNode.y + elkNode.height / 2,
-        });
-      }
-    });
-    cy.fit(undefined, 30);
-  }
-
-  async _initCytoscape() {
+  _initCytoscape() {
     const container = this.renderRoot.querySelector("#cy");
     if (!container || !this._elements) return;
+
+    if (!_dagreRegistered) {
+      cytoscape.use(dagre);
+      _dagreRegistered = true;
+    }
 
     if (this._cy) {
       this._cy.destroy();
@@ -257,13 +224,17 @@ class PipelineOverview extends LitElement {
           },
         },
       ],
-      layout: { name: "preset" },
+      layout: {
+        name: "dagre",
+        rankDir: "LR",
+        nodeSep: 60,
+        rankSep: 150,
+        padding: 30,
+      },
       userZoomingEnabled: true,
       userPanningEnabled: true,
       boxSelectionEnabled: false,
     });
-
-    await this._layoutWithElk(this._cy);
 
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();

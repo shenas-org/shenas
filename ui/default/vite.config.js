@@ -10,7 +10,7 @@ export default defineConfig({
     cssCodeSplit: false,
     rollupOptions: {
       input: "src/index.js",
-      external: ["lit", /^lit\//, /^@lit-labs\//, "cytoscape", "elkjs"],
+      external: ["lit", /^lit\//, /^@lit-labs\//, "cytoscape"],
       output: {
         entryFileNames: "default.js",
         assetFileNames: "default.[ext]",
