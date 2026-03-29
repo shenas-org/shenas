@@ -13,6 +13,7 @@ class PluginDetail extends LitElement {
     _hasConfig: { state: true },
     _hasAuth: { state: true },
     _tables: { state: true },
+    _syncing: { state: true },
   };
 
   static styles = [
@@ -34,6 +35,10 @@ class PluginDetail extends LitElement {
         display: flex;
         justify-content: space-between;
         align-items: center;
+      }
+      .title-actions {
+        display: flex;
+        gap: 0.5rem;
       }
       h2 {
         margin: 0;
@@ -101,6 +106,7 @@ class PluginDetail extends LitElement {
     this._hasConfig = false;
     this._hasAuth = false;
     this._tables = [];
+    this._syncing = false;
   }
 
   willUpdate(changed) {
@@ -157,6 +163,30 @@ class PluginDetail extends LitElement {
     this.dispatchEvent(new CustomEvent("plugin-state-changed", { bubbles: true, composed: true }));
   }
 
+  async _sync() {
+    this._syncing = true;
+    this._message = null;
+    try {
+      const resp = await fetch(`${this.apiBase}/sync/${this.name}`, { method: "POST" });
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let lastLine = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const text = decoder.decode(value);
+        for (const line of text.split("\n")) {
+          if (line.startsWith("data: ")) lastLine = line.slice(6);
+        }
+      }
+      this._message = { type: "success", text: lastLine || "Sync complete" };
+      await this._fetchInfo();
+    } catch (e) {
+      this._message = { type: "error", text: `Sync failed: ${e.message}` };
+    }
+    this._syncing = false;
+  }
+
   async _remove() {
     const resp = await fetch(
       `${this.apiBase}/plugins/${this.kind}/${this.name}`,
@@ -189,7 +219,12 @@ class PluginDetail extends LitElement {
 
       <div class="title-row">
         <h2>${info.display_name || info.name} <span class="kind-badge">${info.kind}</span></h2>
-        <button class="danger" @click=${this._remove}>Remove</button>
+        <div class="title-actions">
+          ${this.kind === "pipe"
+            ? html`<button @click=${this._sync} ?disabled=${this._syncing}>${this._syncing ? "Syncing..." : "Sync"}</button>`
+            : ""}
+          <button class="danger" @click=${this._remove}>Remove</button>
+        </div>
       </div>
 
       ${this._hasConfig || this._hasAuth
