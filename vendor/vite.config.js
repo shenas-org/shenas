@@ -6,6 +6,7 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       treeshake: false,
+      preserveEntrySignatures: "exports-only",
       input: {
         lit: "src/lit.js",
         "apache-arrow": "src/apache-arrow.js",
