@@ -75,9 +75,9 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
 
 def _ensure_plugin_table(con: duckdb.DuckDBPyConnection) -> None:
     """Create the plugin state table if it doesn't exist."""
-    con.execute("CREATE SCHEMA IF NOT EXISTS system")
+    con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
     con.execute("""
-        CREATE TABLE IF NOT EXISTS system.plugins (
+        CREATE TABLE IF NOT EXISTS shenas_system.plugins (
             kind VARCHAR NOT NULL,
             name VARCHAR NOT NULL,
             enabled BOOLEAN NOT NULL DEFAULT TRUE,
@@ -97,7 +97,7 @@ def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
     cur.execute("USE db")
     row = cur.execute(
         "SELECT kind, name, enabled, added_at, updated_at, enabled_at, disabled_at "
-        "FROM system.plugins WHERE kind = ? AND name = ?",
+        "FROM shenas_system.plugins WHERE kind = ? AND name = ?",
         [kind, name],
     ).fetchone()
     cur.close()
@@ -122,12 +122,12 @@ def get_all_plugin_states(kind: str | None = None) -> list[dict[str, Any]]:
     if kind:
         rows = cur.execute(
             "SELECT kind, name, enabled, added_at, updated_at, enabled_at, disabled_at "
-            "FROM system.plugins WHERE kind = ? ORDER BY name",
+            "FROM shenas_system.plugins WHERE kind = ? ORDER BY name",
             [kind],
         ).fetchall()
     else:
         rows = cur.execute(
-            "SELECT kind, name, enabled, added_at, updated_at, enabled_at, disabled_at FROM system.plugins ORDER BY kind, name"
+            "SELECT kind, name, enabled, added_at, updated_at, enabled_at, disabled_at FROM shenas_system.plugins ORDER BY kind, name"
         ).fetchall()
     cur.close()
     return [
@@ -153,26 +153,26 @@ def upsert_plugin_state(kind: str, name: str, enabled: bool = True) -> None:
         if enabled != existing["enabled"]:
             if enabled:
                 con.execute(
-                    f"UPDATE system.plugins SET enabled = TRUE, enabled_at = {now}, updated_at = {now} "
+                    f"UPDATE shenas_system.plugins SET enabled = TRUE, enabled_at = {now}, updated_at = {now} "
                     "WHERE kind = ? AND name = ?",
                     [kind, name],
                 )
             else:
                 con.execute(
-                    f"UPDATE system.plugins SET enabled = FALSE, disabled_at = {now}, updated_at = {now} "
+                    f"UPDATE shenas_system.plugins SET enabled = FALSE, disabled_at = {now}, updated_at = {now} "
                     "WHERE kind = ? AND name = ?",
                     [kind, name],
                 )
         else:
             con.execute(
-                f"UPDATE system.plugins SET updated_at = {now} WHERE kind = ? AND name = ?",
+                f"UPDATE shenas_system.plugins SET updated_at = {now} WHERE kind = ? AND name = ?",
                 [kind, name],
             )
     else:
         en_at = now if enabled else "NULL"
         dis_at = "NULL" if enabled else now
         con.execute(
-            f"INSERT INTO system.plugins (kind, name, enabled, added_at, enabled_at, disabled_at) "
+            f"INSERT INTO shenas_system.plugins (kind, name, enabled, added_at, enabled_at, disabled_at) "
             f"VALUES (?, ?, ?, {now}, {en_at}, {dis_at})",
             [kind, name, enabled],
         )
@@ -181,7 +181,7 @@ def upsert_plugin_state(kind: str, name: str, enabled: bool = True) -> None:
 def remove_plugin_state(kind: str, name: str) -> None:
     """Remove plugin state from the DB."""
     con = connect()
-    con.execute("DELETE FROM system.plugins WHERE kind = ? AND name = ?", [kind, name])
+    con.execute("DELETE FROM shenas_system.plugins WHERE kind = ? AND name = ?", [kind, name])
 
 
 def is_plugin_enabled(kind: str, name: str) -> bool:
