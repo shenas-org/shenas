@@ -101,9 +101,6 @@ class TransformsPage extends LitElement {
       .form-full {
         grid-column: 1 / -1;
       }
-      .add-btn {
-        margin-top: 1rem;
-      }
     `,
   ];
 
@@ -278,10 +275,9 @@ class TransformsPage extends LitElement {
         : ""}
       ${this._editing ? this._renderEditor() : ""}
       ${this._creating ? this._renderCreateForm() : ""}
-      ${!this._creating && !this._editing
-        ? html`<button class="add-btn" @click=${this._startCreate}>Add transform</button>`
-        : ""}
       <shenas-data-list
+        ?show-add=${!this._creating && !this._editing}
+        @add=${this._startCreate}
         .columns=${[
           { key: "id", label: "ID", class: "muted" },
           { label: "Source", class: "mono", render: (t) => `${t.source_duckdb_schema}.${t.source_duckdb_table}` },
