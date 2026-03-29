@@ -99,15 +99,15 @@ def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) ->
                 schemas_to_copy.append(s)
 
         for schema in schemas_to_copy:
-            server_con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+            server_con.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
             tables = mem_con.execute(
                 f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}' AND table_catalog = 'memory'"
             ).fetchall()
             for (table_name,) in tables:
-                tmp_name = f"_flush_{schema}_{table_name}"
-                arrow_tbl = mem_con.execute(f"SELECT * FROM memory.{schema}.{table_name}").arrow()
+                tmp_name = f"_flush_{schema}_{table_name}".replace("-", "_")
+                arrow_tbl = mem_con.execute(f'SELECT * FROM memory."{schema}"."{table_name}"').arrow()
                 server_con.register(tmp_name, arrow_tbl)
-                server_con.execute(f"CREATE OR REPLACE TABLE {schema}.{table_name} AS SELECT * FROM {tmp_name}")
+                server_con.execute(f'CREATE OR REPLACE TABLE "{schema}"."{table_name}" AS SELECT * FROM {tmp_name}')
                 server_con.unregister(tmp_name)
 
     mem_con.close()
