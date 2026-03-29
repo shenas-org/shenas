@@ -10,20 +10,9 @@ app = typer.Typer(name="shenas", help="Start the shenas server.", invoke_without
 DEFAULT_CERT_DIR = Path(".shenas")
 
 
-@app.callback()
-def _default(ctx: typer.Context) -> None:
-    if ctx.invoked_subcommand is None:
-        serve(
-            host="127.0.0.1",
-            port=7280,
-            cert_file=DEFAULT_CERT_DIR / "cert.pem",
-            key_file=DEFAULT_CERT_DIR / "key.pem",
-            no_tls=False,
-        )
-
-
-@app.command()
-def serve(
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
     host: str = typer.Option("127.0.0.1", help="Bind host"),
     port: int = typer.Option(7280, help="Bind port"),
     cert_file: Path = typer.Option(DEFAULT_CERT_DIR / "cert.pem", "--cert", help="TLS certificate file"),
@@ -31,7 +20,10 @@ def serve(
     no_tls: bool = typer.Option(False, "--no-tls", help="Run plain HTTP (for desktop app sidecar)"),
     ui: str = typer.Option("default", "--ui", help="UI plugin to render as the app shell"),
 ) -> None:
-    """Start the UI web server."""
+    """Start the shenas server."""
+    if ctx.invoked_subcommand is not None:
+        return
+
     from app.server import app as fastapi_app
 
     fastapi_app.state.ui_name = ui

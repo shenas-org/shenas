@@ -117,7 +117,7 @@ class TestShenasCLI:
 
         result = runner.invoke(
             shenas_app,
-            ["serve", "--cert", str(tmp_path / "nonexistent.pem"), "--key", str(tmp_path / "nonexistent.key")],
+            ["--cert", str(tmp_path / "nonexistent.pem"), "--key", str(tmp_path / "nonexistent.key")],
             catch_exceptions=False,
         )
         assert result.exit_code == 1
