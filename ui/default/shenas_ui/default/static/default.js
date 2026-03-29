@@ -714,6 +714,10 @@ var I=Object.defineProperty;var F=(h,e,t)=>e in h?I(h,e,{enumerable:!0,configura
         flex-direction: column;
         min-height: 0;
       }
+      .component-host > * {
+        flex: 1;
+        min-height: 0;
+      }
       .db-section h4 {
         font-size: 0.75rem;
         text-transform: uppercase;
