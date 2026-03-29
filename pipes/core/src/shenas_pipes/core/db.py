@@ -66,12 +66,12 @@ def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) ->
     """Copy all tables from an in-memory dlt connection into the encrypted DB."""
     global _active_con
 
-    # Close any active connection to avoid "already attached" conflicts
+    # Close the pipe's own connection if open
     if _active_con is not None:
         _active_con.close()
         _active_con = None
 
-    # Also close the server's pooled connections to release the file lock
+    # Close the server's pooled connection to release the file lock
     try:
         from app.db import close_all
 
@@ -79,12 +79,23 @@ def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) ->
     except ImportError:
         pass
 
+    import gc
+
+    gc.collect()
+
     key = get_db_key()
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     mem_con.execute(f"ATTACH '{DB_PATH}' AS enc (ENCRYPTION_KEY '{key}')")
 
-    # Get all schemas written by dlt (dataset + staging)
+    _flush_via_attach(mem_con, dataset_name)
+
+    mem_con.execute("DETACH enc")
+    mem_con.close()
+
+
+def _flush_via_attach(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) -> None:
+    """Copy tables using ATTACH (for standalone/direct CLI usage)."""
     schemas_to_copy = []
     all_schemas = [r[0] for r in mem_con.execute("SELECT schema_name FROM information_schema.schemata").fetchall()]
     for s in all_schemas:
@@ -99,6 +110,3 @@ def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) ->
         for (table_name,) in tables:
             mem_con.execute(f"DROP TABLE IF EXISTS enc.{schema}.{table_name}")
             mem_con.execute(f"CREATE TABLE enc.{schema}.{table_name} AS SELECT * FROM memory.{schema}.{table_name}")
-
-    mem_con.execute("DETACH enc")
-    mem_con.close()
