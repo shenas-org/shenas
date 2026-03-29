@@ -189,11 +189,13 @@ class ShenasApp extends LitElement {
         ${this._renderTab("database", "Database")}
         ${this._renderTab("pipes", "Pipes")}
         ${this._components.map((c) => this._renderTab(c.name, c.name))}
+        ${this._renderTab("settings", "Settings")}
       </div>
 
       ${this._activeTab === "database" ? this._renderDb() : ""}
       ${this._activeTab === "pipes" ? this._renderPipes() : ""}
       ${this._renderComponentTab()}
+      ${this._activeTab === "settings" ? html`<shenas-settings api-base="${this.apiBase}"></shenas-settings>` : ""}
     `;
   }
 
