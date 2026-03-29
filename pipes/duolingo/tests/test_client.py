@@ -19,7 +19,16 @@ class TestLogin:
         assert jwt == "token-abc"
 
     @patch("shenas_pipes.duolingo.client.httpx.post")
-    def test_invalid_credentials(self, mock_post: MagicMock) -> None:
+    def test_invalid_credentials_401(self, mock_post: MagicMock) -> None:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        mock_post.return_value = mock_resp
+
+        with pytest.raises(ValueError, match="Invalid credentials"):
+            DuolingoClient.login("user", "wrong")
+
+    @patch("shenas_pipes.duolingo.client.httpx.post")
+    def test_invalid_credentials_403(self, mock_post: MagicMock) -> None:
         mock_resp = MagicMock()
         mock_resp.status_code = 403
         mock_post.return_value = mock_resp

@@ -31,12 +31,12 @@ class DuolingoClient:
     def login(username: str, password: str) -> str:
         """Authenticate with Duolingo and return a JWT token."""
         resp = httpx.post(
-            f"{BASE_URL}/login",
+            f"{BASE_URL}/2017-06-30/login",
             json={"login": username, "password": password},
-            headers={"User-Agent": USER_AGENT},
+            headers={"User-Agent": USER_AGENT, "Content-Type": "application/json"},
             timeout=30.0,
         )
-        if resp.status_code == 403:
+        if resp.status_code in (401, 403):
             raise ValueError("Invalid credentials or account locked")
         resp.raise_for_status()
         jwt = resp.headers.get("jwt")
