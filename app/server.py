@@ -131,7 +131,7 @@ def _serve_ui_html() -> HTMLResponse:
             content = html_file.read_text()
             theme = _get_active_theme()
             if theme and theme.get("css"):
-                css_link = f'<link rel="stylesheet" href="/themes/{theme["name"]}/{theme["css"]}">'
+                css_link = f'<link rel="stylesheet" href="/themes/{theme["name"]}/{theme["css"]}" data-shenas-theme>'
                 content = content.replace("</head>", f"  {css_link}\n  </head>")
             return HTMLResponse(content=content)
     return HTMLResponse(content=_FALLBACK_HTML.format(ui_name=app.state.ui_name))
