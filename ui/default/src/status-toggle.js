@@ -15,18 +15,18 @@ class StatusToggle extends LitElement {
       width: 28px;
       height: 16px;
       border-radius: 8px;
-      background: #c62828;
+      background: var(--shenas-error, #c62828);
       position: relative;
       transition: background 0.2s;
     }
     :host([enabled]) .track {
-      background: #2e7d32;
+      background: var(--shenas-success, #2e7d32);
     }
     .knob {
       width: 12px;
       height: 12px;
       border-radius: 50%;
-      background: #fff;
+      background: var(--shenas-bg, #fff);
       position: absolute;
       top: 2px;
       left: 2px;

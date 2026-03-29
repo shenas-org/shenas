@@ -23,9 +23,9 @@ class PipelineOverview extends LitElement {
         width: 100%;
         flex: 1;
         min-height: 200px;
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--shenas-border, #e0e0e0);
         border-radius: 8px;
-        background: #fafafa;
+        background: var(--shenas-bg-secondary, #fafafa);
         box-sizing: border-box;
       }
       .legend {
@@ -33,7 +33,7 @@ class PipelineOverview extends LitElement {
         gap: 1.5rem;
         margin-top: 0.8rem;
         font-size: 0.8rem;
-        color: #666;
+        color: var(--shenas-text-secondary, #666);
       }
       .legend-item {
         display: flex;
@@ -45,14 +45,14 @@ class PipelineOverview extends LitElement {
         height: 10px;
         border-radius: 3px;
       }
-      .legend-dot.pipe { background: #4a90d9; }
-      .legend-dot.schema { background: #66bb6a; }
+      .legend-dot.pipe { background: var(--shenas-node-pipe, #4a90d9); }
+      .legend-dot.schema { background: var(--shenas-node-schema, #66bb6a); }
       .legend-line {
         width: 20px;
         height: 2px;
       }
-      .legend-line.enabled { background: #999; }
-      .legend-line.disabled { background: #ccc; border-top: 2px dashed #ccc; height: 0; }
+      .legend-line.enabled { background: var(--shenas-text-muted, #888); }
+      .legend-line.disabled { background: var(--shenas-text-faint, #aaa); border-top: 2px dashed var(--shenas-text-faint, #aaa); height: 0; }
     `,
   ];
 

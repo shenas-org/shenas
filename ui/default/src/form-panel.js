@@ -28,9 +28,9 @@ class FormPanel extends LitElement {
         display: block;
         margin: 1rem 0;
         padding: 1rem;
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--shenas-border, #e0e0e0);
         border-radius: 8px;
-        background: #fafafa;
+        background: var(--shenas-bg-secondary, #fafafa);
       }
       h3 {
         margin: 0 0 0.8rem;

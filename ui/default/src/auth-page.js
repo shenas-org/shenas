@@ -24,7 +24,7 @@ class AuthPage extends LitElement {
       }
       .instructions {
         font-size: 0.85rem;
-        color: #555;
+        color: var(--shenas-text-secondary, #666);
         line-height: 1.6;
         margin-bottom: 1rem;
         white-space: pre-line;
@@ -35,13 +35,13 @@ class AuthPage extends LitElement {
       .field label {
         display: block;
         font-size: 0.8rem;
-        color: #666;
+        color: var(--shenas-text-secondary, #666);
         margin-bottom: 0.2rem;
       }
       .field input {
         width: 100%;
         padding: 0.4rem 0.6rem;
-        border: 1px solid #ddd;
+        border: 1px solid var(--shenas-border-input, #ddd);
         border-radius: 4px;
         font-size: 0.85rem;
         box-sizing: border-box;
@@ -55,7 +55,7 @@ class AuthPage extends LitElement {
       .oauth-link {
         display: inline-block;
         margin-top: 0.5rem;
-        color: #0066cc;
+        color: var(--shenas-primary, #0066cc);
       }
     `,
   ];

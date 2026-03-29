@@ -1,0 +1,30 @@
+:root {
+  --shenas-bg: #1a1a2e;
+  --shenas-bg-secondary: #16213e;
+  --shenas-bg-hover: #1f2b47;
+  --shenas-bg-selected: #1a2744;
+  --shenas-text: #e0e0e0;
+  --shenas-text-secondary: #a0a0b0;
+  --shenas-text-muted: #707080;
+  --shenas-text-faint: #505060;
+  --shenas-border: #2a2a3e;
+  --shenas-border-light: #222238;
+  --shenas-border-input: #3a3a50;
+  --shenas-primary: #5b9bd5;
+  --shenas-success: #66bb6a;
+  --shenas-success-bg: #1a2e1a;
+  --shenas-error: #ef5350;
+  --shenas-error-bg: #2e1a1a;
+  --shenas-danger: #ef5350;
+  --shenas-danger-border: #5a2a2a;
+  --shenas-danger-bg: #2e1a1a;
+  --shenas-node-pipe: #5b9bd5;
+  --shenas-node-schema: #66bb6a;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--shenas-bg);
+  color: var(--shenas-text);
+}
