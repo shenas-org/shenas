@@ -57,6 +57,11 @@ class AuthField(BaseModel):
     hide: bool = False
 
 
+class AuthFieldsResponse(BaseModel):
+    fields: list[AuthField] = []
+    instructions: str = ""
+
+
 # --- Auth ---
 
 

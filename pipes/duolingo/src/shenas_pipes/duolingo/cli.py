@@ -10,20 +10,11 @@ app = create_pipe_app("Duolingo commands.")
 
 @app.command()
 def auth() -> None:
-    """Store a Duolingo JWT token in OS keyring.
-
-    Duolingo blocks programmatic login. Extract the token from your browser:
-
-    1. Log into duolingo.com
-    2. Open DevTools (F12) > Console
-    3. Run: document.cookie.match(new RegExp('(^| )jwt_token=([^;]+)'))[0].slice(11)
-    4. Paste the token below
-    """
-    from shenas_pipes.duolingo.auth import _store_jwt
+    """Store a Duolingo JWT token in OS keyring."""
+    from shenas_pipes.duolingo.auth import AUTH_INSTRUCTIONS, _store_jwt
     from shenas_pipes.duolingo.client import DuolingoClient
 
-    console.print("Extract your JWT from the browser DevTools console:")
-    console.print("  document.cookie.match(new RegExp('(^| )jwt_token=([^;]+)'))[0].slice(11)", style="dim")
+    console.print(f"\n{AUTH_INSTRUCTIONS}\n")
     jwt = typer.prompt("JWT token")
 
     console.print("Verifying token...", style="dim")

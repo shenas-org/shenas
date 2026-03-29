@@ -87,7 +87,7 @@ class ShenasClient:
     def pipes_list(self) -> list[dict[str, Any]]:
         return self._request("GET", "/api/pipes")
 
-    def pipe_auth_fields(self, name: str) -> list[dict[str, Any]]:
+    def pipe_auth_fields(self, name: str) -> dict[str, Any]:
         return self._request("GET", f"/api/auth/{name}/fields")
 
     def pipe_auth(self, name: str, credentials: dict[str, str]) -> dict[str, Any]:

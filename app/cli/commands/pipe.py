@@ -111,10 +111,16 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
 
         # Fetch the credential fields this pipe needs
         try:
-            fields = client.pipe_auth_fields(pipe_name)
+            auth_info = client.pipe_auth_fields(pipe_name)
         except ShenasServerError as exc:
             console.print(f"[red]{exc.detail}[/red]")
             raise typer.Exit(code=1)
+
+        fields = auth_info.get("fields", [])
+        instructions = auth_info.get("instructions", "")
+
+        if instructions:
+            console.print(f"\n{instructions}\n")
 
         # Collect credentials based on the pipe's declared fields
         credentials: dict[str, str] = {}

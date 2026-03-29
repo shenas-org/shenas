@@ -17,8 +17,17 @@ KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "duolingo_jwt"
 
 AUTH_FIELDS: list[dict[str, str | bool]] = [
-    {"name": "jwt_token", "prompt": "JWT token (from browser DevTools)", "hide": False},
+    {"name": "jwt_token", "prompt": "JWT token", "hide": False},
 ]
+
+AUTH_INSTRUCTIONS = (
+    "Duolingo blocks programmatic login. Extract a JWT from your browser:\n"
+    "\n"
+    "  1. Log into duolingo.com\n"
+    "  2. Open DevTools (F12) > Console\n"
+    "  3. Run:  document.cookie.match(/jwt_token=([^;]+)/)[1]\n"
+    "  4. Paste the token below"
+)
 
 
 def _get_stored_jwt() -> str | None:
