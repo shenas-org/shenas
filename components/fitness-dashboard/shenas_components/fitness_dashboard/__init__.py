@@ -14,5 +14,4 @@ COMPONENT = {
     "static_dir": Path(__file__).parent / "static",
     "tag": "shenas-dashboard",
     "entrypoint": "fitness-dashboard.js",
-    "html": "fitness-dashboard.html",
 }
