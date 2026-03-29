@@ -39,7 +39,9 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
     """Start or continue a pipe's auth flow."""
     body = body or AuthRequest()
 
-    mod = _load_auth_module(pipe_name)
+    # For auth_complete and MFA, reuse the cached module to preserve pending state
+    is_continuation = "auth_complete" in body.credentials or "mfa_code" in body.credentials
+    mod = _load_auth_module(pipe_name) if not is_continuation else _get_cached_auth_module(pipe_name)
     auth_fn = getattr(mod, "authenticate", None)
     if auth_fn is None:
         return AuthResponse(ok=False, error=f"Pipe {pipe_name} has no authenticate() function")
@@ -47,11 +49,6 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
     # MFA completion step
     if "mfa_code" in body.credentials:
         return _complete_mfa(pipe_name, mod, body.credentials["mfa_code"])
-
-    # OAuth completion step
-    if "auth_complete" in body.credentials:
-        # Pass through to authenticate() which handles the completion
-        pass
 
     try:
         auth_fn(body.credentials)
@@ -96,6 +93,14 @@ def auth_fields(pipe_name: str) -> AuthFieldsResponse:
         fields=getattr(mod, "AUTH_FIELDS", []),
         instructions=getattr(mod, "AUTH_INSTRUCTIONS", ""),
     )
+
+
+def _get_cached_auth_module(pipe_name: str) -> types.ModuleType:
+    """Get the auth module without reimporting (preserves in-memory state)."""
+    module_name = f"shenas_pipes.{pipe_name}.auth"
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+    return importlib.import_module(module_name)
 
 
 def _load_auth_module(pipe_name: str) -> types.ModuleType:
