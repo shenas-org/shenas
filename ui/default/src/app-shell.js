@@ -8,6 +8,8 @@ class ShenasApp extends LitElement {
     _components: { state: true },
     _loading: { state: true },
     _loadedScripts: { state: true },
+    _leftWidth: { state: true },
+    _rightWidth: { state: true },
   };
 
   _router = new Router(this, [
@@ -35,24 +37,55 @@ class ShenasApp extends LitElement {
     css`
       :host {
         display: block;
-        max-width: 960px;
-        margin: 0 auto;
-        padding: 2rem 1rem;
+        height: 100vh;
         color: #222;
+      }
+      .layout {
+        display: flex;
+        height: 100%;
+      }
+      .panel-left {
+        flex-shrink: 0;
+        overflow-y: auto;
+        padding: 1.5rem 1rem;
+        border-right: 1px solid #e0e0e0;
+      }
+      .panel-middle {
+        flex: 1;
+        min-width: 0;
+        overflow-y: auto;
+        padding: 1.5rem 2rem;
+      }
+      .panel-right {
+        flex-shrink: 0;
+        overflow-y: auto;
+        padding: 1.5rem 1rem;
+        border-left: 1px solid #e0e0e0;
+      }
+      .divider {
+        width: 4px;
+        cursor: col-resize;
+        background: transparent;
+        flex-shrink: 0;
+      }
+      .divider:hover,
+      .divider.dragging {
+        background: #d0d0d0;
       }
       .header {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 12px;
-        margin-bottom: 1.5rem;
+        gap: 8px;
+        margin-bottom: 2rem;
       }
       .header img {
-        width: 48px;
-        height: 48px;
+        width: 64px;
+        height: 64px;
       }
       .header h1 {
         margin: 0;
-        font-size: 1.5rem;
+        font-size: 1.2rem;
       }
       .tabs {
         margin-bottom: 1.5rem;
@@ -75,6 +108,8 @@ class ShenasApp extends LitElement {
     this._loading = true;
     this._loadedScripts = new Set();
     this._elementCache = new Map();
+    this._leftWidth = 160;
+    this._rightWidth = 160;
   }
 
   connectedCallback() {
@@ -108,6 +143,35 @@ class ShenasApp extends LitElement {
     return path.split("/")[0] || (this._components.length > 0 ? this._components[0].name : "settings");
   }
 
+  _startDrag(side) {
+    return (e) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = side === "left" ? this._leftWidth : this._rightWidth;
+      const divider = e.target;
+      divider.classList.add("dragging");
+
+      const onMove = (ev) => {
+        const delta = side === "left" ? ev.clientX - startX : startX - ev.clientX;
+        const newWidth = Math.max(80, Math.min(400, startWidth + delta));
+        if (side === "left") {
+          this._leftWidth = newWidth;
+        } else {
+          this._rightWidth = newWidth;
+        }
+      };
+
+      const onUp = () => {
+        divider.classList.remove("dragging");
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    };
+  }
+
   render() {
     if (this._loading) {
       return html`<p class="loading">Loading...</p>`;
@@ -116,17 +180,25 @@ class ShenasApp extends LitElement {
     const active = this._activeTab();
 
     return html`
-      <div class="header">
-        <img src="/static/images/shenas.png" alt="shenas" />
-        <h1>shenas</h1>
+      <div class="layout">
+        <div class="panel-left" style="width: ${this._leftWidth}px">
+          <div class="header">
+            <img src="/static/images/shenas.png" alt="shenas" />
+            <h1>shenas</h1>
+          </div>
+        </div>
+        <div class="divider" @mousedown=${this._startDrag("left")}></div>
+        <div class="panel-middle">
+          <div class="tabs" role="tablist">
+            ${this._components.map((c) => this._tabLink(c.name, c.name, active))}
+            ${this._tabLink("settings", "Settings", active)}
+          </div>
+          ${this._router.outlet()}
+        </div>
+        <div class="divider" @mousedown=${this._startDrag("right")}></div>
+        <div class="panel-right" style="width: ${this._rightWidth}px">
+        </div>
       </div>
-
-      <div class="tabs" role="tablist">
-        ${this._components.map((c) => this._tabLink(c.name, c.name, active))}
-        ${this._tabLink("settings", "Settings", active)}
-      </div>
-
-      ${this._router.outlet()}
     `;
   }
 
