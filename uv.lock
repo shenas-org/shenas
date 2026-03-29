@@ -16,6 +16,7 @@ members = [
     "shenas-component-data-table",
     "shenas-component-fitness-dashboard",
     "shenas-pipe-core",
+    "shenas-pipe-duolingo",
     "shenas-pipe-garmin",
     "shenas-pipe-gcalendar",
     "shenas-pipe-gmail",
@@ -26,6 +27,7 @@ members = [
     "shenas-schema-core",
     "shenas-schema-finance",
     "shenas-schema-fitness",
+    "shenas-schema-habits",
     "shenas-schema-outcomes",
     "shenas-workspace",
 ]
@@ -2008,6 +2010,28 @@ requires-dist = [
 ]
 
 [[package]]
+name = "shenas-pipe-duolingo"
+source = { editable = "pipes/duolingo" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "httpx" },
+    { name = "pendulum" },
+    { name = "shenas-pipe-core" },
+    { name = "shenas-schema-habits" },
+    { name = "shenas-schema-outcomes" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pendulum", specifier = ">=3.0.0" },
+    { name = "shenas-pipe-core", editable = "pipes/core" },
+    { name = "shenas-schema-habits", editable = "schemas/habits" },
+    { name = "shenas-schema-outcomes", editable = "schemas/outcomes" },
+]
+
+[[package]]
 name = "shenas-pipe-garmin"
 source = { editable = "pipes/garmin" }
 dependencies = [
@@ -2156,6 +2180,16 @@ dependencies = [
 requires-dist = [{ name = "shenas-schema-core", editable = "schemas/core" }]
 
 [[package]]
+name = "shenas-schema-habits"
+source = { editable = "schemas/habits" }
+dependencies = [
+    { name = "shenas-schema-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "shenas-schema-core", editable = "schemas/core" }]
+
+[[package]]
 name = "shenas-schema-outcomes"
 source = { editable = "schemas/outcomes" }
 dependencies = [
@@ -2180,6 +2214,7 @@ dev = [
     { name = "shenas-app" },
     { name = "shenas-component-data-table" },
     { name = "shenas-component-fitness-dashboard" },
+    { name = "shenas-pipe-duolingo" },
     { name = "shenas-pipe-garmin" },
     { name = "shenas-pipe-gcalendar" },
     { name = "shenas-pipe-gmail" },
@@ -2188,6 +2223,7 @@ dev = [
     { name = "shenas-pipe-obsidian" },
     { name = "shenas-schema-finance" },
     { name = "shenas-schema-fitness" },
+    { name = "shenas-schema-habits" },
     { name = "shenas-schema-outcomes" },
     { name = "ty" },
 ]
@@ -2204,6 +2240,7 @@ dev = [
     { name = "shenas-app", editable = "app" },
     { name = "shenas-component-data-table", editable = "components/data-table" },
     { name = "shenas-component-fitness-dashboard", editable = "components/fitness-dashboard" },
+    { name = "shenas-pipe-duolingo", editable = "pipes/duolingo" },
     { name = "shenas-pipe-garmin", editable = "pipes/garmin" },
     { name = "shenas-pipe-gcalendar", editable = "pipes/gcalendar" },
     { name = "shenas-pipe-gmail", editable = "pipes/gmail" },
@@ -2212,6 +2249,7 @@ dev = [
     { name = "shenas-pipe-obsidian", editable = "pipes/obsidian" },
     { name = "shenas-schema-finance", editable = "schemas/finance" },
     { name = "shenas-schema-fitness", editable = "schemas/fitness" },
+    { name = "shenas-schema-habits", editable = "schemas/habits" },
     { name = "shenas-schema-outcomes", editable = "schemas/outcomes" },
     { name = "ty", specifier = ">=0.0.26" },
 ]

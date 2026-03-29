@@ -8,7 +8,7 @@ import types
 
 from fastapi import APIRouter
 
-from app.models import AuthField, AuthRequest, AuthResponse
+from app.models import AuthFieldsResponse, AuthRequest, AuthResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -86,13 +86,16 @@ def _complete_mfa(pipe_name: str, mod: object, mfa_code: str) -> AuthResponse:
 
 
 @router.get("/{pipe_name}/fields")
-def auth_fields(pipe_name: str) -> list[AuthField]:
-    """Get the credential fields needed for a pipe's auth flow."""
+def auth_fields(pipe_name: str) -> AuthFieldsResponse:
+    """Get the credential fields and instructions for a pipe's auth flow."""
     try:
         mod = _load_auth_module(pipe_name)
     except ModuleNotFoundError:
-        return []
-    return getattr(mod, "AUTH_FIELDS", [])
+        return AuthFieldsResponse()
+    return AuthFieldsResponse(
+        fields=getattr(mod, "AUTH_FIELDS", []),
+        instructions=getattr(mod, "AUTH_INSTRUCTIONS", ""),
+    )
 
 
 def _load_auth_module(pipe_name: str) -> types.ModuleType:

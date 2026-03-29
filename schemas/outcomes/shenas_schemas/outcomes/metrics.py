@@ -170,6 +170,21 @@ class DailyOutcome:
         ]
         | None
     ) = None
+    daily_duolingo_xp: (
+        Annotated[
+            int,
+            Field(
+                db_type="INTEGER",
+                description="Duolingo XP earned today",
+                unit="xp",
+                value_range=(0, 5000),
+                example_value=150,
+                category="growth",
+                interpretation="Daily language learning effort; correlate with streak and session count",
+            ),
+        ]
+        | None
+    ) = None
 
 
 ALL_TABLES = [DailyOutcome]
