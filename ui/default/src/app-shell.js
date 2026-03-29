@@ -240,7 +240,7 @@ class ShenasApp extends LitElement {
     this.addEventListener("inspect-table", (e) => this._inspect(e.detail.schema, e.detail.table));
     this.addEventListener("navigate", (e) => this._router.goto(e.detail.path));
     this._keyHandler = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      if ((e.ctrlKey || e.metaKey) && e.key === "p") {
         e.preventDefault();
         this._togglePalette();
       }
