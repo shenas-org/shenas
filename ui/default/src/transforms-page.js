@@ -10,6 +10,8 @@ class TransformsPage extends LitElement {
     _editSql: { state: true },
     _message: { state: true },
     _previewRows: { state: true },
+    _creating: { state: true },
+    _newForm: { state: true },
   };
 
   static styles = css`
@@ -134,6 +136,32 @@ class TransformsPage extends LitElement {
     .disabled-row {
       opacity: 0.5;
     }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem 1rem;
+      margin-bottom: 0.8rem;
+    }
+    .form-grid label {
+      font-size: 0.8rem;
+      color: #666;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .form-grid input {
+      padding: 0.35rem 0.5rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-family: monospace;
+    }
+    .form-full {
+      grid-column: 1 / -1;
+    }
+    .add-btn {
+      margin-top: 1rem;
+    }
   `;
 
   constructor() {
@@ -146,6 +174,19 @@ class TransformsPage extends LitElement {
     this._editSql = "";
     this._message = null;
     this._previewRows = null;
+    this._creating = false;
+    this._newForm = this._emptyForm();
+  }
+
+  _emptyForm() {
+    return {
+      source_duckdb_schema: this.source || "",
+      source_duckdb_table: "",
+      target_duckdb_schema: "",
+      target_duckdb_table: "",
+      description: "",
+      sql: "",
+    };
   }
 
   connectedCallback() {
@@ -213,6 +254,52 @@ class TransformsPage extends LitElement {
     }
   }
 
+  _startCreate() {
+    this._creating = true;
+    this._newForm = this._emptyForm();
+    this._editing = null;
+    this._previewRows = null;
+  }
+
+  _cancelCreate() {
+    this._creating = false;
+    this._newForm = this._emptyForm();
+  }
+
+  _updateNewForm(field, value) {
+    this._newForm = { ...this._newForm, [field]: value };
+  }
+
+  async _saveCreate() {
+    const f = this._newForm;
+    if (!f.source_duckdb_table || !f.target_duckdb_schema || !f.target_duckdb_table || !f.sql) {
+      this._message = { type: "error", text: "Fill in all required fields" };
+      return;
+    }
+    const resp = await fetch(`${this.apiBase}/transforms`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source_duckdb_schema: f.source_duckdb_schema || this.source,
+        source_duckdb_table: f.source_duckdb_table,
+        target_duckdb_schema: f.target_duckdb_schema,
+        target_duckdb_table: f.target_duckdb_table,
+        source_plugin: this.source,
+        description: f.description,
+        sql: f.sql,
+      }),
+    });
+    if (resp.ok) {
+      this._message = { type: "success", text: "Transform created" };
+      this._creating = false;
+      this._newForm = this._emptyForm();
+      await this._fetchAll();
+    } else {
+      const data = await resp.json();
+      this._message = { type: "error", text: data.detail || "Create failed" };
+    }
+  }
+
   async _preview() {
     const resp = await fetch(
       `${this.apiBase}/transforms/${this._editing}/test?limit=5`,
@@ -241,6 +328,10 @@ class TransformsPage extends LitElement {
           </div>`
         : ""}
       ${this._editing ? this._renderEditor() : ""}
+      ${this._creating ? this._renderCreateForm() : ""}
+      ${!this._creating && !this._editing
+        ? html`<button class="add-btn" @click=${this._startCreate}>Add transform</button>`
+        : ""}
       <table>
         <thead>
           <tr>
@@ -293,6 +384,61 @@ class TransformsPage extends LitElement {
           )}
         </tbody>
       </table>
+    `;
+  }
+
+  _renderCreateForm() {
+    const f = this._newForm;
+    return html`
+      <div class="edit-panel">
+        <h3>New transform</h3>
+        <div class="form-grid">
+          <label>
+            Source schema
+            <input
+              .value=${f.source_duckdb_schema}
+              @input=${(e) => this._updateNewForm("source_duckdb_schema", e.target.value)}
+            />
+          </label>
+          <label>
+            Source table
+            <input
+              .value=${f.source_duckdb_table}
+              @input=${(e) => this._updateNewForm("source_duckdb_table", e.target.value)}
+            />
+          </label>
+          <label>
+            Target schema
+            <input
+              .value=${f.target_duckdb_schema}
+              @input=${(e) => this._updateNewForm("target_duckdb_schema", e.target.value)}
+            />
+          </label>
+          <label>
+            Target table
+            <input
+              .value=${f.target_duckdb_table}
+              @input=${(e) => this._updateNewForm("target_duckdb_table", e.target.value)}
+            />
+          </label>
+          <label class="form-full">
+            Description
+            <input
+              .value=${f.description}
+              @input=${(e) => this._updateNewForm("description", e.target.value)}
+            />
+          </label>
+        </div>
+        <textarea
+          .value=${f.sql}
+          @input=${(e) => this._updateNewForm("sql", e.target.value)}
+          placeholder="SELECT ... FROM ${f.source_duckdb_schema || this.source}.${f.source_duckdb_table || "table_name"}"
+        ></textarea>
+        <div class="edit-actions">
+          <button @click=${this._saveCreate}>Create</button>
+          <button @click=${this._cancelCreate}>Cancel</button>
+        </div>
+      </div>
     `;
   }
 

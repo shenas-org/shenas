@@ -28,6 +28,7 @@ class TransformCreate(BaseModel):
     target_duckdb_table: str
     source_plugin: str
     sql: str
+    description: str = ""
 
 
 class TransformUpdate(BaseModel):
@@ -59,6 +60,7 @@ def create(body: TransformCreate) -> dict[str, Any]:
         target_duckdb_table=body.target_duckdb_table,
         source_plugin=body.source_plugin,
         sql=body.sql,
+        description=body.description,
     )
 
 
