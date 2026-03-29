@@ -112,6 +112,16 @@ class SettingsPage extends LitElement {
   }
 
 
+  async _togglePlugin(kind, name, currentlyEnabled) {
+    const action = currentlyEnabled ? "disable" : "enable";
+    const resp = await fetch(`${this.apiBase}/plugins/${kind}/${name}/${action}`, { method: "POST" });
+    const data = await resp.json();
+    if (!data.ok) {
+      this._actionMessage = { type: "error", text: data.message || `${action} failed` };
+    }
+    await this._fetchAll();
+  }
+
   async _install(kind) {
     const input = this.shadowRoot.querySelector(`#install-${kind}`);
     const name = input?.value?.trim();
@@ -191,7 +201,7 @@ class SettingsPage extends LitElement {
           { label: "Name", render: (p) => html`<a href="/settings/${kind}/${p.name}">${p.display_name || p.name}</a>` },
           { key: "version", label: "Version", class: "mono" },
           { label: "Added", class: "mono", render: (p) => p.added_at ? p.added_at.slice(0, 10) : "" },
-          { label: "Status", render: (p) => html`<status-dot ?enabled=${p.enabled !== false}></status-dot>` },
+          { label: "Status", render: (p) => html`<status-toggle ?enabled=${p.enabled !== false} toggleable @toggle=${() => this._togglePlugin(kind, p.name, p.enabled !== false)}></status-toggle>` },
         ]}
         .rows=${plugins}
         .rowClass=${(p) => p.enabled === false ? "disabled-row" : ""}

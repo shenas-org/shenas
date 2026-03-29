@@ -10,12 +10,7 @@ app = create_pipe_app("Lunch Money commands.")
 DISPLAY_NAME = "Lunch Money"
 DESCRIPTION = """Syncs financial data from Lunch Money.
 
-Authenticates via API key from Lunch Money Settings > Developers.
-
-Resources: transactions (incremental), categories, tags, budgets,
-recurring_items, assets, plaid_accounts.
-Transforms: transactions, daily spending, monthly category breakdown,
-and monthly overview into the finance schema."""
+Authenticates via API key from Lunch Money Settings > Developers."""
 
 
 @app.command()

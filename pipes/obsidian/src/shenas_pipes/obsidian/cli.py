@@ -17,8 +17,6 @@ Scans a configured daily notes folder for markdown files, parses YAML
 frontmatter, and loads the key-value pairs into DuckDB. No API auth
 needed -- just configure the vault path.
 
-Resources: daily_notes (incremental by file modification time).
-Transforms: frontmatter fields into the outcomes schema.
 Config: daily_notes_folder (path to your Obsidian daily notes)."""
 
 CONFIG_PATH = Path(".shenas") / "obsidian.json"

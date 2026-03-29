@@ -10,10 +10,7 @@ DISPLAY_NAME = "Gmail"
 DESCRIPTION = """Syncs email metadata from Gmail.
 
 Uses Google OAuth2 with shared credentials from shenas-pipe-core.
-Authorization URL is passed back to the CLI for browser-based consent.
-
-Resources: messages (incremental by internal_date), labels.
-No transform step -- raw data stored in gmail.* schema."""
+Authorization URL is passed back to the CLI for browser-based consent."""
 
 
 @app.command()

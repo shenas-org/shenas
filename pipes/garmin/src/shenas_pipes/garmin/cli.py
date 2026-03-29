@@ -16,10 +16,7 @@ DISPLAY_NAME = "Garmin Connect"
 DESCRIPTION = """Syncs health and fitness data from Garmin Connect.
 
 Authenticates via email/password with MFA support. Tokens are stored
-in the OS keyring.
-
-Resources: activities, daily_stats, sleep, hrv, spo2, body_composition.
-Transforms: HRV, sleep, vitals, and body metrics into the fitness schema."""
+in the OS keyring."""
 
 BROWSER_UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
