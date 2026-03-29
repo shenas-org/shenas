@@ -321,12 +321,19 @@ def remove_plugin(kind: str, name: str) -> RemoveResponse:
     return uninstall_plugin(name, kind)
 
 
+_EXCLUSIVE_KINDS = {"theme"}
+
+
 @router.post("/{kind}/{name}/enable")
 def enable_plugin(kind: str, name: str) -> OkResponse:
-    """Enable a plugin."""
+    """Enable a plugin. For exclusive kinds (theme), disables all others."""
     _validate_kind(kind)
-    from app.db import upsert_plugin_state
+    from app.db import get_all_plugin_states, upsert_plugin_state
 
+    if kind in _EXCLUSIVE_KINDS:
+        for state in get_all_plugin_states(kind):
+            if state["name"] != name and state["enabled"]:
+                upsert_plugin_state(kind, state["name"], enabled=False)
     upsert_plugin_state(kind, name, enabled=True)
     return OkResponse(ok=True, message=f"Enabled {kind} {name}")
 
