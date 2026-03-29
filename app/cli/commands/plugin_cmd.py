@@ -100,21 +100,58 @@ def uninstall(name: str, kind: str) -> None:
         raise typer.Exit(code=1)
 
 
-def describe(name: str, kind: str) -> None:
-    """Show the description of an installed plugin."""
+def info(name: str, kind: str) -> None:
+    """Show full info for an installed plugin."""
     try:
-        result = ShenasClient().plugins_describe(kind, name)
+        result = ShenasClient().plugins_info(kind, name)
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
 
+    console.print(f"\n[bold]{name}[/bold] ({kind})\n")
+
     desc = result.get("description", "")
     if desc:
-        console.print(f"\n[bold]{name}[/bold]\n")
         console.print(desc)
         console.print()
-    else:
-        console.print(f"[dim]No description available for {kind} {name}[/dim]")
+
+    from rich.table import Table
+
+    table = Table(show_header=False, show_lines=False, box=None, padding=(0, 2))
+    table.add_column(style="dim")
+    table.add_column()
+
+    enabled = result.get("enabled", True)
+    table.add_row("Status", "[green]enabled[/green]" if enabled else "[yellow]disabled[/yellow]")
+    if result.get("added_at"):
+        table.add_row("Added", result["added_at"][:19])
+    if result.get("updated_at"):
+        table.add_row("Updated", result["updated_at"][:19])
+    if result.get("status_changed_at"):
+        table.add_row("Status changed", result["status_changed_at"][:19])
+
+    console.print(table)
+    console.print()
+
+
+def enable(name: str, kind: str) -> None:
+    """Enable a plugin."""
+    try:
+        result = ShenasClient().plugins_enable(kind, name)
+    except ShenasServerError as exc:
+        console.print(f"[red]{exc.detail}[/red]")
+        raise typer.Exit(code=1)
+    console.print(f"[green]{result.get('message', 'Enabled')}[/green]")
+
+
+def disable(name: str, kind: str) -> None:
+    """Disable a plugin."""
+    try:
+        result = ShenasClient().plugins_disable(kind, name)
+    except ShenasServerError as exc:
+        console.print(f"[red]{exc.detail}[/red]")
+        raise typer.Exit(code=1)
+    console.print(f"[yellow]{result.get('message', 'Disabled')}[/yellow]")
 
 
 def register_plugin_commands(parent_app: typer.Typer, kind: str, panel: str) -> list[dict[str, Any]]:
@@ -141,18 +178,18 @@ def register_plugin_commands(parent_app: typer.Typer, kind: str, panel: str) -> 
                 raise typer.Exit()
 
         if "describe" in commands:
-            _add_describe(plugin_app, name, kind)
+            _add_info(plugin_app, name, kind)
 
         parent_app.add_typer(plugin_app, name=name, rich_help_panel=panel)
 
     return plugins
 
 
-def _add_describe(plugin_app: typer.Typer, plugin_name: str, plugin_kind: str) -> None:
-    @plugin_app.command("describe")
-    def _describe() -> None:
-        """Show a description of this plugin."""
-        describe(plugin_name, plugin_kind)
+def _add_info(plugin_app: typer.Typer, plugin_name: str, plugin_kind: str) -> None:
+    @plugin_app.command("info")
+    def _info() -> None:
+        """Show info about this plugin."""
+        info(plugin_name, plugin_kind)
 
 
 # --- Signature checking (used by API server) ---

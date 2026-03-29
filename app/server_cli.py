@@ -19,9 +19,43 @@ def main(
     key_file: Path = typer.Option(DEFAULT_CERT_DIR / "key.pem", "--key", help="TLS private key file"),
     no_tls: bool = typer.Option(False, "--no-tls", help="Run plain HTTP (for desktop app sidecar)"),
     ui: str = typer.Option("default", "--ui", help="UI plugin to render as the app shell"),
+    reload: bool = typer.Option(False, "--reload", help="Auto-reload on file changes (development)"),
 ) -> None:
     """Start the shenas server."""
     if ctx.invoked_subcommand is not None:
+        return
+
+    import os
+
+    os.environ["SHENAS_UI"] = ui
+
+    if reload:
+        app_target = "app.server:app"
+        if no_tls:
+            typer.echo(f"Starting HTTP server on http://{host}:{port} (reload)")
+            uvicorn.run(
+                app_target,
+                host=host,
+                port=port,
+                reload=True,
+                reload_dirs=["app", "pipes", "schemas", "ui", "components", "telemetry"],
+            )
+            return
+
+        if not cert_file.exists() or not key_file.exists():
+            typer.echo("TLS certificate not found. Generate one with:\n\n  shenas generate-cert\n")
+            raise typer.Exit(code=1)
+
+        typer.echo(f"Starting HTTPS server on https://{host}:{port} (reload)")
+        uvicorn.run(
+            app_target,
+            host=host,
+            port=port,
+            reload=True,
+            reload_dirs=["app", "pipes", "schemas", "ui", "components", "telemetry"],
+            ssl_certfile=str(cert_file),
+            ssl_keyfile=str(key_file),
+        )
         return
 
     from app.server import app as fastapi_app

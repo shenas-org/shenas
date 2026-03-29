@@ -37,7 +37,7 @@ class SettingsPage extends LitElement {
     .sidebar li {
       margin: 0;
     }
-    .sidebar button {
+    .sidebar a {
       display: block;
       width: 100%;
       text-align: left;
@@ -50,11 +50,11 @@ class SettingsPage extends LitElement {
       border-radius: 4px;
       border-left: 3px solid transparent;
     }
-    .sidebar button:hover {
+    .sidebar a:hover {
       background: #f5f5f5;
       color: #222;
     }
-    .sidebar button[aria-selected="true"] {
+    .sidebar a[aria-selected="true"] {
       background: #f0f4ff;
       color: #222;
       font-weight: 600;
@@ -86,6 +86,13 @@ class SettingsPage extends LitElement {
     }
     .name {
       font-weight: 600;
+    }
+    .name a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    .name a:hover {
+      text-decoration: underline;
     }
     .version {
       color: #888;
@@ -171,12 +178,6 @@ class SettingsPage extends LitElement {
     this._fetchAll();
   }
 
-  _selectKind(kind) {
-    this._actionMessage = null;
-    if (this.onNavigate) {
-      this.onNavigate(kind);
-    }
-  }
 
   async _fetchAll() {
     this._loading = true;
@@ -204,6 +205,25 @@ class SettingsPage extends LitElement {
       this._actionMessage = {
         type: "error",
         text: data.message || "Remove failed",
+      };
+    }
+  }
+
+  async _toggleEnabled(kind, name, currentlyEnabled) {
+    this._actionMessage = null;
+    const action = currentlyEnabled ? "disable" : "enable";
+    const resp = await fetch(
+      `${this.apiBase}/plugins/${kind}/${name}/${action}`,
+      { method: "POST" },
+    );
+    const data = await resp.json();
+    if (data.ok) {
+      this._actionMessage = { type: "success", text: data.message };
+      await this._fetchAll();
+    } else {
+      this._actionMessage = {
+        type: "error",
+        text: data.message || `${action} failed`,
       };
     }
   }
@@ -249,15 +269,15 @@ class SettingsPage extends LitElement {
             ${PLUGIN_KINDS.map(
               ({ id, label }) => html`
                 <li>
-                  <button
+                  <a
+                    href="/settings/${id}"
                     aria-selected=${this.activeKind === id}
-                    @click=${() => this._selectKind(id)}
                   >
                     ${label}
                     <span style="color:#aaa; font-weight:normal">
                       (${(this._plugins[id] || []).length})
                     </span>
-                  </button>
+                  </a>
                 </li>
               `,
             )}
@@ -280,24 +300,19 @@ class SettingsPage extends LitElement {
                 <tr>
                   <th>Name</th>
                   <th>Version</th>
-                  <th>Description</th>
-                  <th></th>
+                  <th>Added</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 ${plugins.map(
                   (p) => html`
-                    <tr>
-                      <td class="name">${p.name}</td>
+                    <tr style="${p.enabled === false ? "opacity: 0.5" : ""}">
+                      <td class="name"><a href="/settings/${kind}/${p.name}">${p.name}</a></td>
                       <td class="version">${p.version}</td>
-                      <td class="desc">${p.description || ""}</td>
-                      <td class="actions">
-                        <button
-                          class="action remove"
-                          @click=${() => this._remove(kind, p.name)}
-                        >
-                          Remove
-                        </button>
+                      <td class="version">${p.added_at ? p.added_at.slice(0, 10) : ""}</td>
+                      <td class="status-cell">
+                        ${p.enabled === false ? html`<span style="color:#c00; font-size:0.8rem">disabled</span>` : ""}
                       </td>
                     </tr>
                   `,

@@ -3,11 +3,24 @@
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.server import app
 
 client = TestClient(app)
+
+
+# Mock plugin state DB functions for all tests in this module
+@pytest.fixture(autouse=True)
+def _mock_plugin_state():
+    with (
+        patch("app.api.plugins.get_plugin_state", return_value=None),
+        patch("app.db.upsert_plugin_state"),
+        patch("app.db.remove_plugin_state"),
+        patch("app.db.is_plugin_enabled", return_value=True),
+    ):
+        yield
 
 
 class TestListPlugins:
