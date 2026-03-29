@@ -183,7 +183,7 @@ class PluginDetail extends LitElement {
         <div class="state-row">
           <span class="state-label">Status</span>
           <span class="state-value">
-            <status-dot ?enabled=${enabled}></status-dot>
+            <status-dot ?enabled=${enabled} toggleable @toggle=${this._toggle}></status-dot>
           </span>
         </div>
         ${this._stateRow("Added", info.added_at)}
@@ -192,9 +192,6 @@ class PluginDetail extends LitElement {
       </div>
 
       <div class="actions">
-        <button @click=${this._toggle}>
-          ${enabled ? "Disable" : "Enable"}
-        </button>
         <button class="danger" @click=${this._remove}>Remove</button>
       </div>
     `;
