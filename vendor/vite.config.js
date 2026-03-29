@@ -11,6 +11,7 @@ export default defineConfig({
         lit: "src/lit.js",
         "apache-arrow": "src/apache-arrow.js",
         uplot: "src/uplot.js",
+        cytoscape: "src/cytoscape.js",
       },
       output: {
         entryFileNames: "[name].js",

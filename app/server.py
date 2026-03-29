@@ -119,6 +119,7 @@ def list_component_metadata() -> list[dict[str, str]]:
     return [
         {
             "name": c["name"],
+            "display_name": c.get("display_name", c["name"]),
             "tag": c.get("tag", f"shenas-{c['name']}"),
             "js": f"/components/{c['name']}/{c.get('entrypoint', c['name'] + '.js')}",
             "description": c.get("description", ""),

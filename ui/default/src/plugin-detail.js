@@ -1,4 +1,5 @@
 import { LitElement, html, css } from "lit";
+import { buttonStyles, linkStyles, messageStyles, tabStyles, utilityStyles } from "./shared-styles.js";
 
 class PluginDetail extends LitElement {
   static properties = {
@@ -11,134 +12,71 @@ class PluginDetail extends LitElement {
     _message: { state: true },
   };
 
-  static styles = css`
-    :host {
-      display: block;
-    }
-    .back {
-      color: #0066cc;
-      text-decoration: none;
-      font-size: 0.9rem;
-      display: inline-block;
-      margin-bottom: 1rem;
-    }
-    .back:hover {
-      text-decoration: underline;
-    }
-    h2 {
-      margin: 0 0 0.3rem;
-      font-size: 1.3rem;
-    }
-    .kind-badge {
-      display: inline-block;
-      background: #f0f0f0;
-      color: #555;
-      padding: 0.15rem 0.5rem;
-      border-radius: 3px;
-      font-size: 0.8rem;
-      margin-bottom: 1rem;
-    }
-    .description {
-      color: #444;
-      line-height: 1.6;
-      margin: 1rem 0;
-      white-space: pre-line;
-    }
-    .state-table {
-      margin: 1.5rem 0;
-    }
-    .state-row {
-      display: flex;
-      padding: 0.4rem 0;
-      border-bottom: 1px solid #f0f0f0;
-      font-size: 0.9rem;
-    }
-    .state-row:last-child {
-      border-bottom: none;
-    }
-    .state-label {
-      width: 120px;
-      color: #888;
-      flex-shrink: 0;
-    }
-    .state-value {
-      color: #333;
-    }
-    .enabled {
-      color: #2e7d32;
-      font-weight: 600;
-    }
-    .disabled {
-      color: #c62828;
-      font-weight: 600;
-    }
-    .actions {
-      display: flex;
-      gap: 0.6rem;
-      margin-top: 1.5rem;
-    }
-    button {
-      padding: 0.5rem 1rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background: #fff;
-      cursor: pointer;
-      font-size: 0.9rem;
-    }
-    button:hover {
-      background: #f5f5f5;
-    }
-    button.danger {
-      color: #c00;
-      border-color: #e8c0c0;
-    }
-    button.danger:hover {
-      background: #fef0f0;
-    }
-    .detail-tabs {
-      display: flex;
-      gap: 0;
-      border-bottom: 2px solid #e0e0e0;
-      margin: 1rem 0;
-    }
-    .detail-tab {
-      padding: 0.5rem 1rem;
-      border: none;
-      background: none;
-      cursor: pointer;
-      font-size: 0.9rem;
-      color: #666;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -2px;
-      text-decoration: none;
-    }
-    .detail-tab:hover {
-      color: #222;
-    }
-    .detail-tab[aria-selected="true"] {
-      color: #222;
-      border-bottom-color: #0066cc;
-      font-weight: 600;
-    }
-    .message {
-      padding: 0.5rem 0.8rem;
-      border-radius: 4px;
-      margin-top: 1rem;
-      font-size: 0.85rem;
-    }
-    .message.success {
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-    .message.error {
-      background: #fce4ec;
-      color: #c62828;
-    }
-    .loading {
-      color: #888;
-      font-style: italic;
-    }
-  `;
+  static styles = [
+    buttonStyles,
+    linkStyles,
+    messageStyles,
+    tabStyles,
+    utilityStyles,
+    css`
+      :host {
+        display: block;
+      }
+      .back {
+        font-size: 0.9rem;
+        display: inline-block;
+        margin-bottom: 1rem;
+      }
+      h2 {
+        margin: 0 0 0.3rem;
+        font-size: 1.3rem;
+      }
+      .kind-badge {
+        display: inline-block;
+        background: #f0f0f0;
+        color: #555;
+        padding: 0.15rem 0.5rem;
+        border-radius: 3px;
+        font-size: 0.8rem;
+        margin-bottom: 1rem;
+      }
+      .description {
+        color: #444;
+        line-height: 1.6;
+        margin: 1rem 0;
+        white-space: pre-line;
+      }
+      .state-table {
+        margin: 1.5rem 0;
+      }
+      .state-row {
+        display: flex;
+        padding: 0.4rem 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 0.9rem;
+      }
+      .state-row:last-child {
+        border-bottom: none;
+      }
+      .state-label {
+        width: 120px;
+        color: #888;
+        flex-shrink: 0;
+      }
+      .state-value {
+        color: #333;
+      }
+      .actions {
+        display: flex;
+        gap: 0.6rem;
+        margin-top: 1.5rem;
+      }
+      button {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+      }
+    `,
+  ];
 
   constructor() {
     super();
@@ -216,10 +154,10 @@ class PluginDetail extends LitElement {
       <h2>${info.display_name || info.name}</h2>
       <span class="kind-badge">${info.kind}</span>
 
-      <div class="detail-tabs">
-        <a class="detail-tab" href="${basePath}" aria-selected=${this.activeTab === "details"}>Details</a>
+      <div class="tabs">
+        <a class="tab" href="${basePath}" aria-selected=${this.activeTab === "details"}>Details</a>
         ${this.kind === "pipe"
-          ? html`<a class="detail-tab" href="${basePath}/transforms" aria-selected=${this.activeTab === "transforms"}>Transforms</a>`
+          ? html`<a class="tab" href="${basePath}/transforms" aria-selected=${this.activeTab === "transforms"}>Transforms</a>`
           : ""}
       </div>
 

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import os
+import re
 
 import duckdb
-from fastapi import APIRouter
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
 
 from app.db import DB_PATH, connect
 from app.models import DBStatusResponse, OkResponse, SchemaInfo, TableStats
@@ -27,7 +30,7 @@ def _discover_schemas(con: duckdb.DuckDBPyConnection) -> dict[str, list[str]]:
 
 
 def _table_stats(con: duckdb.DuckDBPyConnection, schema: str, name: str) -> TableStats:
-    qualified = f"{schema}.{name}"
+    qualified = f'"{schema}"."{name}"'
     row = con.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()
     rows = row[0] if row else 0
     cols = len(con.execute(f"DESCRIBE {qualified}").fetchall())
@@ -97,13 +100,8 @@ def db_tables() -> dict[str, list[str]]:
         return {}
 
 
-@router.get("/schema-tables")
-def schema_plugin_tables() -> dict[str, list[str]]:
-    """Return DuckDB schema -> tables for installed schema plugins.
-
-    Schema plugins define canonical tables (e.g. metrics.daily_hrv).
-    This endpoint introspects them to find the actual DuckDB schemas and tables.
-    """
+def _load_schema_plugins() -> dict[str, list[str]]:
+    """Load schema plugin name -> table names from entry points."""
     from importlib.metadata import entry_points
 
     result: dict[str, list[str]] = {}
@@ -114,12 +112,49 @@ def schema_plugin_tables() -> dict[str, list[str]]:
             schema_dict = ep.load()
             tables = schema_dict.get("tables", []) if isinstance(schema_dict, dict) else []
             if tables:
-                result.setdefault("metrics", []).extend(tables)
+                result[ep.name] = sorted(tables)
         except Exception:
             continue
-    for schema in result:
-        result[schema] = sorted(set(result[schema]))
     return result
+
+
+@router.get("/schema-tables")
+def schema_plugin_tables() -> dict[str, list[str]]:
+    """Return DuckDB schema -> tables for installed schema plugins."""
+    plugins = _load_schema_plugins()
+    all_tables: list[str] = []
+    for tables in plugins.values():
+        all_tables.extend(tables)
+    return {"metrics": sorted(set(all_tables))} if all_tables else {}
+
+
+@router.get("/schema-plugins")
+def schema_plugin_ownership() -> dict[str, list[str]]:
+    """Return schema plugin name -> list of table names it owns."""
+    return _load_schema_plugins()
+
+
+_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+@router.get("/preview/{schema}/{table}")
+def table_preview(schema: str, table: str, limit: int = 50) -> list[dict[str, Any]]:
+    """Return the first N rows of a table as JSON."""
+    if not _IDENTIFIER_RE.match(schema) or not _IDENTIFIER_RE.match(table):
+        raise HTTPException(status_code=400, detail="Invalid schema or table name")
+    limit = min(max(1, limit), 500)
+    con = connect(read_only=True)
+    cur = con.cursor()
+    try:
+        cur.execute("USE db")
+        qualified = f'"{schema}"."{table}"'
+        rows = cur.execute(f"SELECT * FROM {qualified} LIMIT {limit}").fetchall()
+        cols = [desc[0] for desc in cur.description]
+        return [dict(zip(cols, row)) for row in rows]
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Failed to preview {schema}.{table}")
+    finally:
+        cur.close()
 
 
 @router.post("/keygen")
