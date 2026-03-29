@@ -72,6 +72,20 @@ class PluginDetail extends LitElement {
       color: #c62828;
       font-weight: 600;
     }
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .status-dot.green {
+      background: #2e7d32;
+    }
+    .status-dot.red {
+      background: #c62828;
+    }
     .actions {
       display: flex;
       gap: 0.6rem;
@@ -244,7 +258,7 @@ class PluginDetail extends LitElement {
         <div class="state-row">
           <span class="state-label">Status</span>
           <span class="state-value ${enabled ? "enabled" : "disabled"}">
-            ${enabled ? "Enabled" : "Disabled"}
+            <span class="status-dot ${enabled ? "green" : "red"}"></span>${enabled ? "Enabled" : "Disabled"}
           </span>
         </div>
         ${this._stateRow("Added", info.added_at)}

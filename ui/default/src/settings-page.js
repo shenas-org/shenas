@@ -157,6 +157,18 @@ class SettingsPage extends LitElement {
       color: #888;
       padding: 0.5rem 0;
     }
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .status-dot.green {
+      background: #2e7d32;
+    }
+    .status-dot.red {
+      background: #c62828;
+    }
     .loading {
       color: #888;
       font-style: italic;
@@ -312,7 +324,7 @@ class SettingsPage extends LitElement {
                       <td class="version">${p.version}</td>
                       <td class="version">${p.added_at ? p.added_at.slice(0, 10) : ""}</td>
                       <td class="status-cell">
-                        ${p.enabled === false ? html`<span style="color:#c00; font-size:0.8rem">disabled</span>` : ""}
+                        <span class="status-dot ${p.enabled === false ? "red" : "green"}"></span>
                       </td>
                     </tr>
                   `,

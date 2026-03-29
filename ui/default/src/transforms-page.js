@@ -46,6 +46,20 @@ class TransformsPage extends LitElement {
     .status {
       font-size: 0.85rem;
     }
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+    .status-dot.green {
+      background: #2e7d32;
+    }
+    .status-dot.red {
+      background: #c62828;
+    }
     .actions {
       white-space: nowrap;
     }
@@ -270,7 +284,7 @@ class TransformsPage extends LitElement {
                     : ""}
                 </td>
                 <td class="status">
-                  ${t.enabled ? "enabled" : "disabled"}
+                  <span class="status-dot ${t.enabled ? "green" : "red"}"></span>${t.enabled ? "enabled" : "disabled"}
                 </td>
                 <td class="actions">
                   ${!t.is_default

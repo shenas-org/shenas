@@ -168,7 +168,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
     .component-host {
       margin-top: 1rem;
     }
-  `);customElements.define("shenas-app",h);const p=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class m extends l{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const t={};await Promise.all(p.map(async({id:e})=>{const s=await fetch(`${this.apiBase}/plugins/${e}`);t[e]=s.ok?await s.json():[]})),this._plugins=t,this._loading=!1}async _remove(t,e){this._actionMessage=null;const i=await(await fetch(`${this.apiBase}/plugins/${t}/${e}`,{method:"DELETE"})).json();i.ok?(this._actionMessage={type:"success",text:i.message},await this._fetchAll()):this._actionMessage={type:"error",text:i.message||"Remove failed"}}async _toggleEnabled(t,e,s){this._actionMessage=null;const i=s?"disable":"enable",n=await(await fetch(`${this.apiBase}/plugins/${t}/${e}/${i}`,{method:"POST"})).json();n.ok?(this._actionMessage={type:"success",text:n.message},await this._fetchAll()):this._actionMessage={type:"error",text:n.message||`${i} failed`}}async _install(t){var u,f;const e=this.shadowRoot.querySelector(`#install-${t}`),s=(u=e==null?void 0:e.value)==null?void 0:u.trim();if(!s)return;this._actionMessage=null;const n=(f=(await(await fetch(`${this.apiBase}/plugins/${t}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:f[0];n!=null&&n.ok?(this._actionMessage={type:"success",text:n.message},e.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(n==null?void 0:n.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
+  `);customElements.define("shenas-app",h);const p=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class m extends l{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const t={};await Promise.all(p.map(async({id:e})=>{const s=await fetch(`${this.apiBase}/plugins/${e}`);t[e]=s.ok?await s.json():[]})),this._plugins=t,this._loading=!1}async _remove(t,e){this._actionMessage=null;const i=await(await fetch(`${this.apiBase}/plugins/${t}/${e}`,{method:"DELETE"})).json();i.ok?(this._actionMessage={type:"success",text:i.message},await this._fetchAll()):this._actionMessage={type:"error",text:i.message||"Remove failed"}}async _toggleEnabled(t,e,s){this._actionMessage=null;const i=s?"disable":"enable",n=await(await fetch(`${this.apiBase}/plugins/${t}/${e}/${i}`,{method:"POST"})).json();n.ok?(this._actionMessage={type:"success",text:n.message},await this._fetchAll()):this._actionMessage={type:"error",text:n.message||`${i} failed`}}async _install(t){var b,f;const e=this.shadowRoot.querySelector(`#install-${t}`),s=(b=e==null?void 0:e.value)==null?void 0:b.trim();if(!s)return;this._actionMessage=null;const n=(f=(await(await fetch(`${this.apiBase}/plugins/${t}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:f[0];n!=null&&n.ok?(this._actionMessage={type:"success",text:n.message},e.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(n==null?void 0:n.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
       ${this._actionMessage?a`<div class="message ${this._actionMessage.type}">
             ${this._actionMessage.text}
           </div>`:""}
@@ -211,7 +211,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
                       <td class="version">${r.version}</td>
                       <td class="version">${r.added_at?r.added_at.slice(0,10):""}</td>
                       <td class="status-cell">
-                        ${r.enabled===!1?a`<span style="color:#c00; font-size:0.8rem">disabled</span>`:""}
+                        <span class="status-dot ${r.enabled===!1?"red":"green"}"></span>
                       </td>
                     </tr>
                   `)}
@@ -369,6 +369,18 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
       color: #888;
       padding: 0.5rem 0;
     }
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .status-dot.green {
+      background: #2e7d32;
+    }
+    .status-dot.red {
+      background: #c62828;
+    }
     .loading {
       color: #888;
       font-style: italic;
@@ -396,7 +408,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
         <div class="state-row">
           <span class="state-label">Status</span>
           <span class="state-value ${e?"enabled":"disabled"}">
-            ${e?"Enabled":"Disabled"}
+            <span class="status-dot ${e?"green":"red"}"></span>${e?"Enabled":"Disabled"}
           </span>
         </div>
         ${this._stateRow("Added",t.added_at)}
@@ -476,6 +488,20 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
       color: #c62828;
       font-weight: 600;
     }
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .status-dot.green {
+      background: #2e7d32;
+    }
+    .status-dot.red {
+      background: #c62828;
+    }
     .actions {
       display: flex;
       gap: 0.6rem;
@@ -542,7 +568,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
       color: #888;
       font-style: italic;
     }
-  `);customElements.define("shenas-plugin-detail",g);class b extends l{constructor(){super(),this.apiBase="/api",this.source="",this._transforms=[],this._loading=!0,this._editing=null,this._editSql="",this._message=null,this._previewRows=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const t=this.source?`?source=${this.source}`:"",e=await fetch(`${this.apiBase}/transforms${t}`);this._transforms=e.ok?await e.json():[],this._loading=!1}async _toggle(t){const e=t.enabled?"disable":"enable";await fetch(`${this.apiBase}/transforms/${t.id}/${e}`,{method:"POST"}),await this._fetchAll()}async _delete(t){const s=await(await fetch(`${this.apiBase}/transforms/${t.id}`,{method:"DELETE"})).json();s.ok?(this._message={type:"success",text:s.message},await this._fetchAll()):this._message={type:"error",text:s.detail||s.message||"Delete failed"}}_startEdit(t){this._editing=t.id,this._editSql=t.sql,this._previewRows=null}_cancelEdit(){this._editing=null,this._editSql="",this._previewRows=null}async _saveEdit(){const t=await fetch(`${this.apiBase}/transforms/${this._editing}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({sql:this._editSql})});if(t.ok)this._message={type:"success",text:"Transform updated"},this._editing=null,await this._fetchAll();else{const e=await t.json();this._message={type:"error",text:e.detail||"Update failed"}}}async _preview(){const t=await fetch(`${this.apiBase}/transforms/${this._editing}/test?limit=5`,{method:"POST"});if(t.ok)this._previewRows=await t.json();else{const e=await t.json();this._message={type:"error",text:e.detail||"Preview failed"}}}render(){return this._loading?a`<p class="loading">Loading transforms...</p>`:a`
+  `);customElements.define("shenas-plugin-detail",g);class u extends l{constructor(){super(),this.apiBase="/api",this.source="",this._transforms=[],this._loading=!0,this._editing=null,this._editSql="",this._message=null,this._previewRows=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const t=this.source?`?source=${this.source}`:"",e=await fetch(`${this.apiBase}/transforms${t}`);this._transforms=e.ok?await e.json():[],this._loading=!1}async _toggle(t){const e=t.enabled?"disable":"enable";await fetch(`${this.apiBase}/transforms/${t.id}/${e}`,{method:"POST"}),await this._fetchAll()}async _delete(t){const s=await(await fetch(`${this.apiBase}/transforms/${t.id}`,{method:"DELETE"})).json();s.ok?(this._message={type:"success",text:s.message},await this._fetchAll()):this._message={type:"error",text:s.detail||s.message||"Delete failed"}}_startEdit(t){this._editing=t.id,this._editSql=t.sql,this._previewRows=null}_cancelEdit(){this._editing=null,this._editSql="",this._previewRows=null}async _saveEdit(){const t=await fetch(`${this.apiBase}/transforms/${this._editing}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({sql:this._editSql})});if(t.ok)this._message={type:"success",text:"Transform updated"},this._editing=null,await this._fetchAll();else{const e=await t.json();this._message={type:"error",text:e.detail||"Update failed"}}}async _preview(){const t=await fetch(`${this.apiBase}/transforms/${this._editing}/test?limit=5`,{method:"POST"});if(t.ok)this._previewRows=await t.json();else{const e=await t.json();this._message={type:"error",text:e.detail||"Preview failed"}}}render(){return this._loading?a`<p class="loading">Loading transforms...</p>`:a`
       ${this._message?a`<div class="message ${this._message.type}">
             ${this._message.text}
           </div>`:""}
@@ -573,7 +599,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
                   ${t.is_default?a`<span class="default-badge">default</span>`:""}
                 </td>
                 <td class="status">
-                  ${t.enabled?"enabled":"disabled"}
+                  <span class="status-dot ${t.enabled?"green":"red"}"></span>${t.enabled?"enabled":"disabled"}
                 </td>
                 <td class="actions">
                   ${t.is_default?a`<button @click=${()=>this._startEdit(t)}>View</button>`:a`<button @click=${()=>this._startEdit(t)}>Edit</button>`}
@@ -627,7 +653,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
           </tbody>
         </table>
       </div>
-    `}}o(b,"properties",{apiBase:{type:String,attribute:"api-base"},source:{type:String},_transforms:{state:!0},_loading:{state:!0},_editing:{state:!0},_editSql:{state:!0},_message:{state:!0},_previewRows:{state:!0}}),o(b,"styles",c`
+    `}}o(u,"properties",{apiBase:{type:String,attribute:"api-base"},source:{type:String},_transforms:{state:!0},_loading:{state:!0},_editing:{state:!0},_editSql:{state:!0},_message:{state:!0},_previewRows:{state:!0}}),o(u,"styles",c`
     :host {
       display: block;
     }
@@ -660,6 +686,20 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
     }
     .status {
       font-size: 0.85rem;
+    }
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+    .status-dot.green {
+      background: #2e7d32;
+    }
+    .status-dot.red {
+      background: #c62828;
     }
     .actions {
       white-space: nowrap;
@@ -749,4 +789,4 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
     .disabled-row {
       opacity: 0.5;
     }
-  `);customElements.define("shenas-transforms",b);
+  `);customElements.define("shenas-transforms",u);
