@@ -63,6 +63,8 @@ class ShenasApp extends LitElement {
         min-width: 0;
         overflow-y: auto;
         padding: 1.5rem 2rem;
+        display: flex;
+        flex-direction: column;
       }
       .panel-right {
         flex-shrink: 0;
@@ -122,7 +124,10 @@ class ShenasApp extends LitElement {
         font-weight: 600;
       }
       .component-host {
-        margin-top: 1rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
       }
       .db-section h4 {
         font-size: 0.75rem;
