@@ -17,7 +17,7 @@ KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "duolingo_jwt"
 
 AUTH_FIELDS: list[dict[str, str | bool]] = [
-    {"name": "jwt_token", "prompt": "JWT token (from browser DevTools)", "hide": True},
+    {"name": "jwt_token", "prompt": "JWT token (from browser DevTools)", "hide": False},
 ]
 
 
@@ -55,7 +55,7 @@ def authenticate(credentials: dict[str, str]) -> None:
 
     Expected keys: jwt_token.
     """
-    jwt = credentials.get("jwt_token")
+    jwt = (credentials.get("jwt_token") or "").strip()
     if not jwt:
         raise ValueError("jwt_token is required")
 
