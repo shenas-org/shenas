@@ -4,3 +4,6 @@ id: 'component-data-table'
 language: 'typescript'
 stack: 'frontend'
 tags: ['component']
+
+dependsOn:
+  - 'vendor'
