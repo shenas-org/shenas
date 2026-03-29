@@ -8,14 +8,13 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from importlib.metadata import entry_points
 from pathlib import Path as _Path
-from typing import Any  # noqa: F401
+from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
-from app.db import DB_PATH
 
 
 @asynccontextmanager
@@ -28,85 +27,105 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="shenas ui", docs_url=None, redoc_url=None, lifespan=_lifespan)
+app = FastAPI(title="shenas", docs_url=None, redoc_url=None, lifespan=_lifespan)
+app.state.ui_name = "default"  # overridden by server_cli.py
 app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")
 app.include_router(api_router)
 
 
-def _discover_components() -> list[dict[str, Any]]:
-    """Discover installed components via entry points."""
-    components: list[dict[str, Any]] = []
-    for ep in entry_points(group="shenas.components"):
+def _discover_plugins(group: str) -> list[dict[str, Any]]:
+    """Discover installed plugins via entry points."""
+    plugins: list[dict[str, Any]] = []
+    for ep in entry_points(group=group):
         try:
-            comp = ep.load()
-            if isinstance(comp, dict) and "static_dir" in comp:
-                components.append(comp)
+            plugin = ep.load()
+            if isinstance(plugin, dict) and "static_dir" in plugin:
+                plugins.append(plugin)
         except Exception:
             pass
-    return components
+    return plugins
 
 
-def _mount_components() -> None:
-    """Mount static dirs for each installed component."""
-    for comp in _discover_components():
-        static_dir = comp["static_dir"]
+def _mount_static_plugins(group: str, url_prefix: str) -> None:
+    """Mount static dirs for plugins discovered via the given entry point group."""
+    for plugin in _discover_plugins(group):
+        static_dir = plugin["static_dir"]
         if static_dir.is_dir():
             app.mount(
-                f"/components/{comp['name']}",
+                f"/{url_prefix}/{plugin['name']}",
                 StaticFiles(directory=str(static_dir)),
-                name=f"component-{comp['name']}",
+                name=f"{url_prefix}-{plugin['name']}",
             )
 
 
-_mount_components()
+_mount_static_plugins("shenas.components", "components")
+_mount_static_plugins("shenas.ui", "ui")
+
+
+def _get_active_ui() -> dict[str, Any] | None:
+    """Find the active UI plugin."""
+    ui_name = app.state.ui_name
+    for plugin in _discover_plugins("shenas.ui"):
+        if plugin["name"] == ui_name:
+            return plugin
+    return None
+
+
+_FALLBACK_HTML = """\
+<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"><title>shenas</title>
+  <style>body {{ font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; color: #222; }}</style>
+  </head>
+  <body>
+    <h1>shenas</h1>
+    <p>UI plugin <code>{ui_name}</code> is not installed.</p>
+    <p>Install it with: <code>shenasctl ui add {ui_name}</code></p>
+    <p>Or start with a different UI: <code>shenas --ui other-name</code></p>
+    <h2>API</h2>
+    <ul>
+      <li><a href="/api/health">GET /api/health</a></li>
+      <li><a href="/api/tables">GET /api/tables</a></li>
+      <li><a href="/api/db/status">GET /api/db/status</a></li>
+      <li>GET /api/plugins/{{kind}}</li>
+    </ul>
+  </body>
+</html>"""
+
+
+def _serve_ui_html() -> HTMLResponse:
+    """Read and serve the active UI plugin's HTML from disk, or a fallback."""
+    ui = _get_active_ui()
+    if ui:
+        static_dir = ui["static_dir"]
+        html_file = static_dir / ui.get("html", "index.html")
+        if html_file.exists():
+            return HTMLResponse(content=html_file.read_text())
+    return HTMLResponse(content=_FALLBACK_HTML.format(ui_name=app.state.ui_name))
+
+
+@app.get("/api/components")
+def list_component_metadata() -> list[dict[str, str]]:
+    """Return component metadata needed by the UI shell (tag, entrypoint, JS URL)."""
+    components = _discover_plugins("shenas.components")
+    return [
+        {
+            "name": c["name"],
+            "tag": c.get("tag", f"shenas-{c['name']}"),
+            "js": f"/components/{c['name']}/{c.get('entrypoint', c['name'] + '.js')}",
+            "description": c.get("description", ""),
+        }
+        for c in components
+    ]
 
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
-    components = _discover_components()
-    if components:
-        cards = "\n".join(
-            f'      <li><a href="/components/{c["name"]}/{c.get("html", "index.html")}">'
-            f'{c["name"]}</a> <span style="color:#888">v{c.get("version", "?")}</span>'
-            f" — {c.get('description', '')}</li>"
-            for c in components
-        )
-    else:
-        cards = "      <li>No components installed. Install with: shenas component add &lt;name&gt;</li>"
-    html = f"""\
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>shenas ui</title>
-    <style>
-      body {{ font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; color: #222; }}
-      a {{ color: #0066cc; }}
-      li {{ margin: 0.4rem 0; }}
-      .header {{ display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }}
-      .header img {{ width: 48px; height: 48px; }}
-      .header h1 {{ margin: 0; }}
-    </style>
-  </head>
-  <body>
-    <div class="header">
-      <img src="/static/images/shenas.png" alt="shenas">
-      <h1>shenas ui</h1>
-    </div>
-    <p>Database: <code>{DB_PATH}</code></p>
-    <h2>Components</h2>
-    <ul>
-{cards}
-    </ul>
-    <h2>API</h2>
-    <ul>
-      <li><a href="/api/tables">GET /api/tables</a> — list metric tables</li>
-      <li>GET /api/query?sql=... — returns Arrow IPC stream</li>
-      <li><a href="/api/config">GET /api/config</a> — list config entries</li>
-      <li><a href="/api/db/status">GET /api/db/status</a> — database status</li>
-      <li>GET /api/plugins/{{kind}} — list installed plugins</li>
-      <li>POST /api/sync — sync all pipes (SSE)</li>
-    </ul>
-  </body>
-</html>"""
-    return HTMLResponse(content=html)
+    """Serve the active UI plugin as the app shell."""
+    return _serve_ui_html()
+
+
+@app.get("/{path:path}", response_class=HTMLResponse, include_in_schema=False)
+def spa_fallback(request: Request, path: str) -> HTMLResponse:
+    """SPA catch-all: serve the UI HTML for any path not matched by API or static mounts."""
+    return _serve_ui_html()

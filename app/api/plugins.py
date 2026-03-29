@@ -18,7 +18,7 @@ from repository.signing import load_public_key, verify_bytes
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
 
-VALID_KINDS = {"pipe", "schema", "component"}
+VALID_KINDS = {"pipe", "schema", "component", "ui"}
 
 
 def _validate_kind(kind: str) -> None:
@@ -191,7 +191,7 @@ def _plugin_description(kind: str, name: str) -> str:
     """
     prefix = PREFIXES[kind]
     pkg_name = f"{prefix}{name}"
-    namespace = {"pipe": "shenas_pipes", "schema": "shenas_schemas", "component": "shenas_components"}[kind]
+    namespace = {"pipe": "shenas_pipes", "schema": "shenas_schemas", "component": "shenas_components", "ui": "shenas_ui"}[kind]
 
     for attr in ("PIPE_DESCRIPTION", "DESCRIPTION"):
         for mod_suffix in ("cli", ""):

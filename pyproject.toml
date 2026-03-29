@@ -14,6 +14,7 @@ members = [
     "pipes/*",
     "schemas/*",
     "components/*",
+    "ui/*",
 ]
 
 [tool.uv.sources]
@@ -35,6 +36,7 @@ shenas-schema-outcomes = { workspace = true }
 shenas-schema-habits = { workspace = true }
 shenas-component-fitness-dashboard = { workspace = true }
 shenas-component-data-table = { workspace = true }
+shenas-ui-default = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -53,6 +55,7 @@ dev = [
     "shenas-schema-habits",
     "shenas-component-fitness-dashboard",
     "shenas-component-data-table",
+    "shenas-ui-default",
     "commitizen>=4.13.9",
     "httpx>=0.28.1",
     "pytest>=9.0.2",
