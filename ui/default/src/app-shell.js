@@ -4,17 +4,13 @@ import { Router } from "@lit-labs/router";
 class ShenasApp extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
-    _pipes: { state: true },
-    _dbStatus: { state: true },
     _components: { state: true },
     _loading: { state: true },
     _loadedScripts: { state: true },
   };
 
   _router = new Router(this, [
-    { path: "/", render: () => this._renderDb() },
-    { path: "/database", render: () => this._renderDb() },
-    { path: "/pipes", render: () => this._renderPipes() },
+    { path: "/", render: () => this._renderDynamicHome() },
     { path: "/settings", render: () => this._renderSettings("pipe") },
     {
       path: "/settings/:kind",
@@ -79,49 +75,6 @@ class ShenasApp extends LitElement {
       border-bottom-color: #0066cc;
       font-weight: 600;
     }
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 1rem;
-      margin: 1rem 0;
-    }
-    .card {
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 1rem;
-      background: #fff;
-    }
-    .card h3 {
-      margin: 0 0 0.5rem;
-      font-size: 1rem;
-    }
-    .card .meta {
-      color: #888;
-      font-size: 0.85rem;
-    }
-    .card .desc {
-      margin-top: 0.5rem;
-      font-size: 0.85rem;
-      color: #555;
-    }
-    .status {
-      font-size: 0.9rem;
-      color: #555;
-    }
-    .status code {
-      background: #f0f0f0;
-      padding: 2px 6px;
-      border-radius: 3px;
-    }
-    .schema-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.3rem 0;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    .schema-row:last-child {
-      border-bottom: none;
-    }
     a {
       color: #0066cc;
       text-decoration: none;
@@ -145,8 +98,6 @@ class ShenasApp extends LitElement {
   constructor() {
     super();
     this.apiBase = "/api";
-    this._pipes = [];
-    this._dbStatus = null;
     this._components = [];
     this._loading = true;
     this._loadedScripts = new Set();
@@ -161,14 +112,7 @@ class ShenasApp extends LitElement {
   async _fetchData() {
     this._loading = true;
     try {
-      const [pipes, db, components] = await Promise.all([
-        this._fetch("/plugins/pipe"),
-        this._fetch("/db/status"),
-        this._fetch("/components"),
-      ]);
-      this._pipes = pipes || [];
-      this._dbStatus = db;
-      this._components = components || [];
+      this._components = (await this._fetch("/components")) || [];
     } catch (e) {
       console.error("Failed to fetch data:", e);
     }
@@ -182,8 +126,8 @@ class ShenasApp extends LitElement {
   }
 
   _activeTab() {
-    const path = window.location.pathname.replace(/^\/+/, "") || "database";
-    return path.split("/")[0];
+    const path = window.location.pathname.replace(/^\/+/, "") || "";
+    return path.split("/")[0] || (this._components.length > 0 ? this._components[0].name : "settings");
   }
 
   render() {
@@ -200,8 +144,6 @@ class ShenasApp extends LitElement {
       </div>
 
       <div class="tabs" role="tablist">
-        ${this._tabLink("database", "Database", active)}
-        ${this._tabLink("pipes", "Pipes", active)}
         ${this._components.map((c) => this._tabLink(c.name, c.name, active))}
         ${this._tabLink("settings", "Settings", active)}
       </div>
@@ -221,6 +163,13 @@ class ShenasApp extends LitElement {
         ${label}
       </a>
     `;
+  }
+
+  _renderDynamicHome() {
+    if (this._components.length > 0) {
+      return this._renderDynamicTab(this._components[0].name);
+    }
+    return this._renderSettings("pipe");
   }
 
   _renderDynamicTab(tab) {
@@ -266,57 +215,6 @@ class ShenasApp extends LitElement {
     return this._elementCache.get(comp.name);
   }
 
-  _renderDb() {
-    const db = this._dbStatus;
-    if (!db) return html`<p class="empty">No database info available</p>`;
-    return html`
-      <div class="status">
-        <p>Path: <code>${db.db_path}</code></p>
-        ${db.size_mb != null
-          ? html`<p>Size: ${db.size_mb} MB</p>`
-          : html`<p>Not created yet</p>`}
-      </div>
-      ${(db.schemas || []).map(
-        (s) => html`
-          <h3>${s.name}</h3>
-          ${s.tables.map(
-            (t) => html`
-              <div class="schema-row">
-                <span>${t.name}</span>
-                <span class="meta">
-                  ${t.rows} rows
-                  ${t.earliest
-                    ? html` &middot; ${t.earliest} - ${t.latest}`
-                    : ""}
-                </span>
-              </div>
-            `,
-          )}
-        `,
-      )}
-    `;
-  }
-
-  _renderPipes() {
-    if (this._pipes.length === 0) {
-      return html`<p class="empty">No pipes installed</p>`;
-    }
-    return html`
-      <div class="cards">
-        ${this._pipes.map(
-          (p) => html`
-            <div class="card">
-              <h3>${p.display_name || p.name}</h3>
-              <div class="meta">${p.version}</div>
-              ${p.description
-                ? html`<div class="desc">${p.description}</div>`
-                : ""}
-            </div>
-          `,
-        )}
-      </div>
-    `;
-  }
 }
 
 customElements.define("shenas-app", ShenasApp);
