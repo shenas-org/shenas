@@ -9,6 +9,7 @@ node_modules/
 components/*/shenas_components/*/static/
 htmlcov/
 .coverage
+.cache
 shenas.egg-info/
 .moon/cache/
 .moon/docker/

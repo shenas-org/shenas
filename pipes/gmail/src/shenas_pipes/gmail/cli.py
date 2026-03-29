@@ -6,6 +6,14 @@ from shenas_pipes.core.cli import console, create_pipe_app, run_sync
 
 app = create_pipe_app("Gmail commands.")
 
+PIPE_DESCRIPTION = """Syncs email metadata from Gmail.
+
+Uses Google OAuth2 with shared credentials from shenas-pipe-core.
+Authorization URL is passed back to the CLI for browser-based consent.
+
+Resources: messages (incremental by internal_date), labels.
+No transform step -- raw data stored in gmail.* schema."""
+
 
 @app.command()
 def auth() -> None:

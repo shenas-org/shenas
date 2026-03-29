@@ -84,9 +84,6 @@ class ShenasClient:
 
     # --- Pipes ---
 
-    def pipes_list(self) -> list[dict[str, Any]]:
-        return self._request("GET", "/api/pipes")
-
     def pipe_auth_fields(self, name: str) -> dict[str, Any]:
         return self._request("GET", f"/api/auth/{name}/fields")
 
@@ -122,21 +119,24 @@ class ShenasClient:
     def db_keygen(self) -> dict[str, Any]:
         return self._request("POST", "/api/db/keygen")
 
-    # --- Packages ---
+    # --- Plugins ---
 
-    def packages_list(self, kind: str) -> list[dict[str, str]]:
-        return self._request("GET", f"/api/packages/{kind}")
+    def plugins_list(self, kind: str) -> list[dict[str, str]]:
+        return self._request("GET", f"/api/plugins/{kind}")
 
-    def packages_add(
+    def plugins_add(
         self, kind: str, names: list[str], index_url: str | None = None, skip_verify: bool = False
     ) -> dict[str, Any]:
         body: dict[str, object] = {"names": names, "skip_verify": skip_verify}
         if index_url:
             body["index_url"] = index_url
-        return self._request("POST", f"/api/packages/{kind}", json=body)
+        return self._request("POST", f"/api/plugins/{kind}", json=body)
 
-    def packages_remove(self, kind: str, name: str) -> dict[str, Any]:
-        return self._request("DELETE", f"/api/packages/{kind}/{name}")
+    def plugins_remove(self, kind: str, name: str) -> dict[str, Any]:
+        return self._request("DELETE", f"/api/plugins/{kind}/{name}")
+
+    def plugins_describe(self, kind: str, name: str) -> dict[str, str]:
+        return self._request("GET", f"/api/plugins/{kind}/{name}/describe")
 
     # --- Sync ---
 
