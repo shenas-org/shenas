@@ -71,17 +71,18 @@ _mount_static_plugins("shenas.themes", "themes")
 
 
 def _get_active_theme() -> dict[str, Any] | None:
-    """Find the one enabled theme plugin. Falls back to --default-theme if none enabled."""
+    """Find the one explicitly enabled theme. Falls back to --default-theme."""
     themes = _discover_plugins("shenas.themes")
     try:
-        from app.db import is_plugin_enabled
+        from app.db import get_plugin_state
 
         for plugin in themes:
-            if is_plugin_enabled("theme", plugin["name"]):
+            state = get_plugin_state("theme", plugin["name"])
+            if state and state["enabled"]:
                 return plugin
     except Exception:
         pass
-    # Fallback to --default-theme if nothing explicitly enabled or DB unavailable
+    # Fallback: no theme explicitly enabled -- use --default-theme
     fallback = app.state.default_theme
     for plugin in themes:
         if plugin["name"] == fallback:
