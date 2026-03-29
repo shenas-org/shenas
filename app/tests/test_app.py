@@ -16,8 +16,10 @@ runner = CliRunner()
 
 @pytest.fixture()
 def test_con() -> duckdb.DuckDBPyConnection:
-    """In-memory DuckDB with test data."""
-    con = duckdb.connect(":memory:")
+    """In-memory DuckDB with test data, attached as 'db' like the real server."""
+    con = duckdb.connect()
+    con.execute("ATTACH ':memory:' AS db")
+    con.execute("USE db")
     con.execute("CREATE SCHEMA metrics")
     con.execute("CREATE TABLE metrics.daily_hrv (date DATE, source VARCHAR, rmssd DOUBLE)")
     con.execute("INSERT INTO metrics.daily_hrv VALUES ('2026-03-15', 'garmin', 42.0)")
@@ -35,23 +37,29 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
 
 
 class TestIndex:
-    def test_returns_html(self, client: TestClient) -> None:
-        resp = client.get("/")
+    def test_serves_ui_html(self, client: TestClient, tmp_path: Path) -> None:
+        html_file = tmp_path / "default.html"
+        html_file.write_text("<html><body>test ui</body></html>")
+        fake_ui = [{"name": "default", "version": "1.0", "static_dir": tmp_path, "html": "default.html"}]
+        with patch.object(server_module, "_discover_plugins", return_value=fake_ui):
+            resp = client.get("/")
         assert resp.status_code == 200
-        assert "text/html" in resp.headers["content-type"]
-        assert "shenas ui" in resp.text
+        assert "test ui" in resp.text
 
-    def test_no_components_message(self, client: TestClient) -> None:
-        with patch.object(server_module, "_discover_components", return_value=[]):
+    def test_fallback_when_no_ui(self, client: TestClient) -> None:
+        with patch.object(server_module, "_discover_plugins", return_value=[]):
             resp = client.get("/")
-        assert "No components installed" in resp.text
+        assert resp.status_code == 200
+        assert "not installed" in resp.text
 
-    def test_with_components(self, client: TestClient) -> None:
-        fake = [{"name": "test-dash", "version": "1.0", "description": "A test", "html": "test.html"}]
-        with patch.object(server_module, "_discover_components", return_value=fake):
-            resp = client.get("/")
-        assert "test-dash" in resp.text
-        assert "v1.0" in resp.text
+    def test_spa_fallback(self, client: TestClient, tmp_path: Path) -> None:
+        html_file = tmp_path / "default.html"
+        html_file.write_text("<html><body>spa shell</body></html>")
+        fake_ui = [{"name": "default", "version": "1.0", "static_dir": tmp_path, "html": "default.html"}]
+        with patch.object(server_module, "_discover_plugins", return_value=fake_ui):
+            resp = client.get("/some/deep/route")
+        assert resp.status_code == 200
+        assert "spa shell" in resp.text
 
 
 class TestHealth:
@@ -122,7 +130,7 @@ class TestShenasCLI:
 
         result = runner.invoke(
             shenas_app,
-            ["serve", "--cert", str(tmp_path / "nonexistent.pem"), "--key", str(tmp_path / "nonexistent.key")],
+            ["--cert", str(tmp_path / "nonexistent.pem"), "--key", str(tmp_path / "nonexistent.key")],
             catch_exceptions=False,
         )
         assert result.exit_code == 1

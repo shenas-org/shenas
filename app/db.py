@@ -59,6 +59,7 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
     all operations use the same read-write connection.
 
     Callers should NOT close the returned connection.
+    For concurrent queries, use con.cursor() to get a per-request cursor.
     """
     global _con
     with _lock:
