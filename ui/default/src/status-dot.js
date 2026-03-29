@@ -2,7 +2,7 @@ import { LitElement, html, css } from "lit";
 
 class StatusDot extends LitElement {
   static properties = {
-    enabled: { type: Boolean },
+    enabled: { type: Boolean, reflect: true },
   };
 
   static styles = css`

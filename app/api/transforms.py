@@ -41,15 +41,6 @@ def list_all(source: str | None = None) -> list[dict[str, Any]]:
     return list_transforms(source)
 
 
-@router.get("/{transform_id}")
-def get_one(transform_id: int) -> dict[str, Any]:
-    """Get a single transform."""
-    t = get_transform(transform_id)
-    if not t:
-        raise HTTPException(status_code=404, detail="Transform not found")
-    return t
-
-
 @router.post("")
 def create(body: TransformCreate) -> dict[str, Any]:
     """Create a new transform."""
@@ -62,6 +53,31 @@ def create(body: TransformCreate) -> dict[str, Any]:
         sql=body.sql,
         description=body.description,
     )
+
+
+@router.post("/seed")
+def seed_all_defaults() -> dict[str, Any]:
+    """Seed default transforms from all installed pipes."""
+    from importlib.metadata import entry_points
+
+    from shenas_pipes.core.transform import load_transform_defaults
+
+    seeded = []
+    for ep in entry_points(group="shenas.pipes"):
+        defaults = load_transform_defaults(ep.name)
+        if defaults:
+            seed_defaults(ep.name, defaults)
+            seeded.append(ep.name)
+    return {"seeded": seeded, "count": len(seeded)}
+
+
+@router.get("/{transform_id}")
+def get_one(transform_id: int) -> dict[str, Any]:
+    """Get a single transform."""
+    t = get_transform(transform_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Transform not found")
+    return t
 
 
 @router.put("/{transform_id}")
@@ -85,7 +101,7 @@ def delete(transform_id: int) -> dict[str, Any]:
     if not existing:
         raise HTTPException(status_code=404, detail="Transform not found")
     if existing["is_default"]:
-        raise HTTPException(status_code=400, detail="Cannot delete a default transform. Disable it instead.")
+        raise HTTPException(status_code=403, detail="Cannot delete a default transform. Disable it instead.")
     delete_transform(transform_id)
     return {"ok": True, "message": f"Deleted transform {transform_id}"}
 
@@ -106,22 +122,6 @@ def disable(transform_id: int) -> dict[str, Any]:
     if not t:
         raise HTTPException(status_code=404, detail="Transform not found")
     return t
-
-
-@router.post("/seed")
-def seed_all_defaults() -> dict[str, Any]:
-    """Seed default transforms from all installed pipes."""
-    from importlib.metadata import entry_points
-
-    from shenas_pipes.core.transform import load_transform_defaults
-
-    seeded = []
-    for ep in entry_points(group="shenas.pipes"):
-        defaults = load_transform_defaults(ep.name)
-        if defaults:
-            seed_defaults(ep.name, defaults)
-            seeded.append(ep.name)
-    return {"seeded": seeded, "count": len(seeded)}
 
 
 @router.post("/{transform_id}/test")

@@ -13,6 +13,7 @@ class TransformsPage extends LitElement {
     _creating: { state: true },
     _newForm: { state: true },
     _dbTables: { state: true },
+    _schemaTables: { state: true },
   };
 
   static styles = css`
@@ -179,6 +180,7 @@ class TransformsPage extends LitElement {
     this._creating = false;
     this._newForm = this._emptyForm();
     this._dbTables = {};
+    this._schemaTables = {};
   }
 
   _emptyForm() {
