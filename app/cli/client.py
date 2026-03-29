@@ -1,7 +1,10 @@
 """HTTP client for the shenas REST API."""
 
+from __future__ import annotations
+
 import os
 from collections.abc import Iterator
+from typing import Any  # noqa: F401
 
 import httpx
 
@@ -11,7 +14,7 @@ DEFAULT_SERVER_URL = "https://localhost:7280"
 class ShenasServerError(Exception):
     """Raised when the server returns a non-2xx response or is unreachable."""
 
-    def __init__(self, status_code: int, detail: str):
+    def __init__(self, status_code: int, detail: str) -> None:
         self.status_code = status_code
         self.detail = detail
         super().__init__(f"Server error {status_code}: {detail}")
@@ -22,7 +25,7 @@ def _connect_error(base_url: str) -> ShenasServerError:
 
 
 class ShenasClient:
-    def __init__(self, base_url: str | None = None):
+    def __init__(self, base_url: str | None = None) -> None:
         self.base_url = base_url or os.environ.get("SHENAS_SERVER_URL", DEFAULT_SERVER_URL)
         self._client = httpx.Client(base_url=self.base_url, verify=False, timeout=30.0)
         try:
@@ -35,7 +38,7 @@ class ShenasClient:
     def close(self) -> None:
         self._client.close()
 
-    def _request(self, method: str, path: str, **kwargs):  # noqa: ANN202
+    def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         try:
             resp = self._client.request(method, path, **kwargs)
         except (httpx.ConnectError, httpx.ConnectTimeout):
@@ -49,7 +52,7 @@ class ShenasClient:
             raise ShenasServerError(resp.status_code, detail)
         return resp.json()
 
-    def _stream_sse(self, method: str, path: str, **kwargs) -> Iterator[dict]:
+    def _stream_sse(self, method: str, path: str, **kwargs: Any) -> Iterator[dict[str, Any]]:
         """Stream Server-Sent Events, yielding parsed data dicts."""
         import json
 
@@ -65,7 +68,7 @@ class ShenasClient:
                     if line.startswith("event:"):
                         event_type = line[6:].strip()
                     elif line.startswith("data:"):
-                        data = json.loads(line[5:].strip())
+                        data: dict[str, Any] = json.loads(line[5:].strip())
                         data["_event"] = event_type
                         yield data
                         event_type = "message"
@@ -81,67 +84,69 @@ class ShenasClient:
 
     # --- Pipes ---
 
-    def pipes_list(self) -> list[dict]:
+    def pipes_list(self) -> list[dict[str, Any]]:
         return self._request("GET", "/api/pipes")
 
-    def pipe_auth_fields(self, name: str) -> list[dict]:
+    def pipe_auth_fields(self, name: str) -> list[dict[str, Any]]:
         return self._request("GET", f"/api/auth/{name}/fields")
 
-    def pipe_auth(self, name: str, credentials: dict[str, str]) -> dict:
+    def pipe_auth(self, name: str, credentials: dict[str, str]) -> dict[str, Any]:
         return self._request("POST", f"/api/auth/{name}", json={"credentials": credentials})
 
     # --- Config ---
 
-    def config_list(self, kind: str | None = None, name: str | None = None) -> list[dict]:
-        params = {}
+    def config_list(self, kind: str | None = None, name: str | None = None) -> list[dict[str, Any]]:
+        params: dict[str, str] = {}
         if kind:
             params["kind"] = kind
         if name:
             params["name"] = name
         return self._request("GET", "/api/config", params=params)
 
-    def config_get(self, kind: str, name: str, key: str) -> dict:
+    def config_get(self, kind: str, name: str, key: str) -> dict[str, str]:
         return self._request("GET", f"/api/config/{kind}/{name}/{key}")
 
-    def config_set(self, kind: str, name: str, key: str, value: str) -> dict:
+    def config_set(self, kind: str, name: str, key: str, value: str) -> dict[str, Any]:
         return self._request("PUT", f"/api/config/{kind}/{name}", json={"key": key, "value": value})
 
-    def config_delete(self, kind: str, name: str, key: str | None = None) -> dict:
+    def config_delete(self, kind: str, name: str, key: str | None = None) -> dict[str, Any]:
         if key:
             return self._request("DELETE", f"/api/config/{kind}/{name}/{key}")
         return self._request("DELETE", f"/api/config/{kind}/{name}")
 
     # --- DB ---
 
-    def db_status(self) -> dict:
+    def db_status(self) -> dict[str, Any]:
         return self._request("GET", "/api/db/status")
 
-    def db_keygen(self) -> dict:
+    def db_keygen(self) -> dict[str, Any]:
         return self._request("POST", "/api/db/keygen")
 
     # --- Packages ---
 
-    def packages_list(self, kind: str) -> list[dict]:
+    def packages_list(self, kind: str) -> list[dict[str, str]]:
         return self._request("GET", f"/api/packages/{kind}")
 
-    def packages_add(self, kind: str, names: list[str], index_url: str | None = None, skip_verify: bool = False) -> dict:
-        body: dict = {"names": names, "skip_verify": skip_verify}
+    def packages_add(
+        self, kind: str, names: list[str], index_url: str | None = None, skip_verify: bool = False
+    ) -> dict[str, Any]:
+        body: dict[str, object] = {"names": names, "skip_verify": skip_verify}
         if index_url:
             body["index_url"] = index_url
         return self._request("POST", f"/api/packages/{kind}", json=body)
 
-    def packages_remove(self, kind: str, name: str) -> dict:
+    def packages_remove(self, kind: str, name: str) -> dict[str, Any]:
         return self._request("DELETE", f"/api/packages/{kind}/{name}")
 
     # --- Sync ---
 
-    def sync_all(self) -> Iterator[dict]:
+    def sync_all(self) -> Iterator[dict[str, Any]]:
         return self._stream_sse("POST", "/api/sync")
 
     def sync_pipe(
         self, name: str, start_date: str | None = None, full_refresh: bool = False, **extra: str | int | bool
-    ) -> Iterator[dict]:
-        body: dict = {}
+    ) -> Iterator[dict[str, Any]]:
+        body: dict[str, object] = {}
         if start_date:
             body["start_date"] = start_date
         if full_refresh:

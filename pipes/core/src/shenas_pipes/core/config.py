@@ -6,6 +6,8 @@ the `config` schema, with full type information and metadata available
 for frontend UI generation via introspection.
 """
 
+from __future__ import annotations
+
 import dataclasses
 from typing import Any
 
@@ -77,6 +79,6 @@ def delete_config(con: duckdb.DuckDBPyConnection, config_cls: type) -> None:
     con.execute(f"DELETE FROM config.{table}")
 
 
-def config_metadata(config_cls: type) -> dict:
+def config_metadata(config_cls: type) -> dict[str, Any]:
     """Return full metadata for a config class, suitable for frontend UI generation."""
     return table_metadata(config_cls)

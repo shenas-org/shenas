@@ -1,13 +1,15 @@
 """Extract structured metadata from canonical schema dataclasses."""
 
+from __future__ import annotations
+
 import dataclasses
 import types
-from typing import Annotated, get_args, get_origin, get_type_hints
+from typing import Any, Annotated, get_args, get_origin, get_type_hints
 
 from shenas_schemas.core.field import Field
 
 
-def _extract_field_meta(hint: type) -> dict:
+def _extract_field_meta(hint: type) -> dict[str, Any]:
     origin = get_origin(hint)
     if origin is Annotated:
         meta = get_args(hint)[1]
@@ -20,10 +22,10 @@ def _extract_field_meta(hint: type) -> dict:
     return {}
 
 
-def table_metadata(cls: type) -> dict:
+def table_metadata(cls: type) -> dict[str, Any]:
     """Return full metadata for a table class, suitable for LLM context."""
-    hints = get_type_hints(cls, include_extras=True)
-    columns = []
+    hints: dict[str, Any] = get_type_hints(cls, include_extras=True)
+    columns: list[dict[str, Any]] = []
     for f in dataclasses.fields(cls):
         meta = _extract_field_meta(hints[f.name])
         columns.append({"name": f.name, "nullable": f.name not in cls.__pk__, **meta})
@@ -35,6 +37,6 @@ def table_metadata(cls: type) -> dict:
     }
 
 
-def schema_metadata(all_tables: list[type]) -> list[dict]:
+def schema_metadata(all_tables: list[type]) -> list[dict[str, Any]]:
     """Return metadata for all canonical tables."""
     return [table_metadata(cls) for cls in all_tables]

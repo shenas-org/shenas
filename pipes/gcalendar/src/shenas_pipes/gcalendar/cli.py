@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typer
 
 from shenas_pipes.core.cli import console, create_pipe_app, run_sync

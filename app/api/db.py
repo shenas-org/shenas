@@ -1,5 +1,7 @@
 """Database status API endpoint."""
 
+from __future__ import annotations
+
 import os
 
 import duckdb
@@ -23,7 +25,7 @@ def _discover_schemas(con: duckdb.DuckDBPyConnection) -> dict[str, list[str]]:
     return schemas
 
 
-def _table_stats(con: duckdb.DuckDBPyConnection, schema: str, name: str) -> dict:
+def _table_stats(con: duckdb.DuckDBPyConnection, schema: str, name: str) -> dict[str, object]:
     qualified = f"{schema}.{name}"
     row = con.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()
     rows = row[0] if row else 0
@@ -44,7 +46,7 @@ def _table_stats(con: duckdb.DuckDBPyConnection, schema: str, name: str) -> dict
 
 
 @router.get("/status")
-def db_status() -> dict:
+def db_status() -> dict[str, object]:
     # Key source
     if os.environ.get("SHENAS_DB_KEY"):
         key_source = "env"
@@ -84,7 +86,7 @@ def db_status() -> dict:
 
 
 @router.post("/keygen")
-def db_keygen() -> dict:
+def db_keygen() -> dict[str, bool]:
     """Generate a database encryption key and store it in the OS keyring."""
     from app.db import generate_db_key, set_db_key
 

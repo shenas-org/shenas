@@ -1,11 +1,13 @@
 """Lunch Money API key management via OS keyring."""
 
+from __future__ import annotations
+
 from lunchable import LunchMoney
 
 KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "lunchmoney_api_key"
 
-AUTH_FIELDS = [
+AUTH_FIELDS: list[dict[str, str | bool]] = [
     {"name": "api_key", "prompt": "API key", "hide": True},
 ]
 

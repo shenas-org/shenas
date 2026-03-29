@@ -1,5 +1,8 @@
 """Google Calendar dlt resources -- events, calendars."""
 
+from __future__ import annotations
+
+from collections.abc import Iterator
 from typing import Any
 
 import dlt
@@ -12,14 +15,14 @@ def events(
     service: Any,
     start_date: str = "30 days ago",
     calendar_id: str = "primary",
-) -> Any:
+) -> Iterator[dict[str, Any]]:
     """Yield calendar events from the given date onwards."""
     import pendulum
 
     resolved = resolve_start_date(start_date)
     time_min = pendulum.parse(resolved).start_of("day").isoformat()
 
-    page_token = None
+    page_token: str | None = None
     while True:
         result = (
             service.events()
@@ -63,9 +66,9 @@ def events(
 
 
 @dlt.resource(write_disposition="replace")
-def calendars(service: Any) -> Any:
+def calendars(service: Any) -> Iterator[dict[str, Any]]:
     """Yield all calendars the user has access to."""
-    page_token = None
+    page_token: str | None = None
     while True:
         params: dict[str, Any] = {"maxResults": 250}
         if page_token:

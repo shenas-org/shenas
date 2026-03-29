@@ -1,12 +1,14 @@
 """Find and download Google Takeout archives from Google Drive."""
 
+from __future__ import annotations
+
 import tarfile
 import zipfile
 from pathlib import Path
 from typing import Any
 
 
-def find_takeout_archives(service: Any) -> list[dict]:
+def find_takeout_archives(service: Any) -> list[dict[str, Any]]:
     """Search Google Drive for Takeout archive files (zip/tgz)."""
     archive_mimes = (
         "mimeType='application/zip' or mimeType='application/x-zip' or "
@@ -23,10 +25,10 @@ def find_takeout_archives(service: Any) -> list[dict]:
         queries.append(f"'{takeout_folder_id}' in parents and trashed=false and ({archive_mimes})")
 
     seen_ids: set[str] = set()
-    archives = []
+    archives: list[dict[str, Any]] = []
 
     for query in queries:
-        page_token = None
+        page_token: str | None = None
         while True:
             result = (
                 service.files()
@@ -78,7 +80,7 @@ def _find_folder(service: Any, name: str) -> str | None:
 def download_archive(service: Any, file_id: str, dest_dir: Path) -> Path:
     """Download an archive from Drive to a local file."""
     meta = service.files().get(fileId=file_id, fields="name").execute()
-    filename = meta["name"]
+    filename: str = meta["name"]
     dest = dest_dir / filename
 
     request = service.files().get_media(fileId=file_id)
