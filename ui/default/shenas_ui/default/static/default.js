@@ -1,43 +1,43 @@
-var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):d[e]=t;var o=(d,e,t)=>$(d,typeof e!="symbol"?e+"":e,t);import{LitElement as l,html as a,css as c}from"lit";import{Router as w}from"@lit-labs/router";class h extends l{constructor(){super();o(this,"_router",new w(this,[{path:"/",render:()=>this._renderDb()},{path:"/database",render:()=>this._renderDb()},{path:"/pipes",render:()=>this._renderPipes()},{path:"/transforms",render:()=>a`<shenas-transforms api-base="${this.apiBase}"></shenas-transforms>`},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:t})=>this._renderSettings(t)},{path:"/settings/:kind/:name",render:({kind:t,name:s})=>this._renderPluginDetail(t,s)},{path:"/:tab",render:({tab:t})=>this._renderDynamicTab(t)}]));this.apiBase="/api",this._pipes=[],this._dbStatus=null,this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map}connectedCallback(){super.connectedCallback(),this._fetchData()}async _fetchData(){this._loading=!0;try{const[t,s,i]=await Promise.all([this._fetch("/plugins/pipe"),this._fetch("/db/status"),this._fetch("/components")]);this._pipes=t||[],this._dbStatus=s,this._components=i||[]}catch(t){console.error("Failed to fetch data:",t)}this._loading=!1}async _fetch(t){const s=await fetch(`${this.apiBase}${t}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"database").split("/")[0]}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const t=this._activeTab();return a`
+var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configurable:!0,writable:!0,value:e}):d[t]=e;var o=(d,t,e)=>$(d,typeof t!="symbol"?t+"":t,e);import{LitElement as l,css as c,html as a}from"lit";import{Router as v}from"@lit-labs/router";class h extends l{constructor(){super();o(this,"_router",new v(this,[{path:"/",render:()=>this._renderDb()},{path:"/database",render:()=>this._renderDb()},{path:"/pipes",render:()=>this._renderPipes()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:e})=>this._renderSettings(e)},{path:"/settings/:kind/:name",render:({kind:e,name:s})=>this._renderPluginDetail(e,s)},{path:"/settings/:kind/:name/transforms",render:({kind:e,name:s})=>this._renderPluginDetail(e,s,"transforms")},{path:"/:tab",render:({tab:e})=>this._renderDynamicTab(e)}]));this.apiBase="/api",this._pipes=[],this._dbStatus=null,this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map}connectedCallback(){super.connectedCallback(),this._fetchData()}async _fetchData(){this._loading=!0;try{const[e,s,i]=await Promise.all([this._fetch("/plugins/pipe"),this._fetch("/db/status"),this._fetch("/components")]);this._pipes=e||[],this._dbStatus=s,this._components=i||[]}catch(e){console.error("Failed to fetch data:",e)}this._loading=!1}async _fetch(e){const s=await fetch(`${this.apiBase}${e}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"database").split("/")[0]}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const e=this._activeTab();return a`
       <div class="header">
         <img src="/static/images/shenas.png" alt="shenas" />
         <h1>shenas</h1>
       </div>
 
       <div class="tabs" role="tablist">
-        ${this._tabLink("database","Database",t)}
-        ${this._tabLink("pipes","Pipes",t)}
-        ${this._tabLink("transforms","Transforms",t)}
-        ${this._components.map(s=>this._tabLink(s.name,s.name,t))}
-        ${this._tabLink("settings","Settings",t)}
+        ${this._tabLink("database","Database",e)}
+        ${this._tabLink("pipes","Pipes",e)}
+        ${this._components.map(s=>this._tabLink(s.name,s.name,e))}
+        ${this._tabLink("settings","Settings",e)}
       </div>
 
       ${this._router.outlet()}
-    `}_tabLink(t,s,i){return a`
+    `}_tabLink(e,s,i){return a`
       <a
         class="tab"
         role="tab"
-        href="/${t}"
-        aria-selected=${i===t}
+        href="/${e}"
+        aria-selected=${i===e}
       >
         ${s}
       </a>
-    `}_renderDynamicTab(t){const s=this._components.find(i=>i.name===t);if(!s)return a`<p class="empty">Unknown page: ${t}</p>`;if(!this._loadedScripts.has(s.js)){this._loadedScripts=new Set([...this._loadedScripts,s.js]);const i=document.createElement("script");i.type="module",i.src=s.js,document.head.appendChild(i)}return a`<div class="component-host">
+    `}_renderDynamicTab(e){const s=this._components.find(i=>i.name===e);if(!s)return a`<p class="empty">Unknown page: ${e}</p>`;if(!this._loadedScripts.has(s.js)){this._loadedScripts=new Set([...this._loadedScripts,s.js]);const i=document.createElement("script");i.type="module",i.src=s.js,document.head.appendChild(i)}return a`<div class="component-host">
       ${this._getOrCreateElement(s)}
-    </div>`}_renderPluginDetail(t,s){return a`<shenas-plugin-detail
+    </div>`}_renderPluginDetail(e,s,i="details"){return a`<shenas-plugin-detail
       api-base="${this.apiBase}"
-      kind="${t}"
+      kind="${e}"
       name="${s}"
-    ></shenas-plugin-detail>`}_renderSettings(t){return a`<shenas-settings
+      active-tab="${i}"
+    ></shenas-plugin-detail>`}_renderSettings(e){return a`<shenas-settings
       api-base="${this.apiBase}"
-      active-kind="${t||"pipe"}"
+      active-kind="${e||"pipe"}"
       .onNavigate=${s=>{this._router.goto(`/settings/${s}`)}}
-    ></shenas-settings>`}_getOrCreateElement(t){if(!this._elementCache.has(t.name)){const s=document.createElement(t.tag);s.setAttribute("api-base",this.apiBase),this._elementCache.set(t.name,s)}return this._elementCache.get(t.name)}_renderDb(){const t=this._dbStatus;return t?a`
+    ></shenas-settings>`}_getOrCreateElement(e){if(!this._elementCache.has(e.name)){const s=document.createElement(e.tag);s.setAttribute("api-base",this.apiBase),this._elementCache.set(e.name,s)}return this._elementCache.get(e.name)}_renderDb(){const e=this._dbStatus;return e?a`
       <div class="status">
-        <p>Path: <code>${t.db_path}</code></p>
-        ${t.size_mb!=null?a`<p>Size: ${t.size_mb} MB</p>`:a`<p>Not created yet</p>`}
+        <p>Path: <code>${e.db_path}</code></p>
+        ${e.size_mb!=null?a`<p>Size: ${e.size_mb} MB</p>`:a`<p>Not created yet</p>`}
       </div>
-      ${(t.schemas||[]).map(s=>a`
+      ${(e.schemas||[]).map(s=>a`
           <h3>${s.name}</h3>
           ${s.tables.map(i=>a`
               <div class="schema-row">
@@ -51,11 +51,11 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
         `)}
     `:a`<p class="empty">No database info available</p>`}_renderPipes(){return this._pipes.length===0?a`<p class="empty">No pipes installed</p>`:a`
       <div class="cards">
-        ${this._pipes.map(t=>a`
+        ${this._pipes.map(e=>a`
             <div class="card">
-              <h3>${t.display_name||t.name}</h3>
-              <div class="meta">${t.version}</div>
-              ${t.description?a`<div class="desc">${t.description}</div>`:""}
+              <h3>${e.display_name||e.name}</h3>
+              <div class="meta">${e.version}</div>
+              ${e.description?a`<div class="desc">${e.description}</div>`:""}
             </div>
           `)}
       </div>
@@ -168,22 +168,22 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
     .component-host {
       margin-top: 1rem;
     }
-  `);customElements.define("shenas-app",h);const p=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class m extends l{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all(p.map(async({id:t})=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _remove(e,t){this._actionMessage=null;const i=await(await fetch(`${this.apiBase}/plugins/${e}/${t}`,{method:"DELETE"})).json();i.ok?(this._actionMessage={type:"success",text:i.message},await this._fetchAll()):this._actionMessage={type:"error",text:i.message||"Remove failed"}}async _toggleEnabled(e,t,s){this._actionMessage=null;const i=s?"disable":"enable",n=await(await fetch(`${this.apiBase}/plugins/${e}/${t}/${i}`,{method:"POST"})).json();n.ok?(this._actionMessage={type:"success",text:n.message},await this._fetchAll()):this._actionMessage={type:"error",text:n.message||`${i} failed`}}async _install(e){var u,f;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(u=t==null?void 0:t.value)==null?void 0:u.trim();if(!s)return;this._actionMessage=null;const n=(f=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:f[0];n!=null&&n.ok?(this._actionMessage={type:"success",text:n.message},t.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(n==null?void 0:n.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
+  `);customElements.define("shenas-app",h);const p=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class m extends l{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const t={};await Promise.all(p.map(async({id:e})=>{const s=await fetch(`${this.apiBase}/plugins/${e}`);t[e]=s.ok?await s.json():[]})),this._plugins=t,this._loading=!1}async _remove(t,e){this._actionMessage=null;const i=await(await fetch(`${this.apiBase}/plugins/${t}/${e}`,{method:"DELETE"})).json();i.ok?(this._actionMessage={type:"success",text:i.message},await this._fetchAll()):this._actionMessage={type:"error",text:i.message||"Remove failed"}}async _toggleEnabled(t,e,s){this._actionMessage=null;const i=s?"disable":"enable",n=await(await fetch(`${this.apiBase}/plugins/${t}/${e}/${i}`,{method:"POST"})).json();n.ok?(this._actionMessage={type:"success",text:n.message},await this._fetchAll()):this._actionMessage={type:"error",text:n.message||`${i} failed`}}async _install(t){var u,f;const e=this.shadowRoot.querySelector(`#install-${t}`),s=(u=e==null?void 0:e.value)==null?void 0:u.trim();if(!s)return;this._actionMessage=null;const n=(f=(await(await fetch(`${this.apiBase}/plugins/${t}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:f[0];n!=null&&n.ok?(this._actionMessage={type:"success",text:n.message},e.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(n==null?void 0:n.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
       ${this._actionMessage?a`<div class="message ${this._actionMessage.type}">
             ${this._actionMessage.text}
           </div>`:""}
       <div class="layout">
         <nav class="sidebar">
           <ul>
-            ${p.map(({id:e,label:t})=>a`
+            ${p.map(({id:t,label:e})=>a`
                 <li>
                   <a
-                    href="/settings/${e}"
-                    aria-selected=${this.activeKind===e}
+                    href="/settings/${t}"
+                    aria-selected=${this.activeKind===t}
                   >
-                    ${t}
+                    ${e}
                     <span style="color:#aaa; font-weight:normal">
-                      (${(this._plugins[e]||[]).length})
+                      (${(this._plugins[t]||[]).length})
                     </span>
                   </a>
                 </li>
@@ -192,9 +192,9 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
         </nav>
         <div class="content">${this._renderKind(this.activeKind)}</div>
       </div>
-    `}_renderKind(e){var i;const t=this._plugins[e]||[],s=((i=p.find(r=>r.id===e))==null?void 0:i.label)||e;return a`
+    `}_renderKind(t){var i;const e=this._plugins[t]||[],s=((i=p.find(r=>r.id===t))==null?void 0:i.label)||t;return a`
       <h3>${s}</h3>
-      ${t.length>0?a`
+      ${e.length>0?a`
             <table>
               <thead>
                 <tr>
@@ -205,9 +205,9 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
                 </tr>
               </thead>
               <tbody>
-                ${t.map(r=>a`
+                ${e.map(r=>a`
                     <tr style="${r.enabled===!1?"opacity: 0.5":""}">
-                      <td class="name"><a href="/settings/${e}/${r.name}">${r.display_name||r.name}</a></td>
+                      <td class="name"><a href="/settings/${t}/${r.name}">${r.display_name||r.name}</a></td>
                       <td class="version">${r.version}</td>
                       <td class="version">${r.added_at?r.added_at.slice(0,10):""}</td>
                       <td class="status-cell">
@@ -220,12 +220,12 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
           `:a`<p class="empty">No ${s.toLowerCase()} installed</p>`}
       <div class="install-row">
         <input
-          id="install-${e}"
+          id="install-${t}"
           type="text"
           placeholder="Plugin name"
-          @keydown=${r=>r.key==="Enter"&&this._install(e)}
+          @keydown=${r=>r.key==="Enter"&&this._install(t)}
         />
-        <button class="action" @click=${()=>this._install(e)}>
+        <button class="action" @click=${()=>this._install(t)}>
           Install
         </button>
       </div>
@@ -373,42 +373,49 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
       color: #888;
       font-style: italic;
     }
-  `);customElements.define("shenas-settings",m);class g extends l{constructor(){super(),this.apiBase="/api",this.kind="",this.name="",this._info=null,this._loading=!0,this._message=null}willUpdate(e){(e.has("kind")||e.has("name"))&&this._fetchInfo()}async _fetchInfo(){if(!this.kind||!this.name)return;this._loading=!0,this._message=null;const e=await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/info`);this._info=e.ok?await e.json():null,this._loading=!1}async _toggle(){var i;const e=((i=this._info)==null?void 0:i.enabled)!==!1?"disable":"enable",s=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/${e}`,{method:"POST"})).json();this._message={type:s.ok?"success":"error",text:s.message||`${e} failed`},await this._fetchInfo()}async _remove(){const t=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}`,{method:"DELETE"})).json();t.ok?(window.history.pushState({},"",`/settings/${this.kind}`),window.dispatchEvent(new PopStateEvent("popstate"))):this._message={type:"error",text:t.message||"Remove failed"}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;if(!this._info)return a`<p>Plugin not found.</p>`;const e=this._info,t=e.enabled!==!1;return a`
+  `);customElements.define("shenas-settings",m);class g extends l{constructor(){super(),this.apiBase="/api",this.kind="",this.name="",this.activeTab="details",this._info=null,this._loading=!0,this._message=null}willUpdate(t){(t.has("kind")||t.has("name"))&&this._fetchInfo()}async _fetchInfo(){if(!this.kind||!this.name)return;this._loading=!0,this._message=null;const t=await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/info`);this._info=t.ok?await t.json():null,this._loading=!1}async _toggle(){var i;const t=((i=this._info)==null?void 0:i.enabled)!==!1?"disable":"enable",s=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/${t}`,{method:"POST"})).json();this._message={type:s.ok?"success":"error",text:s.message||`${t} failed`},await this._fetchInfo()}async _remove(){const e=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}`,{method:"DELETE"})).json();e.ok?(window.history.pushState({},"",`/settings/${this.kind}`),window.dispatchEvent(new PopStateEvent("popstate"))):this._message={type:"error",text:e.message||"Remove failed"}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;if(!this._info)return a`<p>Plugin not found.</p>`;const t=this._info,e=t.enabled!==!1,s=`/settings/${this.kind}/${this.name}`;return a`
       <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
 
-      <h2>${e.display_name||e.name}</h2>
-      <span class="kind-badge">${e.kind}</span>
+      <h2>${t.display_name||t.name}</h2>
+      <span class="kind-badge">${t.kind}</span>
 
-      ${e.description?a`<div class="description">${e.description}</div>`:""}
-
-      <div class="state-table">
-        <div class="state-row">
-          <span class="state-label">Status</span>
-          <span class="state-value ${t?"enabled":"disabled"}">
-            ${t?"Enabled":"Disabled"}
-          </span>
-        </div>
-        ${this._stateRow("Added",e.added_at)}
-        ${this._stateRow("Updated",e.updated_at)}
-        ${this._stateRow("Status changed",e.status_changed_at)}
+      <div class="detail-tabs">
+        <a class="detail-tab" href="${s}" aria-selected=${this.activeTab==="details"}>Details</a>
+        ${this.kind==="pipe"?a`<a class="detail-tab" href="${s}/transforms" aria-selected=${this.activeTab==="transforms"}>Transforms</a>`:""}
       </div>
 
-      <div class="actions">
-        <button @click=${this._toggle}>
-          ${t?"Disable":"Enable"}
-        </button>
-        <button class="danger" @click=${this._remove}>Remove</button>
-      </div>
+      ${this.activeTab==="transforms"?a`<shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`:this._renderDetails(t,e)}
 
       ${this._message?a`<div class="message ${this._message.type}">
             ${this._message.text}
           </div>`:""}
-    `}_stateRow(e,t){return t?a`
-      <div class="state-row">
-        <span class="state-label">${e}</span>
-        <span class="state-value">${t.slice(0,19)}</span>
+    `}_renderDetails(t,e){return a`
+      ${t.description?a`<div class="description">${t.description}</div>`:""}
+
+      <div class="state-table">
+        <div class="state-row">
+          <span class="state-label">Status</span>
+          <span class="state-value ${e?"enabled":"disabled"}">
+            ${e?"Enabled":"Disabled"}
+          </span>
+        </div>
+        ${this._stateRow("Added",t.added_at)}
+        ${this._stateRow("Updated",t.updated_at)}
+        ${this._stateRow("Status changed",t.status_changed_at)}
       </div>
-    `:""}}o(g,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},_info:{state:!0},_loading:{state:!0},_message:{state:!0}}),o(g,"styles",c`
+
+      <div class="actions">
+        <button @click=${this._toggle}>
+          ${e?"Disable":"Enable"}
+        </button>
+        <button class="danger" @click=${this._remove}>Remove</button>
+      </div>
+    `}_stateRow(t,e){return e?a`
+      <div class="state-row">
+        <span class="state-label">${t}</span>
+        <span class="state-value">${e.slice(0,19)}</span>
+      </div>
+    `:""}}o(g,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},activeTab:{type:String,attribute:"active-tab"},_info:{state:!0},_loading:{state:!0},_message:{state:!0}}),o(g,"styles",c`
     :host {
       display: block;
     }
@@ -492,6 +499,31 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
     button.danger:hover {
       background: #fef0f0;
     }
+    .detail-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid #e0e0e0;
+      margin: 1rem 0;
+    }
+    .detail-tab {
+      padding: 0.5rem 1rem;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      text-decoration: none;
+    }
+    .detail-tab:hover {
+      color: #222;
+    }
+    .detail-tab[aria-selected="true"] {
+      color: #222;
+      border-bottom-color: #0066cc;
+      font-weight: 600;
+    }
     .message {
       padding: 0.5rem 0.8rem;
       border-radius: 4px;
@@ -510,7 +542,7 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
       color: #888;
       font-style: italic;
     }
-  `);customElements.define("shenas-plugin-detail",g);class b extends l{constructor(){super(),this.apiBase="/api",this._transforms=[],this._loading=!0,this._editing=null,this._editSql="",this._message=null,this._previewRows=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e=await fetch(`${this.apiBase}/transforms`);this._transforms=e.ok?await e.json():[],this._loading=!1}async _toggle(e){const t=e.enabled?"disable":"enable";await fetch(`${this.apiBase}/transforms/${e.id}/${t}`,{method:"POST"}),await this._fetchAll()}async _delete(e){const s=await(await fetch(`${this.apiBase}/transforms/${e.id}`,{method:"DELETE"})).json();s.ok?(this._message={type:"success",text:s.message},await this._fetchAll()):this._message={type:"error",text:s.detail||s.message||"Delete failed"}}_startEdit(e){this._editing=e.id,this._editSql=e.sql,this._previewRows=null}_cancelEdit(){this._editing=null,this._editSql="",this._previewRows=null}async _saveEdit(){const e=await fetch(`${this.apiBase}/transforms/${this._editing}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({sql:this._editSql})});if(e.ok)this._message={type:"success",text:"Transform updated"},this._editing=null,await this._fetchAll();else{const t=await e.json();this._message={type:"error",text:t.detail||"Update failed"}}}async _preview(){const e=await fetch(`${this.apiBase}/transforms/${this._editing}/test?limit=5`,{method:"POST"});if(e.ok)this._previewRows=await e.json();else{const t=await e.json();this._message={type:"error",text:t.detail||"Preview failed"}}}render(){return this._loading?a`<p class="loading">Loading transforms...</p>`:a`
+  `);customElements.define("shenas-plugin-detail",g);class b extends l{constructor(){super(),this.apiBase="/api",this.source="",this._transforms=[],this._loading=!0,this._editing=null,this._editSql="",this._message=null,this._previewRows=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const t=this.source?`?source=${this.source}`:"",e=await fetch(`${this.apiBase}/transforms${t}`);this._transforms=e.ok?await e.json():[],this._loading=!1}async _toggle(t){const e=t.enabled?"disable":"enable";await fetch(`${this.apiBase}/transforms/${t.id}/${e}`,{method:"POST"}),await this._fetchAll()}async _delete(t){const s=await(await fetch(`${this.apiBase}/transforms/${t.id}`,{method:"DELETE"})).json();s.ok?(this._message={type:"success",text:s.message},await this._fetchAll()):this._message={type:"error",text:s.detail||s.message||"Delete failed"}}_startEdit(t){this._editing=t.id,this._editSql=t.sql,this._previewRows=null}_cancelEdit(){this._editing=null,this._editSql="",this._previewRows=null}async _saveEdit(){const t=await fetch(`${this.apiBase}/transforms/${this._editing}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({sql:this._editSql})});if(t.ok)this._message={type:"success",text:"Transform updated"},this._editing=null,await this._fetchAll();else{const e=await t.json();this._message={type:"error",text:e.detail||"Update failed"}}}async _preview(){const t=await fetch(`${this.apiBase}/transforms/${this._editing}/test?limit=5`,{method:"POST"});if(t.ok)this._previewRows=await t.json();else{const e=await t.json();this._message={type:"error",text:e.detail||"Preview failed"}}}render(){return this._loading?a`<p class="loading">Loading transforms...</p>`:a`
       ${this._message?a`<div class="message ${this._message.type}">
             ${this._message.text}
           </div>`:""}
@@ -527,30 +559,30 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
           </tr>
         </thead>
         <tbody>
-          ${this._transforms.map(e=>a`
-              <tr class="${e.enabled?"":"disabled-row"}">
-                <td class="id">${e.id}</td>
+          ${this._transforms.map(t=>a`
+              <tr class="${t.enabled?"":"disabled-row"}">
+                <td class="id">${t.id}</td>
                 <td class="mapping">
-                  ${e.source_duckdb_schema}.${e.source_duckdb_table}
+                  ${t.source_duckdb_schema}.${t.source_duckdb_table}
                 </td>
                 <td class="mapping">
-                  ${e.target_duckdb_schema}.${e.target_duckdb_table}
+                  ${t.target_duckdb_schema}.${t.target_duckdb_table}
                 </td>
                 <td class="desc">
-                  ${e.description||""}
-                  ${e.is_default?a`<span class="default-badge">default</span>`:""}
+                  ${t.description||""}
+                  ${t.is_default?a`<span class="default-badge">default</span>`:""}
                 </td>
                 <td class="status">
-                  ${e.enabled?"enabled":"disabled"}
+                  ${t.enabled?"enabled":"disabled"}
                 </td>
                 <td class="actions">
-                  <button @click=${()=>this._startEdit(e)}>Edit</button>
-                  <button @click=${()=>this._toggle(e)}>
-                    ${e.enabled?"Disable":"Enable"}
+                  <button @click=${()=>this._startEdit(t)}>Edit</button>
+                  <button @click=${()=>this._toggle(t)}>
+                    ${t.enabled?"Disable":"Enable"}
                   </button>
-                  ${e.is_default?"":a`<button
+                  ${t.is_default?"":a`<button
                         class="danger"
-                        @click=${()=>this._delete(e)}
+                        @click=${()=>this._delete(t)}
                       >
                         Delete
                       </button>`}
@@ -559,15 +591,15 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
             `)}
         </tbody>
       </table>
-    `}_renderEditor(){const e=this._transforms.find(t=>t.id===this._editing);return e?a`
+    `}_renderEditor(){const t=this._transforms.find(e=>e.id===this._editing);return t?a`
       <div class="edit-panel">
         <h3>
-          Edit: ${e.source_duckdb_schema}.${e.source_duckdb_table} ->
-          ${e.target_duckdb_schema}.${e.target_duckdb_table}
+          Edit: ${t.source_duckdb_schema}.${t.source_duckdb_table} ->
+          ${t.target_duckdb_schema}.${t.target_duckdb_table}
         </h3>
         <textarea
           .value=${this._editSql}
-          @input=${t=>this._editSql=t.target.value}
+          @input=${e=>this._editSql=e.target.value}
         ></textarea>
         <div class="edit-actions">
           <button @click=${this._saveEdit}>Save</button>
@@ -576,24 +608,24 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
         </div>
         ${this._previewRows?this._renderPreview():""}
       </div>
-    `:""}_renderPreview(){if(!this._previewRows||this._previewRows.length===0)return a`<p class="loading">No preview rows</p>`;const e=Object.keys(this._previewRows[0]);return a`
+    `:""}_renderPreview(){if(!this._previewRows||this._previewRows.length===0)return a`<p class="loading">No preview rows</p>`;const t=Object.keys(this._previewRows[0]);return a`
       <div class="preview-table">
         <table>
           <thead>
             <tr>
-              ${e.map(t=>a`<th>${t}</th>`)}
+              ${t.map(e=>a`<th>${e}</th>`)}
             </tr>
           </thead>
           <tbody>
-            ${this._previewRows.map(t=>a`
+            ${this._previewRows.map(e=>a`
                 <tr>
-                  ${e.map(s=>a`<td>${t[s]}</td>`)}
+                  ${t.map(s=>a`<td>${e[s]}</td>`)}
                 </tr>
               `)}
           </tbody>
         </table>
       </div>
-    `}}o(b,"properties",{apiBase:{type:String,attribute:"api-base"},_transforms:{state:!0},_loading:{state:!0},_editing:{state:!0},_editSql:{state:!0},_message:{state:!0},_previewRows:{state:!0}}),o(b,"styles",c`
+    `}}o(b,"properties",{apiBase:{type:String,attribute:"api-base"},source:{type:String},_transforms:{state:!0},_loading:{state:!0},_editing:{state:!0},_editSql:{state:!0},_message:{state:!0},_previewRows:{state:!0}}),o(b,"styles",c`
     :host {
       display: block;
     }

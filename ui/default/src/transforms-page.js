@@ -3,6 +3,7 @@ import { LitElement, html, css } from "lit";
 class TransformsPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
+    source: { type: String },
     _transforms: { state: true },
     _loading: { state: true },
     _editing: { state: true },
@@ -133,6 +134,7 @@ class TransformsPage extends LitElement {
   constructor() {
     super();
     this.apiBase = "/api";
+    this.source = "";
     this._transforms = [];
     this._loading = true;
     this._editing = null;
@@ -148,7 +150,8 @@ class TransformsPage extends LitElement {
 
   async _fetchAll() {
     this._loading = true;
-    const resp = await fetch(`${this.apiBase}/transforms`);
+    const params = this.source ? `?source=${this.source}` : "";
+    const resp = await fetch(`${this.apiBase}/transforms${params}`);
     this._transforms = resp.ok ? await resp.json() : [];
     this._loading = false;
   }

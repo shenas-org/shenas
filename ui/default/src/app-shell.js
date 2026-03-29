@@ -15,7 +15,6 @@ class ShenasApp extends LitElement {
     { path: "/", render: () => this._renderDb() },
     { path: "/database", render: () => this._renderDb() },
     { path: "/pipes", render: () => this._renderPipes() },
-    { path: "/transforms", render: () => html`<shenas-transforms api-base="${this.apiBase}"></shenas-transforms>` },
     { path: "/settings", render: () => this._renderSettings("pipe") },
     {
       path: "/settings/:kind",
@@ -24,6 +23,10 @@ class ShenasApp extends LitElement {
     {
       path: "/settings/:kind/:name",
       render: ({ kind, name }) => this._renderPluginDetail(kind, name),
+    },
+    {
+      path: "/settings/:kind/:name/transforms",
+      render: ({ kind, name }) => this._renderPluginDetail(kind, name, "transforms"),
     },
     { path: "/:tab", render: ({ tab }) => this._renderDynamicTab(tab) },
   ]);
@@ -199,7 +202,6 @@ class ShenasApp extends LitElement {
       <div class="tabs" role="tablist">
         ${this._tabLink("database", "Database", active)}
         ${this._tabLink("pipes", "Pipes", active)}
-        ${this._tabLink("transforms", "Transforms", active)}
         ${this._components.map((c) => this._tabLink(c.name, c.name, active))}
         ${this._tabLink("settings", "Settings", active)}
       </div>
@@ -236,11 +238,12 @@ class ShenasApp extends LitElement {
     </div>`;
   }
 
-  _renderPluginDetail(kind, name) {
+  _renderPluginDetail(kind, name, tab = "details") {
     return html`<shenas-plugin-detail
       api-base="${this.apiBase}"
       kind="${kind}"
       name="${name}"
+      active-tab="${tab}"
     ></shenas-plugin-detail>`;
   }
 
