@@ -19,6 +19,7 @@ except Exception:
 
 SCHEMA = {
     "name": "habits",
+    "display_name": "Daily Habits",
     "description": "Daily habit tracking: boolean per-habit columns",
     "version": _version,
     "tables": CANONICAL_TABLES,

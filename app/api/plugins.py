@@ -76,12 +76,14 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
         if _is_internal(kind, short_name):
             continue
         sig_status = check_signature(p["name"], p["version"])
+        display = _plugin_display_name(kind, short_name)
         desc = _plugin_description(kind, short_name)
         cmds = _plugin_commands(kind, short_name)
         state = get_plugin_state(kind, short_name)
         items.append(
             PluginInfo(
                 name=short_name,
+                display_name=display,
                 package=p["name"],
                 version=p["version"],
                 signature=sig_status,
@@ -227,27 +229,49 @@ def _plugin_commands(kind: str, name: str) -> list[str]:
     return commands
 
 
-def _plugin_description(kind: str, name: str) -> str:
-    """Load a description from a plugin module.
+def _load_plugin_module(kind: str, name: str) -> Any:
+    """Try to import a plugin module (cli first, then __init__)."""
+    namespace = NAMESPACES[kind]
+    for mod_suffix in ("cli", ""):
+        mod_name = f"{namespace}.{name}.{mod_suffix}".rstrip(".")
+        try:
+            return importlib.import_module(mod_name)
+        except (ImportError, ModuleNotFoundError):
+            continue
+    return None
 
-    Tries PIPE_DESCRIPTION / DESCRIPTION from the plugin's cli or __init__ module,
-    falls back to the Python package metadata summary.
-    """
+
+def _plugin_display_name(kind: str, name: str) -> str:
+    """Load a human-readable display name from a plugin module."""
+    mod = _load_plugin_module(kind, name)
+    if mod:
+        for attr in ("DISPLAY_NAME", "PIPE_DISPLAY_NAME"):
+            val = getattr(mod, attr, None)
+            if val:
+                return val
+        # Check metadata dicts (COMPONENT, UI, SCHEMA)
+        for attr in _META_ATTRS:
+            meta = getattr(mod, attr, None)
+            if isinstance(meta, dict) and meta.get("display_name"):
+                return meta["display_name"]
+    return ""
+
+
+def _plugin_description(kind: str, name: str) -> str:
+    """Load a description from a plugin module."""
+    mod = _load_plugin_module(kind, name)
+    if mod:
+        for attr in ("DESCRIPTION", "PIPE_DESCRIPTION"):
+            val = getattr(mod, attr, None)
+            if val:
+                return val
+        for attr in _META_ATTRS:
+            meta = getattr(mod, attr, None)
+            if isinstance(meta, dict) and meta.get("description"):
+                return meta["description"]
+
     prefix = PREFIXES[kind]
     pkg_name = f"{prefix}{name}"
-    namespace = NAMESPACES[kind]
-
-    for attr in ("PIPE_DESCRIPTION", "DESCRIPTION"):
-        for mod_suffix in ("cli", ""):
-            mod_name = f"{namespace}.{name}.{mod_suffix}".rstrip(".")
-            try:
-                mod = importlib.import_module(mod_name)
-                desc = getattr(mod, attr, None)
-                if desc:
-                    return desc
-            except (ImportError, ModuleNotFoundError):
-                continue
-
     try:
         from importlib.metadata import metadata
 
@@ -264,6 +288,7 @@ def plugin_info(kind: str, name: str) -> dict[str, Any]:
     state = get_plugin_state(kind, name)
     return {
         "name": name,
+        "display_name": _plugin_display_name(kind, name),
         "kind": kind,
         "description": _plugin_description(kind, name),
         "enabled": state["enabled"] if state else True,

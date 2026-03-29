@@ -53,7 +53,7 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
       <div class="cards">
         ${this._pipes.map(t=>a`
             <div class="card">
-              <h3>${t.name}</h3>
+              <h3>${t.display_name||t.name}</h3>
               <div class="meta">${t.version}</div>
               ${t.description?a`<div class="desc">${t.description}</div>`:""}
             </div>
@@ -207,7 +207,7 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
               <tbody>
                 ${t.map(r=>a`
                     <tr style="${r.enabled===!1?"opacity: 0.5":""}">
-                      <td class="name"><a href="/settings/${e}/${r.name}">${r.name}</a></td>
+                      <td class="name"><a href="/settings/${e}/${r.name}">${r.display_name||r.name}</a></td>
                       <td class="version">${r.version}</td>
                       <td class="version">${r.added_at?r.added_at.slice(0,10):""}</td>
                       <td class="status-cell">
@@ -376,7 +376,7 @@ var _=Object.defineProperty;var $=(d,e,t)=>e in d?_(d,e,{enumerable:!0,configura
   `);customElements.define("shenas-settings",m);class g extends l{constructor(){super(),this.apiBase="/api",this.kind="",this.name="",this._info=null,this._loading=!0,this._message=null}willUpdate(e){(e.has("kind")||e.has("name"))&&this._fetchInfo()}async _fetchInfo(){if(!this.kind||!this.name)return;this._loading=!0,this._message=null;const e=await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/info`);this._info=e.ok?await e.json():null,this._loading=!1}async _toggle(){var i;const e=((i=this._info)==null?void 0:i.enabled)!==!1?"disable":"enable",s=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/${e}`,{method:"POST"})).json();this._message={type:s.ok?"success":"error",text:s.message||`${e} failed`},await this._fetchInfo()}async _remove(){const t=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}`,{method:"DELETE"})).json();t.ok?(window.history.pushState({},"",`/settings/${this.kind}`),window.dispatchEvent(new PopStateEvent("popstate"))):this._message={type:"error",text:t.message||"Remove failed"}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;if(!this._info)return a`<p>Plugin not found.</p>`;const e=this._info,t=e.enabled!==!1;return a`
       <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
 
-      <h2>${e.name}</h2>
+      <h2>${e.display_name||e.name}</h2>
       <span class="kind-badge">${e.kind}</span>
 
       ${e.description?a`<div class="description">${e.description}</div>`:""}

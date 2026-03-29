@@ -10,7 +10,8 @@ from shenas_pipes.core.cli import console, create_pipe_app, run_sync
 
 app = create_pipe_app("Obsidian daily notes commands.")
 
-PIPE_DESCRIPTION = """Extracts frontmatter fields from Obsidian daily notes.
+DISPLAY_NAME = "Obsidian"
+DESCRIPTION = """Extracts frontmatter fields from Obsidian daily notes.
 
 Scans a configured daily notes folder for markdown files, parses YAML
 frontmatter, and loads the key-value pairs into DuckDB. No API auth

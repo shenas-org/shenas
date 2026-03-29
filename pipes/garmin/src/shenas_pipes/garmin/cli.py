@@ -12,7 +12,8 @@ logging.getLogger("garminconnect").setLevel(logging.CRITICAL)
 
 app = create_pipe_app("Garmin Connect commands.")
 
-PIPE_DESCRIPTION = """Syncs health and fitness data from Garmin Connect.
+DISPLAY_NAME = "Garmin Connect"
+DESCRIPTION = """Syncs health and fitness data from Garmin Connect.
 
 Authenticates via email/password with MFA support. Tokens are stored
 in the OS keyring.

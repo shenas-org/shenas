@@ -183,7 +183,7 @@ class PluginDetail extends LitElement {
     return html`
       <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
 
-      <h2>${info.name}</h2>
+      <h2>${info.display_name || info.name}</h2>
       <span class="kind-badge">${info.kind}</span>
 
       ${info.description

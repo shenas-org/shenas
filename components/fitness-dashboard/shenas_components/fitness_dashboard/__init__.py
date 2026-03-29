@@ -9,6 +9,7 @@ except Exception:
 
 COMPONENT = {
     "name": "fitness-dashboard",
+    "display_name": "Fitness Dashboard",
     "version": _version,
     "description": "Canonical fitness metrics dashboard with HRV, sleep, vitals, and body charts",
     "static_dir": Path(__file__).parent / "static",

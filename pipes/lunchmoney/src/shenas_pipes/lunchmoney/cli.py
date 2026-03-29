@@ -7,7 +7,8 @@ from shenas_pipes.core.db import DB_PATH, connect
 
 app = create_pipe_app("Lunch Money commands.")
 
-PIPE_DESCRIPTION = """Syncs financial data from Lunch Money.
+DISPLAY_NAME = "Lunch Money"
+DESCRIPTION = """Syncs financial data from Lunch Money.
 
 Authenticates via API key from Lunch Money Settings > Developers.
 

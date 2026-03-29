@@ -7,7 +7,8 @@ from shenas_pipes.core.db import DB_PATH, connect
 
 app = create_pipe_app("Duolingo commands.")
 
-PIPE_DESCRIPTION = """Syncs daily XP, course progress, and profile data from Duolingo.
+DISPLAY_NAME = "Duolingo"
+DESCRIPTION = """Syncs daily XP, course progress, and profile data from Duolingo.
 
 Duolingo has no official API. This pipe uses the unofficial REST API
 with a JWT token extracted from your browser session. The token is

@@ -303,7 +303,7 @@ class ShenasApp extends LitElement {
         ${this._pipes.map(
           (p) => html`
             <div class="card">
-              <h3>${p.name}</h3>
+              <h3>${p.display_name || p.name}</h3>
               <div class="meta">${p.version}</div>
               ${p.description
                 ? html`<div class="desc">${p.description}</div>`

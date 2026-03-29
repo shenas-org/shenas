@@ -25,6 +25,7 @@ except Exception:
 
 SCHEMA = {
     "name": "finance",
+    "display_name": "Finance Metrics",
     "description": "Canonical finance metrics: transactions, spending, budgets",
     "version": _version,
     "tables": CANONICAL_TABLES,
