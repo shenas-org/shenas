@@ -7,6 +7,15 @@ from shenas_pipes.core.db import DB_PATH, connect
 
 app = create_pipe_app("Lunch Money commands.")
 
+PIPE_DESCRIPTION = """Syncs financial data from Lunch Money.
+
+Authenticates via API key from Lunch Money Settings > Developers.
+
+Resources: transactions (incremental), categories, tags, budgets,
+recurring_items, assets, plaid_accounts.
+Transforms: transactions, daily spending, monthly category breakdown,
+and monthly overview into the finance schema."""
+
 
 @app.command()
 def auth() -> None:

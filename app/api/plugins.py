@@ -1,7 +1,8 @@
-"""Package management API endpoints."""
+"""Plugin management API endpoints."""
 
 from __future__ import annotations
 
+import importlib
 import json
 import subprocess
 from html.parser import HTMLParser
@@ -11,11 +12,11 @@ from urllib.request import urlopen
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, HTTPException
 
-from app.cli.commands.pkg import DEFAULT_INDEX, PREFIXES, PUBLIC_KEY_PATH, check_signature
-from app.models import InstallRequest, InstallResponse, InstallResult, PackageInfo, RemoveResponse
+from app.cli.commands.plugin_cmd import DEFAULT_INDEX, PREFIXES, PUBLIC_KEY_PATH, check_signature
+from app.models import InstallRequest, InstallResponse, InstallResult, PluginInfo, RemoveResponse
 from repository.signing import load_public_key, verify_bytes
 
-router = APIRouter(prefix="/packages", tags=["packages"])
+router = APIRouter(prefix="/plugins", tags=["plugins"])
 
 VALID_KINDS = {"pipe", "schema", "component"}
 
@@ -25,7 +26,7 @@ def _validate_kind(kind: str) -> None:
         raise HTTPException(status_code=400, detail=f"Invalid kind: {kind}. Must be one of: {', '.join(sorted(VALID_KINDS))}")
 
 
-def list_packages_data(kind: str) -> list[PackageInfo]:
+def list_plugins_data(kind: str) -> list[PluginInfo]:
     import sys
 
     prefix = PREFIXES[kind]
@@ -33,21 +34,32 @@ def list_packages_data(kind: str) -> list[PackageInfo]:
         ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
     )
     if result.returncode != 0:
-        raise HTTPException(status_code=500, detail="Failed to list packages")
+        raise HTTPException(status_code=500, detail="Failed to list plugins")
 
-    packages = json.loads(result.stdout)
-    matched = [p for p in packages if p["name"].startswith(prefix) and not p["name"].endswith("-core")]
+    installed = json.loads(result.stdout)
+    matched = [p for p in installed if p["name"].startswith(prefix) and not p["name"].endswith("-core")]
 
     items = []
     for p in sorted(matched, key=lambda x: x["name"]):
         short_name = p["name"].removeprefix(prefix)
         sig_status = check_signature(p["name"], p["version"])
-        items.append(PackageInfo(name=short_name, package=p["name"], version=p["version"], signature=sig_status))
+        desc = _plugin_description(kind, short_name)
+        cmds = _plugin_commands(kind, short_name)
+        items.append(
+            PluginInfo(
+                name=short_name,
+                package=p["name"],
+                version=p["version"],
+                signature=sig_status,
+                description=desc,
+                commands=cmds,
+            )
+        )
     return items
 
 
 def _verify_from_index(pkg_name: str, index_url: str, pub_key: Ed25519PublicKey) -> str | None:
-    """Verify a package signature from the index. Returns error message or None on success."""
+    """Verify a plugin signature from the index. Returns error message or None on success."""
     normalized = pkg_name.replace("_", "-").lower()
     simple_pkg_url = f"{index_url}/simple/{normalized}/"
     try:
@@ -92,7 +104,7 @@ def _verify_from_index(pkg_name: str, index_url: str, pub_key: Ed25519PublicKey)
     return None
 
 
-def install_package(
+def install_plugin(
     name: str,
     kind: str,
     index_url: str = DEFAULT_INDEX,
@@ -100,7 +112,7 @@ def install_package(
     skip_verify: bool = False,
 ) -> InstallResult:
     if name == "core":
-        return InstallResult(name=name, ok=False, message=f"shenas-{kind}-core is an internal package")
+        return InstallResult(name=name, ok=False, message=f"shenas-{kind}-core is an internal plugin")
 
     prefix = PREFIXES[kind]
     pkg_name = f"{prefix}{name}"
@@ -127,11 +139,11 @@ def install_package(
     return InstallResult(name=name, ok=False, message=result.stderr.strip() or f"Failed to install {pkg_name}")
 
 
-def uninstall_package(name: str, kind: str) -> RemoveResponse:
+def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
     import sys
 
     if name == "core":
-        return RemoveResponse(ok=False, message=f"shenas-{kind}-core is an internal package")
+        return RemoveResponse(ok=False, message=f"shenas-{kind}-core is an internal plugin")
 
     pkg_name = f"{PREFIXES[kind]}{name}"
     result = subprocess.run(["uv", "pip", "uninstall", pkg_name, "--python", sys.executable], capture_output=True, text=True)
@@ -141,22 +153,89 @@ def uninstall_package(name: str, kind: str) -> RemoveResponse:
     return RemoveResponse(ok=False, message=result.stderr.strip() or f"Failed to uninstall {pkg_name}")
 
 
-@router.get("/{kind}")
-def list_pkgs(kind: str) -> list[PackageInfo]:
+def _plugin_commands(kind: str, name: str) -> list[str]:
+    """Detect available commands for a plugin by introspecting its modules."""
+    commands = ["describe"]
+
+    if kind != "pipe":
+        return commands
+
+    namespace = "shenas_pipes"
+    commands.append("sync")
+
+    try:
+        auth_mod = importlib.import_module(f"{namespace}.{name}.auth")
+        if getattr(auth_mod, "AUTH_FIELDS", None) is not None:
+            commands.append("auth")
+    except (ImportError, ModuleNotFoundError):
+        pass
+
+    try:
+        config_mod = importlib.import_module(f"{namespace}.{name}.config")
+        for attr_name in dir(config_mod):
+            cls = getattr(config_mod, attr_name)
+            if hasattr(cls, "__table__") and isinstance(cls.__table__, str):
+                commands.append("config")
+                break
+    except (ImportError, ModuleNotFoundError):
+        pass
+
+    return commands
+
+
+def _plugin_description(kind: str, name: str) -> str:
+    """Load a description from a plugin module.
+
+    Tries PIPE_DESCRIPTION / DESCRIPTION from the plugin's cli or __init__ module,
+    falls back to the Python package metadata summary.
+    """
+    prefix = PREFIXES[kind]
+    pkg_name = f"{prefix}{name}"
+    namespace = {"pipe": "shenas_pipes", "schema": "shenas_schemas", "component": "shenas_components"}[kind]
+
+    for attr in ("PIPE_DESCRIPTION", "DESCRIPTION"):
+        for mod_suffix in ("cli", ""):
+            mod_name = f"{namespace}.{name}.{mod_suffix}".rstrip(".")
+            try:
+                mod = importlib.import_module(mod_name)
+                desc = getattr(mod, attr, None)
+                if desc:
+                    return desc
+            except (ImportError, ModuleNotFoundError):
+                continue
+
+    try:
+        from importlib.metadata import metadata
+
+        m = metadata(pkg_name)
+        return m["Summary"] or ""
+    except Exception:
+        return ""
+
+
+@router.get("/{kind}/{name}/describe")
+def describe_plugin(kind: str, name: str) -> dict[str, str]:
+    """Get the description of an installed plugin."""
     _validate_kind(kind)
-    return list_packages_data(kind)
+    return {"name": name, "kind": kind, "description": _plugin_description(kind, name)}
+
+
+@router.get("/{kind}")
+def list_plugins(kind: str) -> list[PluginInfo]:
+    _validate_kind(kind)
+    return list_plugins_data(kind)
 
 
 @router.post("/{kind}")
-def add_pkgs(kind: str, body: InstallRequest) -> InstallResponse:
+def add_plugins(kind: str, body: InstallRequest) -> InstallResponse:
     _validate_kind(kind)
     results = []
     for name in body.names:
-        results.append(install_package(name, kind, index_url=body.index_url or DEFAULT_INDEX, skip_verify=body.skip_verify))
+        results.append(install_plugin(name, kind, index_url=body.index_url or DEFAULT_INDEX, skip_verify=body.skip_verify))
     return InstallResponse(results=results)
 
 
 @router.delete("/{kind}/{name}")
-def remove_pkg(kind: str, name: str) -> RemoveResponse:
+def remove_plugin(kind: str, name: str) -> RemoveResponse:
     _validate_kind(kind)
-    return uninstall_package(name, kind)
+    return uninstall_plugin(name, kind)

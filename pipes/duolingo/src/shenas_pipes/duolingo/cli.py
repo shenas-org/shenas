@@ -7,6 +7,15 @@ from shenas_pipes.core.db import DB_PATH, connect
 
 app = create_pipe_app("Duolingo commands.")
 
+PIPE_DESCRIPTION = """Syncs daily XP, course progress, and profile data from Duolingo.
+
+Duolingo has no official API. This pipe uses the unofficial REST API
+with a JWT token extracted from your browser session. The token is
+long-lived (months) and stored in the OS keyring.
+
+Resources: daily_xp (incremental), courses, user_profile.
+Transforms: daily XP into outcomes schema, habit boolean into habits schema."""
+
 
 @app.command()
 def auth() -> None:

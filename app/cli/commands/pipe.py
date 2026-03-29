@@ -7,7 +7,7 @@ import typer
 from rich.console import Console
 
 from app.cli.client import ShenasClient, ShenasServerError
-from app.cli.commands.pkg import DEFAULT_INDEX, install, uninstall
+from app.cli.commands.plugin_cmd import DEFAULT_INDEX, install, uninstall
 
 console = Console()
 
@@ -35,18 +35,22 @@ _server_available = False
 
 
 def _register_pipe_commands() -> None:
-    """Discover installed pipes from the server and register CLI subcommands."""
+    """Discover installed pipes from the server and register CLI subcommands.
+
+    Uses the generic packages API, then adds pipe-specific commands
+    (sync, auth, config) on top of the base describe command.
+    """
     global _server_available
     try:
         client = ShenasClient()
-        pipes = client.pipes_list()
+        pipes = client.plugins_list("pipe")
         _server_available = True
     except Exception:
         return
 
     for pipe_info in pipes:
         name = pipe_info["name"]
-        commands = pipe_info.get("commands", [])
+        commands = set(pipe_info.get("commands", []))
         pipe_app = typer.Typer(help=f"{name} pipe commands.", invoke_without_command=True)
 
         @pipe_app.callback()
@@ -55,18 +59,25 @@ def _register_pipe_commands() -> None:
                 typer.echo(ctx.get_help())
                 raise typer.Exit()
 
-        has_sync = any(c["name"] == "sync" for c in commands)
-        has_auth = any(c["name"] == "auth" for c in commands)
-        has_config = any(c["name"] == "config" for c in commands)
-
-        if has_sync:
+        if "describe" in commands:
+            _add_describe_command(pipe_app, name)
+        if "sync" in commands:
             _add_sync_command(pipe_app, name)
-        if has_auth:
+        if "auth" in commands:
             _add_auth_command(pipe_app, name)
-        if has_config:
+        if "config" in commands:
             _add_config_command(pipe_app, name)
 
-        app.add_typer(pipe_app, name=name)
+        app.add_typer(pipe_app, name=name, rich_help_panel="Installed Pipes")
+
+
+def _add_describe_command(pipe_app: typer.Typer, pipe_name: str) -> None:
+    from app.cli.commands.plugin_cmd import describe as _describe_plugin
+
+    @pipe_app.command("describe")
+    def _describe() -> None:
+        """Show a description of this pipe."""
+        _describe_plugin(pipe_name, "pipe")
 
 
 def _add_sync_command(pipe_app: typer.Typer, pipe_name: str) -> None:
@@ -265,7 +276,7 @@ def list_cmd() -> None:
     from rich.table import Table
 
     try:
-        pipes = ShenasClient().pipes_list()
+        pipes = ShenasClient().plugins_list("pipe")
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
@@ -287,7 +298,7 @@ def list_cmd() -> None:
     table.add_column("Signature", justify="right")
     table.add_column("Commands")
     for p in pipes:
-        cmds = ", ".join(c["name"] for c in p.get("commands", []))
+        cmds = ", ".join(p.get("commands", []))
         sig = SIG_STYLE.get(p.get("signature", ""), p.get("signature", ""))
         table.add_row(p["name"], p.get("version", ""), sig, cmds or "[dim]none[/dim]")
     console.print(table)
@@ -299,7 +310,7 @@ def add_cmd(
     index_url: str = typer.Option(DEFAULT_INDEX, "--index-url", help="Repository server URL"),
     skip_verify: bool = typer.Option(False, "--skip-verify", help="Skip signature verification"),
 ) -> None:
-    """Add one or more pipe packages from the repository."""
+    """Add one or more pipe plugins from the repository."""
     for name in names:
         install(name, "pipe", index_url, skip_verify)
 
@@ -308,6 +319,6 @@ def add_cmd(
 def remove_cmd(
     names: list[str] = typer.Argument(help="Pipe names, e.g. 'garmin lunchmoney'"),
 ) -> None:
-    """Remove one or more pipe packages."""
+    """Remove one or more pipe plugins."""
     for name in names:
         uninstall(name, "pipe")

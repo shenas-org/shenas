@@ -30,27 +30,6 @@ class TableInfo(BaseModel):
     table: str
 
 
-# --- Pipes ---
-
-
-class PipeOption(BaseModel):
-    name: str
-    default: str | int | float | bool | None = None
-    help: str = ""
-
-
-class PipeCommand(BaseModel):
-    name: str
-    options: list[PipeOption] = []
-
-
-class PipeInfo(BaseModel):
-    name: str
-    version: str = ""
-    signature: str = ""
-    commands: list[PipeCommand] = []
-
-
 class AuthField(BaseModel):
     name: str
     prompt: str
@@ -125,14 +104,16 @@ class DBStatusResponse(BaseModel):
     schemas: list[SchemaInfo] = []
 
 
-# --- Packages ---
+# --- Plugins ---
 
 
-class PackageInfo(BaseModel):
+class PluginInfo(BaseModel):
     name: str
     package: str
     version: str
     signature: str = ""
+    description: str = ""
+    commands: list[str] = []
 
 
 class InstallResult(BaseModel):

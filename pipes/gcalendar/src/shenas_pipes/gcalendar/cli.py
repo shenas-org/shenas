@@ -7,6 +7,13 @@ from shenas_pipes.core.db import DB_PATH
 
 app = create_pipe_app("Google Calendar commands.")
 
+PIPE_DESCRIPTION = """Syncs events and calendar metadata from Google Calendar.
+
+Uses Google OAuth2 with shared credentials from shenas-pipe-core.
+
+Resources: events (incremental), calendars.
+No transform step -- raw data stored in gcalendar.* schema."""
+
 
 @app.command()
 def sync(
