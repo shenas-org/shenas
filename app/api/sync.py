@@ -68,6 +68,15 @@ def _load_pipe_app(name: str) -> typer.Typer:
     return mod.app
 
 
+def _mark_synced(pipe_name: str) -> None:
+    from app.db import update_synced_at
+
+    try:
+        update_synced_at("pipe", pipe_name)
+    except Exception:
+        pass
+
+
 def _run_pipe_sync(
     ep_name: str,
     pipe_app: typer.Typer,
@@ -106,11 +115,13 @@ def _run_pipe_sync(
 
     try:
         sync_callback(**kwargs)
+        _mark_synced(ep_name)
         yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
     except SystemExit as exc:
         if exc.code and exc.code != 0:
             yield _sse_event("error", {"pipe": ep_name, "message": f"Sync failed (exit code {exc.code}). Check server logs."})
         else:
+            _mark_synced(ep_name)
             yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
     except Exception as exc:
         yield _sse_event("error", {"pipe": ep_name, "message": str(exc)})

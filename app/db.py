@@ -135,6 +135,8 @@ def _ensure_plugin_table(con: duckdb.DuckDBPyConnection) -> None:
     }
     if "status_changed_at" not in cols:
         con.execute("ALTER TABLE shenas_system.plugins ADD COLUMN status_changed_at TIMESTAMP")
+    if "synced_at" not in cols:
+        con.execute("ALTER TABLE shenas_system.plugins ADD COLUMN synced_at TIMESTAMP")
 
 
 def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
@@ -143,7 +145,7 @@ def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
     cur = con.cursor()
     cur.execute("USE db")
     row = cur.execute(
-        "SELECT kind, name, enabled, added_at, updated_at, status_changed_at "
+        "SELECT kind, name, enabled, added_at, updated_at, status_changed_at, synced_at "
         "FROM shenas_system.plugins WHERE kind = ? AND name = ?",
         [kind, name],
     ).fetchone()
@@ -157,6 +159,7 @@ def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
         "added_at": str(row[3]) if row[3] else None,
         "updated_at": str(row[4]) if row[4] else None,
         "status_changed_at": str(row[5]) if row[5] else None,
+        "synced_at": str(row[6]) if row[6] else None,
     }
 
 
@@ -167,13 +170,13 @@ def get_all_plugin_states(kind: str | None = None) -> list[dict[str, Any]]:
     cur.execute("USE db")
     if kind:
         rows = cur.execute(
-            "SELECT kind, name, enabled, added_at, updated_at, status_changed_at "
+            "SELECT kind, name, enabled, added_at, updated_at, status_changed_at, synced_at "
             "FROM shenas_system.plugins WHERE kind = ? ORDER BY name",
             [kind],
         ).fetchall()
     else:
         rows = cur.execute(
-            "SELECT kind, name, enabled, added_at, updated_at, status_changed_at "
+            "SELECT kind, name, enabled, added_at, updated_at, status_changed_at, synced_at "
             "FROM shenas_system.plugins ORDER BY kind, name"
         ).fetchall()
     cur.close()
@@ -185,6 +188,7 @@ def get_all_plugin_states(kind: str | None = None) -> list[dict[str, Any]]:
             "added_at": str(r[3]) if r[3] else None,
             "updated_at": str(r[4]) if r[4] else None,
             "status_changed_at": str(r[5]) if r[5] else None,
+            "synced_at": str(r[6]) if r[6] else None,
         }
         for r in rows
     ]
@@ -213,6 +217,16 @@ def upsert_plugin_state(kind: str, name: str, enabled: bool = True) -> None:
             f"VALUES (?, ?, ?, {now}, {now})",
             [kind, name, enabled],
         )
+
+
+def update_synced_at(kind: str, name: str) -> None:
+    """Update the synced_at timestamp for a plugin."""
+    con = connect()
+    con.execute(
+        "UPDATE shenas_system.plugins SET synced_at = current_timestamp, updated_at = current_timestamp "
+        "WHERE kind = ? AND name = ?",
+        [kind, name],
+    )
 
 
 def remove_plugin_state(kind: str, name: str) -> None:

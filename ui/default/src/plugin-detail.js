@@ -267,6 +267,7 @@ class PluginDetail extends LitElement {
             <status-toggle ?enabled=${enabled} toggleable @toggle=${this._toggle}></status-toggle>
           </span>
         </div>
+        ${this._stateRow("Last synced", info.synced_at)}
         ${this._stateRow("Added", info.added_at)}
         ${this._stateRow("Updated", info.updated_at)}
         ${this._stateRow("Status changed", info.status_changed_at)}
