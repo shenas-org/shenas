@@ -1,4 +1,4 @@
-var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configurable:!0,writable:!0,value:e}):d[t]=e;var o=(d,t,e)=>$(d,typeof t!="symbol"?t+"":t,e);import{LitElement as l,css as c,html as a}from"lit";import{Router as v}from"@lit-labs/router";class h extends l{constructor(){super();o(this,"_router",new v(this,[{path:"/",render:()=>this._renderDb()},{path:"/database",render:()=>this._renderDb()},{path:"/pipes",render:()=>this._renderPipes()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:e})=>this._renderSettings(e)},{path:"/settings/:kind/:name",render:({kind:e,name:s})=>this._renderPluginDetail(e,s)},{path:"/settings/:kind/:name/transforms",render:({kind:e,name:s})=>this._renderPluginDetail(e,s,"transforms")},{path:"/:tab",render:({tab:e})=>this._renderDynamicTab(e)}]));this.apiBase="/api",this._pipes=[],this._dbStatus=null,this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map}connectedCallback(){super.connectedCallback(),this._fetchData()}async _fetchData(){this._loading=!0;try{const[e,s,i]=await Promise.all([this._fetch("/plugins/pipe"),this._fetch("/db/status"),this._fetch("/components")]);this._pipes=e||[],this._dbStatus=s,this._components=i||[]}catch(e){console.error("Failed to fetch data:",e)}this._loading=!1}async _fetch(e){const s=await fetch(`${this.apiBase}${e}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"database").split("/")[0]}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const e=this._activeTab();return a`
+var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configurable:!0,writable:!0,value:e}):d[t]=e;var o=(d,t,e)=>$(d,typeof t!="symbol"?t+"":t,e);import{LitElement as l,css as c,html as a}from"lit";import{Router as w}from"@lit-labs/router";class h extends l{constructor(){super();o(this,"_router",new w(this,[{path:"/",render:()=>this._renderDb()},{path:"/database",render:()=>this._renderDb()},{path:"/pipes",render:()=>this._renderPipes()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:e})=>this._renderSettings(e)},{path:"/settings/:kind/:name",render:({kind:e,name:s})=>this._renderPluginDetail(e,s)},{path:"/settings/:kind/:name/transforms",render:({kind:e,name:s})=>this._renderPluginDetail(e,s,"transforms")},{path:"/:tab",render:({tab:e})=>this._renderDynamicTab(e)}]));this.apiBase="/api",this._pipes=[],this._dbStatus=null,this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map}connectedCallback(){super.connectedCallback(),this._fetchData()}async _fetchData(){this._loading=!0;try{const[e,s,i]=await Promise.all([this._fetch("/plugins/pipe"),this._fetch("/db/status"),this._fetch("/components")]);this._pipes=e||[],this._dbStatus=s,this._components=i||[]}catch(e){console.error("Failed to fetch data:",e)}this._loading=!1}async _fetch(e){const s=await fetch(`${this.apiBase}${e}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"database").split("/")[0]}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const e=this._activeTab();return a`
       <div class="header">
         <img src="/static/images/shenas.png" alt="shenas" />
         <h1>shenas</h1>
@@ -576,7 +576,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
                   ${t.enabled?"enabled":"disabled"}
                 </td>
                 <td class="actions">
-                  <button @click=${()=>this._startEdit(t)}>Edit</button>
+                  ${t.is_default?a`<button @click=${()=>this._startEdit(t)}>View</button>`:a`<button @click=${()=>this._startEdit(t)}>Edit</button>`}
                   <button @click=${()=>this._toggle(t)}>
                     ${t.enabled?"Disable":"Enable"}
                   </button>
@@ -591,24 +591,26 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
             `)}
         </tbody>
       </table>
-    `}_renderEditor(){const t=this._transforms.find(e=>e.id===this._editing);return t?a`
+    `}_renderEditor(){const t=this._transforms.find(s=>s.id===this._editing);if(!t)return"";const e=t.is_default;return a`
       <div class="edit-panel">
         <h3>
-          Edit: ${t.source_duckdb_schema}.${t.source_duckdb_table} ->
+          ${e?"View":"Edit"}: ${t.source_duckdb_schema}.${t.source_duckdb_table} ->
           ${t.target_duckdb_schema}.${t.target_duckdb_table}
         </h3>
         <textarea
           .value=${this._editSql}
-          @input=${e=>this._editSql=e.target.value}
+          @input=${s=>this._editSql=s.target.value}
+          ?readonly=${e}
+          class="${e?"readonly":""}"
         ></textarea>
         <div class="edit-actions">
-          <button @click=${this._saveEdit}>Save</button>
+          ${e?"":a`<button @click=${this._saveEdit}>Save</button>`}
           <button @click=${this._preview}>Preview</button>
-          <button @click=${this._cancelEdit}>Cancel</button>
+          <button @click=${this._cancelEdit}>${e?"Close":"Cancel"}</button>
         </div>
         ${this._previewRows?this._renderPreview():""}
       </div>
-    `:""}_renderPreview(){if(!this._previewRows||this._previewRows.length===0)return a`<p class="loading">No preview rows</p>`;const t=Object.keys(this._previewRows[0]);return a`
+    `}_renderPreview(){if(!this._previewRows||this._previewRows.length===0)return a`<p class="loading">No preview rows</p>`;const t=Object.keys(this._previewRows[0]);return a`
       <div class="preview-table">
         <table>
           <thead>
@@ -707,6 +709,11 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
       border-radius: 4px;
       resize: vertical;
       box-sizing: border-box;
+    }
+    textarea.readonly {
+      background: #f5f5f5;
+      color: #666;
+      cursor: default;
     }
     .edit-actions {
       display: flex;

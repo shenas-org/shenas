@@ -90,7 +90,10 @@ def create_transform(
 
 
 def update_transform(transform_id: int, sql: str) -> dict[str, Any] | None:
-    """Update a transform's SQL."""
+    """Update a transform's SQL. Returns None if not found or is a default transform."""
+    t = get_transform(transform_id)
+    if not t or t["is_default"]:
+        return None
     con = connect()
     con.execute(
         "UPDATE shenas_system.transforms SET sql = ?, updated_at = current_timestamp WHERE id = ?",

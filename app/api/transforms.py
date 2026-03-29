@@ -65,9 +65,14 @@ def create(body: TransformCreate) -> dict[str, Any]:
 @router.put("/{transform_id}")
 def update(transform_id: int, body: TransformUpdate) -> dict[str, Any]:
     """Update a transform's SQL."""
+    existing = get_transform(transform_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Transform not found")
+    if existing["is_default"]:
+        raise HTTPException(status_code=403, detail="Default transforms cannot be edited")
     t = update_transform(transform_id, body.sql)
     if not t:
-        raise HTTPException(status_code=404, detail="Transform not found")
+        raise HTTPException(status_code=500, detail="Update failed")
     return t
 
 

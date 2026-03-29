@@ -95,6 +95,11 @@ class TransformsPage extends LitElement {
       resize: vertical;
       box-sizing: border-box;
     }
+    textarea.readonly {
+      background: #f5f5f5;
+      color: #666;
+      cursor: default;
+    }
     .edit-actions {
       display: flex;
       gap: 0.5rem;
@@ -268,7 +273,9 @@ class TransformsPage extends LitElement {
                   ${t.enabled ? "enabled" : "disabled"}
                 </td>
                 <td class="actions">
-                  <button @click=${() => this._startEdit(t)}>Edit</button>
+                  ${!t.is_default
+                    ? html`<button @click=${() => this._startEdit(t)}>Edit</button>`
+                    : html`<button @click=${() => this._startEdit(t)}>View</button>`}
                   <button @click=${() => this._toggle(t)}>
                     ${t.enabled ? "Disable" : "Enable"}
                   </button>
@@ -292,20 +299,25 @@ class TransformsPage extends LitElement {
   _renderEditor() {
     const t = this._transforms.find((x) => x.id === this._editing);
     if (!t) return "";
+    const readonly = t.is_default;
     return html`
       <div class="edit-panel">
         <h3>
-          Edit: ${t.source_duckdb_schema}.${t.source_duckdb_table} ->
+          ${readonly ? "View" : "Edit"}: ${t.source_duckdb_schema}.${t.source_duckdb_table} ->
           ${t.target_duckdb_schema}.${t.target_duckdb_table}
         </h3>
         <textarea
           .value=${this._editSql}
           @input=${(e) => (this._editSql = e.target.value)}
+          ?readonly=${readonly}
+          class="${readonly ? "readonly" : ""}"
         ></textarea>
         <div class="edit-actions">
-          <button @click=${this._saveEdit}>Save</button>
+          ${!readonly
+            ? html`<button @click=${this._saveEdit}>Save</button>`
+            : ""}
           <button @click=${this._preview}>Preview</button>
-          <button @click=${this._cancelEdit}>Cancel</button>
+          <button @click=${this._cancelEdit}>${readonly ? "Close" : "Cancel"}</button>
         </div>
         ${this._previewRows ? this._renderPreview() : ""}
       </div>

@@ -167,6 +167,10 @@ def edit_cmd(
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
 
+    if t.get("is_default"):
+        console.print("[red]Default transforms cannot be edited[/red]")
+        raise typer.Exit(code=1)
+
     editor = os.environ.get("EDITOR", "vi")
     with tempfile.NamedTemporaryFile(suffix=".sql", mode="w", delete=False) as f:
         f.write(t["sql"])
