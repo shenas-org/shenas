@@ -24,7 +24,11 @@ def _extract_field_meta(hint: type) -> dict[str, Any]:
 
 def table_metadata(cls: type) -> dict[str, Any]:
     """Return full metadata for a table class, suitable for LLM context."""
-    hints: dict[str, Any] = get_type_hints(cls, include_extras=True)
+    import sys
+
+    mod = sys.modules.get(cls.__module__, None)
+    globalns = vars(mod) if mod else None
+    hints: dict[str, Any] = get_type_hints(cls, globalns=globalns, include_extras=True)
     columns: list[dict[str, Any]] = []
     for f in dataclasses.fields(cls):
         meta = _extract_field_meta(hints[f.name])
