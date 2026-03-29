@@ -340,9 +340,13 @@ def enable_plugin(kind: str, name: str) -> OkResponse:
 
 @router.post("/{kind}/{name}/disable")
 def disable_plugin(kind: str, name: str) -> OkResponse:
-    """Disable a plugin."""
+    """Disable a plugin. For exclusive kinds (theme), enables the default instead."""
     _validate_kind(kind)
     from app.db import upsert_plugin_state
 
+    if kind in _EXCLUSIVE_KINDS:
+        upsert_plugin_state(kind, name, enabled=False)
+        upsert_plugin_state(kind, "default", enabled=True)
+        return OkResponse(ok=True, message=f"Switched {kind} to default")
     upsert_plugin_state(kind, name, enabled=False)
     return OkResponse(ok=True, message=f"Disabled {kind} {name}")
