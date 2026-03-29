@@ -183,9 +183,7 @@ class TransformsPage extends LitElement {
 
   _emptyForm() {
     return {
-      source_duckdb_schema: this.source || "",
       source_duckdb_table: "",
-      target_duckdb_schema: "",
       target_duckdb_table: "",
       description: "",
       sql: "",
@@ -281,7 +279,7 @@ class TransformsPage extends LitElement {
 
   async _saveCreate() {
     const f = this._newForm;
-    if (!(f.source_duckdb_schema || this.source) || !f.source_duckdb_table || !f.target_duckdb_schema || !f.target_duckdb_table || !f.sql) {
+    if (!f.source_duckdb_table || !f.target_duckdb_table || !f.sql) {
       this._message = { type: "error", text: "Fill in all required fields" };
       return;
     }
@@ -289,9 +287,9 @@ class TransformsPage extends LitElement {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        source_duckdb_schema: f.source_duckdb_schema || this.source,
+        source_duckdb_schema: this.source,
         source_duckdb_table: f.source_duckdb_table,
-        target_duckdb_schema: f.target_duckdb_schema,
+        target_duckdb_schema: "metrics",
         target_duckdb_table: f.target_duckdb_table,
         source_plugin: this.source,
         description: f.description,
@@ -400,16 +398,11 @@ class TransformsPage extends LitElement {
     const f = this._newForm;
     const pipe = this.source;
     const sourceTables = this._dbTables[pipe] || [];
-    const targetSchemas = Object.keys(this._schemaTables || {});
-    const targetTables = f.target_duckdb_schema ? this._schemaTables?.[f.target_duckdb_schema] || [] : [];
+    const allSchemaTables = Object.values(this._schemaTables || {}).flat();
     return html`
       <div class="edit-panel">
         <h3>New transform</h3>
         <div class="form-grid">
-          <label>
-            Pipe
-            <input .value=${pipe} readonly class="readonly" />
-          </label>
           <label>
             Pipe table
             <select
@@ -421,25 +414,13 @@ class TransformsPage extends LitElement {
             </select>
           </label>
           <label>
-            Schema
-            <select
-              .value=${f.target_duckdb_schema}
-              @change=${(e) => {
-                this._newForm = { ...this._newForm, target_duckdb_schema: e.target.value, target_duckdb_table: "" };
-              }}
-            >
-              <option value="">-- select --</option>
-              ${targetSchemas.map((s) => html`<option value=${s} ?selected=${f.target_duckdb_schema === s}>${s}</option>`)}
-            </select>
-          </label>
-          <label>
             Schema table
             <select
               .value=${f.target_duckdb_table}
               @change=${(e) => this._updateNewForm("target_duckdb_table", e.target.value)}
             >
               <option value="">-- select --</option>
-              ${targetTables.map((t) => html`<option value=${t} ?selected=${f.target_duckdb_table === t}>${t}</option>`)}
+              ${allSchemaTables.map((t) => html`<option value=${t} ?selected=${f.target_duckdb_table === t}>${t}</option>`)}
             </select>
           </label>
           <label class="form-full">
