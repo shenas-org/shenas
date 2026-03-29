@@ -26,6 +26,19 @@ class TransformsPage extends LitElement {
       :host {
         display: block;
       }
+      .inspect-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #bbb;
+        font-size: 0.7rem;
+        padding: 0 2px;
+        line-height: 1;
+        vertical-align: middle;
+      }
+      .inspect-btn:hover {
+        color: #0066cc;
+      }
       .default-badge {
         font-size: 0.75rem;
         color: #888;
@@ -140,6 +153,14 @@ class TransformsPage extends LitElement {
     const resp = await fetch(`${this.apiBase}/transforms${params}`);
     this._transforms = resp.ok ? await resp.json() : [];
     this._loading = false;
+  }
+
+  _inspectTable(schema, table) {
+    this.dispatchEvent(new CustomEvent("inspect-table", {
+      bubbles: true,
+      composed: true,
+      detail: { schema, table },
+    }));
   }
 
   async _toggle(t) {
@@ -280,8 +301,8 @@ class TransformsPage extends LitElement {
         @add=${this._startCreate}
         .columns=${[
           { key: "id", label: "ID", class: "muted" },
-          { label: "Source", class: "mono", render: (t) => `${t.source_duckdb_schema}.${t.source_duckdb_table}` },
-          { label: "Target", class: "mono", render: (t) => `${t.target_duckdb_schema}.${t.target_duckdb_table}` },
+          { label: "Source", class: "mono", render: (t) => html`${t.source_duckdb_schema}.${t.source_duckdb_table} <button class="inspect-btn" title="Inspect table" @click=${() => this._inspectTable(t.source_duckdb_schema, t.source_duckdb_table)}>&#9655;</button>` },
+          { label: "Target", class: "mono", render: (t) => html`${t.target_duckdb_schema}.${t.target_duckdb_table} <button class="inspect-btn" title="Inspect table" @click=${() => this._inspectTable(t.target_duckdb_schema, t.target_duckdb_table)}>&#9655;</button>` },
           { label: "Description", render: (t) => html`${t.description || ""}${t.is_default ? html`<span class="default-badge">default</span>` : ""}` },
           { label: "Status", render: (t) => html`<status-dot ?enabled=${t.enabled}></status-dot>` },
         ]}

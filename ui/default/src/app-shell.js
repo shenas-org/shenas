@@ -11,7 +11,7 @@ class ShenasApp extends LitElement {
     _leftWidth: { state: true },
     _rightWidth: { state: true },
     _dbStatus: { state: true },
-    _inspecting: { state: true },
+    _inspectTable: { state: true },
     _inspectRows: { state: true },
   };
 
@@ -161,18 +161,6 @@ class ShenasApp extends LitElement {
         color: #aaa;
         display: block;
       }
-      .inspect-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #aaa;
-        font-size: 0.75rem;
-        padding: 0 2px;
-        line-height: 1;
-      }
-      .inspect-btn:hover {
-        color: #0066cc;
-      }
       .inspect-header {
         display: flex;
         justify-content: space-between;
@@ -233,7 +221,7 @@ class ShenasApp extends LitElement {
     this._leftWidth = 160;
     this._rightWidth = 220;
     this._dbStatus = null;
-    this._inspecting = null;
+    this._inspectTable = null;
     this._inspectRows = null;
   }
 
@@ -241,6 +229,7 @@ class ShenasApp extends LitElement {
     super.connectedCallback();
     this._fetchData();
     this.addEventListener("plugin-state-changed", () => this._refreshComponents());
+    this.addEventListener("inspect-table", (e) => this._inspect(e.detail.schema, e.detail.table));
   }
 
   async _refreshComponents() {
@@ -327,7 +316,7 @@ class ShenasApp extends LitElement {
         </div>
         <div class="divider" @mousedown=${this._startDrag("right")}></div>
         <div class="panel-right" style="width: ${this._rightWidth}px">
-          ${this._renderDbStats()}
+          ${this._inspectTable ? this._renderInspect() : this._renderDbStats()}
         </div>
       </div>
     `;
@@ -384,12 +373,12 @@ class ShenasApp extends LitElement {
 
   async _inspect(schema, table) {
     const key = `${schema}.${table}`;
-    if (this._inspecting === key) {
-      this._inspecting = null;
+    if (this._inspectTable === key) {
+      this._inspectTable = null;
       this._inspectRows = null;
       return;
     }
-    this._inspecting = key;
+    this._inspectTable = key;
     this._inspectRows = null;
     const resp = await fetch(`${this.apiBase}/db/preview/${schema}/${table}?limit=50`);
     if (resp.ok) {
@@ -413,16 +402,12 @@ class ShenasApp extends LitElement {
             ${s.tables.map(
               (t) => html`
                 <div class="db-table-row">
-                  <span class="db-table-name">
-                    ${t.name}
-                    <button class="inspect-btn" title="Inspect" @click=${() => this._inspect(s.name, t.name)}>&#128269;</button>
-                  </span>
+                  <span class="db-table-name">${t.name}</span>
                   <span class="db-table-count">${t.rows}</span>
                 </div>
                 ${t.earliest
                   ? html`<span class="db-date-range">${t.earliest} - ${t.latest}</span>`
                   : ""}
-                ${this._inspecting === `${s.name}.${t.name}` ? this._renderInspect(s.name, t.name) : ""}
               `,
             )}
           `,
@@ -431,31 +416,30 @@ class ShenasApp extends LitElement {
     `;
   }
 
-  _renderInspect(schema, table) {
-    if (!this._inspectRows) {
-      return html`<p class="loading" style="font-size:0.75rem">Loading...</p>`;
-    }
-    if (this._inspectRows.length === 0) {
-      return html`<p class="empty" style="font-size:0.75rem">No rows</p>`;
-    }
-    const cols = Object.keys(this._inspectRows[0]);
+  _renderInspect() {
     return html`
-      <div style="margin: 0.3rem 0 0.8rem; overflow-x: auto;">
-        <div class="inspect-header">
-          <h4>${schema}.${table}</h4>
-          <button class="inspect-close" title="Close" @click=${() => { this._inspecting = null; this._inspectRows = null; }}>x</button>
-        </div>
-        <table class="inspect-table">
-          <thead>
-            <tr>${cols.map((c) => html`<th>${c}</th>`)}</tr>
-          </thead>
-          <tbody>
-            ${this._inspectRows.map(
-              (row) => html`<tr>${cols.map((c) => html`<td title="${row[c] ?? ""}">${row[c] ?? ""}</td>`)}</tr>`,
-            )}
-          </tbody>
-        </table>
+      <div class="inspect-header">
+        <h4>${this._inspectTable}</h4>
+        <button class="inspect-close" title="Close" @click=${() => { this._inspectTable = null; this._inspectRows = null; }}>x</button>
       </div>
+      ${!this._inspectRows
+        ? html`<p class="loading" style="font-size:0.75rem">Loading...</p>`
+        : this._inspectRows.length === 0
+          ? html`<p class="empty" style="font-size:0.75rem">No rows</p>`
+          : html`
+            <div style="overflow-x: auto;">
+              <table class="inspect-table">
+                <thead>
+                  <tr>${Object.keys(this._inspectRows[0]).map((c) => html`<th>${c}</th>`)}</tr>
+                </thead>
+                <tbody>
+                  ${this._inspectRows.map(
+                    (row) => html`<tr>${Object.keys(row).map((c) => html`<td title="${row[c] ?? ""}">${row[c] ?? ""}</td>`)}</tr>`,
+                  )}
+                </tbody>
+              </table>
+            </div>
+          `}
     `;
   }
 
