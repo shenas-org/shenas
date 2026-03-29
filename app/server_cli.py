@@ -19,7 +19,7 @@ def main(
     key_file: Path = typer.Option(DEFAULT_CERT_DIR / "key.pem", "--key", help="TLS private key file"),
     no_tls: bool = typer.Option(False, "--no-tls", help="Run plain HTTP (for desktop app sidecar)"),
     ui: str = typer.Option("default", "--ui", help="UI plugin to render as the app shell"),
-    theme: str = typer.Option("default", "--theme", help="Theme plugin for styling"),
+    default_theme: str = typer.Option("default", "--default-theme", help="Theme to enable if none is set"),
     reload: bool = typer.Option(False, "--reload", help="Auto-reload on file changes (development)"),
 ) -> None:
     """Start the shenas server."""
@@ -29,7 +29,7 @@ def main(
     import os
 
     os.environ["SHENAS_UI"] = ui
-    os.environ["SHENAS_THEME"] = theme
+    os.environ["SHENAS_DEFAULT_THEME"] = default_theme
 
     if reload:
         app_target = "app.server:app"
@@ -63,7 +63,7 @@ def main(
     from app.server import app as fastapi_app
 
     fastapi_app.state.ui_name = ui
-    fastapi_app.state.theme_name = theme
+    fastapi_app.state.default_theme = default_theme
 
     if no_tls:
         typer.echo(f"Starting HTTP server on http://{host}:{port}")

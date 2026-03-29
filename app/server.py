@@ -31,7 +31,7 @@ app = FastAPI(title="shenas", docs_url=None, redoc_url=None, lifespan=_lifespan)
 import os as _os  # noqa: E402
 
 app.state.ui_name = _os.environ.get("SHENAS_UI", "default")
-app.state.theme_name = _os.environ.get("SHENAS_THEME", "default")
+app.state.default_theme = _os.environ.get("SHENAS_DEFAULT_THEME", "default")
 app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")
 _vendor_dir = _Path(__file__).parent.parent / "vendor" / "dist"
 if _vendor_dir.is_dir():
@@ -71,12 +71,22 @@ _mount_static_plugins("shenas.themes", "themes")
 
 
 def _get_active_theme() -> dict[str, Any] | None:
-    """Find the active theme plugin."""
-    theme_name = app.state.theme_name
-    for plugin in _discover_plugins("shenas.themes"):
-        if plugin["name"] == theme_name:
+    """Find the one enabled theme plugin. Falls back to --default-theme if none enabled."""
+    themes = _discover_plugins("shenas.themes")
+    try:
+        from app.db import is_plugin_enabled
+
+        for plugin in themes:
+            if is_plugin_enabled("theme", plugin["name"]):
+                return plugin
+    except Exception:
+        pass
+    # Fallback to --default-theme if nothing explicitly enabled or DB unavailable
+    fallback = app.state.default_theme
+    for plugin in themes:
+        if plugin["name"] == fallback:
             return plugin
-    return None
+    return themes[0] if themes else None
 
 
 def _get_active_ui() -> dict[str, Any] | None:
@@ -132,7 +142,7 @@ def active_theme() -> dict[str, str | None]:
     theme = _get_active_theme()
     if theme and theme.get("css"):
         return {"name": theme["name"], "css": f"/themes/{theme['name']}/{theme['css']}"}
-    return {"name": app.state.theme_name, "css": None}
+    return {"name": app.state.default_theme, "css": None}
 
 
 @app.get("/api/components")
