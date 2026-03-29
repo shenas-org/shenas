@@ -127,10 +127,8 @@ def info(name: str, kind: str) -> None:
         table.add_row("Added", result["added_at"][:19])
     if result.get("updated_at"):
         table.add_row("Updated", result["updated_at"][:19])
-    if result.get("enabled_at"):
-        table.add_row("Enabled", result["enabled_at"][:19])
-    if result.get("disabled_at"):
-        table.add_row("Disabled", result["disabled_at"][:19])
+    if result.get("status_changed_at"):
+        table.add_row("Status changed", result["status_changed_at"][:19])
 
     console.print(table)
     console.print()

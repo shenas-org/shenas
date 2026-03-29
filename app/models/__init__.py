@@ -117,8 +117,7 @@ class PluginInfo(BaseModel):
     enabled: bool = True
     added_at: str | None = None
     updated_at: str | None = None
-    enabled_at: str | None = None
-    disabled_at: str | None = None
+    status_changed_at: str | None = None
 
 
 class InstallResult(BaseModel):

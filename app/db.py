@@ -83,8 +83,7 @@ def _ensure_plugin_table(con: duckdb.DuckDBPyConnection) -> None:
             enabled BOOLEAN NOT NULL DEFAULT TRUE,
             added_at TIMESTAMP DEFAULT current_timestamp,
             updated_at TIMESTAMP,
-            enabled_at TIMESTAMP,
-            disabled_at TIMESTAMP,
+            status_changed_at TIMESTAMP,
             PRIMARY KEY (kind, name)
         )
     """)
@@ -96,7 +95,7 @@ def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
     cur = con.cursor()
     cur.execute("USE db")
     row = cur.execute(
-        "SELECT kind, name, enabled, added_at, updated_at, enabled_at, disabled_at "
+        "SELECT kind, name, enabled, added_at, updated_at, status_changed_at "
         "FROM shenas_system.plugins WHERE kind = ? AND name = ?",
         [kind, name],
     ).fetchone()
@@ -109,8 +108,7 @@ def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
         "enabled": row[2],
         "added_at": str(row[3]) if row[3] else None,
         "updated_at": str(row[4]) if row[4] else None,
-        "enabled_at": str(row[5]) if row[5] else None,
-        "disabled_at": str(row[6]) if row[6] else None,
+        "status_changed_at": str(row[5]) if row[5] else None,
     }
 
 
@@ -121,13 +119,14 @@ def get_all_plugin_states(kind: str | None = None) -> list[dict[str, Any]]:
     cur.execute("USE db")
     if kind:
         rows = cur.execute(
-            "SELECT kind, name, enabled, added_at, updated_at, enabled_at, disabled_at "
+            "SELECT kind, name, enabled, added_at, updated_at, status_changed_at "
             "FROM shenas_system.plugins WHERE kind = ? ORDER BY name",
             [kind],
         ).fetchall()
     else:
         rows = cur.execute(
-            "SELECT kind, name, enabled, added_at, updated_at, enabled_at, disabled_at FROM shenas_system.plugins ORDER BY kind, name"
+            "SELECT kind, name, enabled, added_at, updated_at, status_changed_at "
+            "FROM shenas_system.plugins ORDER BY kind, name"
         ).fetchall()
     cur.close()
     return [
@@ -137,8 +136,7 @@ def get_all_plugin_states(kind: str | None = None) -> list[dict[str, Any]]:
             "enabled": r[2],
             "added_at": str(r[3]) if r[3] else None,
             "updated_at": str(r[4]) if r[4] else None,
-            "enabled_at": str(r[5]) if r[5] else None,
-            "disabled_at": str(r[6]) if r[6] else None,
+            "status_changed_at": str(r[5]) if r[5] else None,
         }
         for r in rows
     ]
@@ -151,29 +149,20 @@ def upsert_plugin_state(kind: str, name: str, enabled: bool = True) -> None:
     now = "current_timestamp"
     if existing:
         if enabled != existing["enabled"]:
-            if enabled:
-                con.execute(
-                    f"UPDATE shenas_system.plugins SET enabled = TRUE, enabled_at = {now}, updated_at = {now} "
-                    "WHERE kind = ? AND name = ?",
-                    [kind, name],
-                )
-            else:
-                con.execute(
-                    f"UPDATE shenas_system.plugins SET enabled = FALSE, disabled_at = {now}, updated_at = {now} "
-                    "WHERE kind = ? AND name = ?",
-                    [kind, name],
-                )
+            con.execute(
+                f"UPDATE shenas_system.plugins SET enabled = ?, status_changed_at = {now}, updated_at = {now} "
+                "WHERE kind = ? AND name = ?",
+                [enabled, kind, name],
+            )
         else:
             con.execute(
                 f"UPDATE shenas_system.plugins SET updated_at = {now} WHERE kind = ? AND name = ?",
                 [kind, name],
             )
     else:
-        en_at = now if enabled else "NULL"
-        dis_at = "NULL" if enabled else now
         con.execute(
-            f"INSERT INTO shenas_system.plugins (kind, name, enabled, added_at, enabled_at, disabled_at) "
-            f"VALUES (?, ?, ?, {now}, {en_at}, {dis_at})",
+            f"INSERT INTO shenas_system.plugins (kind, name, enabled, added_at, status_changed_at) "
+            f"VALUES (?, ?, ?, {now}, {now})",
             [kind, name, enabled],
         )
 

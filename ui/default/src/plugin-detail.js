@@ -199,8 +199,7 @@ class PluginDetail extends LitElement {
         </div>
         ${this._stateRow("Added", info.added_at)}
         ${this._stateRow("Updated", info.updated_at)}
-        ${this._stateRow("Enabled", info.enabled_at)}
-        ${this._stateRow("Disabled", info.disabled_at)}
+        ${this._stateRow("Status changed", info.status_changed_at)}
       </div>
 
       <div class="actions">
