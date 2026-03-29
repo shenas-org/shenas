@@ -16,8 +16,10 @@ runner = CliRunner()
 
 @pytest.fixture()
 def test_con() -> duckdb.DuckDBPyConnection:
-    """In-memory DuckDB with test data."""
-    con = duckdb.connect(":memory:")
+    """In-memory DuckDB with test data, attached as 'db' like the real server."""
+    con = duckdb.connect()
+    con.execute("ATTACH ':memory:' AS db")
+    con.execute("USE db")
     con.execute("CREATE SCHEMA metrics")
     con.execute("CREATE TABLE metrics.daily_hrv (date DATE, source VARCHAR, rmssd DOUBLE)")
     con.execute("INSERT INTO metrics.daily_hrv VALUES ('2026-03-15', 'garmin', 42.0)")
