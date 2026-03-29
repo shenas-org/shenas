@@ -262,8 +262,13 @@ class TransformsPage extends LitElement {
     this._newForm = this._emptyForm();
     this._editing = null;
     this._previewRows = null;
-    const resp = await fetch(`${this.apiBase}/db/tables`);
-    this._dbTables = resp.ok ? await resp.json() : {};
+    const [tablesResp, schemasResp] = await Promise.all([
+      fetch(`${this.apiBase}/db/tables`),
+      fetch(`${this.apiBase}/plugins/schema`),
+    ]);
+    this._dbTables = tablesResp.ok ? await tablesResp.json() : {};
+    const schemaPlugins = schemasResp.ok ? await schemasResp.json() : [];
+    this._schemaNames = new Set(schemaPlugins.map((s) => s.name));
   }
 
   _cancelCreate() {
@@ -396,7 +401,7 @@ class TransformsPage extends LitElement {
     const f = this._newForm;
     const pipe = this.source;
     const sourceTables = this._dbTables[pipe] || [];
-    const targetSchemas = Object.keys(this._dbTables).filter((s) => s !== pipe && s !== "shenas_system");
+    const targetSchemas = Object.keys(this._dbTables).filter((s) => this._schemaNames?.has(s));
     const targetTables = f.target_duckdb_schema ? this._dbTables[f.target_duckdb_schema] || [] : [];
     return html`
       <div class="edit-panel">
