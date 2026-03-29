@@ -74,7 +74,11 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
 
 
 def _ensure_plugin_table(con: duckdb.DuckDBPyConnection) -> None:
-    """Create the plugin state table if it doesn't exist."""
+    """Create the plugin state table if it doesn't exist.
+
+    Uses CREATE TABLE IF NOT EXISTS + ADD COLUMN for new columns.
+    Old columns are left in place (harmless, never queried).
+    """
     con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
     con.execute("""
         CREATE TABLE IF NOT EXISTS shenas_system.plugins (
@@ -87,6 +91,16 @@ def _ensure_plugin_table(con: duckdb.DuckDBPyConnection) -> None:
             PRIMARY KEY (kind, name)
         )
     """)
+    # Add status_changed_at if missing (table may predate this column)
+    cols = {
+        r[0]
+        for r in con.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'shenas_system' AND table_name = 'plugins'"
+        ).fetchall()
+    }
+    if "status_changed_at" not in cols:
+        con.execute("ALTER TABLE shenas_system.plugins ADD COLUMN status_changed_at TIMESTAMP")
 
 
 def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
