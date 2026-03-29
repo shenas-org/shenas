@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { Router } from "@lit-labs/router";
+import { linkStyles, tabStyles, utilityStyles } from "./shared-styles.js";
 
 class ShenasApp extends LitElement {
   static properties = {
@@ -27,73 +28,45 @@ class ShenasApp extends LitElement {
     { path: "/:tab", render: ({ tab }) => this._renderDynamicTab(tab) },
   ]);
 
-  static styles = css`
-    :host {
-      display: block;
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 2rem 1rem;
-      color: #222;
-    }
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 1.5rem;
-    }
-    .header img {
-      width: 48px;
-      height: 48px;
-    }
-    .header h1 {
-      margin: 0;
-      font-size: 1.5rem;
-    }
-    .tabs {
-      display: flex;
-      gap: 0;
-      border-bottom: 2px solid #e0e0e0;
-      margin-bottom: 1.5rem;
-    }
-    .tab {
-      padding: 0.6rem 1.2rem;
-      cursor: pointer;
-      border: none;
-      background: none;
-      font-size: 0.95rem;
-      color: #666;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -2px;
-      transition: color 0.15s, border-color 0.15s;
-      text-decoration: none;
-    }
-    .tab:hover {
-      color: #222;
-    }
-    .tab[aria-selected="true"] {
-      color: #222;
-      border-bottom-color: #0066cc;
-      font-weight: 600;
-    }
-    a {
-      color: #0066cc;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-    .loading {
-      color: #888;
-      font-style: italic;
-    }
-    .empty {
-      color: #888;
-      padding: 1rem 0;
-    }
-    .component-host {
-      margin-top: 1rem;
-    }
-  `;
+  static styles = [
+    linkStyles,
+    tabStyles,
+    utilityStyles,
+    css`
+      :host {
+        display: block;
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+        color: #222;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 1.5rem;
+      }
+      .header img {
+        width: 48px;
+        height: 48px;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 1.5rem;
+      }
+      .tabs {
+        margin-bottom: 1.5rem;
+      }
+      .tab {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.95rem;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      .component-host {
+        margin-top: 1rem;
+      }
+    `,
+  ];
 
   constructor() {
     super();
@@ -219,7 +192,6 @@ class ShenasApp extends LitElement {
     }
     return this._elementCache.get(comp.name);
   }
-
 }
 
 customElements.define("shenas-app", ShenasApp);

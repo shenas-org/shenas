@@ -1,4 +1,4 @@
-var $=Object.defineProperty;var w=(d,e,t)=>e in d?$(d,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):d[e]=t;var n=(d,e,t)=>w(d,typeof e!="symbol"?e+"":e,t);import{LitElement as l,css as c,html as a}from"lit";import{Router as v}from"@lit-labs/router";class p extends l{constructor(){super(),this.enabled=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return a``}}n(p,"properties",{enabled:{type:Boolean,reflect:!0}}),n(p,"styles",c`
+var E=Object.defineProperty;var C=(l,e,t)=>e in l?E(l,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):l[e]=t;var r=(l,e,t)=>C(l,typeof e!="symbol"?e+"":e,t);import{LitElement as c,css as o,html as a}from"lit";import{Router as T}from"@lit-labs/router";class u extends c{constructor(){super(),this.enabled=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return a``}}r(u,"properties",{enabled:{type:Boolean,reflect:!0}}),r(u,"styles",o`
     :host {
       display: inline-block;
       width: 8px;
@@ -12,7 +12,139 @@ var $=Object.defineProperty;var w=(d,e,t)=>e in d?$(d,e,{enumerable:!0,configura
     :host(:not([enabled])) {
       background: #c62828;
     }
-  `);customElements.define("status-dot",p);class m extends l{constructor(){super();n(this,"_router",new v(this,[{path:"/",render:()=>this._renderDynamicHome()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:t})=>this._renderSettings(t)},{path:"/settings/:kind/:name",render:({kind:t,name:s})=>this._renderPluginDetail(t,s)},{path:"/settings/:kind/:name/transforms",render:({kind:t,name:s})=>this._renderPluginDetail(t,s,"transforms")},{path:"/:tab",render:({tab:t})=>this._renderDynamicTab(t)}]));this.apiBase="/api",this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map}connectedCallback(){super.connectedCallback(),this._fetchData(),this.addEventListener("plugin-state-changed",()=>this._refreshComponents())}async _refreshComponents(){this._components=await this._fetch("/components")||[]}async _fetchData(){this._loading=!0;try{this._components=await this._fetch("/components")||[]}catch(t){console.error("Failed to fetch data:",t)}this._loading=!1}async _fetch(t){const s=await fetch(`${this.apiBase}${t}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"").split("/")[0]||(this._components.length>0?this._components[0].name:"settings")}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const t=this._activeTab();return a`
+  `);customElements.define("status-dot",u);const x=o`
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  th {
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    color: #666;
+    font-weight: 500;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  td {
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+`,p=o`
+  button {
+    padding: 0.3rem 0.7rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  button:hover {
+    background: #f5f5f5;
+  }
+  button.danger {
+    color: #c00;
+    border-color: #e8c0c0;
+  }
+  button.danger:hover {
+    background: #fef0f0;
+  }
+`,S=o`
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid #e0e0e0;
+    margin: 1rem 0;
+  }
+  .tab {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    text-decoration: none;
+  }
+  .tab:hover {
+    color: #222;
+  }
+  .tab[aria-selected="true"] {
+    color: #222;
+    border-bottom-color: #0066cc;
+    font-weight: 600;
+  }
+`,w=o`
+  .message {
+    padding: 0.5rem 0.8rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+  }
+  .message.success {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  .message.error {
+    background: #fce4ec;
+    color: #c62828;
+  }
+`,h=o`
+  .loading {
+    color: #888;
+    font-style: italic;
+  }
+  .empty {
+    color: #888;
+    padding: 0.5rem 0;
+  }
+`,y=o`
+  a {
+    color: #0066cc;
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+`;class b extends c{constructor(){super(),this.columns=[],this.rows=[],this.rowClass=null,this.actions=null,this.emptyText="No items"}render(){if(!this.rows||this.rows.length===0)return a`<p class="empty">${this.emptyText}</p>`;const e=typeof this.actions=="function";return a`
+      <table>
+        <thead>
+          <tr>
+            ${this.columns.map(t=>a`<th>${t.label}</th>`)}
+            ${e?a`<th></th>`:""}
+          </tr>
+        </thead>
+        <tbody>
+          ${this.rows.map(t=>a`
+              <tr class="${this.rowClass?this.rowClass(t):""}">
+                ${this.columns.map(s=>a`
+                  <td class="${s.class||""}">
+                    ${s.render?s.render(t):t[s.key]}
+                  </td>
+                `)}
+                ${e?a`<td class="actions-cell">${this.actions(t)}</td>`:""}
+              </tr>
+            `)}
+        </tbody>
+      </table>
+    `}}r(b,"properties",{columns:{type:Array},rows:{type:Array},rowClass:{type:Object},actions:{type:Object},emptyText:{type:String,attribute:"empty-text"}}),r(b,"styles",[x,p,h,o`
+      :host {
+        display: block;
+      }
+      .mono {
+        font-family: monospace;
+        font-size: 0.85rem;
+      }
+      .muted {
+        color: #888;
+      }
+      .actions-cell {
+        white-space: nowrap;
+      }
+      .disabled-row {
+        opacity: 0.5;
+      }
+    `]);customElements.define("shenas-data-list",b);class _ extends c{constructor(){super();r(this,"_router",new T(this,[{path:"/",render:()=>this._renderDynamicHome()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:t})=>this._renderSettings(t)},{path:"/settings/:kind/:name",render:({kind:t,name:s})=>this._renderPluginDetail(t,s)},{path:"/settings/:kind/:name/transforms",render:({kind:t,name:s})=>this._renderPluginDetail(t,s,"transforms")},{path:"/:tab",render:({tab:t})=>this._renderDynamicTab(t)}]));this.apiBase="/api",this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map}connectedCallback(){super.connectedCallback(),this._fetchData(),this.addEventListener("plugin-state-changed",()=>this._refreshComponents())}async _refreshComponents(){this._components=await this._fetch("/components")||[]}async _fetchData(){this._loading=!0;try{this._components=await this._fetch("/components")||[]}catch(t){console.error("Failed to fetch data:",t)}this._loading=!1}async _fetch(t){const s=await fetch(`${this.apiBase}${t}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"").split("/")[0]||(this._components.length>0?this._components[0].name:"settings")}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const t=this._activeTab();return a`
       <div class="header">
         <img src="/static/images/shenas.png" alt="shenas" />
         <h1>shenas</h1>
@@ -24,100 +156,67 @@ var $=Object.defineProperty;var w=(d,e,t)=>e in d?$(d,e,{enumerable:!0,configura
       </div>
 
       ${this._router.outlet()}
-    `}_tabLink(t,s,r){return a`
+    `}_tabLink(t,s,n){return a`
       <a
         class="tab"
         role="tab"
         href="/${t}"
-        aria-selected=${r===t}
+        aria-selected=${n===t}
       >
         ${s}
       </a>
-    `}_renderDynamicHome(){return this._components.length>0?this._renderDynamicTab(this._components[0].name):this._renderSettings("pipe")}_renderDynamicTab(t){const s=this._components.find(r=>r.name===t);if(!s)return a`<p class="empty">Unknown page: ${t}</p>`;if(!this._loadedScripts.has(s.js)){this._loadedScripts=new Set([...this._loadedScripts,s.js]);const r=document.createElement("script");r.type="module",r.src=s.js,document.head.appendChild(r)}return a`<div class="component-host">
+    `}_renderDynamicHome(){return this._components.length>0?this._renderDynamicTab(this._components[0].name):this._renderSettings("pipe")}_renderDynamicTab(t){const s=this._components.find(n=>n.name===t);if(!s)return a`<p class="empty">Unknown page: ${t}</p>`;if(!this._loadedScripts.has(s.js)){this._loadedScripts=new Set([...this._loadedScripts,s.js]);const n=document.createElement("script");n.type="module",n.src=s.js,document.head.appendChild(n)}return a`<div class="component-host">
       ${this._getOrCreateElement(s)}
-    </div>`}_renderPluginDetail(t,s,r="details"){return a`<shenas-plugin-detail
+    </div>`}_renderPluginDetail(t,s,n="details"){return a`<shenas-plugin-detail
       api-base="${this.apiBase}"
       kind="${t}"
       name="${s}"
-      active-tab="${r}"
+      active-tab="${n}"
     ></shenas-plugin-detail>`}_renderSettings(t){return a`<shenas-settings
       api-base="${this.apiBase}"
       active-kind="${t||"pipe"}"
       .onNavigate=${s=>{this._router.goto(`/settings/${s}`)}}
-    ></shenas-settings>`}_getOrCreateElement(t){if(!this._elementCache.has(t.name)){const s=document.createElement(t.tag);s.setAttribute("api-base",this.apiBase),this._elementCache.set(t.name,s)}return this._elementCache.get(t.name)}}n(m,"properties",{apiBase:{type:String,attribute:"api-base"},_components:{state:!0},_loading:{state:!0},_loadedScripts:{state:!0}}),n(m,"styles",c`
-    :host {
-      display: block;
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 2rem 1rem;
-      color: #222;
-    }
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 1.5rem;
-    }
-    .header img {
-      width: 48px;
-      height: 48px;
-    }
-    .header h1 {
-      margin: 0;
-      font-size: 1.5rem;
-    }
-    .tabs {
-      display: flex;
-      gap: 0;
-      border-bottom: 2px solid #e0e0e0;
-      margin-bottom: 1.5rem;
-    }
-    .tab {
-      padding: 0.6rem 1.2rem;
-      cursor: pointer;
-      border: none;
-      background: none;
-      font-size: 0.95rem;
-      color: #666;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -2px;
-      transition: color 0.15s, border-color 0.15s;
-      text-decoration: none;
-    }
-    .tab:hover {
-      color: #222;
-    }
-    .tab[aria-selected="true"] {
-      color: #222;
-      border-bottom-color: #0066cc;
-      font-weight: 600;
-    }
-    a {
-      color: #0066cc;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-    .loading {
-      color: #888;
-      font-style: italic;
-    }
-    .empty {
-      color: #888;
-      padding: 1rem 0;
-    }
-    .component-host {
-      margin-top: 1rem;
-    }
-  `);customElements.define("shenas-app",m);const h=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class u extends l{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all(h.map(async({id:t})=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _remove(e,t){this._actionMessage=null;const r=await(await fetch(`${this.apiBase}/plugins/${e}/${t}`,{method:"DELETE"})).json();r.ok?(this._actionMessage={type:"success",text:r.message},await this._fetchAll()):this._actionMessage={type:"error",text:r.message||"Remove failed"}}async _toggleEnabled(e,t,s){this._actionMessage=null;const r=s?"disable":"enable",o=await(await fetch(`${this.apiBase}/plugins/${e}/${t}/${r}`,{method:"POST"})).json();o.ok?(this._actionMessage={type:"success",text:o.message},await this._fetchAll()):this._actionMessage={type:"error",text:o.message||`${r} failed`}}async _install(e){var _,f;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(_=t==null?void 0:t.value)==null?void 0:_.trim();if(!s)return;this._actionMessage=null;const o=(f=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:f[0];o!=null&&o.ok?(this._actionMessage={type:"success",text:o.message},t.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(o==null?void 0:o.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
+    ></shenas-settings>`}_getOrCreateElement(t){if(!this._elementCache.has(t.name)){const s=document.createElement(t.tag);s.setAttribute("api-base",this.apiBase),this._elementCache.set(t.name,s)}return this._elementCache.get(t.name)}}r(_,"properties",{apiBase:{type:String,attribute:"api-base"},_components:{state:!0},_loading:{state:!0},_loadedScripts:{state:!0}}),r(_,"styles",[y,S,h,o`
+      :host {
+        display: block;
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+        color: #222;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 1.5rem;
+      }
+      .header img {
+        width: 48px;
+        height: 48px;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 1.5rem;
+      }
+      .tabs {
+        margin-bottom: 1.5rem;
+      }
+      .tab {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.95rem;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      .component-host {
+        margin-top: 1rem;
+      }
+    `]);customElements.define("shenas-app",_);const m=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class g extends c{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all(m.map(async({id:t})=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _remove(e,t){this._actionMessage=null;const n=await(await fetch(`${this.apiBase}/plugins/${e}/${t}`,{method:"DELETE"})).json();n.ok?(this._actionMessage={type:"success",text:n.message},await this._fetchAll()):this._actionMessage={type:"error",text:n.message||"Remove failed"}}async _toggleEnabled(e,t,s){this._actionMessage=null;const n=s?"disable":"enable",d=await(await fetch(`${this.apiBase}/plugins/${e}/${t}/${n}`,{method:"POST"})).json();d.ok?(this._actionMessage={type:"success",text:d.message},await this._fetchAll()):this._actionMessage={type:"error",text:d.message||`${n} failed`}}async _install(e){var v,k;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(v=t==null?void 0:t.value)==null?void 0:v.trim();if(!s)return;this._actionMessage=null;const d=(k=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:k[0];d!=null&&d.ok?(this._actionMessage={type:"success",text:d.message},t.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(d==null?void 0:d.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
       ${this._actionMessage?a`<div class="message ${this._actionMessage.type}">
             ${this._actionMessage.text}
           </div>`:""}
       <div class="layout">
         <nav class="sidebar">
           <ul>
-            ${h.map(({id:e,label:t})=>a`
+            ${m.map(({id:e,label:t})=>a`
                 <li>
                   <a
                     href="/settings/${e}"
@@ -134,32 +233,14 @@ var $=Object.defineProperty;var w=(d,e,t)=>e in d?$(d,e,{enumerable:!0,configura
         </nav>
         <div class="content">${this._renderKind(this.activeKind)}</div>
       </div>
-    `}_renderKind(e){var r;const t=this._plugins[e]||[],s=((r=h.find(i=>i.id===e))==null?void 0:r.label)||e;return a`
+    `}_renderKind(e){var n;const t=this._plugins[e]||[],s=((n=m.find(i=>i.id===e))==null?void 0:n.label)||e;return a`
       <h3>${s}</h3>
-      ${t.length>0?a`
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Version</th>
-                  <th>Added</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${t.map(i=>a`
-                    <tr style="${i.enabled===!1?"opacity: 0.5":""}">
-                      <td class="name"><a href="/settings/${e}/${i.name}">${i.display_name||i.name}</a></td>
-                      <td class="version">${i.version}</td>
-                      <td class="version">${i.added_at?i.added_at.slice(0,10):""}</td>
-                      <td class="status-cell">
-                        <status-dot ?enabled=${i.enabled!==!1}></status-dot>
-                      </td>
-                    </tr>
-                  `)}
-              </tbody>
-            </table>
-          `:a`<p class="empty">No ${s.toLowerCase()} installed</p>`}
+      <shenas-data-list
+        .columns=${[{label:"Name",render:i=>a`<a href="/settings/${e}/${i.name}">${i.display_name||i.name}</a>`},{key:"version",label:"Version",class:"mono"},{label:"Added",class:"mono",render:i=>i.added_at?i.added_at.slice(0,10):""},{label:"Status",render:i=>a`<status-dot ?enabled=${i.enabled!==!1}></status-dot>`}]}
+        .rows=${t}
+        .rowClass=${i=>i.enabled===!1?"disabled-row":""}
+        empty-text="No ${s.toLowerCase()} installed"
+      ></shenas-data-list>
       <div class="install-row">
         <input
           id="install-${e}"
@@ -167,163 +248,84 @@ var $=Object.defineProperty;var w=(d,e,t)=>e in d?$(d,e,{enumerable:!0,configura
           placeholder="Plugin name"
           @keydown=${i=>i.key==="Enter"&&this._install(e)}
         />
-        <button class="action" @click=${()=>this._install(e)}>
+        <button @click=${()=>this._install(e)}>
           Install
         </button>
       </div>
-    `}}n(u,"properties",{apiBase:{type:String,attribute:"api-base"},activeKind:{type:String,attribute:"active-kind"},onNavigate:{type:Function},_plugins:{state:!0},_loading:{state:!0},_actionMessage:{state:!0}}),n(u,"styles",c`
-    :host {
-      display: block;
-    }
-    .layout {
-      display: flex;
-      gap: 2rem;
-    }
-    .sidebar {
-      min-width: 140px;
-      flex-shrink: 0;
-    }
-    .sidebar ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    .sidebar li {
-      margin: 0;
-    }
-    .sidebar a {
-      display: block;
-      width: 100%;
-      text-align: left;
-      padding: 0.5rem 0.8rem;
-      border: none;
-      background: none;
-      cursor: pointer;
-      font-size: 0.9rem;
-      color: #666;
-      border-radius: 4px;
-      border-left: 3px solid transparent;
-    }
-    .sidebar a:hover {
-      background: #f5f5f5;
-      color: #222;
-    }
-    .sidebar a[aria-selected="true"] {
-      background: #f0f4ff;
-      color: #222;
-      font-weight: 600;
-      border-left-color: #0066cc;
-    }
-    .content {
-      flex: 1;
-      min-width: 0;
-    }
-    .content h3 {
-      font-size: 1rem;
-      margin: 0 0 1rem;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-    }
-    th {
-      text-align: left;
-      padding: 0.4rem 0.6rem;
-      color: #666;
-      font-weight: 500;
-      border-bottom: 1px solid #e0e0e0;
-    }
-    td {
-      padding: 0.4rem 0.6rem;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    .name {
-      font-weight: 600;
-    }
-    .name a {
-      color: #0066cc;
-      text-decoration: none;
-    }
-    .name a:hover {
-      text-decoration: underline;
-    }
-    .version {
-      color: #888;
-      font-family: monospace;
-      font-size: 0.85rem;
-    }
-    .desc {
-      color: #555;
-      max-width: 300px;
-    }
-    .actions {
-      white-space: nowrap;
-    }
-    button.action {
-      padding: 0.3rem 0.7rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background: #fff;
-      cursor: pointer;
-      font-size: 0.8rem;
-      margin-left: 0.3rem;
-    }
-    button.action:hover {
-      background: #f5f5f5;
-    }
-    button.remove {
-      color: #c00;
-      border-color: #e8c0c0;
-    }
-    button.remove:hover {
-      background: #fef0f0;
-    }
-    .install-row {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 1rem;
-      align-items: center;
-    }
-    .install-row input {
-      padding: 0.4rem 0.6rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 0.85rem;
-      flex: 1;
-      max-width: 200px;
-    }
-    .message {
-      padding: 0.5rem 0.8rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-      font-size: 0.85rem;
-    }
-    .message.success {
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-    .message.error {
-      background: #fce4ec;
-      color: #c62828;
-    }
-    .empty {
-      color: #888;
-      padding: 0.5rem 0;
-    }
-    .loading {
-      color: #888;
-      font-style: italic;
-    }
-  `);customElements.define("shenas-settings",u);class b extends l{constructor(){super(),this.apiBase="/api",this.kind="",this.name="",this.activeTab="details",this._info=null,this._loading=!0,this._message=null}willUpdate(e){(e.has("kind")||e.has("name"))&&this._fetchInfo()}async _fetchInfo(){if(!this.kind||!this.name)return;this._loading=!0,this._message=null;const e=await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/info`);this._info=e.ok?await e.json():null,this._loading=!1}async _toggle(){var r;const e=((r=this._info)==null?void 0:r.enabled)!==!1?"disable":"enable",s=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/${e}`,{method:"POST"})).json();this._message={type:s.ok?"success":"error",text:s.message||`${e} failed`},await this._fetchInfo(),this.dispatchEvent(new CustomEvent("plugin-state-changed",{bubbles:!0,composed:!0}))}async _remove(){const t=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}`,{method:"DELETE"})).json();t.ok?(window.history.pushState({},"",`/settings/${this.kind}`),window.dispatchEvent(new PopStateEvent("popstate"))):this._message={type:"error",text:t.message||"Remove failed"}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;if(!this._info)return a`<p>Plugin not found.</p>`;const e=this._info,t=e.enabled!==!1,s=`/settings/${this.kind}/${this.name}`;return a`
+    `}}r(g,"properties",{apiBase:{type:String,attribute:"api-base"},activeKind:{type:String,attribute:"active-kind"},onNavigate:{type:Function},_plugins:{state:!0},_loading:{state:!0},_actionMessage:{state:!0}}),r(g,"styles",[p,y,w,h,o`
+      :host {
+        display: block;
+      }
+      .layout {
+        display: flex;
+        gap: 2rem;
+      }
+      .sidebar {
+        min-width: 140px;
+        flex-shrink: 0;
+      }
+      .sidebar ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .sidebar li {
+        margin: 0;
+      }
+      .sidebar a {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 0.5rem 0.8rem;
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: #666;
+        border-radius: 4px;
+        border-left: 3px solid transparent;
+      }
+      .sidebar a:hover {
+        background: #f5f5f5;
+        color: #222;
+      }
+      .sidebar a[aria-selected="true"] {
+        background: #f0f4ff;
+        color: #222;
+        font-weight: 600;
+        border-left-color: #0066cc;
+      }
+      .content {
+        flex: 1;
+        min-width: 0;
+      }
+      .content h3 {
+        font-size: 1rem;
+        margin: 0 0 1rem;
+      }
+      .install-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        align-items: center;
+      }
+      .install-row input {
+        padding: 0.4rem 0.6rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        flex: 1;
+        max-width: 200px;
+      }
+    `]);customElements.define("shenas-settings",g);class f extends c{constructor(){super(),this.apiBase="/api",this.kind="",this.name="",this.activeTab="details",this._info=null,this._loading=!0,this._message=null}willUpdate(e){(e.has("kind")||e.has("name"))&&this._fetchInfo()}async _fetchInfo(){if(!this.kind||!this.name)return;this._loading=!0,this._message=null;const e=await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/info`);this._info=e.ok?await e.json():null,this._loading=!1}async _toggle(){var n;const e=((n=this._info)==null?void 0:n.enabled)!==!1?"disable":"enable",s=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/${e}`,{method:"POST"})).json();this._message={type:s.ok?"success":"error",text:s.message||`${e} failed`},await this._fetchInfo(),this.dispatchEvent(new CustomEvent("plugin-state-changed",{bubbles:!0,composed:!0}))}async _remove(){const t=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}`,{method:"DELETE"})).json();t.ok?(window.history.pushState({},"",`/settings/${this.kind}`),window.dispatchEvent(new PopStateEvent("popstate"))):this._message={type:"error",text:t.message||"Remove failed"}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;if(!this._info)return a`<p>Plugin not found.</p>`;const e=this._info,t=e.enabled!==!1,s=`/settings/${this.kind}/${this.name}`;return a`
       <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
 
       <h2>${e.display_name||e.name}</h2>
       <span class="kind-badge">${e.kind}</span>
 
-      <div class="detail-tabs">
-        <a class="detail-tab" href="${s}" aria-selected=${this.activeTab==="details"}>Details</a>
-        ${this.kind==="pipe"?a`<a class="detail-tab" href="${s}/transforms" aria-selected=${this.activeTab==="transforms"}>Transforms</a>`:""}
+      <div class="tabs">
+        <a class="tab" href="${s}" aria-selected=${this.activeTab==="details"}>Details</a>
+        ${this.kind==="pipe"?a`<a class="tab" href="${s}/transforms" aria-selected=${this.activeTab==="transforms"}>Transforms</a>`:""}
       </div>
 
       ${this.activeTab==="transforms"?a`<shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`:this._renderDetails(e,t)}
@@ -357,185 +359,84 @@ var $=Object.defineProperty;var w=(d,e,t)=>e in d?$(d,e,{enumerable:!0,configura
         <span class="state-label">${e}</span>
         <span class="state-value">${t.slice(0,19)}</span>
       </div>
-    `:""}}n(b,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},activeTab:{type:String,attribute:"active-tab"},_info:{state:!0},_loading:{state:!0},_message:{state:!0}}),n(b,"styles",c`
-    :host {
-      display: block;
-    }
-    .back {
-      color: #0066cc;
-      text-decoration: none;
-      font-size: 0.9rem;
-      display: inline-block;
-      margin-bottom: 1rem;
-    }
-    .back:hover {
-      text-decoration: underline;
-    }
-    h2 {
-      margin: 0 0 0.3rem;
-      font-size: 1.3rem;
-    }
-    .kind-badge {
-      display: inline-block;
-      background: #f0f0f0;
-      color: #555;
-      padding: 0.15rem 0.5rem;
-      border-radius: 3px;
-      font-size: 0.8rem;
-      margin-bottom: 1rem;
-    }
-    .description {
-      color: #444;
-      line-height: 1.6;
-      margin: 1rem 0;
-      white-space: pre-line;
-    }
-    .state-table {
-      margin: 1.5rem 0;
-    }
-    .state-row {
-      display: flex;
-      padding: 0.4rem 0;
-      border-bottom: 1px solid #f0f0f0;
-      font-size: 0.9rem;
-    }
-    .state-row:last-child {
-      border-bottom: none;
-    }
-    .state-label {
-      width: 120px;
-      color: #888;
-      flex-shrink: 0;
-    }
-    .state-value {
-      color: #333;
-    }
-    .enabled {
-      color: #2e7d32;
-      font-weight: 600;
-    }
-    .disabled {
-      color: #c62828;
-      font-weight: 600;
-    }
-    .actions {
-      display: flex;
-      gap: 0.6rem;
-      margin-top: 1.5rem;
-    }
-    button {
-      padding: 0.5rem 1rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background: #fff;
-      cursor: pointer;
-      font-size: 0.9rem;
-    }
-    button:hover {
-      background: #f5f5f5;
-    }
-    button.danger {
-      color: #c00;
-      border-color: #e8c0c0;
-    }
-    button.danger:hover {
-      background: #fef0f0;
-    }
-    .detail-tabs {
-      display: flex;
-      gap: 0;
-      border-bottom: 2px solid #e0e0e0;
-      margin: 1rem 0;
-    }
-    .detail-tab {
-      padding: 0.5rem 1rem;
-      border: none;
-      background: none;
-      cursor: pointer;
-      font-size: 0.9rem;
-      color: #666;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -2px;
-      text-decoration: none;
-    }
-    .detail-tab:hover {
-      color: #222;
-    }
-    .detail-tab[aria-selected="true"] {
-      color: #222;
-      border-bottom-color: #0066cc;
-      font-weight: 600;
-    }
-    .message {
-      padding: 0.5rem 0.8rem;
-      border-radius: 4px;
-      margin-top: 1rem;
-      font-size: 0.85rem;
-    }
-    .message.success {
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-    .message.error {
-      background: #fce4ec;
-      color: #c62828;
-    }
-    .loading {
-      color: #888;
-      font-style: italic;
-    }
-  `);customElements.define("shenas-plugin-detail",b);class g extends l{constructor(){super(),this.apiBase="/api",this.source="",this._transforms=[],this._loading=!0,this._editing=null,this._editSql="",this._message=null,this._previewRows=null,this._creating=!1,this._newForm=this._emptyForm(),this._dbTables={},this._schemaTables={}}_emptyForm(){return{source_duckdb_table:"",target_duckdb_table:"",description:"",sql:""}}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e=this.source?`?source=${this.source}`:"",t=await fetch(`${this.apiBase}/transforms${e}`);this._transforms=t.ok?await t.json():[],this._loading=!1}async _toggle(e){const t=e.enabled?"disable":"enable";await fetch(`${this.apiBase}/transforms/${e.id}/${t}`,{method:"POST"}),await this._fetchAll()}async _delete(e){const s=await(await fetch(`${this.apiBase}/transforms/${e.id}`,{method:"DELETE"})).json();s.ok?(this._message={type:"success",text:s.message},await this._fetchAll()):this._message={type:"error",text:s.detail||s.message||"Delete failed"}}_startEdit(e){this._editing=e.id,this._editSql=e.sql,this._previewRows=null}_cancelEdit(){this._editing=null,this._editSql="",this._previewRows=null}async _saveEdit(){const e=await fetch(`${this.apiBase}/transforms/${this._editing}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({sql:this._editSql})});if(e.ok)this._message={type:"success",text:"Transform updated"},this._editing=null,await this._fetchAll();else{const t=await e.json();this._message={type:"error",text:t.detail||"Update failed"}}}async _startCreate(){this._creating=!0,this._newForm=this._emptyForm(),this._editing=null,this._previewRows=null;const[e,t]=await Promise.all([fetch(`${this.apiBase}/db/tables`),fetch(`${this.apiBase}/db/schema-tables`)]);this._dbTables=e.ok?await e.json():{},this._schemaTables=t.ok?await t.json():{}}_cancelCreate(){this._creating=!1,this._newForm=this._emptyForm()}_updateNewForm(e,t){this._newForm={...this._newForm,[e]:t}}async _saveCreate(){const e=this._newForm;if(!e.source_duckdb_table||!e.target_duckdb_table||!e.sql){this._message={type:"error",text:"Fill in all required fields"};return}const t=await fetch(`${this.apiBase}/transforms`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({source_duckdb_schema:this.source,source_duckdb_table:e.source_duckdb_table,target_duckdb_schema:"metrics",target_duckdb_table:e.target_duckdb_table,source_plugin:this.source,description:e.description,sql:e.sql})});if(t.ok)this._message={type:"success",text:"Transform created"},this._creating=!1,this._newForm=this._emptyForm(),await this._fetchAll();else{const s=await t.json();this._message={type:"error",text:s.detail||"Create failed"}}}async _preview(){const e=await fetch(`${this.apiBase}/transforms/${this._editing}/test?limit=5`,{method:"POST"});if(e.ok)this._previewRows=await e.json();else{const t=await e.json();this._message={type:"error",text:t.detail||"Preview failed"}}}render(){return this._loading?a`<p class="loading">Loading transforms...</p>`:a`
+    `:""}}r(f,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},activeTab:{type:String,attribute:"active-tab"},_info:{state:!0},_loading:{state:!0},_message:{state:!0}}),r(f,"styles",[p,y,w,S,h,o`
+      :host {
+        display: block;
+      }
+      .back {
+        font-size: 0.9rem;
+        display: inline-block;
+        margin-bottom: 1rem;
+      }
+      h2 {
+        margin: 0 0 0.3rem;
+        font-size: 1.3rem;
+      }
+      .kind-badge {
+        display: inline-block;
+        background: #f0f0f0;
+        color: #555;
+        padding: 0.15rem 0.5rem;
+        border-radius: 3px;
+        font-size: 0.8rem;
+        margin-bottom: 1rem;
+      }
+      .description {
+        color: #444;
+        line-height: 1.6;
+        margin: 1rem 0;
+        white-space: pre-line;
+      }
+      .state-table {
+        margin: 1.5rem 0;
+      }
+      .state-row {
+        display: flex;
+        padding: 0.4rem 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 0.9rem;
+      }
+      .state-row:last-child {
+        border-bottom: none;
+      }
+      .state-label {
+        width: 120px;
+        color: #888;
+        flex-shrink: 0;
+      }
+      .state-value {
+        color: #333;
+      }
+      .actions {
+        display: flex;
+        gap: 0.6rem;
+        margin-top: 1.5rem;
+      }
+      button {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+      }
+    `]);customElements.define("shenas-plugin-detail",f);class $ extends c{constructor(){super(),this.apiBase="/api",this.source="",this._transforms=[],this._loading=!0,this._editing=null,this._editSql="",this._message=null,this._previewRows=null,this._creating=!1,this._newForm=this._emptyForm(),this._dbTables={},this._schemaTables={}}_emptyForm(){return{source_duckdb_table:"",target_duckdb_table:"",description:"",sql:""}}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e=this.source?`?source=${this.source}`:"",t=await fetch(`${this.apiBase}/transforms${e}`);this._transforms=t.ok?await t.json():[],this._loading=!1}async _toggle(e){const t=e.enabled?"disable":"enable";await fetch(`${this.apiBase}/transforms/${e.id}/${t}`,{method:"POST"}),await this._fetchAll()}async _delete(e){const s=await(await fetch(`${this.apiBase}/transforms/${e.id}`,{method:"DELETE"})).json();s.ok?(this._message={type:"success",text:s.message},await this._fetchAll()):this._message={type:"error",text:s.detail||s.message||"Delete failed"}}_startEdit(e){this._editing=e.id,this._editSql=e.sql,this._previewRows=null}_cancelEdit(){this._editing=null,this._editSql="",this._previewRows=null}async _saveEdit(){const e=await fetch(`${this.apiBase}/transforms/${this._editing}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({sql:this._editSql})});if(e.ok)this._message={type:"success",text:"Transform updated"},this._editing=null,await this._fetchAll();else{const t=await e.json();this._message={type:"error",text:t.detail||"Update failed"}}}async _startCreate(){this._creating=!0,this._newForm=this._emptyForm(),this._editing=null,this._previewRows=null;const[e,t]=await Promise.all([fetch(`${this.apiBase}/db/tables`),fetch(`${this.apiBase}/db/schema-tables`)]);this._dbTables=e.ok?await e.json():{},this._schemaTables=t.ok?await t.json():{}}_cancelCreate(){this._creating=!1,this._newForm=this._emptyForm()}_updateNewForm(e,t){this._newForm={...this._newForm,[e]:t}}async _saveCreate(){const e=this._newForm;if(!e.source_duckdb_table||!e.target_duckdb_table||!e.sql){this._message={type:"error",text:"Fill in all required fields"};return}const t=await fetch(`${this.apiBase}/transforms`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({source_duckdb_schema:this.source,source_duckdb_table:e.source_duckdb_table,target_duckdb_schema:"metrics",target_duckdb_table:e.target_duckdb_table,source_plugin:this.source,description:e.description,sql:e.sql})});if(t.ok)this._message={type:"success",text:"Transform created"},this._creating=!1,this._newForm=this._emptyForm(),await this._fetchAll();else{const s=await t.json();this._message={type:"error",text:s.detail||"Create failed"}}}async _preview(){const e=await fetch(`${this.apiBase}/transforms/${this._editing}/test?limit=5`,{method:"POST"});if(e.ok)this._previewRows=await e.json();else{const t=await e.json();this._message={type:"error",text:t.detail||"Preview failed"}}}render(){return this._loading?a`<p class="loading">Loading transforms...</p>`:a`
       ${this._message?a`<div class="message ${this._message.type}">
             ${this._message.text}
           </div>`:""}
       ${this._editing?this._renderEditor():""}
       ${this._creating?this._renderCreateForm():""}
       ${!this._creating&&!this._editing?a`<button class="add-btn" @click=${this._startCreate}>Add transform</button>`:""}
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Source</th>
-            <th>Target</th>
-            <th>Description</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${this._transforms.map(e=>a`
-              <tr class="${e.enabled?"":"disabled-row"}">
-                <td class="id">${e.id}</td>
-                <td class="mapping">
-                  ${e.source_duckdb_schema}.${e.source_duckdb_table}
-                </td>
-                <td class="mapping">
-                  ${e.target_duckdb_schema}.${e.target_duckdb_table}
-                </td>
-                <td class="desc">
-                  ${e.description||""}
-                  ${e.is_default?a`<span class="default-badge">default</span>`:""}
-                </td>
-                <td class="status">
-                  <status-dot ?enabled=${e.enabled}></status-dot>
-                </td>
-                <td class="actions">
-                  ${e.is_default?a`<button @click=${()=>this._startEdit(e)}>View</button>`:a`<button @click=${()=>this._startEdit(e)}>Edit</button>`}
-                  <button @click=${()=>this._toggle(e)}>
-                    ${e.enabled?"Disable":"Enable"}
-                  </button>
-                  ${e.is_default?"":a`<button
-                        class="danger"
-                        @click=${()=>this._delete(e)}
-                      >
-                        Delete
-                      </button>`}
-                </td>
-              </tr>
-            `)}
-        </tbody>
-      </table>
-    `}_renderCreateForm(){const e=this._newForm,t=this.source,s=this._dbTables[t]||[],r=Object.values(this._schemaTables||{}).flat();return a`
+      <shenas-data-list
+        .columns=${[{key:"id",label:"ID",class:"muted"},{label:"Source",class:"mono",render:e=>`${e.source_duckdb_schema}.${e.source_duckdb_table}`},{label:"Target",class:"mono",render:e=>`${e.target_duckdb_schema}.${e.target_duckdb_table}`},{label:"Description",render:e=>a`${e.description||""}${e.is_default?a`<span class="default-badge">default</span>`:""}`},{label:"Status",render:e=>a`<status-dot ?enabled=${e.enabled}></status-dot>`}]}
+        .rows=${this._transforms}
+        .rowClass=${e=>e.enabled?"":"disabled-row"}
+        .actions=${e=>a`
+          ${e.is_default?a`<button @click=${()=>this._startEdit(e)}>View</button>`:a`<button @click=${()=>this._startEdit(e)}>Edit</button>`}
+          <button @click=${()=>this._toggle(e)}>
+            ${e.enabled?"Disable":"Enable"}
+          </button>
+          ${e.is_default?"":a`<button class="danger" @click=${()=>this._delete(e)}>Delete</button>`}
+        `}
+        empty-text="No transforms"
+      ></shenas-data-list>
+    `}_renderCreateForm(){const e=this._newForm,t=this.source,s=this._dbTables[t]||[],n=Object.values(this._schemaTables||{}).flat();return a`
       <div class="edit-panel">
         <h3>New transform</h3>
         <div class="form-grid">
@@ -556,7 +457,7 @@ var $=Object.defineProperty;var w=(d,e,t)=>e in d?$(d,e,{enumerable:!0,configura
               @change=${i=>this._updateNewForm("target_duckdb_table",i.target.value)}
             >
               <option value="">-- select --</option>
-              ${r.map(i=>a`<option value=${i} ?selected=${e.target_duckdb_table===i}>${i}</option>`)}
+              ${n.map(i=>a`<option value=${i} ?selected=${e.target_duckdb_table===i}>${i}</option>`)}
             </select>
           </label>
           <label class="form-full">
@@ -613,153 +514,86 @@ var $=Object.defineProperty;var w=(d,e,t)=>e in d?$(d,e,{enumerable:!0,configura
           </tbody>
         </table>
       </div>
-    `}}n(g,"properties",{apiBase:{type:String,attribute:"api-base"},source:{type:String},_transforms:{state:!0},_loading:{state:!0},_editing:{state:!0},_editSql:{state:!0},_message:{state:!0},_previewRows:{state:!0},_creating:{state:!0},_newForm:{state:!0},_dbTables:{state:!0},_schemaTables:{state:!0}}),n(g,"styles",c`
-    :host {
-      display: block;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-    }
-    th {
-      text-align: left;
-      padding: 0.4rem 0.6rem;
-      color: #666;
-      font-weight: 500;
-      border-bottom: 1px solid #e0e0e0;
-    }
-    td {
-      padding: 0.4rem 0.6rem;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    .id {
-      color: #888;
-      width: 40px;
-    }
-    .mapping {
-      font-family: monospace;
-      font-size: 0.85rem;
-    }
-    .desc {
-      color: #555;
-    }
-    .status {
-      font-size: 0.85rem;
-    }
-    .actions {
-      white-space: nowrap;
-    }
-    button {
-      padding: 0.3rem 0.6rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background: #fff;
-      cursor: pointer;
-      font-size: 0.8rem;
-      margin-left: 0.3rem;
-    }
-    button:hover {
-      background: #f5f5f5;
-    }
-    button.danger {
-      color: #c00;
-      border-color: #e8c0c0;
-    }
-    .default-badge {
-      font-size: 0.75rem;
-      color: #888;
-      background: #f0f0f0;
-      padding: 1px 5px;
-      border-radius: 3px;
-      margin-left: 4px;
-    }
-    .edit-panel {
-      margin: 1rem 0;
-      padding: 1rem;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      background: #fafafa;
-    }
-    .edit-panel h3 {
-      margin: 0 0 0.8rem;
-      font-size: 1rem;
-    }
-    textarea {
-      width: 100%;
-      min-height: 120px;
-      font-family: monospace;
-      font-size: 0.85rem;
-      padding: 0.5rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      resize: vertical;
-      box-sizing: border-box;
-    }
-    textarea.readonly {
-      background: #f5f5f5;
-      color: #666;
-      cursor: default;
-    }
-    .edit-actions {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 0.8rem;
-    }
-    .preview-table {
-      margin-top: 1rem;
-      max-height: 300px;
-      overflow: auto;
-    }
-    .preview-table table {
-      font-size: 0.8rem;
-    }
-    .message {
-      padding: 0.5rem 0.8rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-      font-size: 0.85rem;
-    }
-    .message.success {
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-    .message.error {
-      background: #fce4ec;
-      color: #c62828;
-    }
-    .loading {
-      color: #888;
-      font-style: italic;
-    }
-    .disabled-row {
-      opacity: 0.5;
-    }
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.5rem 1rem;
-      margin-bottom: 0.8rem;
-    }
-    .form-grid label {
-      font-size: 0.8rem;
-      color: #666;
-      display: flex;
-      flex-direction: column;
-      gap: 0.2rem;
-    }
-    .form-grid input,
-    .form-grid select {
-      padding: 0.35rem 0.5rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 0.85rem;
-      font-family: monospace;
-    }
-    .form-full {
-      grid-column: 1 / -1;
-    }
-    .add-btn {
-      margin-top: 1rem;
-    }
-  `);customElements.define("shenas-transforms",g);
+    `}}r($,"properties",{apiBase:{type:String,attribute:"api-base"},source:{type:String},_transforms:{state:!0},_loading:{state:!0},_editing:{state:!0},_editSql:{state:!0},_message:{state:!0},_previewRows:{state:!0},_creating:{state:!0},_newForm:{state:!0},_dbTables:{state:!0},_schemaTables:{state:!0}}),r($,"styles",[x,p,w,h,o`
+      :host {
+        display: block;
+      }
+      .default-badge {
+        font-size: 0.75rem;
+        color: #888;
+        background: #f0f0f0;
+        padding: 1px 5px;
+        border-radius: 3px;
+        margin-left: 4px;
+      }
+      .edit-panel {
+        margin: 1rem 0;
+        padding: 1rem;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        background: #fafafa;
+      }
+      .edit-panel h3 {
+        margin: 0 0 0.8rem;
+        font-size: 1rem;
+      }
+      textarea {
+        width: 100%;
+        min-height: 120px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        resize: vertical;
+        box-sizing: border-box;
+      }
+      textarea.readonly {
+        background: #f5f5f5;
+        color: #666;
+        cursor: default;
+      }
+      .edit-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.8rem;
+      }
+      .preview-table {
+        margin-top: 1rem;
+        max-height: 300px;
+        overflow: auto;
+      }
+      .preview-table table {
+        font-size: 0.8rem;
+      }
+      .disabled-row {
+        opacity: 0.5;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem 1rem;
+        margin-bottom: 0.8rem;
+      }
+      .form-grid label {
+        font-size: 0.8rem;
+        color: #666;
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+      }
+      .form-grid input,
+      .form-grid select {
+        padding: 0.35rem 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-family: monospace;
+      }
+      .form-full {
+        grid-column: 1 / -1;
+      }
+      .add-btn {
+        margin-top: 1rem;
+      }
+    `]);customElements.define("shenas-transforms",$);

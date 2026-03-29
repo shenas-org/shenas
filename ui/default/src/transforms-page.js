@@ -1,4 +1,5 @@
 import { LitElement, html, css } from "lit";
+import { buttonStyles, messageStyles, tableStyles, utilityStyles } from "./shared-styles.js";
 
 class TransformsPage extends LitElement {
   static properties = {
@@ -16,156 +17,95 @@ class TransformsPage extends LitElement {
     _schemaTables: { state: true },
   };
 
-  static styles = css`
-    :host {
-      display: block;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-    }
-    th {
-      text-align: left;
-      padding: 0.4rem 0.6rem;
-      color: #666;
-      font-weight: 500;
-      border-bottom: 1px solid #e0e0e0;
-    }
-    td {
-      padding: 0.4rem 0.6rem;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    .id {
-      color: #888;
-      width: 40px;
-    }
-    .mapping {
-      font-family: monospace;
-      font-size: 0.85rem;
-    }
-    .desc {
-      color: #555;
-    }
-    .status {
-      font-size: 0.85rem;
-    }
-    .actions {
-      white-space: nowrap;
-    }
-    button {
-      padding: 0.3rem 0.6rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background: #fff;
-      cursor: pointer;
-      font-size: 0.8rem;
-      margin-left: 0.3rem;
-    }
-    button:hover {
-      background: #f5f5f5;
-    }
-    button.danger {
-      color: #c00;
-      border-color: #e8c0c0;
-    }
-    .default-badge {
-      font-size: 0.75rem;
-      color: #888;
-      background: #f0f0f0;
-      padding: 1px 5px;
-      border-radius: 3px;
-      margin-left: 4px;
-    }
-    .edit-panel {
-      margin: 1rem 0;
-      padding: 1rem;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      background: #fafafa;
-    }
-    .edit-panel h3 {
-      margin: 0 0 0.8rem;
-      font-size: 1rem;
-    }
-    textarea {
-      width: 100%;
-      min-height: 120px;
-      font-family: monospace;
-      font-size: 0.85rem;
-      padding: 0.5rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      resize: vertical;
-      box-sizing: border-box;
-    }
-    textarea.readonly {
-      background: #f5f5f5;
-      color: #666;
-      cursor: default;
-    }
-    .edit-actions {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 0.8rem;
-    }
-    .preview-table {
-      margin-top: 1rem;
-      max-height: 300px;
-      overflow: auto;
-    }
-    .preview-table table {
-      font-size: 0.8rem;
-    }
-    .message {
-      padding: 0.5rem 0.8rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-      font-size: 0.85rem;
-    }
-    .message.success {
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-    .message.error {
-      background: #fce4ec;
-      color: #c62828;
-    }
-    .loading {
-      color: #888;
-      font-style: italic;
-    }
-    .disabled-row {
-      opacity: 0.5;
-    }
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.5rem 1rem;
-      margin-bottom: 0.8rem;
-    }
-    .form-grid label {
-      font-size: 0.8rem;
-      color: #666;
-      display: flex;
-      flex-direction: column;
-      gap: 0.2rem;
-    }
-    .form-grid input,
-    .form-grid select {
-      padding: 0.35rem 0.5rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 0.85rem;
-      font-family: monospace;
-    }
-    .form-full {
-      grid-column: 1 / -1;
-    }
-    .add-btn {
-      margin-top: 1rem;
-    }
-  `;
+  static styles = [
+    tableStyles,
+    buttonStyles,
+    messageStyles,
+    utilityStyles,
+    css`
+      :host {
+        display: block;
+      }
+      .default-badge {
+        font-size: 0.75rem;
+        color: #888;
+        background: #f0f0f0;
+        padding: 1px 5px;
+        border-radius: 3px;
+        margin-left: 4px;
+      }
+      .edit-panel {
+        margin: 1rem 0;
+        padding: 1rem;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        background: #fafafa;
+      }
+      .edit-panel h3 {
+        margin: 0 0 0.8rem;
+        font-size: 1rem;
+      }
+      textarea {
+        width: 100%;
+        min-height: 120px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        resize: vertical;
+        box-sizing: border-box;
+      }
+      textarea.readonly {
+        background: #f5f5f5;
+        color: #666;
+        cursor: default;
+      }
+      .edit-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.8rem;
+      }
+      .preview-table {
+        margin-top: 1rem;
+        max-height: 300px;
+        overflow: auto;
+      }
+      .preview-table table {
+        font-size: 0.8rem;
+      }
+      .disabled-row {
+        opacity: 0.5;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem 1rem;
+        margin-bottom: 0.8rem;
+      }
+      .form-grid label {
+        font-size: 0.8rem;
+        color: #666;
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+      }
+      .form-grid input,
+      .form-grid select {
+        padding: 0.35rem 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-family: monospace;
+      }
+      .form-full {
+        grid-column: 1 / -1;
+      }
+      .add-btn {
+        margin-top: 1rem;
+      }
+    `,
+  ];
 
   constructor() {
     super();
@@ -341,58 +281,29 @@ class TransformsPage extends LitElement {
       ${!this._creating && !this._editing
         ? html`<button class="add-btn" @click=${this._startCreate}>Add transform</button>`
         : ""}
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Source</th>
-            <th>Target</th>
-            <th>Description</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${this._transforms.map(
-            (t) => html`
-              <tr class="${t.enabled ? "" : "disabled-row"}">
-                <td class="id">${t.id}</td>
-                <td class="mapping">
-                  ${t.source_duckdb_schema}.${t.source_duckdb_table}
-                </td>
-                <td class="mapping">
-                  ${t.target_duckdb_schema}.${t.target_duckdb_table}
-                </td>
-                <td class="desc">
-                  ${t.description || ""}
-                  ${t.is_default
-                    ? html`<span class="default-badge">default</span>`
-                    : ""}
-                </td>
-                <td class="status">
-                  <status-dot ?enabled=${t.enabled}></status-dot>
-                </td>
-                <td class="actions">
-                  ${!t.is_default
-                    ? html`<button @click=${() => this._startEdit(t)}>Edit</button>`
-                    : html`<button @click=${() => this._startEdit(t)}>View</button>`}
-                  <button @click=${() => this._toggle(t)}>
-                    ${t.enabled ? "Disable" : "Enable"}
-                  </button>
-                  ${!t.is_default
-                    ? html`<button
-                        class="danger"
-                        @click=${() => this._delete(t)}
-                      >
-                        Delete
-                      </button>`
-                    : ""}
-                </td>
-              </tr>
-            `,
-          )}
-        </tbody>
-      </table>
+      <shenas-data-list
+        .columns=${[
+          { key: "id", label: "ID", class: "muted" },
+          { label: "Source", class: "mono", render: (t) => `${t.source_duckdb_schema}.${t.source_duckdb_table}` },
+          { label: "Target", class: "mono", render: (t) => `${t.target_duckdb_schema}.${t.target_duckdb_table}` },
+          { label: "Description", render: (t) => html`${t.description || ""}${t.is_default ? html`<span class="default-badge">default</span>` : ""}` },
+          { label: "Status", render: (t) => html`<status-dot ?enabled=${t.enabled}></status-dot>` },
+        ]}
+        .rows=${this._transforms}
+        .rowClass=${(t) => t.enabled ? "" : "disabled-row"}
+        .actions=${(t) => html`
+          ${!t.is_default
+            ? html`<button @click=${() => this._startEdit(t)}>Edit</button>`
+            : html`<button @click=${() => this._startEdit(t)}>View</button>`}
+          <button @click=${() => this._toggle(t)}>
+            ${t.enabled ? "Disable" : "Enable"}
+          </button>
+          ${!t.is_default
+            ? html`<button class="danger" @click=${() => this._delete(t)}>Delete</button>`
+            : ""}
+        `}
+        empty-text="No transforms"
+      ></shenas-data-list>
     `;
   }
 

@@ -1,4 +1,5 @@
 import { LitElement, html, css } from "lit";
+import { buttonStyles, linkStyles, messageStyles, utilityStyles } from "./shared-styles.js";
 
 const PLUGIN_KINDS = [
   { id: "pipe", label: "Pipes" },
@@ -17,151 +18,78 @@ class SettingsPage extends LitElement {
     _actionMessage: { state: true },
   };
 
-  static styles = css`
-    :host {
-      display: block;
-    }
-    .layout {
-      display: flex;
-      gap: 2rem;
-    }
-    .sidebar {
-      min-width: 140px;
-      flex-shrink: 0;
-    }
-    .sidebar ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    .sidebar li {
-      margin: 0;
-    }
-    .sidebar a {
-      display: block;
-      width: 100%;
-      text-align: left;
-      padding: 0.5rem 0.8rem;
-      border: none;
-      background: none;
-      cursor: pointer;
-      font-size: 0.9rem;
-      color: #666;
-      border-radius: 4px;
-      border-left: 3px solid transparent;
-    }
-    .sidebar a:hover {
-      background: #f5f5f5;
-      color: #222;
-    }
-    .sidebar a[aria-selected="true"] {
-      background: #f0f4ff;
-      color: #222;
-      font-weight: 600;
-      border-left-color: #0066cc;
-    }
-    .content {
-      flex: 1;
-      min-width: 0;
-    }
-    .content h3 {
-      font-size: 1rem;
-      margin: 0 0 1rem;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-    }
-    th {
-      text-align: left;
-      padding: 0.4rem 0.6rem;
-      color: #666;
-      font-weight: 500;
-      border-bottom: 1px solid #e0e0e0;
-    }
-    td {
-      padding: 0.4rem 0.6rem;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    .name {
-      font-weight: 600;
-    }
-    .name a {
-      color: #0066cc;
-      text-decoration: none;
-    }
-    .name a:hover {
-      text-decoration: underline;
-    }
-    .version {
-      color: #888;
-      font-family: monospace;
-      font-size: 0.85rem;
-    }
-    .desc {
-      color: #555;
-      max-width: 300px;
-    }
-    .actions {
-      white-space: nowrap;
-    }
-    button.action {
-      padding: 0.3rem 0.7rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background: #fff;
-      cursor: pointer;
-      font-size: 0.8rem;
-      margin-left: 0.3rem;
-    }
-    button.action:hover {
-      background: #f5f5f5;
-    }
-    button.remove {
-      color: #c00;
-      border-color: #e8c0c0;
-    }
-    button.remove:hover {
-      background: #fef0f0;
-    }
-    .install-row {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 1rem;
-      align-items: center;
-    }
-    .install-row input {
-      padding: 0.4rem 0.6rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 0.85rem;
-      flex: 1;
-      max-width: 200px;
-    }
-    .message {
-      padding: 0.5rem 0.8rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-      font-size: 0.85rem;
-    }
-    .message.success {
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-    .message.error {
-      background: #fce4ec;
-      color: #c62828;
-    }
-    .empty {
-      color: #888;
-      padding: 0.5rem 0;
-    }
-    .loading {
-      color: #888;
-      font-style: italic;
-    }
-  `;
+  static styles = [
+    buttonStyles,
+    linkStyles,
+    messageStyles,
+    utilityStyles,
+    css`
+      :host {
+        display: block;
+      }
+      .layout {
+        display: flex;
+        gap: 2rem;
+      }
+      .sidebar {
+        min-width: 140px;
+        flex-shrink: 0;
+      }
+      .sidebar ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .sidebar li {
+        margin: 0;
+      }
+      .sidebar a {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 0.5rem 0.8rem;
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: #666;
+        border-radius: 4px;
+        border-left: 3px solid transparent;
+      }
+      .sidebar a:hover {
+        background: #f5f5f5;
+        color: #222;
+      }
+      .sidebar a[aria-selected="true"] {
+        background: #f0f4ff;
+        color: #222;
+        font-weight: 600;
+        border-left-color: #0066cc;
+      }
+      .content {
+        flex: 1;
+        min-width: 0;
+      }
+      .content h3 {
+        font-size: 1rem;
+        margin: 0 0 1rem;
+      }
+      .install-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        align-items: center;
+      }
+      .install-row input {
+        padding: 0.4rem 0.6rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        flex: 1;
+        max-width: 200px;
+      }
+    `,
+  ];
 
   constructor() {
     super();
@@ -177,7 +105,6 @@ class SettingsPage extends LitElement {
     super.connectedCallback();
     this._fetchAll();
   }
-
 
   async _fetchAll() {
     this._loading = true;
@@ -293,34 +220,17 @@ class SettingsPage extends LitElement {
     const label = PLUGIN_KINDS.find((k) => k.id === kind)?.label || kind;
     return html`
       <h3>${label}</h3>
-      ${plugins.length > 0
-        ? html`
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Version</th>
-                  <th>Added</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${plugins.map(
-                  (p) => html`
-                    <tr style="${p.enabled === false ? "opacity: 0.5" : ""}">
-                      <td class="name"><a href="/settings/${kind}/${p.name}">${p.display_name || p.name}</a></td>
-                      <td class="version">${p.version}</td>
-                      <td class="version">${p.added_at ? p.added_at.slice(0, 10) : ""}</td>
-                      <td class="status-cell">
-                        <status-dot ?enabled=${p.enabled !== false}></status-dot>
-                      </td>
-                    </tr>
-                  `,
-                )}
-              </tbody>
-            </table>
-          `
-        : html`<p class="empty">No ${label.toLowerCase()} installed</p>`}
+      <shenas-data-list
+        .columns=${[
+          { label: "Name", render: (p) => html`<a href="/settings/${kind}/${p.name}">${p.display_name || p.name}</a>` },
+          { key: "version", label: "Version", class: "mono" },
+          { label: "Added", class: "mono", render: (p) => p.added_at ? p.added_at.slice(0, 10) : "" },
+          { label: "Status", render: (p) => html`<status-dot ?enabled=${p.enabled !== false}></status-dot>` },
+        ]}
+        .rows=${plugins}
+        .rowClass=${(p) => p.enabled === false ? "disabled-row" : ""}
+        empty-text="No ${label.toLowerCase()} installed"
+      ></shenas-data-list>
       <div class="install-row">
         <input
           id="install-${kind}"
@@ -328,7 +238,7 @@ class SettingsPage extends LitElement {
           placeholder="Plugin name"
           @keydown=${(e) => e.key === "Enter" && this._install(kind)}
         />
-        <button class="action" @click=${() => this._install(kind)}>
+        <button @click=${() => this._install(kind)}>
           Install
         </button>
       </div>
