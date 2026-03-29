@@ -173,20 +173,6 @@ class ShenasApp extends LitElement {
     return resp.json();
   }
 
-  _goto(e, path) {
-    e.preventDefault();
-    this._router.goto(`/${path}`);
-    // Lazy-load component JS if needed
-    const comp = this._components.find((c) => c.name === path);
-    if (comp && !this._loadedScripts.has(comp.js)) {
-      this._loadedScripts = new Set([...this._loadedScripts, comp.js]);
-      const script = document.createElement("script");
-      script.type = "module";
-      script.src = comp.js;
-      document.head.appendChild(script);
-    }
-  }
-
   _activeTab() {
     const path = window.location.pathname.replace(/^\/+/, "") || "database";
     return path.split("/")[0];
@@ -223,7 +209,6 @@ class ShenasApp extends LitElement {
         role="tab"
         href="/${id}"
         aria-selected=${active === id}
-        @click=${(e) => this._goto(e, id)}
       >
         ${label}
       </a>

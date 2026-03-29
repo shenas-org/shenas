@@ -1,4 +1,4 @@
-var b=Object.defineProperty;var f=(r,s,e)=>s in r?b(r,s,{enumerable:!0,configurable:!0,writable:!0,value:e}):r[s]=e;var l=(r,s,e)=>f(r,typeof s!="symbol"?s+"":s,e);import{LitElement as g,css as u,html as i}from"lit";import{Router as _}from"@lit-labs/router";class c extends g{constructor(){super();l(this,"_router",new _(this,[{path:"/",render:()=>this._renderDb()},{path:"/database",render:()=>this._renderDb()},{path:"/pipes",render:()=>this._renderPipes()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:e})=>this._renderSettings(e)},{path:"/:tab",render:({tab:e})=>this._renderDynamicTab(e)}]));this.apiBase="/api",this._pipes=[],this._dbStatus=null,this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map}connectedCallback(){super.connectedCallback(),this._fetchData()}async _fetchData(){this._loading=!0;try{const[e,t,a]=await Promise.all([this._fetch("/plugins/pipe"),this._fetch("/db/status"),this._fetch("/components")]);this._pipes=e||[],this._dbStatus=t,this._components=a||[]}catch(e){console.error("Failed to fetch data:",e)}this._loading=!1}async _fetch(e){const t=await fetch(`${this.apiBase}${e}`);return t.ok?t.json():null}_goto(e,t){e.preventDefault(),this._router.goto(`/${t}`);const a=this._components.find(n=>n.name===t);if(a&&!this._loadedScripts.has(a.js)){this._loadedScripts=new Set([...this._loadedScripts,a.js]);const n=document.createElement("script");n.type="module",n.src=a.js,document.head.appendChild(n)}}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"database").split("/")[0]}render(){if(this._loading)return i`<p class="loading">Loading...</p>`;const e=this._activeTab();return i`
+var b=Object.defineProperty;var f=(n,s,e)=>s in n?b(n,s,{enumerable:!0,configurable:!0,writable:!0,value:e}):n[s]=e;var l=(n,s,e)=>f(n,typeof s!="symbol"?s+"":s,e);import{LitElement as g,css as u,html as a}from"lit";import{Router as _}from"@lit-labs/router";class c extends g{constructor(){super();l(this,"_router",new _(this,[{path:"/",render:()=>this._renderDb()},{path:"/database",render:()=>this._renderDb()},{path:"/pipes",render:()=>this._renderPipes()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:e})=>this._renderSettings(e)},{path:"/:tab",render:({tab:e})=>this._renderDynamicTab(e)}]));this.apiBase="/api",this._pipes=[],this._dbStatus=null,this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map}connectedCallback(){super.connectedCallback(),this._fetchData()}async _fetchData(){this._loading=!0;try{const[e,t,i]=await Promise.all([this._fetch("/plugins/pipe"),this._fetch("/db/status"),this._fetch("/components")]);this._pipes=e||[],this._dbStatus=t,this._components=i||[]}catch(e){console.error("Failed to fetch data:",e)}this._loading=!1}async _fetch(e){const t=await fetch(`${this.apiBase}${e}`);return t.ok?t.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"database").split("/")[0]}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const e=this._activeTab();return a`
       <div class="header">
         <img src="/static/images/shenas.png" alt="shenas" />
         <h1>shenas</h1>
@@ -12,46 +12,45 @@ var b=Object.defineProperty;var f=(r,s,e)=>s in r?b(r,s,{enumerable:!0,configura
       </div>
 
       ${this._router.outlet()}
-    `}_tabLink(e,t,a){return i`
+    `}_tabLink(e,t,i){return a`
       <a
         class="tab"
         role="tab"
         href="/${e}"
-        aria-selected=${a===e}
-        @click=${n=>this._goto(n,e)}
+        aria-selected=${i===e}
       >
         ${t}
       </a>
-    `}_renderDynamicTab(e){const t=this._components.find(a=>a.name===e);if(!t)return i`<p class="empty">Unknown page: ${e}</p>`;if(!this._loadedScripts.has(t.js)){this._loadedScripts=new Set([...this._loadedScripts,t.js]);const a=document.createElement("script");a.type="module",a.src=t.js,document.head.appendChild(a)}return i`<div class="component-host">
+    `}_renderDynamicTab(e){const t=this._components.find(i=>i.name===e);if(!t)return a`<p class="empty">Unknown page: ${e}</p>`;if(!this._loadedScripts.has(t.js)){this._loadedScripts=new Set([...this._loadedScripts,t.js]);const i=document.createElement("script");i.type="module",i.src=t.js,document.head.appendChild(i)}return a`<div class="component-host">
       ${this._getOrCreateElement(t)}
-    </div>`}_renderSettings(e){return i`<shenas-settings
+    </div>`}_renderSettings(e){return a`<shenas-settings
       api-base="${this.apiBase}"
       active-kind="${e||"pipe"}"
       .onNavigate=${t=>{this._router.goto(`/settings/${t}`)}}
-    ></shenas-settings>`}_getOrCreateElement(e){if(!this._elementCache.has(e.name)){const t=document.createElement(e.tag);t.setAttribute("api-base",this.apiBase),this._elementCache.set(e.name,t)}return this._elementCache.get(e.name)}_renderDb(){const e=this._dbStatus;return e?i`
+    ></shenas-settings>`}_getOrCreateElement(e){if(!this._elementCache.has(e.name)){const t=document.createElement(e.tag);t.setAttribute("api-base",this.apiBase),this._elementCache.set(e.name,t)}return this._elementCache.get(e.name)}_renderDb(){const e=this._dbStatus;return e?a`
       <div class="status">
         <p>Path: <code>${e.db_path}</code></p>
-        ${e.size_mb!=null?i`<p>Size: ${e.size_mb} MB</p>`:i`<p>Not created yet</p>`}
+        ${e.size_mb!=null?a`<p>Size: ${e.size_mb} MB</p>`:a`<p>Not created yet</p>`}
       </div>
-      ${(e.schemas||[]).map(t=>i`
+      ${(e.schemas||[]).map(t=>a`
           <h3>${t.name}</h3>
-          ${t.tables.map(a=>i`
+          ${t.tables.map(i=>a`
               <div class="schema-row">
-                <span>${a.name}</span>
+                <span>${i.name}</span>
                 <span class="meta">
-                  ${a.rows} rows
-                  ${a.earliest?i` &middot; ${a.earliest} - ${a.latest}`:""}
+                  ${i.rows} rows
+                  ${i.earliest?a` &middot; ${i.earliest} - ${i.latest}`:""}
                 </span>
               </div>
             `)}
         `)}
-    `:i`<p class="empty">No database info available</p>`}_renderPipes(){return this._pipes.length===0?i`<p class="empty">No pipes installed</p>`:i`
+    `:a`<p class="empty">No database info available</p>`}_renderPipes(){return this._pipes.length===0?a`<p class="empty">No pipes installed</p>`:a`
       <div class="cards">
-        ${this._pipes.map(e=>i`
+        ${this._pipes.map(e=>a`
             <div class="card">
               <h3>${e.name}</h3>
               <div class="meta">${e.version}</div>
-              ${e.description?i`<div class="desc">${e.description}</div>`:""}
+              ${e.description?a`<div class="desc">${e.description}</div>`:""}
             </div>
           `)}
       </div>
@@ -164,33 +163,33 @@ var b=Object.defineProperty;var f=(r,s,e)=>s in r?b(r,s,{enumerable:!0,configura
     .component-host {
       margin-top: 1rem;
     }
-  `);customElements.define("shenas-app",c);const d=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class p extends g{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}_selectKind(s){this._actionMessage=null,this.onNavigate&&this.onNavigate(s)}async _fetchAll(){this._loading=!0;const s={};await Promise.all(d.map(async({id:e})=>{const t=await fetch(`${this.apiBase}/plugins/${e}`);s[e]=t.ok?await t.json():[]})),this._plugins=s,this._loading=!1}async _remove(s,e){this._actionMessage=null;const a=await(await fetch(`${this.apiBase}/plugins/${s}/${e}`,{method:"DELETE"})).json();a.ok?(this._actionMessage={type:"success",text:a.message},await this._fetchAll()):this._actionMessage={type:"error",text:a.message||"Remove failed"}}async _install(s){var h,m;const e=this.shadowRoot.querySelector(`#install-${s}`),t=(h=e==null?void 0:e.value)==null?void 0:h.trim();if(!t)return;this._actionMessage=null;const o=(m=(await(await fetch(`${this.apiBase}/plugins/${s}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[t],skip_verify:!0})})).json()).results)==null?void 0:m[0];o!=null&&o.ok?(this._actionMessage={type:"success",text:o.message},e.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(o==null?void 0:o.message)||"Install failed"}}render(){return this._loading?i`<p class="loading">Loading plugins...</p>`:i`
-      ${this._actionMessage?i`<div class="message ${this._actionMessage.type}">
+  `);customElements.define("shenas-app",c);const d=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class p extends g{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const s={};await Promise.all(d.map(async({id:e})=>{const t=await fetch(`${this.apiBase}/plugins/${e}`);s[e]=t.ok?await t.json():[]})),this._plugins=s,this._loading=!1}async _remove(s,e){this._actionMessage=null;const i=await(await fetch(`${this.apiBase}/plugins/${s}/${e}`,{method:"DELETE"})).json();i.ok?(this._actionMessage={type:"success",text:i.message},await this._fetchAll()):this._actionMessage={type:"error",text:i.message||"Remove failed"}}async _install(s){var h,m;const e=this.shadowRoot.querySelector(`#install-${s}`),t=(h=e==null?void 0:e.value)==null?void 0:h.trim();if(!t)return;this._actionMessage=null;const o=(m=(await(await fetch(`${this.apiBase}/plugins/${s}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[t],skip_verify:!0})})).json()).results)==null?void 0:m[0];o!=null&&o.ok?(this._actionMessage={type:"success",text:o.message},e.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(o==null?void 0:o.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
+      ${this._actionMessage?a`<div class="message ${this._actionMessage.type}">
             ${this._actionMessage.text}
           </div>`:""}
       <div class="layout">
         <nav class="sidebar">
           <ul>
-            ${d.map(({id:s,label:e})=>i`
+            ${d.map(({id:s,label:e})=>a`
                 <li>
-                  <button
+                  <a
+                    href="/settings/${s}"
                     aria-selected=${this.activeKind===s}
-                    @click=${()=>this._selectKind(s)}
                   >
                     ${e}
                     <span style="color:#aaa; font-weight:normal">
                       (${(this._plugins[s]||[]).length})
                     </span>
-                  </button>
+                  </a>
                 </li>
               `)}
           </ul>
         </nav>
         <div class="content">${this._renderKind(this.activeKind)}</div>
       </div>
-    `}_renderKind(s){var a;const e=this._plugins[s]||[],t=((a=d.find(n=>n.id===s))==null?void 0:a.label)||s;return i`
+    `}_renderKind(s){var i;const e=this._plugins[s]||[],t=((i=d.find(r=>r.id===s))==null?void 0:i.label)||s;return a`
       <h3>${t}</h3>
-      ${e.length>0?i`
+      ${e.length>0?a`
             <table>
               <thead>
                 <tr>
@@ -201,15 +200,15 @@ var b=Object.defineProperty;var f=(r,s,e)=>s in r?b(r,s,{enumerable:!0,configura
                 </tr>
               </thead>
               <tbody>
-                ${e.map(n=>i`
+                ${e.map(r=>a`
                     <tr>
-                      <td class="name">${n.name}</td>
-                      <td class="version">${n.version}</td>
-                      <td class="desc">${n.description||""}</td>
+                      <td class="name">${r.name}</td>
+                      <td class="version">${r.version}</td>
+                      <td class="desc">${r.description||""}</td>
                       <td class="actions">
                         <button
                           class="action remove"
-                          @click=${()=>this._remove(s,n.name)}
+                          @click=${()=>this._remove(s,r.name)}
                         >
                           Remove
                         </button>
@@ -218,13 +217,13 @@ var b=Object.defineProperty;var f=(r,s,e)=>s in r?b(r,s,{enumerable:!0,configura
                   `)}
               </tbody>
             </table>
-          `:i`<p class="empty">No ${t.toLowerCase()} installed</p>`}
+          `:a`<p class="empty">No ${t.toLowerCase()} installed</p>`}
       <div class="install-row">
         <input
           id="install-${s}"
           type="text"
           placeholder="Plugin name"
-          @keydown=${n=>n.key==="Enter"&&this._install(s)}
+          @keydown=${r=>r.key==="Enter"&&this._install(s)}
         />
         <button class="action" @click=${()=>this._install(s)}>
           Install
@@ -250,7 +249,7 @@ var b=Object.defineProperty;var f=(r,s,e)=>s in r?b(r,s,{enumerable:!0,configura
     .sidebar li {
       margin: 0;
     }
-    .sidebar button {
+    .sidebar a {
       display: block;
       width: 100%;
       text-align: left;
@@ -263,11 +262,11 @@ var b=Object.defineProperty;var f=(r,s,e)=>s in r?b(r,s,{enumerable:!0,configura
       border-radius: 4px;
       border-left: 3px solid transparent;
     }
-    .sidebar button:hover {
+    .sidebar a:hover {
       background: #f5f5f5;
       color: #222;
     }
-    .sidebar button[aria-selected="true"] {
+    .sidebar a[aria-selected="true"] {
       background: #f0f4ff;
       color: #222;
       font-weight: 600;

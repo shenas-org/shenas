@@ -37,7 +37,7 @@ class SettingsPage extends LitElement {
     .sidebar li {
       margin: 0;
     }
-    .sidebar button {
+    .sidebar a {
       display: block;
       width: 100%;
       text-align: left;
@@ -50,11 +50,11 @@ class SettingsPage extends LitElement {
       border-radius: 4px;
       border-left: 3px solid transparent;
     }
-    .sidebar button:hover {
+    .sidebar a:hover {
       background: #f5f5f5;
       color: #222;
     }
-    .sidebar button[aria-selected="true"] {
+    .sidebar a[aria-selected="true"] {
       background: #f0f4ff;
       color: #222;
       font-weight: 600;
@@ -171,12 +171,6 @@ class SettingsPage extends LitElement {
     this._fetchAll();
   }
 
-  _selectKind(kind) {
-    this._actionMessage = null;
-    if (this.onNavigate) {
-      this.onNavigate(kind);
-    }
-  }
 
   async _fetchAll() {
     this._loading = true;
@@ -249,15 +243,15 @@ class SettingsPage extends LitElement {
             ${PLUGIN_KINDS.map(
               ({ id, label }) => html`
                 <li>
-                  <button
+                  <a
+                    href="/settings/${id}"
                     aria-selected=${this.activeKind === id}
-                    @click=${() => this._selectKind(id)}
                   >
                     ${label}
                     <span style="color:#aaa; font-weight:normal">
                       (${(this._plugins[id] || []).length})
                     </span>
-                  </button>
+                  </a>
                 </li>
               `,
             )}
