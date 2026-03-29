@@ -1,5 +1,7 @@
 """Pipeline commands. Pipe subcommands (auth, sync) are proxied to the server."""
 
+from __future__ import annotations
+
 import click
 import typer
 from rich.console import Console
@@ -13,7 +15,7 @@ console = Console()
 class _PipeGroup(typer.core.TyperGroup):
     """Custom group that shows a server error for unknown commands instead of the default error."""
 
-    def resolve_command(self, ctx, args):  # noqa: ANN001, ANN201
+    def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple[str | None, click.Command | None, list[str]]:
         try:
             return super().resolve_command(ctx, args)
         except click.UsageError:

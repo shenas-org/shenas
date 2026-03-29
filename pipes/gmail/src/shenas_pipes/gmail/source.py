@@ -1,11 +1,14 @@
-"""Gmail dlt resources — messages, labels, threads."""
+"""Gmail dlt resources -- messages, labels, threads."""
 
+from __future__ import annotations
+
+from collections.abc import Iterator
 from typing import Any
 
 import dlt
 
 
-def _get_header(headers: list[dict], name: str) -> str:
+def _get_header(headers: list[dict[str, str]], name: str) -> str:
     """Extract a header value from Gmail message payload headers."""
     for h in headers:
         if h.get("name", "").lower() == name.lower():
@@ -18,9 +21,9 @@ def messages(
     service: Any,
     query: str = "",
     cursor: dlt.sources.incremental[int] = dlt.sources.incremental("internal_date", initial_value=None),
-) -> Any:
+) -> Iterator[dict[str, Any]]:
     """Yield Gmail messages with metadata."""
-    page_token = None
+    page_token: str | None = None
     while True:
         params: dict[str, Any] = {"userId": "me", "maxResults": 100}
         if query:
@@ -62,7 +65,7 @@ def messages(
 
 
 @dlt.resource(write_disposition="replace")
-def labels(service: Any) -> Any:
+def labels(service: Any) -> Iterator[dict[str, Any]]:
     """Yield all Gmail labels."""
     result = service.users().labels().list(userId="me").execute()
     for label in result.get("labels", []):

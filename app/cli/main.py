@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typer
 
 from app.cli.commands import component, config_cmd, db_cmd, pipe, schema_cmd

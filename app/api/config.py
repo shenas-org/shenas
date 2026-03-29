@@ -1,5 +1,7 @@
 """Config CRUD API endpoints."""
 
+from __future__ import annotations
+
 import importlib
 
 from fastapi import APIRouter, HTTPException
@@ -50,7 +52,7 @@ class ConfigSetRequest(BaseModel):
 
 
 @router.get("")
-def list_configs(kind: str | None = None, name: str | None = None) -> list[dict]:
+def list_configs(kind: str | None = None, name: str | None = None) -> list[dict[str, object]]:
     from shenas_pipes.core.config import config_metadata, get_config
 
     con = connect(read_only=True)
@@ -89,7 +91,7 @@ def list_configs(kind: str | None = None, name: str | None = None) -> list[dict]
 
 
 @router.get("/{kind}/{name}/{key}")
-def get_config_value(kind: str, name: str, key: str) -> dict:
+def get_config_value(kind: str, name: str, key: str) -> dict[str, str]:
     from shenas_pipes.core.config import get_config_value as _get_value
 
     cls = _get_config_class(kind, name)
@@ -101,7 +103,7 @@ def get_config_value(kind: str, name: str, key: str) -> dict:
 
 
 @router.put("/{kind}/{name}")
-def set_config(kind: str, name: str, body: ConfigSetRequest) -> dict:
+def set_config(kind: str, name: str, body: ConfigSetRequest) -> dict[str, bool]:
     from shenas_pipes.core.config import set_config as _set_config
 
     cls = _get_config_class(kind, name)
@@ -111,7 +113,7 @@ def set_config(kind: str, name: str, body: ConfigSetRequest) -> dict:
 
 
 @router.delete("/{kind}/{name}")
-def delete_config_all(kind: str, name: str) -> dict:
+def delete_config_all(kind: str, name: str) -> dict[str, bool]:
     from shenas_pipes.core.config import delete_config
 
     cls = _get_config_class(kind, name)
@@ -121,7 +123,7 @@ def delete_config_all(kind: str, name: str) -> dict:
 
 
 @router.delete("/{kind}/{name}/{key}")
-def delete_config_key(kind: str, name: str, key: str) -> dict:
+def delete_config_key(kind: str, name: str, key: str) -> dict[str, bool]:
     from shenas_pipes.core.config import set_config as _set_config
 
     cls = _get_config_class(kind, name)

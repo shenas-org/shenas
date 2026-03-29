@@ -1,5 +1,7 @@
 """Pipe discovery API -- lists installed pipes and their commands."""
 
+from __future__ import annotations
+
 import importlib
 import json
 import subprocess
@@ -19,9 +21,9 @@ SYNC_OPTIONS = [
 ]
 
 
-def _pipe_commands(name: str) -> list[dict]:
+def _pipe_commands(name: str) -> list[dict[str, object]]:
     """Detect available commands for a pipe by inspecting its modules."""
-    commands = [{"name": "sync", "options": SYNC_OPTIONS}]
+    commands: list[dict[str, object]] = [{"name": "sync", "options": SYNC_OPTIONS}]
 
     # Check if pipe has auth (AUTH_FIELDS in auth module)
     try:
@@ -52,7 +54,7 @@ def _pipe_commands(name: str) -> list[dict]:
 
 
 @router.get("")
-def list_pipes() -> list[dict]:
+def list_pipes() -> list[dict[str, object]]:
     """List installed pipes with their available commands."""
     result = subprocess.run(
         ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True

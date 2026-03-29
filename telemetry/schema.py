@@ -1,5 +1,7 @@
 """DuckDB schema for OpenTelemetry spans and logs."""
 
+from __future__ import annotations
+
 import duckdb
 
 CREATE_SPANS = """\

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typer
 
 from app.cli.commands.pkg import DEFAULT_INDEX, install, list_packages, uninstall

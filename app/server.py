@@ -2,10 +2,13 @@
 # Currently relies on HTTPS + localhost binding for security. See discussion in
 # commit history about bearer tokens, mTLS, and Unix sockets as future options.
 
+from __future__ import annotations
+
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from importlib.metadata import entry_points
 from pathlib import Path as _Path
+from typing import Any  # noqa: F401
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
@@ -30,9 +33,9 @@ app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static"
 app.include_router(api_router)
 
 
-def _discover_components() -> list[dict]:
+def _discover_components() -> list[dict[str, Any]]:
     """Discover installed components via entry points."""
-    components = []
+    components: list[dict[str, Any]] = []
     for ep in entry_points(group="shenas.components"):
         try:
             comp = ep.load()

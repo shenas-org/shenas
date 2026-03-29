@@ -1,7 +1,10 @@
 """Auth API endpoints -- handle multi-step auth flows via REST."""
 
+from __future__ import annotations
+
 import importlib
 import sys
+import types
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -13,7 +16,7 @@ class AuthRequest(BaseModel):
     credentials: dict[str, str] = {}
 
 
-def _get_pending_state(pipe_name: str) -> dict | None:
+def _get_pending_state(pipe_name: str) -> dict[str, object] | None:
     """Look up pending MFA/OAuth state from the pipe's auth module."""
     try:
         mod = _load_auth_module(pipe_name)
@@ -35,7 +38,7 @@ def _get_pending_state(pipe_name: str) -> dict | None:
 
 
 @router.post("/{pipe_name}")
-def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> dict:
+def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> dict[str, object]:
     """Start or continue a pipe's auth flow."""
     body = body or AuthRequest()
 
@@ -68,7 +71,7 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> dict:
         return {"ok": False, "error": str(exc)}
 
 
-def _complete_mfa(pipe_name: str, mod: object, mfa_code: str) -> dict:
+def _complete_mfa(pipe_name: str, mod: object, mfa_code: str) -> dict[str, object]:
     """Complete an MFA auth flow using stored session state."""
     complete_fn = getattr(mod, "complete_mfa", None)
     if complete_fn is None:
@@ -86,7 +89,7 @@ def _complete_mfa(pipe_name: str, mod: object, mfa_code: str) -> dict:
 
 
 @router.get("/{pipe_name}/fields")
-def auth_fields(pipe_name: str) -> list[dict]:
+def auth_fields(pipe_name: str) -> list[dict[str, object]]:
     """Get the credential fields needed for a pipe's auth flow."""
     try:
         mod = _load_auth_module(pipe_name)
@@ -95,7 +98,7 @@ def auth_fields(pipe_name: str) -> list[dict]:
     return getattr(mod, "AUTH_FIELDS", [])
 
 
-def _load_auth_module(pipe_name: str) -> object:
+def _load_auth_module(pipe_name: str) -> types.ModuleType:
     importlib.invalidate_caches()
     for key in list(sys.modules):
         if key.startswith(f"shenas_pipes.{pipe_name}"):

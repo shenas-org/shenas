@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import dataclasses
 import types
 from typing import Annotated, get_args, get_origin, get_type_hints
@@ -6,7 +8,7 @@ import duckdb
 
 from shenas_schemas.core.field import Field
 
-_TYPE_MAP = {
+_TYPE_MAP: dict[type, str] = {
     str: "VARCHAR",
     int: "INTEGER",
     float: "DOUBLE",
@@ -30,10 +32,10 @@ def _duckdb_type(hint: type) -> str:
 
 def generate_ddl(cls: type) -> str:
     """Generate CREATE TABLE DDL from a dataclass with __table__ and __pk__."""
-    table = cls.__table__
-    pk = cls.__pk__
-    hints = get_type_hints(cls, include_extras=True)
-    lines = []
+    table: str = cls.__table__
+    pk: tuple[str, ...] = cls.__pk__
+    hints: dict[str, type] = get_type_hints(cls, include_extras=True)
+    lines: list[str] = []
     for f in dataclasses.fields(cls):
         col_type = _duckdb_type(hints[f.name])
         not_null = " NOT NULL" if f.name in pk else ""

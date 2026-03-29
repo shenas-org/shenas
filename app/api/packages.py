@@ -1,11 +1,14 @@
 """Package management API endpoints."""
 
+from __future__ import annotations
+
 import json
 import subprocess
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.request import urlopen
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -22,7 +25,7 @@ def _validate_kind(kind: str) -> None:
         raise HTTPException(status_code=400, detail=f"Invalid kind: {kind}. Must be one of: {', '.join(sorted(VALID_KINDS))}")
 
 
-def list_packages_data(kind: str) -> list[dict]:
+def list_packages_data(kind: str) -> list[dict[str, str]]:
     import sys
 
     prefix = PREFIXES[kind]
@@ -43,7 +46,7 @@ def list_packages_data(kind: str) -> list[dict]:
     return items
 
 
-def _verify_from_index(pkg_name: str, index_url: str, pub_key) -> str | None:
+def _verify_from_index(pkg_name: str, index_url: str, pub_key: Ed25519PublicKey) -> str | None:
     """Verify a package signature from the index. Returns error message or None on success."""
     normalized = pkg_name.replace("_", "-").lower()
     simple_pkg_url = f"{index_url}/simple/{normalized}/"
@@ -56,7 +59,7 @@ def _verify_from_index(pkg_name: str, index_url: str, pub_key) -> str | None:
     wheel_href = None
 
     class LinkParser(HTMLParser):
-        def handle_starttag(self, tag, attrs):
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
             nonlocal wheel_href
             if tag == "a":
                 for attr_name, attr_val in attrs:
@@ -95,7 +98,7 @@ def install_package(
     index_url: str = DEFAULT_INDEX,
     public_key_path: Path = PUBLIC_KEY_PATH,
     skip_verify: bool = False,
-) -> dict:
+) -> dict[str, object]:
     if name == "core":
         return {"name": name, "ok": False, "message": f"shenas-{kind}-core is an internal package"}
 
@@ -124,7 +127,7 @@ def install_package(
     return {"name": name, "ok": False, "message": result.stderr.strip() or f"Failed to install {pkg_name}"}
 
 
-def uninstall_package(name: str, kind: str) -> dict:
+def uninstall_package(name: str, kind: str) -> dict[str, object]:
     import sys
 
     if name == "core":
@@ -139,7 +142,7 @@ def uninstall_package(name: str, kind: str) -> dict:
 
 
 @router.get("/{kind}")
-def list_pkgs(kind: str) -> list[dict]:
+def list_pkgs(kind: str) -> list[dict[str, str]]:
     _validate_kind(kind)
     return list_packages_data(kind)
 
@@ -151,7 +154,7 @@ class InstallRequest(BaseModel):
 
 
 @router.post("/{kind}")
-def add_pkgs(kind: str, body: InstallRequest) -> dict:
+def add_pkgs(kind: str, body: InstallRequest) -> dict[str, list[dict[str, object]]]:
     _validate_kind(kind)
     results = []
     for name in body.names:
@@ -160,6 +163,6 @@ def add_pkgs(kind: str, body: InstallRequest) -> dict:
 
 
 @router.delete("/{kind}/{name}")
-def remove_pkg(kind: str, name: str) -> dict:
+def remove_pkg(kind: str, name: str) -> dict[str, object]:
     _validate_kind(kind)
     return uninstall_package(name, kind)
