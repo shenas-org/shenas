@@ -2,6 +2,7 @@ import { LitElement, html, css } from "lit";
 
 const PLUGIN_KINDS = [
   { id: "pipe", label: "Pipes" },
+  { id: "transforms", label: "Transforms", isTransforms: true },
   { id: "schema", label: "Schemas" },
   { id: "component", label: "Components" },
   { id: "ui", label: "UI" },
@@ -267,16 +268,18 @@ class SettingsPage extends LitElement {
         <nav class="sidebar">
           <ul>
             ${PLUGIN_KINDS.map(
-              ({ id, label }) => html`
+              ({ id, label, isTransforms }) => html`
                 <li>
                   <a
                     href="/settings/${id}"
                     aria-selected=${this.activeKind === id}
                   >
                     ${label}
-                    <span style="color:#aaa; font-weight:normal">
-                      (${(this._plugins[id] || []).length})
-                    </span>
+                    ${!isTransforms
+                      ? html`<span style="color:#aaa; font-weight:normal">
+                          (${(this._plugins[id] || []).length})
+                        </span>`
+                      : ""}
                   </a>
                 </li>
               `,
