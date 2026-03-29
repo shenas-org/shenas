@@ -48,13 +48,12 @@ class DataList extends LitElement {
       .disabled-row {
         opacity: 0.5;
       }
-      .wrapper {
-        position: relative;
+      .add-row {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 0.5rem;
       }
       .add-btn {
-        position: absolute;
-        bottom: -12px;
-        right: 0;
         width: 28px;
         height: 28px;
         border-radius: 50%;
@@ -68,7 +67,6 @@ class DataList extends LitElement {
         align-items: center;
         justify-content: center;
         padding: 0;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       }
       .add-btn:hover {
         background: #f0f4ff;
@@ -94,42 +92,40 @@ class DataList extends LitElement {
 
   render() {
     const hasActions = typeof this.actions === "function";
-    const addBtn = this.showAdd
-      ? html`<button class="add-btn" title="Add" @click=${this._onAdd}>+</button>`
+    const addRow = this.showAdd
+      ? html`<div class="add-row"><button class="add-btn" title="Add" @click=${this._onAdd}>+</button></div>`
       : "";
 
     if (!this.rows || this.rows.length === 0) {
-      return html`<div class="wrapper"><p class="empty">${this.emptyText}</p>${addBtn}</div>`;
+      return html`<p class="empty">${this.emptyText}</p>${addRow}`;
     }
 
     return html`
-      <div class="wrapper">
-        <table>
-          <thead>
-            <tr>
-              ${this.columns.map((col) => html`<th>${col.label}</th>`)}
-              ${hasActions ? html`<th></th>` : ""}
-            </tr>
-          </thead>
-          <tbody>
-            ${this.rows.map(
-              (row) => html`
-                <tr class="${this.rowClass ? this.rowClass(row) : ""}">
-                  ${this.columns.map((col) => html`
-                    <td class="${col.class || ""}">
-                      ${col.render ? col.render(row) : row[col.key]}
-                    </td>
-                  `)}
-                  ${hasActions
-                    ? html`<td class="actions-cell">${this.actions(row)}</td>`
-                    : ""}
-                </tr>
-              `,
-            )}
-          </tbody>
-        </table>
-        ${addBtn}
-      </div>
+      <table>
+        <thead>
+          <tr>
+            ${this.columns.map((col) => html`<th>${col.label}</th>`)}
+            ${hasActions ? html`<th></th>` : ""}
+          </tr>
+        </thead>
+        <tbody>
+          ${this.rows.map(
+            (row) => html`
+              <tr class="${this.rowClass ? this.rowClass(row) : ""}">
+                ${this.columns.map((col) => html`
+                  <td class="${col.class || ""}">
+                    ${col.render ? col.render(row) : row[col.key]}
+                  </td>
+                `)}
+                ${hasActions
+                  ? html`<td class="actions-cell">${this.actions(row)}</td>`
+                  : ""}
+              </tr>
+            `,
+          )}
+        </tbody>
+      </table>
+      ${addRow}
     `;
   }
 }

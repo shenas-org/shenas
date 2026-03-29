@@ -106,30 +106,28 @@ var E=Object.defineProperty;var C=(l,e,t)=>e in l?E(l,e,{enumerable:!0,configura
   a:hover {
     text-decoration: underline;
   }
-`;class b extends c{constructor(){super(),this.columns=[],this.rows=[],this.rowClass=null,this.actions=null,this.emptyText="No items",this.showAdd=!1}_onAdd(){this.dispatchEvent(new CustomEvent("add",{bubbles:!0,composed:!0}))}render(){const e=typeof this.actions=="function",t=this.showAdd?a`<button class="add-btn" title="Add" @click=${this._onAdd}>+</button>`:"";return!this.rows||this.rows.length===0?a`<div class="wrapper"><p class="empty">${this.emptyText}</p>${t}</div>`:a`
-      <div class="wrapper">
-        <table>
-          <thead>
-            <tr>
-              ${this.columns.map(s=>a`<th>${s.label}</th>`)}
-              ${e?a`<th></th>`:""}
-            </tr>
-          </thead>
-          <tbody>
-            ${this.rows.map(s=>a`
-                <tr class="${this.rowClass?this.rowClass(s):""}">
-                  ${this.columns.map(n=>a`
-                    <td class="${n.class||""}">
-                      ${n.render?n.render(s):s[n.key]}
-                    </td>
-                  `)}
-                  ${e?a`<td class="actions-cell">${this.actions(s)}</td>`:""}
-                </tr>
-              `)}
-          </tbody>
-        </table>
-        ${t}
-      </div>
+`;class b extends c{constructor(){super(),this.columns=[],this.rows=[],this.rowClass=null,this.actions=null,this.emptyText="No items",this.showAdd=!1}_onAdd(){this.dispatchEvent(new CustomEvent("add",{bubbles:!0,composed:!0}))}render(){const e=typeof this.actions=="function",t=this.showAdd?a`<div class="add-row"><button class="add-btn" title="Add" @click=${this._onAdd}>+</button></div>`:"";return!this.rows||this.rows.length===0?a`<p class="empty">${this.emptyText}</p>${t}`:a`
+      <table>
+        <thead>
+          <tr>
+            ${this.columns.map(s=>a`<th>${s.label}</th>`)}
+            ${e?a`<th></th>`:""}
+          </tr>
+        </thead>
+        <tbody>
+          ${this.rows.map(s=>a`
+              <tr class="${this.rowClass?this.rowClass(s):""}">
+                ${this.columns.map(n=>a`
+                  <td class="${n.class||""}">
+                    ${n.render?n.render(s):s[n.key]}
+                  </td>
+                `)}
+                ${e?a`<td class="actions-cell">${this.actions(s)}</td>`:""}
+              </tr>
+            `)}
+        </tbody>
+      </table>
+      ${t}
     `}}r(b,"properties",{columns:{type:Array},rows:{type:Array},rowClass:{type:Object},actions:{type:Object},emptyText:{type:String,attribute:"empty-text"},showAdd:{type:Boolean,attribute:"show-add"}}),r(b,"styles",[x,p,h,o`
       :host {
         display: block;
@@ -147,13 +145,12 @@ var E=Object.defineProperty;var C=(l,e,t)=>e in l?E(l,e,{enumerable:!0,configura
       .disabled-row {
         opacity: 0.5;
       }
-      .wrapper {
-        position: relative;
+      .add-row {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 0.5rem;
       }
       .add-btn {
-        position: absolute;
-        bottom: -12px;
-        right: 0;
         width: 28px;
         height: 28px;
         border-radius: 50%;
@@ -167,7 +164,6 @@ var E=Object.defineProperty;var C=(l,e,t)=>e in l?E(l,e,{enumerable:!0,configura
         align-items: center;
         justify-content: center;
         padding: 0;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       }
       .add-btn:hover {
         background: #f0f4ff;
