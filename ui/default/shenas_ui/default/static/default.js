@@ -1,4 +1,4 @@
-var j=Object.defineProperty;var z=(d,e,t)=>e in d?j(d,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):d[e]=t;var r=(d,e,t)=>z(d,typeof e!="symbol"?e+"":e,t);import{LitElement as c,css as l,html as a}from"lit";import{Router as D}from"@lit-labs/router";class g extends c{constructor(){super(),this.enabled=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return a``}}r(g,"properties",{enabled:{type:Boolean,reflect:!0}}),r(g,"styles",l`
+var B=Object.defineProperty;var j=(d,e,t)=>e in d?B(d,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):d[e]=t;var r=(d,e,t)=>j(d,typeof e!="symbol"?e+"":e,t);import{LitElement as c,css as l,html as a}from"lit";import{Router as z}from"@lit-labs/router";class g extends c{constructor(){super(),this.enabled=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return a``}}r(g,"properties",{enabled:{type:Boolean,reflect:!0}}),r(g,"styles",l`
     :host {
       display: inline-block;
       width: 8px;
@@ -48,7 +48,7 @@ var j=Object.defineProperty;var z=(d,e,t)=>e in d?j(d,e,{enumerable:!0,configura
   button.danger:hover {
     background: #fef0f0;
   }
-`,T=l`
+`,D=l`
   .tabs {
     display: flex;
     gap: 0;
@@ -196,33 +196,28 @@ var j=Object.defineProperty;var z=(d,e,t)=>e in d?j(d,e,{enumerable:!0,configura
         gap: 0.5rem;
         margin-top: 0.8rem;
       }
-    `]);customElements.define("shenas-form-panel",f);class $ extends c{constructor(){super();r(this,"_router",new D(this,[{path:"/",render:()=>this._renderDynamicHome()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:t})=>this._renderSettings(t)},{path:"/settings/:kind/:name",render:({kind:t,name:s})=>this._renderPluginDetail(t,s)},{path:"/settings/:kind/:name/transforms",render:({kind:t,name:s})=>this._renderPluginDetail(t,s,"transforms")},{path:"/:tab",render:({tab:t})=>this._renderDynamicTab(t)}]));this.apiBase="/api",this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map,this._leftWidth=160,this._rightWidth=160}connectedCallback(){super.connectedCallback(),this._fetchData(),this.addEventListener("plugin-state-changed",()=>this._refreshComponents())}async _refreshComponents(){this._components=await this._fetch("/components")||[]}async _fetchData(){this._loading=!0;try{this._components=await this._fetch("/components")||[]}catch(t){console.error("Failed to fetch data:",t)}this._loading=!1}async _fetch(t){const s=await fetch(`${this.apiBase}${t}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"").split("/")[0]||(this._components.length>0?this._components[0].name:"settings")}_startDrag(t){return s=>{s.preventDefault();const n=s.clientX,i=t==="left"?this._leftWidth:this._rightWidth,o=s.target;o.classList.add("dragging");const h=S=>{const B=t==="left"?S.clientX-n:n-S.clientX,E=Math.max(80,Math.min(400,i+B));t==="left"?this._leftWidth=E:this._rightWidth=E},p=()=>{o.classList.remove("dragging"),window.removeEventListener("mousemove",h),window.removeEventListener("mouseup",p)};window.addEventListener("mousemove",h),window.addEventListener("mouseup",p)}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const t=this._activeTab();return a`
+    `]);customElements.define("shenas-form-panel",f);class $ extends c{constructor(){super();r(this,"_router",new z(this,[{path:"/",render:()=>this._renderDynamicHome()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:t})=>this._renderSettings(t)},{path:"/settings/:kind/:name",render:({kind:t,name:s})=>this._renderPluginDetail(t,s)},{path:"/settings/:kind/:name/transforms",render:({kind:t,name:s})=>this._renderPluginDetail(t,s,"transforms")},{path:"/:tab",render:({tab:t})=>this._renderDynamicTab(t)}]));this.apiBase="/api",this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map,this._leftWidth=160,this._rightWidth=160}connectedCallback(){super.connectedCallback(),this._fetchData(),this.addEventListener("plugin-state-changed",()=>this._refreshComponents())}async _refreshComponents(){this._components=await this._fetch("/components")||[]}async _fetchData(){this._loading=!0;try{this._components=await this._fetch("/components")||[]}catch(t){console.error("Failed to fetch data:",t)}this._loading=!1}async _fetch(t){const s=await fetch(`${this.apiBase}${t}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"").split("/")[0]||(this._components.length>0?this._components[0].name:"settings")}_startDrag(t){return s=>{s.preventDefault();const n=s.clientX,i=t==="left"?this._leftWidth:this._rightWidth,o=s.target;o.classList.add("dragging");const h=S=>{const T=t==="left"?S.clientX-n:n-S.clientX,E=Math.max(80,Math.min(400,i+T));t==="left"?this._leftWidth=E:this._rightWidth=E},p=()=>{o.classList.remove("dragging"),window.removeEventListener("mousemove",h),window.removeEventListener("mouseup",p)};window.addEventListener("mousemove",h),window.addEventListener("mouseup",p)}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const t=this._activeTab();return a`
       <div class="layout">
         <div class="panel-left" style="width: ${this._leftWidth}px">
           <div class="header">
             <img src="/static/images/shenas.png" alt="shenas" />
             <h1>shenas</h1>
           </div>
+          <nav class="nav">
+            ${this._components.map(s=>this._navItem(s.name,s.name,t))}
+            ${this._navItem("settings","Settings",t)}
+          </nav>
         </div>
         <div class="divider" @mousedown=${this._startDrag("left")}></div>
         <div class="panel-middle">
-          <div class="tabs" role="tablist">
-            ${this._components.map(s=>this._tabLink(s.name,s.name,t))}
-            ${this._tabLink("settings","Settings",t)}
-          </div>
           ${this._router.outlet()}
         </div>
         <div class="divider" @mousedown=${this._startDrag("right")}></div>
         <div class="panel-right" style="width: ${this._rightWidth}px">
         </div>
       </div>
-    `}_tabLink(t,s,n){return a`
-      <a
-        class="tab"
-        role="tab"
-        href="/${t}"
-        aria-selected=${n===t}
-      >
+    `}_navItem(t,s,n){return a`
+      <a class="nav-item" href="/${t}" aria-selected=${n===t}>
         ${s}
       </a>
     `}_renderDynamicHome(){return this._components.length>0?this._renderDynamicTab(this._components[0].name):this._renderSettings("pipe")}_renderDynamicTab(t){const s=this._components.find(n=>n.name===t);if(!s)return a`<p class="empty">Unknown page: ${t}</p>`;if(!this._loadedScripts.has(s.js)){this._loadedScripts=new Set([...this._loadedScripts,s.js]);const n=document.createElement("script");n.type="module",n.src=s.js,document.head.appendChild(n)}return a`<div class="component-host">
@@ -236,7 +231,7 @@ var j=Object.defineProperty;var z=(d,e,t)=>e in d?j(d,e,{enumerable:!0,configura
       api-base="${this.apiBase}"
       active-kind="${t||"pipe"}"
       .onNavigate=${s=>{this._router.goto(`/settings/${s}`)}}
-    ></shenas-settings>`}_getOrCreateElement(t){if(!this._elementCache.has(t.name)){const s=document.createElement(t.tag);s.setAttribute("api-base",this.apiBase),this._elementCache.set(t.name,s)}return this._elementCache.get(t.name)}}r($,"properties",{apiBase:{type:String,attribute:"api-base"},_components:{state:!0},_loading:{state:!0},_loadedScripts:{state:!0},_leftWidth:{state:!0},_rightWidth:{state:!0}}),r($,"styles",[x,T,u,l`
+    ></shenas-settings>`}_getOrCreateElement(t){if(!this._elementCache.has(t.name)){const s=document.createElement(t.tag);s.setAttribute("api-base",this.apiBase),this._elementCache.set(t.name,s)}return this._elementCache.get(t.name)}}r($,"properties",{apiBase:{type:String,attribute:"api-base"},_components:{state:!0},_loading:{state:!0},_loadedScripts:{state:!0},_leftWidth:{state:!0},_rightWidth:{state:!0}}),r($,"styles",[x,u,l`
       :host {
         display: block;
         height: 100vh;
@@ -279,7 +274,7 @@ var j=Object.defineProperty;var z=(d,e,t)=>e in d?j(d,e,{enumerable:!0,configura
         flex-direction: column;
         align-items: center;
         gap: 8px;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
       }
       .header img {
         width: 64px;
@@ -289,13 +284,31 @@ var j=Object.defineProperty;var z=(d,e,t)=>e in d?j(d,e,{enumerable:!0,configura
         margin: 0;
         font-size: 1.2rem;
       }
-      .tabs {
-        margin-bottom: 1.5rem;
+      .nav {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
       }
-      .tab {
-        padding: 0.6rem 1.2rem;
-        font-size: 0.95rem;
-        transition: color 0.15s, border-color 0.15s;
+      .nav-item {
+        display: block;
+        padding: 0.5rem 0.8rem;
+        font-size: 0.9rem;
+        color: #666;
+        text-decoration: none;
+        border-radius: 4px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        text-align: left;
+      }
+      .nav-item:hover {
+        background: #f5f5f5;
+        color: #222;
+      }
+      .nav-item[aria-selected="true"] {
+        background: #f0f4ff;
+        color: #222;
+        font-weight: 600;
       }
       .component-host {
         margin-top: 1rem;
@@ -441,7 +454,7 @@ var j=Object.defineProperty;var z=(d,e,t)=>e in d?j(d,e,{enumerable:!0,configura
         <span class="state-label">${e}</span>
         <span class="state-value">${t.slice(0,19)}</span>
       </div>
-    `:""}}r(v,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},activeTab:{type:String,attribute:"active-tab"},_info:{state:!0},_loading:{state:!0},_message:{state:!0}}),r(v,"styles",[m,x,k,T,u,l`
+    `:""}}r(v,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},activeTab:{type:String,attribute:"active-tab"},_info:{state:!0},_loading:{state:!0},_message:{state:!0}}),r(v,"styles",[m,x,k,D,u,l`
       :host {
         display: block;
       }

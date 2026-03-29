@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { Router } from "@lit-labs/router";
-import { linkStyles, tabStyles, utilityStyles } from "./shared-styles.js";
+import { linkStyles, utilityStyles } from "./shared-styles.js";
 
 class ShenasApp extends LitElement {
   static properties = {
@@ -32,7 +32,6 @@ class ShenasApp extends LitElement {
 
   static styles = [
     linkStyles,
-    tabStyles,
     utilityStyles,
     css`
       :host {
@@ -77,7 +76,7 @@ class ShenasApp extends LitElement {
         flex-direction: column;
         align-items: center;
         gap: 8px;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
       }
       .header img {
         width: 64px;
@@ -87,13 +86,31 @@ class ShenasApp extends LitElement {
         margin: 0;
         font-size: 1.2rem;
       }
-      .tabs {
-        margin-bottom: 1.5rem;
+      .nav {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
       }
-      .tab {
-        padding: 0.6rem 1.2rem;
-        font-size: 0.95rem;
-        transition: color 0.15s, border-color 0.15s;
+      .nav-item {
+        display: block;
+        padding: 0.5rem 0.8rem;
+        font-size: 0.9rem;
+        color: #666;
+        text-decoration: none;
+        border-radius: 4px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        text-align: left;
+      }
+      .nav-item:hover {
+        background: #f5f5f5;
+        color: #222;
+      }
+      .nav-item[aria-selected="true"] {
+        background: #f0f4ff;
+        color: #222;
+        font-weight: 600;
       }
       .component-host {
         margin-top: 1rem;
@@ -186,13 +203,13 @@ class ShenasApp extends LitElement {
             <img src="/static/images/shenas.png" alt="shenas" />
             <h1>shenas</h1>
           </div>
+          <nav class="nav">
+            ${this._components.map((c) => this._navItem(c.name, c.name, active))}
+            ${this._navItem("settings", "Settings", active)}
+          </nav>
         </div>
         <div class="divider" @mousedown=${this._startDrag("left")}></div>
         <div class="panel-middle">
-          <div class="tabs" role="tablist">
-            ${this._components.map((c) => this._tabLink(c.name, c.name, active))}
-            ${this._tabLink("settings", "Settings", active)}
-          </div>
           ${this._router.outlet()}
         </div>
         <div class="divider" @mousedown=${this._startDrag("right")}></div>
@@ -202,14 +219,9 @@ class ShenasApp extends LitElement {
     `;
   }
 
-  _tabLink(id, label, active) {
+  _navItem(id, label, active) {
     return html`
-      <a
-        class="tab"
-        role="tab"
-        href="/${id}"
-        aria-selected=${active === id}
-      >
+      <a class="nav-item" href="/${id}" aria-selected=${active === id}>
         ${label}
       </a>
     `;
