@@ -10,7 +10,8 @@ from shenas_pipes.core.cli import console, create_pipe_app, run_sync
 
 app = create_pipe_app("Obsidian daily notes commands.")
 
-PIPE_DESCRIPTION = """Extracts frontmatter fields from Obsidian daily notes.
+DISPLAY_NAME = "Obsidian"
+DESCRIPTION = """Extracts frontmatter fields from Obsidian daily notes.
 
 Scans a configured daily notes folder for markdown files, parses YAML
 frontmatter, and loads the key-value pairs into DuckDB. No API auth
@@ -73,14 +74,16 @@ def sync(
 
     def _transform() -> None:
         from shenas_pipes.core.db import connect
-        from shenas_pipes.obsidian.transform import ObsidianMetricProvider
         from shenas_schemas.outcomes import ensure_schema
+
+        from app.transforms import run_transforms, seed_defaults
+        from shenas_pipes.core.transform import load_transform_defaults
 
         con = connect()
         ensure_schema(con)
-        provider = ObsidianMetricProvider()
+        seed_defaults("obsidian", load_transform_defaults("obsidian"))
         console.print("Transforming obsidian...", style="dim")
-        provider.transform(con)
-        console.print("[green]done[/green]")
+        count = run_transforms(con, "obsidian")
+        console.print(f"[green]{count} transforms done[/green]")
 
     run_sync("obsidian", "obsidian", [daily_notes(notes_folder)], full_refresh, _transform)

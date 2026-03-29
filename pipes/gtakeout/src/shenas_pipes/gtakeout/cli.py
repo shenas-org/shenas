@@ -11,7 +11,8 @@ from shenas_pipes.core.db import DB_PATH
 
 app = create_pipe_app("Google Takeout commands.")
 
-PIPE_DESCRIPTION = """Finds and parses Google Takeout archives from Google Drive.
+DISPLAY_NAME = "Google Takeout"
+DESCRIPTION = """Finds and parses Google Takeout archives from Google Drive.
 
 Uses Google OAuth2 to search Drive for Takeout zip/tgz files, downloads
 them to a local cache, extracts, and parses the contents with streaming

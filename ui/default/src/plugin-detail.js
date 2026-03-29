@@ -5,6 +5,7 @@ class PluginDetail extends LitElement {
     apiBase: { type: String, attribute: "api-base" },
     kind: { type: String },
     name: { type: String },
+    activeTab: { type: String, attribute: "active-tab" },
     _info: { state: true },
     _loading: { state: true },
     _message: { state: true },
@@ -94,6 +95,31 @@ class PluginDetail extends LitElement {
     button.danger:hover {
       background: #fef0f0;
     }
+    .detail-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid #e0e0e0;
+      margin: 1rem 0;
+    }
+    .detail-tab {
+      padding: 0.5rem 1rem;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      text-decoration: none;
+    }
+    .detail-tab:hover {
+      color: #222;
+    }
+    .detail-tab[aria-selected="true"] {
+      color: #222;
+      border-bottom-color: #0066cc;
+      font-weight: 600;
+    }
     .message {
       padding: 0.5rem 0.8rem;
       border-radius: 4px;
@@ -119,6 +145,7 @@ class PluginDetail extends LitElement {
     this.apiBase = "/api";
     this.kind = "";
     this.name = "";
+    this.activeTab = "details";
     this._info = null;
     this._loading = true;
     this._message = null;
@@ -153,6 +180,7 @@ class PluginDetail extends LitElement {
       text: data.message || `${action} failed`,
     };
     await this._fetchInfo();
+    this.dispatchEvent(new CustomEvent("plugin-state-changed", { bubbles: true, composed: true }));
   }
 
   async _remove() {
@@ -180,12 +208,35 @@ class PluginDetail extends LitElement {
     const info = this._info;
     const enabled = info.enabled !== false;
 
+    const basePath = `/settings/${this.kind}/${this.name}`;
+
     return html`
       <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
 
-      <h2>${info.name}</h2>
+      <h2>${info.display_name || info.name}</h2>
       <span class="kind-badge">${info.kind}</span>
 
+      <div class="detail-tabs">
+        <a class="detail-tab" href="${basePath}" aria-selected=${this.activeTab === "details"}>Details</a>
+        ${this.kind === "pipe"
+          ? html`<a class="detail-tab" href="${basePath}/transforms" aria-selected=${this.activeTab === "transforms"}>Transforms</a>`
+          : ""}
+      </div>
+
+      ${this.activeTab === "transforms"
+        ? html`<shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`
+        : this._renderDetails(info, enabled)}
+
+      ${this._message
+        ? html`<div class="message ${this._message.type}">
+            ${this._message.text}
+          </div>`
+        : ""}
+    `;
+  }
+
+  _renderDetails(info, enabled) {
+    return html`
       ${info.description
         ? html`<div class="description">${info.description}</div>`
         : ""}
@@ -193,8 +244,8 @@ class PluginDetail extends LitElement {
       <div class="state-table">
         <div class="state-row">
           <span class="state-label">Status</span>
-          <span class="state-value ${enabled ? "enabled" : "disabled"}">
-            ${enabled ? "Enabled" : "Disabled"}
+          <span class="state-value">
+            <status-dot ?enabled=${enabled}></status-dot>
           </span>
         </div>
         ${this._stateRow("Added", info.added_at)}
@@ -208,12 +259,6 @@ class PluginDetail extends LitElement {
         </button>
         <button class="danger" @click=${this._remove}>Remove</button>
       </div>
-
-      ${this._message
-        ? html`<div class="message ${this._message.type}">
-            ${this._message.text}
-          </div>`
-        : ""}
     `;
   }
 

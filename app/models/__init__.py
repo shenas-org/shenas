@@ -109,6 +109,7 @@ class DBStatusResponse(BaseModel):
 
 class PluginInfo(BaseModel):
     name: str
+    display_name: str = ""
     package: str
     version: str
     signature: str = ""

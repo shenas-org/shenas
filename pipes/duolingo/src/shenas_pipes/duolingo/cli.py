@@ -7,7 +7,8 @@ from shenas_pipes.core.db import DB_PATH, connect
 
 app = create_pipe_app("Duolingo commands.")
 
-PIPE_DESCRIPTION = """Syncs daily XP, course progress, and profile data from Duolingo.
+DISPLAY_NAME = "Duolingo"
+DESCRIPTION = """Syncs daily XP, course progress, and profile data from Duolingo.
 
 Duolingo has no official API. This pipe uses the unofficial REST API
 with a JWT token extracted from your browser session. The token is
@@ -64,16 +65,18 @@ def sync(
     ]
 
     def _transform() -> None:
-        from shenas_pipes.duolingo.transform import DuolingoMetricProvider
         from shenas_schemas.habits import ensure_schema as ensure_habits
         from shenas_schemas.outcomes import ensure_schema as ensure_outcomes
+
+        from app.transforms import run_transforms, seed_defaults
+        from shenas_pipes.core.transform import load_transform_defaults
 
         con = connect()
         ensure_outcomes(con)
         ensure_habits(con)
-        provider = DuolingoMetricProvider()
+        seed_defaults("duolingo", load_transform_defaults("duolingo"))
         console.print("Transforming duolingo...", style="dim")
-        provider.transform(con)
-        console.print("[green]done[/green]")
+        count = run_transforms(con, "duolingo")
+        console.print(f"[green]{count} transforms done[/green]")
 
     run_sync("duolingo", "duolingo", resources, full_refresh, _transform)
