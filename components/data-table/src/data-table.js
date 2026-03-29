@@ -20,17 +20,17 @@ export class ShenasDataTable extends LitElement {
 
   static styles = css`
     :host {
-      display: block;
+      display: flex;
+      flex-direction: column;
       font-family: system-ui, -apple-system, sans-serif;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 24px 16px;
+      height: 100%;
+      overflow: hidden;
     }
-    h1 { font-size: 20px; font-weight: 600; color: #222; margin: 0 0 16px 0; }
-    .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+    h1 { font-size: 20px; font-weight: 600; color: #222; margin: 0 0 12px 0; }
+    .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; flex-shrink: 0; }
     select, input { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
     select { min-width: 200px; }
-    .table-wrap { overflow-x: auto; border: 1px solid #e0e0e0; border-radius: 6px; background: #fff; }
+    .table-wrap { overflow: auto; flex: 1; border: 1px solid #e0e0e0; border-radius: 6px; background: #fff; }
     table { border-collapse: collapse; width: 100%; font-size: 13px; table-layout: fixed; }
     th {
       position: relative;
@@ -58,7 +58,7 @@ export class ShenasDataTable extends LitElement {
     .filter-row input { width: 100%; box-sizing: border-box; padding: 4px 6px; font-size: 12px; }
     td { padding: 6px 12px; border-bottom: 1px solid #f0f0f0; color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     tr:hover td { background: #f8f8ff; }
-    .pagination { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; color: #666; }
+    .pagination { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 13px; color: #666; flex-shrink: 0; }
     .pagination button { padding: 4px 12px; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; }
     .pagination button:disabled { opacity: 0.4; cursor: default; }
     .pagination button:not(:disabled):hover { background: #f0f0f0; }
