@@ -111,8 +111,8 @@ def schema_plugin_tables() -> dict[str, list[str]]:
         if ep.name == "core":
             continue
         try:
-            mod = ep.load()
-            tables = getattr(mod, "CANONICAL_TABLES", [])
+            schema_dict = ep.load()
+            tables = schema_dict.get("tables", []) if isinstance(schema_dict, dict) else []
             if tables:
                 result.setdefault("metrics", []).extend(tables)
         except Exception:
