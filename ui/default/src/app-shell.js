@@ -10,6 +10,7 @@ class ShenasApp extends LitElement {
     _loadedScripts: { state: true },
     _leftWidth: { state: true },
     _rightWidth: { state: true },
+    _dbStatus: { state: true },
   };
 
   _router = new Router(this, [
@@ -115,6 +116,49 @@ class ShenasApp extends LitElement {
       .component-host {
         margin-top: 1rem;
       }
+      .db-section h4 {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: #888;
+        letter-spacing: 0.05em;
+        margin: 1rem 0 0.4rem;
+      }
+      .db-section h4:first-child {
+        margin-top: 0;
+      }
+      .db-meta {
+        font-size: 0.8rem;
+        color: #666;
+        margin: 0 0 0.8rem;
+      }
+      .db-meta code {
+        background: #f0f0f0;
+        padding: 1px 4px;
+        border-radius: 2px;
+        font-size: 0.75rem;
+      }
+      .db-table-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.2rem 0;
+        font-size: 0.8rem;
+        border-bottom: 1px solid #f5f5f5;
+      }
+      .db-table-row:last-child {
+        border-bottom: none;
+      }
+      .db-table-name {
+        color: #333;
+      }
+      .db-table-count {
+        color: #888;
+        font-size: 0.75rem;
+      }
+      .db-date-range {
+        font-size: 0.7rem;
+        color: #aaa;
+        display: block;
+      }
     `,
   ];
 
@@ -126,7 +170,8 @@ class ShenasApp extends LitElement {
     this._loadedScripts = new Set();
     this._elementCache = new Map();
     this._leftWidth = 160;
-    this._rightWidth = 160;
+    this._rightWidth = 220;
+    this._dbStatus = null;
   }
 
   connectedCallback() {
@@ -142,7 +187,12 @@ class ShenasApp extends LitElement {
   async _fetchData() {
     this._loading = true;
     try {
-      this._components = (await this._fetch("/components")) || [];
+      const [components, dbStatus] = await Promise.all([
+        this._fetch("/components"),
+        this._fetch("/db/status"),
+      ]);
+      this._components = components || [];
+      this._dbStatus = dbStatus;
     } catch (e) {
       console.error("Failed to fetch data:", e);
     }
@@ -214,6 +264,7 @@ class ShenasApp extends LitElement {
         </div>
         <div class="divider" @mousedown=${this._startDrag("right")}></div>
         <div class="panel-right" style="width: ${this._rightWidth}px">
+          ${this._renderDbStats()}
         </div>
       </div>
     `;
@@ -266,6 +317,36 @@ class ShenasApp extends LitElement {
         this._router.goto(`/settings/${k}`);
       }}
     ></shenas-settings>`;
+  }
+
+  _renderDbStats() {
+    const db = this._dbStatus;
+    if (!db) return html`<p class="empty">No database</p>`;
+    return html`
+      <div class="db-section">
+        <div class="db-meta">
+          ${db.size_mb != null
+            ? html`<code>${db.size_mb} MB</code>`
+            : html`<span>Not created</span>`}
+        </div>
+        ${(db.schemas || []).map(
+          (s) => html`
+            <h4>${s.name}</h4>
+            ${s.tables.map(
+              (t) => html`
+                <div class="db-table-row">
+                  <span class="db-table-name">${t.name}</span>
+                  <span class="db-table-count">${t.rows}</span>
+                </div>
+                ${t.earliest
+                  ? html`<span class="db-date-range">${t.earliest} - ${t.latest}</span>`
+                  : ""}
+              `,
+            )}
+          `,
+        )}
+      </div>
+    `;
   }
 
   _getOrCreateElement(comp) {
