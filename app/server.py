@@ -83,7 +83,7 @@ def _get_active_theme() -> dict[str, Any] | None:
     except Exception:
         pass
     # Fallback: no theme explicitly enabled -- use --default-theme
-    fallback = app.state.default_theme
+    fallback = getattr(app.state, "default_theme", "default")
     for plugin in themes:
         if plugin["name"] == fallback:
             return plugin
