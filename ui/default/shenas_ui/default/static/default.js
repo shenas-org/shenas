@@ -1,4 +1,4 @@
-var g=Object.defineProperty;var u=(i,e,t)=>e in i?g(i,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):i[e]=t;var o=(i,e,t)=>u(i,typeof e!="symbol"?e+"":e,t);import{LitElement as h,css as b,html as a}from"lit";class c extends h{constructor(){super(),this.apiBase="/api",this._pipes=[],this._dbStatus=null,this._components=[],this._loading=!0,this._activeTab="database",this._loadedScripts=new Set,this._elementCache=new Map}connectedCallback(){super.connectedCallback(),this._fetchData()}async _fetchData(){this._loading=!0;try{const[e,t,s]=await Promise.all([this._fetch("/plugins/pipe"),this._fetch("/db/status"),this._fetch("/components")]);this._pipes=e||[],this._dbStatus=t,this._components=s||[]}catch(e){console.error("Failed to fetch data:",e)}this._loading=!1}async _fetch(e){const t=await fetch(`${this.apiBase}${e}`);return t.ok?t.json():null}_selectTab(e){this._activeTab=e;const t=this._components.find(s=>s.name===e);if(t&&!this._loadedScripts.has(t.js)){this._loadedScripts=new Set([...this._loadedScripts,t.js]);const s=document.createElement("script");s.type="module",s.src=t.js,document.head.appendChild(s)}}render(){return this._loading?a`<p class="loading">Loading...</p>`:a`
+var g=Object.defineProperty;var f=(r,e,t)=>e in r?g(r,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):r[e]=t;var l=(r,e,t)=>f(r,typeof e!="symbol"?e+"":e,t);import{LitElement as b,css as u,html as s}from"lit";class d extends b{constructor(){super(),this.apiBase="/api",this._pipes=[],this._dbStatus=null,this._components=[],this._loading=!0,this._activeTab="database",this._loadedScripts=new Set,this._elementCache=new Map}connectedCallback(){super.connectedCallback(),this._fetchData()}async _fetchData(){this._loading=!0;try{const[e,t,a]=await Promise.all([this._fetch("/plugins/pipe"),this._fetch("/db/status"),this._fetch("/components")]);this._pipes=e||[],this._dbStatus=t,this._components=a||[]}catch(e){console.error("Failed to fetch data:",e)}this._loading=!1}async _fetch(e){const t=await fetch(`${this.apiBase}${e}`);return t.ok?t.json():null}_selectTab(e){this._activeTab=e;const t=this._components.find(a=>a.name===e);if(t&&!this._loadedScripts.has(t.js)){this._loadedScripts=new Set([...this._loadedScripts,t.js]);const a=document.createElement("script");a.type="module",a.src=t.js,document.head.appendChild(a)}}render(){return this._loading?s`<p class="loading">Loading...</p>`:s`
       <div class="header">
         <img src="/static/images/shenas.png" alt="shenas" />
         <h1>shenas</h1>
@@ -14,8 +14,8 @@ var g=Object.defineProperty;var u=(i,e,t)=>e in i?g(i,e,{enumerable:!0,configura
       ${this._activeTab==="database"?this._renderDb():""}
       ${this._activeTab==="pipes"?this._renderPipes():""}
       ${this._renderComponentTab()}
-      ${this._activeTab==="settings"?a`<shenas-settings api-base="${this.apiBase}"></shenas-settings>`:""}
-    `}_renderTab(e,t){return a`
+      ${this._activeTab==="settings"?s`<shenas-settings api-base="${this.apiBase}"></shenas-settings>`:""}
+    `}_renderTab(e,t){return s`
       <button
         class="tab"
         role="tab"
@@ -24,36 +24,36 @@ var g=Object.defineProperty;var u=(i,e,t)=>e in i?g(i,e,{enumerable:!0,configura
       >
         ${t}
       </button>
-    `}_renderComponentTab(){const e=this._components.find(t=>t.name===this._activeTab);return e?a`
+    `}_renderComponentTab(){const e=this._components.find(t=>t.name===this._activeTab);return e?s`
       <div class="component-host">${this._getOrCreateElement(e)}</div>
-    `:a``}_getOrCreateElement(e){if(!this._elementCache.has(e.name)){const t=document.createElement(e.tag);t.setAttribute("api-base",this.apiBase),this._elementCache.set(e.name,t)}return this._elementCache.get(e.name)}_renderDb(){const e=this._dbStatus;return e?a`
+    `:s``}_getOrCreateElement(e){if(!this._elementCache.has(e.name)){const t=document.createElement(e.tag);t.setAttribute("api-base",this.apiBase),this._elementCache.set(e.name,t)}return this._elementCache.get(e.name)}_renderDb(){const e=this._dbStatus;return e?s`
       <div class="status">
         <p>Path: <code>${e.db_path}</code></p>
-        ${e.size_mb!=null?a`<p>Size: ${e.size_mb} MB</p>`:a`<p>Not created yet</p>`}
+        ${e.size_mb!=null?s`<p>Size: ${e.size_mb} MB</p>`:s`<p>Not created yet</p>`}
       </div>
-      ${(e.schemas||[]).map(t=>a`
+      ${(e.schemas||[]).map(t=>s`
           <h3>${t.name}</h3>
-          ${t.tables.map(s=>a`
+          ${t.tables.map(a=>s`
               <div class="schema-row">
-                <span>${s.name}</span>
+                <span>${a.name}</span>
                 <span class="meta">
-                  ${s.rows} rows
-                  ${s.earliest?a` &middot; ${s.earliest} - ${s.latest}`:""}
+                  ${a.rows} rows
+                  ${a.earliest?s` &middot; ${a.earliest} - ${a.latest}`:""}
                 </span>
               </div>
             `)}
         `)}
-    `:a`<p class="empty">No database info available</p>`}_renderPipes(){return this._pipes.length===0?a`<p class="empty">No pipes installed</p>`:a`
+    `:s`<p class="empty">No database info available</p>`}_renderPipes(){return this._pipes.length===0?s`<p class="empty">No pipes installed</p>`:s`
       <div class="cards">
-        ${this._pipes.map(e=>a`
+        ${this._pipes.map(e=>s`
             <div class="card">
               <h3>${e.name}</h3>
               <div class="meta">${e.version}</div>
-              ${e.description?a`<div class="desc">${e.description}</div>`:""}
+              ${e.description?s`<div class="desc">${e.description}</div>`:""}
             </div>
           `)}
       </div>
-    `}}o(c,"properties",{apiBase:{type:String,attribute:"api-base"},_pipes:{state:!0},_dbStatus:{state:!0},_components:{state:!0},_loading:{state:!0},_activeTab:{state:!0},_loadedScripts:{state:!0}}),o(c,"styles",b`
+    `}}l(d,"properties",{apiBase:{type:String,attribute:"api-base"},_pipes:{state:!0},_dbStatus:{state:!0},_components:{state:!0},_loading:{state:!0},_activeTab:{state:!0},_loadedScripts:{state:!0}}),l(d,"styles",u`
     :host {
       display: block;
       max-width: 960px;
@@ -161,66 +161,122 @@ var g=Object.defineProperty;var u=(i,e,t)=>e in i?g(i,e,{enumerable:!0,configura
     .component-host {
       margin-top: 1rem;
     }
-  `);customElements.define("shenas-app",c);const m=["pipe","schema","component","ui"];class d extends h{constructor(){super(),this.apiBase="/api",this._plugins={},this._loading=!0,this._actionMessage=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all(m.map(async t=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _remove(e,t){this._actionMessage=null;const n=await(await fetch(`${this.apiBase}/plugins/${e}/${t}`,{method:"DELETE"})).json();n.ok?(this._actionMessage={type:"success",text:n.message},await this._fetchAll()):this._actionMessage={type:"error",text:n.message||"Remove failed"}}async _install(e){var l,p;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(l=t==null?void 0:t.value)==null?void 0:l.trim();if(!s)return;this._actionMessage=null;const r=(p=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:p[0];r!=null&&r.ok?(this._actionMessage={type:"success",text:r.message},t.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(r==null?void 0:r.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
-      ${this._actionMessage?a`<div class="message ${this._actionMessage.type}">
+  `);customElements.define("shenas-app",d);const c=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class p extends b{constructor(){super(),this.apiBase="/api",this._plugins={},this._loading=!0,this._activeKind="pipe",this._actionMessage=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all(c.map(async({id:t})=>{const a=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=a.ok?await a.json():[]})),this._plugins=e,this._loading=!1}async _remove(e,t){this._actionMessage=null;const n=await(await fetch(`${this.apiBase}/plugins/${e}/${t}`,{method:"DELETE"})).json();n.ok?(this._actionMessage={type:"success",text:n.message},await this._fetchAll()):this._actionMessage={type:"error",text:n.message||"Remove failed"}}async _install(e){var m,h;const t=this.shadowRoot.querySelector(`#install-${e}`),a=(m=t==null?void 0:t.value)==null?void 0:m.trim();if(!a)return;this._actionMessage=null;const o=(h=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[a],skip_verify:!0})})).json()).results)==null?void 0:h[0];o!=null&&o.ok?(this._actionMessage={type:"success",text:o.message},t.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(o==null?void 0:o.message)||"Install failed"}}render(){return this._loading?s`<p class="loading">Loading plugins...</p>`:s`
+      ${this._actionMessage?s`<div class="message ${this._actionMessage.type}">
             ${this._actionMessage.text}
           </div>`:""}
-      ${m.map(e=>this._renderKind(e))}
-    `}_renderKind(e){const t=this._plugins[e]||[];return a`
-      <div class="kind-section">
-        <h3>${e}s</h3>
-        ${t.length>0?a`
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Version</th>
-                    <th>Description</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${t.map(s=>a`
-                      <tr>
-                        <td class="name">${s.name}</td>
-                        <td class="version">${s.version}</td>
-                        <td class="desc">${s.description||""}</td>
-                        <td class="actions">
-                          <button
-                            class="remove"
-                            @click=${()=>this._remove(e,s.name)}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    `)}
-                </tbody>
-              </table>
-            `:a`<p class="empty">No ${e} plugins installed</p>`}
-        <div class="install-row">
-          <input
-            id="install-${e}"
-            type="text"
-            placeholder="Plugin name"
-            @keydown=${s=>s.key==="Enter"&&this._install(e)}
-          />
-          <button @click=${()=>this._install(e)}>Install</button>
-        </div>
+      <div class="layout">
+        <nav class="sidebar">
+          <ul>
+            ${c.map(({id:e,label:t})=>s`
+                <li>
+                  <button
+                    aria-selected=${this._activeKind===e}
+                    @click=${()=>{this._activeKind=e,this._actionMessage=null}}
+                  >
+                    ${t}
+                    <span style="color:#aaa; font-weight:normal">
+                      (${(this._plugins[e]||[]).length})
+                    </span>
+                  </button>
+                </li>
+              `)}
+          </ul>
+        </nav>
+        <div class="content">${this._renderKind(this._activeKind)}</div>
       </div>
-    `}}o(d,"properties",{apiBase:{type:String,attribute:"api-base"},_plugins:{state:!0},_loading:{state:!0},_actionMessage:{state:!0}}),o(d,"styles",b`
+    `}_renderKind(e){var n;const t=this._plugins[e]||[],a=((n=c.find(i=>i.id===e))==null?void 0:n.label)||e;return s`
+      <h3>${a}</h3>
+      ${t.length>0?s`
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Version</th>
+                  <th>Description</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${t.map(i=>s`
+                    <tr>
+                      <td class="name">${i.name}</td>
+                      <td class="version">${i.version}</td>
+                      <td class="desc">${i.description||""}</td>
+                      <td class="actions">
+                        <button
+                          class="action remove"
+                          @click=${()=>this._remove(e,i.name)}
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  `)}
+              </tbody>
+            </table>
+          `:s`<p class="empty">No ${a.toLowerCase()} installed</p>`}
+      <div class="install-row">
+        <input
+          id="install-${e}"
+          type="text"
+          placeholder="Plugin name"
+          @keydown=${i=>i.key==="Enter"&&this._install(e)}
+        />
+        <button class="action" @click=${()=>this._install(e)}>
+          Install
+        </button>
+      </div>
+    `}}l(p,"properties",{apiBase:{type:String,attribute:"api-base"},_plugins:{state:!0},_loading:{state:!0},_activeKind:{state:!0},_actionMessage:{state:!0}}),l(p,"styles",u`
     :host {
       display: block;
     }
-    .kind-section {
-      margin-bottom: 2rem;
+    .layout {
+      display: flex;
+      gap: 2rem;
     }
-    .kind-section h3 {
+    .sidebar {
+      min-width: 140px;
+      flex-shrink: 0;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .sidebar li {
+      margin: 0;
+    }
+    .sidebar button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 0.5rem 0.8rem;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #666;
+      border-radius: 4px;
+      border-left: 3px solid transparent;
+    }
+    .sidebar button:hover {
+      background: #f5f5f5;
+      color: #222;
+    }
+    .sidebar button[aria-selected="true"] {
+      background: #f0f4ff;
+      color: #222;
+      font-weight: 600;
+      border-left-color: #0066cc;
+    }
+    .content {
+      flex: 1;
+      min-width: 0;
+    }
+    .content h3 {
       font-size: 1rem;
-      text-transform: capitalize;
-      border-bottom: 1px solid #e0e0e0;
-      padding-bottom: 0.4rem;
-      margin-bottom: 0.8rem;
+      margin: 0 0 1rem;
     }
     table {
       width: 100%;
@@ -253,7 +309,7 @@ var g=Object.defineProperty;var u=(i,e,t)=>e in i?g(i,e,{enumerable:!0,configura
     .actions {
       white-space: nowrap;
     }
-    button {
+    button.action {
       padding: 0.3rem 0.7rem;
       border: 1px solid #ddd;
       border-radius: 4px;
@@ -262,7 +318,7 @@ var g=Object.defineProperty;var u=(i,e,t)=>e in i?g(i,e,{enumerable:!0,configura
       font-size: 0.8rem;
       margin-left: 0.3rem;
     }
-    button:hover {
+    button.action:hover {
       background: #f5f5f5;
     }
     button.remove {
@@ -275,7 +331,7 @@ var g=Object.defineProperty;var u=(i,e,t)=>e in i?g(i,e,{enumerable:!0,configura
     .install-row {
       display: flex;
       gap: 0.5rem;
-      margin-top: 0.8rem;
+      margin-top: 1rem;
       align-items: center;
     }
     .install-row input {
@@ -308,4 +364,4 @@ var g=Object.defineProperty;var u=(i,e,t)=>e in i?g(i,e,{enumerable:!0,configura
       color: #888;
       font-style: italic;
     }
-  `);customElements.define("shenas-settings",d);
+  `);customElements.define("shenas-settings",p);

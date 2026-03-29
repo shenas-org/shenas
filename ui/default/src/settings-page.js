@@ -1,12 +1,18 @@
 import { LitElement, html, css } from "lit";
 
-const PLUGIN_KINDS = ["pipe", "schema", "component", "ui"];
+const PLUGIN_KINDS = [
+  { id: "pipe", label: "Pipes" },
+  { id: "schema", label: "Schemas" },
+  { id: "component", label: "Components" },
+  { id: "ui", label: "UI" },
+];
 
 class SettingsPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
     _plugins: { state: true },
     _loading: { state: true },
+    _activeKind: { state: true },
     _actionMessage: { state: true },
   };
 
@@ -14,15 +20,52 @@ class SettingsPage extends LitElement {
     :host {
       display: block;
     }
-    .kind-section {
-      margin-bottom: 2rem;
+    .layout {
+      display: flex;
+      gap: 2rem;
     }
-    .kind-section h3 {
+    .sidebar {
+      min-width: 140px;
+      flex-shrink: 0;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .sidebar li {
+      margin: 0;
+    }
+    .sidebar button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 0.5rem 0.8rem;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #666;
+      border-radius: 4px;
+      border-left: 3px solid transparent;
+    }
+    .sidebar button:hover {
+      background: #f5f5f5;
+      color: #222;
+    }
+    .sidebar button[aria-selected="true"] {
+      background: #f0f4ff;
+      color: #222;
+      font-weight: 600;
+      border-left-color: #0066cc;
+    }
+    .content {
+      flex: 1;
+      min-width: 0;
+    }
+    .content h3 {
       font-size: 1rem;
-      text-transform: capitalize;
-      border-bottom: 1px solid #e0e0e0;
-      padding-bottom: 0.4rem;
-      margin-bottom: 0.8rem;
+      margin: 0 0 1rem;
     }
     table {
       width: 100%;
@@ -55,7 +98,7 @@ class SettingsPage extends LitElement {
     .actions {
       white-space: nowrap;
     }
-    button {
+    button.action {
       padding: 0.3rem 0.7rem;
       border: 1px solid #ddd;
       border-radius: 4px;
@@ -64,7 +107,7 @@ class SettingsPage extends LitElement {
       font-size: 0.8rem;
       margin-left: 0.3rem;
     }
-    button:hover {
+    button.action:hover {
       background: #f5f5f5;
     }
     button.remove {
@@ -77,7 +120,7 @@ class SettingsPage extends LitElement {
     .install-row {
       display: flex;
       gap: 0.5rem;
-      margin-top: 0.8rem;
+      margin-top: 1rem;
       align-items: center;
     }
     .install-row input {
@@ -117,6 +160,7 @@ class SettingsPage extends LitElement {
     this.apiBase = "/api";
     this._plugins = {};
     this._loading = true;
+    this._activeKind = "pipe";
     this._actionMessage = null;
   }
 
@@ -129,9 +173,9 @@ class SettingsPage extends LitElement {
     this._loading = true;
     const result = {};
     await Promise.all(
-      PLUGIN_KINDS.map(async (kind) => {
-        const resp = await fetch(`${this.apiBase}/plugins/${kind}`);
-        result[kind] = resp.ok ? await resp.json() : [];
+      PLUGIN_KINDS.map(async ({ id }) => {
+        const resp = await fetch(`${this.apiBase}/plugins/${id}`);
+        result[id] = resp.ok ? await resp.json() : [];
       }),
     );
     this._plugins = result;
@@ -190,57 +234,82 @@ class SettingsPage extends LitElement {
             ${this._actionMessage.text}
           </div>`
         : ""}
-      ${PLUGIN_KINDS.map((kind) => this._renderKind(kind))}
+      <div class="layout">
+        <nav class="sidebar">
+          <ul>
+            ${PLUGIN_KINDS.map(
+              ({ id, label }) => html`
+                <li>
+                  <button
+                    aria-selected=${this._activeKind === id}
+                    @click=${() => {
+                      this._activeKind = id;
+                      this._actionMessage = null;
+                    }}
+                  >
+                    ${label}
+                    <span style="color:#aaa; font-weight:normal">
+                      (${(this._plugins[id] || []).length})
+                    </span>
+                  </button>
+                </li>
+              `,
+            )}
+          </ul>
+        </nav>
+        <div class="content">${this._renderKind(this._activeKind)}</div>
+      </div>
     `;
   }
 
   _renderKind(kind) {
     const plugins = this._plugins[kind] || [];
+    const label = PLUGIN_KINDS.find((k) => k.id === kind)?.label || kind;
     return html`
-      <div class="kind-section">
-        <h3>${kind}s</h3>
-        ${plugins.length > 0
-          ? html`
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Version</th>
-                    <th>Description</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${plugins.map(
-                    (p) => html`
-                      <tr>
-                        <td class="name">${p.name}</td>
-                        <td class="version">${p.version}</td>
-                        <td class="desc">${p.description || ""}</td>
-                        <td class="actions">
-                          <button
-                            class="remove"
-                            @click=${() => this._remove(kind, p.name)}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    `,
-                  )}
-                </tbody>
-              </table>
-            `
-          : html`<p class="empty">No ${kind} plugins installed</p>`}
-        <div class="install-row">
-          <input
-            id="install-${kind}"
-            type="text"
-            placeholder="Plugin name"
-            @keydown=${(e) => e.key === "Enter" && this._install(kind)}
-          />
-          <button @click=${() => this._install(kind)}>Install</button>
-        </div>
+      <h3>${label}</h3>
+      ${plugins.length > 0
+        ? html`
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Version</th>
+                  <th>Description</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${plugins.map(
+                  (p) => html`
+                    <tr>
+                      <td class="name">${p.name}</td>
+                      <td class="version">${p.version}</td>
+                      <td class="desc">${p.description || ""}</td>
+                      <td class="actions">
+                        <button
+                          class="action remove"
+                          @click=${() => this._remove(kind, p.name)}
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  `,
+                )}
+              </tbody>
+            </table>
+          `
+        : html`<p class="empty">No ${label.toLowerCase()} installed</p>`}
+      <div class="install-row">
+        <input
+          id="install-${kind}"
+          type="text"
+          placeholder="Plugin name"
+          @keydown=${(e) => e.key === "Enter" && this._install(kind)}
+        />
+        <button class="action" @click=${() => this._install(kind)}>
+          Install
+        </button>
       </div>
     `;
   }
