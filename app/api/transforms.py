@@ -81,11 +81,12 @@ def update(transform_id: int, body: TransformUpdate) -> dict[str, Any]:
 @router.delete("/{transform_id}")
 def delete(transform_id: int) -> dict[str, Any]:
     """Delete a transform. Default transforms cannot be deleted."""
-    t = get_transform(transform_id)
-    if not t:
+    existing = get_transform(transform_id)
+    if not existing:
         raise HTTPException(status_code=404, detail="Transform not found")
-    if not delete_transform(transform_id):
+    if existing["is_default"]:
         raise HTTPException(status_code=400, detail="Cannot delete a default transform. Disable it instead.")
+    delete_transform(transform_id)
     return {"ok": True, "message": f"Deleted transform {transform_id}"}
 
 
@@ -109,28 +110,17 @@ def disable(transform_id: int) -> dict[str, Any]:
 
 @router.post("/seed")
 def seed_all_defaults() -> dict[str, Any]:
-    """Seed default transforms from transforms.jsonl files in installed pipes."""
-    import json
-    import subprocess
-    import sys
-
-    result = subprocess.run(
-        ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
-    )
-    if result.returncode != 0:
-        raise HTTPException(status_code=500, detail="Failed to list packages")
+    """Seed default transforms from all installed pipes."""
+    from importlib.metadata import entry_points
 
     from shenas_pipes.core.transform import load_transform_defaults
 
     seeded = []
-    for p in json.loads(result.stdout):
-        if not p["name"].startswith("shenas-pipe-") or p["name"].endswith("-core"):
-            continue
-        pipe_name = p["name"].removeprefix("shenas-pipe-")
-        defaults = load_transform_defaults(pipe_name)
+    for ep in entry_points(group="shenas.pipes"):
+        defaults = load_transform_defaults(ep.name)
         if defaults:
-            seed_defaults(pipe_name, defaults)
-            seeded.append(pipe_name)
+            seed_defaults(ep.name, defaults)
+            seeded.append(ep.name)
     return {"seeded": seeded, "count": len(seeded)}
 
 
@@ -143,4 +133,4 @@ def test(transform_id: int, limit: int = 10) -> list[dict[str, Any]]:
     try:
         return test_transform(transform_id, limit)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"SQL error: {exc}")
+        raise HTTPException(status_code=400, detail=str(exc))

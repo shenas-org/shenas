@@ -159,6 +159,8 @@ def edit_cmd(
 ) -> None:
     """Edit a transform's SQL in $EDITOR."""
     import os
+    import shlex
+    import subprocess
     import tempfile
 
     try:
@@ -177,7 +179,7 @@ def edit_cmd(
         f.flush()
         tmp_path = f.name
 
-    os.system(f"{editor} {tmp_path}")
+    subprocess.run([*shlex.split(editor), tmp_path], check=False)
 
     with open(tmp_path) as f:
         new_sql = f.read().strip()

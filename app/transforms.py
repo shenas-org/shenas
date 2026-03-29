@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import duckdb
 
 from app.db import connect
+
+log = logging.getLogger(__name__)
 
 _COLS = "id, source_duckdb_schema, source_duckdb_table, target_duckdb_schema, target_duckdb_table, source_plugin, description, sql, is_default, enabled, added_at, updated_at, status_changed_at"
 
@@ -67,10 +70,12 @@ def create_transform(
 ) -> dict[str, Any]:
     """Create a new transform and return it."""
     con = connect()
-    con.execute(
+    cur = con.cursor()
+    cur.execute("USE db")
+    cur.execute(
         "INSERT INTO shenas_system.transforms "
         "(source_duckdb_schema, source_duckdb_table, target_duckdb_schema, target_duckdb_table, source_plugin, description, sql, is_default) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
         [
             source_duckdb_schema,
             source_duckdb_table,
@@ -82,18 +87,21 @@ def create_transform(
             is_default,
         ],
     )
-    row = con.execute(f"SELECT {_COLS} FROM shenas_system.transforms ORDER BY id DESC LIMIT 1").fetchone()
+    result = cur.fetchone()
+    if not result:
+        msg = "Failed to create transform"
+        raise RuntimeError(msg)
+    new_id = result[0]
+    cur.close()
+    row = get_transform(new_id)
     if not row:
         msg = "Failed to create transform"
         raise RuntimeError(msg)
-    return _row_to_dict(row)
+    return row
 
 
 def update_transform(transform_id: int, sql: str) -> dict[str, Any] | None:
-    """Update a transform's SQL. Returns None if not found or is a default transform."""
-    t = get_transform(transform_id)
-    if not t or t["is_default"]:
-        return None
+    """Update a transform's SQL. Returns None if not found."""
     con = connect()
     con.execute(
         "UPDATE shenas_system.transforms SET sql = ?, updated_at = current_timestamp WHERE id = ?",
@@ -103,11 +111,9 @@ def update_transform(transform_id: int, sql: str) -> dict[str, Any] | None:
 
 
 def delete_transform(transform_id: int) -> bool:
-    """Delete a transform. Returns False if it's a default transform."""
+    """Delete a non-default transform. Returns False if not found or is_default."""
     t = get_transform(transform_id)
-    if not t:
-        return False
-    if t["is_default"]:
+    if not t or t["is_default"]:
         return False
     con = connect()
     con.execute("DELETE FROM shenas_system.transforms WHERE id = ?", [transform_id])
@@ -116,6 +122,9 @@ def delete_transform(transform_id: int) -> bool:
 
 def set_transform_enabled(transform_id: int, enabled: bool) -> dict[str, Any] | None:
     """Enable or disable a transform."""
+    t = get_transform(transform_id)
+    if not t:
+        return None
     con = connect()
     con.execute(
         "UPDATE shenas_system.transforms SET enabled = ?, status_changed_at = current_timestamp, updated_at = current_timestamp WHERE id = ?",
@@ -125,15 +134,25 @@ def set_transform_enabled(transform_id: int, enabled: bool) -> dict[str, Any] | 
 
 
 def seed_defaults(source_plugin: str, defaults: list[dict[str, str]]) -> None:
-    """Seed default transforms for a source plugin if none exist.
+    """Seed default transforms for a source plugin.
 
-    Each default dict must have: source_duckdb_schema, source_duckdb_table,
-    target_duckdb_schema, target_duckdb_table, sql.
+    Only inserts defaults that don't already exist (by is_default=true).
+    Existing user-created transforms do not block seeding.
     """
-    existing = list_transforms(source_plugin)
-    if existing:
-        return
+    con = connect()
+    cur = con.cursor()
+    cur.execute("USE db")
+    existing_defaults = cur.execute(
+        "SELECT source_duckdb_table, target_duckdb_table FROM shenas_system.transforms "
+        "WHERE source_plugin = ? AND is_default = true",
+        [source_plugin],
+    ).fetchall()
+    cur.close()
+    existing_keys = {(r[0], r[1]) for r in existing_defaults}
     for d in defaults:
+        key = (d["source_duckdb_table"], d["target_duckdb_table"])
+        if key in existing_keys:
+            continue
         create_transform(
             source_duckdb_schema=d["source_duckdb_schema"],
             source_duckdb_table=d["source_duckdb_table"],
@@ -154,9 +173,12 @@ def run_transforms(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
         if not t["enabled"]:
             continue
         target = f'"{t["target_duckdb_schema"]}"."{t["target_duckdb_table"]}"'
-        con.execute(f"DELETE FROM {target} WHERE source = '{t['source_plugin']}'")
-        con.execute(f"INSERT INTO {target} {t['sql']}")
-        count += 1
+        try:
+            con.execute(f"DELETE FROM {target} WHERE source = ?", [t["source_plugin"]])
+            con.execute(f"INSERT INTO {target} {t['sql']}")
+            count += 1
+        except Exception:
+            log.exception("Transform #%d failed (%s -> %s)", t["id"], t["source_plugin"], target)
     return count
 
 
@@ -168,7 +190,7 @@ def test_transform(transform_id: int, limit: int = 10) -> list[dict[str, Any]]:
     con = connect()
     cur = con.cursor()
     cur.execute("USE db")
-    rows = cur.execute(f"{t['sql']} LIMIT {limit}").fetchall()
+    rows = cur.execute(f"SELECT * FROM ({t['sql']}) AS _preview LIMIT {limit}").fetchall()
     cols = [desc[0] for desc in cur.description]
     cur.close()
     return [dict(zip(cols, row)) for row in rows]

@@ -272,7 +272,7 @@ class TransformsPage extends LitElement {
 
   async _saveCreate() {
     const f = this._newForm;
-    if (!f.source_duckdb_table || !f.target_duckdb_schema || !f.target_duckdb_table || !f.sql) {
+    if (!(f.source_duckdb_schema || this.source) || !f.source_duckdb_table || !f.target_duckdb_schema || !f.target_duckdb_table || !f.sql) {
       this._message = { type: "error", text: "Fill in all required fields" };
       return;
     }

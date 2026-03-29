@@ -85,6 +85,5 @@ def sync(
         console.print("Transforming obsidian...", style="dim")
         count = run_transforms(con, "obsidian")
         console.print(f"[green]{count} transforms done[/green]")
-        console.print("[green]done[/green]")
 
     run_sync("obsidian", "obsidian", [daily_notes(notes_folder)], full_refresh, _transform)
