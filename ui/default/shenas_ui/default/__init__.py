@@ -9,6 +9,7 @@ except Exception:
 
 UI = {
     "name": "default",
+    "internal": True,
     "version": _version,
     "description": "Default shenas UI shell with navigation, plugin host, and status overview",
     "static_dir": Path(__file__).parent / "static",

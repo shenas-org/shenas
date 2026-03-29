@@ -36,14 +36,15 @@ if _vendor_dir.is_dir():
 app.include_router(api_router)
 
 
-def _discover_plugins(group: str) -> list[dict[str, Any]]:
+def _discover_plugins(group: str, include_internal: bool = True) -> list[dict[str, Any]]:
     """Discover installed plugins via entry points."""
     plugins: list[dict[str, Any]] = []
     for ep in entry_points(group=group):
         try:
             plugin = ep.load()
             if isinstance(plugin, dict) and "static_dir" in plugin:
-                plugins.append(plugin)
+                if include_internal or not plugin.get("internal"):
+                    plugins.append(plugin)
         except Exception:
             pass
     return plugins
@@ -110,7 +111,7 @@ def _serve_ui_html() -> HTMLResponse:
 @app.get("/api/components")
 def list_component_metadata() -> list[dict[str, str]]:
     """Return component metadata needed by the UI shell (tag, entrypoint, JS URL)."""
-    components = _discover_plugins("shenas.components")
+    components = _discover_plugins("shenas.components", include_internal=False)
     return [
         {
             "name": c["name"],

@@ -21,9 +21,38 @@ router = APIRouter(prefix="/plugins", tags=["plugins"])
 VALID_KINDS = {"pipe", "schema", "component", "ui"}
 
 
+NAMESPACES = {
+    "pipe": "shenas_pipes",
+    "schema": "shenas_schemas",
+    "component": "shenas_components",
+    "ui": "shenas_ui",
+}
+
+# Standard metadata dict names exported by each plugin type
+_META_ATTRS = ("COMPONENT", "UI", "SCHEMA", "PLUGIN")
+
+
 def _validate_kind(kind: str) -> None:
     if kind not in VALID_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid kind: {kind}. Must be one of: {', '.join(sorted(VALID_KINDS))}")
+
+
+def _is_internal(kind: str, name: str) -> bool:
+    """Check if a plugin is internal (hidden from list/add/remove/UI)."""
+    if name == "core":
+        return True
+    namespace = NAMESPACES.get(kind)
+    if not namespace:
+        return False
+    try:
+        mod = importlib.import_module(f"{namespace}.{name}")
+        for attr in _META_ATTRS:
+            meta = getattr(mod, attr, None)
+            if isinstance(meta, dict) and meta.get("internal"):
+                return True
+    except (ImportError, ModuleNotFoundError):
+        pass
+    return False
 
 
 def list_plugins_data(kind: str) -> list[PluginInfo]:
@@ -37,11 +66,13 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
         raise HTTPException(status_code=500, detail="Failed to list plugins")
 
     installed = json.loads(result.stdout)
-    matched = [p for p in installed if p["name"].startswith(prefix) and not p["name"].endswith("-core")]
+    matched = [p for p in installed if p["name"].startswith(prefix)]
 
     items = []
     for p in sorted(matched, key=lambda x: x["name"]):
         short_name = p["name"].removeprefix(prefix)
+        if _is_internal(kind, short_name):
+            continue
         sig_status = check_signature(p["name"], p["version"])
         desc = _plugin_description(kind, short_name)
         cmds = _plugin_commands(kind, short_name)
@@ -111,8 +142,8 @@ def install_plugin(
     public_key_path: Path = PUBLIC_KEY_PATH,
     skip_verify: bool = False,
 ) -> InstallResult:
-    if name == "core":
-        return InstallResult(name=name, ok=False, message=f"shenas-{kind}-core is an internal plugin")
+    if _is_internal(kind, name):
+        return InstallResult(name=name, ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
 
     prefix = PREFIXES[kind]
     pkg_name = f"{prefix}{name}"
@@ -142,8 +173,8 @@ def install_plugin(
 def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
     import sys
 
-    if name == "core":
-        return RemoveResponse(ok=False, message=f"shenas-{kind}-core is an internal plugin")
+    if _is_internal(kind, name):
+        return RemoveResponse(ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
 
     pkg_name = f"{PREFIXES[kind]}{name}"
     result = subprocess.run(["uv", "pip", "uninstall", pkg_name, "--python", sys.executable], capture_output=True, text=True)
@@ -191,7 +222,7 @@ def _plugin_description(kind: str, name: str) -> str:
     """
     prefix = PREFIXES[kind]
     pkg_name = f"{prefix}{name}"
-    namespace = {"pipe": "shenas_pipes", "schema": "shenas_schemas", "component": "shenas_components", "ui": "shenas_ui"}[kind]
+    namespace = NAMESPACES[kind]
 
     for attr in ("PIPE_DESCRIPTION", "DESCRIPTION"):
         for mod_suffix in ("cli", ""):

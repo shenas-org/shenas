@@ -19,6 +19,7 @@ except Exception:
 
 SCHEMA = {
     "name": "fitness",
+    "description": "Canonical fitness metrics: HRV, sleep, vitals, body composition",
     "version": _version,
     "tables": CANONICAL_TABLES,
 }
