@@ -28,7 +28,9 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="shenas", docs_url=None, redoc_url=None, lifespan=_lifespan)
-app.state.ui_name = "default"  # overridden by server_cli.py
+import os as _os  # noqa: E402
+
+app.state.ui_name = _os.environ.get("SHENAS_UI", "default")
 app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")
 _vendor_dir = _Path(__file__).parent.parent / "vendor" / "dist"
 if _vendor_dir.is_dir():
