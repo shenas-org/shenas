@@ -26,7 +26,7 @@
     <shenas-app api-base="/api"></shenas-app>
     <script type="module" src="/ui/default/default.js"></script>
     <script>
-      if ("serviceWorker" in navigator) {
+      if ("serviceWorker" in navigator && location.hostname !== "127.0.0.1" && location.hostname !== "localhost") {
         navigator.serviceWorker.register("/static/sw.js");
       }
     </script>

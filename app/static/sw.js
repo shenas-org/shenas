@@ -1,4 +1,4 @@
-const CACHE_NAME = "shenas-v1";
+const CACHE_NAME = "shenas-v2";
 const PRECACHE = ["/", "/static/images/shenas.png", "/static/manifest.json"];
 
 self.addEventListener("install", (event) => {
