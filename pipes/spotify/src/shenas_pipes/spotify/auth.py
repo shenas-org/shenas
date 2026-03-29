@@ -1,8 +1,7 @@
 """Spotify OAuth2 token management via OS keyring.
 
-Auth flow uses spotipy's SpotifyOAuth with a local redirect server.
-The user creates an app at https://developer.spotify.com/dashboard
-and provides client_id + client_secret.
+Uses PKCE (Proof Key for Code Exchange) flow which allows http://localhost
+redirect URIs. No client secret needed -- only a client ID.
 """
 
 from __future__ import annotations
@@ -12,7 +11,7 @@ import threading
 from typing import Any
 
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyPKCE
 
 KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "spotify_tokens"
@@ -21,15 +20,15 @@ SCOPES = "user-read-recently-played user-top-read user-library-read"
 
 AUTH_FIELDS: list[dict[str, str | bool]] = [
     {"name": "client_id", "prompt": "Client ID", "hide": False},
-    {"name": "client_secret", "prompt": "Client secret", "hide": True},
 ]
 
 AUTH_INSTRUCTIONS = (
     "Spotify requires an API application for OAuth2 access.\n"
     "\n"
     "  1. Go to https://developer.spotify.com/dashboard\n"
-    "  2. Create an app (set Redirect URI to http://localhost:8090/callback)\n"
-    "  3. Enter the Client ID and Client Secret below"
+    "  2. Create an app (select 'Web API')\n"
+    "  3. Add Redirect URI: http://localhost:8090/callback\n"
+    "  4. Enter the Client ID below"
 )
 
 # Pending auth state for the two-step REST flow
@@ -66,9 +65,8 @@ def build_client() -> spotipy.Spotify:
     if not tokens or "access_token" not in tokens:
         raise RuntimeError("No Spotify tokens found. Run 'shenasctl pipe spotify auth' first.")
 
-    oauth = SpotifyOAuth(
+    pkce = SpotifyPKCE(
         client_id=tokens["client_id"],
-        client_secret=tokens["client_secret"],
         redirect_uri=REDIRECT_URI,
         scope=SCOPES,
     )
@@ -81,9 +79,8 @@ def build_client() -> spotipy.Spotify:
         "scope": SCOPES,
     }
 
-    # Refresh if expired
-    if oauth.is_token_expired(token_info):
-        token_info = oauth.refresh_access_token(tokens["refresh_token"])
+    if pkce.is_token_expired(token_info):
+        token_info = pkce.refresh_access_token(tokens["refresh_token"])
         _store_tokens(
             {
                 **tokens,
@@ -97,9 +94,9 @@ def build_client() -> spotipy.Spotify:
 
 
 def authenticate(credentials: dict[str, str]) -> None:
-    """Run the Spotify OAuth2 flow.
+    """Run the Spotify OAuth2 PKCE flow.
 
-    Step 1: Start the spotipy auth flow in a background thread,
+    Step 1: Start a callback server in a background thread,
     raise ValueError("OAUTH_URL:...") so the REST API returns the URL.
 
     Step 2 (auth_complete): Wait for the background thread to finish.
@@ -115,20 +112,18 @@ def authenticate(credentials: dict[str, str]) -> None:
         return
 
     client_id = (credentials.get("client_id") or "").strip()
-    client_secret = (credentials.get("client_secret") or "").strip()
 
-    if not client_id or not client_secret:
-        raise ValueError("client_id and client_secret are required")
+    if not client_id:
+        raise ValueError("client_id is required")
 
-    oauth = SpotifyOAuth(
+    pkce = SpotifyPKCE(
         client_id=client_id,
-        client_secret=client_secret,
         redirect_uri=REDIRECT_URI,
         scope=SCOPES,
         open_browser=False,
     )
 
-    auth_url = oauth.get_authorize_url()
+    auth_url = pkce.get_authorize_url()
     state: dict[str, Any] = {}
 
     def _run_flow() -> None:
@@ -167,14 +162,13 @@ def authenticate(credentials: dict[str, str]) -> None:
                 state["error"] = "Authorization timed out"
                 return
 
-            token_info = oauth.get_access_token(code_result["code"])
+            token_info = pkce.get_access_token(code_result["code"])
             _store_tokens(
                 {
                     "access_token": token_info["access_token"],
                     "refresh_token": token_info["refresh_token"],
                     "expires_at": token_info["expires_at"],
                     "client_id": client_id,
-                    "client_secret": client_secret,
                 }
             )
         except Exception as exc:
