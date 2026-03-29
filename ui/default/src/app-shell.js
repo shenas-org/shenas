@@ -107,6 +107,11 @@ class ShenasApp extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._fetchData();
+    this.addEventListener("plugin-state-changed", () => this._refreshComponents());
+  }
+
+  async _refreshComponents() {
+    this._components = (await this._fetch("/components")) || [];
   }
 
   async _fetchData() {

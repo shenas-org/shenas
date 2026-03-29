@@ -180,6 +180,7 @@ class PluginDetail extends LitElement {
       text: data.message || `${action} failed`,
     };
     await this._fetchInfo();
+    this.dispatchEvent(new CustomEvent("plugin-state-changed", { bubbles: true, composed: true }));
   }
 
   async _remove() {
