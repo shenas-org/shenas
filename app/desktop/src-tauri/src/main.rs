@@ -34,7 +34,7 @@ fn start_server() -> Child {
     let root = workspace_root();
     eprintln!("Starting shenas server from: {}", root.display());
     Command::new("uv")
-        .args(["run", "--no-sync", "shenas", "serve", "--no-tls"])
+        .args(["run", "--no-sync", "shenas", "--no-tls"])
         .current_dir(&root)
         .spawn()
         .expect("Failed to start shenas server. Is uv and shenas-app installed?")
