@@ -16,6 +16,7 @@ members = [
     "shenas-component-data-table",
     "shenas-component-fitness-dashboard",
     "shenas-pipe-core",
+    "shenas-pipe-duolingo",
     "shenas-pipe-garmin",
     "shenas-pipe-gcalendar",
     "shenas-pipe-gmail",
@@ -2008,6 +2009,24 @@ requires-dist = [
 ]
 
 [[package]]
+name = "shenas-pipe-duolingo"
+source = { editable = "pipes/duolingo" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "httpx" },
+    { name = "pendulum" },
+    { name = "shenas-pipe-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pendulum", specifier = ">=3.0.0" },
+    { name = "shenas-pipe-core", editable = "pipes/core" },
+]
+
+[[package]]
 name = "shenas-pipe-garmin"
 source = { editable = "pipes/garmin" }
 dependencies = [
@@ -2180,6 +2199,7 @@ dev = [
     { name = "shenas-app" },
     { name = "shenas-component-data-table" },
     { name = "shenas-component-fitness-dashboard" },
+    { name = "shenas-pipe-duolingo" },
     { name = "shenas-pipe-garmin" },
     { name = "shenas-pipe-gcalendar" },
     { name = "shenas-pipe-gmail" },
@@ -2204,6 +2224,7 @@ dev = [
     { name = "shenas-app", editable = "app" },
     { name = "shenas-component-data-table", editable = "components/data-table" },
     { name = "shenas-component-fitness-dashboard", editable = "components/fitness-dashboard" },
+    { name = "shenas-pipe-duolingo", editable = "pipes/duolingo" },
     { name = "shenas-pipe-garmin", editable = "pipes/garmin" },
     { name = "shenas-pipe-gcalendar", editable = "pipes/gcalendar" },
     { name = "shenas-pipe-gmail", editable = "pipes/gmail" },

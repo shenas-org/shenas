@@ -1,0 +1,9 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'pipe-duolingo'
+
+language: 'python'
+stack: 'data'
+tags: ['pipe']
+
+dependsOn:
+  - 'pipe-core'
