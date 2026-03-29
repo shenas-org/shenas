@@ -18,6 +18,21 @@ def _default(ctx: typer.Context) -> None:
         raise typer.Exit()
 
 
+@app.command("seed")
+def seed_cmd() -> None:
+    """Seed default transforms for all installed pipes."""
+    try:
+        result = ShenasClient()._request("POST", "/api/transforms/seed")
+    except ShenasServerError as exc:
+        console.print(f"[red]{exc.detail}[/red]")
+        raise typer.Exit(code=1)
+    seeded = result.get("seeded", [])
+    if seeded:
+        console.print(f"[green]Seeded defaults for: {', '.join(seeded)}[/green]")
+    else:
+        console.print("[dim]All defaults already seeded[/dim]")
+
+
 @app.command("list")
 def list_cmd(
     source: str = typer.Option("", "--source", help="Filter by source plugin"),

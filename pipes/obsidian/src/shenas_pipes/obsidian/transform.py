@@ -1,40 +1,22 @@
-import duckdb
+"""Obsidian default transforms -- seeded into shenas_system.transforms on first sync."""
 
-from shenas_pipes.core.transform import MetricProviderBase
+from __future__ import annotations
 
-
-class ObsidianMetricProvider(MetricProviderBase):
-    source = "obsidian"
-
-    def transform(self, con: duckdb.DuckDBPyConnection) -> None:
-        self._daily_outcomes(con)
-
-    def _daily_outcomes(self, con: duckdb.DuckDBPyConnection) -> None:
-        self._upsert(
-            con,
-            "daily_outcomes",
-            """
-            INSERT INTO metrics.daily_outcomes
-                (date, source, mood, stress, productivity, exercise, friends, family,
-                 partner, learning, career, rosacea, left_ankle)
-            SELECT
-                date::DATE,
-                'obsidian',
-                mood,
-                stress,
-                COALESCE(productivity, productive),
-                CASE WHEN exercise__v_bool IS NOT NULL
-                     THEN CASE WHEN exercise__v_bool THEN 1 ELSE 0 END
-                     ELSE exercise
-                END,
-                friends,
-                family,
-                partner,
-                learning,
-                career,
-                rosacea,
-                left_ankle
-            FROM obsidian.daily_notes
-            WHERE date IS NOT NULL
-            """,
-        )
+TRANSFORM_DEFAULTS = [
+    {
+        "source_duckdb_schema": "obsidian",
+        "source_duckdb_table": "daily_notes",
+        "target_duckdb_schema": "metrics",
+        "target_duckdb_table": "daily_outcomes",
+        "description": "Map Obsidian daily note frontmatter fields to daily outcomes metrics",
+        "sql": (
+            "SELECT date::DATE as date, 'obsidian' as source, "
+            "mood, stress, COALESCE(productivity, productive) as productivity, "
+            "CASE WHEN exercise__v_bool IS NOT NULL "
+            "THEN CASE WHEN exercise__v_bool THEN 1 ELSE 0 END "
+            "ELSE exercise END as exercise, "
+            "friends, family, partner, learning, career, rosacea, left_ankle "
+            "FROM obsidian.daily_notes WHERE date IS NOT NULL"
+        ),
+    },
+]

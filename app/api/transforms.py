@@ -12,6 +12,7 @@ from app.transforms import (
     delete_transform,
     get_transform,
     list_transforms,
+    seed_defaults,
     set_transform_enabled,
     test_transform,
     update_transform,
@@ -97,6 +98,36 @@ def disable(transform_id: int) -> dict[str, Any]:
     if not t:
         raise HTTPException(status_code=404, detail="Transform not found")
     return t
+
+
+@router.post("/seed")
+def seed_all_defaults() -> dict[str, Any]:
+    """Seed default transforms for all installed pipes that have TRANSFORM_DEFAULTS."""
+    import importlib
+    import json
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        raise HTTPException(status_code=500, detail="Failed to list packages")
+
+    seeded = []
+    for p in json.loads(result.stdout):
+        if not p["name"].startswith("shenas-pipe-") or p["name"].endswith("-core"):
+            continue
+        pipe_name = p["name"].removeprefix("shenas-pipe-")
+        try:
+            mod = importlib.import_module(f"shenas_pipes.{pipe_name}.transform")
+            defaults = getattr(mod, "TRANSFORM_DEFAULTS", None)
+            if defaults:
+                seed_defaults(pipe_name, defaults)
+                seeded.append(pipe_name)
+        except (ImportError, ModuleNotFoundError):
+            continue
+    return {"seeded": seeded, "count": len(seeded)}
 
 
 @router.post("/{transform_id}/test")

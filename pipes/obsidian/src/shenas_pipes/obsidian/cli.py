@@ -74,14 +74,17 @@ def sync(
 
     def _transform() -> None:
         from shenas_pipes.core.db import connect
-        from shenas_pipes.obsidian.transform import ObsidianMetricProvider
         from shenas_schemas.outcomes import ensure_schema
+
+        from app.transforms import run_transforms, seed_defaults
+        from shenas_pipes.obsidian.transform import TRANSFORM_DEFAULTS
 
         con = connect()
         ensure_schema(con)
-        provider = ObsidianMetricProvider()
+        seed_defaults("obsidian", TRANSFORM_DEFAULTS)
         console.print("Transforming obsidian...", style="dim")
-        provider.transform(con)
+        count = run_transforms(con, "obsidian")
+        console.print(f"[green]{count} transforms done[/green]")
         console.print("[green]done[/green]")
 
     run_sync("obsidian", "obsidian", [daily_notes(notes_folder)], full_refresh, _transform)
