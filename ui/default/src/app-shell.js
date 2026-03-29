@@ -19,7 +19,7 @@ class ShenasApp extends LitElement {
 
   _router = new Router(this, [
     { path: "/", render: () => this._renderDynamicHome() },
-    { path: "/settings", render: () => this._renderSettings("pipe") },
+    { path: "/settings", render: () => this._renderSettings("overview") },
     {
       path: "/settings/:kind",
       render: ({ kind }) => this._renderSettings(kind),
@@ -238,6 +238,7 @@ class ShenasApp extends LitElement {
     this._fetchData();
     this.addEventListener("plugin-state-changed", () => this._refreshComponents());
     this.addEventListener("inspect-table", (e) => this._inspect(e.detail.schema, e.detail.table));
+    this.addEventListener("navigate", (e) => this._router.goto(e.detail.path));
     this._keyHandler = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "p") {
         e.preventDefault();
