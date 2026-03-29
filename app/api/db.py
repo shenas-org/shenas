@@ -86,6 +86,17 @@ def db_status() -> DBStatusResponse:
     )
 
 
+@router.get("/tables")
+def db_tables() -> dict[str, list[str]]:
+    """Return schema -> table names mapping (excludes dlt internal tables)."""
+    try:
+        con = connect(read_only=True)
+        schemas = _discover_schemas(con)
+        return {s: [t for t in tables if not t.startswith("_dlt_")] for s, tables in schemas.items()}
+    except Exception:
+        return {}
+
+
 @router.post("/keygen")
 def db_keygen() -> OkResponse:
     """Generate a database encryption key and store it in the OS keyring."""

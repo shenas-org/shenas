@@ -12,6 +12,7 @@ class TransformsPage extends LitElement {
     _previewRows: { state: true },
     _creating: { state: true },
     _newForm: { state: true },
+    _dbTables: { state: true },
   };
 
   static styles = css`
@@ -149,7 +150,8 @@ class TransformsPage extends LitElement {
       flex-direction: column;
       gap: 0.2rem;
     }
-    .form-grid input {
+    .form-grid input,
+    .form-grid select {
       padding: 0.35rem 0.5rem;
       border: 1px solid #ddd;
       border-radius: 4px;
@@ -176,6 +178,7 @@ class TransformsPage extends LitElement {
     this._previewRows = null;
     this._creating = false;
     this._newForm = this._emptyForm();
+    this._dbTables = {};
   }
 
   _emptyForm() {
@@ -254,11 +257,13 @@ class TransformsPage extends LitElement {
     }
   }
 
-  _startCreate() {
+  async _startCreate() {
     this._creating = true;
     this._newForm = this._emptyForm();
     this._editing = null;
     this._previewRows = null;
+    const resp = await fetch(`${this.apiBase}/db/tables`);
+    this._dbTables = resp.ok ? await resp.json() : {};
   }
 
   _cancelCreate() {
@@ -389,37 +394,49 @@ class TransformsPage extends LitElement {
 
   _renderCreateForm() {
     const f = this._newForm;
+    const pipe = this.source;
+    const sourceTables = this._dbTables[pipe] || [];
+    const targetSchemas = Object.keys(this._dbTables).filter((s) => s !== pipe && s !== "shenas_system");
+    const targetTables = f.target_duckdb_schema ? this._dbTables[f.target_duckdb_schema] || [] : [];
     return html`
       <div class="edit-panel">
         <h3>New transform</h3>
         <div class="form-grid">
           <label>
-            Source schema
-            <input
-              .value=${f.source_duckdb_schema}
-              @input=${(e) => this._updateNewForm("source_duckdb_schema", e.target.value)}
-            />
+            Pipe
+            <input .value=${pipe} readonly class="readonly" />
           </label>
           <label>
-            Source table
-            <input
+            Pipe table
+            <select
               .value=${f.source_duckdb_table}
-              @input=${(e) => this._updateNewForm("source_duckdb_table", e.target.value)}
-            />
+              @change=${(e) => this._updateNewForm("source_duckdb_table", e.target.value)}
+            >
+              <option value="">-- select --</option>
+              ${sourceTables.map((t) => html`<option value=${t} ?selected=${f.source_duckdb_table === t}>${t}</option>`)}
+            </select>
           </label>
           <label>
-            Target schema
-            <input
+            Schema
+            <select
               .value=${f.target_duckdb_schema}
-              @input=${(e) => this._updateNewForm("target_duckdb_schema", e.target.value)}
-            />
+              @change=${(e) => {
+                this._newForm = { ...this._newForm, target_duckdb_schema: e.target.value, target_duckdb_table: "" };
+              }}
+            >
+              <option value="">-- select --</option>
+              ${targetSchemas.map((s) => html`<option value=${s} ?selected=${f.target_duckdb_schema === s}>${s}</option>`)}
+            </select>
           </label>
           <label>
-            Target table
-            <input
+            Schema table
+            <select
               .value=${f.target_duckdb_table}
-              @input=${(e) => this._updateNewForm("target_duckdb_table", e.target.value)}
-            />
+              @change=${(e) => this._updateNewForm("target_duckdb_table", e.target.value)}
+            >
+              <option value="">-- select --</option>
+              ${targetTables.map((t) => html`<option value=${t} ?selected=${f.target_duckdb_table === t}>${t}</option>`)}
+            </select>
           </label>
           <label class="form-full">
             Description
@@ -432,7 +449,7 @@ class TransformsPage extends LitElement {
         <textarea
           .value=${f.sql}
           @input=${(e) => this._updateNewForm("sql", e.target.value)}
-          placeholder="SELECT ... FROM ${f.source_duckdb_schema || this.source}.${f.source_duckdb_table || "table_name"}"
+          placeholder="SELECT ... FROM ${pipe}.${f.source_duckdb_table || "table_name"}"
         ></textarea>
         <div class="edit-actions">
           <button @click=${this._saveCreate}>Create</button>
