@@ -1,0 +1,9 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'schema-habits'
+
+language: 'python'
+stack: 'data'
+tags: ['schema']
+
+dependsOn:
+  - 'schema-core'
