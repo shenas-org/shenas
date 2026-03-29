@@ -86,29 +86,6 @@ class PluginDetail extends LitElement {
         letter-spacing: 0.05em;
         margin: 1.5rem 0 0.5rem;
       }
-      .resource-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        padding: 0.3rem 0;
-        border-bottom: 1px solid #f5f5f5;
-        font-size: 0.85rem;
-      }
-      .resource-row:last-child {
-        border-bottom: none;
-      }
-      .resource-name {
-        font-family: monospace;
-        color: #333;
-      }
-      .resource-stats {
-        color: #888;
-        font-size: 0.8rem;
-      }
-      .resource-range {
-        font-size: 0.75rem;
-        color: #aaa;
-      }
     `,
   ];
 
@@ -257,17 +234,18 @@ class PluginDetail extends LitElement {
         ${this._stateRow("Status changed", info.status_changed_at)}
       </div>
 
-      ${this.kind === "pipe" && this._tables.length > 0
+      ${this.kind === "pipe"
         ? html`
           <h4 class="section-title">Resources</h4>
-          ${this._tables.map((t) => html`
-            <div class="resource-row">
-              <span class="resource-name">${t.name}</span>
-              <span class="resource-stats">
-                ${t.rows} rows${t.earliest ? html` <span class="resource-range">${t.earliest} - ${t.latest}</span>` : ""}
-              </span>
-            </div>
-          `)}`
+          <shenas-data-list
+            .columns=${[
+              { key: "name", label: "Table", class: "mono" },
+              { key: "rows", label: "Rows", class: "muted" },
+              { label: "Range", class: "muted", render: (t) => t.earliest ? `${t.earliest} - ${t.latest}` : "" },
+            ]}
+            .rows=${this._tables}
+            empty-text="No tables synced yet"
+          ></shenas-data-list>`
         : ""}
 
       ${this.kind === "pipe"
