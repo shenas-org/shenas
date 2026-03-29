@@ -8,6 +8,7 @@ class ShenasApp extends LitElement {
     _components: { state: true },
     _loading: { state: true },
     _activeTab: { state: true },
+    _loadedScripts: { state: true },
   };
 
   static styles = css`
@@ -115,6 +116,9 @@ class ShenasApp extends LitElement {
       color: #888;
       padding: 1rem 0;
     }
+    .component-host {
+      margin-top: 1rem;
+    }
   `;
 
   constructor() {
@@ -125,6 +129,7 @@ class ShenasApp extends LitElement {
     this._components = [];
     this._loading = true;
     this._activeTab = "database";
+    this._loadedScripts = new Set();
   }
 
   connectedCallback() {
@@ -138,7 +143,7 @@ class ShenasApp extends LitElement {
       const [pipes, db, components] = await Promise.all([
         this._fetch("/plugins/pipe"),
         this._fetch("/db/status"),
-        this._fetch("/plugins/component"),
+        this._fetch("/components"),
       ]);
       this._pipes = pipes || [];
       this._dbStatus = db;
@@ -157,6 +162,15 @@ class ShenasApp extends LitElement {
 
   _selectTab(tab) {
     this._activeTab = tab;
+    // Lazy-load the component's JS when its tab is first selected
+    const comp = this._components.find((c) => c.name === tab);
+    if (comp && !this._loadedScripts.has(comp.js)) {
+      this._loadedScripts = new Set([...this._loadedScripts, comp.js]);
+      const script = document.createElement("script");
+      script.type = "module";
+      script.src = comp.js;
+      document.head.appendChild(script);
+    }
   }
 
   render() {
@@ -173,12 +187,12 @@ class ShenasApp extends LitElement {
       <div class="tabs" role="tablist">
         ${this._renderTab("database", "Database")}
         ${this._renderTab("pipes", "Pipes")}
-        ${this._renderTab("components", "Components")}
+        ${this._components.map((c) => this._renderTab(c.name, c.name))}
       </div>
 
       ${this._activeTab === "database" ? this._renderDb() : ""}
       ${this._activeTab === "pipes" ? this._renderPipes() : ""}
-      ${this._activeTab === "components" ? this._renderComponents() : ""}
+      ${this._renderComponentTab()}
     `;
   }
 
@@ -193,6 +207,20 @@ class ShenasApp extends LitElement {
         ${label}
       </button>
     `;
+  }
+
+  _renderComponentTab() {
+    const comp = this._components.find((c) => c.name === this._activeTab);
+    if (!comp) return html``;
+    return html`
+      <div class="component-host">${this._createComponentElement(comp)}</div>
+    `;
+  }
+
+  _createComponentElement(comp) {
+    const el = document.createElement(comp.tag);
+    el.setAttribute("api-base", this.apiBase);
+    return el;
   }
 
   _renderDb() {
@@ -237,31 +265,6 @@ class ShenasApp extends LitElement {
               <div class="meta">${p.version}</div>
               ${p.description
                 ? html`<div class="desc">${p.description}</div>`
-                : ""}
-            </div>
-          `,
-        )}
-      </div>
-    `;
-  }
-
-  _renderComponents() {
-    if (this._components.length === 0) {
-      return html`<p class="empty">No components installed</p>`;
-    }
-    return html`
-      <div class="cards">
-        ${this._components.map(
-          (c) => html`
-            <div class="card">
-              <h3>
-                <a href="/components/${c.name}/${c.html || "index.html"}"
-                  >${c.name}</a
-                >
-              </h3>
-              <div class="meta">${c.version}</div>
-              ${c.description
-                ? html`<div class="desc">${c.description}</div>`
                 : ""}
             </div>
           `,

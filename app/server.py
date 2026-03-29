@@ -104,6 +104,21 @@ def _serve_ui_html() -> HTMLResponse:
     return HTMLResponse(content=_FALLBACK_HTML.format(ui_name=app.state.ui_name))
 
 
+@app.get("/api/components")
+def list_component_metadata() -> list[dict[str, str]]:
+    """Return component metadata needed by the UI shell (tag, entrypoint, JS URL)."""
+    components = _discover_plugins("shenas.components")
+    return [
+        {
+            "name": c["name"],
+            "tag": c.get("tag", f"shenas-{c['name']}"),
+            "js": f"/components/{c['name']}/{c.get('entrypoint', c['name'] + '.js')}",
+            "description": c.get("description", ""),
+        }
+        for c in components
+    ]
+
+
 @app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
     """Serve the active UI plugin as the app shell."""
