@@ -10,20 +10,21 @@ import sys
 from fastapi import APIRouter
 
 from app.cli.commands.pkg import check_signature
+from app.models import PipeCommand, PipeInfo, PipeOption
 
 router = APIRouter(prefix="/pipes", tags=["pipes"])
 
 PIPE_PREFIX = "shenas-pipe-"
 
 SYNC_OPTIONS = [
-    {"name": "start_date", "default": "30 days ago", "help": "Start date (YYYY-MM-DD or 'N days ago')"},
-    {"name": "full_refresh", "default": False, "help": "Drop and re-download all data"},
+    PipeOption(name="start_date", default="30 days ago", help="Start date (YYYY-MM-DD or 'N days ago')"),
+    PipeOption(name="full_refresh", default=False, help="Drop and re-download all data"),
 ]
 
 
-def _pipe_commands(name: str) -> list[dict[str, object]]:
+def _pipe_commands(name: str) -> list[PipeCommand]:
     """Detect available commands for a pipe by inspecting its modules."""
-    commands: list[dict[str, object]] = [{"name": "sync", "options": SYNC_OPTIONS}]
+    commands: list[PipeCommand] = [PipeCommand(name="sync", options=SYNC_OPTIONS)]
 
     # Check if pipe has auth (AUTH_FIELDS in auth module)
     try:
@@ -34,7 +35,7 @@ def _pipe_commands(name: str) -> list[dict[str, object]]:
         auth_mod = importlib.import_module(f"shenas_pipes.{name}.auth")
         fields = getattr(auth_mod, "AUTH_FIELDS", None)
         if fields is not None:
-            commands.append({"name": "auth", "options": []})
+            commands.append(PipeCommand(name="auth", options=[]))
     except (ImportError, ModuleNotFoundError):
         pass
 
@@ -45,7 +46,7 @@ def _pipe_commands(name: str) -> list[dict[str, object]]:
         for attr_name in dir(config_mod):
             cls = getattr(config_mod, attr_name)
             if hasattr(cls, "__table__") and isinstance(cls.__table__, str):
-                commands.append({"name": "config", "options": []})
+                commands.append(PipeCommand(name="config", options=[]))
                 break
     except (ImportError, ModuleNotFoundError):
         pass
@@ -54,7 +55,7 @@ def _pipe_commands(name: str) -> list[dict[str, object]]:
 
 
 @router.get("")
-def list_pipes() -> list[dict[str, object]]:
+def list_pipes() -> list[PipeInfo]:
     """List installed pipes with their available commands."""
     result = subprocess.run(
         ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
@@ -69,5 +70,5 @@ def list_pipes() -> list[dict[str, object]]:
             name = p["name"].removeprefix(PIPE_PREFIX)
             sig = check_signature(p["name"], p["version"])
             commands = _pipe_commands(name)
-            pipes.append({"name": name, "version": p["version"], "signature": sig, "commands": commands})
+            pipes.append(PipeInfo(name=name, version=p["version"], signature=sig, commands=commands))
     return pipes

@@ -12,17 +12,12 @@ from collections.abc import Iterator
 import typer
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+
+from app.models import SyncRequest
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
 PIPE_PREFIX = "shenas-pipe-"
-
-
-class SyncRequest(BaseModel):
-    start_date: str | None = None
-    full_refresh: bool = False
-    extra: dict[str, str | int | bool] = {}
 
 
 def _sse_event(event: str, data: dict[str, str]) -> str:

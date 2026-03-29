@@ -6,13 +6,14 @@ import duckdb
 from fastapi import APIRouter, Response
 
 from app.db import connect
+from app.models import HealthResponse
 
 router = APIRouter()
 
 
 @router.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> HealthResponse:
+    return HealthResponse(status="ok")
 
 
 @router.get("/tables")

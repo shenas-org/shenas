@@ -8,6 +8,7 @@ import duckdb
 from fastapi import APIRouter
 
 from app.db import DB_PATH, connect
+from app.models import DBStatusResponse, OkResponse, SchemaInfo, TableStats
 
 router = APIRouter(prefix="/db", tags=["db"])
 
@@ -25,7 +26,7 @@ def _discover_schemas(con: duckdb.DuckDBPyConnection) -> dict[str, list[str]]:
     return schemas
 
 
-def _table_stats(con: duckdb.DuckDBPyConnection, schema: str, name: str) -> dict[str, object]:
+def _table_stats(con: duckdb.DuckDBPyConnection, schema: str, name: str) -> TableStats:
     qualified = f"{schema}.{name}"
     row = con.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()
     rows = row[0] if row else 0
@@ -42,11 +43,11 @@ def _table_stats(con: duckdb.DuckDBPyConnection, schema: str, name: str) -> dict
             break
         except duckdb.Error:
             continue
-    return {"name": name, "rows": rows, "earliest": earliest, "latest": latest, "cols": cols}
+    return TableStats(name=name, rows=rows, earliest=earliest, latest=latest, cols=cols)
 
 
 @router.get("/status")
-def db_status() -> dict[str, object]:
+def db_status() -> DBStatusResponse:
     # Key source
     if os.environ.get("SHENAS_DB_KEY"):
         key_source = "env"
@@ -61,7 +62,7 @@ def db_status() -> dict[str, object]:
 
     db_path = str(DB_PATH)
     size_mb = None
-    schemas_data: list[dict] = []
+    schemas_data: list[SchemaInfo] = []
 
     if DB_PATH.exists():
         size_mb = round(DB_PATH.stat().st_size / (1024 * 1024), 1)
@@ -73,23 +74,23 @@ def db_status() -> dict[str, object]:
                 for name in tables:
                     if not name.startswith("_dlt_"):
                         table_list.append(_table_stats(con, schema_name, name))
-                schemas_data.append({"name": schema_name, "tables": table_list})
+                schemas_data.append(SchemaInfo(name=schema_name, tables=table_list))
         except Exception:
             pass
 
-    return {
-        "key_source": key_source,
-        "db_path": db_path,
-        "size_mb": size_mb,
-        "schemas": schemas_data,
-    }
+    return DBStatusResponse(
+        key_source=key_source,
+        db_path=db_path,
+        size_mb=size_mb,
+        schemas=schemas_data,
+    )
 
 
 @router.post("/keygen")
-def db_keygen() -> dict[str, bool]:
+def db_keygen() -> OkResponse:
     """Generate a database encryption key and store it in the OS keyring."""
     from app.db import generate_db_key, set_db_key
 
     key = generate_db_key()
     set_db_key(key)
-    return {"ok": True}
+    return OkResponse(ok=True)
