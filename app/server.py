@@ -104,7 +104,7 @@ def index() -> HTMLResponse:
       <li>GET /api/query?sql=... — returns Arrow IPC stream</li>
       <li><a href="/api/config">GET /api/config</a> — list config entries</li>
       <li><a href="/api/db/status">GET /api/db/status</a> — database status</li>
-      <li>GET /api/packages/{{kind}} — list installed packages</li>
+      <li>GET /api/plugins/{{kind}} — list installed plugins</li>
       <li>POST /api/sync — sync all pipes (SSE)</li>
     </ul>
   </body>

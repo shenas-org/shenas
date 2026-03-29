@@ -1,4 +1,4 @@
-"""Tests for the package management API endpoints."""
+"""Tests for the plugin management API endpoints."""
 
 import json
 from unittest.mock import MagicMock, patch
@@ -10,7 +10,7 @@ from app.server import app
 client = TestClient(app)
 
 
-class TestListPackages:
+class TestListPlugins:
     def test_list_pipes(self) -> None:
         fake_output = json.dumps(
             [
@@ -22,10 +22,10 @@ class TestListPackages:
         )
         mock_result = MagicMock(returncode=0, stdout=fake_output)
         with (
-            patch("app.api.packages.subprocess.run", return_value=mock_result),
-            patch("app.api.packages.check_signature", return_value="no key"),
+            patch("app.api.plugins.subprocess.run", return_value=mock_result),
+            patch("app.api.plugins.check_signature", return_value="no key"),
         ):
-            resp = client.get("/api/packages/pipe")
+            resp = client.get("/api/plugins/pipe")
 
         assert resp.status_code == 200
         data = resp.json()
@@ -45,10 +45,10 @@ class TestListPackages:
         )
         mock_result = MagicMock(returncode=0, stdout=fake_output)
         with (
-            patch("app.api.packages.subprocess.run", return_value=mock_result),
-            patch("app.api.packages.check_signature", return_value="unsigned"),
+            patch("app.api.plugins.subprocess.run", return_value=mock_result),
+            patch("app.api.plugins.check_signature", return_value="unsigned"),
         ):
-            resp = client.get("/api/packages/schema")
+            resp = client.get("/api/plugins/schema")
 
         assert resp.status_code == 200
         data = resp.json()
@@ -58,29 +58,29 @@ class TestListPackages:
 
     def test_list_empty(self) -> None:
         mock_result = MagicMock(returncode=0, stdout="[]")
-        with patch("app.api.packages.subprocess.run", return_value=mock_result):
-            resp = client.get("/api/packages/component")
+        with patch("app.api.plugins.subprocess.run", return_value=mock_result):
+            resp = client.get("/api/plugins/component")
 
         assert resp.status_code == 200
         assert resp.json() == []
 
     def test_list_invalid_kind(self) -> None:
-        resp = client.get("/api/packages/invalid")
+        resp = client.get("/api/plugins/invalid")
         assert resp.status_code == 400
         assert "Invalid kind" in resp.json()["detail"]
 
     def test_list_subprocess_failure(self) -> None:
         mock_result = MagicMock(returncode=1)
-        with patch("app.api.packages.subprocess.run", return_value=mock_result):
-            resp = client.get("/api/packages/pipe")
+        with patch("app.api.plugins.subprocess.run", return_value=mock_result):
+            resp = client.get("/api/plugins/pipe")
         assert resp.status_code == 500
 
 
-class TestInstallPackage:
+class TestInstallPlugin:
     def test_install_skip_verify(self) -> None:
         mock_result = MagicMock(returncode=0, stdout="ok")
-        with patch("app.api.packages.subprocess.run", return_value=mock_result):
-            resp = client.post("/api/packages/pipe", json={"names": ["garmin"], "skip_verify": True})
+        with patch("app.api.plugins.subprocess.run", return_value=mock_result):
+            resp = client.post("/api/plugins/pipe", json={"names": ["garmin"], "skip_verify": True})
 
         assert resp.status_code == 200
         results = resp.json()["results"]
@@ -89,16 +89,16 @@ class TestInstallPackage:
         assert "shenas-pipe-garmin" in results[0]["message"]
 
     def test_install_core_rejected(self) -> None:
-        resp = client.post("/api/packages/pipe", json={"names": ["core"], "skip_verify": True})
+        resp = client.post("/api/plugins/pipe", json={"names": ["core"], "skip_verify": True})
         assert resp.status_code == 200
         results = resp.json()["results"]
         assert results[0]["ok"] is False
-        assert "internal package" in results[0]["message"]
+        assert "internal plugin" in results[0]["message"]
 
     def test_install_multiple(self) -> None:
         mock_result = MagicMock(returncode=0, stdout="ok")
-        with patch("app.api.packages.subprocess.run", return_value=mock_result):
-            resp = client.post("/api/packages/schema", json={"names": ["fitness", "finance"], "skip_verify": True})
+        with patch("app.api.plugins.subprocess.run", return_value=mock_result):
+            resp = client.post("/api/plugins/schema", json={"names": ["fitness", "finance"], "skip_verify": True})
 
         results = resp.json()["results"]
         assert len(results) == 2
@@ -106,39 +106,39 @@ class TestInstallPackage:
 
     def test_install_failure(self) -> None:
         mock_result = MagicMock(returncode=1, stderr="not found")
-        with patch("app.api.packages.subprocess.run", return_value=mock_result):
-            resp = client.post("/api/packages/pipe", json={"names": ["nonexistent"], "skip_verify": True})
+        with patch("app.api.plugins.subprocess.run", return_value=mock_result):
+            resp = client.post("/api/plugins/pipe", json={"names": ["nonexistent"], "skip_verify": True})
 
         results = resp.json()["results"]
         assert results[0]["ok"] is False
 
     def test_install_invalid_kind(self) -> None:
-        resp = client.post("/api/packages/invalid", json={"names": ["test"]})
+        resp = client.post("/api/plugins/invalid", json={"names": ["test"]})
         assert resp.status_code == 400
 
 
-class TestUninstallPackage:
+class TestUninstallPlugin:
     def test_uninstall_success(self) -> None:
         mock_result = MagicMock(returncode=0, stdout="ok")
-        with patch("app.api.packages.subprocess.run", return_value=mock_result):
-            resp = client.delete("/api/packages/pipe/garmin")
+        with patch("app.api.plugins.subprocess.run", return_value=mock_result):
+            resp = client.delete("/api/plugins/pipe/garmin")
 
         assert resp.status_code == 200
         assert resp.json()["ok"] is True
 
     def test_uninstall_core_rejected(self) -> None:
-        resp = client.delete("/api/packages/pipe/core")
+        resp = client.delete("/api/plugins/pipe/core")
         assert resp.status_code == 200
         assert resp.json()["ok"] is False
-        assert "internal package" in resp.json()["message"]
+        assert "internal plugin" in resp.json()["message"]
 
     def test_uninstall_failure(self) -> None:
         mock_result = MagicMock(returncode=1, stderr="not installed")
-        with patch("app.api.packages.subprocess.run", return_value=mock_result):
-            resp = client.delete("/api/packages/pipe/nonexistent")
+        with patch("app.api.plugins.subprocess.run", return_value=mock_result):
+            resp = client.delete("/api/plugins/pipe/nonexistent")
 
         assert resp.json()["ok"] is False
 
     def test_uninstall_invalid_kind(self) -> None:
-        resp = client.delete("/api/packages/invalid/test")
+        resp = client.delete("/api/plugins/invalid/test")
         assert resp.status_code == 400
