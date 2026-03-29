@@ -97,6 +97,31 @@ def db_tables() -> dict[str, list[str]]:
         return {}
 
 
+@router.get("/schema-tables")
+def schema_plugin_tables() -> dict[str, list[str]]:
+    """Return DuckDB schema -> tables for installed schema plugins.
+
+    Schema plugins define canonical tables (e.g. metrics.daily_hrv).
+    This endpoint introspects them to find the actual DuckDB schemas and tables.
+    """
+    from importlib.metadata import entry_points
+
+    result: dict[str, list[str]] = {}
+    for ep in entry_points(group="shenas.schemas"):
+        if ep.name == "core":
+            continue
+        try:
+            mod = ep.load()
+            tables = getattr(mod, "CANONICAL_TABLES", [])
+            if tables:
+                result.setdefault("metrics", []).extend(tables)
+        except Exception:
+            continue
+    for schema in result:
+        result[schema] = sorted(set(result[schema]))
+    return result
+
+
 @router.post("/keygen")
 def db_keygen() -> OkResponse:
     """Generate a database encryption key and store it in the OS keyring."""

@@ -262,13 +262,12 @@ class TransformsPage extends LitElement {
     this._newForm = this._emptyForm();
     this._editing = null;
     this._previewRows = null;
-    const [tablesResp, schemasResp] = await Promise.all([
+    const [tablesResp, schemaTablesResp] = await Promise.all([
       fetch(`${this.apiBase}/db/tables`),
-      fetch(`${this.apiBase}/plugins/schema`),
+      fetch(`${this.apiBase}/db/schema-tables`),
     ]);
     this._dbTables = tablesResp.ok ? await tablesResp.json() : {};
-    const schemaPlugins = schemasResp.ok ? await schemasResp.json() : [];
-    this._schemaNames = new Set(schemaPlugins.map((s) => s.name));
+    this._schemaTables = schemaTablesResp.ok ? await schemaTablesResp.json() : {};
   }
 
   _cancelCreate() {
@@ -401,8 +400,8 @@ class TransformsPage extends LitElement {
     const f = this._newForm;
     const pipe = this.source;
     const sourceTables = this._dbTables[pipe] || [];
-    const targetSchemas = Object.keys(this._dbTables).filter((s) => this._schemaNames?.has(s));
-    const targetTables = f.target_duckdb_schema ? this._dbTables[f.target_duckdb_schema] || [] : [];
+    const targetSchemas = Object.keys(this._schemaTables || {});
+    const targetTables = f.target_duckdb_schema ? this._schemaTables?.[f.target_duckdb_schema] || [] : [];
     return html`
       <div class="edit-panel">
         <h3>New transform</h3>
