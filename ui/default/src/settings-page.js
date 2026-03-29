@@ -187,7 +187,7 @@ class SettingsPage extends LitElement {
           <ul>
             <li>
               <a href="/settings/overview" aria-selected=${this.activeKind === "overview"}>
-                Overview
+                Data Flow
               </a>
             </li>
             ${PLUGIN_KINDS.map(

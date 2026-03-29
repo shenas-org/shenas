@@ -1,4 +1,4 @@
-var O=Object.defineProperty;var F=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):c[e]=t;var l=(c,e,t)=>F(c,typeof e!="symbol"?e+"":e,t);import{LitElement as m,css as d,html as a}from"lit";import R,{dagre as A}from"cytoscape";import{Router as L}from"@lit-labs/router";class w extends m{constructor(){super(),this.enabled=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return a``}}l(w,"properties",{enabled:{type:Boolean,reflect:!0}}),l(w,"styles",d`
+var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):c[e]=t;var l=(c,e,t)=>O(c,typeof e!="symbol"?e+"":e,t);import{LitElement as m,css as d,html as a}from"lit";import R,{dagre as A}from"cytoscape";import{Router as L}from"@lit-labs/router";class w extends m{constructor(){super(),this.enabled=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return a``}}l(w,"properties",{enabled:{type:Boolean,reflect:!0}}),l(w,"styles",d`
     :host {
       display: inline-block;
       width: 8px;
@@ -495,7 +495,7 @@ var O=Object.defineProperty;var F=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
           <ul>
             <li>
               <a href="/settings/overview" aria-selected=${this.activeKind==="overview"}>
-                Overview
+                Data Flow
               </a>
             </li>
             ${$.map(({id:e,label:t})=>a`
