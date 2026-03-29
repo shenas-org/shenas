@@ -10,6 +10,7 @@ class PluginDetail extends LitElement {
     _info: { state: true },
     _loading: { state: true },
     _message: { state: true },
+    _hasConfig: { state: true },
   };
 
   static styles = [
@@ -87,6 +88,7 @@ class PluginDetail extends LitElement {
     this._info = null;
     this._loading = true;
     this._message = null;
+    this._hasConfig = false;
   }
 
   willUpdate(changed) {
@@ -103,6 +105,13 @@ class PluginDetail extends LitElement {
       `${this.apiBase}/plugins/${this.kind}/${this.name}/info`,
     );
     this._info = resp.ok ? await resp.json() : null;
+    const configResp = await fetch(
+      `${this.apiBase}/config?kind=${this.kind}&name=${this.name}`,
+    );
+    if (configResp.ok) {
+      const items = await configResp.json();
+      this._hasConfig = items.length > 0 && items[0].entries.length > 0;
+    }
     this._loading = false;
   }
 
@@ -159,11 +168,16 @@ class PluginDetail extends LitElement {
         ${this.kind === "pipe"
           ? html`<a class="tab" href="${basePath}/transforms" aria-selected=${this.activeTab === "transforms"}>Transforms</a>`
           : ""}
+        ${this._hasConfig
+          ? html`<a class="tab" href="${basePath}/config" aria-selected=${this.activeTab === "config"}>Config</a>`
+          : ""}
       </div>
 
       ${this.activeTab === "transforms"
         ? html`<shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`
-        : this._renderDetails(info, enabled)}
+        : this.activeTab === "config"
+          ? html`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`
+          : this._renderDetails(info, enabled)}
 
       ${this._message
         ? html`<div class="message ${this._message.type}">

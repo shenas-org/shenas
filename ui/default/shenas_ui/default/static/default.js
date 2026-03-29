@@ -1,4 +1,4 @@
-var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):c[e]=t;var o=(c,e,t)=>P(c,typeof e!="symbol"?e+"":e,t);import{LitElement as m,css as d,html as a}from"lit";import R,{dagre as A}from"cytoscape";import{Router as N}from"@lit-labs/router";class w extends m{constructor(){super(),this.enabled=!1,this.toggleable=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return a`<div class="track" @click=${this._onClick}><div class="knob"></div></div>`}_onClick(){this.toggleable&&this.dispatchEvent(new CustomEvent("toggle",{bubbles:!0,composed:!0}))}}o(w,"properties",{enabled:{type:Boolean,reflect:!0},toggleable:{type:Boolean,reflect:!0}}),o(w,"styles",d`
+var P=Object.defineProperty;var N=(c,e,t)=>e in c?P(c,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):c[e]=t;var o=(c,e,t)=>N(c,typeof e!="symbol"?e+"":e,t);import{LitElement as m,css as d,html as i}from"lit";import R,{dagre as A}from"cytoscape";import{Router as L}from"@lit-labs/router";class v extends m{constructor(){super(),this.enabled=!1,this.toggleable=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return i`<div class="track" @click=${this._onClick}><div class="knob"></div></div>`}_onClick(){this.toggleable&&this.dispatchEvent(new CustomEvent("toggle",{bubbles:!0,composed:!0}))}}o(v,"properties",{enabled:{type:Boolean,reflect:!0},toggleable:{type:Boolean,reflect:!0}}),o(v,"styles",d`
     :host {
       display: inline-block;
       vertical-align: middle;
@@ -33,7 +33,7 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
     :host([toggleable]:hover) .track {
       opacity: 0.85;
     }
-  `);customElements.define("status-toggle",w);const D=d`
+  `);customElements.define("status-toggle",v);const O=d`
   table {
     width: 100%;
     border-collapse: collapse;
@@ -50,7 +50,7 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
     padding: 0.4rem 0.6rem;
     border-bottom: 1px solid #f0f0f0;
   }
-`,_=d`
+`,f=d`
   button {
     padding: 0.3rem 0.7rem;
     border: 1px solid #ddd;
@@ -69,7 +69,7 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
   button.danger:hover {
     background: #fef0f0;
   }
-`,L=d`
+`,I=d`
   .tabs {
     display: flex;
     gap: 0;
@@ -95,7 +95,7 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
     border-bottom-color: #0066cc;
     font-weight: 600;
   }
-`,C=d`
+`,_=d`
   .message {
     padding: 0.5rem 0.8rem;
     border-radius: 4px;
@@ -110,7 +110,7 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
     background: #fce4ec;
     color: #c62828;
   }
-`,g=d`
+`,u=d`
   .loading {
     color: #888;
     font-style: italic;
@@ -119,7 +119,7 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
     color: #888;
     padding: 0.5rem 0;
   }
-`,T=d`
+`,B=d`
   a {
     color: #0066cc;
     text-decoration: none;
@@ -127,29 +127,29 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
   a:hover {
     text-decoration: underline;
   }
-`;class y extends m{constructor(){super(),this.columns=[],this.rows=[],this.rowClass=null,this.actions=null,this.emptyText="No items",this.showAdd=!1}_onAdd(){this.dispatchEvent(new CustomEvent("add",{bubbles:!0,composed:!0}))}render(){const e=typeof this.actions=="function",t=this.showAdd?a`<div class="add-row"><button class="add-btn" title="Add" @click=${this._onAdd}>+</button></div>`:"";return!this.rows||this.rows.length===0?a`<p class="empty">${this.emptyText}</p>${t}`:a`
+`;class w extends m{constructor(){super(),this.columns=[],this.rows=[],this.rowClass=null,this.actions=null,this.emptyText="No items",this.showAdd=!1}_onAdd(){this.dispatchEvent(new CustomEvent("add",{bubbles:!0,composed:!0}))}render(){const e=typeof this.actions=="function",t=this.showAdd?i`<div class="add-row"><button class="add-btn" title="Add" @click=${this._onAdd}>+</button></div>`:"";return!this.rows||this.rows.length===0?i`<p class="empty">${this.emptyText}</p>${t}`:i`
       <table>
         <thead>
           <tr>
-            ${this.columns.map(s=>a`<th>${s.label}</th>`)}
-            ${e?a`<th></th>`:""}
+            ${this.columns.map(s=>i`<th>${s.label}</th>`)}
+            ${e?i`<th></th>`:""}
           </tr>
         </thead>
         <tbody>
-          ${this.rows.map(s=>a`
+          ${this.rows.map(s=>i`
               <tr class="${this.rowClass?this.rowClass(s):""}">
-                ${this.columns.map(n=>a`
+                ${this.columns.map(n=>i`
                   <td class="${n.class||""}">
                     ${n.render?n.render(s):s[n.key]}
                   </td>
                 `)}
-                ${e?a`<td class="actions-cell">${this.actions(s)}</td>`:""}
+                ${e?i`<td class="actions-cell">${this.actions(s)}</td>`:""}
               </tr>
             `)}
         </tbody>
       </table>
       ${t}
-    `}}o(y,"properties",{columns:{type:Array},rows:{type:Array},rowClass:{type:Object},actions:{type:Object},emptyText:{type:String,attribute:"empty-text"},showAdd:{type:Boolean,attribute:"show-add"}}),o(y,"styles",[D,_,g,d`
+    `}}o(w,"properties",{columns:{type:Array},rows:{type:Array},rowClass:{type:Object},actions:{type:Object},emptyText:{type:String,attribute:"empty-text"},showAdd:{type:Boolean,attribute:"show-add"}}),o(w,"styles",[O,f,u,d`
       :host {
         display: block;
       }
@@ -191,14 +191,14 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
         color: #0066cc;
         border-color: #0066cc;
       }
-    `]);customElements.define("shenas-data-list",y);class v extends m{constructor(){super(),this.title="",this.submitLabel="Save"}render(){return a`
-      ${this.title?a`<h3>${this.title}</h3>`:""}
+    `]);customElements.define("shenas-data-list",w);class k extends m{constructor(){super(),this.title="",this.submitLabel="Save"}render(){return i`
+      ${this.title?i`<h3>${this.title}</h3>`:""}
       <slot></slot>
       <div class="actions">
         <button @click=${this._onSubmit}>${this.submitLabel}</button>
         <button @click=${this._onCancel}>Cancel</button>
       </div>
-    `}_onSubmit(){this.dispatchEvent(new CustomEvent("submit",{bubbles:!0,composed:!0}))}_onCancel(){this.dispatchEvent(new CustomEvent("cancel",{bubbles:!0,composed:!0}))}}o(v,"properties",{title:{type:String},submitLabel:{type:String,attribute:"submit-label"}}),o(v,"styles",[_,d`
+    `}_onSubmit(){this.dispatchEvent(new CustomEvent("submit",{bubbles:!0,composed:!0}))}_onCancel(){this.dispatchEvent(new CustomEvent("cancel",{bubbles:!0,composed:!0}))}}o(k,"properties",{title:{type:String},submitLabel:{type:String,attribute:"submit-label"}}),o(k,"styles",[f,d`
       :host {
         display: block;
         margin: 1rem 0;
@@ -217,7 +217,7 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
         gap: 0.5rem;
         margin-top: 0.8rem;
       }
-    `]);customElements.define("shenas-form-panel",v);let B=!1;class k extends m{constructor(){super(),this.apiBase="/api",this._loading=!0,this._empty=!1,this._cy=null,this._elements=null,this._resizeObserver=null}connectedCallback(){super.connectedCallback(),this._fetchData()}disconnectedCallback(){super.disconnectedCallback(),this._cy&&(this._cy.destroy(),this._cy=null),this._resizeObserver&&(this._resizeObserver.disconnect(),this._resizeObserver=null)}async _fetchData(){this._loading=!0;try{const[e,t,s,n]=await Promise.all([fetch(`${this.apiBase}/plugins/pipe`),fetch(`${this.apiBase}/plugins/schema`),fetch(`${this.apiBase}/transforms`),fetch(`${this.apiBase}/db/schema-plugins`)]),i=e.ok?await e.json():[],l=t.ok?await t.json():[],p=s.ok?await s.json():[],r=n.ok?await n.json():{};this._buildElements(i,l,p,r)}catch(e){console.error("Failed to fetch overview data:",e)}this._loading=!1}_buildElements(e,t,s,n){const i=[],l=new Set,p={};for(const[r,h]of Object.entries(n))for(const u of h)p[u]=r;for(const r of e){const h=`pipe:${r.name}`;l.add(h),i.push({data:{id:h,label:r.display_name||r.name,kind:"pipe"}})}for(const r of t){const h=`schema:${r.name}`;l.add(h),i.push({data:{id:h,label:r.display_name||r.name,kind:"schema"}})}for(const r of s){const h=`pipe:${r.source_plugin}`,u=p[r.target_duckdb_table],b=u?`schema:${u}`:null;if(!b||!l.has(h)||!l.has(b))continue;const f=r.description||`${r.source_duckdb_table} -> ${r.target_duckdb_table}`,F=f.length>30?f.slice(0,28)+"...":f;i.push({data:{id:`transform:${r.id}`,source:h,target:b,label:F,enabled:r.enabled?"yes":"no"}})}this._elements=i,this._empty=s.length===0}_initCytoscape(){const e=this.renderRoot.querySelector("#cy");!e||!this._elements||(B||(R.use(A),B=!0),this._cy&&this._cy.destroy(),this._cy=R({container:e,elements:this._elements,style:[{selector:"node",style:{label:"data(label)","text-valign":"center","text-halign":"center","font-size":12,color:"#fff","text-wrap":"wrap","text-max-width":100,width:120,height:40,shape:"round-rectangle"}},{selector:'node[kind="pipe"]',style:{"background-color":"#4a90d9"}},{selector:'node[kind="schema"]',style:{"background-color":"#66bb6a"}},{selector:"edge",style:{"curve-style":"bezier","target-arrow-shape":"triangle","target-arrow-color":"#999","line-color":"#999",width:2,label:"data(label)","font-size":9,color:"#888","text-rotation":"autorotate","text-margin-y":-8}},{selector:'edge[enabled="yes"]',style:{"line-style":"solid"}},{selector:'edge[enabled="no"]',style:{"line-style":"dashed","line-color":"#ccc","target-arrow-color":"#ccc",opacity:.5}}],layout:{name:"dagre",rankDir:"LR",nodeSep:60,rankSep:150,padding:30},userZoomingEnabled:!0,userPanningEnabled:!0,boxSelectionEnabled:!1}),this._resizeObserver&&this._resizeObserver.disconnect(),this._resizeObserver=new ResizeObserver(()=>{this._cy&&(this._cy.resize(),this._cy.fit(void 0,30))}),this._resizeObserver.observe(e))}firstUpdated(){!this._loading&&this._elements&&this._initCytoscape()}updated(e){e.has("_loading")&&!this._loading&&this._elements&&requestAnimationFrame(()=>this._initCytoscape())}render(){return this._loading?a`<p class="loading">Loading overview...</p>`:a`
+    `]);customElements.define("shenas-form-panel",k);let j=!1;class x extends m{constructor(){super(),this.apiBase="/api",this._loading=!0,this._empty=!1,this._cy=null,this._elements=null,this._resizeObserver=null}connectedCallback(){super.connectedCallback(),this._fetchData()}disconnectedCallback(){super.disconnectedCallback(),this._cy&&(this._cy.destroy(),this._cy=null),this._resizeObserver&&(this._resizeObserver.disconnect(),this._resizeObserver=null)}async _fetchData(){this._loading=!0;try{const[e,t,s,n]=await Promise.all([fetch(`${this.apiBase}/plugins/pipe`),fetch(`${this.apiBase}/plugins/schema`),fetch(`${this.apiBase}/transforms`),fetch(`${this.apiBase}/db/schema-plugins`)]),a=e.ok?await e.json():[],l=t.ok?await t.json():[],p=s.ok?await s.json():[],r=n.ok?await n.json():{};this._buildElements(a,l,p,r)}catch(e){console.error("Failed to fetch overview data:",e)}this._loading=!1}_buildElements(e,t,s,n){const a=[],l=new Set,p={};for(const[r,h]of Object.entries(n))for(const g of h)p[g]=r;for(const r of e){const h=`pipe:${r.name}`;l.add(h),a.push({data:{id:h,label:r.display_name||r.name,kind:"pipe"}})}for(const r of t){const h=`schema:${r.name}`;l.add(h),a.push({data:{id:h,label:r.display_name||r.name,kind:"schema"}})}for(const r of s){const h=`pipe:${r.source_plugin}`,g=p[r.target_duckdb_table],b=g?`schema:${g}`:null;if(!b||!l.has(h)||!l.has(b))continue;const $=r.description||`${r.source_duckdb_table} -> ${r.target_duckdb_table}`,F=$.length>30?$.slice(0,28)+"...":$;a.push({data:{id:`transform:${r.id}`,source:h,target:b,label:F,enabled:r.enabled?"yes":"no"}})}this._elements=a,this._empty=s.length===0}_initCytoscape(){const e=this.renderRoot.querySelector("#cy");!e||!this._elements||(j||(R.use(A),j=!0),this._cy&&this._cy.destroy(),this._cy=R({container:e,elements:this._elements,style:[{selector:"node",style:{label:"data(label)","text-valign":"center","text-halign":"center","font-size":12,color:"#fff","text-wrap":"wrap","text-max-width":100,width:120,height:40,shape:"round-rectangle"}},{selector:'node[kind="pipe"]',style:{"background-color":"#4a90d9"}},{selector:'node[kind="schema"]',style:{"background-color":"#66bb6a"}},{selector:"edge",style:{"curve-style":"bezier","target-arrow-shape":"triangle","target-arrow-color":"#999","line-color":"#999",width:2,label:"data(label)","font-size":9,color:"#888","text-rotation":"autorotate","text-margin-y":-8}},{selector:'edge[enabled="yes"]',style:{"line-style":"solid"}},{selector:'edge[enabled="no"]',style:{"line-style":"dashed","line-color":"#ccc","target-arrow-color":"#ccc",opacity:.5}}],layout:{name:"dagre",rankDir:"LR",nodeSep:60,rankSep:150,padding:30},userZoomingEnabled:!0,userPanningEnabled:!0,boxSelectionEnabled:!1}),this._resizeObserver&&this._resizeObserver.disconnect(),this._resizeObserver=new ResizeObserver(()=>{this._cy&&(this._cy.resize(),this._cy.fit(void 0,30))}),this._resizeObserver.observe(e))}firstUpdated(){!this._loading&&this._elements&&this._initCytoscape()}updated(e){e.has("_loading")&&!this._loading&&this._elements&&requestAnimationFrame(()=>this._initCytoscape())}render(){return this._loading?i`<p class="loading">Loading overview...</p>`:i`
       <div id="cy"></div>
       <div class="legend">
         <span class="legend-item"><span class="legend-dot pipe"></span> Pipe</span>
@@ -225,8 +225,8 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
         <span class="legend-item"><span class="legend-line enabled"></span> Transform</span>
         <span class="legend-item"><span class="legend-line disabled"></span> Disabled</span>
       </div>
-      ${this._empty?a`<p class="empty">No transforms configured. Add transforms in pipe settings.</p>`:""}
-    `}}o(k,"properties",{apiBase:{type:String,attribute:"api-base"},_loading:{state:!0},_empty:{state:!0}}),o(k,"styles",[g,d`
+      ${this._empty?i`<p class="empty">No transforms configured. Add transforms in pipe settings.</p>`:""}
+    `}}o(x,"properties",{apiBase:{type:String,attribute:"api-base"},_loading:{state:!0},_empty:{state:!0}}),o(x,"styles",[u,d`
       :host {
         display: flex;
         flex-direction: column;
@@ -266,7 +266,87 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
       }
       .legend-line.enabled { background: #999; }
       .legend-line.disabled { background: #ccc; border-top: 2px dashed #ccc; height: 0; }
-    `]);customElements.define("shenas-pipeline-overview",k);class x extends m{constructor(){super();o(this,"_router",new N(this,[{path:"/",render:()=>this._renderDynamicHome()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:t})=>this._renderSettings(t)},{path:"/settings/:kind/:name",render:({kind:t,name:s})=>this._renderPluginDetail(t,s)},{path:"/settings/:kind/:name/transforms",render:({kind:t,name:s})=>this._renderPluginDetail(t,s,"transforms")},{path:"/:tab",render:({tab:t})=>this._renderDynamicTab(t)}]));this.apiBase="/api",this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map,this._leftWidth=160,this._rightWidth=220,this._dbStatus=null,this._inspectTable=null,this._inspectRows=null}connectedCallback(){super.connectedCallback(),this._fetchData(),this.addEventListener("plugin-state-changed",()=>this._refreshComponents()),this.addEventListener("inspect-table",t=>this._inspect(t.detail.schema,t.detail.table))}async _refreshComponents(){this._components=await this._fetch("/components")||[]}async _fetchData(){this._loading=!0;try{const[t,s]=await Promise.all([this._fetch("/components"),this._fetch("/db/status")]);this._components=t||[],this._dbStatus=s}catch(t){console.error("Failed to fetch data:",t)}this._loading=!1}async _fetch(t){const s=await fetch(`${this.apiBase}${t}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"").split("/")[0]||(this._components.length>0?this._components[0].name:"settings")}_startDrag(t){return s=>{s.preventDefault();const n=s.clientX,i=t==="left"?this._leftWidth:this._rightWidth,l=s.target;l.classList.add("dragging");const p=h=>{const u=t==="left"?h.clientX-n:n-h.clientX,b=Math.max(80,Math.min(400,i+u));t==="left"?this._leftWidth=b:this._rightWidth=b},r=()=>{l.classList.remove("dragging"),window.removeEventListener("mousemove",p),window.removeEventListener("mouseup",r)};window.addEventListener("mousemove",p),window.addEventListener("mouseup",r)}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const t=this._activeTab();return a`
+    `]);customElements.define("shenas-pipeline-overview",x);class S extends m{constructor(){super(),this.apiBase="/api",this.kind="",this.name="",this._config=null,this._loading=!0,this._message=null,this._editing=null,this._editValue=""}willUpdate(e){(e.has("kind")||e.has("name"))&&this._fetchConfig()}async _fetchConfig(){if(!this.kind||!this.name)return;this._loading=!0;const e=await fetch(`${this.apiBase}/config?kind=${this.kind}&name=${this.name}`);if(e.ok){const t=await e.json();this._config=t.length>0?t[0]:null}else this._config=null;this._loading=!1}_startEdit(e,t){this._editing=e,this._editValue=t||""}_cancelEdit(){this._editing=null,this._editValue=""}async _saveEdit(e){const t=await fetch(`${this.apiBase}/config/${this.kind}/${this.name}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:e,value:this._editValue})});if(t.ok)this._message={type:"success",text:`Updated ${e}`},this._editing=null,await this._fetchConfig();else{const s=await t.json();this._message={type:"error",text:s.detail||"Update failed"}}}render(){return this._loading?i`<p class="loading">Loading config...</p>`:!this._config||this._config.entries.length===0?i`<p class="empty">No configuration settings for this plugin.</p>`:i`
+      ${this._message?i`<div class="message ${this._message.type}">${this._message.text}</div>`:""}
+      ${this._config.entries.map(e=>this._renderEntry(e))}
+    `}_renderEntry(e){const t=this._editing===e.key;return i`
+      <div class="config-row">
+        <div class="config-key">${e.key}</div>
+        ${t?i`
+            <div class="edit-row">
+              <input class="config-input"
+                .value=${this._editValue}
+                @input=${s=>{this._editValue=s.target.value}}
+                @keydown=${s=>{s.key==="Enter"&&this._saveEdit(e.key),s.key==="Escape"&&this._cancelEdit()}}
+              />
+              <button @click=${()=>this._saveEdit(e.key)}>Save</button>
+              <button @click=${this._cancelEdit}>Cancel</button>
+            </div>`:i`
+            <div class="config-detail">
+              <div class="config-value ${e.value?"":"empty"}"
+                @click=${()=>this._startEdit(e.key,e.value)}
+                style="cursor: pointer"
+                title="Click to edit"
+              >${e.value||"not set"}</div>
+              ${e.description?i`<div class="config-desc">${e.description}</div>`:""}
+            </div>`}
+      </div>
+    `}}o(S,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},_config:{state:!0},_loading:{state:!0},_message:{state:!0},_editing:{state:!0},_editValue:{state:!0}}),o(S,"styles",[f,_,u,d`
+      :host {
+        display: block;
+      }
+      .config-row {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 0.9rem;
+        gap: 1rem;
+      }
+      .config-row:last-child {
+        border-bottom: none;
+      }
+      .config-key {
+        min-width: 140px;
+        font-weight: 600;
+        color: #333;
+        flex-shrink: 0;
+      }
+      .config-value {
+        flex: 1;
+        color: #555;
+        font-family: monospace;
+        font-size: 0.85rem;
+      }
+      .config-value.empty {
+        color: #aaa;
+        font-style: italic;
+        font-family: inherit;
+      }
+      .config-desc {
+        font-size: 0.8rem;
+        color: #888;
+        margin-top: 0.2rem;
+      }
+      .config-detail {
+        flex: 1;
+      }
+      input.config-input {
+        width: 100%;
+        padding: 0.3rem 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-family: monospace;
+        box-sizing: border-box;
+      }
+      .edit-row {
+        display: flex;
+        gap: 0.4rem;
+        align-items: center;
+        flex: 1;
+      }
+    `]);customElements.define("shenas-config",S);class E extends m{constructor(){super();o(this,"_router",new L(this,[{path:"/",render:()=>this._renderDynamicHome()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:t})=>this._renderSettings(t)},{path:"/settings/:kind/:name",render:({kind:t,name:s})=>this._renderPluginDetail(t,s)},{path:"/settings/:kind/:name/transforms",render:({kind:t,name:s})=>this._renderPluginDetail(t,s,"transforms")},{path:"/settings/:kind/:name/config",render:({kind:t,name:s})=>this._renderPluginDetail(t,s,"config")},{path:"/:tab",render:({tab:t})=>this._renderDynamicTab(t)}]));this.apiBase="/api",this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map,this._leftWidth=160,this._rightWidth=220,this._dbStatus=null,this._inspectTable=null,this._inspectRows=null}connectedCallback(){super.connectedCallback(),this._fetchData(),this.addEventListener("plugin-state-changed",()=>this._refreshComponents()),this.addEventListener("inspect-table",t=>this._inspect(t.detail.schema,t.detail.table))}async _refreshComponents(){this._components=await this._fetch("/components")||[]}async _fetchData(){this._loading=!0;try{const[t,s]=await Promise.all([this._fetch("/components"),this._fetch("/db/status")]);this._components=t||[],this._dbStatus=s}catch(t){console.error("Failed to fetch data:",t)}this._loading=!1}async _fetch(t){const s=await fetch(`${this.apiBase}${t}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"").split("/")[0]||(this._components.length>0?this._components[0].name:"settings")}_startDrag(t){return s=>{s.preventDefault();const n=s.clientX,a=t==="left"?this._leftWidth:this._rightWidth,l=s.target;l.classList.add("dragging");const p=h=>{const g=t==="left"?h.clientX-n:n-h.clientX,b=Math.max(80,Math.min(400,a+g));t==="left"?this._leftWidth=b:this._rightWidth=b},r=()=>{l.classList.remove("dragging"),window.removeEventListener("mousemove",p),window.removeEventListener("mouseup",r)};window.addEventListener("mousemove",p),window.addEventListener("mouseup",r)}}render(){if(this._loading)return i`<p class="loading">Loading...</p>`;const t=this._activeTab();return i`
       <div class="layout">
         <div class="panel-left" style="width: ${this._leftWidth}px">
           <div class="header">
@@ -287,55 +367,55 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
           ${this._inspectTable?this._renderInspect():this._renderDbStats()}
         </div>
       </div>
-    `}_navItem(t,s,n){return a`
+    `}_navItem(t,s,n){return i`
       <a class="nav-item" href="/${t}" aria-selected=${n===t}>
         ${s}
       </a>
-    `}_renderDynamicHome(){return this._components.length>0?this._renderDynamicTab(this._components[0].name):this._renderSettings("pipe")}_renderDynamicTab(t){const s=this._components.find(n=>n.name===t);if(!s)return a`<p class="empty">Unknown page: ${t}</p>`;if(!this._loadedScripts.has(s.js)){this._loadedScripts=new Set([...this._loadedScripts,s.js]);const n=document.createElement("script");n.type="module",n.src=s.js,document.head.appendChild(n)}return a`<div class="component-host">
+    `}_renderDynamicHome(){return this._components.length>0?this._renderDynamicTab(this._components[0].name):this._renderSettings("pipe")}_renderDynamicTab(t){const s=this._components.find(n=>n.name===t);if(!s)return i`<p class="empty">Unknown page: ${t}</p>`;if(!this._loadedScripts.has(s.js)){this._loadedScripts=new Set([...this._loadedScripts,s.js]);const n=document.createElement("script");n.type="module",n.src=s.js,document.head.appendChild(n)}return i`<div class="component-host">
       ${this._getOrCreateElement(s)}
-    </div>`}_renderPluginDetail(t,s,n="details"){return a`<shenas-plugin-detail
+    </div>`}_renderPluginDetail(t,s,n="details"){return i`<shenas-plugin-detail
       api-base="${this.apiBase}"
       kind="${t}"
       name="${s}"
       active-tab="${n}"
-    ></shenas-plugin-detail>`}_renderSettings(t){return a`<shenas-settings
+    ></shenas-plugin-detail>`}_renderSettings(t){return i`<shenas-settings
       api-base="${this.apiBase}"
       active-kind="${t||"pipe"}"
       .onNavigate=${s=>{this._router.goto(`/settings/${s}`)}}
-    ></shenas-settings>`}async _inspect(t,s){if(!/^[a-zA-Z_]\w*$/.test(t)||!/^[a-zA-Z_]\w*$/.test(s))return;const n=`${t}.${s}`;if(this._inspectTable===n){this._inspectTable=null,this._inspectRows=null;return}this._inspectTable=n,this._inspectRows=null;try{const i=await fetch(`${this.apiBase}/db/preview/${t}/${s}?limit=50`);this._inspectRows=i.ok?await i.json():[]}catch{this._inspectRows=[]}}_renderDbStats(){const t=this._dbStatus;return t?a`
+    ></shenas-settings>`}async _inspect(t,s){if(!/^[a-zA-Z_]\w*$/.test(t)||!/^[a-zA-Z_]\w*$/.test(s))return;const n=`${t}.${s}`;if(this._inspectTable===n){this._inspectTable=null,this._inspectRows=null;return}this._inspectTable=n,this._inspectRows=null;try{const a=await fetch(`${this.apiBase}/db/preview/${t}/${s}?limit=50`);this._inspectRows=a.ok?await a.json():[]}catch{this._inspectRows=[]}}_renderDbStats(){const t=this._dbStatus;return t?i`
       <div class="db-section">
         <div class="db-meta">
-          ${t.size_mb!=null?a`<code>${t.size_mb} MB</code>`:a`<span>Not created</span>`}
+          ${t.size_mb!=null?i`<code>${t.size_mb} MB</code>`:i`<span>Not created</span>`}
         </div>
-        ${(t.schemas||[]).map(s=>a`
+        ${(t.schemas||[]).map(s=>i`
             <h4>${s.name}</h4>
-            ${s.tables.map(n=>a`
+            ${s.tables.map(n=>i`
                 <div class="db-table-row">
                   <span class="db-table-name">${n.name}</span>
                   <span class="db-table-count">${n.rows}</span>
                 </div>
-                ${n.earliest?a`<span class="db-date-range">${n.earliest} - ${n.latest}</span>`:""}
+                ${n.earliest?i`<span class="db-date-range">${n.earliest} - ${n.latest}</span>`:""}
               `)}
           `)}
       </div>
-    `:a`<p class="empty">No database</p>`}_renderInspect(){return a`
+    `:i`<p class="empty">No database</p>`}_renderInspect(){return i`
       <div class="inspect-header">
         <h4>${this._inspectTable}</h4>
         <button class="inspect-close" title="Close" @click=${()=>{this._inspectTable=null,this._inspectRows=null}}>x</button>
       </div>
-      ${this._inspectRows?this._inspectRows.length===0?a`<p class="empty" style="font-size:0.75rem">No rows</p>`:a`
+      ${this._inspectRows?this._inspectRows.length===0?i`<p class="empty" style="font-size:0.75rem">No rows</p>`:i`
             <div style="overflow-x: auto;">
               <table class="inspect-table">
                 <thead>
-                  <tr>${Object.keys(this._inspectRows[0]).map(t=>a`<th>${t}</th>`)}</tr>
+                  <tr>${Object.keys(this._inspectRows[0]).map(t=>i`<th>${t}</th>`)}</tr>
                 </thead>
                 <tbody>
-                  ${this._inspectRows.map(t=>a`<tr>${Object.keys(t).map(s=>a`<td title="${t[s]??""}">${t[s]??""}</td>`)}</tr>`)}
+                  ${this._inspectRows.map(t=>i`<tr>${Object.keys(t).map(s=>i`<td title="${t[s]??""}">${t[s]??""}</td>`)}</tr>`)}
                 </tbody>
               </table>
             </div>
-          `:a`<p class="loading" style="font-size:0.75rem">Loading...</p>`}
-    `}_getOrCreateElement(t){if(!this._elementCache.has(t.name)){const s=document.createElement(t.tag);s.setAttribute("api-base",this.apiBase),this._elementCache.set(t.name,s)}return this._elementCache.get(t.name)}}o(x,"properties",{apiBase:{type:String,attribute:"api-base"},_components:{state:!0},_loading:{state:!0},_loadedScripts:{state:!0},_leftWidth:{state:!0},_rightWidth:{state:!0},_dbStatus:{state:!0},_inspectTable:{state:!0},_inspectRows:{state:!0}}),o(x,"styles",[T,g,d`
+          `:i`<p class="loading" style="font-size:0.75rem">Loading...</p>`}
+    `}_getOrCreateElement(t){if(!this._elementCache.has(t.name)){const s=document.createElement(t.tag);s.setAttribute("api-base",this.apiBase),this._elementCache.set(t.name,s)}return this._elementCache.get(t.name)}}o(E,"properties",{apiBase:{type:String,attribute:"api-base"},_components:{state:!0},_loading:{state:!0},_loadedScripts:{state:!0},_leftWidth:{state:!0},_rightWidth:{state:!0},_dbStatus:{state:!0},_inspectTable:{state:!0},_inspectRows:{state:!0}}),o(E,"styles",[B,u,d`
       :host {
         display: block;
         height: 100vh;
@@ -507,8 +587,8 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-    `]);customElements.define("shenas-app",x);const $=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class S extends m{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null,this._installing=!1}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all($.map(async({id:t})=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _togglePlugin(e,t,s){const n=s?"disable":"enable";await fetch(`${this.apiBase}/plugins/${e}/${t}/${n}`,{method:"POST"}),await this._fetchAll()}async _install(e){var p,r;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(p=t==null?void 0:t.value)==null?void 0:p.trim();if(!s)return;this._actionMessage=null;const l=(r=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:r[0];l!=null&&l.ok?(this._actionMessage={type:"success",text:l.message},this._installing=!1,await this._fetchAll()):this._actionMessage={type:"error",text:(l==null?void 0:l.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
-      ${this._actionMessage?a`<div class="message ${this._actionMessage.type}">
+    `]);customElements.define("shenas-app",E);const y=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class C extends m{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null,this._installing=!1}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all(y.map(async({id:t})=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _togglePlugin(e,t,s){const n=s?"disable":"enable";await fetch(`${this.apiBase}/plugins/${e}/${t}/${n}`,{method:"POST"}),await this._fetchAll()}async _install(e){var p,r;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(p=t==null?void 0:t.value)==null?void 0:p.trim();if(!s)return;this._actionMessage=null;const l=(r=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:r[0];l!=null&&l.ok?(this._actionMessage={type:"success",text:l.message},this._installing=!1,await this._fetchAll()):this._actionMessage={type:"error",text:(l==null?void 0:l.message)||"Install failed"}}render(){return this._loading?i`<p class="loading">Loading plugins...</p>`:i`
+      ${this._actionMessage?i`<div class="message ${this._actionMessage.type}">
             ${this._actionMessage.text}
           </div>`:""}
       <div class="layout">
@@ -519,7 +599,7 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
                 Data Flow
               </a>
             </li>
-            ${$.map(({id:e,label:t})=>a`
+            ${y.map(({id:e,label:t})=>i`
                 <li>
                   <a
                     href="/settings/${e}"
@@ -535,20 +615,20 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
           </ul>
         </nav>
         <div class="content">
-          ${this.activeKind==="overview"?a`<shenas-pipeline-overview api-base="${this.apiBase}"></shenas-pipeline-overview>`:this._renderKind(this.activeKind)}
+          ${this.activeKind==="overview"?i`<shenas-pipeline-overview api-base="${this.apiBase}"></shenas-pipeline-overview>`:this._renderKind(this.activeKind)}
         </div>
       </div>
-    `}_renderKind(e){var n;const t=this._plugins[e]||[],s=((n=$.find(i=>i.id===e))==null?void 0:n.label)||e;return a`
+    `}_renderKind(e){var n;const t=this._plugins[e]||[],s=((n=y.find(a=>a.id===e))==null?void 0:n.label)||e;return i`
       <h3>${s}</h3>
       <shenas-data-list
-        .columns=${[{label:"Name",render:i=>a`<a href="/settings/${e}/${i.name}">${i.display_name||i.name}</a>`},{key:"version",label:"Version",class:"mono"},{label:"Added",class:"mono",render:i=>i.added_at?i.added_at.slice(0,10):""},{label:"Status",render:i=>a`<status-toggle ?enabled=${i.enabled!==!1} toggleable @toggle=${()=>this._togglePlugin(e,i.name,i.enabled!==!1)}></status-toggle>`}]}
+        .columns=${[{label:"Name",render:a=>i`<a href="/settings/${e}/${a.name}">${a.display_name||a.name}</a>`},{key:"version",label:"Version",class:"mono"},{label:"Added",class:"mono",render:a=>a.added_at?a.added_at.slice(0,10):""},{label:"Status",render:a=>i`<status-toggle ?enabled=${a.enabled!==!1} toggleable @toggle=${()=>this._togglePlugin(e,a.name,a.enabled!==!1)}></status-toggle>`}]}
         .rows=${t}
-        .rowClass=${i=>i.enabled===!1?"disabled-row":""}
+        .rowClass=${a=>a.enabled===!1?"disabled-row":""}
         ?show-add=${!this._installing}
         @add=${()=>{this._installing=!0}}
         empty-text="No ${s.toLowerCase()} installed"
       ></shenas-data-list>
-      ${this._installing?a`<shenas-form-panel
+      ${this._installing?i`<shenas-form-panel
             title="Install new plugin"
             submit-label="Install"
             @submit=${()=>this._install(e)}
@@ -558,11 +638,11 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
               id="install-${e}"
               type="text"
               placeholder="Plugin name"
-              @keydown=${i=>i.key==="Enter"&&this._install(e)}
+              @keydown=${a=>a.key==="Enter"&&this._install(e)}
               style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; box-sizing: border-box;"
             />
           </shenas-form-panel>`:""}
-    `}}o(S,"properties",{apiBase:{type:String,attribute:"api-base"},activeKind:{type:String,attribute:"active-kind"},onNavigate:{type:Function},_plugins:{state:!0},_loading:{state:!0},_actionMessage:{state:!0},_installing:{state:!0}}),o(S,"styles",[_,T,C,g,d`
+    `}}o(C,"properties",{apiBase:{type:String,attribute:"api-base"},activeKind:{type:String,attribute:"active-kind"},onNavigate:{type:Function},_plugins:{state:!0},_loading:{state:!0},_actionMessage:{state:!0},_installing:{state:!0}}),o(C,"styles",[f,B,_,u,d`
       :host {
         display: block;
         height: 100%;
@@ -617,7 +697,7 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
         font-size: 1rem;
         margin: 0 0 1rem;
       }
-    `]);customElements.define("shenas-settings",S);class E extends m{constructor(){super(),this.apiBase="/api",this.kind="",this.name="",this.activeTab="details",this._info=null,this._loading=!0,this._message=null}willUpdate(e){(e.has("kind")||e.has("name"))&&this._fetchInfo()}async _fetchInfo(){if(!this.kind||!this.name)return;this._loading=!0,this._message=null;const e=await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/info`);this._info=e.ok?await e.json():null,this._loading=!1}async _toggle(){var n;const e=((n=this._info)==null?void 0:n.enabled)!==!1?"disable":"enable",s=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/${e}`,{method:"POST"})).json();this._message={type:s.ok?"success":"error",text:s.message||`${e} failed`},await this._fetchInfo(),this.dispatchEvent(new CustomEvent("plugin-state-changed",{bubbles:!0,composed:!0}))}async _remove(){const t=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}`,{method:"DELETE"})).json();t.ok?(window.history.pushState({},"",`/settings/${this.kind}`),window.dispatchEvent(new PopStateEvent("popstate"))):this._message={type:"error",text:t.message||"Remove failed"}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;if(!this._info)return a`<p>Plugin not found.</p>`;const e=this._info,t=e.enabled!==!1,s=`/settings/${this.kind}/${this.name}`;return a`
+    `]);customElements.define("shenas-settings",C);class z extends m{constructor(){super(),this.apiBase="/api",this.kind="",this.name="",this.activeTab="details",this._info=null,this._loading=!0,this._message=null,this._hasConfig=!1}willUpdate(e){(e.has("kind")||e.has("name"))&&this._fetchInfo()}async _fetchInfo(){if(!this.kind||!this.name)return;this._loading=!0,this._message=null;const e=await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/info`);this._info=e.ok?await e.json():null;const t=await fetch(`${this.apiBase}/config?kind=${this.kind}&name=${this.name}`);if(t.ok){const s=await t.json();this._hasConfig=s.length>0&&s[0].entries.length>0}this._loading=!1}async _toggle(){var n;const e=((n=this._info)==null?void 0:n.enabled)!==!1?"disable":"enable",s=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/${e}`,{method:"POST"})).json();this._message={type:s.ok?"success":"error",text:s.message||`${e} failed`},await this._fetchInfo(),this.dispatchEvent(new CustomEvent("plugin-state-changed",{bubbles:!0,composed:!0}))}async _remove(){const t=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}`,{method:"DELETE"})).json();t.ok?(window.history.pushState({},"",`/settings/${this.kind}`),window.dispatchEvent(new PopStateEvent("popstate"))):this._message={type:"error",text:t.message||"Remove failed"}}render(){if(this._loading)return i`<p class="loading">Loading...</p>`;if(!this._info)return i`<p>Plugin not found.</p>`;const e=this._info,t=e.enabled!==!1,s=`/settings/${this.kind}/${this.name}`;return i`
       <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
 
       <h2>${e.display_name||e.name}</h2>
@@ -625,16 +705,17 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
 
       <div class="tabs">
         <a class="tab" href="${s}" aria-selected=${this.activeTab==="details"}>Details</a>
-        ${this.kind==="pipe"?a`<a class="tab" href="${s}/transforms" aria-selected=${this.activeTab==="transforms"}>Transforms</a>`:""}
+        ${this.kind==="pipe"?i`<a class="tab" href="${s}/transforms" aria-selected=${this.activeTab==="transforms"}>Transforms</a>`:""}
+        ${this._hasConfig?i`<a class="tab" href="${s}/config" aria-selected=${this.activeTab==="config"}>Config</a>`:""}
       </div>
 
-      ${this.activeTab==="transforms"?a`<shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`:this._renderDetails(e,t)}
+      ${this.activeTab==="transforms"?i`<shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`:this.activeTab==="config"?i`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`:this._renderDetails(e,t)}
 
-      ${this._message?a`<div class="message ${this._message.type}">
+      ${this._message?i`<div class="message ${this._message.type}">
             ${this._message.text}
           </div>`:""}
-    `}_renderDetails(e,t){return a`
-      ${e.description?a`<div class="description">${e.description}</div>`:""}
+    `}_renderDetails(e,t){return i`
+      ${e.description?i`<div class="description">${e.description}</div>`:""}
 
       <div class="state-table">
         <div class="state-row">
@@ -651,12 +732,12 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
       <div class="actions">
         <button class="danger" @click=${this._remove}>Remove</button>
       </div>
-    `}_stateRow(e,t){return t?a`
+    `}_stateRow(e,t){return t?i`
       <div class="state-row">
         <span class="state-label">${e}</span>
         <span class="state-value">${t.slice(0,19)}</span>
       </div>
-    `:""}}o(E,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},activeTab:{type:String,attribute:"active-tab"},_info:{state:!0},_loading:{state:!0},_message:{state:!0}}),o(E,"styles",[_,T,C,L,g,d`
+    `:""}}o(z,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},activeTab:{type:String,attribute:"active-tab"},_info:{state:!0},_loading:{state:!0},_message:{state:!0},_hasConfig:{state:!0}}),o(z,"styles",[f,B,_,I,u,d`
       :host {
         display: block;
       }
@@ -713,8 +794,8 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
         padding: 0.5rem 1rem;
         font-size: 0.9rem;
       }
-    `]);customElements.define("shenas-plugin-detail",E);const j="background:none;border:none;cursor:pointer;color:#bbb;font-size:0.7rem;padding:0 2px";class z extends m{constructor(){super(),this.apiBase="/api",this.source="",this._transforms=[],this._loading=!0,this._editing=null,this._editSql="",this._message=null,this._previewRows=null,this._creating=!1,this._newForm=this._emptyForm(),this._dbTables={},this._schemaTables={}}_emptyForm(){return{source_duckdb_table:"",target_duckdb_table:"",description:"",sql:""}}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e=this.source?`?source=${this.source}`:"",t=await fetch(`${this.apiBase}/transforms${e}`);this._transforms=t.ok?await t.json():[],this._loading=!1}_inspectTable(e,t){this.dispatchEvent(new CustomEvent("inspect-table",{bubbles:!0,composed:!0,detail:{schema:e,table:t}}))}async _toggle(e){const t=e.enabled?"disable":"enable";await fetch(`${this.apiBase}/transforms/${e.id}/${t}`,{method:"POST"}),await this._fetchAll()}async _delete(e){const s=await(await fetch(`${this.apiBase}/transforms/${e.id}`,{method:"DELETE"})).json();s.ok?(this._message={type:"success",text:s.message},await this._fetchAll()):this._message={type:"error",text:s.detail||s.message||"Delete failed"}}_startEdit(e){this._editing=e.id,this._editSql=e.sql,this._previewRows=null}_cancelEdit(){this._editing=null,this._editSql="",this._previewRows=null}async _saveEdit(){const e=await fetch(`${this.apiBase}/transforms/${this._editing}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({sql:this._editSql})});if(e.ok)this._message={type:"success",text:"Transform updated"},this._editing=null,await this._fetchAll();else{const t=await e.json();this._message={type:"error",text:t.detail||"Update failed"}}}async _startCreate(){this._creating=!0,this._newForm=this._emptyForm(),this._editing=null,this._previewRows=null;const[e,t]=await Promise.all([fetch(`${this.apiBase}/db/tables`),fetch(`${this.apiBase}/db/schema-tables`)]);this._dbTables=e.ok?await e.json():{},this._schemaTables=t.ok?await t.json():{}}_cancelCreate(){this._creating=!1,this._newForm=this._emptyForm()}_updateNewForm(e,t){this._newForm={...this._newForm,[e]:t}}async _saveCreate(){const e=this._newForm;if(!e.source_duckdb_table||!e.target_duckdb_table||!e.sql){this._message={type:"error",text:"Fill in all required fields"};return}const t=await fetch(`${this.apiBase}/transforms`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({source_duckdb_schema:this.source,source_duckdb_table:e.source_duckdb_table,target_duckdb_schema:"metrics",target_duckdb_table:e.target_duckdb_table,source_plugin:this.source,description:e.description,sql:e.sql})});if(t.ok)this._message={type:"success",text:"Transform created"},this._creating=!1,this._newForm=this._emptyForm(),await this._fetchAll();else{const s=await t.json();this._message={type:"error",text:s.detail||"Create failed"}}}async _preview(){const e=await fetch(`${this.apiBase}/transforms/${this._editing}/test?limit=5`,{method:"POST"});if(e.ok)this._previewRows=await e.json();else{const t=await e.json();this._message={type:"error",text:t.detail||"Preview failed"}}}render(){return this._loading?a`<p class="loading">Loading transforms...</p>`:a`
-      ${this._message?a`<div class="message ${this._message.type}">
+    `]);customElements.define("shenas-plugin-detail",z);const D="background:none;border:none;cursor:pointer;color:#bbb;font-size:0.7rem;padding:0 2px";class T extends m{constructor(){super(),this.apiBase="/api",this.source="",this._transforms=[],this._loading=!0,this._editing=null,this._editSql="",this._message=null,this._previewRows=null,this._creating=!1,this._newForm=this._emptyForm(),this._dbTables={},this._schemaTables={}}_emptyForm(){return{source_duckdb_table:"",target_duckdb_table:"",description:"",sql:""}}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e=this.source?`?source=${this.source}`:"",t=await fetch(`${this.apiBase}/transforms${e}`);this._transforms=t.ok?await t.json():[],this._loading=!1}_inspectTable(e,t){this.dispatchEvent(new CustomEvent("inspect-table",{bubbles:!0,composed:!0,detail:{schema:e,table:t}}))}async _toggle(e){const t=e.enabled?"disable":"enable";await fetch(`${this.apiBase}/transforms/${e.id}/${t}`,{method:"POST"}),await this._fetchAll()}async _delete(e){const s=await(await fetch(`${this.apiBase}/transforms/${e.id}`,{method:"DELETE"})).json();s.ok?(this._message={type:"success",text:s.message},await this._fetchAll()):this._message={type:"error",text:s.detail||s.message||"Delete failed"}}_startEdit(e){this._editing=e.id,this._editSql=e.sql,this._previewRows=null}_cancelEdit(){this._editing=null,this._editSql="",this._previewRows=null}async _saveEdit(){const e=await fetch(`${this.apiBase}/transforms/${this._editing}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({sql:this._editSql})});if(e.ok)this._message={type:"success",text:"Transform updated"},this._editing=null,await this._fetchAll();else{const t=await e.json();this._message={type:"error",text:t.detail||"Update failed"}}}async _startCreate(){this._creating=!0,this._newForm=this._emptyForm(),this._editing=null,this._previewRows=null;const[e,t]=await Promise.all([fetch(`${this.apiBase}/db/tables`),fetch(`${this.apiBase}/db/schema-tables`)]);this._dbTables=e.ok?await e.json():{},this._schemaTables=t.ok?await t.json():{}}_cancelCreate(){this._creating=!1,this._newForm=this._emptyForm()}_updateNewForm(e,t){this._newForm={...this._newForm,[e]:t}}async _saveCreate(){const e=this._newForm;if(!e.source_duckdb_table||!e.target_duckdb_table||!e.sql){this._message={type:"error",text:"Fill in all required fields"};return}const t=await fetch(`${this.apiBase}/transforms`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({source_duckdb_schema:this.source,source_duckdb_table:e.source_duckdb_table,target_duckdb_schema:"metrics",target_duckdb_table:e.target_duckdb_table,source_plugin:this.source,description:e.description,sql:e.sql})});if(t.ok)this._message={type:"success",text:"Transform created"},this._creating=!1,this._newForm=this._emptyForm(),await this._fetchAll();else{const s=await t.json();this._message={type:"error",text:s.detail||"Create failed"}}}async _preview(){const e=await fetch(`${this.apiBase}/transforms/${this._editing}/test?limit=5`,{method:"POST"});if(e.ok)this._previewRows=await e.json();else{const t=await e.json();this._message={type:"error",text:t.detail||"Preview failed"}}}render(){return this._loading?i`<p class="loading">Loading transforms...</p>`:i`
+      ${this._message?i`<div class="message ${this._message.type}">
             ${this._message.text}
           </div>`:""}
       ${this._editing?this._renderEditor():""}
@@ -722,16 +803,16 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
       <shenas-data-list
         ?show-add=${!this._creating&&!this._editing}
         @add=${this._startCreate}
-        .columns=${[{key:"id",label:"ID",class:"muted"},{label:"Source",class:"mono",render:e=>a`${e.source_duckdb_schema}.${e.source_duckdb_table} <button style=${j} title="Inspect table" @click=${()=>this._inspectTable(e.source_duckdb_schema,e.source_duckdb_table)}>&#9655;</button>`},{label:"Target",class:"mono",render:e=>a`${e.target_duckdb_schema}.${e.target_duckdb_table} <button style=${j} title="Inspect table" @click=${()=>this._inspectTable(e.target_duckdb_schema,e.target_duckdb_table)}>&#9655;</button>`},{label:"Description",render:e=>a`${e.description||""}${e.is_default?a`<span style="font-size:0.75rem;color:#888;background:#f0f0f0;padding:1px 5px;border-radius:3px;margin-left:4px">default</span>`:""}`},{label:"Status",render:e=>a`<status-toggle ?enabled=${e.enabled} toggleable @toggle=${()=>this._toggle(e)}></status-toggle>`}]}
+        .columns=${[{key:"id",label:"ID",class:"muted"},{label:"Source",class:"mono",render:e=>i`${e.source_duckdb_schema}.${e.source_duckdb_table} <button style=${D} title="Inspect table" @click=${()=>this._inspectTable(e.source_duckdb_schema,e.source_duckdb_table)}>&#9655;</button>`},{label:"Target",class:"mono",render:e=>i`${e.target_duckdb_schema}.${e.target_duckdb_table} <button style=${D} title="Inspect table" @click=${()=>this._inspectTable(e.target_duckdb_schema,e.target_duckdb_table)}>&#9655;</button>`},{label:"Description",render:e=>i`${e.description||""}${e.is_default?i`<span style="font-size:0.75rem;color:#888;background:#f0f0f0;padding:1px 5px;border-radius:3px;margin-left:4px">default</span>`:""}`},{label:"Status",render:e=>i`<status-toggle ?enabled=${e.enabled} toggleable @toggle=${()=>this._toggle(e)}></status-toggle>`}]}
         .rows=${this._transforms}
         .rowClass=${e=>e.enabled?"":"disabled-row"}
-        .actions=${e=>a`
-          ${e.is_default?a`<button @click=${()=>this._startEdit(e)}>View</button>`:a`<button @click=${()=>this._startEdit(e)}>Edit</button>`}
-          ${e.is_default?"":a`<button class="danger" @click=${()=>this._delete(e)}>Delete</button>`}
+        .actions=${e=>i`
+          ${e.is_default?i`<button @click=${()=>this._startEdit(e)}>View</button>`:i`<button @click=${()=>this._startEdit(e)}>Edit</button>`}
+          ${e.is_default?"":i`<button class="danger" @click=${()=>this._delete(e)}>Delete</button>`}
         `}
         empty-text="No transforms"
       ></shenas-data-list>
-    `}_renderCreateForm(){const e=this._newForm,t=this.source,s=this._dbTables[t]||[],n=Object.values(this._schemaTables||{}).flat();return a`
+    `}_renderCreateForm(){const e=this._newForm,t=this.source,s=this._dbTables[t]||[],n=Object.values(this._schemaTables||{}).flat();return i`
       <shenas-form-panel
         title="New transform"
         submit-label="Create"
@@ -743,37 +824,37 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
             Pipe table
             <select
               .value=${e.source_duckdb_table}
-              @change=${i=>this._updateNewForm("source_duckdb_table",i.target.value)}
+              @change=${a=>this._updateNewForm("source_duckdb_table",a.target.value)}
             >
               <option value="">-- select --</option>
-              ${s.map(i=>a`<option value=${i} ?selected=${e.source_duckdb_table===i}>${i}</option>`)}
+              ${s.map(a=>i`<option value=${a} ?selected=${e.source_duckdb_table===a}>${a}</option>`)}
             </select>
           </label>
           <label>
             Schema table
             <select
               .value=${e.target_duckdb_table}
-              @change=${i=>this._updateNewForm("target_duckdb_table",i.target.value)}
+              @change=${a=>this._updateNewForm("target_duckdb_table",a.target.value)}
             >
               <option value="">-- select --</option>
-              ${n.map(i=>a`<option value=${i} ?selected=${e.target_duckdb_table===i}>${i}</option>`)}
+              ${n.map(a=>i`<option value=${a} ?selected=${e.target_duckdb_table===a}>${a}</option>`)}
             </select>
           </label>
           <label class="form-full">
             Description
             <input
               .value=${e.description}
-              @input=${i=>this._updateNewForm("description",i.target.value)}
+              @input=${a=>this._updateNewForm("description",a.target.value)}
             />
           </label>
         </div>
         <textarea
           .value=${e.sql}
-          @input=${i=>this._updateNewForm("sql",i.target.value)}
+          @input=${a=>this._updateNewForm("sql",a.target.value)}
           placeholder="SELECT ... FROM ${t}.${e.source_duckdb_table||"table_name"}"
         ></textarea>
       </shenas-form-panel>
-    `}_renderEditor(){const e=this._transforms.find(s=>s.id===this._editing);if(!e)return"";const t=e.is_default;return a`
+    `}_renderEditor(){const e=this._transforms.find(s=>s.id===this._editing);if(!e)return"";const t=e.is_default;return i`
       <div class="edit-panel">
         <h3>
           ${t?"View":"Edit"}: ${e.source_duckdb_schema}.${e.source_duckdb_table} ->
@@ -786,30 +867,30 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
           class="${t?"readonly":""}"
         ></textarea>
         <div class="edit-actions">
-          ${t?"":a`<button @click=${this._saveEdit}>Save</button>`}
+          ${t?"":i`<button @click=${this._saveEdit}>Save</button>`}
           <button @click=${this._preview}>Preview</button>
           <button @click=${this._cancelEdit}>${t?"Close":"Cancel"}</button>
         </div>
         ${this._previewRows?this._renderPreview():""}
       </div>
-    `}_renderPreview(){if(!this._previewRows||this._previewRows.length===0)return a`<p class="loading">No preview rows</p>`;const e=Object.keys(this._previewRows[0]);return a`
+    `}_renderPreview(){if(!this._previewRows||this._previewRows.length===0)return i`<p class="loading">No preview rows</p>`;const e=Object.keys(this._previewRows[0]);return i`
       <div class="preview-table">
         <table>
           <thead>
             <tr>
-              ${e.map(t=>a`<th>${t}</th>`)}
+              ${e.map(t=>i`<th>${t}</th>`)}
             </tr>
           </thead>
           <tbody>
-            ${this._previewRows.map(t=>a`
+            ${this._previewRows.map(t=>i`
                 <tr>
-                  ${e.map(s=>a`<td>${t[s]}</td>`)}
+                  ${e.map(s=>i`<td>${t[s]}</td>`)}
                 </tr>
               `)}
           </tbody>
         </table>
       </div>
-    `}}o(z,"properties",{apiBase:{type:String,attribute:"api-base"},source:{type:String},_transforms:{state:!0},_loading:{state:!0},_editing:{state:!0},_editSql:{state:!0},_message:{state:!0},_previewRows:{state:!0},_creating:{state:!0},_newForm:{state:!0},_dbTables:{state:!0},_schemaTables:{state:!0}}),o(z,"styles",[D,_,C,g,d`
+    `}}o(T,"properties",{apiBase:{type:String,attribute:"api-base"},source:{type:String},_transforms:{state:!0},_loading:{state:!0},_editing:{state:!0},_editSql:{state:!0},_message:{state:!0},_previewRows:{state:!0},_creating:{state:!0},_newForm:{state:!0},_dbTables:{state:!0},_schemaTables:{state:!0}}),o(T,"styles",[O,f,_,u,d`
       :host {
         display: block;
       }
@@ -880,4 +961,4 @@ var O=Object.defineProperty;var P=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
       .form-full {
         grid-column: 1 / -1;
       }
-    `]);customElements.define("shenas-transforms",z);
+    `]);customElements.define("shenas-transforms",T);
