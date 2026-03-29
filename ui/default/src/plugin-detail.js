@@ -257,8 +257,8 @@ class PluginDetail extends LitElement {
       <div class="state-table">
         <div class="state-row">
           <span class="state-label">Status</span>
-          <span class="state-value ${enabled ? "enabled" : "disabled"}">
-            <span class="status-dot ${enabled ? "green" : "red"}"></span>${enabled ? "Enabled" : "Disabled"}
+          <span class="state-value">
+            <span class="status-dot ${enabled ? "green" : "red"}"></span>
           </span>
         </div>
         ${this._stateRow("Added", info.added_at)}

@@ -407,8 +407,8 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
       <div class="state-table">
         <div class="state-row">
           <span class="state-label">Status</span>
-          <span class="state-value ${e?"enabled":"disabled"}">
-            <span class="status-dot ${e?"green":"red"}"></span>${e?"Enabled":"Disabled"}
+          <span class="state-value">
+            <span class="status-dot ${e?"green":"red"}"></span>
           </span>
         </div>
         ${this._stateRow("Added",t.added_at)}
@@ -599,7 +599,7 @@ var _=Object.defineProperty;var $=(d,t,e)=>t in d?_(d,t,{enumerable:!0,configura
                   ${t.is_default?a`<span class="default-badge">default</span>`:""}
                 </td>
                 <td class="status">
-                  <span class="status-dot ${t.enabled?"green":"red"}"></span>${t.enabled?"enabled":"disabled"}
+                  <span class="status-dot ${t.enabled?"green":"red"}"></span>
                 </td>
                 <td class="actions">
                   ${t.is_default?a`<button @click=${()=>this._startEdit(t)}>View</button>`:a`<button @click=${()=>this._startEdit(t)}>Edit</button>`}

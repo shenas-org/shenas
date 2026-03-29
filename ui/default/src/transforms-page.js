@@ -284,7 +284,7 @@ class TransformsPage extends LitElement {
                     : ""}
                 </td>
                 <td class="status">
-                  <span class="status-dot ${t.enabled ? "green" : "red"}"></span>${t.enabled ? "enabled" : "disabled"}
+                  <span class="status-dot ${t.enabled ? "green" : "red"}"></span>
                 </td>
                 <td class="actions">
                   ${!t.is_default
