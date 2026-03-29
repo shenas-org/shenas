@@ -145,7 +145,7 @@ class PipelineOverview extends LitElement {
           source: sourceId,
           target: targetId,
           label,
-          enabled: t.enabled,
+          enabled: t.enabled ? "yes" : "no",
         },
       });
     }
@@ -210,11 +210,11 @@ class PipelineOverview extends LitElement {
           },
         },
         {
-          selector: "edge[enabled]",
+          selector: 'edge[enabled="yes"]',
           style: { "line-style": "solid" },
         },
         {
-          selector: "edge[!enabled]",
+          selector: 'edge[enabled="no"]',
           style: {
             "line-style": "dashed",
             "line-color": "#ccc",

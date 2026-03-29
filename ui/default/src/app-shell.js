@@ -306,7 +306,7 @@ class ShenasApp extends LitElement {
             <h1>shenas</h1>
           </div>
           <nav class="nav">
-            ${this._components.map((c) => this._navItem(c.name, c.name, active))}
+            ${this._components.map((c) => this._navItem(c.name, c.display_name || c.name, active))}
             ${this._navItem("settings", "Settings", active)}
           </nav>
         </div>
@@ -380,9 +380,11 @@ class ShenasApp extends LitElement {
     }
     this._inspectTable = key;
     this._inspectRows = null;
-    const resp = await fetch(`${this.apiBase}/db/preview/${schema}/${table}?limit=50`);
-    if (resp.ok) {
-      this._inspectRows = await resp.json();
+    try {
+      const resp = await fetch(`${this.apiBase}/db/preview/${schema}/${table}?limit=50`);
+      this._inspectRows = resp.ok ? await resp.json() : [];
+    } catch {
+      this._inspectRows = [];
     }
   }
 

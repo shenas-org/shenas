@@ -26,27 +26,6 @@ class TransformsPage extends LitElement {
       :host {
         display: block;
       }
-      .inspect-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #bbb;
-        font-size: 0.7rem;
-        padding: 0 2px;
-        line-height: 1;
-        vertical-align: middle;
-      }
-      .inspect-btn:hover {
-        color: #0066cc;
-      }
-      .default-badge {
-        font-size: 0.75rem;
-        color: #888;
-        background: #f0f0f0;
-        padding: 1px 5px;
-        border-radius: 3px;
-        margin-left: 4px;
-      }
       .edit-panel {
         margin: 1rem 0;
         padding: 1rem;
@@ -301,9 +280,9 @@ class TransformsPage extends LitElement {
         @add=${this._startCreate}
         .columns=${[
           { key: "id", label: "ID", class: "muted" },
-          { label: "Source", class: "mono", render: (t) => html`${t.source_duckdb_schema}.${t.source_duckdb_table} <button class="inspect-btn" title="Inspect table" @click=${() => this._inspectTable(t.source_duckdb_schema, t.source_duckdb_table)}>&#9655;</button>` },
-          { label: "Target", class: "mono", render: (t) => html`${t.target_duckdb_schema}.${t.target_duckdb_table} <button class="inspect-btn" title="Inspect table" @click=${() => this._inspectTable(t.target_duckdb_schema, t.target_duckdb_table)}>&#9655;</button>` },
-          { label: "Description", render: (t) => html`${t.description || ""}${t.is_default ? html`<span class="default-badge">default</span>` : ""}` },
+          { label: "Source", class: "mono", render: (t) => html`${t.source_duckdb_schema}.${t.source_duckdb_table} <button style="background:none;border:none;cursor:pointer;color:#bbb;font-size:0.7rem;padding:0 2px" title="Inspect table" @click=${() => this._inspectTable(t.source_duckdb_schema, t.source_duckdb_table)}>&#9655;</button>` },
+          { label: "Target", class: "mono", render: (t) => html`${t.target_duckdb_schema}.${t.target_duckdb_table} <button style="background:none;border:none;cursor:pointer;color:#bbb;font-size:0.7rem;padding:0 2px" title="Inspect table" @click=${() => this._inspectTable(t.target_duckdb_schema, t.target_duckdb_table)}>&#9655;</button>` },
+          { label: "Description", render: (t) => html`${t.description || ""}${t.is_default ? html`<span style="font-size:0.75rem;color:#888;background:#f0f0f0;padding:1px 5px;border-radius:3px;margin-left:4px">default</span>` : ""}` },
           { label: "Status", render: (t) => html`<status-dot ?enabled=${t.enabled}></status-dot>` },
         ]}
         .rows=${this._transforms}

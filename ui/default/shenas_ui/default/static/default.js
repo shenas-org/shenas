@@ -1,4 +1,4 @@
-var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):c[e]=t;var l=(c,e,t)=>O(c,typeof e!="symbol"?e+"":e,t);import{LitElement as m,css as d,html as a}from"lit";import R,{dagre as A}from"cytoscape";import{Router as L}from"@lit-labs/router";class w extends m{constructor(){super(),this.enabled=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return a``}}l(w,"properties",{enabled:{type:Boolean,reflect:!0}}),l(w,"styles",d`
+var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):c[e]=t;var l=(c,e,t)=>O(c,typeof e!="symbol"?e+"":e,t);import{LitElement as m,css as d,html as a}from"lit";import R,{dagre as A}from"cytoscape";import{Router as L}from"@lit-labs/router";class $ extends m{constructor(){super(),this.enabled=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return a``}}l($,"properties",{enabled:{type:Boolean,reflect:!0}}),l($,"styles",d`
     :host {
       display: inline-block;
       width: 8px;
@@ -12,7 +12,7 @@ var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configura
     :host(:not([enabled])) {
       background: #c62828;
     }
-  `);customElements.define("status-dot",w);const j=d`
+  `);customElements.define("status-dot",$);const j=d`
   table {
     width: 100%;
     border-collapse: collapse;
@@ -106,7 +106,7 @@ var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configura
   a:hover {
     text-decoration: underline;
   }
-`;class y extends m{constructor(){super(),this.columns=[],this.rows=[],this.rowClass=null,this.actions=null,this.emptyText="No items",this.showAdd=!1}_onAdd(){this.dispatchEvent(new CustomEvent("add",{bubbles:!0,composed:!0}))}render(){const e=typeof this.actions=="function",t=this.showAdd?a`<div class="add-row"><button class="add-btn" title="Add" @click=${this._onAdd}>+</button></div>`:"";return!this.rows||this.rows.length===0?a`<p class="empty">${this.emptyText}</p>${t}`:a`
+`;class w extends m{constructor(){super(),this.columns=[],this.rows=[],this.rowClass=null,this.actions=null,this.emptyText="No items",this.showAdd=!1}_onAdd(){this.dispatchEvent(new CustomEvent("add",{bubbles:!0,composed:!0}))}render(){const e=typeof this.actions=="function",t=this.showAdd?a`<div class="add-row"><button class="add-btn" title="Add" @click=${this._onAdd}>+</button></div>`:"";return!this.rows||this.rows.length===0?a`<p class="empty">${this.emptyText}</p>${t}`:a`
       <table>
         <thead>
           <tr>
@@ -128,7 +128,7 @@ var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configura
         </tbody>
       </table>
       ${t}
-    `}}l(y,"properties",{columns:{type:Array},rows:{type:Array},rowClass:{type:Object},actions:{type:Object},emptyText:{type:String,attribute:"empty-text"},showAdd:{type:Boolean,attribute:"show-add"}}),l(y,"styles",[j,_,g,d`
+    `}}l(w,"properties",{columns:{type:Array},rows:{type:Array},rowClass:{type:Object},actions:{type:Object},emptyText:{type:String,attribute:"empty-text"},showAdd:{type:Boolean,attribute:"show-add"}}),l(w,"styles",[j,_,g,d`
       :host {
         display: block;
       }
@@ -170,7 +170,7 @@ var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configura
         color: #0066cc;
         border-color: #0066cc;
       }
-    `]);customElements.define("shenas-data-list",y);class v extends m{constructor(){super(),this.title="",this.submitLabel="Save"}render(){return a`
+    `]);customElements.define("shenas-data-list",w);class v extends m{constructor(){super(),this.title="",this.submitLabel="Save"}render(){return a`
       ${this.title?a`<h3>${this.title}</h3>`:""}
       <slot></slot>
       <div class="actions">
@@ -196,7 +196,7 @@ var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configura
         gap: 0.5rem;
         margin-top: 0.8rem;
       }
-    `]);customElements.define("shenas-form-panel",v);let B=!1;class x extends m{constructor(){super(),this.apiBase="/api",this._loading=!0,this._empty=!1,this._cy=null,this._elements=null,this._resizeObserver=null}connectedCallback(){super.connectedCallback(),this._fetchData()}disconnectedCallback(){super.disconnectedCallback(),this._cy&&(this._cy.destroy(),this._cy=null),this._resizeObserver&&(this._resizeObserver.disconnect(),this._resizeObserver=null)}async _fetchData(){this._loading=!0;try{const[e,t,s,i]=await Promise.all([fetch(`${this.apiBase}/plugins/pipe`),fetch(`${this.apiBase}/plugins/schema`),fetch(`${this.apiBase}/transforms`),fetch(`${this.apiBase}/db/schema-plugins`)]),n=e.ok?await e.json():[],o=t.ok?await t.json():[],p=s.ok?await s.json():[],r=i.ok?await i.json():{};this._buildElements(n,o,p,r)}catch(e){console.error("Failed to fetch overview data:",e)}this._loading=!1}_buildElements(e,t,s,i){const n=[],o=new Set,p={};for(const[r,h]of Object.entries(i))for(const u of h)p[u]=r;for(const r of e){const h=`pipe:${r.name}`;o.add(h),n.push({data:{id:h,label:r.display_name||r.name,kind:"pipe"}})}for(const r of t){const h=`schema:${r.name}`;o.add(h),n.push({data:{id:h,label:r.display_name||r.name,kind:"schema"}})}for(const r of s){const h=`pipe:${r.source_plugin}`,u=p[r.target_duckdb_table],b=u?`schema:${u}`:null;if(!b||!o.has(h)||!o.has(b))continue;const f=r.description||`${r.source_duckdb_table} -> ${r.target_duckdb_table}`,D=f.length>30?f.slice(0,28)+"...":f;n.push({data:{id:`transform:${r.id}`,source:h,target:b,label:D,enabled:r.enabled}})}this._elements=n,this._empty=s.length===0}_initCytoscape(){const e=this.renderRoot.querySelector("#cy");!e||!this._elements||(B||(R.use(A),B=!0),this._cy&&this._cy.destroy(),this._cy=R({container:e,elements:this._elements,style:[{selector:"node",style:{label:"data(label)","text-valign":"center","text-halign":"center","font-size":12,color:"#fff","text-wrap":"wrap","text-max-width":100,width:120,height:40,shape:"round-rectangle"}},{selector:'node[kind="pipe"]',style:{"background-color":"#4a90d9"}},{selector:'node[kind="schema"]',style:{"background-color":"#66bb6a"}},{selector:"edge",style:{"curve-style":"bezier","target-arrow-shape":"triangle","target-arrow-color":"#999","line-color":"#999",width:2,label:"data(label)","font-size":9,color:"#888","text-rotation":"autorotate","text-margin-y":-8}},{selector:"edge[enabled]",style:{"line-style":"solid"}},{selector:"edge[!enabled]",style:{"line-style":"dashed","line-color":"#ccc","target-arrow-color":"#ccc",opacity:.5}}],layout:{name:"dagre",rankDir:"LR",nodeSep:60,rankSep:150,padding:30},userZoomingEnabled:!0,userPanningEnabled:!0,boxSelectionEnabled:!1}),this._resizeObserver&&this._resizeObserver.disconnect(),this._resizeObserver=new ResizeObserver(()=>{this._cy&&(this._cy.resize(),this._cy.fit(void 0,30))}),this._resizeObserver.observe(e))}firstUpdated(){!this._loading&&this._elements&&this._initCytoscape()}updated(e){e.has("_loading")&&!this._loading&&this._elements&&requestAnimationFrame(()=>this._initCytoscape())}render(){return this._loading?a`<p class="loading">Loading overview...</p>`:a`
+    `]);customElements.define("shenas-form-panel",v);let B=!1;class x extends m{constructor(){super(),this.apiBase="/api",this._loading=!0,this._empty=!1,this._cy=null,this._elements=null,this._resizeObserver=null}connectedCallback(){super.connectedCallback(),this._fetchData()}disconnectedCallback(){super.disconnectedCallback(),this._cy&&(this._cy.destroy(),this._cy=null),this._resizeObserver&&(this._resizeObserver.disconnect(),this._resizeObserver=null)}async _fetchData(){this._loading=!0;try{const[e,t,s,i]=await Promise.all([fetch(`${this.apiBase}/plugins/pipe`),fetch(`${this.apiBase}/plugins/schema`),fetch(`${this.apiBase}/transforms`),fetch(`${this.apiBase}/db/schema-plugins`)]),n=e.ok?await e.json():[],o=t.ok?await t.json():[],p=s.ok?await s.json():[],r=i.ok?await i.json():{};this._buildElements(n,o,p,r)}catch(e){console.error("Failed to fetch overview data:",e)}this._loading=!1}_buildElements(e,t,s,i){const n=[],o=new Set,p={};for(const[r,h]of Object.entries(i))for(const u of h)p[u]=r;for(const r of e){const h=`pipe:${r.name}`;o.add(h),n.push({data:{id:h,label:r.display_name||r.name,kind:"pipe"}})}for(const r of t){const h=`schema:${r.name}`;o.add(h),n.push({data:{id:h,label:r.display_name||r.name,kind:"schema"}})}for(const r of s){const h=`pipe:${r.source_plugin}`,u=p[r.target_duckdb_table],b=u?`schema:${u}`:null;if(!b||!o.has(h)||!o.has(b))continue;const f=r.description||`${r.source_duckdb_table} -> ${r.target_duckdb_table}`,D=f.length>30?f.slice(0,28)+"...":f;n.push({data:{id:`transform:${r.id}`,source:h,target:b,label:D,enabled:r.enabled?"yes":"no"}})}this._elements=n,this._empty=s.length===0}_initCytoscape(){const e=this.renderRoot.querySelector("#cy");!e||!this._elements||(B||(R.use(A),B=!0),this._cy&&this._cy.destroy(),this._cy=R({container:e,elements:this._elements,style:[{selector:"node",style:{label:"data(label)","text-valign":"center","text-halign":"center","font-size":12,color:"#fff","text-wrap":"wrap","text-max-width":100,width:120,height:40,shape:"round-rectangle"}},{selector:'node[kind="pipe"]',style:{"background-color":"#4a90d9"}},{selector:'node[kind="schema"]',style:{"background-color":"#66bb6a"}},{selector:"edge",style:{"curve-style":"bezier","target-arrow-shape":"triangle","target-arrow-color":"#999","line-color":"#999",width:2,label:"data(label)","font-size":9,color:"#888","text-rotation":"autorotate","text-margin-y":-8}},{selector:'edge[enabled="yes"]',style:{"line-style":"solid"}},{selector:'edge[enabled="no"]',style:{"line-style":"dashed","line-color":"#ccc","target-arrow-color":"#ccc",opacity:.5}}],layout:{name:"dagre",rankDir:"LR",nodeSep:60,rankSep:150,padding:30},userZoomingEnabled:!0,userPanningEnabled:!0,boxSelectionEnabled:!1}),this._resizeObserver&&this._resizeObserver.disconnect(),this._resizeObserver=new ResizeObserver(()=>{this._cy&&(this._cy.resize(),this._cy.fit(void 0,30))}),this._resizeObserver.observe(e))}firstUpdated(){!this._loading&&this._elements&&this._initCytoscape()}updated(e){e.has("_loading")&&!this._loading&&this._elements&&requestAnimationFrame(()=>this._initCytoscape())}render(){return this._loading?a`<p class="loading">Loading overview...</p>`:a`
       <div id="cy"></div>
       <div class="legend">
         <span class="legend-item"><span class="legend-dot pipe"></span> Pipe</span>
@@ -253,7 +253,7 @@ var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configura
             <h1>shenas</h1>
           </div>
           <nav class="nav">
-            ${this._components.map(s=>this._navItem(s.name,s.name,t))}
+            ${this._components.map(s=>this._navItem(s.name,s.display_name||s.name,t))}
             ${this._navItem("settings","Settings",t)}
           </nav>
         </div>
@@ -281,7 +281,7 @@ var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configura
       api-base="${this.apiBase}"
       active-kind="${t||"pipe"}"
       .onNavigate=${s=>{this._router.goto(`/settings/${s}`)}}
-    ></shenas-settings>`}async _inspect(t,s){const i=`${t}.${s}`;if(this._inspectTable===i){this._inspectTable=null,this._inspectRows=null;return}this._inspectTable=i,this._inspectRows=null;const n=await fetch(`${this.apiBase}/db/preview/${t}/${s}?limit=50`);n.ok&&(this._inspectRows=await n.json())}_renderDbStats(){const t=this._dbStatus;return t?a`
+    ></shenas-settings>`}async _inspect(t,s){const i=`${t}.${s}`;if(this._inspectTable===i){this._inspectTable=null,this._inspectRows=null;return}this._inspectTable=i,this._inspectRows=null;try{const n=await fetch(`${this.apiBase}/db/preview/${t}/${s}?limit=50`);this._inspectRows=n.ok?await n.json():[]}catch{this._inspectRows=[]}}_renderDbStats(){const t=this._dbStatus;return t?a`
       <div class="db-section">
         <div class="db-meta">
           ${t.size_mb!=null?a`<code>${t.size_mb} MB</code>`:a`<span>Not created</span>`}
@@ -486,7 +486,7 @@ var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configura
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-    `]);customElements.define("shenas-app",k);const $=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class S extends m{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null,this._installing=!1}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all($.map(async({id:t})=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _remove(e,t){this._actionMessage=null;const i=await(await fetch(`${this.apiBase}/plugins/${e}/${t}`,{method:"DELETE"})).json();i.ok?(this._actionMessage={type:"success",text:i.message},await this._fetchAll()):this._actionMessage={type:"error",text:i.message||"Remove failed"}}async _toggleEnabled(e,t,s){this._actionMessage=null;const i=s?"disable":"enable",o=await(await fetch(`${this.apiBase}/plugins/${e}/${t}/${i}`,{method:"POST"})).json();o.ok?(this._actionMessage={type:"success",text:o.message},await this._fetchAll()):this._actionMessage={type:"error",text:o.message||`${i} failed`}}async _install(e){var p,r;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(p=t==null?void 0:t.value)==null?void 0:p.trim();if(!s)return;this._actionMessage=null;const o=(r=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:r[0];o!=null&&o.ok?(this._actionMessage={type:"success",text:o.message},this._installing=!1,await this._fetchAll()):this._actionMessage={type:"error",text:(o==null?void 0:o.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
+    `]);customElements.define("shenas-app",k);const y=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class S extends m{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null,this._installing=!1}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all(y.map(async({id:t})=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _remove(e,t){this._actionMessage=null;const i=await(await fetch(`${this.apiBase}/plugins/${e}/${t}`,{method:"DELETE"})).json();i.ok?(this._actionMessage={type:"success",text:i.message},await this._fetchAll()):this._actionMessage={type:"error",text:i.message||"Remove failed"}}async _toggleEnabled(e,t,s){this._actionMessage=null;const i=s?"disable":"enable",o=await(await fetch(`${this.apiBase}/plugins/${e}/${t}/${i}`,{method:"POST"})).json();o.ok?(this._actionMessage={type:"success",text:o.message},await this._fetchAll()):this._actionMessage={type:"error",text:o.message||`${i} failed`}}async _install(e){var p,r;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(p=t==null?void 0:t.value)==null?void 0:p.trim();if(!s)return;this._actionMessage=null;const o=(r=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:r[0];o!=null&&o.ok?(this._actionMessage={type:"success",text:o.message},this._installing=!1,await this._fetchAll()):this._actionMessage={type:"error",text:(o==null?void 0:o.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
       ${this._actionMessage?a`<div class="message ${this._actionMessage.type}">
             ${this._actionMessage.text}
           </div>`:""}
@@ -498,7 +498,7 @@ var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configura
                 Data Flow
               </a>
             </li>
-            ${$.map(({id:e,label:t})=>a`
+            ${y.map(({id:e,label:t})=>a`
                 <li>
                   <a
                     href="/settings/${e}"
@@ -517,7 +517,7 @@ var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configura
           ${this.activeKind==="overview"?a`<shenas-pipeline-overview api-base="${this.apiBase}"></shenas-pipeline-overview>`:this._renderKind(this.activeKind)}
         </div>
       </div>
-    `}_renderKind(e){var i;const t=this._plugins[e]||[],s=((i=$.find(n=>n.id===e))==null?void 0:i.label)||e;return a`
+    `}_renderKind(e){var i;const t=this._plugins[e]||[],s=((i=y.find(n=>n.id===e))==null?void 0:i.label)||e;return a`
       <h3>${s}</h3>
       <shenas-data-list
         .columns=${[{label:"Name",render:n=>a`<a href="/settings/${e}/${n.name}">${n.display_name||n.name}</a>`},{key:"version",label:"Version",class:"mono"},{label:"Added",class:"mono",render:n=>n.added_at?n.added_at.slice(0,10):""},{label:"Status",render:n=>a`<status-dot ?enabled=${n.enabled!==!1}></status-dot>`}]}
@@ -704,7 +704,7 @@ var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configura
       <shenas-data-list
         ?show-add=${!this._creating&&!this._editing}
         @add=${this._startCreate}
-        .columns=${[{key:"id",label:"ID",class:"muted"},{label:"Source",class:"mono",render:e=>a`${e.source_duckdb_schema}.${e.source_duckdb_table} <button class="inspect-btn" title="Inspect table" @click=${()=>this._inspectTable(e.source_duckdb_schema,e.source_duckdb_table)}>&#9655;</button>`},{label:"Target",class:"mono",render:e=>a`${e.target_duckdb_schema}.${e.target_duckdb_table} <button class="inspect-btn" title="Inspect table" @click=${()=>this._inspectTable(e.target_duckdb_schema,e.target_duckdb_table)}>&#9655;</button>`},{label:"Description",render:e=>a`${e.description||""}${e.is_default?a`<span class="default-badge">default</span>`:""}`},{label:"Status",render:e=>a`<status-dot ?enabled=${e.enabled}></status-dot>`}]}
+        .columns=${[{key:"id",label:"ID",class:"muted"},{label:"Source",class:"mono",render:e=>a`${e.source_duckdb_schema}.${e.source_duckdb_table} <button style="background:none;border:none;cursor:pointer;color:#bbb;font-size:0.7rem;padding:0 2px" title="Inspect table" @click=${()=>this._inspectTable(e.source_duckdb_schema,e.source_duckdb_table)}>&#9655;</button>`},{label:"Target",class:"mono",render:e=>a`${e.target_duckdb_schema}.${e.target_duckdb_table} <button style="background:none;border:none;cursor:pointer;color:#bbb;font-size:0.7rem;padding:0 2px" title="Inspect table" @click=${()=>this._inspectTable(e.target_duckdb_schema,e.target_duckdb_table)}>&#9655;</button>`},{label:"Description",render:e=>a`${e.description||""}${e.is_default?a`<span style="font-size:0.75rem;color:#888;background:#f0f0f0;padding:1px 5px;border-radius:3px;margin-left:4px">default</span>`:""}`},{label:"Status",render:e=>a`<status-dot ?enabled=${e.enabled}></status-dot>`}]}
         .rows=${this._transforms}
         .rowClass=${e=>e.enabled?"":"disabled-row"}
         .actions=${e=>a`
@@ -797,27 +797,6 @@ var F=Object.defineProperty;var O=(c,e,t)=>e in c?F(c,e,{enumerable:!0,configura
     `}}l(z,"properties",{apiBase:{type:String,attribute:"api-base"},source:{type:String},_transforms:{state:!0},_loading:{state:!0},_editing:{state:!0},_editSql:{state:!0},_message:{state:!0},_previewRows:{state:!0},_creating:{state:!0},_newForm:{state:!0},_dbTables:{state:!0},_schemaTables:{state:!0}}),l(z,"styles",[j,_,C,g,d`
       :host {
         display: block;
-      }
-      .inspect-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #bbb;
-        font-size: 0.7rem;
-        padding: 0 2px;
-        line-height: 1;
-        vertical-align: middle;
-      }
-      .inspect-btn:hover {
-        color: #0066cc;
-      }
-      .default-badge {
-        font-size: 0.75rem;
-        color: #888;
-        background: #f0f0f0;
-        padding: 1px 5px;
-        border-radius: 3px;
-        margin-left: 4px;
       }
       .edit-panel {
         margin: 1rem 0;
