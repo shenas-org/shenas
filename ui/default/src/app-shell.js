@@ -15,6 +15,7 @@ class ShenasApp extends LitElement {
     { path: "/", render: () => this._renderDb() },
     { path: "/database", render: () => this._renderDb() },
     { path: "/pipes", render: () => this._renderPipes() },
+    { path: "/transforms", render: () => html`<shenas-transforms api-base="${this.apiBase}"></shenas-transforms>` },
     { path: "/settings", render: () => this._renderSettings("pipe") },
     {
       path: "/settings/:kind",
@@ -198,6 +199,7 @@ class ShenasApp extends LitElement {
       <div class="tabs" role="tablist">
         ${this._tabLink("database", "Database", active)}
         ${this._tabLink("pipes", "Pipes", active)}
+        ${this._tabLink("transforms", "Transforms", active)}
         ${this._components.map((c) => this._tabLink(c.name, c.name, active))}
         ${this._tabLink("settings", "Settings", active)}
       </div>
