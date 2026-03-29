@@ -285,7 +285,7 @@ class TransformsPage extends LitElement {
           { label: "Source", class: "mono", render: (t) => html`${t.source_duckdb_schema}.${t.source_duckdb_table} <button style=${_inspectBtnStyle} title="Inspect table" @click=${() => this._inspectTable(t.source_duckdb_schema, t.source_duckdb_table)}>&#9655;</button>` },
           { label: "Target", class: "mono", render: (t) => html`${t.target_duckdb_schema}.${t.target_duckdb_table} <button style=${_inspectBtnStyle} title="Inspect table" @click=${() => this._inspectTable(t.target_duckdb_schema, t.target_duckdb_table)}>&#9655;</button>` },
           { label: "Description", render: (t) => html`${t.description || ""}${t.is_default ? html`<span style="font-size:0.75rem;color:#888;background:#f0f0f0;padding:1px 5px;border-radius:3px;margin-left:4px">default</span>` : ""}` },
-          { label: "Status", render: (t) => html`<status-dot ?enabled=${t.enabled} toggleable @toggle=${() => this._toggle(t)}></status-dot>` },
+          { label: "Status", render: (t) => html`<status-toggle ?enabled=${t.enabled} toggleable @toggle=${() => this._toggle(t)}></status-toggle>` },
         ]}
         .rows=${this._transforms}
         .rowClass=${(t) => t.enabled ? "" : "disabled-row"}

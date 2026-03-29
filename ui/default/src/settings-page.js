@@ -197,7 +197,7 @@ class SettingsPage extends LitElement {
           { label: "Name", render: (p) => html`<a href="/settings/${kind}/${p.name}">${p.display_name || p.name}</a>` },
           { key: "version", label: "Version", class: "mono" },
           { label: "Added", class: "mono", render: (p) => p.added_at ? p.added_at.slice(0, 10) : "" },
-          { label: "Status", render: (p) => html`<status-dot ?enabled=${p.enabled !== false} toggleable @toggle=${() => this._togglePlugin(kind, p.name, p.enabled !== false)}></status-dot>` },
+          { label: "Status", render: (p) => html`<status-toggle ?enabled=${p.enabled !== false} toggleable @toggle=${() => this._togglePlugin(kind, p.name, p.enabled !== false)}></status-toggle>` },
         ]}
         .rows=${plugins}
         .rowClass=${(p) => p.enabled === false ? "disabled-row" : ""}

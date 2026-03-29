@@ -183,7 +183,7 @@ class PluginDetail extends LitElement {
         <div class="state-row">
           <span class="state-label">Status</span>
           <span class="state-value">
-            <status-dot ?enabled=${enabled} toggleable @toggle=${this._toggle}></status-dot>
+            <status-toggle ?enabled=${enabled} toggleable @toggle=${this._toggle}></status-toggle>
           </span>
         </div>
         ${this._stateRow("Added", info.added_at)}
