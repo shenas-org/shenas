@@ -114,6 +114,11 @@ class PluginInfo(BaseModel):
     signature: str = ""
     description: str = ""
     commands: list[str] = []
+    enabled: bool = True
+    added_at: str | None = None
+    updated_at: str | None = None
+    enabled_at: str | None = None
+    disabled_at: str | None = None
 
 
 class InstallResult(BaseModel):

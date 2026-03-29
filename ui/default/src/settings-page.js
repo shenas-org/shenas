@@ -202,6 +202,25 @@ class SettingsPage extends LitElement {
     }
   }
 
+  async _toggleEnabled(kind, name, currentlyEnabled) {
+    this._actionMessage = null;
+    const action = currentlyEnabled ? "disable" : "enable";
+    const resp = await fetch(
+      `${this.apiBase}/plugins/${kind}/${name}/${action}`,
+      { method: "POST" },
+    );
+    const data = await resp.json();
+    if (data.ok) {
+      this._actionMessage = { type: "success", text: data.message };
+      await this._fetchAll();
+    } else {
+      this._actionMessage = {
+        type: "error",
+        text: data.message || `${action} failed`,
+      };
+    }
+  }
+
   async _install(kind) {
     const input = this.shadowRoot.querySelector(`#install-${kind}`);
     const name = input?.value?.trim();
@@ -274,18 +293,24 @@ class SettingsPage extends LitElement {
                 <tr>
                   <th>Name</th>
                   <th>Version</th>
-                  <th>Description</th>
+                  <th>Added</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 ${plugins.map(
                   (p) => html`
-                    <tr>
+                    <tr style="${p.enabled === false ? "opacity: 0.5" : ""}">
                       <td class="name">${p.name}</td>
                       <td class="version">${p.version}</td>
-                      <td class="desc">${p.description || ""}</td>
+                      <td class="version">${p.added_at ? p.added_at.slice(0, 10) : ""}</td>
                       <td class="actions">
+                        <button
+                          class="action"
+                          @click=${() => this._toggleEnabled(kind, p.name, p.enabled !== false)}
+                        >
+                          ${p.enabled === false ? "Enable" : "Disable"}
+                        </button>
                         <button
                           class="action remove"
                           @click=${() => this._remove(kind, p.name)}

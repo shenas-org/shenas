@@ -13,7 +13,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, HTTPException
 
 from app.cli.commands.plugin_cmd import DEFAULT_INDEX, PREFIXES, PUBLIC_KEY_PATH, check_signature
-from app.models import InstallRequest, InstallResponse, InstallResult, PluginInfo, RemoveResponse
+from app.db import get_plugin_state
+from app.models import InstallRequest, InstallResponse, InstallResult, OkResponse, PluginInfo, RemoveResponse
 from repository.signing import load_public_key, verify_bytes
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
@@ -76,6 +77,7 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
         sig_status = check_signature(p["name"], p["version"])
         desc = _plugin_description(kind, short_name)
         cmds = _plugin_commands(kind, short_name)
+        state = get_plugin_state(kind, short_name)
         items.append(
             PluginInfo(
                 name=short_name,
@@ -84,6 +86,11 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
                 signature=sig_status,
                 description=desc,
                 commands=cmds,
+                enabled=state["enabled"] if state else True,
+                added_at=state["added_at"] if state else None,
+                updated_at=state["updated_at"] if state else None,
+                enabled_at=state["enabled_at"] if state else None,
+                disabled_at=state["disabled_at"] if state else None,
             )
         )
     return items
@@ -166,6 +173,9 @@ def install_plugin(
     )
 
     if result.returncode == 0:
+        from app.db import upsert_plugin_state
+
+        upsert_plugin_state(kind, name, enabled=True)
         return InstallResult(name=name, ok=True, message=f"Installed {pkg_name}")
     return InstallResult(name=name, ok=False, message=result.stderr.strip() or f"Failed to install {pkg_name}")
 
@@ -180,6 +190,9 @@ def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
     result = subprocess.run(["uv", "pip", "uninstall", pkg_name, "--python", sys.executable], capture_output=True, text=True)
 
     if result.returncode == 0:
+        from app.db import remove_plugin_state
+
+        remove_plugin_state(kind, name)
         return RemoveResponse(ok=True, message=f"Uninstalled {pkg_name}")
     return RemoveResponse(ok=False, message=result.stderr.strip() or f"Failed to uninstall {pkg_name}")
 
@@ -270,3 +283,23 @@ def add_plugins(kind: str, body: InstallRequest) -> InstallResponse:
 def remove_plugin(kind: str, name: str) -> RemoveResponse:
     _validate_kind(kind)
     return uninstall_plugin(name, kind)
+
+
+@router.post("/{kind}/{name}/enable")
+def enable_plugin(kind: str, name: str) -> OkResponse:
+    """Enable a plugin."""
+    _validate_kind(kind)
+    from app.db import upsert_plugin_state
+
+    upsert_plugin_state(kind, name, enabled=True)
+    return OkResponse(ok=True, message=f"Enabled {kind} {name}")
+
+
+@router.post("/{kind}/{name}/disable")
+def disable_plugin(kind: str, name: str) -> OkResponse:
+    """Disable a plugin."""
+    _validate_kind(kind)
+    from app.db import upsert_plugin_state
+
+    upsert_plugin_state(kind, name, enabled=False)
+    return OkResponse(ok=True, message=f"Disabled {kind} {name}")

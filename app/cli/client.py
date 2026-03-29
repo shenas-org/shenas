@@ -138,6 +138,12 @@ class ShenasClient:
     def plugins_describe(self, kind: str, name: str) -> dict[str, str]:
         return self._request("GET", f"/api/plugins/{kind}/{name}/describe")
 
+    def plugins_enable(self, kind: str, name: str) -> dict[str, Any]:
+        return self._request("POST", f"/api/plugins/{kind}/{name}/enable")
+
+    def plugins_disable(self, kind: str, name: str) -> dict[str, Any]:
+        return self._request("POST", f"/api/plugins/{kind}/{name}/disable")
+
     # --- Sync ---
 
     def sync_all(self) -> Iterator[dict[str, Any]]:

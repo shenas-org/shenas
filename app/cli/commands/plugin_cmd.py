@@ -117,6 +117,26 @@ def describe(name: str, kind: str) -> None:
         console.print(f"[dim]No description available for {kind} {name}[/dim]")
 
 
+def enable(name: str, kind: str) -> None:
+    """Enable a plugin."""
+    try:
+        result = ShenasClient().plugins_enable(kind, name)
+    except ShenasServerError as exc:
+        console.print(f"[red]{exc.detail}[/red]")
+        raise typer.Exit(code=1)
+    console.print(f"[green]{result.get('message', 'Enabled')}[/green]")
+
+
+def disable(name: str, kind: str) -> None:
+    """Disable a plugin."""
+    try:
+        result = ShenasClient().plugins_disable(kind, name)
+    except ShenasServerError as exc:
+        console.print(f"[red]{exc.detail}[/red]")
+        raise typer.Exit(code=1)
+    console.print(f"[yellow]{result.get('message', 'Disabled')}[/yellow]")
+
+
 def register_plugin_commands(parent_app: typer.Typer, kind: str, panel: str) -> list[dict[str, Any]]:
     """Discover installed plugins from the server and register subcommands.
 

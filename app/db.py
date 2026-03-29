@@ -69,7 +69,127 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
             _con = duckdb.connect()
             _con.execute(f"ATTACH '{DB_PATH}' AS db (ENCRYPTION_KEY '{key}')")
             _con.execute("USE db")
+            _ensure_plugin_table(_con)
         return _con
+
+
+def _ensure_plugin_table(con: duckdb.DuckDBPyConnection) -> None:
+    """Create the plugin state table if it doesn't exist."""
+    con.execute("CREATE SCHEMA IF NOT EXISTS system")
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS system.plugins (
+            kind VARCHAR NOT NULL,
+            name VARCHAR NOT NULL,
+            enabled BOOLEAN NOT NULL DEFAULT TRUE,
+            added_at TIMESTAMP DEFAULT current_timestamp,
+            updated_at TIMESTAMP,
+            enabled_at TIMESTAMP,
+            disabled_at TIMESTAMP,
+            PRIMARY KEY (kind, name)
+        )
+    """)
+
+
+def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
+    """Get plugin state from the DB. Returns None if not tracked."""
+    con = connect()
+    cur = con.cursor()
+    cur.execute("USE db")
+    row = cur.execute(
+        "SELECT kind, name, enabled, added_at, updated_at, enabled_at, disabled_at "
+        "FROM system.plugins WHERE kind = ? AND name = ?",
+        [kind, name],
+    ).fetchone()
+    cur.close()
+    if not row:
+        return None
+    return {
+        "kind": row[0],
+        "name": row[1],
+        "enabled": row[2],
+        "added_at": str(row[3]) if row[3] else None,
+        "updated_at": str(row[4]) if row[4] else None,
+        "enabled_at": str(row[5]) if row[5] else None,
+        "disabled_at": str(row[6]) if row[6] else None,
+    }
+
+
+def get_all_plugin_states(kind: str | None = None) -> list[dict[str, Any]]:
+    """Get all tracked plugin states, optionally filtered by kind."""
+    con = connect()
+    cur = con.cursor()
+    cur.execute("USE db")
+    if kind:
+        rows = cur.execute(
+            "SELECT kind, name, enabled, added_at, updated_at, enabled_at, disabled_at "
+            "FROM system.plugins WHERE kind = ? ORDER BY name",
+            [kind],
+        ).fetchall()
+    else:
+        rows = cur.execute(
+            "SELECT kind, name, enabled, added_at, updated_at, enabled_at, disabled_at FROM system.plugins ORDER BY kind, name"
+        ).fetchall()
+    cur.close()
+    return [
+        {
+            "kind": r[0],
+            "name": r[1],
+            "enabled": r[2],
+            "added_at": str(r[3]) if r[3] else None,
+            "updated_at": str(r[4]) if r[4] else None,
+            "enabled_at": str(r[5]) if r[5] else None,
+            "disabled_at": str(r[6]) if r[6] else None,
+        }
+        for r in rows
+    ]
+
+
+def upsert_plugin_state(kind: str, name: str, enabled: bool = True) -> None:
+    """Insert or update plugin state with current timestamp."""
+    con = connect()
+    existing = get_plugin_state(kind, name)
+    now = "current_timestamp"
+    if existing:
+        if enabled != existing["enabled"]:
+            if enabled:
+                con.execute(
+                    f"UPDATE system.plugins SET enabled = TRUE, enabled_at = {now}, updated_at = {now} "
+                    "WHERE kind = ? AND name = ?",
+                    [kind, name],
+                )
+            else:
+                con.execute(
+                    f"UPDATE system.plugins SET enabled = FALSE, disabled_at = {now}, updated_at = {now} "
+                    "WHERE kind = ? AND name = ?",
+                    [kind, name],
+                )
+        else:
+            con.execute(
+                f"UPDATE system.plugins SET updated_at = {now} WHERE kind = ? AND name = ?",
+                [kind, name],
+            )
+    else:
+        en_at = now if enabled else "NULL"
+        dis_at = "NULL" if enabled else now
+        con.execute(
+            f"INSERT INTO system.plugins (kind, name, enabled, added_at, enabled_at, disabled_at) "
+            f"VALUES (?, ?, ?, {now}, {en_at}, {dis_at})",
+            [kind, name, enabled],
+        )
+
+
+def remove_plugin_state(kind: str, name: str) -> None:
+    """Remove plugin state from the DB."""
+    con = connect()
+    con.execute("DELETE FROM system.plugins WHERE kind = ? AND name = ?", [kind, name])
+
+
+def is_plugin_enabled(kind: str, name: str) -> bool:
+    """Check if a plugin is enabled. Returns True if not tracked (default enabled)."""
+    state = get_plugin_state(kind, name)
+    if state is None:
+        return True
+    return state["enabled"]
 
 
 def dlt_destination() -> tuple[Any, duckdb.DuckDBPyConnection]:

@@ -111,6 +111,8 @@ def _serve_ui_html() -> HTMLResponse:
 @app.get("/api/components")
 def list_component_metadata() -> list[dict[str, str]]:
     """Return component metadata needed by the UI shell (tag, entrypoint, JS URL)."""
+    from app.db import is_plugin_enabled
+
     components = _discover_plugins("shenas.components", include_internal=False)
     return [
         {
@@ -120,6 +122,7 @@ def list_component_metadata() -> list[dict[str, str]]:
             "description": c.get("description", ""),
         }
         for c in components
+        if is_plugin_enabled("component", c["name"])
     ]
 
 
