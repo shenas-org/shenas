@@ -30,6 +30,7 @@ members = [
     "shenas-schema-fitness",
     "shenas-schema-habits",
     "shenas-schema-outcomes",
+    "shenas-theme-default",
     "shenas-ui-default",
     "shenas-workspace",
 ]
@@ -2241,6 +2242,10 @@ dependencies = [
 requires-dist = [{ name = "shenas-schema-core", editable = "schemas/core" }]
 
 [[package]]
+name = "shenas-theme-default"
+source = { editable = "themes/default" }
+
+[[package]]
 name = "shenas-ui-default"
 source = { editable = "ui/default" }
 
@@ -2271,6 +2276,7 @@ dev = [
     { name = "shenas-schema-fitness" },
     { name = "shenas-schema-habits" },
     { name = "shenas-schema-outcomes" },
+    { name = "shenas-theme-default" },
     { name = "shenas-ui-default" },
     { name = "ty" },
 ]
@@ -2299,6 +2305,7 @@ dev = [
     { name = "shenas-schema-fitness", editable = "schemas/fitness" },
     { name = "shenas-schema-habits", editable = "schemas/habits" },
     { name = "shenas-schema-outcomes", editable = "schemas/outcomes" },
+    { name = "shenas-theme-default", editable = "themes/default" },
     { name = "shenas-ui-default", editable = "ui/default" },
     { name = "ty", specifier = ">=0.0.26" },
 ]

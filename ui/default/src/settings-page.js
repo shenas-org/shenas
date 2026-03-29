@@ -6,6 +6,7 @@ const PLUGIN_KINDS = [
   { id: "schema", label: "Schemas" },
   { id: "component", label: "Components" },
   { id: "ui", label: "UI" },
+  { id: "theme", label: "Themes" },
 ];
 
 class SettingsPage extends LitElement {
