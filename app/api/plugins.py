@@ -6,6 +6,7 @@ import importlib
 import json
 import subprocess
 from html.parser import HTMLParser
+from typing import Any
 from pathlib import Path
 from urllib.request import urlopen
 
@@ -257,11 +258,21 @@ def _plugin_description(kind: str, name: str) -> str:
         return ""
 
 
-@router.get("/{kind}/{name}/describe")
-def describe_plugin(kind: str, name: str) -> dict[str, str]:
-    """Get the description of an installed plugin."""
+@router.get("/{kind}/{name}/info")
+def plugin_info(kind: str, name: str) -> dict[str, Any]:
+    """Get full info for an installed plugin: description and state."""
     _validate_kind(kind)
-    return {"name": name, "kind": kind, "description": _plugin_description(kind, name)}
+    state = get_plugin_state(kind, name)
+    return {
+        "name": name,
+        "kind": kind,
+        "description": _plugin_description(kind, name),
+        "enabled": state["enabled"] if state else True,
+        "added_at": state["added_at"] if state else None,
+        "updated_at": state["updated_at"] if state else None,
+        "enabled_at": state["enabled_at"] if state else None,
+        "disabled_at": state["disabled_at"] if state else None,
+    }
 
 
 @router.get("/{kind}")

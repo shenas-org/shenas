@@ -135,8 +135,8 @@ class ShenasClient:
     def plugins_remove(self, kind: str, name: str) -> dict[str, Any]:
         return self._request("DELETE", f"/api/plugins/{kind}/{name}")
 
-    def plugins_describe(self, kind: str, name: str) -> dict[str, str]:
-        return self._request("GET", f"/api/plugins/{kind}/{name}/describe")
+    def plugins_info(self, kind: str, name: str) -> dict[str, Any]:
+        return self._request("GET", f"/api/plugins/{kind}/{name}/info")
 
     def plugins_enable(self, kind: str, name: str) -> dict[str, Any]:
         return self._request("POST", f"/api/plugins/{kind}/{name}/enable")
