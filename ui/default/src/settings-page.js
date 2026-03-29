@@ -111,41 +111,6 @@ class SettingsPage extends LitElement {
     this._loading = false;
   }
 
-  async _remove(kind, name) {
-    this._actionMessage = null;
-    const resp = await fetch(`${this.apiBase}/plugins/${kind}/${name}`, {
-      method: "DELETE",
-    });
-    const data = await resp.json();
-    if (data.ok) {
-      this._actionMessage = { type: "success", text: data.message };
-      await this._fetchAll();
-    } else {
-      this._actionMessage = {
-        type: "error",
-        text: data.message || "Remove failed",
-      };
-    }
-  }
-
-  async _toggleEnabled(kind, name, currentlyEnabled) {
-    this._actionMessage = null;
-    const action = currentlyEnabled ? "disable" : "enable";
-    const resp = await fetch(
-      `${this.apiBase}/plugins/${kind}/${name}/${action}`,
-      { method: "POST" },
-    );
-    const data = await resp.json();
-    if (data.ok) {
-      this._actionMessage = { type: "success", text: data.message };
-      await this._fetchAll();
-    } else {
-      this._actionMessage = {
-        type: "error",
-        text: data.message || `${action} failed`,
-      };
-    }
-  }
 
   async _install(kind) {
     const input = this.shadowRoot.querySelector(`#install-${kind}`);

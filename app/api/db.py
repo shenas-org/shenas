@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 
 import duckdb
 from typing import Any
@@ -133,7 +134,7 @@ def schema_plugin_ownership() -> dict[str, list[str]]:
     return _load_schema_plugins()
 
 
-_IDENTIFIER_RE = __import__("re").compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
 @router.get("/preview/{schema}/{table}")
