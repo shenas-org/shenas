@@ -72,14 +72,16 @@ def sync(
     ]
 
     def _transform() -> None:
-        from shenas_pipes.lunchmoney.transform import LunchMoneyMetricProvider
         from shenas_schemas.finance import ensure_schema
+
+        from app.transforms import run_transforms, seed_defaults
+        from shenas_pipes.lunchmoney.transform import TRANSFORM_DEFAULTS
 
         con = connect()
         ensure_schema(con)
-        provider = LunchMoneyMetricProvider()
+        seed_defaults("lunchmoney", TRANSFORM_DEFAULTS)
         console.print("Transforming lunchmoney...", style="dim")
-        provider.transform(con)
-        console.print("[green]done[/green]")
+        count = run_transforms(con, "lunchmoney")
+        console.print(f"[green]{count} transforms done[/green]")
 
     run_sync("lunchmoney", "lunchmoney", resources, full_refresh, _transform)

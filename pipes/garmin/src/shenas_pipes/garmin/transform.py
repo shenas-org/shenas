@@ -1,83 +1,61 @@
+"""Garmin default transforms -- seeded into shenas_system.transforms on first sync."""
+
 from __future__ import annotations
 
-import duckdb
-
-from shenas_pipes.core.transform import MetricProviderBase
-
-
-class GarminMetricProvider(MetricProviderBase):
-    source = "garmin"
-
-    def transform(self, con: duckdb.DuckDBPyConnection) -> None:
-        self._hrv(con)
-        self._sleep(con)
-        self._vitals(con)
-        self._body(con)
-
-    def _hrv(self, con: duckdb.DuckDBPyConnection) -> None:
-        self._upsert(
-            con,
-            "daily_hrv",
-            """
-            INSERT INTO metrics.daily_hrv (date, source, rmssd)
-            SELECT
-                calendar_date::DATE,
-                'garmin',
-                hrv_summary__last_night_avg
-            FROM garmin.hrv
-            WHERE hrv_summary__last_night_avg IS NOT NULL
-            """,
-        )
-
-    def _sleep(self, con: duckdb.DuckDBPyConnection) -> None:
-        self._upsert(
-            con,
-            "daily_sleep",
-            """
-            INSERT INTO metrics.daily_sleep
-                (date, source, total_hours, score, deep_min, rem_min, light_min, awake_min)
-            SELECT
-                calendar_date::DATE,
-                'garmin',
-                daily_sleep_dto__sleep_time_seconds / 3600.0,
-                daily_sleep_dto__sleep_scores__overall__value,
-                daily_sleep_dto__deep_sleep_seconds / 60,
-                daily_sleep_dto__rem_sleep_seconds / 60,
-                daily_sleep_dto__light_sleep_seconds / 60,
-                daily_sleep_dto__awake_sleep_seconds / 60
-            FROM garmin.sleep
-            WHERE daily_sleep_dto__sleep_time_seconds IS NOT NULL
-            """,
-        )
-
-    def _vitals(self, con: duckdb.DuckDBPyConnection) -> None:
-        self._upsert(
-            con,
-            "daily_vitals",
-            """
-            INSERT INTO metrics.daily_vitals (date, source, resting_hr, steps, active_kcal)
-            SELECT
-                calendar_date::DATE,
-                'garmin',
-                resting_heart_rate,
-                total_steps,
-                active_kilocalories::INTEGER
-            FROM garmin.daily_stats
-            """,
-        )
-
-    def _body(self, con: duckdb.DuckDBPyConnection) -> None:
-        self._upsert(
-            con,
-            "daily_body",
-            """
-            INSERT INTO metrics.daily_body (date, source, weight_kg)
-            SELECT
-                calendar_date::DATE,
-                'garmin',
-                weight / 1000.0
-            FROM garmin.body_composition
-            WHERE calendar_date IS NOT NULL
-              AND weight IS NOT NULL
-            """,
-        )
+TRANSFORM_DEFAULTS = [
+    {
+        "source_duckdb_schema": "garmin",
+        "source_duckdb_table": "hrv",
+        "target_duckdb_schema": "metrics",
+        "target_duckdb_table": "daily_hrv",
+        "description": "Extract nightly HRV (RMSSD) from Garmin HRV data",
+        "sql": (
+            "SELECT calendar_date::DATE as date, 'garmin' as source, "
+            "hrv_summary__last_night_avg as rmssd "
+            "FROM garmin.hrv WHERE hrv_summary__last_night_avg IS NOT NULL"
+        ),
+    },
+    {
+        "source_duckdb_schema": "garmin",
+        "source_duckdb_table": "sleep",
+        "target_duckdb_schema": "metrics",
+        "target_duckdb_table": "daily_sleep",
+        "description": "Extract sleep duration, score, and stage breakdown from Garmin sleep data",
+        "sql": (
+            "SELECT calendar_date::DATE as date, 'garmin' as source, "
+            "daily_sleep_dto__sleep_time_seconds / 3600.0 as total_hours, "
+            "daily_sleep_dto__sleep_scores__overall__value as score, "
+            "daily_sleep_dto__deep_sleep_seconds / 60 as deep_min, "
+            "daily_sleep_dto__rem_sleep_seconds / 60 as rem_min, "
+            "daily_sleep_dto__light_sleep_seconds / 60 as light_min, "
+            "daily_sleep_dto__awake_sleep_seconds / 60 as awake_min "
+            "FROM garmin.sleep WHERE daily_sleep_dto__sleep_time_seconds IS NOT NULL"
+        ),
+    },
+    {
+        "source_duckdb_schema": "garmin",
+        "source_duckdb_table": "daily_stats",
+        "target_duckdb_schema": "metrics",
+        "target_duckdb_table": "daily_vitals",
+        "description": "Extract resting heart rate, steps, and active calories from daily stats",
+        "sql": (
+            "SELECT calendar_date::DATE as date, 'garmin' as source, "
+            "resting_heart_rate as resting_hr, total_steps as steps, "
+            "active_kilocalories::INTEGER as active_kcal "
+            "FROM garmin.daily_stats"
+        ),
+    },
+    {
+        "source_duckdb_schema": "garmin",
+        "source_duckdb_table": "body_composition",
+        "target_duckdb_schema": "metrics",
+        "target_duckdb_table": "daily_body",
+        "description": "Extract body weight (grams to kg) from body composition data",
+        "sql": (
+            "SELECT calendar_date::DATE as date, 'garmin' as source, "
+            "weight / 1000.0 as weight_kg "
+            "FROM garmin.body_composition "
+            "WHERE calendar_date IS NOT NULL AND weight IS NOT NULL"
+        ),
+    },
+]

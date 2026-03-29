@@ -64,16 +64,18 @@ def sync(
     ]
 
     def _transform() -> None:
-        from shenas_pipes.duolingo.transform import DuolingoMetricProvider
         from shenas_schemas.habits import ensure_schema as ensure_habits
         from shenas_schemas.outcomes import ensure_schema as ensure_outcomes
+
+        from app.transforms import run_transforms, seed_defaults
+        from shenas_pipes.duolingo.transform import TRANSFORM_DEFAULTS
 
         con = connect()
         ensure_outcomes(con)
         ensure_habits(con)
-        provider = DuolingoMetricProvider()
+        seed_defaults("duolingo", TRANSFORM_DEFAULTS)
         console.print("Transforming duolingo...", style="dim")
-        provider.transform(con)
-        console.print("[green]done[/green]")
+        count = run_transforms(con, "duolingo")
+        console.print(f"[green]{count} transforms done[/green]")
 
     run_sync("duolingo", "duolingo", resources, full_refresh, _transform)

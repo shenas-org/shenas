@@ -1,0 +1,171 @@
+"""Transform management: CRUD, seeding defaults, and execution."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import duckdb
+
+from app.db import connect
+
+_COLS = "id, source_duckdb_schema, source_duckdb_table, target_duckdb_schema, target_duckdb_table, source_plugin, description, sql, is_default, enabled, added_at, updated_at, status_changed_at"
+
+
+def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
+    return {
+        "id": row[0],
+        "source_duckdb_schema": row[1],
+        "source_duckdb_table": row[2],
+        "target_duckdb_schema": row[3],
+        "target_duckdb_table": row[4],
+        "source_plugin": row[5],
+        "description": row[6] or "",
+        "sql": row[7],
+        "is_default": row[8],
+        "enabled": row[9],
+        "added_at": str(row[10]) if row[10] else None,
+        "updated_at": str(row[11]) if row[11] else None,
+        "status_changed_at": str(row[12]) if row[12] else None,
+    }
+
+
+def list_transforms(source_plugin: str | None = None) -> list[dict[str, Any]]:
+    """List transforms, optionally filtered by source plugin."""
+    con = connect()
+    cur = con.cursor()
+    cur.execute("USE db")
+    if source_plugin:
+        rows = cur.execute(
+            f"SELECT {_COLS} FROM shenas_system.transforms WHERE source_plugin = ? ORDER BY id",
+            [source_plugin],
+        ).fetchall()
+    else:
+        rows = cur.execute(f"SELECT {_COLS} FROM shenas_system.transforms ORDER BY id").fetchall()
+    cur.close()
+    return [_row_to_dict(r) for r in rows]
+
+
+def get_transform(transform_id: int) -> dict[str, Any] | None:
+    """Get a single transform by ID."""
+    con = connect()
+    cur = con.cursor()
+    cur.execute("USE db")
+    row = cur.execute(f"SELECT {_COLS} FROM shenas_system.transforms WHERE id = ?", [transform_id]).fetchone()
+    cur.close()
+    return _row_to_dict(row) if row else None
+
+
+def create_transform(
+    source_duckdb_schema: str,
+    source_duckdb_table: str,
+    target_duckdb_schema: str,
+    target_duckdb_table: str,
+    source_plugin: str,
+    sql: str,
+    description: str = "",
+    is_default: bool = False,
+) -> dict[str, Any]:
+    """Create a new transform and return it."""
+    con = connect()
+    con.execute(
+        "INSERT INTO shenas_system.transforms "
+        "(source_duckdb_schema, source_duckdb_table, target_duckdb_schema, target_duckdb_table, source_plugin, description, sql, is_default) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            source_duckdb_schema,
+            source_duckdb_table,
+            target_duckdb_schema,
+            target_duckdb_table,
+            source_plugin,
+            description,
+            sql,
+            is_default,
+        ],
+    )
+    row = con.execute(f"SELECT {_COLS} FROM shenas_system.transforms ORDER BY id DESC LIMIT 1").fetchone()
+    if not row:
+        msg = "Failed to create transform"
+        raise RuntimeError(msg)
+    return _row_to_dict(row)
+
+
+def update_transform(transform_id: int, sql: str) -> dict[str, Any] | None:
+    """Update a transform's SQL."""
+    con = connect()
+    con.execute(
+        "UPDATE shenas_system.transforms SET sql = ?, updated_at = current_timestamp WHERE id = ?",
+        [sql, transform_id],
+    )
+    return get_transform(transform_id)
+
+
+def delete_transform(transform_id: int) -> bool:
+    """Delete a transform. Returns False if it's a default transform."""
+    t = get_transform(transform_id)
+    if not t:
+        return False
+    if t["is_default"]:
+        return False
+    con = connect()
+    con.execute("DELETE FROM shenas_system.transforms WHERE id = ?", [transform_id])
+    return True
+
+
+def set_transform_enabled(transform_id: int, enabled: bool) -> dict[str, Any] | None:
+    """Enable or disable a transform."""
+    con = connect()
+    con.execute(
+        "UPDATE shenas_system.transforms SET enabled = ?, status_changed_at = current_timestamp, updated_at = current_timestamp WHERE id = ?",
+        [enabled, transform_id],
+    )
+    return get_transform(transform_id)
+
+
+def seed_defaults(source_plugin: str, defaults: list[dict[str, str]]) -> None:
+    """Seed default transforms for a source plugin if none exist.
+
+    Each default dict must have: source_duckdb_schema, source_duckdb_table,
+    target_duckdb_schema, target_duckdb_table, sql.
+    """
+    existing = list_transforms(source_plugin)
+    if existing:
+        return
+    for d in defaults:
+        create_transform(
+            source_duckdb_schema=d["source_duckdb_schema"],
+            source_duckdb_table=d["source_duckdb_table"],
+            target_duckdb_schema=d["target_duckdb_schema"],
+            target_duckdb_table=d["target_duckdb_table"],
+            source_plugin=source_plugin,
+            sql=d["sql"],
+            description=d.get("description", ""),
+            is_default=True,
+        )
+
+
+def run_transforms(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
+    """Run all enabled transforms for a source plugin. Returns count of transforms run."""
+    transforms = list_transforms(source_plugin)
+    count = 0
+    for t in transforms:
+        if not t["enabled"]:
+            continue
+        target = f'"{t["target_duckdb_schema"]}"."{t["target_duckdb_table"]}"'
+        con.execute(f"DELETE FROM {target} WHERE source = '{t['source_plugin']}'")
+        con.execute(f"INSERT INTO {target} {t['sql']}")
+        count += 1
+    return count
+
+
+def test_transform(transform_id: int, limit: int = 10) -> list[dict[str, Any]]:
+    """Dry-run a transform's SQL and return preview rows."""
+    t = get_transform(transform_id)
+    if not t:
+        return []
+    con = connect()
+    cur = con.cursor()
+    cur.execute("USE db")
+    rows = cur.execute(f"{t['sql']} LIMIT {limit}").fetchall()
+    cols = [desc[0] for desc in cur.description]
+    cur.close()
+    return [dict(zip(cols, row)) for row in rows]

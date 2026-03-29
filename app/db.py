@@ -69,17 +69,41 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
             _con = duckdb.connect()
             _con.execute(f"ATTACH '{DB_PATH}' AS db (ENCRYPTION_KEY '{key}')")
             _con.execute("USE db")
-            _ensure_plugin_table(_con)
+            _ensure_system_tables(_con)
         return _con
 
 
-def _ensure_plugin_table(con: duckdb.DuckDBPyConnection) -> None:
-    """Create the plugin state table if it doesn't exist.
-
-    Uses CREATE TABLE IF NOT EXISTS + ADD COLUMN for new columns.
-    Old columns are left in place (harmless, never queried).
-    """
+def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
+    """Create system tables if they don't exist."""
     con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
+    _ensure_plugin_table(con)
+    _ensure_transforms_table(con)
+
+
+def _ensure_transforms_table(con: duckdb.DuckDBPyConnection) -> None:
+    """Create the transforms table."""
+    con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS shenas_system.transforms (
+            id INTEGER PRIMARY KEY DEFAULT nextval('shenas_system.transform_seq'),
+            source_duckdb_schema VARCHAR NOT NULL,
+            source_duckdb_table VARCHAR NOT NULL,
+            target_duckdb_schema VARCHAR NOT NULL,
+            target_duckdb_table VARCHAR NOT NULL,
+            source_plugin VARCHAR NOT NULL,
+            description VARCHAR DEFAULT '',
+            sql TEXT NOT NULL,
+            is_default BOOLEAN DEFAULT FALSE,
+            enabled BOOLEAN DEFAULT TRUE,
+            added_at TIMESTAMP DEFAULT current_timestamp,
+            updated_at TIMESTAMP,
+            status_changed_at TIMESTAMP
+        )
+    """)
+
+
+def _ensure_plugin_table(con: duckdb.DuckDBPyConnection) -> None:
+    """Create the plugin state table if it doesn't exist."""
     con.execute("""
         CREATE TABLE IF NOT EXISTS shenas_system.plugins (
             kind VARCHAR NOT NULL,

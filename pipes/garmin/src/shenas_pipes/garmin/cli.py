@@ -89,14 +89,16 @@ def sync(
     ]
 
     def _transform() -> None:
-        from shenas_pipes.garmin.transform import GarminMetricProvider
         from shenas_schemas.fitness import ensure_schema
+
+        from app.transforms import run_transforms, seed_defaults
+        from shenas_pipes.garmin.transform import TRANSFORM_DEFAULTS
 
         con = connect()
         ensure_schema(con)
-        provider = GarminMetricProvider()
+        seed_defaults("garmin", TRANSFORM_DEFAULTS)
         console.print("Transforming garmin...", style="dim")
-        provider.transform(con)
-        console.print("[green]done[/green]")
+        count = run_transforms(con, "garmin")
+        console.print(f"[green]{count} transforms done[/green]")
 
     run_sync("garmin", "garmin", resources, full_refresh, _transform)

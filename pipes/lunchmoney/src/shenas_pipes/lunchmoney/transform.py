@@ -1,102 +1,69 @@
+"""Lunch Money default transforms -- seeded into shenas_system.transforms on first sync."""
+
 from __future__ import annotations
 
-import duckdb
-
-from shenas_pipes.core.transform import MetricProviderBase
-
-
-class LunchMoneyMetricProvider(MetricProviderBase):
-    source = "lunchmoney"
-
-    def transform(self, con: duckdb.DuckDBPyConnection) -> None:
-        self._transactions(con)
-        self._daily_spending(con)
-        self._monthly_category(con)
-        self._monthly_overview(con)
-
-    def _transactions(self, con: duckdb.DuckDBPyConnection) -> None:
-        self._upsert(
-            con,
-            "transactions",
-            """
-            INSERT INTO metrics.transactions
-                (id, source, date, amount, payee, category, category_group, account, currency, is_income, notes, recurring)
-            SELECT
-                id::VARCHAR,
-                'lunchmoney',
-                date::DATE,
-                CASE WHEN is_income THEN ABS(to_base) ELSE -ABS(to_base) END,
-                payee,
-                category_name,
-                category_group_name,
-                COALESCE(account_display_name, plaid_account_name),
-                currency,
-                CASE WHEN is_income THEN 1 ELSE 0 END,
-                display_notes,
-                CASE WHEN recurring_id IS NOT NULL THEN 1 ELSE 0 END
-            FROM lunchmoney.transactions
-            WHERE status != 'pending'
-            """,
-        )
-
-    def _daily_spending(self, con: duckdb.DuckDBPyConnection) -> None:
-        self._upsert(
-            con,
-            "daily_spending",
-            """
-            INSERT INTO metrics.daily_spending (date, source, total_spent, total_income, transaction_count)
-            SELECT
-                date::DATE,
-                'lunchmoney',
-                SUM(CASE WHEN NOT is_income THEN ABS(to_base) ELSE 0 END),
-                SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END),
-                COUNT(*)
-            FROM lunchmoney.transactions
-            WHERE status != 'pending'
-            GROUP BY date
-            """,
-        )
-
-    def _monthly_category(self, con: duckdb.DuckDBPyConnection) -> None:
-        self._upsert(
-            con,
-            "monthly_category",
-            """
-            INSERT INTO metrics.monthly_category (month, category, source, amount_spent, transaction_count)
-            SELECT
-                STRFTIME(date::DATE, '%Y-%m'),
-                COALESCE(category_name, 'Uncategorized'),
-                'lunchmoney',
-                SUM(ABS(to_base)),
-                COUNT(*)
-            FROM lunchmoney.transactions
-            WHERE status != 'pending' AND NOT is_income
-            GROUP BY STRFTIME(date::DATE, '%Y-%m'), COALESCE(category_name, 'Uncategorized')
-            """,
-        )
-
-    def _monthly_overview(self, con: duckdb.DuckDBPyConnection) -> None:
-        self._upsert(
-            con,
-            "monthly_overview",
-            """
-            INSERT INTO metrics.monthly_overview
-                (month, source, total_income, total_spent, net, transaction_count, savings_rate)
-            SELECT
-                STRFTIME(date::DATE, '%Y-%m'),
-                'lunchmoney',
-                SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END),
-                SUM(CASE WHEN NOT is_income THEN ABS(to_base) ELSE 0 END),
-                SUM(CASE WHEN is_income THEN ABS(to_base) ELSE -ABS(to_base) END),
-                COUNT(*),
-                CASE
-                    WHEN SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END) > 0
-                    THEN (SUM(CASE WHEN is_income THEN ABS(to_base) ELSE -ABS(to_base) END)
-                          / SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END)) * 100
-                    ELSE NULL
-                END
-            FROM lunchmoney.transactions
-            WHERE status != 'pending'
-            GROUP BY STRFTIME(date::DATE, '%Y-%m')
-            """,
-        )
+TRANSFORM_DEFAULTS = [
+    {
+        "source_duckdb_schema": "lunchmoney",
+        "source_duckdb_table": "transactions",
+        "target_duckdb_schema": "metrics",
+        "target_duckdb_table": "transactions",
+        "description": "Map raw transactions to canonical format with income/expense classification",
+        "sql": (
+            "SELECT id::VARCHAR as id, 'lunchmoney' as source, date::DATE as date, "
+            "CASE WHEN is_income THEN ABS(to_base) ELSE -ABS(to_base) END as amount, "
+            "payee, category_name as category, category_group_name as category_group, "
+            "COALESCE(account_display_name, plaid_account_name) as account, "
+            "currency, CASE WHEN is_income THEN 1 ELSE 0 END as is_income, "
+            "display_notes as notes, CASE WHEN recurring_id IS NOT NULL THEN 1 ELSE 0 END as recurring "
+            "FROM lunchmoney.transactions WHERE status != 'pending'"
+        ),
+    },
+    {
+        "source_duckdb_schema": "lunchmoney",
+        "source_duckdb_table": "transactions",
+        "target_duckdb_schema": "metrics",
+        "target_duckdb_table": "daily_spending",
+        "description": "Aggregate daily spending and income totals from transactions",
+        "sql": (
+            "SELECT date::DATE as date, 'lunchmoney' as source, "
+            "SUM(CASE WHEN NOT is_income THEN ABS(to_base) ELSE 0 END) as total_spent, "
+            "SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END) as total_income, "
+            "COUNT(*) as transaction_count "
+            "FROM lunchmoney.transactions WHERE status != 'pending' GROUP BY date"
+        ),
+    },
+    {
+        "source_duckdb_schema": "lunchmoney",
+        "source_duckdb_table": "transactions",
+        "target_duckdb_schema": "metrics",
+        "target_duckdb_table": "monthly_category",
+        "description": "Aggregate monthly spending by category",
+        "sql": (
+            "SELECT STRFTIME(date::DATE, '%Y-%m') as month, "
+            "COALESCE(category_name, 'Uncategorized') as category, "
+            "'lunchmoney' as source, SUM(ABS(to_base)) as amount_spent, COUNT(*) as transaction_count "
+            "FROM lunchmoney.transactions WHERE status != 'pending' AND NOT is_income "
+            "GROUP BY STRFTIME(date::DATE, '%Y-%m'), COALESCE(category_name, 'Uncategorized')"
+        ),
+    },
+    {
+        "source_duckdb_schema": "lunchmoney",
+        "source_duckdb_table": "transactions",
+        "target_duckdb_schema": "metrics",
+        "target_duckdb_table": "monthly_overview",
+        "description": "Monthly income, spending, net, and savings rate overview",
+        "sql": (
+            "SELECT STRFTIME(date::DATE, '%Y-%m') as month, 'lunchmoney' as source, "
+            "SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END) as total_income, "
+            "SUM(CASE WHEN NOT is_income THEN ABS(to_base) ELSE 0 END) as total_spent, "
+            "SUM(CASE WHEN is_income THEN ABS(to_base) ELSE -ABS(to_base) END) as net, "
+            "COUNT(*) as transaction_count, "
+            "CASE WHEN SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END) > 0 "
+            "THEN (SUM(CASE WHEN is_income THEN ABS(to_base) ELSE -ABS(to_base) END) "
+            "/ SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END)) * 100 ELSE NULL END as savings_rate "
+            "FROM lunchmoney.transactions WHERE status != 'pending' "
+            "GROUP BY STRFTIME(date::DATE, '%Y-%m')"
+        ),
+    },
+]
