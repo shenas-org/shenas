@@ -25,7 +25,7 @@ class ConfigPage extends LitElement {
         display: flex;
         align-items: center;
         padding: 0.5rem 0;
-        border-bottom: 1px solid #f0f0f0;
+        border-bottom: 1px solid var(--shenas-border-light, #f0f0f0);
         font-size: 0.9rem;
         gap: 1rem;
       }
@@ -35,23 +35,23 @@ class ConfigPage extends LitElement {
       .config-key {
         min-width: 140px;
         font-weight: 600;
-        color: #333;
+        color: var(--shenas-text, #222);
         flex-shrink: 0;
       }
       .config-value {
         flex: 1;
-        color: #555;
+        color: var(--shenas-text-secondary, #666);
         font-family: monospace;
         font-size: 0.85rem;
       }
       .config-value.empty {
-        color: #aaa;
+        color: var(--shenas-text-faint, #aaa);
         font-style: italic;
         font-family: inherit;
       }
       .config-desc {
         font-size: 0.8rem;
-        color: #888;
+        color: var(--shenas-text-muted, #888);
         margin-top: 0.2rem;
       }
       .config-detail {
@@ -60,7 +60,7 @@ class ConfigPage extends LitElement {
       input.config-input {
         width: 100%;
         padding: 0.3rem 0.5rem;
-        border: 1px solid #ddd;
+        border: 1px solid var(--shenas-border-input, #ddd);
         border-radius: 4px;
         font-size: 0.85rem;
         font-family: monospace;

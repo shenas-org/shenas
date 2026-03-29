@@ -1,6 +1,30 @@
+:root {
+  --shenas-bg: #fff;
+  --shenas-bg-secondary: #fafafa;
+  --shenas-bg-hover: #f5f5f5;
+  --shenas-bg-selected: #f0f4ff;
+  --shenas-text: #222;
+  --shenas-text-secondary: #666;
+  --shenas-text-muted: #888;
+  --shenas-text-faint: #aaa;
+  --shenas-border: #e0e0e0;
+  --shenas-border-light: #f0f0f0;
+  --shenas-border-input: #ddd;
+  --shenas-primary: #0066cc;
+  --shenas-success: #2e7d32;
+  --shenas-success-bg: #e8f5e9;
+  --shenas-error: #c62828;
+  --shenas-error-bg: #fce4ec;
+  --shenas-danger: #c00;
+  --shenas-danger-border: #e8c0c0;
+  --shenas-danger-bg: #fef0f0;
+  --shenas-node-pipe: #4a90d9;
+  --shenas-node-schema: #66bb6a;
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, sans-serif;
-  background: #fff;
-  color: #222;
+  background: var(--shenas-bg);
+  color: var(--shenas-text);
 }

@@ -45,8 +45,8 @@ class PluginDetail extends LitElement {
         font-size: 1.3rem;
       }
       .kind-badge {
-        background: #f0f0f0;
-        color: #555;
+        background: var(--shenas-border-light, #f0f0f0);
+        color: var(--shenas-text-secondary, #666);
         padding: 0.15rem 0.5rem;
         border-radius: 3px;
         font-size: 0.65rem;
@@ -55,7 +55,7 @@ class PluginDetail extends LitElement {
         margin-left: 0.3rem;
       }
       .description {
-        color: #444;
+        color: var(--shenas-text-secondary, #666);
         line-height: 1.6;
         margin: 1rem 0;
         white-space: pre-line;
@@ -66,7 +66,7 @@ class PluginDetail extends LitElement {
       .state-row {
         display: flex;
         padding: 0.4rem 0;
-        border-bottom: 1px solid #f0f0f0;
+        border-bottom: 1px solid var(--shenas-border-light, #f0f0f0);
         font-size: 0.9rem;
       }
       .state-row:last-child {
@@ -74,11 +74,11 @@ class PluginDetail extends LitElement {
       }
       .state-label {
         width: 120px;
-        color: #888;
+        color: var(--shenas-text-muted, #888);
         flex-shrink: 0;
       }
       .state-value {
-        color: #333;
+        color: var(--shenas-text, #222);
       }
       button {
         padding: 0.5rem 1rem;
@@ -87,7 +87,7 @@ class PluginDetail extends LitElement {
       .section-title {
         font-size: 0.8rem;
         text-transform: uppercase;
-        color: #888;
+        color: var(--shenas-text-muted, #888);
         letter-spacing: 0.05em;
         margin: 1.5rem 0 0.5rem;
       }

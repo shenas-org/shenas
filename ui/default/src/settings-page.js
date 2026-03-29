@@ -56,19 +56,19 @@ class SettingsPage extends LitElement {
         background: none;
         cursor: pointer;
         font-size: 0.9rem;
-        color: #666;
+        color: var(--shenas-text-secondary, #666);
         border-radius: 4px;
         border-left: 3px solid transparent;
       }
       .sidebar a:hover {
-        background: #f5f5f5;
-        color: #222;
+        background: var(--shenas-bg-hover, #f5f5f5);
+        color: var(--shenas-text, #222);
       }
       .sidebar a[aria-selected="true"] {
-        background: #f0f4ff;
-        color: #222;
+        background: var(--shenas-bg-selected, #f0f4ff);
+        color: var(--shenas-text, #222);
         font-weight: 600;
-        border-left-color: #0066cc;
+        border-left-color: var(--shenas-primary, #0066cc);
       }
       .content {
         flex: 1;

@@ -31,9 +31,9 @@ class TransformsPage extends LitElement {
       .edit-panel {
         margin: 1rem 0;
         padding: 1rem;
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--shenas-border, #e0e0e0);
         border-radius: 8px;
-        background: #fafafa;
+        background: var(--shenas-bg-secondary, #fafafa);
       }
       .edit-panel h3 {
         margin: 0 0 0.8rem;
@@ -45,14 +45,14 @@ class TransformsPage extends LitElement {
         font-family: monospace;
         font-size: 0.85rem;
         padding: 0.5rem;
-        border: 1px solid #ddd;
+        border: 1px solid var(--shenas-border-input, #ddd);
         border-radius: 4px;
         resize: vertical;
         box-sizing: border-box;
       }
       textarea.readonly {
-        background: #f5f5f5;
-        color: #666;
+        background: var(--shenas-bg-hover, #f5f5f5);
+        color: var(--shenas-text-secondary, #666);
         cursor: default;
       }
       .edit-actions {
@@ -79,7 +79,7 @@ class TransformsPage extends LitElement {
       }
       .form-grid label {
         font-size: 0.8rem;
-        color: #666;
+        color: var(--shenas-text-secondary, #666);
         display: flex;
         flex-direction: column;
         gap: 0.2rem;
@@ -87,7 +87,7 @@ class TransformsPage extends LitElement {
       .form-grid input,
       .form-grid select {
         padding: 0.35rem 0.5rem;
-        border: 1px solid #ddd;
+        border: 1px solid var(--shenas-border-input, #ddd);
         border-radius: 4px;
         font-size: 0.85rem;
         font-family: monospace;

@@ -39,6 +39,7 @@ shenas-component-fitness-dashboard = { workspace = true }
 shenas-component-data-table = { workspace = true }
 shenas-ui-default = { workspace = true }
 shenas-theme-default = { workspace = true }
+shenas-theme-dark = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -59,6 +60,7 @@ dev = [
     "shenas-component-data-table",
     "shenas-ui-default",
     "shenas-theme-default",
+    "shenas-theme-dark",
     "commitizen>=4.13.9",
     "httpx>=0.28.1",
     "pytest>=9.0.2",

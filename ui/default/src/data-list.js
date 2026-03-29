@@ -40,7 +40,7 @@ class DataList extends LitElement {
         font-size: 0.85rem;
       }
       .muted {
-        color: #888;
+        color: var(--shenas-text-muted, #888);
       }
       .actions-cell {
         white-space: nowrap;
@@ -57,9 +57,9 @@ class DataList extends LitElement {
         width: 30px;
         height: 30px;
         border-radius: 50%;
-        border: 2px solid #0066cc;
-        background: #fff;
-        color: #0066cc;
+        border: 2px solid var(--shenas-primary, #0066cc);
+        background: var(--shenas-bg, #fff);
+        color: var(--shenas-primary, #0066cc);
         font-size: 1.2rem;
         font-weight: 600;
         line-height: 1;
@@ -71,8 +71,8 @@ class DataList extends LitElement {
         transition: background 0.15s, color 0.15s;
       }
       .add-btn:hover {
-        background: #0066cc;
-        color: #fff;
+        background: var(--shenas-primary, #0066cc);
+        color: var(--shenas-bg, #fff);
       }
     `,
   ];
