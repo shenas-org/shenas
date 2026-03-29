@@ -6,8 +6,7 @@ re-exports the public API so pipe code doesn't need to change.
 
 from __future__ import annotations
 
-from app.db import DB_PATH, connect, dlt_destination, get_db_key
-from app.db import flush_from_memory as flush_to_encrypted
+from app.db import DB_PATH, connect, dlt_destination, flush_to_encrypted, get_db_key
 
 
 def close() -> None:

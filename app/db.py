@@ -75,7 +75,7 @@ def dlt_destination() -> tuple[Any, duckdb.DuckDBPyConnection]:
     """Return a dlt DuckDB destination backed by an in-memory connection.
 
     dlt writes to memory (nothing on disk unencrypted). After pipeline.run(),
-    call flush_from_memory() to copy the data into the encrypted DB.
+    call flush_to_encrypted() to copy the data into the encrypted DB.
     """
     import dlt
 
@@ -83,7 +83,7 @@ def dlt_destination() -> tuple[Any, duckdb.DuckDBPyConnection]:
     return dlt.destinations.duckdb(credentials=mem_con), mem_con
 
 
-def flush_from_memory(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) -> None:
+def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) -> None:
     """Copy tables from an in-memory dlt connection into the encrypted DB.
 
     Uses Arrow table registration to transfer data through the server's
