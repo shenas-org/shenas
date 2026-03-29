@@ -233,8 +233,9 @@ def _plugin_commands(kind: str, name: str) -> list[str]:
 def _load_plugin_module(kind: str, name: str) -> Any:
     """Try to import a plugin module (cli first, then __init__)."""
     namespace = NAMESPACES[kind]
+    py_name = name.replace("-", "_")
     for mod_suffix in ("cli", ""):
-        mod_name = f"{namespace}.{name}.{mod_suffix}".rstrip(".")
+        mod_name = f"{namespace}.{py_name}.{mod_suffix}".rstrip(".")
         try:
             return importlib.import_module(mod_name)
         except (ImportError, ModuleNotFoundError):
