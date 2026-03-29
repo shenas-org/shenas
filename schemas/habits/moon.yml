@@ -1,11 +1,9 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
-id: 'pipe-duolingo'
+id: 'schema-habits'
 
 language: 'python'
 stack: 'data'
-tags: ['pipe']
+tags: ['schema']
 
 dependsOn:
-  - 'pipe-core'
-  - 'schema-outcomes'
-  - 'schema-habits'
+  - 'schema-core'

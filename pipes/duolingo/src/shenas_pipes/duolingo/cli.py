@@ -3,7 +3,7 @@ from __future__ import annotations
 import typer
 
 from shenas_pipes.core.cli import console, create_pipe_app, run_sync
-from shenas_pipes.core.db import DB_PATH
+from shenas_pipes.core.db import DB_PATH, connect
 
 app = create_pipe_app("Duolingo commands.")
 
@@ -55,4 +55,17 @@ def sync(
         user_profile(client),
     ]
 
-    run_sync("duolingo", "duolingo", resources, full_refresh)
+    def _transform() -> None:
+        from shenas_pipes.duolingo.transform import DuolingoMetricProvider
+        from shenas_schemas.habits import ensure_schema as ensure_habits
+        from shenas_schemas.outcomes import ensure_schema as ensure_outcomes
+
+        con = connect()
+        ensure_outcomes(con)
+        ensure_habits(con)
+        provider = DuolingoMetricProvider()
+        console.print("Transforming duolingo...", style="dim")
+        provider.transform(con)
+        console.print("[green]done[/green]")
+
+    run_sync("duolingo", "duolingo", resources, full_refresh, _transform)

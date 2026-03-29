@@ -8,6 +8,8 @@ dependencies = [
     "httpx>=0.28.0",
     "pendulum>=3.0.0",
     "shenas-pipe-core",
+    "shenas-schema-outcomes",
+    "shenas-schema-habits",
 ]
 
 [build-system]
