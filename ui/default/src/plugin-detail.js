@@ -172,26 +172,24 @@ class PluginDetail extends LitElement {
       <h2>${info.display_name || info.name}</h2>
       <span class="kind-badge">${info.kind}</span>
 
-      <div class="tabs">
-        <a class="tab" href="${basePath}" aria-selected=${this.activeTab === "details"}>Details</a>
-        ${this.kind === "pipe"
-          ? html`<a class="tab" href="${basePath}/transforms" aria-selected=${this.activeTab === "transforms"}>Transforms</a>`
-          : ""}
-        ${this._hasConfig
-          ? html`<a class="tab" href="${basePath}/config" aria-selected=${this.activeTab === "config"}>Config</a>`
-          : ""}
-        ${this._hasAuth
-          ? html`<a class="tab" href="${basePath}/auth" aria-selected=${this.activeTab === "auth"}>Auth</a>`
-          : ""}
-      </div>
+      ${this._hasConfig || this._hasAuth
+        ? html`
+          <div class="tabs">
+            <a class="tab" href="${basePath}" aria-selected=${this.activeTab === "details"}>Details</a>
+            ${this._hasConfig
+              ? html`<a class="tab" href="${basePath}/config" aria-selected=${this.activeTab === "config"}>Config</a>`
+              : ""}
+            ${this._hasAuth
+              ? html`<a class="tab" href="${basePath}/auth" aria-selected=${this.activeTab === "auth"}>Auth</a>`
+              : ""}
+          </div>`
+        : ""}
 
-      ${this.activeTab === "transforms"
-        ? html`<shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`
-        : this.activeTab === "config"
-          ? html`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`
-          : this.activeTab === "auth"
-            ? html`<shenas-auth api-base="${this.apiBase}" pipe-name="${this.name}"></shenas-auth>`
-            : this._renderDetails(info, enabled)}
+      ${this.activeTab === "config"
+        ? html`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`
+        : this.activeTab === "auth"
+          ? html`<shenas-auth api-base="${this.apiBase}" pipe-name="${this.name}"></shenas-auth>`
+          : this._renderDetails(info, enabled)}
 
       ${this._message
         ? html`<div class="message ${this._message.type}">
@@ -218,6 +216,10 @@ class PluginDetail extends LitElement {
         ${this._stateRow("Updated", info.updated_at)}
         ${this._stateRow("Status changed", info.status_changed_at)}
       </div>
+
+      ${this.kind === "pipe"
+        ? html`<shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`
+        : ""}
 
       <div class="actions">
         <button class="danger" @click=${this._remove}>Remove</button>
