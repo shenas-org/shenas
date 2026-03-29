@@ -1,4 +1,10 @@
-"""Transform management: CRUD, seeding defaults, and execution."""
+"""Transform management: CRUD, seeding defaults, and execution.
+
+Note: The ``sql`` field in transforms is user-supplied SQL that is executed
+directly against DuckDB. Any user who can create or edit transforms can run
+arbitrary queries. This is by design -- transforms bridge raw pipe data to
+canonical schemas and require full SQL expressiveness.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +18,13 @@ from app.db import connect
 log = logging.getLogger(__name__)
 
 _COLS = "id, source_duckdb_schema, source_duckdb_table, target_duckdb_schema, target_duckdb_table, source_plugin, description, sql, is_default, enabled, added_at, updated_at, status_changed_at"
+
+
+def _cursor() -> duckdb.DuckDBPyConnection:
+    """Return a fresh cursor on the shared connection with USE db set."""
+    cur = connect().cursor()
+    cur.execute("USE db")
+    return cur
 
 
 def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
@@ -34,9 +47,7 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
 
 def list_transforms(source_plugin: str | None = None) -> list[dict[str, Any]]:
     """List transforms, optionally filtered by source plugin."""
-    con = connect()
-    cur = con.cursor()
-    cur.execute("USE db")
+    cur = _cursor()
     if source_plugin:
         rows = cur.execute(
             f"SELECT {_COLS} FROM shenas_system.transforms WHERE source_plugin = ? ORDER BY id",
@@ -50,9 +61,7 @@ def list_transforms(source_plugin: str | None = None) -> list[dict[str, Any]]:
 
 def get_transform(transform_id: int) -> dict[str, Any] | None:
     """Get a single transform by ID."""
-    con = connect()
-    cur = con.cursor()
-    cur.execute("USE db")
+    cur = _cursor()
     row = cur.execute(f"SELECT {_COLS} FROM shenas_system.transforms WHERE id = ?", [transform_id]).fetchone()
     cur.close()
     return _row_to_dict(row) if row else None
@@ -69,9 +78,7 @@ def create_transform(
     is_default: bool = False,
 ) -> dict[str, Any]:
     """Create a new transform and return it."""
-    con = connect()
-    cur = con.cursor()
-    cur.execute("USE db")
+    cur = _cursor()
     cur.execute(
         "INSERT INTO shenas_system.transforms "
         "(source_duckdb_schema, source_duckdb_table, target_duckdb_schema, target_duckdb_table, source_plugin, description, sql, is_default) "
@@ -102,11 +109,12 @@ def create_transform(
 
 def update_transform(transform_id: int, sql: str) -> dict[str, Any] | None:
     """Update a transform's SQL. Returns None if not found."""
-    con = connect()
-    con.execute(
+    cur = _cursor()
+    cur.execute(
         "UPDATE shenas_system.transforms SET sql = ?, updated_at = current_timestamp WHERE id = ?",
         [sql, transform_id],
     )
+    cur.close()
     return get_transform(transform_id)
 
 
@@ -115,8 +123,9 @@ def delete_transform(transform_id: int) -> bool:
     t = get_transform(transform_id)
     if not t or t["is_default"]:
         return False
-    con = connect()
-    con.execute("DELETE FROM shenas_system.transforms WHERE id = ?", [transform_id])
+    cur = _cursor()
+    cur.execute("DELETE FROM shenas_system.transforms WHERE id = ?", [transform_id])
+    cur.close()
     return True
 
 
@@ -125,11 +134,12 @@ def set_transform_enabled(transform_id: int, enabled: bool) -> dict[str, Any] | 
     t = get_transform(transform_id)
     if not t:
         return None
-    con = connect()
-    con.execute(
+    cur = _cursor()
+    cur.execute(
         "UPDATE shenas_system.transforms SET enabled = ?, status_changed_at = current_timestamp, updated_at = current_timestamp WHERE id = ?",
         [enabled, transform_id],
     )
+    cur.close()
     return get_transform(transform_id)
 
 
@@ -139,9 +149,7 @@ def seed_defaults(source_plugin: str, defaults: list[dict[str, str]]) -> None:
     Only inserts defaults that don't already exist (by is_default=true).
     Existing user-created transforms do not block seeding.
     """
-    con = connect()
-    cur = con.cursor()
-    cur.execute("USE db")
+    cur = _cursor()
     existing_defaults = cur.execute(
         "SELECT source_duckdb_table, target_duckdb_table FROM shenas_system.transforms "
         "WHERE source_plugin = ? AND is_default = true",
@@ -166,7 +174,11 @@ def seed_defaults(source_plugin: str, defaults: list[dict[str, str]]) -> None:
 
 
 def run_transforms(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
-    """Run all enabled transforms for a source plugin. Returns count of transforms run."""
+    """Run all enabled transforms for a source plugin.
+
+    Uses the caller's connection for DELETE/INSERT (the pipe's sync connection)
+    and a separate cursor for reading transform definitions from the system table.
+    """
     transforms = list_transforms(source_plugin)
     count = 0
     for t in transforms:
@@ -187,9 +199,7 @@ def test_transform(transform_id: int, limit: int = 10) -> list[dict[str, Any]]:
     t = get_transform(transform_id)
     if not t:
         return []
-    con = connect()
-    cur = con.cursor()
-    cur.execute("USE db")
+    cur = _cursor()
     rows = cur.execute(f"SELECT * FROM ({t['sql']}) AS _preview LIMIT {limit}").fetchall()
     cols = [desc[0] for desc in cur.description]
     cur.close()
