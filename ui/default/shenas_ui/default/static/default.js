@@ -235,7 +235,7 @@ var E=Object.defineProperty;var C=(l,e,t)=>e in l?E(l,e,{enumerable:!0,configura
       .component-host {
         margin-top: 1rem;
       }
-    `]);customElements.define("shenas-app",g);const m=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class _ extends c{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all(m.map(async({id:t})=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _remove(e,t){this._actionMessage=null;const n=await(await fetch(`${this.apiBase}/plugins/${e}/${t}`,{method:"DELETE"})).json();n.ok?(this._actionMessage={type:"success",text:n.message},await this._fetchAll()):this._actionMessage={type:"error",text:n.message||"Remove failed"}}async _toggleEnabled(e,t,s){this._actionMessage=null;const n=s?"disable":"enable",d=await(await fetch(`${this.apiBase}/plugins/${e}/${t}/${n}`,{method:"POST"})).json();d.ok?(this._actionMessage={type:"success",text:d.message},await this._fetchAll()):this._actionMessage={type:"error",text:d.message||`${n} failed`}}async _install(e){var v,k;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(v=t==null?void 0:t.value)==null?void 0:v.trim();if(!s)return;this._actionMessage=null;const d=(k=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:k[0];d!=null&&d.ok?(this._actionMessage={type:"success",text:d.message},t.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(d==null?void 0:d.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
+    `]);customElements.define("shenas-app",g);const m=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class _ extends c{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null,this._installing=!1}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all(m.map(async({id:t})=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _remove(e,t){this._actionMessage=null;const n=await(await fetch(`${this.apiBase}/plugins/${e}/${t}`,{method:"DELETE"})).json();n.ok?(this._actionMessage={type:"success",text:n.message},await this._fetchAll()):this._actionMessage={type:"error",text:n.message||"Remove failed"}}async _toggleEnabled(e,t,s){this._actionMessage=null;const n=s?"disable":"enable",d=await(await fetch(`${this.apiBase}/plugins/${e}/${t}/${n}`,{method:"POST"})).json();d.ok?(this._actionMessage={type:"success",text:d.message},await this._fetchAll()):this._actionMessage={type:"error",text:d.message||`${n} failed`}}async _install(e){var v,k;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(v=t==null?void 0:t.value)==null?void 0:v.trim();if(!s)return;this._actionMessage=null;const d=(k=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:k[0];d!=null&&d.ok?(this._actionMessage={type:"success",text:d.message},t.value="",await this._fetchAll()):this._actionMessage={type:"error",text:(d==null?void 0:d.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
       ${this._actionMessage?a`<div class="message ${this._actionMessage.type}">
             ${this._actionMessage.text}
           </div>`:""}
@@ -265,20 +265,21 @@ var E=Object.defineProperty;var C=(l,e,t)=>e in l?E(l,e,{enumerable:!0,configura
         .columns=${[{label:"Name",render:i=>a`<a href="/settings/${e}/${i.name}">${i.display_name||i.name}</a>`},{key:"version",label:"Version",class:"mono"},{label:"Added",class:"mono",render:i=>i.added_at?i.added_at.slice(0,10):""},{label:"Status",render:i=>a`<status-dot ?enabled=${i.enabled!==!1}></status-dot>`}]}
         .rows=${t}
         .rowClass=${i=>i.enabled===!1?"disabled-row":""}
+        ?show-add=${!this._installing}
+        @add=${()=>{this._installing=!0}}
         empty-text="No ${s.toLowerCase()} installed"
       ></shenas-data-list>
-      <div class="install-row">
-        <input
-          id="install-${e}"
-          type="text"
-          placeholder="Plugin name"
-          @keydown=${i=>i.key==="Enter"&&this._install(e)}
-        />
-        <button @click=${()=>this._install(e)}>
-          Install
-        </button>
-      </div>
-    `}}r(_,"properties",{apiBase:{type:String,attribute:"api-base"},activeKind:{type:String,attribute:"active-kind"},onNavigate:{type:Function},_plugins:{state:!0},_loading:{state:!0},_actionMessage:{state:!0}}),r(_,"styles",[p,y,w,h,o`
+      ${this._installing?a`<div class="install-row">
+            <input
+              id="install-${e}"
+              type="text"
+              placeholder="Plugin name"
+              @keydown=${i=>i.key==="Enter"&&this._install(e)}
+            />
+            <button @click=${()=>this._install(e)}>Install</button>
+            <button @click=${()=>{this._installing=!1}}>Cancel</button>
+          </div>`:""}
+    `}}r(_,"properties",{apiBase:{type:String,attribute:"api-base"},activeKind:{type:String,attribute:"active-kind"},onNavigate:{type:Function},_plugins:{state:!0},_loading:{state:!0},_actionMessage:{state:!0},_installing:{state:!0}}),r(_,"styles",[p,y,w,h,o`
       :host {
         display: block;
       }

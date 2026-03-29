@@ -16,6 +16,7 @@ class SettingsPage extends LitElement {
     _plugins: { state: true },
     _loading: { state: true },
     _actionMessage: { state: true },
+    _installing: { state: true },
   };
 
   static styles = [
@@ -99,6 +100,7 @@ class SettingsPage extends LitElement {
     this._plugins = {};
     this._loading = true;
     this._actionMessage = null;
+    this._installing = false;
   }
 
   connectedCallback() {
@@ -229,19 +231,22 @@ class SettingsPage extends LitElement {
         ]}
         .rows=${plugins}
         .rowClass=${(p) => p.enabled === false ? "disabled-row" : ""}
+        ?show-add=${!this._installing}
+        @add=${() => { this._installing = true; }}
         empty-text="No ${label.toLowerCase()} installed"
       ></shenas-data-list>
-      <div class="install-row">
-        <input
-          id="install-${kind}"
-          type="text"
-          placeholder="Plugin name"
-          @keydown=${(e) => e.key === "Enter" && this._install(kind)}
-        />
-        <button @click=${() => this._install(kind)}>
-          Install
-        </button>
-      </div>
+      ${this._installing
+        ? html`<div class="install-row">
+            <input
+              id="install-${kind}"
+              type="text"
+              placeholder="Plugin name"
+              @keydown=${(e) => e.key === "Enter" && this._install(kind)}
+            />
+            <button @click=${() => this._install(kind)}>Install</button>
+            <button @click=${() => { this._installing = false; }}>Cancel</button>
+          </div>`
+        : ""}
     `;
   }
 }
