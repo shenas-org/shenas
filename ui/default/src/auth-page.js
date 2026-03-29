@@ -131,6 +131,8 @@ class AuthPage extends LitElement {
       this._message = { type: "success", text: data.message };
     } else {
       this._message = { type: "error", text: data.error || "Authentication failed" };
+      this._needsMfa = false;
+      this._oauthUrl = null;
     }
   }
 
