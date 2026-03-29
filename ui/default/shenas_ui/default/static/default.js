@@ -291,24 +291,25 @@ var I=Object.defineProperty;var F=(h,e,t)=>e in h?I(h,e,{enumerable:!0,configura
         margin-top: 0.5rem;
       }
       .add-btn {
-        width: 28px;
-        height: 28px;
+        width: 30px;
+        height: 30px;
         border-radius: 50%;
-        border: 1px solid #ddd;
+        border: 2px solid #0066cc;
         background: #fff;
-        color: #666;
-        font-size: 1.1rem;
+        color: #0066cc;
+        font-size: 1.2rem;
+        font-weight: 600;
         line-height: 1;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 0;
+        transition: background 0.15s, color 0.15s;
       }
       .add-btn:hover {
-        background: #f0f4ff;
-        color: #0066cc;
-        border-color: #0066cc;
+        background: #0066cc;
+        color: #fff;
       }
     `]);customElements.define("shenas-data-list",x);class k extends u{constructor(){super(),this.title="",this.submitLabel="Save"}render(){return i`
       ${this.title?i`<h3>${this.title}</h3>`:""}
