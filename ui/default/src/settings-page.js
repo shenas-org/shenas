@@ -10,9 +10,10 @@ const PLUGIN_KINDS = [
 class SettingsPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
+    activeKind: { type: String, attribute: "active-kind" },
+    onNavigate: { type: Function },
     _plugins: { state: true },
     _loading: { state: true },
-    _activeKind: { state: true },
     _actionMessage: { state: true },
   };
 
@@ -158,15 +159,23 @@ class SettingsPage extends LitElement {
   constructor() {
     super();
     this.apiBase = "/api";
+    this.activeKind = "pipe";
+    this.onNavigate = null;
     this._plugins = {};
     this._loading = true;
-    this._activeKind = "pipe";
     this._actionMessage = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this._fetchAll();
+  }
+
+  _selectKind(kind) {
+    this._actionMessage = null;
+    if (this.onNavigate) {
+      this.onNavigate(kind);
+    }
   }
 
   async _fetchAll() {
@@ -241,11 +250,8 @@ class SettingsPage extends LitElement {
               ({ id, label }) => html`
                 <li>
                   <button
-                    aria-selected=${this._activeKind === id}
-                    @click=${() => {
-                      this._activeKind = id;
-                      this._actionMessage = null;
-                    }}
+                    aria-selected=${this.activeKind === id}
+                    @click=${() => this._selectKind(id)}
                   >
                     ${label}
                     <span style="color:#aaa; font-weight:normal">
@@ -257,7 +263,7 @@ class SettingsPage extends LitElement {
             )}
           </ul>
         </nav>
-        <div class="content">${this._renderKind(this._activeKind)}</div>
+        <div class="content">${this._renderKind(this.activeKind)}</div>
       </div>
     `;
   }
