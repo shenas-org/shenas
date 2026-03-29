@@ -7,6 +7,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@lit-labs/router": "^0.1.4",
     "apache-arrow": "^19.0.0",
     "lit": "^3.2.0",
     "uplot": "^1.6.31"

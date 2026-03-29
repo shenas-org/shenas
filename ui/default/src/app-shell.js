@@ -1,4 +1,5 @@
 import { LitElement, html, css } from "lit";
+import { Router } from "@lit-labs/router";
 
 class ShenasApp extends LitElement {
   static properties = {
@@ -7,9 +8,20 @@ class ShenasApp extends LitElement {
     _dbStatus: { state: true },
     _components: { state: true },
     _loading: { state: true },
-    _activeTab: { state: true },
     _loadedScripts: { state: true },
   };
+
+  _router = new Router(this, [
+    { path: "/", render: () => this._renderDb() },
+    { path: "/database", render: () => this._renderDb() },
+    { path: "/pipes", render: () => this._renderPipes() },
+    { path: "/settings", render: () => this._renderSettings("pipe") },
+    {
+      path: "/settings/:kind",
+      render: ({ kind }) => this._renderSettings(kind),
+    },
+    { path: "/:tab", render: ({ tab }) => this._renderDynamicTab(tab) },
+  ]);
 
   static styles = css`
     :host {
@@ -49,6 +61,7 @@ class ShenasApp extends LitElement {
       border-bottom: 2px solid transparent;
       margin-bottom: -2px;
       transition: color 0.15s, border-color 0.15s;
+      text-decoration: none;
     }
     .tab:hover {
       color: #222;
@@ -128,7 +141,6 @@ class ShenasApp extends LitElement {
     this._dbStatus = null;
     this._components = [];
     this._loading = true;
-    this._activeTab = "database";
     this._loadedScripts = new Set();
     this._elementCache = new Map();
   }
@@ -161,10 +173,11 @@ class ShenasApp extends LitElement {
     return resp.json();
   }
 
-  _selectTab(tab) {
-    this._activeTab = tab;
-    // Lazy-load the component's JS when its tab is first selected
-    const comp = this._components.find((c) => c.name === tab);
+  _goto(e, path) {
+    e.preventDefault();
+    this._router.goto(`/${path}`);
+    // Lazy-load component JS if needed
+    const comp = this._components.find((c) => c.name === path);
     if (comp && !this._loadedScripts.has(comp.js)) {
       this._loadedScripts = new Set([...this._loadedScripts, comp.js]);
       const script = document.createElement("script");
@@ -174,10 +187,17 @@ class ShenasApp extends LitElement {
     }
   }
 
+  _activeTab() {
+    const path = window.location.pathname.replace(/^\/+/, "") || "database";
+    return path.split("/")[0];
+  }
+
   render() {
     if (this._loading) {
       return html`<p class="loading">Loading...</p>`;
     }
+
+    const active = this._activeTab();
 
     return html`
       <div class="header">
@@ -186,36 +206,53 @@ class ShenasApp extends LitElement {
       </div>
 
       <div class="tabs" role="tablist">
-        ${this._renderTab("database", "Database")}
-        ${this._renderTab("pipes", "Pipes")}
-        ${this._components.map((c) => this._renderTab(c.name, c.name))}
+        ${this._tabLink("database", "Database", active)}
+        ${this._tabLink("pipes", "Pipes", active)}
+        ${this._components.map((c) => this._tabLink(c.name, c.name, active))}
+        ${this._tabLink("settings", "Settings", active)}
       </div>
 
-      ${this._activeTab === "database" ? this._renderDb() : ""}
-      ${this._activeTab === "pipes" ? this._renderPipes() : ""}
-      ${this._renderComponentTab()}
+      ${this._router.outlet()}
     `;
   }
 
-  _renderTab(id, label) {
+  _tabLink(id, label, active) {
     return html`
-      <button
+      <a
         class="tab"
         role="tab"
-        aria-selected=${this._activeTab === id}
-        @click=${() => this._selectTab(id)}
+        href="/${id}"
+        aria-selected=${active === id}
+        @click=${(e) => this._goto(e, id)}
       >
         ${label}
-      </button>
+      </a>
     `;
   }
 
-  _renderComponentTab() {
-    const comp = this._components.find((c) => c.name === this._activeTab);
-    if (!comp) return html``;
-    return html`
-      <div class="component-host">${this._getOrCreateElement(comp)}</div>
-    `;
+  _renderDynamicTab(tab) {
+    const comp = this._components.find((c) => c.name === tab);
+    if (!comp) return html`<p class="empty">Unknown page: ${tab}</p>`;
+    if (!this._loadedScripts.has(comp.js)) {
+      this._loadedScripts = new Set([...this._loadedScripts, comp.js]);
+      const script = document.createElement("script");
+      script.type = "module";
+      script.src = comp.js;
+      document.head.appendChild(script);
+    }
+    return html`<div class="component-host">
+      ${this._getOrCreateElement(comp)}
+    </div>`;
+  }
+
+  _renderSettings(kind) {
+    return html`<shenas-settings
+      api-base="${this.apiBase}"
+      active-kind="${kind || 'pipe'}"
+      .onNavigate=${(k) => {
+        this._router.goto(`/settings/${k}`);
+      }}
+    ></shenas-settings>`;
   }
 
   _getOrCreateElement(comp) {
@@ -246,7 +283,9 @@ class ShenasApp extends LitElement {
                 <span>${t.name}</span>
                 <span class="meta">
                   ${t.rows} rows
-                  ${t.earliest ? html` &middot; ${t.earliest} - ${t.latest}` : ""}
+                  ${t.earliest
+                    ? html` &middot; ${t.earliest} - ${t.latest}`
+                    : ""}
                 </span>
               </div>
             `,
