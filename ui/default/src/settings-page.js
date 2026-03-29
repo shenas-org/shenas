@@ -27,10 +27,12 @@ class SettingsPage extends LitElement {
     css`
       :host {
         display: block;
+        height: 100%;
       }
       .layout {
         display: flex;
         gap: 2rem;
+        height: 100%;
       }
       .sidebar {
         min-width: 140px;
@@ -70,6 +72,8 @@ class SettingsPage extends LitElement {
       .content {
         flex: 1;
         min-width: 0;
+        display: flex;
+        flex-direction: column;
       }
       .content h3 {
         font-size: 1rem;

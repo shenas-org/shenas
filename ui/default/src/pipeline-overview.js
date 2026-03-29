@@ -15,14 +15,18 @@ class PipelineOverview extends LitElement {
     utilityStyles,
     css`
       :host {
-        display: block;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
       }
       #cy {
         width: 100%;
-        height: 500px;
+        flex: 1;
+        min-height: 200px;
         border: 1px solid #e0e0e0;
         border-radius: 8px;
         background: #fafafa;
+        box-sizing: border-box;
       }
       .legend {
         display: flex;
@@ -82,24 +86,35 @@ class PipelineOverview extends LitElement {
   async _fetchData() {
     this._loading = true;
     try {
-      const [pipesResp, schemasResp, transformsResp] = await Promise.all([
+      const [pipesResp, schemasResp, transformsResp, ownershipResp] = await Promise.all([
         fetch(`${this.apiBase}/plugins/pipe`),
         fetch(`${this.apiBase}/plugins/schema`),
         fetch(`${this.apiBase}/transforms`),
+        fetch(`${this.apiBase}/db/schema-plugins`),
       ]);
       const pipes = pipesResp.ok ? await pipesResp.json() : [];
       const schemas = schemasResp.ok ? await schemasResp.json() : [];
       const transforms = transformsResp.ok ? await transformsResp.json() : [];
-      this._buildElements(pipes, schemas, transforms);
+      const ownership = ownershipResp.ok ? await ownershipResp.json() : {};
+      this._buildElements(pipes, schemas, transforms, ownership);
     } catch (e) {
       console.error("Failed to fetch overview data:", e);
     }
     this._loading = false;
   }
 
-  _buildElements(pipes, schemas, transforms) {
+  _buildElements(pipes, schemas, transforms, ownership) {
     const elements = [];
     const nodeIds = new Set();
+
+    // ownership is { "fitness": ["daily_hrv", ...], "finance": ["transactions", ...] }
+    // Build reverse lookup: table -> schema plugin name
+    const tableToPlugin = {};
+    for (const [pluginName, tables] of Object.entries(ownership)) {
+      for (const table of tables) {
+        tableToPlugin[table] = pluginName;
+      }
+    }
 
     for (const p of pipes) {
       const id = `pipe:${p.name}`;
@@ -109,35 +124,19 @@ class PipelineOverview extends LitElement {
       });
     }
 
-    const targetSchemas = new Set();
-    for (const t of transforms) {
-      targetSchemas.add(t.target_duckdb_schema);
-    }
-
-    for (const schema of targetSchemas) {
-      const id = `schema:${schema}`;
-      if (!nodeIds.has(id)) {
-        nodeIds.add(id);
-        elements.push({
-          data: { id, label: schema, kind: "schema" },
-        });
-      }
-    }
-
     for (const s of schemas) {
       const id = `schema:${s.name}`;
-      if (!nodeIds.has(id)) {
-        nodeIds.add(id);
-        elements.push({
-          data: { id, label: s.display_name || s.name, kind: "schema" },
-        });
-      }
+      nodeIds.add(id);
+      elements.push({
+        data: { id, label: s.display_name || s.name, kind: "schema" },
+      });
     }
 
     for (const t of transforms) {
       const sourceId = `pipe:${t.source_plugin}`;
-      const targetId = `schema:${t.target_duckdb_schema}`;
-      if (!nodeIds.has(sourceId) || !nodeIds.has(targetId)) continue;
+      const ownerPlugin = tableToPlugin[t.target_duckdb_table];
+      const targetId = ownerPlugin ? `schema:${ownerPlugin}` : null;
+      if (!targetId || !nodeIds.has(sourceId) || !nodeIds.has(targetId)) continue;
       const desc = t.description || `${t.source_duckdb_table} -> ${t.target_duckdb_table}`;
       const label = desc.length > 30 ? desc.slice(0, 28) + "..." : desc;
       elements.push({

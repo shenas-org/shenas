@@ -124,6 +124,25 @@ def schema_plugin_tables() -> dict[str, list[str]]:
     return result
 
 
+@router.get("/schema-plugins")
+def schema_plugin_ownership() -> dict[str, list[str]]:
+    """Return schema plugin name -> list of table names it owns."""
+    from importlib.metadata import entry_points
+
+    result: dict[str, list[str]] = {}
+    for ep in entry_points(group="shenas.schemas"):
+        if ep.name == "core":
+            continue
+        try:
+            schema_dict = ep.load()
+            tables = schema_dict.get("tables", []) if isinstance(schema_dict, dict) else []
+            if tables:
+                result[ep.name] = sorted(tables)
+        except Exception:
+            continue
+    return result
+
+
 @router.get("/preview/{schema}/{table}")
 def table_preview(schema: str, table: str, limit: int = 50) -> list[dict[str, Any]]:
     """Return the first N rows of a table as JSON."""
