@@ -42,7 +42,7 @@ def _discover_plugins(group: str) -> list[dict[str, Any]]:
     for ep in entry_points(group=group):
         try:
             plugin = ep.load()
-            if isinstance(plugin, dict) and "static_dir" in plugin:
+            if isinstance(plugin, dict) and "static_dir" in plugin and not plugin.get("internal"):
                 plugins.append(plugin)
         except Exception:
             pass

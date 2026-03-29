@@ -19,6 +19,7 @@ except Exception:
 
 SCHEMA = {
     "name": "outcomes",
+    "description": "Daily self-reported outcomes: mood, stress, productivity, health",
     "version": _version,
     "tables": CANONICAL_TABLES,
 }
