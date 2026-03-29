@@ -35,3 +35,30 @@ def sync(
     ]
 
     run_sync("spotify", "spotify", resources, full_refresh)
+
+
+@app.command("import")
+def import_history(
+    export_dir: str = typer.Argument(help="Path to extracted Spotify export directory."),
+    full_refresh: bool = typer.Option(False, "--full-refresh", help="Drop existing history and re-import."),
+) -> None:
+    """Import streaming history from a Spotify data export.
+
+    Request your data at: https://www.spotify.com/account/privacy/
+
+    Point this command at the extracted directory containing the JSON files
+    (endsong_*.json, Streaming_History_Audio_*.json, or StreamingHistory*.json).
+    """
+    from pathlib import Path
+
+    from shenas_pipes.spotify.history_import import streaming_history
+
+    path = Path(export_dir).expanduser()
+    if not path.is_dir():
+        console.print(f"[red]Not a directory: {path}[/red]")
+        raise typer.Exit(code=1)
+
+    console.print(f"Importing Spotify history from [bold]{path}[/bold] into [bold]{DB_PATH}[/bold]...", style="dim")
+
+    resources = [streaming_history(path)]
+    run_sync("spotify", "spotify", resources, full_refresh)
