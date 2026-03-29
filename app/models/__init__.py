@@ -13,21 +13,11 @@ class OkResponse(BaseModel):
     message: str = ""
 
 
-class ErrorResponse(BaseModel):
-    ok: bool = False
-    error: str
-
-
 # --- Health & Query ---
 
 
 class HealthResponse(BaseModel):
     status: str
-
-
-class TableInfo(BaseModel):
-    schema_name: str
-    table: str
 
 
 # --- Pipes ---
@@ -158,20 +148,3 @@ class SyncRequest(BaseModel):
     start_date: str | None = None
     full_refresh: bool = False
     extra: dict[str, str | int | bool] = {}
-
-
-class SSEEvent(BaseModel):
-    event_type: str = "message"
-    pipe: str | None = None
-    message: str = ""
-
-
-# --- Takeout ---
-
-
-class ArchiveInfo(BaseModel):
-    id: str
-    name: str
-    size: int = 0
-    created_time: str = ""
-    mime_type: str = ""
