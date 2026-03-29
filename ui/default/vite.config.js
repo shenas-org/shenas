@@ -10,11 +10,11 @@ export default defineConfig({
     cssCodeSplit: false,
     rollupOptions: {
       input: "src/index.js",
+      external: ["lit", /^lit\//],
       output: {
         entryFileNames: "default.js",
         assetFileNames: "default.[ext]",
         format: "es",
-        inlineDynamicImports: true,
       },
     },
   },

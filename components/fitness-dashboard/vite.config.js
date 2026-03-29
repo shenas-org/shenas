@@ -10,11 +10,11 @@ export default defineConfig({
     cssCodeSplit: false,
     rollupOptions: {
       input: "src/index.js",
+      external: ["lit", /^lit\//, "apache-arrow", "uplot"],
       output: {
         entryFileNames: "fitness-dashboard.js",
         assetFileNames: "fitness-dashboard.[ext]",
         format: "es",
-        inlineDynamicImports: true,
       },
     },
   },
