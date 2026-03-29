@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from collections.abc import Iterator
 from typing import Any
 
 import dlt
@@ -32,7 +35,7 @@ def activities(
     client: Garmin,
     start_date: str,
     updated_at: dlt.sources.incremental[str] = dlt.sources.incremental("startTimeLocal", initial_value=None),
-) -> Any:
+) -> Iterator[dict[str, Any]]:
     effective_start = (updated_at.last_value or start_date)[:10]
     end_date = pendulum.now().to_date_string()
     rows = client.get_activities_by_date(effective_start, end_date) or []
@@ -46,7 +49,7 @@ def daily_stats(
     client: Garmin,
     start_date: str,
     cursor: dlt.sources.incremental[str] = dlt.sources.incremental("calendarDate", initial_value=None),
-) -> Any:
+) -> Iterator[dict[str, Any]]:
     for date in date_range(cursor.last_value or start_date):
         data = client.get_user_summary(date)
         if is_empty_response(data, sentinel_key="totalSteps"):
@@ -59,7 +62,7 @@ def sleep(
     client: Garmin,
     start_date: str,
     cursor: dlt.sources.incremental[str] = dlt.sources.incremental("calendarDate", initial_value=None),
-) -> Any:
+) -> Iterator[dict[str, Any]]:
     for date in date_range(cursor.last_value or start_date):
         data = client.get_sleep_data(date)
         if not data:
@@ -73,7 +76,7 @@ def hrv(
     client: Garmin,
     start_date: str,
     cursor: dlt.sources.incremental[str] = dlt.sources.incremental("calendarDate", initial_value=None),
-) -> Any:
+) -> Iterator[dict[str, Any]]:
     for date in date_range(cursor.last_value or start_date):
         data = client.get_hrv_data(date)
         if not data:
@@ -87,7 +90,7 @@ def spo2(
     client: Garmin,
     start_date: str,
     cursor: dlt.sources.incremental[str] = dlt.sources.incremental("calendarDate", initial_value=None),
-) -> Any:
+) -> Iterator[dict[str, Any]]:
     for date in date_range(cursor.last_value or start_date):
         data = client.get_spo2_data(date)
         if is_empty_response(data):
@@ -96,7 +99,7 @@ def spo2(
 
 
 @dlt.resource(write_disposition="merge", primary_key="samplePk")
-def body_composition(client: Garmin, start_date: str) -> Any:
+def body_composition(client: Garmin, start_date: str) -> Iterator[dict[str, Any]]:
     end_date = pendulum.now().to_date_string()
     data = client.get_body_composition(start_date, end_date)
     if not data:

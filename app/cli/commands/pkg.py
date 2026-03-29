@@ -4,10 +4,13 @@ The data-returning functions (list_packages_data, install_package, uninstall_pac
 are called by both the REST API and the CLI display helpers below.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from urllib.request import urlopen
 
 import typer
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from rich.console import Console
 from rich.table import Table
 
@@ -119,7 +122,7 @@ def check_signature(pkg_name: str, version: str) -> str:
     return "valid" if verify_file(pub_key, wheel_path, sig_b64) else "invalid"
 
 
-def _verify_from_index(pkg_name: str, index_url: str, pub_key) -> None:
+def _verify_from_index(pkg_name: str, index_url: str, pub_key: Ed25519PublicKey) -> None:
     from html.parser import HTMLParser
 
     normalized = pkg_name.replace("_", "-").lower()
@@ -134,7 +137,7 @@ def _verify_from_index(pkg_name: str, index_url: str, pub_key) -> None:
     wheel_href = None
 
     class LinkParser(HTMLParser):
-        def handle_starttag(self, tag, attrs):
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
             nonlocal wheel_href
             if tag == "a":
                 for attr_name, attr_val in attrs:

@@ -1,5 +1,7 @@
 """Parse Location History from Takeout exports (streaming with ijson)."""
 
+from __future__ import annotations
+
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any

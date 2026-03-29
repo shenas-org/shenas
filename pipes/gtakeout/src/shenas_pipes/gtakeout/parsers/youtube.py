@@ -1,5 +1,7 @@
 """Parse YouTube data from Takeout exports (streaming with ijson)."""
 
+from __future__ import annotations
+
 import csv
 from collections.abc import Iterator
 from pathlib import Path

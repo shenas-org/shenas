@@ -1,20 +1,23 @@
 """Query and table listing endpoints (moved from server.py)."""
 
+from __future__ import annotations
+
 import duckdb
 from fastapi import APIRouter, Response
 
 from app.db import connect
+from app.models import HealthResponse
 
 router = APIRouter()
 
 
 @router.get("/health")
-def health() -> dict:
-    return {"status": "ok"}
+def health() -> HealthResponse:
+    return HealthResponse(status="ok")
 
 
 @router.get("/tables")
-def api_tables() -> list[dict]:
+def api_tables() -> list[dict[str, str]]:
     con = connect(read_only=True)
     rows = con.execute(
         "SELECT table_schema, table_name FROM information_schema.tables "

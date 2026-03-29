@@ -1,5 +1,7 @@
 """Sync API endpoints with SSE streaming."""
 
+from __future__ import annotations
+
 import importlib
 import inspect
 import json
@@ -10,20 +12,15 @@ from collections.abc import Iterator
 import typer
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+
+from app.models import SyncRequest
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
 PIPE_PREFIX = "shenas-pipe-"
 
 
-class SyncRequest(BaseModel):
-    start_date: str | None = None
-    full_refresh: bool = False
-    extra: dict[str, str | int | bool] = {}
-
-
-def _sse_event(event: str, data: dict) -> str:
+def _sse_event(event: str, data: dict[str, str]) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
@@ -67,7 +64,11 @@ def _load_pipe_app(name: str) -> typer.Typer:
 
 
 def _run_pipe_sync(
-    ep_name: str, pipe_app: typer.Typer, start_date: str | None, full_refresh: bool, extra: dict | None = None
+    ep_name: str,
+    pipe_app: typer.Typer,
+    start_date: str | None,
+    full_refresh: bool,
+    extra: dict[str, str | int | bool] | None = None,
 ) -> Iterator[str]:
     """Run a single pipe's sync command, yielding SSE events."""
     yield _sse_event("progress", {"pipe": ep_name, "message": "starting sync"})

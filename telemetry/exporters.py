@@ -1,9 +1,13 @@
 """Custom OpenTelemetry exporters that write to DuckDB."""
 
+from __future__ import annotations
+
 import json
 import logging
 import threading
+from collections.abc import Sequence
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 import duckdb
 from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
@@ -11,6 +15,9 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
 from telemetry.schema import ensure_telemetry_schema
+
+if TYPE_CHECKING:
+    from opentelemetry.sdk._logs import LogData
 
 # Dedicated logger that does NOT go through the OTel log bridge (only 'shenas.*'
 # loggers are bridged in setup.py). This prevents recursive writes.
@@ -122,7 +129,7 @@ class DuckDBLogExporter(LogExporter):
         self._lock = threading.Lock()
         self._exporting = threading.local()
 
-    def export(self, batch) -> LogExportResult:  # noqa: ANN001
+    def export(self, batch: Sequence[LogData]) -> LogExportResult:
         # Recursion guard: if we're already inside an export call on this thread,
         # skip to prevent infinite loops (log -> export -> log -> export -> ...).
         if getattr(self._exporting, "active", False):

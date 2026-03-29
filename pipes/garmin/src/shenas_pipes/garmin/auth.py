@@ -1,8 +1,11 @@
 """Garmin Connect OAuth token management via OS keyring."""
 
+from __future__ import annotations
+
 import json
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from garminconnect import Garmin
 
@@ -12,13 +15,13 @@ KEYRING_KEY = "garmin_tokens"
 # Pending MFA state for multi-step auth flow
 pending_mfa: dict[str, object] = {}
 
-AUTH_FIELDS = [
+AUTH_FIELDS: list[dict[str, str | bool]] = [
     {"name": "email", "prompt": "Email", "hide": False},
     {"name": "password", "prompt": "Password", "hide": True},
 ]
 
 
-def _get_stored_tokens() -> dict | None:
+def _get_stored_tokens() -> dict[str, Any] | None:
     """Read serialized garth tokens from OS keyring."""
     try:
         import keyring
@@ -35,7 +38,7 @@ def _store_tokens(token_dir: Path) -> None:
     """Serialize garth token files from a directory into OS keyring."""
     import keyring
 
-    tokens = {}
+    tokens: dict[str, str] = {}
     for f in token_dir.iterdir():
         if f.suffix == ".json":
             tokens[f.name] = f.read_text()
@@ -46,7 +49,7 @@ def _store_tokens(token_dir: Path) -> None:
     keyring.set_password(KEYRING_SERVICE, KEYRING_KEY, json.dumps(tokens))
 
 
-def _tokens_to_dir(tokens: dict) -> Path:
+def _tokens_to_dir(tokens: dict[str, str]) -> Path:
     """Write serialized tokens to a temp directory for garth to load."""
     tmp = Path(tempfile.mkdtemp(prefix="garmin_tokens_"))
     for name, content in tokens.items():
@@ -122,7 +125,7 @@ def authenticate(credentials: dict[str, str]) -> None:
     save_tokens_from_client(client)
 
 
-def complete_mfa(state: object, mfa_code: str) -> None:
+def complete_mfa(state: dict[str, Any], mfa_code: str) -> None:
     """Complete a pending MFA login with the provided code."""
     client = state["client"]
     mfa_state = state["mfa_state"]
