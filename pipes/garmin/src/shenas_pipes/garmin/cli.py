@@ -12,7 +12,8 @@ logging.getLogger("garminconnect").setLevel(logging.CRITICAL)
 
 app = create_pipe_app("Garmin Connect commands.")
 
-PIPE_DESCRIPTION = """Syncs health and fitness data from Garmin Connect.
+DISPLAY_NAME = "Garmin Connect"
+DESCRIPTION = """Syncs health and fitness data from Garmin Connect.
 
 Authenticates via email/password with MFA support. Tokens are stored
 in the OS keyring.
@@ -89,14 +90,16 @@ def sync(
     ]
 
     def _transform() -> None:
-        from shenas_pipes.garmin.transform import GarminMetricProvider
         from shenas_schemas.fitness import ensure_schema
+
+        from app.transforms import run_transforms, seed_defaults
+        from shenas_pipes.core.transform import load_transform_defaults
 
         con = connect()
         ensure_schema(con)
-        provider = GarminMetricProvider()
+        seed_defaults("garmin", load_transform_defaults("garmin"))
         console.print("Transforming garmin...", style="dim")
-        provider.transform(con)
-        console.print("[green]done[/green]")
+        count = run_transforms(con, "garmin")
+        console.print(f"[green]{count} transforms done[/green]")
 
     run_sync("garmin", "garmin", resources, full_refresh, _transform)

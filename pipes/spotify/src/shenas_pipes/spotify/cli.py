@@ -7,7 +7,8 @@ from shenas_pipes.core.db import DB_PATH
 
 app = create_pipe_app("Spotify commands.")
 
-PIPE_DESCRIPTION = """Syncs listening data from Spotify.
+DISPLAY_NAME = "Spotify"
+DESCRIPTION = """Syncs listening data from Spotify.
 
 Uses OAuth2 PKCE flow (no client secret needed). Create an app at
 developer.spotify.com/dashboard with redirect URI http://127.0.0.1:8090/callback.

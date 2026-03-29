@@ -1,4 +1,4 @@
-.PHONY: install repository dev-uninstall setup-hooks coverage
+.PHONY: install repository setup-hooks coverage
 
 # Install CLI tools globally (~/.local/bin/)
 install:
@@ -9,15 +9,6 @@ install:
 
 repository:
 	uv run python -m repository.main $(CURDIR)/packages
-
-# Uninstall all dev-installed shenas packages
-dev-uninstall:
-	@pkgs=$$(uv pip list --format json 2>/dev/null | python -c "import sys,json; print(' '.join(p['name'] for p in json.load(sys.stdin) if p['name'].startswith('shenas-')))" 2>/dev/null); \
-	if [ -z "$$pkgs" ]; then \
-		echo "No shenas packages installed."; \
-	else \
-		uv pip uninstall $$pkgs; \
-	fi
 
 # Install git pre-commit hook
 setup-hooks:

@@ -7,7 +7,8 @@ from shenas_pipes.core.db import DB_PATH, connect
 
 app = create_pipe_app("Lunch Money commands.")
 
-PIPE_DESCRIPTION = """Syncs financial data from Lunch Money.
+DISPLAY_NAME = "Lunch Money"
+DESCRIPTION = """Syncs financial data from Lunch Money.
 
 Authenticates via API key from Lunch Money Settings > Developers.
 
@@ -72,14 +73,16 @@ def sync(
     ]
 
     def _transform() -> None:
-        from shenas_pipes.lunchmoney.transform import LunchMoneyMetricProvider
         from shenas_schemas.finance import ensure_schema
+
+        from app.transforms import run_transforms, seed_defaults
+        from shenas_pipes.core.transform import load_transform_defaults
 
         con = connect()
         ensure_schema(con)
-        provider = LunchMoneyMetricProvider()
+        seed_defaults("lunchmoney", load_transform_defaults("lunchmoney"))
         console.print("Transforming lunchmoney...", style="dim")
-        provider.transform(con)
-        console.print("[green]done[/green]")
+        count = run_transforms(con, "lunchmoney")
+        console.print(f"[green]{count} transforms done[/green]")
 
     run_sync("lunchmoney", "lunchmoney", resources, full_refresh, _transform)

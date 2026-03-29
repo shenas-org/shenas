@@ -1,14 +1,17 @@
+"""Transform utilities for pipes."""
+
 from __future__ import annotations
 
-import duckdb
+import json
+from importlib import resources
+from typing import Any
 
 
-class MetricProviderBase:
-    """Base class for pipe transform providers. Subclass and set `source`."""
-
-    source: str
-
-    def _upsert(self, con: duckdb.DuckDBPyConnection, table: str, insert_sql: str) -> None:
-        """Delete existing rows for this source, then insert new data."""
-        con.execute(f"DELETE FROM metrics.{table} WHERE source = '{self.source}'")
-        con.execute(insert_sql)
+def load_transform_defaults(pipe_name: str) -> list[dict[str, Any]]:
+    """Load default transforms from a pipe's bundled transforms.json."""
+    try:
+        pkg = f"shenas_pipes.{pipe_name}"
+        ref = resources.files(pkg).joinpath("transforms.json")
+        return json.loads(ref.read_text(encoding="utf-8"))
+    except Exception:
+        return []

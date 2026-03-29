@@ -6,7 +6,8 @@ from shenas_pipes.core.cli import console, create_pipe_app, run_sync
 
 app = create_pipe_app("Gmail commands.")
 
-PIPE_DESCRIPTION = """Syncs email metadata from Gmail.
+DISPLAY_NAME = "Gmail"
+DESCRIPTION = """Syncs email metadata from Gmail.
 
 Uses Google OAuth2 with shared credentials from shenas-pipe-core.
 Authorization URL is passed back to the CLI for browser-based consent.

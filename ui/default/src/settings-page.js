@@ -308,11 +308,11 @@ class SettingsPage extends LitElement {
                 ${plugins.map(
                   (p) => html`
                     <tr style="${p.enabled === false ? "opacity: 0.5" : ""}">
-                      <td class="name"><a href="/settings/${kind}/${p.name}">${p.name}</a></td>
+                      <td class="name"><a href="/settings/${kind}/${p.name}">${p.display_name || p.name}</a></td>
                       <td class="version">${p.version}</td>
                       <td class="version">${p.added_at ? p.added_at.slice(0, 10) : ""}</td>
                       <td class="status-cell">
-                        ${p.enabled === false ? html`<span style="color:#c00; font-size:0.8rem">disabled</span>` : ""}
+                        <status-dot ?enabled=${p.enabled !== false}></status-dot>
                       </td>
                     </tr>
                   `,

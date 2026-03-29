@@ -9,6 +9,7 @@ except Exception:
 
 COMPONENT = {
     "name": "data-table",
+    "display_name": "Data Table",
     "version": _version,
     "description": "Data table with filtering, sorting, pagination, and column resizing",
     "static_dir": Path(__file__).parent / "static",

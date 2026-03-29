@@ -108,7 +108,8 @@ def info(name: str, kind: str) -> None:
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
 
-    console.print(f"\n[bold]{name}[/bold] ({kind})\n")
+    display = result.get("display_name") or name
+    console.print(f"\n[bold]{display}[/bold] ({kind}: {name})\n")
 
     desc = result.get("description", "")
     if desc:
