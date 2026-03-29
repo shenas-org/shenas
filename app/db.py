@@ -100,6 +100,16 @@ def _ensure_transforms_table(con: duckdb.DuckDBPyConnection) -> None:
             status_changed_at TIMESTAMP
         )
     """)
+    # Add description if missing (table may predate this column)
+    cols = {
+        r[0]
+        for r in con.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'shenas_system' AND table_name = 'transforms'"
+        ).fetchall()
+    }
+    if "description" not in cols:
+        con.execute("ALTER TABLE shenas_system.transforms ADD COLUMN description VARCHAR DEFAULT ''")
 
 
 def _ensure_plugin_table(con: duckdb.DuckDBPyConnection) -> None:
