@@ -20,9 +20,9 @@ class StravaMetricProvider(MetricProviderBase):
             SELECT
                 start_date_local::DATE,
                 'strava',
-                SUM(calories)::INTEGER
+                (SUM(kilojoules) / 4.184)::INTEGER
             FROM strava.activities
-            WHERE calories > 0
+            WHERE kilojoules > 0
             GROUP BY start_date_local::DATE
             """,
         )

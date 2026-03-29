@@ -17,7 +17,7 @@ def con() -> duckdb.DuckDBPyConnection:
         CREATE TABLE strava.activities (
             id BIGINT,
             start_date_local VARCHAR,
-            calories DOUBLE
+            kilojoules DOUBLE
         )
     """)
     db.execute("""
@@ -33,12 +33,13 @@ def con() -> duckdb.DuckDBPyConnection:
 
 
 class TestStravaTransform:
-    def test_aggregates_calories_by_day(self, con: duckdb.DuckDBPyConnection) -> None:
+    def test_aggregates_kilojoules_to_kcal(self, con: duckdb.DuckDBPyConnection) -> None:
+        # 1464 kJ + 836 kJ = 2300 kJ / 4.184 = 549 kcal
         con.execute("""
             INSERT INTO strava.activities VALUES
-                (1, '2026-03-28T09:00:00Z', 350),
-                (2, '2026-03-28T17:00:00Z', 200),
-                (3, '2026-03-29T09:00:00Z', 500)
+                (1, '2026-03-28T09:00:00Z', 1464),
+                (2, '2026-03-28T17:00:00Z', 836),
+                (3, '2026-03-29T09:00:00Z', 2092)
         """)
 
         provider = StravaMetricProvider()
@@ -50,7 +51,7 @@ class TestStravaTransform:
         assert rows[1] == (date(2026, 3, 29), 500)
 
     def test_idempotent(self, con: duckdb.DuckDBPyConnection) -> None:
-        con.execute("INSERT INTO strava.activities VALUES (1, '2026-03-28T09:00:00Z', 350)")
+        con.execute("INSERT INTO strava.activities VALUES (1, '2026-03-28T09:00:00Z', 1464)")
 
         provider = StravaMetricProvider()
         provider.transform(con)

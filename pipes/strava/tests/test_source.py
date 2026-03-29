@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 from unittest.mock import MagicMock
 
 from shenas_pipes.strava.source import activities, athlete, athlete_stats
 
 
-def _mock_activity(**overrides: object) -> MagicMock:
+def _mock_activity(**overrides: Any) -> MagicMock:
     """Create a mock stravalib SummaryActivity."""
-    defaults = {
+    defaults: dict[str, Any] = {
         "id": 123,
         "name": "Morning Run",
         "type": "Run",
@@ -26,7 +27,7 @@ def _mock_activity(**overrides: object) -> MagicMock:
         "max_heartrate": 170,
         "average_cadence": None,
         "average_watts": None,
-        "calories": 350.0,
+        "kilojoules": MagicMock(magnitude=1464.0),
         "has_heartrate": True,
         "suffer_score": 42,
         "trainer": False,

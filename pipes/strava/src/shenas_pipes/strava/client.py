@@ -54,9 +54,11 @@ def authorize_url(client_id: str, redirect_uri: str = "http://localhost:8089/exc
 def exchange_code(client_id: str, client_secret: str, code: str) -> dict[str, Any]:
     """Exchange an authorization code for tokens via stravalib."""
     client = Client()
-    token_response = client.exchange_code_for_token(
+    result = client.exchange_code_for_token(
         client_id=int(client_id),
         client_secret=client_secret,
         code=code,
     )
-    return dict(token_response)
+    # exchange_code_for_token returns AccessInfo (a dict-like) or a tuple
+    token_response = result[0] if isinstance(result, tuple) else result
+    return {k: v for k, v in token_response.items()}

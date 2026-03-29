@@ -6,7 +6,6 @@ from collections.abc import Iterator
 from typing import Any
 
 import dlt
-import pendulum
 from stravalib import Client
 
 
@@ -25,7 +24,7 @@ def activities(
 ) -> Iterator[dict[str, Any]]:
     """Yield activities using stravalib's paginated iterator."""
     effective_start = cursor.last_value or start_date
-    after_dt = pendulum.parse(effective_start[:10])
+    after_dt = effective_start[:10]  # stravalib accepts ISO date strings
 
     for act in client.get_activities(after=after_dt):
         yield {
@@ -46,7 +45,7 @@ def activities(
             "max_heartrate": act.max_heartrate,
             "average_cadence": act.average_cadence,
             "average_watts": act.average_watts,
-            "calories": act.calories or 0,
+            "kilojoules": _quantity_val(act.kilojoules) or 0,
             "has_heartrate": act.has_heartrate or False,
             "suffer_score": act.suffer_score,
             "trainer": act.trainer or False,
