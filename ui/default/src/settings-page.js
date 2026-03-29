@@ -75,20 +75,6 @@ class SettingsPage extends LitElement {
         font-size: 1rem;
         margin: 0 0 1rem;
       }
-      .install-row {
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 1rem;
-        align-items: center;
-      }
-      .install-row input {
-        padding: 0.4rem 0.6rem;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 0.85rem;
-        flex: 1;
-        max-width: 200px;
-      }
     `,
   ];
 
@@ -171,7 +157,7 @@ class SettingsPage extends LitElement {
     const result = data.results?.[0];
     if (result?.ok) {
       this._actionMessage = { type: "success", text: result.message };
-      input.value = "";
+      this._installing = false;
       await this._fetchAll();
     } else {
       this._actionMessage = {
@@ -236,16 +222,20 @@ class SettingsPage extends LitElement {
         empty-text="No ${label.toLowerCase()} installed"
       ></shenas-data-list>
       ${this._installing
-        ? html`<div class="install-row">
+        ? html`<shenas-form-panel
+            title="Install plugin"
+            submit-label="Install"
+            @submit=${() => this._install(kind)}
+            @cancel=${() => { this._installing = false; }}
+          >
             <input
               id="install-${kind}"
               type="text"
               placeholder="Plugin name"
               @keydown=${(e) => e.key === "Enter" && this._install(kind)}
+              style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; box-sizing: border-box;"
             />
-            <button @click=${() => this._install(kind)}>Install</button>
-            <button @click=${() => { this._installing = false; }}>Cancel</button>
-          </div>`
+          </shenas-form-panel>`
         : ""}
     `;
   }

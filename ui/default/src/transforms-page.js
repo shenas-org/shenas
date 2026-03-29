@@ -309,8 +309,12 @@ class TransformsPage extends LitElement {
     const sourceTables = this._dbTables[pipe] || [];
     const allSchemaTables = Object.values(this._schemaTables || {}).flat();
     return html`
-      <div class="edit-panel">
-        <h3>New transform</h3>
+      <shenas-form-panel
+        title="New transform"
+        submit-label="Create"
+        @submit=${this._saveCreate}
+        @cancel=${this._cancelCreate}
+      >
         <div class="form-grid">
           <label>
             Pipe table
@@ -345,11 +349,7 @@ class TransformsPage extends LitElement {
           @input=${(e) => this._updateNewForm("sql", e.target.value)}
           placeholder="SELECT ... FROM ${pipe}.${f.source_duckdb_table || "table_name"}"
         ></textarea>
-        <div class="edit-actions">
-          <button @click=${this._saveCreate}>Create</button>
-          <button @click=${this._cancelCreate}>Cancel</button>
-        </div>
-      </div>
+      </shenas-form-panel>
     `;
   }
 
