@@ -48,14 +48,15 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
     if "auth_complete" in body.credentials:
         return _complete_oauth(pipe_name)
 
+    # MFA completion step -- use cached module to preserve pending state
+    if "mfa_code" in body.credentials:
+        mod = _get_cached_auth_module(pipe_name)
+        return _complete_mfa(pipe_name, mod, body.credentials["mfa_code"])
+
     mod = _load_auth_module(pipe_name)
     auth_fn = getattr(mod, "authenticate", None)
     if auth_fn is None:
         return AuthResponse(ok=False, error=f"Pipe {pipe_name} has no authenticate() function")
-
-    # MFA completion step
-    if "mfa_code" in body.credentials:
-        return _complete_mfa(pipe_name, mod, body.credentials["mfa_code"])
 
     try:
         auth_fn(body.credentials)

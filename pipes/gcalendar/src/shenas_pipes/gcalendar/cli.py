@@ -10,10 +10,7 @@ app = create_pipe_app("Google Calendar commands.")
 DISPLAY_NAME = "Google Calendar"
 DESCRIPTION = """Syncs events and calendar metadata from Google Calendar.
 
-Uses Google OAuth2 with shared credentials from shenas-pipe-core.
-
-Resources: events (incremental), calendars.
-No transform step -- raw data stored in gcalendar.* schema."""
+Uses Google OAuth2 with shared credentials from shenas-pipe-core."""
 
 
 @app.command()

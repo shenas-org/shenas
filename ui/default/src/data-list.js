@@ -9,7 +9,7 @@ import { buttonStyles, tableStyles, utilityStyles } from "./shared-styles.js";
  *     .columns=${[
  *       { key: "name", label: "Name" },
  *       { key: "version", label: "Version", class: "mono" },
- *       { key: "status", label: "Status", render: (row) => html`<status-dot ...>` },
+ *       { key: "status", label: "Status", render: (row) => html`<status-toggle ...>` },
  *     ]}
  *     .rows=${items}
  *     .rowClass=${(row) => row.enabled ? "" : "disabled-row"}
