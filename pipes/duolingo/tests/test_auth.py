@@ -16,9 +16,10 @@ class TestBuildClient:
                 build_client()
 
     def test_returns_client_with_jwt(self) -> None:
-        with patch(f"{MODULE}._get_stored_jwt", return_value="fake-jwt"):
+        jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjYzMDcyMDAwMDAsImlhdCI6MCwic3ViIjoxMjM0NX0.X"
+        with patch(f"{MODULE}._get_stored_jwt", return_value=jwt):
             client = build_client()
-        assert client._client.headers["Authorization"] == "Bearer fake-jwt"
+        assert client._client.headers["Authorization"] == f"Bearer {jwt}"
         client.close()
 
 

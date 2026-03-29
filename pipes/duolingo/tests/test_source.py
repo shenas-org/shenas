@@ -6,26 +6,38 @@ from shenas_pipes.duolingo.source import courses, daily_xp, user_profile
 
 
 class TestDailyXp:
-    def test_yields_summaries(self) -> None:
+    def test_yields_summaries_with_epoch_dates(self) -> None:
         client = MagicMock()
         client.get_xp_summaries.return_value = [
-            {"date": "2026-03-28", "gainedXp": 150, "numSessions": 3, "totalSessionTime": 900},
-            {"date": "2026-03-29", "gainedXp": 80, "numSessions": 2, "totalSessionTime": 600},
+            {"date": 1774656000, "gainedXp": 150, "numSessions": 3, "totalSessionTime": 900},
+            {"date": 1774742400, "gainedXp": 80, "numSessions": 2, "totalSessionTime": 600},
         ]
 
-        results = list(daily_xp(client, "2026-03-28"))
+        results = list(daily_xp(client, "2026-03-25"))
         assert len(results) == 2
+        assert results[0]["date"] == "2026-03-28"
         assert results[0]["xp_gained"] == 150
         assert results[1]["num_sessions"] == 2
+
+    def test_handles_none_values(self) -> None:
+        client = MagicMock()
+        client.get_xp_summaries.return_value = [
+            {"date": 1774656000, "gainedXp": None, "numSessions": None, "totalSessionTime": None},
+        ]
+
+        results = list(daily_xp(client, "2026-03-25"))
+        assert len(results) == 1
+        assert results[0]["xp_gained"] == 0
+        assert results[0]["num_sessions"] == 0
 
     def test_skips_entries_without_date(self) -> None:
         client = MagicMock()
         client.get_xp_summaries.return_value = [
             {"gainedXp": 50},
-            {"date": "2026-03-29", "gainedXp": 80},
+            {"date": 1774656000, "gainedXp": 80},
         ]
 
-        results = list(daily_xp(client, "2026-03-28"))
+        results = list(daily_xp(client, "2026-03-25"))
         assert len(results) == 1
 
 
@@ -45,11 +57,9 @@ class TestUserProfile:
     def test_yields_profile(self) -> None:
         client = MagicMock()
         client.get_user.return_value = {
-            "id": 12345,
             "username": "testuser",
             "name": "Test",
-            "streak_extended_today": 42,
-            "longest_streak": 100,
+            "streak": 42,
             "totalXp": 50000,
             "creationDate": 1600000000,
             "learningLanguage": "de",

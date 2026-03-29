@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
+import json
+from base64 import b64decode
 from typing import Any
 
 import httpx
 
 BASE_URL = "https://www.duolingo.com"
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+
+USER_FIELDS = "username,name,streak,totalXp,courses,streakData,currentCourseId,learningLanguage,fromLanguage,creationDate"
+
+
+def _user_id_from_jwt(jwt: str) -> int:
+    """Extract the user ID from the JWT 'sub' claim without verifying the signature."""
+    payload = jwt.split(".")[1]
+    # Pad base64 if needed
+    payload += "=" * (-len(payload) % 4)
+    data = json.loads(b64decode(payload))
+    return int(data["sub"])
 
 
 class DuolingoClient:
@@ -22,21 +35,21 @@ class DuolingoClient:
             },
             timeout=30.0,
         )
-        self._user_id: int | None = None
+        self._user_id = _user_id_from_jwt(jwt)
 
     def close(self) -> None:
         self._client.close()
 
     @property
     def user_id(self) -> int:
-        if self._user_id is None:
-            data = self.get_user()
-            self._user_id = data["id"]
         return self._user_id
 
     def get_user(self) -> dict[str, Any]:
         """Get the current user's profile data."""
-        resp = self._client.get("/api/1/users/show")
+        resp = self._client.get(
+            f"/2017-06-30/users/{self._user_id}",
+            params={"fields": USER_FIELDS},
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -45,23 +58,14 @@ class DuolingoClient:
 
         Args:
             start_date: ISO date string (YYYY-MM-DD). Duolingo returns
-                        summaries from this date to now.
+                        summaries with epoch timestamps for the date field.
         """
         resp = self._client.get(
-            f"/2017-06-30/users/{self.user_id}/xp_summaries",
+            f"/2017-06-30/users/{self._user_id}/xp_summaries",
             params={"startDate": start_date},
         )
         resp.raise_for_status()
         return resp.json().get("summaries", [])
-
-    def get_streak_info(self) -> dict[str, Any]:
-        """Get the user's current streak information."""
-        data = self.get_user()
-        return {
-            "streak": data.get("streak_extended_today", data.get("site_streak", 0)),
-            "streak_extended_today": data.get("streak_extended_today", False),
-            "longest_streak": data.get("longest_streak", 0),
-        }
 
     def get_courses(self) -> list[dict[str, Any]]:
         """Get the user's active language courses."""
