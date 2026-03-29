@@ -372,6 +372,7 @@ class ShenasApp extends LitElement {
   }
 
   async _inspect(schema, table) {
+    if (!/^[a-zA-Z_]\w*$/.test(schema) || !/^[a-zA-Z_]\w*$/.test(table)) return;
     const key = `${schema}.${table}`;
     if (this._inspectTable === key) {
       this._inspectTable = null;

@@ -1,4 +1,4 @@
-var O=Object.defineProperty;var N=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):c[e]=t;var o=(c,e,t)=>N(c,typeof e!="symbol"?e+"":e,t);import{LitElement as m,css as d,html as a}from"lit";import R,{dagre as L}from"cytoscape";import{Router as P}from"@lit-labs/router";class $ extends m{constructor(){super(),this.enabled=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return a``}}o($,"properties",{enabled:{type:Boolean,reflect:!0}}),o($,"styles",d`
+var O=Object.defineProperty;var A=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configurable:!0,writable:!0,value:t}):c[e]=t;var o=(c,e,t)=>A(c,typeof e!="symbol"?e+"":e,t);import{LitElement as m,css as d,html as a}from"lit";import R,{dagre as N}from"cytoscape";import{Router as L}from"@lit-labs/router";class w extends m{constructor(){super(),this.enabled=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return a``}}o(w,"properties",{enabled:{type:Boolean,reflect:!0}}),o(w,"styles",d`
     :host {
       display: inline-block;
       width: 8px;
@@ -12,7 +12,7 @@ var O=Object.defineProperty;var N=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
     :host(:not([enabled])) {
       background: #c62828;
     }
-  `);customElements.define("status-dot",$);const D=d`
+  `);customElements.define("status-dot",w);const D=d`
   table {
     width: 100%;
     border-collapse: collapse;
@@ -48,7 +48,7 @@ var O=Object.defineProperty;var N=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
   button.danger:hover {
     background: #fef0f0;
   }
-`,A=d`
+`,P=d`
   .tabs {
     display: flex;
     gap: 0;
@@ -106,7 +106,7 @@ var O=Object.defineProperty;var N=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
   a:hover {
     text-decoration: underline;
   }
-`;class w extends m{constructor(){super(),this.columns=[],this.rows=[],this.rowClass=null,this.actions=null,this.emptyText="No items",this.showAdd=!1}_onAdd(){this.dispatchEvent(new CustomEvent("add",{bubbles:!0,composed:!0}))}render(){const e=typeof this.actions=="function",t=this.showAdd?a`<div class="add-row"><button class="add-btn" title="Add" @click=${this._onAdd}>+</button></div>`:"";return!this.rows||this.rows.length===0?a`<p class="empty">${this.emptyText}</p>${t}`:a`
+`;class y extends m{constructor(){super(),this.columns=[],this.rows=[],this.rowClass=null,this.actions=null,this.emptyText="No items",this.showAdd=!1}_onAdd(){this.dispatchEvent(new CustomEvent("add",{bubbles:!0,composed:!0}))}render(){const e=typeof this.actions=="function",t=this.showAdd?a`<div class="add-row"><button class="add-btn" title="Add" @click=${this._onAdd}>+</button></div>`:"";return!this.rows||this.rows.length===0?a`<p class="empty">${this.emptyText}</p>${t}`:a`
       <table>
         <thead>
           <tr>
@@ -128,7 +128,7 @@ var O=Object.defineProperty;var N=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
         </tbody>
       </table>
       ${t}
-    `}}o(w,"properties",{columns:{type:Array},rows:{type:Array},rowClass:{type:Object},actions:{type:Object},emptyText:{type:String,attribute:"empty-text"},showAdd:{type:Boolean,attribute:"show-add"}}),o(w,"styles",[D,_,g,d`
+    `}}o(y,"properties",{columns:{type:Array},rows:{type:Array},rowClass:{type:Object},actions:{type:Object},emptyText:{type:String,attribute:"empty-text"},showAdd:{type:Boolean,attribute:"show-add"}}),o(y,"styles",[D,_,g,d`
       :host {
         display: block;
       }
@@ -170,7 +170,7 @@ var O=Object.defineProperty;var N=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
         color: #0066cc;
         border-color: #0066cc;
       }
-    `]);customElements.define("shenas-data-list",w);class v extends m{constructor(){super(),this.title="",this.submitLabel="Save"}render(){return a`
+    `]);customElements.define("shenas-data-list",y);class v extends m{constructor(){super(),this.title="",this.submitLabel="Save"}render(){return a`
       ${this.title?a`<h3>${this.title}</h3>`:""}
       <slot></slot>
       <div class="actions">
@@ -196,7 +196,7 @@ var O=Object.defineProperty;var N=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
         gap: 0.5rem;
         margin-top: 0.8rem;
       }
-    `]);customElements.define("shenas-form-panel",v);let B=!1;class x extends m{constructor(){super(),this.apiBase="/api",this._loading=!0,this._empty=!1,this._cy=null,this._elements=null,this._resizeObserver=null}connectedCallback(){super.connectedCallback(),this._fetchData()}disconnectedCallback(){super.disconnectedCallback(),this._cy&&(this._cy.destroy(),this._cy=null),this._resizeObserver&&(this._resizeObserver.disconnect(),this._resizeObserver=null)}async _fetchData(){this._loading=!0;try{const[e,t,s,n]=await Promise.all([fetch(`${this.apiBase}/plugins/pipe`),fetch(`${this.apiBase}/plugins/schema`),fetch(`${this.apiBase}/transforms`),fetch(`${this.apiBase}/db/schema-plugins`)]),i=e.ok?await e.json():[],l=t.ok?await t.json():[],p=s.ok?await s.json():[],r=n.ok?await n.json():{};this._buildElements(i,l,p,r)}catch(e){console.error("Failed to fetch overview data:",e)}this._loading=!1}_buildElements(e,t,s,n){const i=[],l=new Set,p={};for(const[r,h]of Object.entries(n))for(const u of h)p[u]=r;for(const r of e){const h=`pipe:${r.name}`;l.add(h),i.push({data:{id:h,label:r.display_name||r.name,kind:"pipe"}})}for(const r of t){const h=`schema:${r.name}`;l.add(h),i.push({data:{id:h,label:r.display_name||r.name,kind:"schema"}})}for(const r of s){const h=`pipe:${r.source_plugin}`,u=p[r.target_duckdb_table],b=u?`schema:${u}`:null;if(!b||!l.has(h)||!l.has(b))continue;const f=r.description||`${r.source_duckdb_table} -> ${r.target_duckdb_table}`,F=f.length>30?f.slice(0,28)+"...":f;i.push({data:{id:`transform:${r.id}`,source:h,target:b,label:F,enabled:r.enabled?"yes":"no"}})}this._elements=i,this._empty=s.length===0}_initCytoscape(){const e=this.renderRoot.querySelector("#cy");!e||!this._elements||(B||(R.use(L),B=!0),this._cy&&this._cy.destroy(),this._cy=R({container:e,elements:this._elements,style:[{selector:"node",style:{label:"data(label)","text-valign":"center","text-halign":"center","font-size":12,color:"#fff","text-wrap":"wrap","text-max-width":100,width:120,height:40,shape:"round-rectangle"}},{selector:'node[kind="pipe"]',style:{"background-color":"#4a90d9"}},{selector:'node[kind="schema"]',style:{"background-color":"#66bb6a"}},{selector:"edge",style:{"curve-style":"bezier","target-arrow-shape":"triangle","target-arrow-color":"#999","line-color":"#999",width:2,label:"data(label)","font-size":9,color:"#888","text-rotation":"autorotate","text-margin-y":-8}},{selector:'edge[enabled="yes"]',style:{"line-style":"solid"}},{selector:'edge[enabled="no"]',style:{"line-style":"dashed","line-color":"#ccc","target-arrow-color":"#ccc",opacity:.5}}],layout:{name:"dagre",rankDir:"LR",nodeSep:60,rankSep:150,padding:30},userZoomingEnabled:!0,userPanningEnabled:!0,boxSelectionEnabled:!1}),this._resizeObserver&&this._resizeObserver.disconnect(),this._resizeObserver=new ResizeObserver(()=>{this._cy&&(this._cy.resize(),this._cy.fit(void 0,30))}),this._resizeObserver.observe(e))}firstUpdated(){!this._loading&&this._elements&&this._initCytoscape()}updated(e){e.has("_loading")&&!this._loading&&this._elements&&requestAnimationFrame(()=>this._initCytoscape())}render(){return this._loading?a`<p class="loading">Loading overview...</p>`:a`
+    `]);customElements.define("shenas-form-panel",v);let B=!1;class x extends m{constructor(){super(),this.apiBase="/api",this._loading=!0,this._empty=!1,this._cy=null,this._elements=null,this._resizeObserver=null}connectedCallback(){super.connectedCallback(),this._fetchData()}disconnectedCallback(){super.disconnectedCallback(),this._cy&&(this._cy.destroy(),this._cy=null),this._resizeObserver&&(this._resizeObserver.disconnect(),this._resizeObserver=null)}async _fetchData(){this._loading=!0;try{const[e,t,s,n]=await Promise.all([fetch(`${this.apiBase}/plugins/pipe`),fetch(`${this.apiBase}/plugins/schema`),fetch(`${this.apiBase}/transforms`),fetch(`${this.apiBase}/db/schema-plugins`)]),i=e.ok?await e.json():[],l=t.ok?await t.json():[],p=s.ok?await s.json():[],r=n.ok?await n.json():{};this._buildElements(i,l,p,r)}catch(e){console.error("Failed to fetch overview data:",e)}this._loading=!1}_buildElements(e,t,s,n){const i=[],l=new Set,p={};for(const[r,h]of Object.entries(n))for(const u of h)p[u]=r;for(const r of e){const h=`pipe:${r.name}`;l.add(h),i.push({data:{id:h,label:r.display_name||r.name,kind:"pipe"}})}for(const r of t){const h=`schema:${r.name}`;l.add(h),i.push({data:{id:h,label:r.display_name||r.name,kind:"schema"}})}for(const r of s){const h=`pipe:${r.source_plugin}`,u=p[r.target_duckdb_table],b=u?`schema:${u}`:null;if(!b||!l.has(h)||!l.has(b))continue;const f=r.description||`${r.source_duckdb_table} -> ${r.target_duckdb_table}`,F=f.length>30?f.slice(0,28)+"...":f;i.push({data:{id:`transform:${r.id}`,source:h,target:b,label:F,enabled:r.enabled?"yes":"no"}})}this._elements=i,this._empty=s.length===0}_initCytoscape(){const e=this.renderRoot.querySelector("#cy");!e||!this._elements||(B||(R.use(N),B=!0),this._cy&&this._cy.destroy(),this._cy=R({container:e,elements:this._elements,style:[{selector:"node",style:{label:"data(label)","text-valign":"center","text-halign":"center","font-size":12,color:"#fff","text-wrap":"wrap","text-max-width":100,width:120,height:40,shape:"round-rectangle"}},{selector:'node[kind="pipe"]',style:{"background-color":"#4a90d9"}},{selector:'node[kind="schema"]',style:{"background-color":"#66bb6a"}},{selector:"edge",style:{"curve-style":"bezier","target-arrow-shape":"triangle","target-arrow-color":"#999","line-color":"#999",width:2,label:"data(label)","font-size":9,color:"#888","text-rotation":"autorotate","text-margin-y":-8}},{selector:'edge[enabled="yes"]',style:{"line-style":"solid"}},{selector:'edge[enabled="no"]',style:{"line-style":"dashed","line-color":"#ccc","target-arrow-color":"#ccc",opacity:.5}}],layout:{name:"dagre",rankDir:"LR",nodeSep:60,rankSep:150,padding:30},userZoomingEnabled:!0,userPanningEnabled:!0,boxSelectionEnabled:!1}),this._resizeObserver&&this._resizeObserver.disconnect(),this._resizeObserver=new ResizeObserver(()=>{this._cy&&(this._cy.resize(),this._cy.fit(void 0,30))}),this._resizeObserver.observe(e))}firstUpdated(){!this._loading&&this._elements&&this._initCytoscape()}updated(e){e.has("_loading")&&!this._loading&&this._elements&&requestAnimationFrame(()=>this._initCytoscape())}render(){return this._loading?a`<p class="loading">Loading overview...</p>`:a`
       <div id="cy"></div>
       <div class="legend">
         <span class="legend-item"><span class="legend-dot pipe"></span> Pipe</span>
@@ -245,7 +245,7 @@ var O=Object.defineProperty;var N=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
       }
       .legend-line.enabled { background: #999; }
       .legend-line.disabled { background: #ccc; border-top: 2px dashed #ccc; height: 0; }
-    `]);customElements.define("shenas-pipeline-overview",x);class k extends m{constructor(){super();o(this,"_router",new P(this,[{path:"/",render:()=>this._renderDynamicHome()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:t})=>this._renderSettings(t)},{path:"/settings/:kind/:name",render:({kind:t,name:s})=>this._renderPluginDetail(t,s)},{path:"/settings/:kind/:name/transforms",render:({kind:t,name:s})=>this._renderPluginDetail(t,s,"transforms")},{path:"/:tab",render:({tab:t})=>this._renderDynamicTab(t)}]));this.apiBase="/api",this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map,this._leftWidth=160,this._rightWidth=220,this._dbStatus=null,this._inspectTable=null,this._inspectRows=null}connectedCallback(){super.connectedCallback(),this._fetchData(),this.addEventListener("plugin-state-changed",()=>this._refreshComponents()),this.addEventListener("inspect-table",t=>this._inspect(t.detail.schema,t.detail.table))}async _refreshComponents(){this._components=await this._fetch("/components")||[]}async _fetchData(){this._loading=!0;try{const[t,s]=await Promise.all([this._fetch("/components"),this._fetch("/db/status")]);this._components=t||[],this._dbStatus=s}catch(t){console.error("Failed to fetch data:",t)}this._loading=!1}async _fetch(t){const s=await fetch(`${this.apiBase}${t}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"").split("/")[0]||(this._components.length>0?this._components[0].name:"settings")}_startDrag(t){return s=>{s.preventDefault();const n=s.clientX,i=t==="left"?this._leftWidth:this._rightWidth,l=s.target;l.classList.add("dragging");const p=h=>{const u=t==="left"?h.clientX-n:n-h.clientX,b=Math.max(80,Math.min(400,i+u));t==="left"?this._leftWidth=b:this._rightWidth=b},r=()=>{l.classList.remove("dragging"),window.removeEventListener("mousemove",p),window.removeEventListener("mouseup",r)};window.addEventListener("mousemove",p),window.addEventListener("mouseup",r)}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const t=this._activeTab();return a`
+    `]);customElements.define("shenas-pipeline-overview",x);class k extends m{constructor(){super();o(this,"_router",new L(this,[{path:"/",render:()=>this._renderDynamicHome()},{path:"/settings",render:()=>this._renderSettings("pipe")},{path:"/settings/:kind",render:({kind:t})=>this._renderSettings(t)},{path:"/settings/:kind/:name",render:({kind:t,name:s})=>this._renderPluginDetail(t,s)},{path:"/settings/:kind/:name/transforms",render:({kind:t,name:s})=>this._renderPluginDetail(t,s,"transforms")},{path:"/:tab",render:({tab:t})=>this._renderDynamicTab(t)}]));this.apiBase="/api",this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map,this._leftWidth=160,this._rightWidth=220,this._dbStatus=null,this._inspectTable=null,this._inspectRows=null}connectedCallback(){super.connectedCallback(),this._fetchData(),this.addEventListener("plugin-state-changed",()=>this._refreshComponents()),this.addEventListener("inspect-table",t=>this._inspect(t.detail.schema,t.detail.table))}async _refreshComponents(){this._components=await this._fetch("/components")||[]}async _fetchData(){this._loading=!0;try{const[t,s]=await Promise.all([this._fetch("/components"),this._fetch("/db/status")]);this._components=t||[],this._dbStatus=s}catch(t){console.error("Failed to fetch data:",t)}this._loading=!1}async _fetch(t){const s=await fetch(`${this.apiBase}${t}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"").split("/")[0]||(this._components.length>0?this._components[0].name:"settings")}_startDrag(t){return s=>{s.preventDefault();const n=s.clientX,i=t==="left"?this._leftWidth:this._rightWidth,l=s.target;l.classList.add("dragging");const p=h=>{const u=t==="left"?h.clientX-n:n-h.clientX,b=Math.max(80,Math.min(400,i+u));t==="left"?this._leftWidth=b:this._rightWidth=b},r=()=>{l.classList.remove("dragging"),window.removeEventListener("mousemove",p),window.removeEventListener("mouseup",r)};window.addEventListener("mousemove",p),window.addEventListener("mouseup",r)}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const t=this._activeTab();return a`
       <div class="layout">
         <div class="panel-left" style="width: ${this._leftWidth}px">
           <div class="header">
@@ -281,7 +281,7 @@ var O=Object.defineProperty;var N=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
       api-base="${this.apiBase}"
       active-kind="${t||"pipe"}"
       .onNavigate=${s=>{this._router.goto(`/settings/${s}`)}}
-    ></shenas-settings>`}async _inspect(t,s){const n=`${t}.${s}`;if(this._inspectTable===n){this._inspectTable=null,this._inspectRows=null;return}this._inspectTable=n,this._inspectRows=null;try{const i=await fetch(`${this.apiBase}/db/preview/${t}/${s}?limit=50`);this._inspectRows=i.ok?await i.json():[]}catch{this._inspectRows=[]}}_renderDbStats(){const t=this._dbStatus;return t?a`
+    ></shenas-settings>`}async _inspect(t,s){if(!/^[a-zA-Z_]\w*$/.test(t)||!/^[a-zA-Z_]\w*$/.test(s))return;const n=`${t}.${s}`;if(this._inspectTable===n){this._inspectTable=null,this._inspectRows=null;return}this._inspectTable=n,this._inspectRows=null;try{const i=await fetch(`${this.apiBase}/db/preview/${t}/${s}?limit=50`);this._inspectRows=i.ok?await i.json():[]}catch{this._inspectRows=[]}}_renderDbStats(){const t=this._dbStatus;return t?a`
       <div class="db-section">
         <div class="db-meta">
           ${t.size_mb!=null?a`<code>${t.size_mb} MB</code>`:a`<span>Not created</span>`}
@@ -486,7 +486,7 @@ var O=Object.defineProperty;var N=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-    `]);customElements.define("shenas-app",k);const y=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class S extends m{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null,this._installing=!1}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all(y.map(async({id:t})=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _install(e){var p,r;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(p=t==null?void 0:t.value)==null?void 0:p.trim();if(!s)return;this._actionMessage=null;const l=(r=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:r[0];l!=null&&l.ok?(this._actionMessage={type:"success",text:l.message},this._installing=!1,await this._fetchAll()):this._actionMessage={type:"error",text:(l==null?void 0:l.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
+    `]);customElements.define("shenas-app",k);const $=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"}];class S extends m{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null,this._installing=!1}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all($.map(async({id:t})=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _install(e){var p,r;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(p=t==null?void 0:t.value)==null?void 0:p.trim();if(!s)return;this._actionMessage=null;const l=(r=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:r[0];l!=null&&l.ok?(this._actionMessage={type:"success",text:l.message},this._installing=!1,await this._fetchAll()):this._actionMessage={type:"error",text:(l==null?void 0:l.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
       ${this._actionMessage?a`<div class="message ${this._actionMessage.type}">
             ${this._actionMessage.text}
           </div>`:""}
@@ -498,7 +498,7 @@ var O=Object.defineProperty;var N=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
                 Data Flow
               </a>
             </li>
-            ${y.map(({id:e,label:t})=>a`
+            ${$.map(({id:e,label:t})=>a`
                 <li>
                   <a
                     href="/settings/${e}"
@@ -517,7 +517,7 @@ var O=Object.defineProperty;var N=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
           ${this.activeKind==="overview"?a`<shenas-pipeline-overview api-base="${this.apiBase}"></shenas-pipeline-overview>`:this._renderKind(this.activeKind)}
         </div>
       </div>
-    `}_renderKind(e){var n;const t=this._plugins[e]||[],s=((n=y.find(i=>i.id===e))==null?void 0:n.label)||e;return a`
+    `}_renderKind(e){var n;const t=this._plugins[e]||[],s=((n=$.find(i=>i.id===e))==null?void 0:n.label)||e;return a`
       <h3>${s}</h3>
       <shenas-data-list
         .columns=${[{label:"Name",render:i=>a`<a href="/settings/${e}/${i.name}">${i.display_name||i.name}</a>`},{key:"version",label:"Version",class:"mono"},{label:"Added",class:"mono",render:i=>i.added_at?i.added_at.slice(0,10):""},{label:"Status",render:i=>a`<status-dot ?enabled=${i.enabled!==!1}></status-dot>`}]}
@@ -638,7 +638,7 @@ var O=Object.defineProperty;var N=(c,e,t)=>e in c?O(c,e,{enumerable:!0,configura
         <span class="state-label">${e}</span>
         <span class="state-value">${t.slice(0,19)}</span>
       </div>
-    `:""}}o(E,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},activeTab:{type:String,attribute:"active-tab"},_info:{state:!0},_loading:{state:!0},_message:{state:!0}}),o(E,"styles",[_,T,C,A,g,d`
+    `:""}}o(E,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},activeTab:{type:String,attribute:"active-tab"},_info:{state:!0},_loading:{state:!0},_message:{state:!0}}),o(E,"styles",[_,T,C,P,g,d`
       :host {
         display: block;
       }

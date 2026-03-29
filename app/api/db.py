@@ -30,7 +30,7 @@ def _discover_schemas(con: duckdb.DuckDBPyConnection) -> dict[str, list[str]]:
 
 
 def _table_stats(con: duckdb.DuckDBPyConnection, schema: str, name: str) -> TableStats:
-    qualified = f"{schema}.{name}"
+    qualified = f'"{schema}"."{name}"'
     row = con.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()
     rows = row[0] if row else 0
     cols = len(con.execute(f"DESCRIBE {qualified}").fetchall())
@@ -143,17 +143,18 @@ def table_preview(schema: str, table: str, limit: int = 50) -> list[dict[str, An
     if not _IDENTIFIER_RE.match(schema) or not _IDENTIFIER_RE.match(table):
         raise HTTPException(status_code=400, detail="Invalid schema or table name")
     limit = min(max(1, limit), 500)
+    con = connect(read_only=True)
+    cur = con.cursor()
     try:
-        con = connect(read_only=True)
-        cur = con.cursor()
         cur.execute("USE db")
         qualified = f'"{schema}"."{table}"'
         rows = cur.execute(f"SELECT * FROM {qualified} LIMIT {limit}").fetchall()
         cols = [desc[0] for desc in cur.description]
-        cur.close()
         return [dict(zip(cols, row)) for row in rows]
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Failed to preview {schema}.{table}")
+    finally:
+        cur.close()
 
 
 @router.post("/keygen")
