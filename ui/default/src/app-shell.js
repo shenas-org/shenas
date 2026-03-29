@@ -13,11 +13,13 @@ class ShenasApp extends LitElement {
     _dbStatus: { state: true },
     _inspectTable: { state: true },
     _inspectRows: { state: true },
+    _paletteOpen: { state: true },
+    _paletteCommands: { state: true },
   };
 
   _router = new Router(this, [
     { path: "/", render: () => this._renderDynamicHome() },
-    { path: "/settings", render: () => this._renderSettings("pipe") },
+    { path: "/settings", render: () => this._renderSettings("overview") },
     {
       path: "/settings/:kind",
       render: ({ kind }) => this._renderSettings(kind),
@@ -227,6 +229,8 @@ class ShenasApp extends LitElement {
     this._dbStatus = null;
     this._inspectTable = null;
     this._inspectRows = null;
+    this._paletteOpen = false;
+    this._paletteCommands = [];
   }
 
   connectedCallback() {
@@ -234,6 +238,84 @@ class ShenasApp extends LitElement {
     this._fetchData();
     this.addEventListener("plugin-state-changed", () => this._refreshComponents());
     this.addEventListener("inspect-table", (e) => this._inspect(e.detail.schema, e.detail.table));
+    this.addEventListener("navigate", (e) => this._router.goto(e.detail.path));
+    this._keyHandler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        this._togglePalette();
+      }
+    };
+    document.addEventListener("keydown", this._keyHandler);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener("keydown", this._keyHandler);
+  }
+
+  async _togglePalette() {
+    if (this._paletteOpen) {
+      this._paletteOpen = false;
+      return;
+    }
+    await this._buildCommands();
+    this._paletteOpen = true;
+  }
+
+  async _buildCommands() {
+    const commands = [];
+
+    // Navigation: components
+    for (const c of this._components) {
+      commands.push({ id: `nav:${c.name}`, category: "Navigate", label: c.display_name || c.name, path: `/${c.name}` });
+    }
+
+    // Navigation: settings
+    commands.push({ id: "nav:settings", category: "Navigate", label: "Settings", path: "/settings" });
+    commands.push({ id: "nav:dataflow", category: "Navigate", label: "Data Flow", path: "/settings/overview" });
+    commands.push({ id: "nav:settings:pipe", category: "Navigate", label: "Settings > Pipes", path: "/settings/pipe" });
+    commands.push({ id: "nav:settings:schema", category: "Navigate", label: "Settings > Schemas", path: "/settings/schema" });
+    commands.push({ id: "nav:settings:component", category: "Navigate", label: "Settings > Components", path: "/settings/component" });
+    commands.push({ id: "nav:settings:ui", category: "Navigate", label: "Settings > UI", path: "/settings/ui" });
+
+    // Fetch plugins
+    let pipes = [], schemas = [];
+    try {
+      [pipes, schemas] = await Promise.all([
+        this._fetch("/plugins/pipe"),
+        this._fetch("/plugins/schema"),
+      ]);
+      pipes = pipes || [];
+      schemas = schemas || [];
+    } catch { /* use empty arrays */ }
+
+    for (const p of pipes) {
+      const name = p.display_name || p.name;
+      commands.push({ id: `nav:pipe:${p.name}`, category: "Pipe", label: name, description: "Open details", path: `/settings/pipe/${p.name}` });
+      commands.push({ id: `sync:${p.name}`, category: "Pipe", label: `Sync ${name}`, description: "Run sync now", action: () => this._syncPipe(p.name) });
+    }
+
+    for (const s of schemas) {
+      commands.push({ id: `nav:schema:${s.name}`, category: "Schema", label: s.display_name || s.name, description: "Open details", path: `/settings/schema/${s.name}` });
+    }
+
+    this._paletteCommands = commands;
+  }
+
+  async _syncPipe(name) {
+    try {
+      await fetch(`${this.apiBase}/sync/${name}`, { method: "POST" });
+    } catch { /* fire and forget */ }
+  }
+
+  _executePaletteCommand(e) {
+    const cmd = e.detail;
+    if (cmd.path) {
+      this._router.goto(cmd.path);
+    } else if (cmd.action) {
+      cmd.action();
+    }
+    this._paletteOpen = false;
   }
 
   async _refreshComponents() {
@@ -323,6 +405,12 @@ class ShenasApp extends LitElement {
           ${this._inspectTable ? this._renderInspect() : this._renderDbStats()}
         </div>
       </div>
+      <shenas-command-palette
+        ?open=${this._paletteOpen}
+        .commands=${this._paletteCommands}
+        @execute=${this._executePaletteCommand}
+        @close=${() => { this._paletteOpen = false; }}
+      ></shenas-command-palette>
     `;
   }
 
@@ -368,7 +456,7 @@ class ShenasApp extends LitElement {
   _renderSettings(kind) {
     return html`<shenas-settings
       api-base="${this.apiBase}"
-      active-kind="${kind || 'pipe'}"
+      active-kind="${kind || 'overview'}"
       .onNavigate=${(k) => {
         this._router.goto(`/settings/${k}`);
       }}
