@@ -11,7 +11,22 @@ import threading
 from typing import Any
 
 import spotipy
+from spotipy.cache_handler import CacheHandler
 from spotipy.oauth2 import SpotifyPKCE
+
+
+class _MemoryCacheHandler(CacheHandler):
+    """In-memory cache handler that captures token info for extraction."""
+
+    def __init__(self) -> None:
+        self.token_info: dict[str, Any] | None = None
+
+    def get_cached_token(self) -> dict[str, Any] | None:
+        return self.token_info
+
+    def save_token_to_cache(self, token_info: dict[str, Any]) -> None:
+        self.token_info = token_info
+
 
 KEYRING_SERVICE = "shenas"
 KEYRING_KEY = "spotify_tokens"
@@ -65,13 +80,8 @@ def build_client() -> spotipy.Spotify:
     if not tokens or "access_token" not in tokens:
         raise RuntimeError("No Spotify tokens found. Run 'shenasctl pipe spotify auth' first.")
 
-    pkce = SpotifyPKCE(
-        client_id=tokens["client_id"],
-        redirect_uri=REDIRECT_URI,
-        scope=SCOPES,
-    )
-
-    token_info = {
+    cache = _MemoryCacheHandler()
+    cache.token_info = {
         "access_token": tokens["access_token"],
         "refresh_token": tokens["refresh_token"],
         "expires_at": tokens["expires_at"],
@@ -79,8 +89,21 @@ def build_client() -> spotipy.Spotify:
         "scope": SCOPES,
     }
 
-    if pkce.is_token_expired(token_info):
-        token_info = pkce.refresh_access_token(tokens["refresh_token"])
+    pkce = SpotifyPKCE(
+        client_id=tokens["client_id"],
+        redirect_uri=REDIRECT_URI,
+        scope=SCOPES,
+        cache_handler=cache,
+    )
+
+    # get_access_token checks cache, refreshes if expired, and saves back to cache
+    pkce.get_access_token(check_cache=True)
+    token_info = cache.token_info
+    if not token_info:
+        raise RuntimeError("Token refresh failed")
+
+    # Persist refreshed tokens if they changed
+    if token_info["access_token"] != tokens["access_token"]:
         _store_tokens(
             {
                 **tokens,
@@ -116,11 +139,13 @@ def authenticate(credentials: dict[str, str]) -> None:
     if not client_id:
         raise ValueError("client_id is required")
 
+    cache = _MemoryCacheHandler()
     pkce = SpotifyPKCE(
         client_id=client_id,
         redirect_uri=REDIRECT_URI,
         scope=SCOPES,
         open_browser=False,
+        cache_handler=cache,
     )
 
     auth_url = pkce.get_authorize_url()
@@ -162,7 +187,11 @@ def authenticate(credentials: dict[str, str]) -> None:
                 state["error"] = "Authorization timed out"
                 return
 
-            token_info = pkce.get_access_token(code_result["code"])
+            pkce.get_access_token(code_result["code"], check_cache=False)
+            token_info = cache.token_info
+            if not token_info:
+                state["error"] = "Token exchange failed -- no token received"
+                return
             _store_tokens(
                 {
                     "access_token": token_info["access_token"],
