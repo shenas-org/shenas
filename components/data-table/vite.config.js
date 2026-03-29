@@ -10,11 +10,11 @@ export default defineConfig({
     cssCodeSplit: false,
     rollupOptions: {
       input: "src/index.js",
+      external: ["lit", /^lit\//, "apache-arrow"],
       output: {
         entryFileNames: "data-table.js",
         assetFileNames: "data-table.[ext]",
         format: "es",
-        inlineDynamicImports: true,
       },
     },
   },

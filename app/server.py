@@ -30,6 +30,9 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="shenas", docs_url=None, redoc_url=None, lifespan=_lifespan)
 app.state.ui_name = "default"  # overridden by server_cli.py
 app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")
+_vendor_dir = _Path(__file__).parent.parent / "vendor" / "dist"
+if _vendor_dir.is_dir():
+    app.mount("/vendor", StaticFiles(directory=str(_vendor_dir)), name="vendor")
 app.include_router(api_router)
 
 

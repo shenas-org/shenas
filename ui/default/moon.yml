@@ -4,3 +4,6 @@ id: 'ui-default'
 language: 'typescript'
 stack: 'frontend'
 tags: ['ui']
+
+dependsOn:
+  - 'vendor'

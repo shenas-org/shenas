@@ -7,6 +7,8 @@ projects:
   - 'pipes/*'
   - 'schemas/*'
   - 'components/*'
+  - 'ui/*'
+  - 'vendor'
 
 vcs:
   defaultBranch: 'main'
