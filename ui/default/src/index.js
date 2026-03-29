@@ -2,6 +2,7 @@ import "./status-toggle.js";
 import "./data-list.js";
 import "./form-panel.js";
 import "./pipeline-overview.js";
+import "./auth-page.js";
 import "./config-page.js";
 import "./app-shell.js";
 import "./settings-page.js";

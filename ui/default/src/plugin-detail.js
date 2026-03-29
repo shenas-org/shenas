@@ -11,6 +11,7 @@ class PluginDetail extends LitElement {
     _loading: { state: true },
     _message: { state: true },
     _hasConfig: { state: true },
+    _hasAuth: { state: true },
   };
 
   static styles = [
@@ -89,6 +90,7 @@ class PluginDetail extends LitElement {
     this._loading = true;
     this._message = null;
     this._hasConfig = false;
+    this._hasAuth = false;
   }
 
   willUpdate(changed) {
@@ -105,12 +107,19 @@ class PluginDetail extends LitElement {
       `${this.apiBase}/plugins/${this.kind}/${this.name}/info`,
     );
     this._info = resp.ok ? await resp.json() : null;
-    const configResp = await fetch(
-      `${this.apiBase}/config?kind=${this.kind}&name=${this.name}`,
-    );
+    const [configResp, authResp] = await Promise.all([
+      fetch(`${this.apiBase}/config?kind=${this.kind}&name=${this.name}`),
+      this.kind === "pipe"
+        ? fetch(`${this.apiBase}/auth/${this.name}/fields`)
+        : Promise.resolve(null),
+    ]);
     if (configResp.ok) {
       const items = await configResp.json();
       this._hasConfig = items.length > 0 && items[0].entries.length > 0;
+    }
+    if (authResp?.ok) {
+      const data = await authResp.json();
+      this._hasAuth = (data.fields?.length > 0) || !!data.instructions;
     }
     this._loading = false;
   }
@@ -171,13 +180,18 @@ class PluginDetail extends LitElement {
         ${this._hasConfig
           ? html`<a class="tab" href="${basePath}/config" aria-selected=${this.activeTab === "config"}>Config</a>`
           : ""}
+        ${this._hasAuth
+          ? html`<a class="tab" href="${basePath}/auth" aria-selected=${this.activeTab === "auth"}>Auth</a>`
+          : ""}
       </div>
 
       ${this.activeTab === "transforms"
         ? html`<shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`
         : this.activeTab === "config"
           ? html`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`
-          : this._renderDetails(info, enabled)}
+          : this.activeTab === "auth"
+            ? html`<shenas-auth api-base="${this.apiBase}" pipe-name="${this.name}"></shenas-auth>`
+            : this._renderDetails(info, enabled)}
 
       ${this._message
         ? html`<div class="message ${this._message.type}">
