@@ -60,7 +60,7 @@ def _register_pipe_commands() -> None:
                 raise typer.Exit()
 
         if "describe" in commands:
-            _add_describe_command(pipe_app, name)
+            _add_info_command(pipe_app, name)
         if "sync" in commands:
             _add_sync_command(pipe_app, name)
         if "auth" in commands:
@@ -71,13 +71,13 @@ def _register_pipe_commands() -> None:
         app.add_typer(pipe_app, name=name, rich_help_panel="Installed Pipes")
 
 
-def _add_describe_command(pipe_app: typer.Typer, pipe_name: str) -> None:
-    from app.cli.commands.plugin_cmd import describe as _describe_plugin
+def _add_info_command(pipe_app: typer.Typer, pipe_name: str) -> None:
+    from app.cli.commands.plugin_cmd import info as _info_plugin
 
-    @pipe_app.command("describe")
-    def _describe() -> None:
-        """Show a description of this pipe."""
-        _describe_plugin(pipe_name, "pipe")
+    @pipe_app.command("info")
+    def _info() -> None:
+        """Show info about this pipe."""
+        _info_plugin(pipe_name, "pipe")
 
 
 def _add_sync_command(pipe_app: typer.Typer, pipe_name: str) -> None:

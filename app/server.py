@@ -28,7 +28,9 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="shenas", docs_url=None, redoc_url=None, lifespan=_lifespan)
-app.state.ui_name = "default"  # overridden by server_cli.py
+import os as _os  # noqa: E402
+
+app.state.ui_name = _os.environ.get("SHENAS_UI", "default")
 app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")
 _vendor_dir = _Path(__file__).parent.parent / "vendor" / "dist"
 if _vendor_dir.is_dir():
@@ -111,6 +113,8 @@ def _serve_ui_html() -> HTMLResponse:
 @app.get("/api/components")
 def list_component_metadata() -> list[dict[str, str]]:
     """Return component metadata needed by the UI shell (tag, entrypoint, JS URL)."""
+    from app.db import is_plugin_enabled
+
     components = _discover_plugins("shenas.components", include_internal=False)
     return [
         {
@@ -120,6 +124,7 @@ def list_component_metadata() -> list[dict[str, str]]:
             "description": c.get("description", ""),
         }
         for c in components
+        if is_plugin_enabled("component", c["name"])
     ]
 
 

@@ -34,11 +34,14 @@ def _installed_pipe_names() -> list[str]:
         return []
     packages = json.loads(result.stdout)
     from app.api.plugins import _is_internal
+    from app.db import is_plugin_enabled
 
     return [
         p["name"].removeprefix(PIPE_PREFIX)
         for p in packages
-        if p["name"].startswith(PIPE_PREFIX) and not _is_internal("pipe", p["name"].removeprefix(PIPE_PREFIX))
+        if p["name"].startswith(PIPE_PREFIX)
+        and not _is_internal("pipe", p["name"].removeprefix(PIPE_PREFIX))
+        and is_plugin_enabled("pipe", p["name"].removeprefix(PIPE_PREFIX))
     ]
 
 
