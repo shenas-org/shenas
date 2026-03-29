@@ -31,6 +31,7 @@ app = FastAPI(title="shenas", docs_url=None, redoc_url=None, lifespan=_lifespan)
 import os as _os  # noqa: E402
 
 app.state.ui_name = _os.environ.get("SHENAS_UI", "default")
+app.state.theme_name = _os.environ.get("SHENAS_THEME", "default")
 app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")
 _vendor_dir = _Path(__file__).parent.parent / "vendor" / "dist"
 if _vendor_dir.is_dir():
@@ -66,6 +67,16 @@ def _mount_static_plugins(group: str, url_prefix: str) -> None:
 
 _mount_static_plugins("shenas.components", "components")
 _mount_static_plugins("shenas.ui", "ui")
+_mount_static_plugins("shenas.themes", "themes")
+
+
+def _get_active_theme() -> dict[str, Any] | None:
+    """Find the active theme plugin."""
+    theme_name = app.state.theme_name
+    for plugin in _discover_plugins("shenas.themes"):
+        if plugin["name"] == theme_name:
+            return plugin
+    return None
 
 
 def _get_active_ui() -> dict[str, Any] | None:
@@ -106,8 +117,22 @@ def _serve_ui_html() -> HTMLResponse:
         static_dir = ui["static_dir"]
         html_file = static_dir / ui.get("html", "index.html")
         if html_file.exists():
-            return HTMLResponse(content=html_file.read_text())
+            content = html_file.read_text()
+            theme = _get_active_theme()
+            if theme and theme.get("css"):
+                css_link = f'<link rel="stylesheet" href="/themes/{theme["name"]}/{theme["css"]}">'
+                content = content.replace("</head>", f"  {css_link}\n  </head>")
+            return HTMLResponse(content=content)
     return HTMLResponse(content=_FALLBACK_HTML.format(ui_name=app.state.ui_name))
+
+
+@app.get("/api/theme")
+def active_theme() -> dict[str, str | None]:
+    """Return the active theme name and CSS URL."""
+    theme = _get_active_theme()
+    if theme and theme.get("css"):
+        return {"name": theme["name"], "css": f"/themes/{theme['name']}/{theme['css']}"}
+    return {"name": app.state.theme_name, "css": None}
 
 
 @app.get("/api/components")

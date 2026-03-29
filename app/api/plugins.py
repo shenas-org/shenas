@@ -20,7 +20,7 @@ from repository.signing import load_public_key, verify_bytes
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
 
-VALID_KINDS = {"pipe", "schema", "component", "ui"}
+VALID_KINDS = {"pipe", "schema", "component", "ui", "theme"}
 
 
 NAMESPACES = {
@@ -28,10 +28,11 @@ NAMESPACES = {
     "schema": "shenas_schemas",
     "component": "shenas_components",
     "ui": "shenas_ui",
+    "theme": "shenas_themes",
 }
 
 # Standard metadata dict names exported by each plugin type
-_META_ATTRS = ("COMPONENT", "UI", "SCHEMA", "PLUGIN")
+_META_ATTRS = ("COMPONENT", "UI", "SCHEMA", "PLUGIN", "THEME")
 
 
 def _validate_kind(kind: str) -> None:

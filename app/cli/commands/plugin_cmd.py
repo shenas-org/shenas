@@ -29,6 +29,7 @@ PREFIXES = {
     "schema": "shenas-schema-",
     "component": "shenas-component-",
     "ui": "shenas-ui-",
+    "theme": "shenas-theme-",
 }
 
 SIG_STYLE = {
