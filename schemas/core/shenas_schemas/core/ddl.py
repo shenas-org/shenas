@@ -45,7 +45,30 @@ def generate_ddl(cls: type) -> str:
 
 
 def ensure_schema(con: duckdb.DuckDBPyConnection, all_tables: list[type]) -> None:
-    """Create the metrics schema and all tables from the given dataclass list."""
+    """Create the metrics schema and all tables from the given dataclass list.
+
+    Also adds any missing columns to existing tables (schema migration).
+    """
     con.execute("CREATE SCHEMA IF NOT EXISTS metrics")
     for cls in all_tables:
         con.execute(generate_ddl(cls))
+        _add_missing_columns(con, cls)
+
+
+def _add_missing_columns(con: duckdb.DuckDBPyConnection, cls: type) -> None:
+    """Add columns that exist in the dataclass but not in the DB table."""
+    table: str = cls.__table__
+    hints: dict[str, type] = get_type_hints(cls, include_extras=True)
+
+    existing = {
+        row[0]
+        for row in con.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_schema = 'metrics' AND table_name = ?",
+            [table],
+        ).fetchall()
+    }
+
+    for f in dataclasses.fields(cls):
+        if f.name not in existing:
+            col_type = _duckdb_type(hints[f.name])
+            con.execute(f"ALTER TABLE metrics.{table} ADD COLUMN {f.name} {col_type}")
