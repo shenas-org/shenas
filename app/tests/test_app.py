@@ -35,18 +35,29 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
 
 
 class TestIndex:
-    def test_redirects_to_ui(self, client: TestClient) -> None:
-        fake_ui = [{"name": "default", "version": "1.0", "static_dir": "/tmp", "html": "default.html"}]
+    def test_serves_ui_html(self, client: TestClient, tmp_path: Path) -> None:
+        html_file = tmp_path / "default.html"
+        html_file.write_text("<html><body>test ui</body></html>")
+        fake_ui = [{"name": "default", "version": "1.0", "static_dir": tmp_path, "html": "default.html"}]
         with patch.object(server_module, "_discover_plugins", return_value=fake_ui):
-            resp = client.get("/", follow_redirects=False)
-        assert resp.status_code == 307
-        assert "/ui/default/default.html" in resp.headers["location"]
+            resp = client.get("/")
+        assert resp.status_code == 200
+        assert "test ui" in resp.text
 
     def test_fallback_when_no_ui(self, client: TestClient) -> None:
         with patch.object(server_module, "_discover_plugins", return_value=[]):
             resp = client.get("/")
         assert resp.status_code == 200
         assert "not installed" in resp.text
+
+    def test_spa_fallback(self, client: TestClient, tmp_path: Path) -> None:
+        html_file = tmp_path / "default.html"
+        html_file.write_text("<html><body>spa shell</body></html>")
+        fake_ui = [{"name": "default", "version": "1.0", "static_dir": tmp_path, "html": "default.html"}]
+        with patch.object(server_module, "_discover_plugins", return_value=fake_ui):
+            resp = client.get("/some/deep/route")
+        assert resp.status_code == 200
+        assert "spa shell" in resp.text
 
 
 class TestHealth:

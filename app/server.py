@@ -10,8 +10,8 @@ from importlib.metadata import entry_points
 from pathlib import Path as _Path
 from typing import Any
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
@@ -63,7 +63,7 @@ _mount_static_plugins("shenas.ui", "ui")
 
 
 def _get_active_ui() -> dict[str, Any] | None:
-    """Find the active UI plugin based on the SHENAS_UI env var."""
+    """Find the active UI plugin."""
     ui_name = app.state.ui_name
     for plugin in _discover_plugins("shenas.ui"):
         if plugin["name"] == ui_name:
@@ -71,15 +71,7 @@ def _get_active_ui() -> dict[str, Any] | None:
     return None
 
 
-@app.get("/", response_model=None)
-def index() -> HTMLResponse | RedirectResponse:
-    """Serve the active UI plugin's HTML, or a fallback if not installed."""
-    ui = _get_active_ui()
-    if ui:
-        return RedirectResponse(f"/ui/{ui['name']}/{ui.get('html', 'index.html')}")
-
-    ui_name = app.state.ui_name
-    html = f"""\
+_FALLBACK_HTML = """\
 <!DOCTYPE html>
 <html>
   <head><meta charset="utf-8"><title>shenas</title>
@@ -99,4 +91,26 @@ def index() -> HTMLResponse | RedirectResponse:
     </ul>
   </body>
 </html>"""
-    return HTMLResponse(content=html)
+
+
+def _serve_ui_html() -> HTMLResponse:
+    """Read and serve the active UI plugin's HTML from disk, or a fallback."""
+    ui = _get_active_ui()
+    if ui:
+        static_dir = ui["static_dir"]
+        html_file = static_dir / ui.get("html", "index.html")
+        if html_file.exists():
+            return HTMLResponse(content=html_file.read_text())
+    return HTMLResponse(content=_FALLBACK_HTML.format(ui_name=app.state.ui_name))
+
+
+@app.get("/", response_class=HTMLResponse)
+def index() -> HTMLResponse:
+    """Serve the active UI plugin as the app shell."""
+    return _serve_ui_html()
+
+
+@app.get("/{path:path}", response_class=HTMLResponse, include_in_schema=False)
+def spa_fallback(request: Request, path: str) -> HTMLResponse:
+    """SPA catch-all: serve the UI HTML for any path not matched by API or static mounts."""
+    return _serve_ui_html()
