@@ -33,46 +33,52 @@ app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static"
 app.include_router(api_router)
 
 
-def _discover_components() -> list[dict[str, Any]]:
-    """Discover installed components via entry points."""
-    components: list[dict[str, Any]] = []
-    for ep in entry_points(group="shenas.components"):
+def _discover_plugins(group: str) -> list[dict[str, Any]]:
+    """Discover installed plugins via entry points."""
+    plugins: list[dict[str, Any]] = []
+    for ep in entry_points(group=group):
         try:
-            comp = ep.load()
-            if isinstance(comp, dict) and "static_dir" in comp:
-                components.append(comp)
+            plugin = ep.load()
+            if isinstance(plugin, dict) and "static_dir" in plugin:
+                plugins.append(plugin)
         except Exception:
             pass
-    return components
+    return plugins
 
 
-def _mount_components() -> None:
-    """Mount static dirs for each installed component."""
-    for comp in _discover_components():
-        static_dir = comp["static_dir"]
+def _mount_static_plugins(group: str, url_prefix: str) -> None:
+    """Mount static dirs for plugins discovered via the given entry point group."""
+    for plugin in _discover_plugins(group):
+        static_dir = plugin["static_dir"]
         if static_dir.is_dir():
             app.mount(
-                f"/components/{comp['name']}",
+                f"/{url_prefix}/{plugin['name']}",
                 StaticFiles(directory=str(static_dir)),
-                name=f"component-{comp['name']}",
+                name=f"{url_prefix}-{plugin['name']}",
             )
 
 
-_mount_components()
+_mount_static_plugins("shenas.components", "components")
+_mount_static_plugins("shenas.ui", "ui")
 
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
-    components = _discover_components()
-    if components:
-        cards = "\n".join(
-            f'      <li><a href="/components/{c["name"]}/{c.get("html", "index.html")}">'
-            f'{c["name"]}</a> <span style="color:#888">v{c.get("version", "?")}</span>'
-            f" — {c.get('description', '')}</li>"
-            for c in components
-        )
-    else:
-        cards = "      <li>No components installed. Install with: shenas component add &lt;name&gt;</li>"
+    components = _discover_plugins("shenas.components")
+    ui_plugins = _discover_plugins("shenas.ui")
+
+    def _plugin_cards(plugins: list[dict[str, Any]], url_prefix: str, install_cmd: str) -> str:
+        if plugins:
+            return "\n".join(
+                f'      <li><a href="/{url_prefix}/{p["name"]}/{p.get("html", "index.html")}">'
+                f'{p["name"]}</a> <span style="color:#888">v{p.get("version", "?")}</span>'
+                f" -- {p.get('description', '')}</li>"
+                for p in plugins
+            )
+        return f"      <li>None installed. Install with: shenasctl {install_cmd} add &lt;name&gt;</li>"
+
+    component_cards = _plugin_cards(components, "components", "component")
+    ui_cards = _plugin_cards(ui_plugins, "ui", "ui")
     html = f"""\
 <!DOCTYPE html>
 <html>
@@ -94,9 +100,13 @@ def index() -> HTMLResponse:
       <h1>shenas ui</h1>
     </div>
     <p>Database: <code>{DB_PATH}</code></p>
+    <h2>UI</h2>
+    <ul>
+{ui_cards}
+    </ul>
     <h2>Components</h2>
     <ul>
-{cards}
+{component_cards}
     </ul>
     <h2>API</h2>
     <ul>

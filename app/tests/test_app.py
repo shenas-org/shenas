@@ -42,13 +42,13 @@ class TestIndex:
         assert "shenas ui" in resp.text
 
     def test_no_components_message(self, client: TestClient) -> None:
-        with patch.object(server_module, "_discover_components", return_value=[]):
+        with patch.object(server_module, "_discover_plugins", return_value=[]):
             resp = client.get("/")
-        assert "No components installed" in resp.text
+        assert "None installed" in resp.text
 
     def test_with_components(self, client: TestClient) -> None:
         fake = [{"name": "test-dash", "version": "1.0", "description": "A test", "html": "test.html"}]
-        with patch.object(server_module, "_discover_components", return_value=fake):
+        with patch.object(server_module, "_discover_plugins", return_value=fake):
             resp = client.get("/")
         assert "test-dash" in resp.text
         assert "v1.0" in resp.text
