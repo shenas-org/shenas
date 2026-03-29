@@ -5,12 +5,17 @@ from __future__ import annotations
 import importlib
 import sys
 import types
+from typing import Any
 
 from fastapi import APIRouter
 
 from app.models import AuthFieldsResponse, AuthRequest, AuthResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Server-side pending auth state. Survives module reimports of pipe auth modules.
+# Keys are pipe names, values are dicts with thread + state from OAuth/MFA flows.
+_pending_flows: dict[str, dict[str, Any]] = {}
 
 
 def _get_pending_state(pipe_name: str) -> dict[str, object] | None:
@@ -39,6 +44,10 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
     """Start or continue a pipe's auth flow."""
     body = body or AuthRequest()
 
+    # OAuth completion step -- use server-side pending state
+    if "auth_complete" in body.credentials:
+        return _complete_oauth(pipe_name)
+
     mod = _load_auth_module(pipe_name)
     auth_fn = getattr(mod, "authenticate", None)
     if auth_fn is None:
@@ -47,11 +56,6 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
     # MFA completion step
     if "mfa_code" in body.credentials:
         return _complete_mfa(pipe_name, mod, body.credentials["mfa_code"])
-
-    # OAuth completion step
-    if "auth_complete" in body.credentials:
-        # Pass through to authenticate() which handles the completion
-        pass
 
     try:
         auth_fn(body.credentials)
@@ -62,10 +66,38 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
             return AuthResponse(ok=False, needs_mfa=True, message="MFA code required")
         if msg.startswith("OAUTH_URL:"):
             auth_url = msg.removeprefix("OAUTH_URL:")
+            # Grab the pending state from the pipe module before it gets reimported
+            mod = _get_cached_auth_module(pipe_name)
+            pending = getattr(mod, "_pending_auth", {})
+            if pipe_name in pending:
+                _pending_flows[pipe_name] = pending.pop(pipe_name)
             return AuthResponse(ok=False, oauth_url=auth_url, message="Open this URL in your browser to authorize")
         return AuthResponse(ok=False, error=msg)
     except Exception as exc:
         return AuthResponse(ok=False, error=str(exc))
+
+
+def _complete_oauth(pipe_name: str) -> AuthResponse:
+    """Complete a pending OAuth flow using server-side state."""
+    state = _pending_flows.pop(pipe_name, None)
+    if state is None:
+        # Try pipe module state as fallback (Google auth stores in core module)
+        mod = _get_cached_auth_module(pipe_name)
+        auth_fn = getattr(mod, "authenticate", None)
+        if auth_fn:
+            try:
+                auth_fn({"auth_complete": "true"})
+                return AuthResponse(ok=True, message=f"Authenticated {pipe_name}")
+            except Exception as exc:
+                return AuthResponse(ok=False, error=str(exc))
+        return AuthResponse(ok=False, error="No pending auth flow. Start auth again.")
+
+    thread = state.get("thread")
+    if thread:
+        thread.join(timeout=120)
+    if state.get("error"):
+        return AuthResponse(ok=False, error=state["error"])
+    return AuthResponse(ok=True, message=f"Authenticated {pipe_name}")
 
 
 def _complete_mfa(pipe_name: str, mod: object, mfa_code: str) -> AuthResponse:
@@ -96,6 +128,14 @@ def auth_fields(pipe_name: str) -> AuthFieldsResponse:
         fields=getattr(mod, "AUTH_FIELDS", []),
         instructions=getattr(mod, "AUTH_INSTRUCTIONS", ""),
     )
+
+
+def _get_cached_auth_module(pipe_name: str) -> types.ModuleType:
+    """Get the auth module without reimporting (preserves in-memory state)."""
+    module_name = f"shenas_pipes.{pipe_name}.auth"
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+    return importlib.import_module(module_name)
 
 
 def _load_auth_module(pipe_name: str) -> types.ModuleType:

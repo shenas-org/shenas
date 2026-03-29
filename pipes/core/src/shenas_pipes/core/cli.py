@@ -76,8 +76,3 @@ def run_sync(
             with tracer.start_as_current_span("pipe.transform"):
                 logger.info("Running transform")
                 transform_fn()
-
-        # Close the active connection so the next pipe sync gets a clean slate
-        from shenas_pipes.core.db import close
-
-        close()
