@@ -120,7 +120,28 @@ class SettingsPage extends LitElement {
     if (!data.ok) {
       this._actionMessage = { type: "error", text: data.message || `${action} failed` };
     }
+    if (kind === "theme") {
+      await this._applyActiveTheme();
+    }
     await this._fetchAll();
+  }
+
+  async _applyActiveTheme() {
+    const resp = await fetch(`${this.apiBase}/theme`);
+    if (!resp.ok) return;
+    const { css } = await resp.json();
+    let link = document.querySelector('link[data-shenas-theme]');
+    if (css) {
+      if (!link) {
+        link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.setAttribute("data-shenas-theme", "");
+        document.head.appendChild(link);
+      }
+      link.href = css;
+    } else if (link) {
+      link.remove();
+    }
   }
 
   async _install(kind) {
