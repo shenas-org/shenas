@@ -114,7 +114,11 @@ class SettingsPage extends LitElement {
 
   async _togglePlugin(kind, name, currentlyEnabled) {
     const action = currentlyEnabled ? "disable" : "enable";
-    await fetch(`${this.apiBase}/plugins/${kind}/${name}/${action}`, { method: "POST" });
+    const resp = await fetch(`${this.apiBase}/plugins/${kind}/${name}/${action}`, { method: "POST" });
+    const data = await resp.json();
+    if (!data.ok) {
+      this._actionMessage = { type: "error", text: data.message || `${action} failed` };
+    }
     await this._fetchAll();
   }
 

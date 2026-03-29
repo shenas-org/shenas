@@ -168,19 +168,31 @@ class PluginDetail extends LitElement {
     this._message = null;
     try {
       const resp = await fetch(`${this.apiBase}/sync/${this.name}`, { method: "POST" });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        this._message = { type: "error", text: data.detail || `Sync failed (${resp.status})` };
+        this._syncing = false;
+        return;
+      }
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
-      let lastLine = "";
+      let lastEvent = "";
+      let lastData = "";
+      let hadError = false;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const text = decoder.decode(value);
+        const text = decoder.decode(value, { stream: true });
         for (const line of text.split("\n")) {
-          if (line.startsWith("data: ")) lastLine = line.slice(6);
+          if (line.startsWith("event: ")) lastEvent = line.slice(7).trim();
+          if (line.startsWith("data: ")) lastData = line.slice(6);
         }
+        if (lastEvent === "error") hadError = true;
       }
-      this._message = { type: "success", text: lastLine || "Sync complete" };
-      await this._fetchInfo();
+      let msg = "Sync complete";
+      try { msg = JSON.parse(lastData).message || msg; } catch { /* use default */ }
+      this._message = { type: hadError ? "error" : "success", text: msg };
+      if (!hadError) await this._fetchInfo();
     } catch (e) {
       this._message = { type: "error", text: `Sync failed: ${e.message}` };
     }
@@ -220,7 +232,7 @@ class PluginDetail extends LitElement {
       <div class="title-row">
         <h2>${info.display_name || info.name} <span class="kind-badge">${info.kind}</span></h2>
         <div class="title-actions">
-          ${this.kind === "pipe"
+          ${this.kind === "pipe" && enabled
             ? html`<button @click=${this._sync} ?disabled=${this._syncing}>${this._syncing ? "Syncing..." : "Sync"}</button>`
             : ""}
           <button class="danger" @click=${this._remove}>Remove</button>
@@ -240,9 +252,9 @@ class PluginDetail extends LitElement {
           </div>`
         : ""}
 
-      ${this.activeTab === "config"
+      ${this.activeTab === "config" && this._hasConfig
         ? html`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`
-        : this.activeTab === "auth"
+        : this.activeTab === "auth" && this._hasAuth
           ? html`<shenas-auth api-base="${this.apiBase}" pipe-name="${this.name}"></shenas-auth>`
           : this._renderDetails(info, enabled)}
 

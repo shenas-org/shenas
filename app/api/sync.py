@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
+import logging
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -74,7 +75,7 @@ def _mark_synced(pipe_name: str) -> None:
     try:
         update_synced_at("pipe", pipe_name)
     except Exception:
-        pass
+        logging.getLogger(__name__).exception("Failed to update synced_at for %s", pipe_name)
 
 
 def _run_pipe_sync(

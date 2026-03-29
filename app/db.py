@@ -220,7 +220,10 @@ def upsert_plugin_state(kind: str, name: str, enabled: bool = True) -> None:
 
 
 def update_synced_at(kind: str, name: str) -> None:
-    """Update the synced_at timestamp for a plugin."""
+    """Update the synced_at timestamp for a plugin. Creates the row if missing."""
+    existing = get_plugin_state(kind, name)
+    if not existing:
+        upsert_plugin_state(kind, name, enabled=True)
     con = connect()
     con.execute(
         "UPDATE shenas_system.plugins SET synced_at = current_timestamp, updated_at = current_timestamp "
