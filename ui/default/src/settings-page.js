@@ -223,7 +223,7 @@ class SettingsPage extends LitElement {
       ></shenas-data-list>
       ${this._installing
         ? html`<shenas-form-panel
-            title="Install plugin"
+            title="Install new plugin"
             submit-label="Install"
             @submit=${() => this._install(kind)}
             @cancel=${() => { this._installing = false; }}

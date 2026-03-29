@@ -38,6 +38,7 @@ class FormPanel extends LitElement {
       }
       .actions {
         display: flex;
+        justify-content: flex-end;
         gap: 0.5rem;
         margin-top: 0.8rem;
       }

@@ -192,6 +192,7 @@ var C=Object.defineProperty;var T=(l,e,t)=>e in l?C(l,e,{enumerable:!0,configura
       }
       .actions {
         display: flex;
+        justify-content: flex-end;
         gap: 0.5rem;
         margin-top: 0.8rem;
       }
@@ -295,7 +296,7 @@ var C=Object.defineProperty;var T=(l,e,t)=>e in l?C(l,e,{enumerable:!0,configura
         empty-text="No ${s.toLowerCase()} installed"
       ></shenas-data-list>
       ${this._installing?a`<shenas-form-panel
-            title="Install plugin"
+            title="Install new plugin"
             submit-label="Install"
             @submit=${()=>this._install(e)}
             @cancel=${()=>{this._installing=!1}}
