@@ -14,6 +14,7 @@ class PluginDetail extends LitElement {
     _hasAuth: { state: true },
     _tables: { state: true },
     _syncing: { state: true },
+    _schemaTransforms: { state: true },
   };
 
   static styles = [
@@ -107,6 +108,7 @@ class PluginDetail extends LitElement {
     this._hasAuth = false;
     this._tables = [];
     this._syncing = false;
+    this._schemaTransforms = [];
   }
 
   willUpdate(changed) {
@@ -123,13 +125,18 @@ class PluginDetail extends LitElement {
       `${this.apiBase}/plugins/${this.kind}/${this.name}/info`,
     );
     this._info = resp.ok ? await resp.json() : null;
-    const [configResp, authResp, dbResp] = await Promise.all([
+    const needsDb = this.kind === "pipe" || this.kind === "schema";
+    const [configResp, authResp, dbResp, ownershipResp, transformsResp] = await Promise.all([
       fetch(`${this.apiBase}/config?kind=${this.kind}&name=${this.name}`),
       this.kind === "pipe"
         ? fetch(`${this.apiBase}/auth/${this.name}/fields`)
         : Promise.resolve(null),
-      this.kind === "pipe"
-        ? fetch(`${this.apiBase}/db/status`)
+      needsDb ? fetch(`${this.apiBase}/db/status`) : Promise.resolve(null),
+      this.kind === "schema"
+        ? fetch(`${this.apiBase}/db/schema-plugins`)
+        : Promise.resolve(null),
+      this.kind === "schema"
+        ? fetch(`${this.apiBase}/transforms`)
         : Promise.resolve(null),
     ]);
     if (configResp.ok) {
@@ -140,10 +147,26 @@ class PluginDetail extends LitElement {
       const data = await authResp.json();
       this._hasAuth = (data.fields?.length > 0) || !!data.instructions;
     }
+    const ownedTables = ownershipResp?.ok
+      ? (await ownershipResp.json())[this.name] || []
+      : [];
     if (dbResp?.ok) {
       const db = await dbResp.json();
-      const schema = (db.schemas || []).find((s) => s.name === this.name);
-      this._tables = schema ? schema.tables.filter((t) => !t.name.startsWith("_dlt_")) : [];
+      if (this.kind === "pipe") {
+        const schema = (db.schemas || []).find((s) => s.name === this.name);
+        this._tables = schema ? schema.tables.filter((t) => !t.name.startsWith("_dlt_")) : [];
+      } else if (this.kind === "schema") {
+        const metricsSchema = (db.schemas || []).find((s) => s.name === "metrics");
+        this._tables = metricsSchema
+          ? metricsSchema.tables.filter((t) => ownedTables.includes(t.name))
+          : [];
+      }
+    }
+    if (transformsResp?.ok) {
+      const allTransforms = await transformsResp.json();
+      this._schemaTransforms = allTransforms.filter(
+        (t) => ownedTables.includes(t.target_duckdb_table),
+      );
     }
     this._loading = false;
   }
@@ -285,7 +308,7 @@ class PluginDetail extends LitElement {
         ${this._stateRow("Status changed", info.status_changed_at)}
       </div>
 
-      ${this.kind === "pipe"
+      ${this.kind === "pipe" || this.kind === "schema"
         ? html`
           <h4 class="section-title">Resources</h4>
           <shenas-data-list
@@ -303,6 +326,23 @@ class PluginDetail extends LitElement {
         ? html`
           <h4 class="section-title">Transforms</h4>
           <shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`
+        : ""}
+
+      ${this.kind === "schema" && this._schemaTransforms.length > 0
+        ? html`
+          <h4 class="section-title">Transforms</h4>
+          <shenas-data-list
+            .columns=${[
+              { key: "id", label: "ID", class: "muted" },
+              { label: "Source", class: "mono", render: (t) => `${t.source_duckdb_schema}.${t.source_duckdb_table}` },
+              { label: "Target", class: "mono", render: (t) => `${t.target_duckdb_schema}.${t.target_duckdb_table}` },
+              { label: "Description", render: (t) => t.description || "" },
+              { label: "Status", render: (t) => html`<status-toggle ?enabled=${t.enabled}></status-toggle>` },
+            ]}
+            .rows=${this._schemaTransforms}
+            .rowClass=${(t) => t.enabled ? "" : "disabled-row"}
+            empty-text="No transforms"
+          ></shenas-data-list>`
         : ""}
 
     `;
