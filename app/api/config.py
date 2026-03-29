@@ -1,11 +1,13 @@
 """Config CRUD API endpoints."""
 
+from __future__ import annotations
+
 import importlib
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
 from app.db import connect
+from app.models import ConfigEntry, ConfigItem, ConfigSetRequest, ConfigValueResponse, OkResponse
 
 router = APIRouter(prefix="/config", tags=["config"])
 
@@ -44,13 +46,8 @@ def _get_config_class(kind: str, name: str) -> type:
     return classes[table_name]
 
 
-class ConfigSetRequest(BaseModel):
-    key: str
-    value: str
-
-
 @router.get("")
-def list_configs(kind: str | None = None, name: str | None = None) -> list[dict]:
+def list_configs(kind: str | None = None, name: str | None = None) -> list[ConfigItem]:
     from shenas_pipes.core.config import config_metadata, get_config
 
     con = connect(read_only=True)
@@ -77,19 +74,19 @@ def list_configs(kind: str | None = None, name: str | None = None) -> list[dict]
             is_secret = col.get("category") == "secret"
             display_val = "********" if (is_secret and val) else (str(val) if val is not None else None)
             entries.append(
-                {
-                    "key": col["name"],
-                    "value": display_val,
-                    "description": col.get("description", ""),
-                }
+                ConfigEntry(
+                    key=col["name"],
+                    value=display_val,
+                    description=col.get("description", ""),
+                )
             )
-        result.append({"kind": parts[0], "name": parts[1] if len(parts) > 1 else parts[0], "entries": entries})
+        result.append(ConfigItem(kind=parts[0], name=parts[1] if len(parts) > 1 else parts[0], entries=entries))
 
     return result
 
 
 @router.get("/{kind}/{name}/{key}")
-def get_config_value(kind: str, name: str, key: str) -> dict:
+def get_config_value(kind: str, name: str, key: str) -> ConfigValueResponse:
     from shenas_pipes.core.config import get_config_value as _get_value
 
     cls = _get_config_class(kind, name)
@@ -97,34 +94,34 @@ def get_config_value(kind: str, name: str, key: str) -> dict:
     val = _get_value(con, cls, key)
     if val is None:
         raise HTTPException(status_code=404, detail=f"Not set: {kind} {name}.{key}")
-    return {"key": key, "value": str(val)}
+    return ConfigValueResponse(key=key, value=str(val))
 
 
 @router.put("/{kind}/{name}")
-def set_config(kind: str, name: str, body: ConfigSetRequest) -> dict:
+def set_config(kind: str, name: str, body: ConfigSetRequest) -> OkResponse:
     from shenas_pipes.core.config import set_config as _set_config
 
     cls = _get_config_class(kind, name)
     con = connect()
     _set_config(con, cls, **{body.key: body.value})
-    return {"ok": True}
+    return OkResponse(ok=True)
 
 
 @router.delete("/{kind}/{name}")
-def delete_config_all(kind: str, name: str) -> dict:
+def delete_config_all(kind: str, name: str) -> OkResponse:
     from shenas_pipes.core.config import delete_config
 
     cls = _get_config_class(kind, name)
     con = connect()
     delete_config(con, cls)
-    return {"ok": True}
+    return OkResponse(ok=True)
 
 
 @router.delete("/{kind}/{name}/{key}")
-def delete_config_key(kind: str, name: str, key: str) -> dict:
+def delete_config_key(kind: str, name: str, key: str) -> OkResponse:
     from shenas_pipes.core.config import set_config as _set_config
 
     cls = _get_config_class(kind, name)
     con = connect()
     _set_config(con, cls, **{key: None})
-    return {"ok": True}
+    return OkResponse(ok=True)

@@ -5,6 +5,8 @@ via a threading lock. The connection is closed and recreated when
 exclusive file access is needed (e.g. flush_to_encrypted).
 """
 
+from __future__ import annotations
+
 import os
 import secrets
 import threading

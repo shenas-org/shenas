@@ -1,21 +1,27 @@
 """Shared Google OAuth2 auth for all Google API pipes (Gmail, Calendar, Photos, etc.)."""
 
+from __future__ import annotations
+
 import io
 import json
 import os
 import sys
 import threading
 import time
+from typing import TYPE_CHECKING, Any
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
+if TYPE_CHECKING:
+    from googleapiclient.discovery import Resource
+
 KEYRING_SERVICE = "shenas"
 
 # Shared state for multi-step OAuth flows (e.g. URL passback).
 # Keys are pipe names, values are dicts with thread + state.
-pending_oauth: dict[str, dict] = {}
+pending_oauth: dict[str, dict[str, Any]] = {}
 
 # Shared OAuth client (Desktop app -- safe to embed)
 DEFAULT_CLIENT_ID = "232211553387-3c4sog0fokns7ri2o6oj8d3s5v3r9jh6.apps.googleusercontent.com"
@@ -29,7 +35,7 @@ class GoogleAuth:
     Token storage, OAuth flow, and REST auth passback are all handled here.
     """
 
-    AUTH_FIELDS: list[dict] = []
+    AUTH_FIELDS: list[dict[str, str]] = []
 
     def __init__(
         self,
@@ -40,14 +46,14 @@ class GoogleAuth:
         *,
         static_discovery: bool = True,
     ) -> None:
-        self.name = name
-        self.scopes = scopes
-        self.api_name = api_name
-        self.api_version = api_version
-        self.static_discovery = static_discovery
-        self.keyring_key = f"{name}_token"
+        self.name: str = name
+        self.scopes: list[str] = scopes
+        self.api_name: str = api_name
+        self.api_version: str = api_version
+        self.static_discovery: bool = static_discovery
+        self.keyring_key: str = f"{name}_token"
 
-    def _get_client_config(self) -> dict:
+    def _get_client_config(self) -> dict[str, Any]:
         env_prefix = f"SHENAS_{self.name.upper()}"
         client_id = os.environ.get(f"{env_prefix}_CLIENT_ID", DEFAULT_CLIENT_ID)
         client_secret = os.environ.get(f"{env_prefix}_CLIENT_SECRET", DEFAULT_CLIENT_SECRET)
@@ -81,7 +87,7 @@ class GoogleAuth:
             pass
         keyring.set_password(KEYRING_SERVICE, self.keyring_key, creds.to_json())
 
-    def build_client(self, run_auth_flow: bool = False):  # noqa: ANN201
+    def build_client(self, run_auth_flow: bool = False) -> Resource:
         """Build a Google API service from keyring tokens or OAuth flow."""
         creds = self._get_stored_token()
 
@@ -119,7 +125,7 @@ class GoogleAuth:
             return
 
         flow = InstalledAppFlow.from_client_config(self._get_client_config(), self.scopes)
-        state: dict = {"url": None}
+        state: dict[str, Any] = {"url": None}
         store_token = self._store_token
 
         class _UrlCapture(io.TextIOBase):

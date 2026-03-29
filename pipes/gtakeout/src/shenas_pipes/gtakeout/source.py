@@ -1,5 +1,8 @@
 """Google Takeout dlt resources -- parses extracted Takeout archives."""
 
+from __future__ import annotations
+
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -12,14 +15,14 @@ from shenas_pipes.gtakeout.parsers.youtube import parse_search_history, parse_su
 
 
 @dlt.resource(write_disposition="merge", primary_key=["title", "photo_taken_timestamp"])
-def photos_metadata(extract_dir: Path) -> Any:
+def photos_metadata(extract_dir: Path) -> Iterator[dict[str, Any]]:
     """Yield photo/video metadata from Google Photos Takeout."""
     files = iter_files(extract_dir, "Google Photos")
     yield from parse_photos_metadata(files)
 
 
 @dlt.resource(write_disposition="merge", primary_key=["timestamp", "latitude", "longitude"])
-def location_records(extract_dir: Path) -> Any:
+def location_records(extract_dir: Path) -> Iterator[dict[str, Any]]:
     """Yield raw location records from Location History."""
     files = iter_files(extract_dir, "Location History (Timeline)")
     if not files:
@@ -28,7 +31,7 @@ def location_records(extract_dir: Path) -> Any:
 
 
 @dlt.resource(write_disposition="merge", primary_key=["start_timestamp", "place_name", "type"])
-def location_visits(extract_dir: Path) -> Any:
+def location_visits(extract_dir: Path) -> Iterator[dict[str, Any]]:
     """Yield semantic location visits/activities."""
     files = iter_files(extract_dir, "Location History (Timeline)/Semantic Location History")
     if not files:
@@ -37,21 +40,21 @@ def location_visits(extract_dir: Path) -> Any:
 
 
 @dlt.resource(write_disposition="merge", primary_key=["title_url", "time"])
-def youtube_watch_history(extract_dir: Path) -> Any:
+def youtube_watch_history(extract_dir: Path) -> Iterator[dict[str, Any]]:
     """Yield YouTube watch history."""
     files = iter_files(extract_dir, "YouTube and YouTube Music/history")
     yield from parse_watch_history(files)
 
 
 @dlt.resource(write_disposition="merge", primary_key=["title", "time"])
-def youtube_search_history(extract_dir: Path) -> Any:
+def youtube_search_history(extract_dir: Path) -> Iterator[dict[str, Any]]:
     """Yield YouTube search history."""
     files = iter_files(extract_dir, "YouTube and YouTube Music/history")
     yield from parse_search_history(files)
 
 
 @dlt.resource(write_disposition="replace")
-def youtube_subscriptions(extract_dir: Path) -> Any:
+def youtube_subscriptions(extract_dir: Path) -> Iterator[dict[str, Any]]:
     """Yield YouTube subscriptions."""
     files = iter_files(extract_dir, "YouTube and YouTube Music/subscriptions", suffix=".csv")
     yield from parse_subscriptions(files)

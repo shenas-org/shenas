@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any  # noqa: F401
+
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -18,7 +22,7 @@ def _handle_error(exc: ShenasServerError) -> None:
     raise typer.Exit(code=1)
 
 
-def _display_configs(configs: list[dict]) -> None:
+def _display_configs(configs: list[dict[str, Any]]) -> None:
     for cfg in configs:
         display_name = f"{cfg['kind']} {cfg['name']}"
         table = Table(title=f"[bold]{display_name}[/bold]", show_lines=False)

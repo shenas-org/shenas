@@ -1,5 +1,7 @@
 """Registry CLI commands: keygen, sign, verify."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import typer

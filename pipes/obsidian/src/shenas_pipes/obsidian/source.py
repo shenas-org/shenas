@@ -1,6 +1,9 @@
 """Parse Obsidian daily notes frontmatter into dlt resources."""
 
+from __future__ import annotations
+
 import re
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -8,7 +11,7 @@ import dlt
 import yaml
 
 
-def _parse_frontmatter(text: str) -> dict | None:
+def _parse_frontmatter(text: str) -> dict[str, Any] | None:
     """Extract YAML frontmatter from a markdown file."""
     match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
     if not match:
@@ -26,7 +29,7 @@ def _date_from_filename(path: Path) -> str | None:
 
 
 @dlt.resource(write_disposition="merge", primary_key="date")
-def daily_notes(notes_dir: str) -> Any:
+def daily_notes(notes_dir: str) -> Iterator[dict[str, Any]]:
     """Yield one row per daily note with frontmatter fields as columns."""
     notes_path = Path(notes_dir)
     if not notes_path.is_dir():
@@ -42,7 +45,7 @@ def daily_notes(notes_dir: str) -> Any:
         if not frontmatter:
             continue
 
-        row = {"date": date}
+        row: dict[str, Any] = {"date": date}
         for key, value in frontmatter.items():
             if isinstance(value, list):
                 row[key] = ", ".join(str(v) for v in value)

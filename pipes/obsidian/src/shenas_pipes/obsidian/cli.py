@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import json
 from pathlib import Path
+from typing import Any
 
 import typer
 
@@ -10,13 +13,13 @@ app = create_pipe_app("Obsidian daily notes commands.")
 CONFIG_PATH = Path(".shenas") / "obsidian.json"
 
 
-def _load_config() -> dict:
+def _load_config() -> dict[str, Any]:
     if CONFIG_PATH.exists():
         return json.loads(CONFIG_PATH.read_text())
     return {}
 
 
-def _save_config(config: dict) -> None:
+def _save_config(config: dict[str, Any]) -> None:
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     CONFIG_PATH.write_text(json.dumps(config, indent=2))
 

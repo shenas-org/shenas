@@ -1,19 +1,19 @@
 """Auth API endpoints -- handle multi-step auth flows via REST."""
 
+from __future__ import annotations
+
 import importlib
 import sys
+import types
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+
+from app.models import AuthField, AuthRequest, AuthResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-class AuthRequest(BaseModel):
-    credentials: dict[str, str] = {}
-
-
-def _get_pending_state(pipe_name: str) -> dict | None:
+def _get_pending_state(pipe_name: str) -> dict[str, object] | None:
     """Look up pending MFA/OAuth state from the pipe's auth module."""
     try:
         mod = _load_auth_module(pipe_name)
@@ -35,14 +35,14 @@ def _get_pending_state(pipe_name: str) -> dict | None:
 
 
 @router.post("/{pipe_name}")
-def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> dict:
+def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
     """Start or continue a pipe's auth flow."""
     body = body or AuthRequest()
 
     mod = _load_auth_module(pipe_name)
     auth_fn = getattr(mod, "authenticate", None)
     if auth_fn is None:
-        return {"ok": False, "error": f"Pipe {pipe_name} has no authenticate() function"}
+        return AuthResponse(ok=False, error=f"Pipe {pipe_name} has no authenticate() function")
 
     # MFA completion step
     if "mfa_code" in body.credentials:
@@ -55,38 +55,38 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> dict:
 
     try:
         auth_fn(body.credentials)
-        return {"ok": True, "message": f"Authenticated {pipe_name}"}
+        return AuthResponse(ok=True, message=f"Authenticated {pipe_name}")
     except ValueError as exc:
         msg = str(exc)
         if "MFA code required" in msg:
-            return {"ok": False, "needs_mfa": True, "message": "MFA code required"}
+            return AuthResponse(ok=False, needs_mfa=True, message="MFA code required")
         if msg.startswith("OAUTH_URL:"):
             auth_url = msg.removeprefix("OAUTH_URL:")
-            return {"ok": False, "oauth_url": auth_url, "message": "Open this URL in your browser to authorize"}
-        return {"ok": False, "error": msg}
+            return AuthResponse(ok=False, oauth_url=auth_url, message="Open this URL in your browser to authorize")
+        return AuthResponse(ok=False, error=msg)
     except Exception as exc:
-        return {"ok": False, "error": str(exc)}
+        return AuthResponse(ok=False, error=str(exc))
 
 
-def _complete_mfa(pipe_name: str, mod: object, mfa_code: str) -> dict:
+def _complete_mfa(pipe_name: str, mod: object, mfa_code: str) -> AuthResponse:
     """Complete an MFA auth flow using stored session state."""
     complete_fn = getattr(mod, "complete_mfa", None)
     if complete_fn is None:
-        return {"ok": False, "error": f"Pipe {pipe_name} does not support MFA completion"}
+        return AuthResponse(ok=False, error=f"Pipe {pipe_name} does not support MFA completion")
 
     state = _get_pending_state(pipe_name)
     if state is None:
-        return {"ok": False, "error": "No pending MFA session. Start auth again."}
+        return AuthResponse(ok=False, error="No pending MFA session. Start auth again.")
 
     try:
         complete_fn(state, mfa_code)
-        return {"ok": True, "message": f"Authenticated {pipe_name}"}
+        return AuthResponse(ok=True, message=f"Authenticated {pipe_name}")
     except Exception as exc:
-        return {"ok": False, "error": str(exc)}
+        return AuthResponse(ok=False, error=str(exc))
 
 
 @router.get("/{pipe_name}/fields")
-def auth_fields(pipe_name: str) -> list[dict]:
+def auth_fields(pipe_name: str) -> list[AuthField]:
     """Get the credential fields needed for a pipe's auth flow."""
     try:
         mod = _load_auth_module(pipe_name)
@@ -95,7 +95,7 @@ def auth_fields(pipe_name: str) -> list[dict]:
     return getattr(mod, "AUTH_FIELDS", [])
 
 
-def _load_auth_module(pipe_name: str) -> object:
+def _load_auth_module(pipe_name: str) -> types.ModuleType:
     importlib.invalidate_caches()
     for key in list(sys.modules):
         if key.startswith(f"shenas_pipes.{pipe_name}"):

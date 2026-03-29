@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import duckdb
 
 from shenas_pipes.core.transform import MetricProviderBase

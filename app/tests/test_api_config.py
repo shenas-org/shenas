@@ -158,7 +158,7 @@ class TestSetConfig:
             resp = client.put("/api/config/pipe/testpipe", json={"key": "username", "value": "bob"})
 
         assert resp.status_code == 200
-        assert resp.json() == {"ok": True}
+        assert resp.json() == {"ok": True, "message": ""}
         mock_set.assert_called_once()
 
     def test_set_unknown_config(self, client: TestClient) -> None:
@@ -172,14 +172,14 @@ class TestDeleteConfig:
             resp = client.delete("/api/config/pipe/testpipe")
 
         assert resp.status_code == 200
-        assert resp.json() == {"ok": True}
+        assert resp.json() == {"ok": True, "message": ""}
 
     def test_delete_single_key(self, client: TestClient) -> None:
         with patch(f"{CONFIG_MOD}.set_config"):
             resp = client.delete("/api/config/pipe/testpipe/username")
 
         assert resp.status_code == 200
-        assert resp.json() == {"ok": True}
+        assert resp.json() == {"ok": True, "message": ""}
 
     def test_delete_unknown_config(self, client: TestClient) -> None:
         resp = client.delete("/api/config/pipe/nonexistent")
