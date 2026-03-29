@@ -5,7 +5,9 @@ from datetime import date
 import duckdb
 import pytest
 
-from shenas_pipes.duolingo.transform import TRANSFORM_DEFAULTS
+from shenas_pipes.core.transform import load_transform_defaults
+
+TRANSFORM_DEFAULTS = load_transform_defaults("duolingo")
 
 
 @pytest.fixture()

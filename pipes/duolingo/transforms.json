@@ -1,0 +1,18 @@
+[
+  {
+    "source_duckdb_schema": "duolingo",
+    "source_duckdb_table": "daily_xp",
+    "target_duckdb_schema": "metrics",
+    "target_duckdb_table": "daily_outcomes",
+    "description": "Extract daily Duolingo XP into outcomes schema",
+    "sql": "SELECT date::DATE as date, 'duolingo' as source, xp_gained as daily_duolingo_xp FROM duolingo.daily_xp WHERE xp_gained IS NOT NULL"
+  },
+  {
+    "source_duckdb_schema": "duolingo",
+    "source_duckdb_table": "daily_xp",
+    "target_duckdb_schema": "metrics",
+    "target_duckdb_table": "daily_habits",
+    "description": "Track whether Duolingo was used today (XP > 0)",
+    "sql": "SELECT date::DATE as date, 'duolingo' as source, xp_gained > 0 as duolingo FROM duolingo.daily_xp"
+  }
+]

@@ -77,11 +77,11 @@ def sync(
         from shenas_schemas.outcomes import ensure_schema
 
         from app.transforms import run_transforms, seed_defaults
-        from shenas_pipes.obsidian.transform import TRANSFORM_DEFAULTS
+        from shenas_pipes.core.transform import load_transform_defaults
 
         con = connect()
         ensure_schema(con)
-        seed_defaults("obsidian", TRANSFORM_DEFAULTS)
+        seed_defaults("obsidian", load_transform_defaults("obsidian"))
         console.print("Transforming obsidian...", style="dim")
         count = run_transforms(con, "obsidian")
         console.print(f"[green]{count} transforms done[/green]")

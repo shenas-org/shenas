@@ -69,12 +69,12 @@ def sync(
         from shenas_schemas.outcomes import ensure_schema as ensure_outcomes
 
         from app.transforms import run_transforms, seed_defaults
-        from shenas_pipes.duolingo.transform import TRANSFORM_DEFAULTS
+        from shenas_pipes.core.transform import load_transform_defaults
 
         con = connect()
         ensure_outcomes(con)
         ensure_habits(con)
-        seed_defaults("duolingo", TRANSFORM_DEFAULTS)
+        seed_defaults("duolingo", load_transform_defaults("duolingo"))
         console.print("Transforming duolingo...", style="dim")
         count = run_transforms(con, "duolingo")
         console.print(f"[green]{count} transforms done[/green]")
