@@ -29,9 +29,12 @@ def serve(
     cert_file: Path = typer.Option(DEFAULT_CERT_DIR / "cert.pem", "--cert", help="TLS certificate file"),
     key_file: Path = typer.Option(DEFAULT_CERT_DIR / "key.pem", "--key", help="TLS private key file"),
     no_tls: bool = typer.Option(False, "--no-tls", help="Run plain HTTP (for desktop app sidecar)"),
+    ui: str = typer.Option("default", "--ui", help="UI plugin to render as the app shell"),
 ) -> None:
     """Start the UI web server."""
     from app.server import app as fastapi_app
+
+    fastapi_app.state.ui_name = ui
 
     if no_tls:
         typer.echo(f"Starting HTTP server on http://{host}:{port}")

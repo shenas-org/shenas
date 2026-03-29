@@ -1,0 +1,6 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'ui-default'
+
+language: 'typescript'
+stack: 'frontend'
+tags: ['ui']

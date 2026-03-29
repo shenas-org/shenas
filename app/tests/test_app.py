@@ -35,23 +35,18 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
 
 
 class TestIndex:
-    def test_returns_html(self, client: TestClient) -> None:
-        resp = client.get("/")
-        assert resp.status_code == 200
-        assert "text/html" in resp.headers["content-type"]
-        assert "shenas ui" in resp.text
+    def test_redirects_to_ui(self, client: TestClient) -> None:
+        fake_ui = [{"name": "default", "version": "1.0", "static_dir": "/tmp", "html": "default.html"}]
+        with patch.object(server_module, "_discover_plugins", return_value=fake_ui):
+            resp = client.get("/", follow_redirects=False)
+        assert resp.status_code == 307
+        assert "/ui/default/default.html" in resp.headers["location"]
 
-    def test_no_components_message(self, client: TestClient) -> None:
+    def test_fallback_when_no_ui(self, client: TestClient) -> None:
         with patch.object(server_module, "_discover_plugins", return_value=[]):
             resp = client.get("/")
-        assert "None installed" in resp.text
-
-    def test_with_components(self, client: TestClient) -> None:
-        fake = [{"name": "test-dash", "version": "1.0", "description": "A test", "html": "test.html"}]
-        with patch.object(server_module, "_discover_plugins", return_value=fake):
-            resp = client.get("/")
-        assert "test-dash" in resp.text
-        assert "v1.0" in resp.text
+        assert resp.status_code == 200
+        assert "not installed" in resp.text
 
 
 class TestHealth:

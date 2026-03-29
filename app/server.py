@@ -8,14 +8,13 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from importlib.metadata import entry_points
 from pathlib import Path as _Path
-from typing import Any  # noqa: F401
+from typing import Any
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
-from app.db import DB_PATH
 
 
 @asynccontextmanager
@@ -28,7 +27,8 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="shenas ui", docs_url=None, redoc_url=None, lifespan=_lifespan)
+app = FastAPI(title="shenas", docs_url=None, redoc_url=None, lifespan=_lifespan)
+app.state.ui_name = "default"  # overridden by server_cli.py
 app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")
 app.include_router(api_router)
 
@@ -62,60 +62,40 @@ _mount_static_plugins("shenas.components", "components")
 _mount_static_plugins("shenas.ui", "ui")
 
 
-@app.get("/", response_class=HTMLResponse)
-def index() -> HTMLResponse:
-    components = _discover_plugins("shenas.components")
-    ui_plugins = _discover_plugins("shenas.ui")
+def _get_active_ui() -> dict[str, Any] | None:
+    """Find the active UI plugin based on the SHENAS_UI env var."""
+    ui_name = app.state.ui_name
+    for plugin in _discover_plugins("shenas.ui"):
+        if plugin["name"] == ui_name:
+            return plugin
+    return None
 
-    def _plugin_cards(plugins: list[dict[str, Any]], url_prefix: str, install_cmd: str) -> str:
-        if plugins:
-            return "\n".join(
-                f'      <li><a href="/{url_prefix}/{p["name"]}/{p.get("html", "index.html")}">'
-                f'{p["name"]}</a> <span style="color:#888">v{p.get("version", "?")}</span>'
-                f" -- {p.get('description', '')}</li>"
-                for p in plugins
-            )
-        return f"      <li>None installed. Install with: shenasctl {install_cmd} add &lt;name&gt;</li>"
 
-    component_cards = _plugin_cards(components, "components", "component")
-    ui_cards = _plugin_cards(ui_plugins, "ui", "ui")
+@app.get("/", response_model=None)
+def index() -> HTMLResponse | RedirectResponse:
+    """Serve the active UI plugin's HTML, or a fallback if not installed."""
+    ui = _get_active_ui()
+    if ui:
+        return RedirectResponse(f"/ui/{ui['name']}/{ui.get('html', 'index.html')}")
+
+    ui_name = app.state.ui_name
     html = f"""\
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>shenas ui</title>
-    <style>
-      body {{ font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; color: #222; }}
-      a {{ color: #0066cc; }}
-      li {{ margin: 0.4rem 0; }}
-      .header {{ display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }}
-      .header img {{ width: 48px; height: 48px; }}
-      .header h1 {{ margin: 0; }}
-    </style>
+  <head><meta charset="utf-8"><title>shenas</title>
+  <style>body {{ font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; color: #222; }}</style>
   </head>
   <body>
-    <div class="header">
-      <img src="/static/images/shenas.png" alt="shenas">
-      <h1>shenas ui</h1>
-    </div>
-    <p>Database: <code>{DB_PATH}</code></p>
-    <h2>UI</h2>
-    <ul>
-{ui_cards}
-    </ul>
-    <h2>Components</h2>
-    <ul>
-{component_cards}
-    </ul>
+    <h1>shenas</h1>
+    <p>UI plugin <code>{ui_name}</code> is not installed.</p>
+    <p>Install it with: <code>shenasctl ui add {ui_name}</code></p>
+    <p>Or start with a different UI: <code>shenas --ui other-name</code></p>
     <h2>API</h2>
     <ul>
-      <li><a href="/api/tables">GET /api/tables</a> — list metric tables</li>
-      <li>GET /api/query?sql=... — returns Arrow IPC stream</li>
-      <li><a href="/api/config">GET /api/config</a> — list config entries</li>
-      <li><a href="/api/db/status">GET /api/db/status</a> — database status</li>
-      <li>GET /api/plugins/{{kind}} — list installed plugins</li>
-      <li>POST /api/sync — sync all pipes (SSE)</li>
+      <li><a href="/api/health">GET /api/health</a></li>
+      <li><a href="/api/tables">GET /api/tables</a></li>
+      <li><a href="/api/db/status">GET /api/db/status</a></li>
+      <li>GET /api/plugins/{{kind}}</li>
     </ul>
   </body>
 </html>"""
