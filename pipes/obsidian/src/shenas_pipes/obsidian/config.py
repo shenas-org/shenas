@@ -26,3 +26,15 @@ class ObsidianConfig:
         ]
         | None
     ) = None
+    sync_frequency: (
+        Annotated[
+            int,
+            Field(
+                db_type="INTEGER",
+                description="Sync frequency in minutes (unset = no scheduled sync)",
+                ui_widget="text",
+                example_value="60",
+            ),
+        ]
+        | None
+    ) = None

@@ -160,3 +160,8 @@ class ShenasClient:
         if extra:
             body["extra"] = extra
         return self._stream_sse("POST", f"/api/sync/{name}", json=body)
+
+    # --- Schedule ---
+
+    def get_sync_schedule(self) -> list[dict[str, Any]]:
+        return self._request("GET", "/api/sync/schedule")

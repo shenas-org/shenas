@@ -67,7 +67,6 @@ def _register_pipe_commands() -> None:
             _add_auth_command(pipe_app, name)
         if "config" in commands:
             _add_config_command(pipe_app, name)
-
         app.add_typer(pipe_app, name=name, rich_help_panel="Installed Pipes")
 
 
@@ -301,6 +300,34 @@ def list_cmd() -> None:
         cmds = ", ".join(p.get("commands", []))
         sig = SIG_STYLE.get(p.get("signature", ""), p.get("signature", ""))
         table.add_row(p["name"], p.get("version", ""), sig, cmds or "[dim]none[/dim]")
+    console.print(table)
+
+
+@app.command("schedule")
+def schedule_cmd() -> None:
+    """Show sync schedule for all pipes."""
+    from rich.table import Table
+
+    try:
+        schedules = ShenasClient().get_sync_schedule()
+    except ShenasServerError as exc:
+        console.print(f"[red]{exc.detail}[/red]")
+        raise typer.Exit(code=1)
+
+    if not schedules:
+        console.print("[dim]No pipes have a sync schedule configured[/dim]")
+        return
+
+    table = Table(show_lines=False)
+    table.add_column("Pipe", style="green")
+    table.add_column("Frequency", justify="right")
+    table.add_column("Last Sync")
+    table.add_column("Due", justify="center")
+    for s in schedules:
+        freq = f"{s['sync_frequency']}m"
+        synced = s["synced_at"] or "[dim]never[/dim]"
+        due = "[green]yes[/green]" if s["is_due"] else "no"
+        table.add_row(s["name"], freq, synced, due)
     console.print(table)
 
 
