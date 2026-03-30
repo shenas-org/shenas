@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { Router } from "@lit-labs/router";
+import { PLUGIN_KINDS } from "./constants.js";
 import { linkStyles, utilityStyles } from "./shared-styles.js";
 
 class ShenasApp extends LitElement {
@@ -288,16 +289,9 @@ class ShenasApp extends LitElement {
       commands.push({ id: `nav:${c.name}`, category: "Page", label: c.display_name || c.name, path: `/${c.name}` });
     }
 
-    // Settings sections
+    // Settings sections from shared PLUGIN_KINDS
     commands.push({ id: "nav:dataflow", category: "Settings", label: "Data Flow", path: "/settings/overview" });
-    const kinds = [
-      { id: "pipe", label: "Pipes" },
-      { id: "schema", label: "Schemas" },
-      { id: "component", label: "Components" },
-      { id: "ui", label: "UI" },
-      { id: "theme", label: "Themes" },
-    ];
-    for (const k of kinds) {
+    for (const k of PLUGIN_KINDS) {
       commands.push({ id: `nav:settings:${k.id}`, category: "Settings", label: k.label, path: `/settings/${k.id}` });
     }
 
@@ -305,7 +299,7 @@ class ShenasApp extends LitElement {
     let allPlugins = [];
     try {
       const results = await Promise.all(
-        kinds.map(async (k) => {
+        PLUGIN_KINDS.map(async (k) => {
           const data = await this._fetch(`/plugins/${k.id}`);
           return (data || []).map((p) => ({ ...p, kind: k.id, kindLabel: k.label }));
         }),

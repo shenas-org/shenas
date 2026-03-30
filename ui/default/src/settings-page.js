@@ -1,13 +1,6 @@
 import { LitElement, html, css } from "lit";
+import { PLUGIN_KINDS } from "./constants.js";
 import { buttonStyles, linkStyles, messageStyles, utilityStyles } from "./shared-styles.js";
-
-const PLUGIN_KINDS = [
-  { id: "pipe", label: "Pipes" },
-  { id: "schema", label: "Schemas" },
-  { id: "component", label: "Components" },
-  { id: "ui", label: "UI" },
-  { id: "theme", label: "Themes" },
-];
 
 class SettingsPage extends LitElement {
   static properties = {
