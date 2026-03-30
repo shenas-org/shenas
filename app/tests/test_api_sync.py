@@ -1,30 +1,14 @@
 """Tests for the sync API endpoints with SSE streaming."""
 
-import json
 from unittest.mock import patch
 
 import typer
 from fastapi.testclient import TestClient
 
 from app.server import app
+from app.tests.conftest import parse_sse
 
 client = TestClient(app)
-
-
-def _parse_sse(text: str) -> list[dict]:
-    """Parse SSE text into a list of {_event, ...data} dicts."""
-    events = []
-    event_type = "message"
-    for line in text.strip().split("\n"):
-        line = line.strip()
-        if line.startswith("event:"):
-            event_type = line[6:].strip()
-        elif line.startswith("data:"):
-            data = json.loads(line[5:].strip())
-            data["_event"] = event_type
-            events.append(data)
-            event_type = "message"
-    return events
 
 
 def _make_pipe_app(sync_fn=None) -> typer.Typer:
@@ -50,7 +34,7 @@ class TestSyncAll:
 
         assert resp.status_code == 200
         assert "text/event-stream" in resp.headers["content-type"]
-        events = _parse_sse(resp.text)
+        events = parse_sse(resp.text)
         assert any(e.get("message") == "all syncs complete" for e in events)
 
     def test_sync_all_with_pipe(self) -> None:
@@ -61,7 +45,7 @@ class TestSyncAll:
         ):
             resp = client.post("/api/sync")
 
-        events = _parse_sse(resp.text)
+        events = parse_sse(resp.text)
         progress = [e for e in events if e["_event"] == "progress"]
         complete = [e for e in events if e["_event"] == "complete"]
         assert any(e["pipe"] == "testpipe" for e in progress)
@@ -81,7 +65,7 @@ class TestSyncAll:
         ):
             resp = client.post("/api/sync")
 
-        events = _parse_sse(resp.text)
+        events = parse_sse(resp.text)
         errors = [e for e in events if e["_event"] == "error"]
         assert any("Auth expired" in e["message"] for e in errors)
 
@@ -96,7 +80,7 @@ class TestSyncPipe:
             resp = client.post("/api/sync/garmin")
 
         assert resp.status_code == 200
-        events = _parse_sse(resp.text)
+        events = parse_sse(resp.text)
         assert any(e.get("pipe") == "garmin" and e.get("message") == "done" for e in events)
 
     def test_sync_pipe_not_found(self) -> None:
@@ -139,7 +123,7 @@ class TestSyncPipe:
         ):
             resp = client.post("/api/sync/garmin")
 
-        events = _parse_sse(resp.text)
+        events = parse_sse(resp.text)
         errors = [e for e in events if e["_event"] == "error"]
         assert any("Connection refused" in e["message"] for e in errors)
 
@@ -152,6 +136,6 @@ class TestSyncPipe:
         ):
             resp = client.post("/api/sync/nosync")
 
-        events = _parse_sse(resp.text)
+        events = parse_sse(resp.text)
         errors = [e for e in events if e["_event"] == "error"]
         assert any("no sync command found" in e["message"] for e in errors)
