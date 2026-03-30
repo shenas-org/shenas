@@ -18,6 +18,8 @@ class ShenasApp extends LitElement {
     _paletteCommands: { state: true },
     _navPaletteOpen: { state: true },
     _navCommands: { state: true },
+    _tabs: { state: true },
+    _activeTabId: { state: true },
   };
 
   _router = new Router(this, [
@@ -64,8 +66,74 @@ class ShenasApp extends LitElement {
       .panel-middle {
         flex: 1;
         min-width: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .tab-bar {
+        display: flex;
+        gap: 0;
+        background: var(--shenas-bg-secondary, #fafafa);
+        border-bottom: 1px solid var(--shenas-border, #e0e0e0);
+        overflow-x: auto;
+        flex-shrink: 0;
+        min-height: 32px;
+      }
+      .tab-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+        color: var(--shenas-text-secondary, #666);
+        cursor: pointer;
+        border-right: 1px solid var(--shenas-border-light, #f0f0f0);
+        white-space: nowrap;
+        user-select: none;
+      }
+      .tab-item:hover {
+        background: var(--shenas-bg-hover, #f5f5f5);
+      }
+      .tab-item.active {
+        color: var(--shenas-text, #222);
+        background: var(--shenas-bg, #fff);
+        font-weight: 500;
+      }
+      .tab-close {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--shenas-text-faint, #aaa);
+        font-size: 0.7rem;
+        padding: 0 2px;
+        line-height: 1;
+        border-radius: 2px;
+      }
+      .tab-close:hover {
+        color: var(--shenas-text, #222);
+        background: var(--shenas-border-light, #f0f0f0);
+      }
+      .tab-content {
+        flex: 1;
         overflow-y: auto;
         padding: 1.5rem 2rem;
+      }
+      .empty-state {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        color: var(--shenas-text-faint, #aaa);
+      }
+      .empty-state img {
+        width: 128px;
+        height: 128px;
+        opacity: 0.3;
+      }
+      .empty-state p {
+        font-size: 0.9rem;
       }
       .panel-right {
         flex-shrink: 0;
@@ -237,6 +305,8 @@ class ShenasApp extends LitElement {
     this._navPaletteOpen = false;
     this._navCommands = [];
     this._registeredCommands = new Map();
+    this._tabs = [];
+    this._activeTabId = null;
   }
 
   connectedCallback() {
@@ -244,7 +314,7 @@ class ShenasApp extends LitElement {
     this._fetchData();
     this.addEventListener("plugin-state-changed", () => this._refreshComponents());
     this.addEventListener("inspect-table", (e) => this._inspect(e.detail.schema, e.detail.table));
-    this.addEventListener("navigate", (e) => this._router.goto(e.detail.path));
+    this.addEventListener("navigate", (e) => this._openTab(e.detail.path, e.detail.label));
     this.addEventListener("register-command", (e) => {
       const { componentId, commands } = e.detail;
       if (!commands || commands.length === 0) {
@@ -383,12 +453,60 @@ class ShenasApp extends LitElement {
   _executePaletteCommand(e) {
     const cmd = e.detail;
     if (cmd.path) {
-      this._router.goto(cmd.path);
+      this._openTab(cmd.path, cmd.label);
     } else if (cmd.action) {
       cmd.action();
     }
     this._paletteOpen = false;
     this._navPaletteOpen = false;
+  }
+
+  _openTab(path, label) {
+    const existing = this._tabs.find((t) => t.path === path);
+    if (existing) {
+      this._activeTabId = existing.path;
+    } else {
+      this._tabs = [...this._tabs, { path, label: label || this._labelForPath(path) }];
+      this._activeTabId = path;
+    }
+    this._router.goto(path);
+  }
+
+  _closeTab(path) {
+    const idx = this._tabs.findIndex((t) => t.path === path);
+    if (idx === -1) return;
+    const newTabs = this._tabs.filter((t) => t.path !== path);
+    this._tabs = newTabs;
+    if (this._activeTabId === path) {
+      if (newTabs.length > 0) {
+        const next = newTabs[Math.min(idx, newTabs.length - 1)];
+        this._activeTabId = next.path;
+        this._router.goto(next.path);
+      } else {
+        this._activeTabId = null;
+      }
+    }
+  }
+
+  _switchTab(path) {
+    this._activeTabId = path;
+    this._router.goto(path);
+  }
+
+  _labelForPath(path) {
+    const p = path.replace(/^\/+/, "");
+    if (!p || p === "settings") return "Data Flow";
+    if (p === "settings/overview") return "Data Flow";
+    const parts = p.split("/");
+    if (parts[0] === "settings") {
+      if (parts.length === 2) {
+        const kind = PLUGIN_KINDS.find((k) => k.id === parts[1]);
+        return kind ? kind.label : parts[1];
+      }
+      if (parts.length >= 3) return parts[2];
+    }
+    const comp = this._components.find((c) => c.name === parts[0]);
+    return comp ? (comp.display_name || comp.name) : parts[0];
   }
 
   async _refreshComponents() {
@@ -409,6 +527,11 @@ class ShenasApp extends LitElement {
     }
     this._loading = false;
     this._registerGlobalCommands();
+    // Open initial tab from URL if not root
+    const path = window.location.pathname;
+    if (path && path !== "/") {
+      this._openTab(path);
+    }
   }
 
   async _fetch(path) {
@@ -472,7 +595,25 @@ class ShenasApp extends LitElement {
         </div>
         <div class="divider" @mousedown=${this._startDrag("left")}></div>
         <div class="panel-middle">
-          ${this._router.outlet()}
+          ${this._tabs.length > 0
+            ? html`
+              <div class="tab-bar">
+                ${this._tabs.map((t) => html`
+                  <div class="tab-item ${t.path === this._activeTabId ? "active" : ""}"
+                    @click=${() => this._switchTab(t.path)}>
+                    <span>${t.label}</span>
+                    <button class="tab-close" @click=${(e) => { e.stopPropagation(); this._closeTab(t.path); }}>x</button>
+                  </div>
+                `)}
+              </div>
+              <div class="tab-content">
+                ${this._router.outlet()}
+              </div>`
+            : html`
+              <div class="empty-state">
+                <img src="/static/images/shenas.png" alt="shenas" />
+                <p>Open a page from the sidebar or press Ctrl+O</p>
+              </div>`}
         </div>
         <div class="divider" @mousedown=${this._startDrag("right")}></div>
         <div class="panel-right" style="width: ${this._rightWidth}px">
@@ -496,7 +637,8 @@ class ShenasApp extends LitElement {
 
   _navItem(id, label, active) {
     return html`
-      <a class="nav-item" href="/${id}" aria-selected=${active === id}>
+      <a class="nav-item" href="/${id}" aria-selected=${active === id}
+        @click=${(e) => { e.preventDefault(); this._openTab(`/${id}`, label); }}>
         ${label}
       </a>
     `;
