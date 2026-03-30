@@ -106,6 +106,12 @@ class SettingsPage extends LitElement {
     this._registerCommands();
   }
 
+  async _syncPipe(name) {
+    try {
+      await fetch(`${this.apiBase}/sync/${name}`, { method: "POST" });
+    } catch { /* fire and forget */ }
+  }
+
   _registerCommands() {
     const commands = [];
     for (const { id: kind, label: kindLabel } of PLUGIN_KINDS) {
@@ -118,8 +124,37 @@ class SettingsPage extends LitElement {
           label: `${enabled ? "Disable" : "Enable"} ${name}`,
           action: () => this._togglePlugin(kind, p.name, enabled),
         });
+        if (kind === "pipe" && enabled) {
+          commands.push({
+            id: `sync:${p.name}`,
+            category: "Pipe",
+            label: `Sync ${name}`,
+            action: () => this._syncPipe(p.name),
+          });
+        }
       }
     }
+    // Global actions
+    const hasPipes = (this._plugins["pipe"] || []).some((p) => p.enabled !== false);
+    if (hasPipes) {
+      commands.push({
+        id: "sync:all",
+        category: "Pipe",
+        label: "Sync All Pipes",
+        action: async () => {
+          try { await fetch(`${this.apiBase}/sync`, { method: "POST" }); } catch { /* */ }
+        },
+      });
+    }
+    commands.push({
+      id: "seed:transforms",
+      category: "Transform",
+      label: "Seed Default Transforms",
+      action: async () => {
+        try { await fetch(`${this.apiBase}/transforms/seed`, { method: "POST" }); } catch { /* */ }
+      },
+    });
+
     this.dispatchEvent(new CustomEvent("register-command", {
       bubbles: true, composed: true,
       detail: { componentId: "settings-page", commands },
