@@ -1,7 +1,7 @@
 import { LitElement, html, css } from "lit";
 import { buttonStyles, messageStyles, tableStyles, utilityStyles } from "./shared-styles.js";
 
-const _inspectBtnStyle = "background:none;border:none;cursor:pointer;color:#bbb;font-size:0.7rem;padding:0 2px";
+const _inspectBtnStyle = "background:none;border:none;cursor:pointer;color:var(--shenas-text-faint, #aaa);font-size:0.7rem;padding:0 2px";
 
 class TransformsPage extends LitElement {
   static properties = {
@@ -284,7 +284,7 @@ class TransformsPage extends LitElement {
           { key: "id", label: "ID", class: "muted" },
           { label: "Source", class: "mono", render: (t) => html`${t.source_duckdb_schema}.${t.source_duckdb_table} <button style=${_inspectBtnStyle} title="Inspect table" @click=${() => this._inspectTable(t.source_duckdb_schema, t.source_duckdb_table)}>&#9655;</button>` },
           { label: "Target", class: "mono", render: (t) => html`${t.target_duckdb_schema}.${t.target_duckdb_table} <button style=${_inspectBtnStyle} title="Inspect table" @click=${() => this._inspectTable(t.target_duckdb_schema, t.target_duckdb_table)}>&#9655;</button>` },
-          { label: "Description", render: (t) => html`${t.description || ""}${t.is_default ? html`<span style="font-size:0.75rem;color:#888;background:#f0f0f0;padding:1px 5px;border-radius:3px;margin-left:4px">default</span>` : ""}` },
+          { label: "Description", render: (t) => html`${t.description || ""}${t.is_default ? html`<span style="font-size:0.75rem;color:var(--shenas-text-muted, #888);background:var(--shenas-border-light, #f0f0f0);padding:1px 5px;border-radius:3px;margin-left:4px">default</span>` : ""}` },
           { label: "Status", render: (t) => html`<status-toggle ?enabled=${t.enabled} toggleable @toggle=${() => this._toggle(t)}></status-toggle>` },
         ]}
         .rows=${this._transforms}
