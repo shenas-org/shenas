@@ -245,44 +245,6 @@ def _pipe_config_tables_with_frequency(cur: duckdb.DuckDBPyConnection) -> list[t
     return [(f'config."{r[1]}"', r[1][len("pipe_"):]) for r in rows]
 
 
-def get_pipes_due_for_sync() -> list[dict[str, Any]]:
-    """Return pipes whose sync frequency has elapsed since last sync."""
-    con = connect()
-    cur = con.cursor()
-    cur.execute("USE db")
-    tables = _pipe_config_tables_with_frequency(cur)
-    if not tables:
-        cur.close()
-        return []
-
-    union_parts = [
-        # id = 1 is the single config row each pipe creates on first run; pipes with no
-        # config row yet are silently excluded (they have no frequency to check anyway).
-        f"SELECT '{pipe_name}' AS pipe_name, sync_frequency FROM {tbl} WHERE id = 1 AND sync_frequency IS NOT NULL"
-        for tbl, pipe_name in tables
-    ]
-    union_sql = " UNION ALL ".join(union_parts)
-
-    rows = cur.execute(f"""
-        SELECT cfg.pipe_name, p.synced_at, cfg.sync_frequency
-        FROM ({union_sql}) cfg
-        JOIN shenas_system.plugins p ON p.kind = 'pipe' AND p.name = cfg.pipe_name
-        WHERE p.enabled = TRUE
-          AND (p.synced_at IS NULL
-               OR p.synced_at + (cfg.sync_frequency * INTERVAL '1 minute') <= current_timestamp)
-        ORDER BY cfg.pipe_name
-    """).fetchall()
-    cur.close()
-    return [
-        {
-            "name": r[0],
-            "synced_at": str(r[1]) if r[1] else None,
-            "sync_frequency": r[2],
-        }
-        for r in rows
-    ]
-
-
 def get_all_sync_schedules() -> list[dict[str, Any]]:
     """Return all pipes with sync_frequency set, with their due status."""
     con = connect()

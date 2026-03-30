@@ -26,7 +26,7 @@ _sync_locks: dict[str, threading.Lock] = {}
 _sync_locks_guard = threading.Lock()
 
 
-def acquire_sync_lock(name: str) -> bool:
+def _acquire_sync_lock(name: str) -> bool:
     """Try to acquire the sync lock for a pipe. Returns False if already locked."""
     with _sync_locks_guard:
         if name not in _sync_locks:
@@ -34,7 +34,7 @@ def acquire_sync_lock(name: str) -> bool:
     return _sync_locks[name].acquire(blocking=False)
 
 
-def release_sync_lock(name: str) -> None:
+def _release_sync_lock(name: str) -> None:
     """Release the sync lock for a pipe."""
     with _sync_locks_guard:
         lock = _sync_locks.get(name)
@@ -80,8 +80,6 @@ def _load_pipe_app(name: str) -> typer.Typer:
     except ModuleNotFoundError:
         # Module might be installed but the namespace package path is stale.
         # Refresh sys.path entries by re-importing the namespace package.
-        import sys
-
         for key in list(sys.modules):
             if key == "shenas_pipes" or key.startswith("shenas_pipes."):
                 del sys.modules[key]
@@ -157,7 +155,7 @@ def sync_all() -> StreamingResponse:
     def _stream() -> Iterator[str]:
         failed = []
         for name in _installed_pipe_names():
-            if not acquire_sync_lock(name):
+            if not _acquire_sync_lock(name):
                 yield _sse_event("progress", {"pipe": name, "message": "skipping: sync already in progress"})
                 continue
             try:
@@ -167,7 +165,7 @@ def sync_all() -> StreamingResponse:
                 yield _sse_event("error", {"pipe": name, "message": str(exc)})
                 failed.append(name)
             finally:
-                release_sync_lock(name)
+                _release_sync_lock(name)
 
         if failed:
             yield _sse_event("error", {"message": f"Failed: {', '.join(failed)}"})
@@ -186,7 +184,7 @@ def sync_pipe(name: str, body: SyncRequest | None = None) -> StreamingResponse:
         raise HTTPException(status_code=404, detail=f"Pipe not found: {name}")
 
     # Acquire lock before starting the stream so callers get HTTP 409, not an SSE error
-    if not acquire_sync_lock(name):
+    if not _acquire_sync_lock(name):
         raise HTTPException(status_code=409, detail="Sync already in progress")
 
     def _stream() -> Iterator[str]:
@@ -196,7 +194,7 @@ def sync_pipe(name: str, body: SyncRequest | None = None) -> StreamingResponse:
         except Exception as exc:
             yield _sse_event("error", {"pipe": name, "message": str(exc)})
         finally:
-            release_sync_lock(name)
+            _release_sync_lock(name)
 
     return StreamingResponse(_stream(), media_type="text/event-stream")
 

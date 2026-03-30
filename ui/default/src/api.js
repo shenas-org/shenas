@@ -1,22 +1,22 @@
 import { html } from "lit";
 
-/**
- * Shared API fetch wrapper. Returns parsed JSON on success, null on error.
- * For non-GET requests, pass method and optional json body.
- */
-export async function apiFetch(apiBase, path, options = {}) {
+function _buildFetchOptions(options) {
   const { method = "GET", json, ...rest } = options;
   const fetchOptions = { method, ...rest };
   if (json !== undefined) {
     fetchOptions.headers = { "Content-Type": "application/json", ...rest.headers };
     fetchOptions.body = JSON.stringify(json);
   }
-  const resp = await fetch(`${apiBase}${path}`, fetchOptions);
-  if (!resp.ok) {
-    console.warn(`apiFetch ${method} ${path} failed: ${resp.status}`);
-    return null;
-  }
-  return resp.json();
+  return fetchOptions;
+}
+
+/**
+ * Shared API fetch wrapper. Returns parsed JSON on success, null on error.
+ * For non-GET requests, pass method and optional json body.
+ */
+export async function apiFetch(apiBase, path, options = {}) {
+  const result = await apiFetchFull(apiBase, path, options);
+  return result.ok ? result.data : null;
 }
 
 /**
@@ -24,12 +24,7 @@ export async function apiFetch(apiBase, path, options = {}) {
  * errors and access the response body on failure.
  */
 export async function apiFetchFull(apiBase, path, options = {}) {
-  const { method = "GET", json, ...rest } = options;
-  const fetchOptions = { method, ...rest };
-  if (json !== undefined) {
-    fetchOptions.headers = { "Content-Type": "application/json", ...rest.headers };
-    fetchOptions.body = JSON.stringify(json);
-  }
+  const fetchOptions = _buildFetchOptions(options);
   const resp = await fetch(`${apiBase}${path}`, fetchOptions);
   const data = await resp.json().catch(() => null);
   return { ok: resp.ok, status: resp.status, data };

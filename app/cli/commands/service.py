@@ -15,28 +15,15 @@ app = typer.Typer(help="Manage OS autostart for the shenas server.")
 SERVICE_NAME = "shenas"
 
 
-def _find_shenas_binary() -> str:
-    """Locate the shenas binary."""
-    path = shutil.which("shenas")
+def _find_binary(name: str) -> str:
+    """Locate a binary by name on PATH or in the Python bin directory."""
+    path = shutil.which(name)
     if path:
         return path
-    bin_dir = Path(sys.executable).parent
-    candidate = bin_dir / "shenas"
+    candidate = Path(sys.executable).parent / name
     if candidate.exists():
         return str(candidate)
-    return "shenas"
-
-
-def _find_scheduler_binary() -> str:
-    """Locate the shenas-scheduler binary."""
-    path = shutil.which("shenas-scheduler")
-    if path:
-        return path
-    bin_dir = Path(sys.executable).parent
-    candidate = bin_dir / "shenas-scheduler"
-    if candidate.exists():
-        return str(candidate)
-    return "shenas-scheduler"
+    return name
 
 
 def _platform() -> str:
@@ -62,7 +49,7 @@ def _windows_vbs_path() -> Path:
 
 
 def _windows_install(binary: str) -> None:
-    scheduler = _find_scheduler_binary()
+    scheduler = _find_binary("shenas-scheduler")
     vbs = _windows_vbs_path()
     # VBScript wrapper to launch both server and sync daemon without a visible console window
     script = (
@@ -128,7 +115,7 @@ def _macos_write_plist(binary: str, label: str, args: list[str], log_name: str) 
 
 
 def _macos_install(binary: str) -> None:
-    scheduler = _find_scheduler_binary()
+    scheduler = _find_binary("shenas-scheduler")
     p1 = _macos_write_plist(binary, "com.shenas.server", ["--no-tls"], "server.log")
     console.print(f"[green]Created LaunchAgent: {p1}[/green]")
     p2 = _macos_write_plist(scheduler, "com.shenas.sync-daemon", [], "sync-daemon.log")
@@ -182,7 +169,7 @@ WantedBy=default.target
 
 
 def _linux_install(binary: str) -> None:
-    scheduler = _find_scheduler_binary()
+    scheduler = _find_binary("shenas-scheduler")
     s1 = _linux_write_service(f"{binary} --no-tls", "shenas", "Shenas Server")
     console.print(f"[green]Created systemd user service: {s1}[/green]")
     s2 = _linux_write_service(scheduler, "shenas-scheduler", "Shenas Sync Scheduler")
@@ -213,7 +200,7 @@ def _linux_status() -> bool:
 @app.command("install")
 def install_cmd() -> None:
     """Register shenas server to start on login."""
-    binary = _find_shenas_binary()
+    binary = _find_binary("shenas")
     platform = _platform()
     if platform == "windows":
         _windows_install(binary)

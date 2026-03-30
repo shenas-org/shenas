@@ -10,6 +10,8 @@ import logging
 import signal
 import threading
 
+from app.cli.client import ShenasServerError
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,8 +47,6 @@ class SyncDaemon:
         self._shutdown.set()
 
     def _tick(self) -> None:
-        from app.cli.client import ShenasServerError
-
         try:
             schedule = self.client.get_sync_schedule()
         except ShenasServerError:
@@ -64,8 +64,6 @@ class SyncDaemon:
             self._sync_pipe(item["name"])
 
     def _sync_pipe(self, name: str) -> None:
-        from app.cli.client import ShenasServerError
-
         logger.info("Starting sync for %s", name)
         try:
             for event in self.client.sync_pipe(name):
