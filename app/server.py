@@ -147,6 +147,29 @@ def active_theme() -> dict[str, str | None]:
     return {"name": app.state.default_theme, "css": None}
 
 
+@app.get("/api/workspace")
+def get_workspace_state() -> dict[str, Any]:
+    """Get the persisted workspace state (open tabs, active tab)."""
+    try:
+        from app.db import get_workspace
+
+        return get_workspace()
+    except Exception:
+        return {}
+
+
+@app.put("/api/workspace")
+def save_workspace_state(body: dict[str, Any]) -> dict[str, bool]:
+    """Save the workspace state."""
+    try:
+        from app.db import save_workspace
+
+        save_workspace(body)
+    except Exception:
+        pass
+    return {"ok": True}
+
+
 @app.get("/api/components")
 def list_component_metadata() -> list[dict[str, str]]:
     """Return component metadata needed by the UI shell (tag, entrypoint, JS URL)."""
