@@ -120,7 +120,6 @@ class PluginInfo(BaseModel):
     updated_at: str | None = None
     status_changed_at: str | None = None
     synced_at: str | None = None
-    sync_frequency: int | None = None
 
 
 class InstallResult(BaseModel):
@@ -151,10 +150,6 @@ class SyncRequest(BaseModel):
     start_date: str | None = None
     full_refresh: bool = False
     extra: dict[str, str | int | bool] = {}
-
-
-class ScheduleRequest(BaseModel):
-    frequency_minutes: int
 
 
 class ScheduleInfo(BaseModel):

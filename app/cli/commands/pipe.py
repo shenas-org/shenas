@@ -67,9 +67,6 @@ def _register_pipe_commands() -> None:
             _add_auth_command(pipe_app, name)
         if "config" in commands:
             _add_config_command(pipe_app, name)
-        if "sync" in commands:
-            _add_schedule_command(pipe_app, name)
-
         app.add_typer(pipe_app, name=name, rich_help_panel="Installed Pipes")
 
 
@@ -230,48 +227,6 @@ def _add_config_command(pipe_app: typer.Typer, pipe_name: str) -> None:
                     val = entry["value"] if entry["value"] is not None else "[dim]not set[/dim]"
                     table.add_row(entry["key"], val, entry.get("description", ""))
                 console.print(table)
-
-
-def _add_schedule_command(pipe_app: typer.Typer, pipe_name: str) -> None:
-    @pipe_app.command("schedule")
-    def schedule(
-        minutes: str = typer.Argument(None, help="Sync frequency in minutes, or 'off' to disable"),
-    ) -> None:
-        """View or set the sync schedule for this pipe."""
-        client = ShenasClient()
-        if minutes is None:
-            # Show current schedule
-            try:
-                schedules = client.get_sync_schedule()
-            except ShenasServerError as exc:
-                console.print(f"[red]{exc.detail}[/red]")
-                raise typer.Exit(code=1)
-            for s in schedules:
-                if s["name"] == pipe_name:
-                    console.print(f"Frequency: every {s['sync_frequency']} minutes")
-                    console.print(f"Last sync: {s['synced_at'] or 'never'}")
-                    console.print(f"Due: {'yes' if s['is_due'] else 'no'}")
-                    return
-            console.print("[dim]No schedule set[/dim]")
-        elif minutes == "off":
-            try:
-                client.clear_schedule(pipe_name)
-            except ShenasServerError as exc:
-                console.print(f"[red]{exc.detail}[/red]")
-                raise typer.Exit(code=1)
-            console.print(f"[green]Disabled scheduled sync for {pipe_name}[/green]")
-        else:
-            try:
-                freq = int(minutes)
-            except ValueError:
-                console.print("[red]Frequency must be a number (minutes) or 'off'[/red]")
-                raise typer.Exit(code=1)
-            try:
-                client.set_schedule(pipe_name, freq)
-            except ShenasServerError as exc:
-                console.print(f"[red]{exc.detail}[/red]")
-                raise typer.Exit(code=1)
-            console.print(f"[green]Set {pipe_name} to sync every {freq} minutes[/green]")
 
 
 # Try to register pipe subcommands from the server at import time.

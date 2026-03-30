@@ -163,11 +163,5 @@ class ShenasClient:
 
     # --- Schedule ---
 
-    def set_schedule(self, name: str, frequency_minutes: int) -> dict[str, Any]:
-        return self._request("PUT", f"/api/sync/{name}/schedule", json={"frequency_minutes": frequency_minutes})
-
-    def clear_schedule(self, name: str) -> dict[str, Any]:
-        return self._request("DELETE", f"/api/sync/{name}/schedule")
-
     def get_sync_schedule(self) -> list[dict[str, Any]]:
         return self._request("GET", "/api/sync/schedule")

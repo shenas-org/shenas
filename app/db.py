@@ -138,8 +138,6 @@ def _ensure_plugin_table(con: duckdb.DuckDBPyConnection) -> None:
         con.execute("ALTER TABLE shenas_system.plugins ADD COLUMN status_changed_at TIMESTAMP")
     if "synced_at" not in cols:
         con.execute("ALTER TABLE shenas_system.plugins ADD COLUMN synced_at TIMESTAMP")
-    if "sync_frequency" not in cols:
-        con.execute("ALTER TABLE shenas_system.plugins ADD COLUMN sync_frequency INTEGER")
 
 
 def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
@@ -148,7 +146,7 @@ def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
     cur = con.cursor()
     cur.execute("USE db")
     row = cur.execute(
-        "SELECT kind, name, enabled, added_at, updated_at, status_changed_at, synced_at, sync_frequency "
+        "SELECT kind, name, enabled, added_at, updated_at, status_changed_at, synced_at "
         "FROM shenas_system.plugins WHERE kind = ? AND name = ?",
         [kind, name],
     ).fetchone()
@@ -163,7 +161,6 @@ def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
         "updated_at": str(row[4]) if row[4] else None,
         "status_changed_at": str(row[5]) if row[5] else None,
         "synced_at": str(row[6]) if row[6] else None,
-        "sync_frequency": row[7],
     }
 
 
@@ -174,13 +171,13 @@ def get_all_plugin_states(kind: str | None = None) -> list[dict[str, Any]]:
     cur.execute("USE db")
     if kind:
         rows = cur.execute(
-            "SELECT kind, name, enabled, added_at, updated_at, status_changed_at, synced_at, sync_frequency "
+            "SELECT kind, name, enabled, added_at, updated_at, status_changed_at, synced_at "
             "FROM shenas_system.plugins WHERE kind = ? ORDER BY name",
             [kind],
         ).fetchall()
     else:
         rows = cur.execute(
-            "SELECT kind, name, enabled, added_at, updated_at, status_changed_at, synced_at, sync_frequency "
+            "SELECT kind, name, enabled, added_at, updated_at, status_changed_at, synced_at "
             "FROM shenas_system.plugins ORDER BY kind, name"
         ).fetchall()
     cur.close()
@@ -193,7 +190,6 @@ def get_all_plugin_states(kind: str | None = None) -> list[dict[str, Any]]:
             "updated_at": str(r[4]) if r[4] else None,
             "status_changed_at": str(r[5]) if r[5] else None,
             "synced_at": str(r[6]) if r[6] else None,
-            "sync_frequency": r[7],
         }
         for r in rows
     ]
@@ -237,16 +233,16 @@ def update_synced_at(kind: str, name: str) -> None:
     )
 
 
-def set_sync_frequency(kind: str, name: str, minutes: int | None) -> None:
-    """Set the sync frequency (in minutes) for a plugin. None disables scheduled sync."""
-    existing = get_plugin_state(kind, name)
-    if not existing:
-        upsert_plugin_state(kind, name, enabled=True)
-    con = connect()
-    con.execute(
-        "UPDATE shenas_system.plugins SET sync_frequency = ?, updated_at = current_timestamp WHERE kind = ? AND name = ?",
-        [minutes, kind, name],
-    )
+def _pipe_config_tables_with_frequency(cur: duckdb.DuckDBPyConnection) -> list[tuple[str, str]]:
+    """Return (qualified_table, pipe_name) pairs for config tables that have a sync_frequency column."""
+    rows = cur.execute("""
+        SELECT table_schema, table_name
+        FROM information_schema.columns
+        WHERE column_name = 'sync_frequency'
+          AND table_schema = 'config'
+          AND table_name LIKE 'pipe_%'
+    """).fetchall()
+    return [(f'config."{r[1]}"', r[1][len("pipe_"):]) for r in rows]
 
 
 def get_pipes_due_for_sync() -> list[dict[str, Any]]:
@@ -254,13 +250,25 @@ def get_pipes_due_for_sync() -> list[dict[str, Any]]:
     con = connect()
     cur = con.cursor()
     cur.execute("USE db")
-    rows = cur.execute("""
-        SELECT name, synced_at, sync_frequency
-        FROM shenas_system.plugins
-        WHERE kind = 'pipe' AND enabled = TRUE AND sync_frequency IS NOT NULL
-          AND (synced_at IS NULL
-               OR synced_at + INTERVAL (sync_frequency) MINUTE <= current_timestamp)
-        ORDER BY name
+    tables = _pipe_config_tables_with_frequency(cur)
+    if not tables:
+        cur.close()
+        return []
+
+    union_parts = [
+        f"SELECT '{pipe_name}' AS pipe_name, sync_frequency FROM {tbl} WHERE id = 1 AND sync_frequency IS NOT NULL"
+        for tbl, pipe_name in tables
+    ]
+    union_sql = " UNION ALL ".join(union_parts)
+
+    rows = cur.execute(f"""
+        SELECT cfg.pipe_name, p.synced_at, cfg.sync_frequency
+        FROM ({union_sql}) cfg
+        JOIN shenas_system.plugins p ON p.kind = 'pipe' AND p.name = cfg.pipe_name
+        WHERE p.enabled = TRUE
+          AND (p.synced_at IS NULL
+               OR p.synced_at + (cfg.sync_frequency * INTERVAL '1 minute') <= current_timestamp)
+        ORDER BY cfg.pipe_name
     """).fetchall()
     cur.close()
     return [
@@ -278,14 +286,26 @@ def get_all_sync_schedules() -> list[dict[str, Any]]:
     con = connect()
     cur = con.cursor()
     cur.execute("USE db")
-    rows = cur.execute("""
-        SELECT name, synced_at, sync_frequency,
-               CASE WHEN synced_at IS NULL
-                    OR synced_at + INTERVAL (sync_frequency) MINUTE <= current_timestamp
+    tables = _pipe_config_tables_with_frequency(cur)
+    if not tables:
+        cur.close()
+        return []
+
+    union_parts = [
+        f"SELECT '{pipe_name}' AS pipe_name, sync_frequency FROM {tbl} WHERE id = 1 AND sync_frequency IS NOT NULL"
+        for tbl, pipe_name in tables
+    ]
+    union_sql = " UNION ALL ".join(union_parts)
+
+    rows = cur.execute(f"""
+        SELECT cfg.pipe_name, p.synced_at, cfg.sync_frequency,
+               CASE WHEN p.synced_at IS NULL
+                    OR p.synced_at + (cfg.sync_frequency * INTERVAL '1 minute') <= current_timestamp
                     THEN TRUE ELSE FALSE END AS is_due
-        FROM shenas_system.plugins
-        WHERE kind = 'pipe' AND enabled = TRUE AND sync_frequency IS NOT NULL
-        ORDER BY name
+        FROM ({union_sql}) cfg
+        JOIN shenas_system.plugins p ON p.kind = 'pipe' AND p.name = cfg.pipe_name
+        WHERE p.enabled = TRUE
+        ORDER BY cfg.pipe_name
     """).fetchall()
     cur.close()
     return [

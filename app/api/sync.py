@@ -15,7 +15,7 @@ import typer
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.models import ScheduleInfo, ScheduleRequest, SyncRequest
+from app.models import ScheduleInfo, SyncRequest
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -203,37 +203,3 @@ def get_sync_schedule() -> list[ScheduleInfo]:
     return [ScheduleInfo(**row) for row in get_all_sync_schedules()]
 
 
-@router.put("/{name}/schedule")
-def set_pipe_schedule(name: str, body: ScheduleRequest) -> ScheduleInfo:
-    """Set the sync frequency for a pipe."""
-    if name not in _installed_pipe_names():
-        raise HTTPException(status_code=404, detail=f"Pipe not found: {name}")
-
-    from app.db import get_plugin_state, set_sync_frequency
-
-    set_sync_frequency("pipe", name, body.frequency_minutes)
-    state = get_plugin_state("pipe", name)
-    return ScheduleInfo(
-        name=name,
-        sync_frequency=body.frequency_minutes,
-        synced_at=state["synced_at"] if state else None,
-        is_due=True,
-    )
-
-
-@router.delete("/{name}/schedule")
-def clear_pipe_schedule(name: str) -> ScheduleInfo:
-    """Remove the sync frequency for a pipe (disable scheduled sync)."""
-    if name not in _installed_pipe_names():
-        raise HTTPException(status_code=404, detail=f"Pipe not found: {name}")
-
-    from app.db import get_plugin_state, set_sync_frequency
-
-    set_sync_frequency("pipe", name, None)
-    state = get_plugin_state("pipe", name)
-    return ScheduleInfo(
-        name=name,
-        sync_frequency=None,
-        synced_at=state["synced_at"] if state else None,
-        is_due=False,
-    )
