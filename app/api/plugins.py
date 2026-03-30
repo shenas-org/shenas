@@ -58,6 +58,30 @@ def _is_internal(kind: str, name: str) -> bool:
     return False
 
 
+def installed_plugin_names(kind: str) -> list[str]:
+    """Return short names of installed, non-internal, enabled plugins of the given kind.
+
+    Uses ``uv pip list`` to avoid stale entry-point caches after runtime installs.
+    """
+    import sys
+
+    prefix = PREFIXES[kind]
+    result = subprocess.run(
+        ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        return []
+    from app.db import is_plugin_enabled
+
+    return [
+        p["name"].removeprefix(prefix)
+        for p in json.loads(result.stdout)
+        if p["name"].startswith(prefix)
+        and not _is_internal(kind, p["name"].removeprefix(prefix))
+        and is_plugin_enabled(kind, p["name"].removeprefix(prefix))
+    ]
+
+
 def list_plugins_data(kind: str) -> list[PluginInfo]:
     import sys
 

@@ -6,7 +6,6 @@ import importlib
 import inspect
 import json
 import logging
-import subprocess
 import sys
 import threading
 from collections.abc import Iterator
@@ -18,8 +17,6 @@ from fastapi.responses import StreamingResponse
 from app.models import ScheduleInfo, SyncRequest
 
 router = APIRouter(prefix="/sync", tags=["sync"])
-
-PIPE_PREFIX = "shenas-pipe-"
 
 # Per-pipe sync lock to prevent concurrent syncs of the same pipe
 _sync_locks: dict[str, threading.Lock] = {}
@@ -50,24 +47,10 @@ def _sse_event(event: str, data: dict[str, str]) -> str:
 
 
 def _installed_pipe_names() -> list[str]:
-    """Get installed pipe names via uv pip list (avoids entry_points cache)."""
+    """Get installed pipe names (delegates to the shared plugin listing)."""
+    from app.api.plugins import installed_plugin_names
 
-    result = subprocess.run(
-        ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
-    )
-    if result.returncode != 0:
-        return []
-    packages = json.loads(result.stdout)
-    from app.api.plugins import _is_internal
-    from app.db import is_plugin_enabled
-
-    return [
-        p["name"].removeprefix(PIPE_PREFIX)
-        for p in packages
-        if p["name"].startswith(PIPE_PREFIX)
-        and not _is_internal("pipe", p["name"].removeprefix(PIPE_PREFIX))
-        and is_plugin_enabled("pipe", p["name"].removeprefix(PIPE_PREFIX))
-    ]
+    return installed_plugin_names("pipe")
 
 
 def _load_pipe_app(name: str) -> typer.Typer:
