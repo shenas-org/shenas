@@ -368,6 +368,12 @@ class ShenasApp extends LitElement {
       } else if ((e.ctrlKey || e.metaKey) && e.key === "o") {
         e.preventDefault();
         this._toggleNavPalette();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "w") {
+        e.preventDefault();
+        if (this._activeTabId != null) this._closeTab(this._activeTabId);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "t") {
+        e.preventDefault();
+        this._addTab();
       }
     };
     document.addEventListener("keydown", this._keyHandler);
