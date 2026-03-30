@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { apiFetch, apiFetchFull, registerCommands, renderMessage } from "./api.js";
-import { buttonStyles, formStyles, messageStyles, tableStyles, utilityStyles } from "./shared-styles.js";
+import { buttonStyles, formStyles, messageStyles, tableStyles } from "./shared-styles.js";
 
 const _inspectBtnStyle = "background:none;border:none;cursor:pointer;color:var(--shenas-text-faint, #aaa);font-size:0.7rem;padding:0 2px";
 
@@ -25,7 +25,6 @@ class TransformsPage extends LitElement {
     buttonStyles,
     formStyles,
     messageStyles,
-    utilityStyles,
     css`
       :host {
         display: block;
@@ -273,11 +272,8 @@ class TransformsPage extends LitElement {
   }
 
   render() {
-    if (this._loading) {
-      return html`<p class="loading">Loading transforms...</p>`;
-    }
-
     return html`
+      <shenas-page ?loading=${this._loading} loading-text="Loading transforms...">
       ${renderMessage(this._message)}
       ${this._editing ? this._renderEditor() : ""}
       ${this._creating ? this._renderCreateForm() : ""}
@@ -303,6 +299,7 @@ class TransformsPage extends LitElement {
         `}
         empty-text="No transforms"
       ></shenas-data-list>
+      </shenas-page>
     `;
   }
 

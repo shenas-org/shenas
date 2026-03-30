@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
-import { buttonStyles, formStyles, messageStyles, utilityStyles } from "./shared-styles.js";
+import { buttonStyles, formStyles, messageStyles } from "./shared-styles.js";
 
 class AuthPage extends LitElement {
   static properties = {
@@ -19,7 +19,6 @@ class AuthPage extends LitElement {
     buttonStyles,
     formStyles,
     messageStyles,
-    utilityStyles,
     css`
       :host {
         display: block;
@@ -113,21 +112,18 @@ class AuthPage extends LitElement {
   }
 
   render() {
-    if (this._loading) {
-      return html`<p class="loading">Loading auth...</p>`;
-    }
-    if (this._fields.length === 0 && !this._instructions) {
-      return html`<p class="empty">No authentication required for this plugin.</p>`;
-    }
-
+    const empty = this._fields.length === 0 && !this._instructions;
     return html`
-      ${renderMessage(this._message)}
-      ${this._instructions
-        ? html`<div class="instructions">${this._instructions}</div>`
-        : ""}
-      ${this._oauthUrl ? this._renderOAuth()
-        : this._needsMfa ? this._renderMfa()
-        : this._renderFields()}
+      <shenas-page ?loading=${this._loading} ?empty=${empty}
+        loading-text="Loading auth..." empty-text="No authentication required for this plugin.">
+        ${renderMessage(this._message)}
+        ${this._instructions
+          ? html`<div class="instructions">${this._instructions}</div>`
+          : ""}
+        ${this._oauthUrl ? this._renderOAuth()
+          : this._needsMfa ? this._renderMfa()
+          : this._renderFields()}
+      </shenas-page>
     `;
   }
 

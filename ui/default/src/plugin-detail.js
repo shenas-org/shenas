@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { apiFetch, apiFetchFull, registerCommands, renderMessage } from "./api.js";
-import { buttonStyles, linkStyles, messageStyles, tabStyles, utilityStyles } from "./shared-styles.js";
+import { buttonStyles, linkStyles, messageStyles, tabStyles } from "./shared-styles.js";
 
 class PluginDetail extends LitElement {
   static properties = {
@@ -23,7 +23,6 @@ class PluginDetail extends LitElement {
     linkStyles,
     messageStyles,
     tabStyles,
-    utilityStyles,
     css`
       :host {
         display: block;
@@ -226,13 +225,14 @@ class PluginDetail extends LitElement {
   }
 
   render() {
-    if (this._loading) {
-      return html`<p class="loading">Loading...</p>`;
-    }
-    if (!this._info) {
-      return html`<p>Plugin not found.</p>`;
-    }
+    return html`
+      <shenas-page ?loading=${this._loading} ?empty=${!this._info} empty-text="Plugin not found.">
+        ${this._info ? this._renderContent() : ""}
+      </shenas-page>
+    `;
+  }
 
+  _renderContent() {
     const info = this._info;
     const enabled = info.enabled !== false;
 
