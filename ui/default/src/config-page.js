@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
-import { buttonStyles, messageStyles, utilityStyles } from "./shared-styles.js";
+import { buttonStyles, formStyles, messageStyles, utilityStyles } from "./shared-styles.js";
 
 class ConfigPage extends LitElement {
   static properties = {
@@ -16,6 +16,7 @@ class ConfigPage extends LitElement {
 
   static styles = [
     buttonStyles,
+    formStyles,
     messageStyles,
     utilityStyles,
     css`
@@ -58,14 +59,8 @@ class ConfigPage extends LitElement {
       .config-detail {
         flex: 1;
       }
-      input.config-input {
-        width: 100%;
-        padding: 0.3rem 0.5rem;
-        border: 1px solid var(--shenas-border-input, #ddd);
-        border-radius: 4px;
-        font-size: 0.85rem;
+      .config-input {
         font-family: monospace;
-        box-sizing: border-box;
       }
       .edit-row {
         display: flex;

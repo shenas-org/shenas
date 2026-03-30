@@ -1,7 +1,7 @@
 import { LitElement, html, css } from "lit";
 import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
 import { PLUGIN_KINDS } from "./constants.js";
-import { buttonStyles, linkStyles, messageStyles, utilityStyles } from "./shared-styles.js";
+import { buttonStyles, formStyles, linkStyles, messageStyles, utilityStyles } from "./shared-styles.js";
 
 class SettingsPage extends LitElement {
   static properties = {
@@ -16,6 +16,7 @@ class SettingsPage extends LitElement {
 
   static styles = [
     buttonStyles,
+    formStyles,
     linkStyles,
     messageStyles,
     utilityStyles,
@@ -225,13 +226,14 @@ class SettingsPage extends LitElement {
             @submit=${() => this._install(kind)}
             @cancel=${() => { this._installing = false; }}
           >
-            <input
-              id="install-${kind}"
-              type="text"
-              placeholder="Plugin name"
-              @keydown=${(e) => e.key === "Enter" && this._install(kind)}
-              style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--shenas-border-input, #ddd); border-radius: 4px; font-size: 0.85rem; box-sizing: border-box; background: var(--shenas-bg, #fff); color: var(--shenas-text, #222);"
-            />
+            <div class="field">
+              <input
+                id="install-${kind}"
+                type="text"
+                placeholder="Plugin name"
+                @keydown=${(e) => e.key === "Enter" && this._install(kind)}
+              />
+            </div>
           </shenas-form-panel>`
         : ""}
     `;

@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
-import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
-import { buttonStyles, messageStyles, tableStyles, utilityStyles } from "./shared-styles.js";
+import { apiFetch, apiFetchFull, registerCommands, renderMessage } from "./api.js";
+import { buttonStyles, formStyles, messageStyles, tableStyles, utilityStyles } from "./shared-styles.js";
 
 const _inspectBtnStyle = "background:none;border:none;cursor:pointer;color:var(--shenas-text-faint, #aaa);font-size:0.7rem;padding:0 2px";
 
@@ -23,6 +23,7 @@ class TransformsPage extends LitElement {
   static styles = [
     tableStyles,
     buttonStyles,
+    formStyles,
     messageStyles,
     utilityStyles,
     css`
@@ -79,18 +80,12 @@ class TransformsPage extends LitElement {
         margin-bottom: 0.8rem;
       }
       .form-grid label {
-        font-size: 0.8rem;
-        color: var(--shenas-text-secondary, #666);
         display: flex;
         flex-direction: column;
         gap: 0.2rem;
       }
       .form-grid input,
       .form-grid select {
-        padding: 0.35rem 0.5rem;
-        border: 1px solid var(--shenas-border-input, #ddd);
-        border-radius: 4px;
-        font-size: 0.85rem;
         font-family: monospace;
       }
       .form-full {
@@ -158,10 +153,7 @@ class TransformsPage extends LitElement {
         });
       }
     }
-    this.dispatchEvent(new CustomEvent("register-command", {
-      bubbles: true, composed: true,
-      detail: { componentId: `transforms:${this.source}`, commands },
-    }));
+    registerCommands(this, `transforms:${this.source}`, commands);
   }
 
 

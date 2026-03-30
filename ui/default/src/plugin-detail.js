@@ -1,5 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
+import { apiFetch, apiFetchFull, registerCommands, renderMessage } from "./api.js";
 import { buttonStyles, linkStyles, messageStyles, tabStyles, utilityStyles } from "./shared-styles.js";
 
 class PluginDetail extends LitElement {
@@ -163,13 +163,9 @@ class PluginDetail extends LitElement {
   _registerCommands() {
     if (!this._info) return;
     const label = this._info.display_name || this.name;
-    const commands = [
+    registerCommands(this, `plugin-detail:${this.kind}:${this.name}`, [
       { id: `remove:${this.kind}:${this.name}`, category: "Plugin", label: `Remove ${label}`, action: () => this._remove() },
-    ];
-    this.dispatchEvent(new CustomEvent("register-command", {
-      bubbles: true, composed: true,
-      detail: { componentId: `plugin-detail:${this.kind}:${this.name}`, commands },
-    }));
+    ]);
   }
 
   async _toggle() {
