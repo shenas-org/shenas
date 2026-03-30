@@ -1,4 +1,5 @@
 import { LitElement, html, css } from "lit";
+import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
 import { buttonStyles, messageStyles, utilityStyles } from "./shared-styles.js";
 
 class AuthPage extends LitElement {
@@ -84,9 +85,8 @@ class AuthPage extends LitElement {
     this._loading = true;
     this._needsMfa = false;
     this._oauthUrl = null;
-    const resp = await fetch(`${this.apiBase}/auth/${this.pipeName}/fields`);
-    if (resp.ok) {
-      const data = await resp.json();
+    const data = await apiFetch(this.apiBase, `/auth/${this.pipeName}/fields`);
+    if (data) {
       this._fields = data.fields || [];
       this._instructions = data.instructions || "";
     }
@@ -111,12 +111,10 @@ class AuthPage extends LitElement {
       }
     }
 
-    const resp = await fetch(`${this.apiBase}/auth/${this.pipeName}`, {
+    const { data } = await apiFetchFull(this.apiBase, `/auth/${this.pipeName}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ credentials }),
+      json: { credentials },
     });
-    const data = await resp.json();
     this._submitting = false;
 
     if (data.ok) {
@@ -145,9 +143,7 @@ class AuthPage extends LitElement {
     }
 
     return html`
-      ${this._message
-        ? html`<div class="message ${this._message.type}">${this._message.text}</div>`
-        : ""}
+      ${renderMessage(this._message)}
       ${this._instructions
         ? html`<div class="instructions">${this._instructions}</div>`
         : ""}
