@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
-import { buttonStyles, messageStyles, utilityStyles } from "./shared-styles.js";
+import { buttonStyles, formStyles, messageStyles, utilityStyles } from "./shared-styles.js";
 
 class AuthPage extends LitElement {
   static properties = {
@@ -17,6 +17,7 @@ class AuthPage extends LitElement {
 
   static styles = [
     buttonStyles,
+    formStyles,
     messageStyles,
     utilityStyles,
     css`
@@ -29,29 +30,6 @@ class AuthPage extends LitElement {
         line-height: 1.6;
         margin-bottom: 1rem;
         white-space: pre-line;
-      }
-      .field {
-        margin-bottom: 0.8rem;
-      }
-      .field label {
-        display: block;
-        font-size: 0.8rem;
-        color: var(--shenas-text-secondary, #666);
-        margin-bottom: 0.2rem;
-      }
-      .field input {
-        width: 100%;
-        padding: 0.4rem 0.6rem;
-        border: 1px solid var(--shenas-border-input, #ddd);
-        border-radius: 4px;
-        font-size: 0.85rem;
-        box-sizing: border-box;
-      }
-      .actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.5rem;
-        margin-top: 1rem;
       }
       .oauth-link {
         display: inline-block;

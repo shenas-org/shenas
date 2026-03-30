@@ -86,6 +86,35 @@ export const messageStyles = css`
   }
 `;
 
+export const formStyles = css`
+  .field {
+    margin-bottom: 0.8rem;
+  }
+  .field label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--shenas-text-secondary, #666);
+    margin-bottom: 0.2rem;
+  }
+  .field input,
+  .field select {
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--shenas-border-input, #ddd);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    box-sizing: border-box;
+    background: var(--shenas-bg, #fff);
+    color: var(--shenas-text, #222);
+  }
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+`;
+
 export const utilityStyles = css`
   .loading {
     color: var(--shenas-text-muted, #888);

@@ -39,3 +39,15 @@ export function renderMessage(message) {
   if (!message) return "";
   return html`<div class="message ${message.type}">${message.text}</div>`;
 }
+
+/**
+ * Dispatch a register-command event from an element.
+ * The app-shell listens for these to populate the command palette.
+ */
+export function registerCommands(element, componentId, commands) {
+  element.dispatchEvent(new CustomEvent("register-command", {
+    bubbles: true,
+    composed: true,
+    detail: { componentId, commands },
+  }));
+}
