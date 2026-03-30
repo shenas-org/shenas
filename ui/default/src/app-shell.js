@@ -549,6 +549,7 @@ class ShenasApp extends LitElement {
     const tab = this._tabs.find((t) => t.id === id);
     if (!tab) return;
     this._activeTabId = id;
+    window.history.pushState({}, "", tab.path);
     this._router.goto(tab.path);
     this._saveWorkspace();
   }
