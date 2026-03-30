@@ -76,9 +76,14 @@ class ShenasApp extends LitElement {
         background: var(--shenas-bg-secondary, #fafafa);
         border-bottom: 1px solid var(--shenas-border, #e0e0e0);
         overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
         flex-shrink: 0;
         padding: 0 4px;
         min-height: 36px;
+      }
+      .tab-bar::-webkit-scrollbar {
+        display: none;
       }
       .tab-item {
         display: flex;
@@ -494,6 +499,8 @@ class ShenasApp extends LitElement {
     this._navPaletteOpen = false;
   }
 
+  _nextTabId = 1;
+
   _navigateTo(path, label) {
     if (this._tabs.length === 0 || !this._activeTabId) {
       this._openTab(path, label);
@@ -501,20 +508,15 @@ class ShenasApp extends LitElement {
     }
     const lbl = label || this._labelForPath(path);
     this._tabs = this._tabs.map((t) =>
-      t.path === this._activeTabId ? { path, label: lbl } : t,
+      t.id === this._activeTabId ? { ...t, path, label: lbl } : t,
     );
-    this._activeTabId = path;
     this._router.goto(path);
   }
 
   _openTab(path, label) {
-    const existing = this._tabs.find((t) => t.path === path);
-    if (existing) {
-      this._activeTabId = existing.path;
-    } else {
-      this._tabs = [...this._tabs, { path, label: label || this._labelForPath(path) }];
-      this._activeTabId = path;
-    }
+    const id = this._nextTabId++;
+    this._tabs = [...this._tabs, { id, path, label: label || this._labelForPath(path) }];
+    this._activeTabId = id;
     this._router.goto(path);
   }
 
@@ -523,25 +525,28 @@ class ShenasApp extends LitElement {
     this._navPaletteOpen = true;
   }
 
-  _closeTab(path) {
-    const idx = this._tabs.findIndex((t) => t.path === path);
+  _closeTab(id) {
+    const idx = this._tabs.findIndex((t) => t.id === id);
     if (idx === -1) return;
-    const newTabs = this._tabs.filter((t) => t.path !== path);
+    const newTabs = this._tabs.filter((t) => t.id !== id);
     this._tabs = newTabs;
-    if (this._activeTabId === path) {
+    if (this._activeTabId === id) {
       if (newTabs.length > 0) {
         const next = newTabs[Math.min(idx, newTabs.length - 1)];
-        this._activeTabId = next.path;
+        this._activeTabId = next.id;
         this._router.goto(next.path);
       } else {
         this._activeTabId = null;
+        window.history.pushState({}, "", "/");
       }
     }
   }
 
-  _switchTab(path) {
-    this._activeTabId = path;
-    this._router.goto(path);
+  _switchTab(id) {
+    const tab = this._tabs.find((t) => t.id === id);
+    if (!tab) return;
+    this._activeTabId = id;
+    this._router.goto(tab.path);
   }
 
   _labelForPath(path) {
@@ -650,10 +655,10 @@ class ShenasApp extends LitElement {
             ? html`
               <div class="tab-bar">
                 ${this._tabs.map((t) => html`
-                  <div class="tab-item ${t.path === this._activeTabId ? "active" : ""}"
-                    @click=${() => this._switchTab(t.path)}>
+                  <div class="tab-item ${t.id === this._activeTabId ? "active" : ""}"
+                    @click=${() => this._switchTab(t.id)}>
                     <span>${t.label}</span>
-                    <button class="tab-close" @click=${(e) => { e.stopPropagation(); this._closeTab(t.path); }}>x</button>
+                    <button class="tab-close" @click=${(e) => { e.stopPropagation(); this._closeTab(t.id); }}>x</button>
                   </div>
                 `)}
                 <button class="tab-add" title="New tab" @click=${this._addTab}>+</button>
@@ -732,7 +737,7 @@ class ShenasApp extends LitElement {
       api-base="${this.apiBase}"
       active-kind="${kind || 'overview'}"
       .onNavigate=${(k) => {
-        this._router.goto(`/settings/${k}`);
+        this._navigateTo(`/settings/${k}`);
       }}
     ></shenas-settings>`;
   }
