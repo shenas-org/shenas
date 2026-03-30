@@ -72,31 +72,38 @@ class ShenasApp extends LitElement {
       }
       .tab-bar {
         display: flex;
-        gap: 0;
+        align-items: flex-end;
         background: var(--shenas-bg-secondary, #fafafa);
         border-bottom: 1px solid var(--shenas-border, #e0e0e0);
         overflow-x: auto;
         flex-shrink: 0;
-        min-height: 32px;
+        padding: 0 4px;
+        min-height: 36px;
       }
       .tab-item {
         display: flex;
         align-items: center;
-        gap: 4px;
-        padding: 0.4rem 0.8rem;
+        gap: 6px;
+        padding: 6px 14px;
         font-size: 0.8rem;
-        color: var(--shenas-text-secondary, #666);
+        color: var(--shenas-text-muted, #888);
         cursor: pointer;
-        border-right: 1px solid var(--shenas-border-light, #f0f0f0);
         white-space: nowrap;
         user-select: none;
+        border-radius: 8px 8px 0 0;
+        margin-bottom: -1px;
+        border: 1px solid transparent;
+        border-bottom: none;
+        position: relative;
       }
       .tab-item:hover {
+        color: var(--shenas-text-secondary, #666);
         background: var(--shenas-bg-hover, #f5f5f5);
       }
       .tab-item.active {
         color: var(--shenas-text, #222);
         background: var(--shenas-bg, #fff);
+        border-color: var(--shenas-border, #e0e0e0);
         font-weight: 500;
       }
       .tab-close {
@@ -104,10 +111,21 @@ class ShenasApp extends LitElement {
         border: none;
         cursor: pointer;
         color: var(--shenas-text-faint, #aaa);
-        font-size: 0.7rem;
-        padding: 0 2px;
+        font-size: 0.65rem;
+        width: 16px;
+        height: 16px;
+        padding: 0;
         line-height: 1;
-        border-radius: 2px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.1s;
+      }
+      .tab-item:hover .tab-close,
+      .tab-item.active .tab-close {
+        opacity: 1;
       }
       .tab-close:hover {
         color: var(--shenas-text, #222);
@@ -118,12 +136,15 @@ class ShenasApp extends LitElement {
         border: none;
         cursor: pointer;
         color: var(--shenas-text-faint, #aaa);
-        font-size: 0.9rem;
-        padding: 0.4rem 0.6rem;
+        font-size: 0.85rem;
+        padding: 6px 8px;
         line-height: 1;
+        border-radius: 4px;
+        margin-bottom: 2px;
       }
       .tab-add:hover {
         color: var(--shenas-text, #222);
+        background: var(--shenas-bg-hover, #f5f5f5);
       }
       .tab-content {
         flex: 1;
