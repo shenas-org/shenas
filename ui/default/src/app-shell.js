@@ -15,6 +15,8 @@ class ShenasApp extends LitElement {
     _inspectRows: { state: true },
     _paletteOpen: { state: true },
     _paletteCommands: { state: true },
+    _navPaletteOpen: { state: true },
+    _navCommands: { state: true },
   };
 
   _router = new Router(this, [
@@ -231,6 +233,8 @@ class ShenasApp extends LitElement {
     this._inspectRows = null;
     this._paletteOpen = false;
     this._paletteCommands = [];
+    this._navPaletteOpen = false;
+    this._navCommands = [];
   }
 
   connectedCallback() {
@@ -243,6 +247,9 @@ class ShenasApp extends LitElement {
       if ((e.ctrlKey || e.metaKey) && e.key === "p") {
         e.preventDefault();
         this._togglePalette();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "o") {
+        e.preventDefault();
+        this._toggleNavPalette();
       }
     };
     document.addEventListener("keydown", this._keyHandler);
@@ -258,45 +265,78 @@ class ShenasApp extends LitElement {
       this._paletteOpen = false;
       return;
     }
+    this._navPaletteOpen = false;
     await this._buildCommands();
     this._paletteOpen = true;
+  }
+
+  async _toggleNavPalette() {
+    if (this._navPaletteOpen) {
+      this._navPaletteOpen = false;
+      return;
+    }
+    this._paletteOpen = false;
+    await this._buildNavCommands();
+    this._navPaletteOpen = true;
+  }
+
+  async _buildNavCommands() {
+    const commands = [];
+
+    // Components (top-level tabs)
+    for (const c of this._components) {
+      commands.push({ id: `nav:${c.name}`, category: "Page", label: c.display_name || c.name, path: `/${c.name}` });
+    }
+
+    // Settings sections
+    commands.push({ id: "nav:dataflow", category: "Settings", label: "Data Flow", path: "/settings/overview" });
+    const kinds = [
+      { id: "pipe", label: "Pipes" },
+      { id: "schema", label: "Schemas" },
+      { id: "component", label: "Components" },
+      { id: "ui", label: "UI" },
+      { id: "theme", label: "Themes" },
+    ];
+    for (const k of kinds) {
+      commands.push({ id: `nav:settings:${k.id}`, category: "Settings", label: k.label, path: `/settings/${k.id}` });
+    }
+
+    // Fetch all plugin kinds for detail page navigation
+    let allPlugins = [];
+    try {
+      const results = await Promise.all(
+        kinds.map(async (k) => {
+          const data = await this._fetch(`/plugins/${k.id}`);
+          return (data || []).map((p) => ({ ...p, kind: k.id, kindLabel: k.label }));
+        }),
+      );
+      allPlugins = results.flat();
+    } catch { /* use empty */ }
+
+    for (const p of allPlugins) {
+      commands.push({
+        id: `nav:${p.kind}:${p.name}`,
+        category: p.kindLabel,
+        label: p.display_name || p.name,
+        path: `/settings/${p.kind}/${p.name}`,
+      });
+    }
+
+    this._navCommands = commands;
   }
 
   async _buildCommands() {
     const commands = [];
 
-    // Navigation: components
-    for (const c of this._components) {
-      commands.push({ id: `nav:${c.name}`, category: "Navigate", label: c.display_name || c.name, path: `/${c.name}` });
-    }
-
-    // Navigation: settings
-    commands.push({ id: "nav:settings", category: "Navigate", label: "Settings", path: "/settings" });
-    commands.push({ id: "nav:dataflow", category: "Navigate", label: "Data Flow", path: "/settings/overview" });
-    commands.push({ id: "nav:settings:pipe", category: "Navigate", label: "Settings > Pipes", path: "/settings/pipe" });
-    commands.push({ id: "nav:settings:schema", category: "Navigate", label: "Settings > Schemas", path: "/settings/schema" });
-    commands.push({ id: "nav:settings:component", category: "Navigate", label: "Settings > Components", path: "/settings/component" });
-    commands.push({ id: "nav:settings:ui", category: "Navigate", label: "Settings > UI", path: "/settings/ui" });
-
-    // Fetch plugins
-    let pipes = [], schemas = [];
+    // Fetch pipes for action commands
+    let pipes = [];
     try {
-      [pipes, schemas] = await Promise.all([
-        this._fetch("/plugins/pipe"),
-        this._fetch("/plugins/schema"),
-      ]);
-      pipes = pipes || [];
-      schemas = schemas || [];
-    } catch { /* use empty arrays */ }
+      pipes = (await this._fetch("/plugins/pipe")) || [];
+    } catch { /* use empty */ }
 
     for (const p of pipes) {
       const name = p.display_name || p.name;
-      commands.push({ id: `nav:pipe:${p.name}`, category: "Pipe", label: name, description: "Open details", path: `/settings/pipe/${p.name}` });
       commands.push({ id: `sync:${p.name}`, category: "Pipe", label: `Sync ${name}`, description: "Run sync now", action: () => this._syncPipe(p.name) });
-    }
-
-    for (const s of schemas) {
-      commands.push({ id: `nav:schema:${s.name}`, category: "Schema", label: s.display_name || s.name, description: "Open details", path: `/settings/schema/${s.name}` });
     }
 
     this._paletteCommands = commands;
@@ -410,6 +450,12 @@ class ShenasApp extends LitElement {
         .commands=${this._paletteCommands}
         @execute=${this._executePaletteCommand}
         @close=${() => { this._paletteOpen = false; }}
+      ></shenas-command-palette>
+      <shenas-command-palette
+        ?open=${this._navPaletteOpen}
+        .commands=${this._navCommands}
+        @execute=${this._executePaletteCommand}
+        @close=${() => { this._navPaletteOpen = false; }}
       ></shenas-command-palette>
     `;
   }
