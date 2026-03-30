@@ -103,6 +103,35 @@ class SettingsPage extends LitElement {
     );
     this._plugins = result;
     this._loading = false;
+    this._registerCommands();
+  }
+
+  _registerCommands() {
+    const commands = [];
+    for (const { id: kind, label: kindLabel } of PLUGIN_KINDS) {
+      for (const p of this._plugins[kind] || []) {
+        const name = p.display_name || p.name;
+        const enabled = p.enabled !== false;
+        commands.push({
+          id: `toggle:${kind}:${p.name}`,
+          category: kindLabel,
+          label: `${enabled ? "Disable" : "Enable"} ${name}`,
+          action: () => this._togglePlugin(kind, p.name, enabled),
+        });
+      }
+    }
+    this.dispatchEvent(new CustomEvent("register-command", {
+      bubbles: true, composed: true,
+      detail: { componentId: "settings-page", commands },
+    }));
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.dispatchEvent(new CustomEvent("register-command", {
+      bubbles: true, composed: true,
+      detail: { componentId: "settings-page", commands: [] },
+    }));
   }
 
 

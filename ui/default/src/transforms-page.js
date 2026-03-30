@@ -134,6 +134,42 @@ class TransformsPage extends LitElement {
     const resp = await fetch(`${this.apiBase}/transforms${params}`);
     this._transforms = resp.ok ? await resp.json() : [];
     this._loading = false;
+    this._registerCommands();
+  }
+
+  _registerCommands() {
+    const commands = [];
+    for (const t of this._transforms) {
+      const desc = t.description || `${t.source_duckdb_table} -> ${t.target_duckdb_table}`;
+      commands.push({
+        id: `transform:toggle:${t.id}`,
+        category: "Transform",
+        label: `${t.enabled ? "Disable" : "Enable"} #${t.id}`,
+        description: desc,
+        action: () => this._toggle(t),
+      });
+      if (!t.is_default) {
+        commands.push({
+          id: `transform:delete:${t.id}`,
+          category: "Transform",
+          label: `Delete #${t.id}`,
+          description: desc,
+          action: () => this._delete(t),
+        });
+      }
+    }
+    this.dispatchEvent(new CustomEvent("register-command", {
+      bubbles: true, composed: true,
+      detail: { componentId: `transforms:${this.source}`, commands },
+    }));
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.dispatchEvent(new CustomEvent("register-command", {
+      bubbles: true, composed: true,
+      detail: { componentId: `transforms:${this.source}`, commands: [] },
+    }));
   }
 
   _inspectTable(schema, table) {

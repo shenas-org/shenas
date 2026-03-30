@@ -236,6 +236,7 @@ class ShenasApp extends LitElement {
     this._paletteCommands = [];
     this._navPaletteOpen = false;
     this._navCommands = [];
+    this._registeredCommands = new Map();
   }
 
   connectedCallback() {
@@ -244,6 +245,14 @@ class ShenasApp extends LitElement {
     this.addEventListener("plugin-state-changed", () => this._refreshComponents());
     this.addEventListener("inspect-table", (e) => this._inspect(e.detail.schema, e.detail.table));
     this.addEventListener("navigate", (e) => this._router.goto(e.detail.path));
+    this.addEventListener("register-command", (e) => {
+      const { componentId, commands } = e.detail;
+      if (!commands || commands.length === 0) {
+        this._registeredCommands.delete(componentId);
+      } else {
+        this._registeredCommands.set(componentId, commands);
+      }
+    });
     this._keyHandler = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "p") {
         e.preventDefault();
@@ -261,13 +270,13 @@ class ShenasApp extends LitElement {
     document.removeEventListener("keydown", this._keyHandler);
   }
 
-  async _togglePalette() {
+  _togglePalette() {
     if (this._paletteOpen) {
       this._paletteOpen = false;
       return;
     }
     this._navPaletteOpen = false;
-    await this._buildCommands();
+    this._buildCommands();
     this._paletteOpen = true;
   }
 
@@ -319,27 +328,12 @@ class ShenasApp extends LitElement {
     this._navCommands = commands;
   }
 
-  async _buildCommands() {
+  _buildCommands() {
     const commands = [];
-
-    // Fetch pipes for action commands
-    let pipes = [];
-    try {
-      pipes = (await this._fetch("/plugins/pipe")) || [];
-    } catch { /* use empty */ }
-
-    for (const p of pipes) {
-      const name = p.display_name || p.name;
-      commands.push({ id: `sync:${p.name}`, category: "Pipe", label: `Sync ${name}`, description: "Run sync now", action: () => this._syncPipe(p.name) });
+    for (const cmds of this._registeredCommands.values()) {
+      commands.push(...cmds);
     }
-
     this._paletteCommands = commands;
-  }
-
-  async _syncPipe(name) {
-    try {
-      await fetch(`${this.apiBase}/sync/${name}`, { method: "POST" });
-    } catch { /* fire and forget */ }
   }
 
   _executePaletteCommand(e) {
