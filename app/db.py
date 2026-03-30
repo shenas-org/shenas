@@ -256,6 +256,8 @@ def get_pipes_due_for_sync() -> list[dict[str, Any]]:
         return []
 
     union_parts = [
+        # id = 1 is the single config row each pipe creates on first run; pipes with no
+        # config row yet are silently excluded (they have no frequency to check anyway).
         f"SELECT '{pipe_name}' AS pipe_name, sync_frequency FROM {tbl} WHERE id = 1 AND sync_frequency IS NOT NULL"
         for tbl, pipe_name in tables
     ]
@@ -292,6 +294,8 @@ def get_all_sync_schedules() -> list[dict[str, Any]]:
         return []
 
     union_parts = [
+        # id = 1 is the single config row each pipe creates on first run; pipes with no
+        # config row yet are silently excluded (they have no frequency to check anyway).
         f"SELECT '{pipe_name}' AS pipe_name, sync_frequency FROM {tbl} WHERE id = 1 AND sync_frequency IS NOT NULL"
         for tbl, pipe_name in tables
     ]

@@ -157,12 +157,17 @@ def sync_all() -> StreamingResponse:
     def _stream() -> Iterator[str]:
         failed = []
         for name in _installed_pipe_names():
+            if not acquire_sync_lock(name):
+                yield _sse_event("progress", {"pipe": name, "message": "skipping: sync already in progress"})
+                continue
             try:
                 pipe_app = _load_pipe_app(name)
                 yield from _run_pipe_sync(name, pipe_app, start_date=None, full_refresh=False)
             except Exception as exc:
                 yield _sse_event("error", {"pipe": name, "message": str(exc)})
                 failed.append(name)
+            finally:
+                release_sync_lock(name)
 
         if failed:
             yield _sse_event("error", {"message": f"Failed: {', '.join(failed)}"})
@@ -180,10 +185,11 @@ def sync_pipe(name: str, body: SyncRequest | None = None) -> StreamingResponse:
     if name not in _installed_pipe_names():
         raise HTTPException(status_code=404, detail=f"Pipe not found: {name}")
 
+    # Acquire lock before starting the stream so callers get HTTP 409, not an SSE error
+    if not acquire_sync_lock(name):
+        raise HTTPException(status_code=409, detail="Sync already in progress")
+
     def _stream() -> Iterator[str]:
-        if not acquire_sync_lock(name):
-            yield _sse_event("error", {"pipe": name, "message": "Sync already in progress"})
-            return
         try:
             pipe_app = _load_pipe_app(name)
             yield from _run_pipe_sync(name, pipe_app, body.start_date, body.full_refresh, body.extra)

@@ -142,6 +142,7 @@ def _macos_uninstall() -> None:
     for label in ("com.shenas.server", "com.shenas.sync-daemon"):
         plist = _macos_plist_path(label)
         if plist.exists():
+            console.print(f"Unload the agent first with: launchctl unload {plist}")
             plist.unlink()
             console.print(f"[green]Removed LaunchAgent: {plist}[/green]")
         else:
@@ -191,6 +192,8 @@ def _linux_install(binary: str) -> None:
 
 
 def _linux_uninstall() -> None:
+    console.print("Disable the services first if running:")
+    console.print("  systemctl --user disable --now shenas shenas-scheduler")
     for name in ("shenas", "shenas-scheduler"):
         service = _linux_service_dir() / f"{name}.service"
         if service.exists():
@@ -198,7 +201,6 @@ def _linux_uninstall() -> None:
             console.print(f"[green]Removed systemd user service: {service}[/green]")
         else:
             console.print(f"[dim]No systemd user service found: {service}[/dim]")
-    console.print("Disable them first with: systemctl --user disable shenas shenas-scheduler")
 
 
 def _linux_status() -> bool:

@@ -25,8 +25,9 @@ class SyncDaemon:
 
     def run(self) -> None:
         """Main loop. Runs until shutdown signal."""
-        signal.signal(signal.SIGTERM, self._handle_signal)
-        signal.signal(signal.SIGINT, self._handle_signal)
+        if threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGTERM, self._handle_signal)
+            signal.signal(signal.SIGINT, self._handle_signal)
 
         logger.info("Sync daemon started (check interval: %ds)", self.check_interval)
 

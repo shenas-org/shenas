@@ -12,7 +12,10 @@ export async function apiFetch(apiBase, path, options = {}) {
     fetchOptions.body = JSON.stringify(json);
   }
   const resp = await fetch(`${apiBase}${path}`, fetchOptions);
-  if (!resp.ok) return null;
+  if (!resp.ok) {
+    console.warn(`apiFetch ${method} ${path} failed: ${resp.status}`);
+    return null;
+  }
   return resp.json();
 }
 
