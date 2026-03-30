@@ -681,7 +681,7 @@ class ShenasApp extends LitElement {
 
   render() {
     if (this._loading) {
-      return html`<p class="loading">Loading...</p>`;
+      return html`<shenas-page loading></shenas-page>`;
     }
 
     const active = this._activeTab();

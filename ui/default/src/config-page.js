@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
-import { buttonStyles, formStyles, messageStyles, utilityStyles } from "./shared-styles.js";
+import { buttonStyles, formStyles, messageStyles } from "./shared-styles.js";
 
 class ConfigPage extends LitElement {
   static properties = {
@@ -18,7 +18,6 @@ class ConfigPage extends LitElement {
     buttonStyles,
     formStyles,
     messageStyles,
-    utilityStyles,
     css`
       :host {
         display: block;
@@ -122,16 +121,13 @@ class ConfigPage extends LitElement {
   }
 
   render() {
-    if (this._loading) {
-      return html`<p class="loading">Loading config...</p>`;
-    }
-    if (!this._config || this._config.entries.length === 0) {
-      return html`<p class="empty">No configuration settings for this plugin.</p>`;
-    }
-
+    const empty = !this._config || this._config.entries.length === 0;
     return html`
-      ${renderMessage(this._message)}
-      ${this._config.entries.map((e) => this._renderEntry(e))}
+      <shenas-page ?loading=${this._loading} ?empty=${empty}
+        loading-text="Loading config..." empty-text="No configuration settings for this plugin.">
+        ${renderMessage(this._message)}
+        ${this._config?.entries.map((e) => this._renderEntry(e))}
+      </shenas-page>
     `;
   }
 

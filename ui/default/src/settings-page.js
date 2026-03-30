@@ -1,7 +1,7 @@
 import { LitElement, html, css } from "lit";
 import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
 import { PLUGIN_KINDS } from "./constants.js";
-import { buttonStyles, formStyles, linkStyles, messageStyles, utilityStyles } from "./shared-styles.js";
+import { buttonStyles, formStyles, linkStyles, messageStyles } from "./shared-styles.js";
 
 class SettingsPage extends LitElement {
   static properties = {
@@ -19,7 +19,6 @@ class SettingsPage extends LitElement {
     formStyles,
     linkStyles,
     messageStyles,
-    utilityStyles,
     css`
       :host {
         display: block;
@@ -161,13 +160,10 @@ class SettingsPage extends LitElement {
   }
 
   render() {
-    if (this._loading) {
-      return html`<p class="loading">Loading plugins...</p>`;
-    }
-
     return html`
-      ${renderMessage(this._actionMessage)}
-      <div class="layout">
+      <shenas-page ?loading=${this._loading} loading-text="Loading plugins...">
+        ${renderMessage(this._actionMessage)}
+        <div class="layout">
         <nav class="sidebar">
           <ul>
             <li>
@@ -198,6 +194,7 @@ class SettingsPage extends LitElement {
             : this._renderKind(this.activeKind)}
         </div>
       </div>
+      </shenas-page>
     `;
   }
 

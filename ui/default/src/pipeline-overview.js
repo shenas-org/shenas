@@ -349,21 +349,19 @@ class PipelineOverview extends LitElement {
   }
 
   render() {
-    if (this._loading) {
-      return html`<p class="loading">Loading overview...</p>`;
-    }
-
     return html`
-      <div id="cy"></div>
-      <div class="legend">
-        <span class="legend-item"><span class="legend-dot pipe"></span> Pipe</span>
-        <span class="legend-item"><span class="legend-dot schema"></span> Schema</span>
-        <span class="legend-item"><span class="legend-dot component"></span> Component</span>
-        <span class="legend-item"><span class="legend-line enabled"></span> Transform</span>
-        <span class="legend-item"><span class="legend-line disabled"></span> Disabled</span>
-        <span class="legend-item"><span class="legend-line" style="border-top:2px dotted var(--shenas-text-faint, #aaa);height:0;background:none"></span> Dependency</span>
-      </div>
-      ${this._empty ? html`<p class="empty">No connections found. Add transforms in pipe settings.</p>` : ""}
+      <shenas-page ?loading=${this._loading} loading-text="Loading overview...">
+        <div id="cy"></div>
+        <div class="legend">
+          <span class="legend-item"><span class="legend-dot pipe"></span> Pipe</span>
+          <span class="legend-item"><span class="legend-dot schema"></span> Schema</span>
+          <span class="legend-item"><span class="legend-dot component"></span> Component</span>
+          <span class="legend-item"><span class="legend-line enabled"></span> Transform</span>
+          <span class="legend-item"><span class="legend-line disabled"></span> Disabled</span>
+          <span class="legend-item"><span class="legend-line" style="border-top:2px dotted var(--shenas-text-faint, #aaa);height:0;background:none"></span> Dependency</span>
+        </div>
+        ${this._empty ? html`<p class="empty">No connections found. Add transforms in pipe settings.</p>` : ""}
+      </shenas-page>
     `;
   }
 }

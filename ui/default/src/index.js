@@ -1,4 +1,5 @@
 import "./command-palette.js";
+import "./shenas-page.js";
 import "./status-toggle.js";
 import "./data-list.js";
 import "./form-panel.js";
