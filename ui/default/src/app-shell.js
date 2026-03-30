@@ -497,8 +497,9 @@ class ShenasApp extends LitElement {
     this._router.goto(path);
   }
 
-  _addTab() {
-    this._openTab("/settings", "Data Flow");
+  async _addTab() {
+    await this._buildNavCommands();
+    this._navPaletteOpen = true;
   }
 
   _closeTab(path) {
