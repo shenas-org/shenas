@@ -195,7 +195,7 @@ class SettingsPage extends LitElement {
                     aria-selected=${this.activeKind === id}
                   >
                     ${label}
-                    <span style="color:#aaa; font-weight:normal">
+                    <span style="color:var(--shenas-text-faint, #aaa); font-weight:normal">
                       (${(this._plugins[id] || []).length})
                     </span>
                   </a>
@@ -243,7 +243,7 @@ class SettingsPage extends LitElement {
               type="text"
               placeholder="Plugin name"
               @keydown=${(e) => e.key === "Enter" && this._install(kind)}
-              style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; box-sizing: border-box;"
+              style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--shenas-border-input, #ddd); border-radius: 4px; font-size: 0.85rem; box-sizing: border-box; background: var(--shenas-bg, #fff); color: var(--shenas-text, #222);"
             />
           </shenas-form-panel>`
         : ""}
