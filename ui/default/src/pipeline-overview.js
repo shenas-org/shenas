@@ -47,6 +47,7 @@ class PipelineOverview extends LitElement {
       }
       .legend-dot.pipe { background: var(--shenas-node-pipe, #4a90d9); }
       .legend-dot.schema { background: var(--shenas-node-schema, #66bb6a); }
+      .legend-dot.component { background: var(--shenas-node-component, #ffa726); }
       .legend-line {
         width: 20px;
         height: 2px;
@@ -86,28 +87,31 @@ class PipelineOverview extends LitElement {
   async _fetchData() {
     this._loading = true;
     try {
-      const [pipesResp, schemasResp, transformsResp, ownershipResp] = await Promise.all([
+      const [pipesResp, schemasResp, transformsResp, ownershipResp, componentsResp, depsResp] = await Promise.all([
         fetch(`${this.apiBase}/plugins/pipe`),
         fetch(`${this.apiBase}/plugins/schema`),
         fetch(`${this.apiBase}/transforms`),
         fetch(`${this.apiBase}/db/schema-plugins`),
+        fetch(`${this.apiBase}/plugins/component`),
+        fetch(`${this.apiBase}/dependencies`),
       ]);
       const pipes = pipesResp.ok ? await pipesResp.json() : [];
       const schemas = schemasResp.ok ? await schemasResp.json() : [];
       const transforms = transformsResp.ok ? await transformsResp.json() : [];
       const ownership = ownershipResp.ok ? await ownershipResp.json() : {};
-      this._buildElements(pipes, schemas, transforms, ownership);
+      const components = componentsResp.ok ? await componentsResp.json() : [];
+      const deps = depsResp.ok ? await depsResp.json() : {};
+      this._buildElements(pipes, schemas, transforms, ownership, components, deps);
     } catch (e) {
       console.error("Failed to fetch overview data:", e);
     }
     this._loading = false;
   }
 
-  _buildElements(pipes, schemas, transforms, ownership) {
+  _buildElements(pipes, schemas, transforms, ownership, components, deps) {
     const elements = [];
     const nodeIds = new Set();
 
-    // ownership is { "fitness": ["daily_hrv", ...], "finance": ["transactions", ...] }
     // Build reverse lookup: table -> schema plugin name
     const tableToPlugin = {};
     for (const [pluginName, tables] of Object.entries(ownership)) {
@@ -116,6 +120,7 @@ class PipelineOverview extends LitElement {
       }
     }
 
+    // Pipe nodes
     for (const p of pipes) {
       const id = `pipe:${p.name}`;
       nodeIds.add(id);
@@ -124,6 +129,7 @@ class PipelineOverview extends LitElement {
       });
     }
 
+    // Schema nodes
     for (const s of schemas) {
       const id = `schema:${s.name}`;
       nodeIds.add(id);
@@ -132,6 +138,16 @@ class PipelineOverview extends LitElement {
       });
     }
 
+    // Component nodes
+    for (const c of components) {
+      const id = `component:${c.name}`;
+      nodeIds.add(id);
+      elements.push({
+        data: { id, label: c.display_name || c.name, kind: "component" },
+      });
+    }
+
+    // Transform edges (pipe -> schema via data)
     for (const t of transforms) {
       const sourceId = `pipe:${t.source_plugin}`;
       const ownerPlugin = tableToPlugin[t.target_duckdb_table];
@@ -147,12 +163,32 @@ class PipelineOverview extends LitElement {
           label,
           enabled: t.enabled ? "yes" : "no",
           sourcePlugin: t.source_plugin,
+          edgeType: "transform",
         },
       });
     }
 
+    // Dependency edges (from package metadata)
+    const depEdgeIds = new Set();
+    for (const [source, targets] of Object.entries(deps)) {
+      for (const target of targets) {
+        if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
+        const edgeId = `dep:${source}:${target}`;
+        if (depEdgeIds.has(edgeId)) continue;
+        depEdgeIds.add(edgeId);
+        elements.push({
+          data: {
+            id: edgeId,
+            source,
+            target,
+            edgeType: "dependency",
+          },
+        });
+      }
+    }
+
     this._elements = elements;
-    this._empty = transforms.length === 0;
+    this._empty = elements.filter((e) => e.data.source).length === 0;
   }
 
   _initCytoscape() {
@@ -196,6 +232,10 @@ class PipelineOverview extends LitElement {
           style: { "background-color": "#66bb6a", "cursor": "pointer" },
         },
         {
+          selector: 'node[kind="component"]',
+          style: { "background-color": "#ffa726", "cursor": "pointer" },
+        },
+        {
           selector: 'node[enabled="no"]',
           style: { opacity: 0.4, "border-width": 2, "border-color": "#999", "border-style": "dashed" },
         },
@@ -228,6 +268,16 @@ class PipelineOverview extends LitElement {
             opacity: 0.5,
           },
         },
+        {
+          selector: 'edge[edgeType="dependency"]',
+          style: {
+            "line-style": "dotted",
+            "line-color": "#bbb",
+            "target-arrow-color": "#bbb",
+            width: 1.5,
+            label: "",
+          },
+        },
       ],
       layout: {
         name: "dagre",
@@ -244,9 +294,11 @@ class PipelineOverview extends LitElement {
     this._cy.on("tap", "node", (evt) => {
       const data = evt.target.data();
       const name = data.id.substring(data.id.indexOf(":") + 1);
-      const path = data.kind === "pipe"
-        ? `/settings/pipe/${name}`
-        : `/settings/schema/${name}`;
+      let path;
+      if (data.kind === "pipe") path = `/settings/pipe/${name}`;
+      else if (data.kind === "schema") path = `/settings/schema/${name}`;
+      else if (data.kind === "component") path = `/settings/component/${name}`;
+      else return;
       this.dispatchEvent(new CustomEvent("navigate", { bubbles: true, composed: true, detail: { path } }));
     });
 
@@ -291,6 +343,7 @@ class PipelineOverview extends LitElement {
       <div class="legend">
         <span class="legend-item"><span class="legend-dot pipe"></span> Pipe</span>
         <span class="legend-item"><span class="legend-dot schema"></span> Schema</span>
+        <span class="legend-item"><span class="legend-dot component"></span> Component</span>
         <span class="legend-item"><span class="legend-line enabled"></span> Transform</span>
         <span class="legend-item"><span class="legend-line disabled"></span> Disabled</span>
       </div>
