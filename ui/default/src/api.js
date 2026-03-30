@@ -3,7 +3,7 @@ import { html } from "lit";
 function _buildFetchOptions(options) {
   const { method = "GET", json, ...rest } = options;
   const fetchOptions = { method, ...rest };
-  if (json !== undefined) {
+  if (json != null) {
     fetchOptions.headers = { "Content-Type": "application/json", ...rest.headers };
     fetchOptions.body = JSON.stringify(json);
   }

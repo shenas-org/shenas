@@ -383,7 +383,7 @@ class TransformsPage extends LitElement {
 
   _renderPreview() {
     if (!this._previewRows || this._previewRows.length === 0) {
-      return html`<p class="loading">No preview rows</p>`;
+      return html`<p class="empty">No preview rows</p>`;
     }
     const cols = Object.keys(this._previewRows[0]);
     return html`

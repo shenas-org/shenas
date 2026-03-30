@@ -42,7 +42,7 @@ def _release_sync_lock(name: str) -> None:
         try:
             lock.release()
         except RuntimeError:
-            pass
+            logging.getLogger(__name__).warning("Attempted to release unheld sync lock for %s", name)
 
 
 def _sse_event(event: str, data: dict[str, str]) -> str:
