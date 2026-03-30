@@ -9,12 +9,40 @@ for frontend UI generation via introspection.
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from dataclasses import dataclass
+from typing import Annotated, Any, ClassVar
 
 import duckdb
 
 from shenas_schemas.core.ddl import generate_ddl
+from shenas_schemas.core.field import Field
 from shenas_schemas.core.introspect import table_metadata
+
+
+@dataclass
+class BasePipeConfig:
+    """Common fields for all pipe config dataclasses.
+
+    Subclasses must define their own ``__table__`` and ``__pk__`` ClassVars
+    and add pipe-specific fields after these base fields.
+    """
+
+    __table__: ClassVar[str]
+    __pk__: ClassVar[tuple[str, ...]] = ("id",)
+
+    id: Annotated[int, Field(db_type="INTEGER", description="Config row identifier")] = 1
+    sync_frequency: (
+        Annotated[
+            int,
+            Field(
+                db_type="INTEGER",
+                description="Sync frequency in minutes (unset = no scheduled sync)",
+                ui_widget="text",
+                example_value="60",
+            ),
+        ]
+        | None
+    ) = None
 
 
 def ensure_config_table(con: duckdb.DuckDBPyConnection, config_cls: type) -> None:

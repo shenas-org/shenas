@@ -1,17 +1,16 @@
 from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
+from shenas_pipes.core.config import BasePipeConfig
 from shenas_schemas.core.field import Field
 
 
 @dataclass
-class LunchMoneyConfig:
+class LunchMoneyConfig(BasePipeConfig):
     """Lunch Money pipe configuration."""
 
     __table__: ClassVar[str] = "pipe_lunchmoney"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
 
-    id: Annotated[int, Field(db_type="INTEGER", description="Config row identifier")] = 1
     api_key: (
         Annotated[
             str,
@@ -34,15 +33,3 @@ class LunchMoneyConfig:
             example_value="90 days ago",
         ),
     ] = "90 days ago"
-    sync_frequency: (
-        Annotated[
-            int,
-            Field(
-                db_type="INTEGER",
-                description="Sync frequency in minutes (unset = no scheduled sync)",
-                ui_widget="text",
-                example_value="60",
-            ),
-        ]
-        | None
-    ) = None
