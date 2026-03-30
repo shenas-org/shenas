@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
-import { buttonStyles, messageStyles, utilityStyles } from "./shared-styles.js";
+import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
+import { buttonStyles, formStyles, messageStyles } from "./shared-styles.js";
 
 class AuthPage extends LitElement {
   static properties = {
@@ -16,8 +17,8 @@ class AuthPage extends LitElement {
 
   static styles = [
     buttonStyles,
+    formStyles,
     messageStyles,
-    utilityStyles,
     css`
       :host {
         display: block;
@@ -28,29 +29,6 @@ class AuthPage extends LitElement {
         line-height: 1.6;
         margin-bottom: 1rem;
         white-space: pre-line;
-      }
-      .field {
-        margin-bottom: 0.8rem;
-      }
-      .field label {
-        display: block;
-        font-size: 0.8rem;
-        color: var(--shenas-text-secondary, #666);
-        margin-bottom: 0.2rem;
-      }
-      .field input {
-        width: 100%;
-        padding: 0.4rem 0.6rem;
-        border: 1px solid var(--shenas-border-input, #ddd);
-        border-radius: 4px;
-        font-size: 0.85rem;
-        box-sizing: border-box;
-      }
-      .actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.5rem;
-        margin-top: 1rem;
       }
       .oauth-link {
         display: inline-block;
@@ -84,9 +62,8 @@ class AuthPage extends LitElement {
     this._loading = true;
     this._needsMfa = false;
     this._oauthUrl = null;
-    const resp = await fetch(`${this.apiBase}/auth/${this.pipeName}/fields`);
-    if (resp.ok) {
-      const data = await resp.json();
+    const data = await apiFetch(this.apiBase, `/auth/${this.pipeName}/fields`);
+    if (data) {
       this._fields = data.fields || [];
       this._instructions = data.instructions || "";
     }
@@ -111,12 +88,10 @@ class AuthPage extends LitElement {
       }
     }
 
-    const resp = await fetch(`${this.apiBase}/auth/${this.pipeName}`, {
+    const { data } = await apiFetchFull(this.apiBase, `/auth/${this.pipeName}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ credentials }),
+      json: { credentials },
     });
-    const data = await resp.json();
     this._submitting = false;
 
     if (data.ok) {
@@ -137,23 +112,18 @@ class AuthPage extends LitElement {
   }
 
   render() {
-    if (this._loading) {
-      return html`<p class="loading">Loading auth...</p>`;
-    }
-    if (this._fields.length === 0 && !this._instructions) {
-      return html`<p class="empty">No authentication required for this plugin.</p>`;
-    }
-
+    const empty = this._fields.length === 0 && !this._instructions;
     return html`
-      ${this._message
-        ? html`<div class="message ${this._message.type}">${this._message.text}</div>`
-        : ""}
-      ${this._instructions
-        ? html`<div class="instructions">${this._instructions}</div>`
-        : ""}
-      ${this._oauthUrl ? this._renderOAuth()
-        : this._needsMfa ? this._renderMfa()
-        : this._renderFields()}
+      <shenas-page ?loading=${this._loading} ?empty=${empty}
+        loading-text="Loading auth..." empty-text="No authentication required for this plugin.">
+        ${renderMessage(this._message)}
+        ${this._instructions
+          ? html`<div class="instructions">${this._instructions}</div>`
+          : ""}
+        ${this._oauthUrl ? this._renderOAuth()
+          : this._needsMfa ? this._renderMfa()
+          : this._renderFields()}
+      </shenas-page>
     `;
   }
 

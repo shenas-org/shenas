@@ -1,6 +1,7 @@
 import { LitElement, html, css } from "lit";
+import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
 import { PLUGIN_KINDS } from "./constants.js";
-import { buttonStyles, linkStyles, messageStyles, utilityStyles } from "./shared-styles.js";
+import { buttonStyles, formStyles, linkStyles, messageStyles } from "./shared-styles.js";
 
 class SettingsPage extends LitElement {
   static properties = {
@@ -15,9 +16,9 @@ class SettingsPage extends LitElement {
 
   static styles = [
     buttonStyles,
+    formStyles,
     linkStyles,
     messageStyles,
-    utilityStyles,
     css`
       :host {
         display: block;
@@ -97,8 +98,7 @@ class SettingsPage extends LitElement {
     const result = {};
     await Promise.all(
       PLUGIN_KINDS.map(async ({ id }) => {
-        const resp = await fetch(`${this.apiBase}/plugins/${id}`);
-        result[id] = resp.ok ? await resp.json() : [];
+        result[id] = (await apiFetch(this.apiBase, `/plugins/${id}`)) || [];
       }),
     );
     this._plugins = result;
@@ -109,10 +109,9 @@ class SettingsPage extends LitElement {
 
   async _togglePlugin(kind, name, currentlyEnabled) {
     const action = currentlyEnabled ? "disable" : "enable";
-    const resp = await fetch(`${this.apiBase}/plugins/${kind}/${name}/${action}`, { method: "POST" });
-    const data = await resp.json();
-    if (!data.ok) {
-      this._actionMessage = { type: "error", text: data.message || `${action} failed` };
+    const { data } = await apiFetchFull(this.apiBase, `/plugins/${kind}/${name}/${action}`, { method: "POST" });
+    if (!data?.ok) {
+      this._actionMessage = { type: "error", text: data?.message || `${action} failed` };
     }
     if (kind === "theme") {
       await this._applyActiveTheme();
@@ -121,9 +120,9 @@ class SettingsPage extends LitElement {
   }
 
   async _applyActiveTheme() {
-    const resp = await fetch(`${this.apiBase}/theme`);
-    if (!resp.ok) return;
-    const { css } = await resp.json();
+    const data = await apiFetch(this.apiBase, `/theme`);
+    if (!data) return;
+    const { css } = data;
     let link = document.querySelector('link[data-shenas-theme]');
     if (css) {
       if (!link) {
@@ -143,13 +142,11 @@ class SettingsPage extends LitElement {
     const name = input?.value?.trim();
     if (!name) return;
     this._actionMessage = null;
-    const resp = await fetch(`${this.apiBase}/plugins/${kind}`, {
+    const { data } = await apiFetchFull(this.apiBase, `/plugins/${kind}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ names: [name], skip_verify: true }),
+      json: { names: [name], skip_verify: true },
     });
-    const data = await resp.json();
-    const result = data.results?.[0];
+    const result = data?.results?.[0];
     if (result?.ok) {
       this._actionMessage = { type: "success", text: result.message };
       this._installing = false;
@@ -163,17 +160,10 @@ class SettingsPage extends LitElement {
   }
 
   render() {
-    if (this._loading) {
-      return html`<p class="loading">Loading plugins...</p>`;
-    }
-
     return html`
-      ${this._actionMessage
-        ? html`<div class="message ${this._actionMessage.type}">
-            ${this._actionMessage.text}
-          </div>`
-        : ""}
-      <div class="layout">
+      <shenas-page ?loading=${this._loading} loading-text="Loading plugins...">
+        ${renderMessage(this._actionMessage)}
+        <div class="layout">
         <nav class="sidebar">
           <ul>
             <li>
@@ -204,6 +194,7 @@ class SettingsPage extends LitElement {
             : this._renderKind(this.activeKind)}
         </div>
       </div>
+      </shenas-page>
     `;
   }
 
@@ -232,13 +223,14 @@ class SettingsPage extends LitElement {
             @submit=${() => this._install(kind)}
             @cancel=${() => { this._installing = false; }}
           >
-            <input
-              id="install-${kind}"
-              type="text"
-              placeholder="Plugin name"
-              @keydown=${(e) => e.key === "Enter" && this._install(kind)}
-              style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--shenas-border-input, #ddd); border-radius: 4px; font-size: 0.85rem; box-sizing: border-box; background: var(--shenas-bg, #fff); color: var(--shenas-text, #222);"
-            />
+            <div class="field">
+              <input
+                id="install-${kind}"
+                type="text"
+                placeholder="Plugin name"
+                @keydown=${(e) => e.key === "Enter" && this._install(kind)}
+              />
+            </div>
           </shenas-form-panel>`
         : ""}
     `;

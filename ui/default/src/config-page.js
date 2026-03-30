@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
-import { buttonStyles, messageStyles, utilityStyles } from "./shared-styles.js";
+import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
+import { buttonStyles, formStyles, messageStyles } from "./shared-styles.js";
 
 class ConfigPage extends LitElement {
   static properties = {
@@ -15,8 +16,8 @@ class ConfigPage extends LitElement {
 
   static styles = [
     buttonStyles,
+    formStyles,
     messageStyles,
-    utilityStyles,
     css`
       :host {
         display: block;
@@ -57,14 +58,8 @@ class ConfigPage extends LitElement {
       .config-detail {
         flex: 1;
       }
-      input.config-input {
-        width: 100%;
-        padding: 0.3rem 0.5rem;
-        border: 1px solid var(--shenas-border-input, #ddd);
-        border-radius: 4px;
-        font-size: 0.85rem;
+      .config-input {
         font-family: monospace;
-        box-sizing: border-box;
       }
       .edit-row {
         display: flex;
@@ -96,13 +91,8 @@ class ConfigPage extends LitElement {
   async _fetchConfig() {
     if (!this.kind || !this.name) return;
     this._loading = true;
-    const resp = await fetch(`${this.apiBase}/config?kind=${this.kind}&name=${this.name}`);
-    if (resp.ok) {
-      const items = await resp.json();
-      this._config = items.length > 0 ? items[0] : null;
-    } else {
-      this._config = null;
-    }
+    const items = await apiFetch(this.apiBase, `/config?kind=${this.kind}&name=${this.name}`);
+    this._config = items && items.length > 0 ? items[0] : null;
     this._loading = false;
   }
 
@@ -117,34 +107,27 @@ class ConfigPage extends LitElement {
   }
 
   async _saveEdit(key) {
-    const resp = await fetch(`${this.apiBase}/config/${this.kind}/${this.name}`, {
+    const { ok, data } = await apiFetchFull(this.apiBase, `/config/${this.kind}/${this.name}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, value: this._editValue }),
+      json: { key, value: this._editValue },
     });
-    if (resp.ok) {
+    if (ok) {
       this._message = { type: "success", text: `Updated ${key}` };
       this._editing = null;
       await this._fetchConfig();
     } else {
-      const data = await resp.json();
-      this._message = { type: "error", text: data.detail || "Update failed" };
+      this._message = { type: "error", text: data?.detail || "Update failed" };
     }
   }
 
   render() {
-    if (this._loading) {
-      return html`<p class="loading">Loading config...</p>`;
-    }
-    if (!this._config || this._config.entries.length === 0) {
-      return html`<p class="empty">No configuration settings for this plugin.</p>`;
-    }
-
+    const empty = !this._config || this._config.entries.length === 0;
     return html`
-      ${this._message
-        ? html`<div class="message ${this._message.type}">${this._message.text}</div>`
-        : ""}
-      ${this._config.entries.map((e) => this._renderEntry(e))}
+      <shenas-page ?loading=${this._loading} ?empty=${empty}
+        loading-text="Loading config..." empty-text="No configuration settings for this plugin.">
+        ${renderMessage(this._message)}
+        ${this._config?.entries.map((e) => this._renderEntry(e))}
+      </shenas-page>
     `;
   }
 

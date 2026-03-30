@@ -94,6 +94,7 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
                 added_at=state["added_at"] if state else None,
                 updated_at=state["updated_at"] if state else None,
                 status_changed_at=state["status_changed_at"] if state else None,
+                synced_at=state["synced_at"] if state else None,
             )
         )
     return items

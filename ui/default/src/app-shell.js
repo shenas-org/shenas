@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { Router } from "@lit-labs/router";
+import { apiFetch } from "./api.js";
 import { PLUGIN_KINDS } from "./constants.js";
 import { linkStyles, utilityStyles } from "./shared-styles.js";
 
@@ -456,7 +457,7 @@ class ShenasApp extends LitElement {
             label: `${enabled ? "Disable" : "Enable"} ${name}`,
             action: async () => {
               const action = enabled ? "disable" : "enable";
-              await fetch(`${this.apiBase}/plugins/${k.id}/${p.name}/${action}`, { method: "POST" });
+              await apiFetch(this.apiBase, `/plugins/${k.id}/${p.name}/${action}`, { method: "POST" });
               await this._registerGlobalCommands();
             },
           });
@@ -465,7 +466,7 @@ class ShenasApp extends LitElement {
               id: `sync:${p.name}`,
               category: "Pipe",
               label: `Sync ${name}`,
-              action: () => fetch(`${this.apiBase}/sync/${p.name}`, { method: "POST" }),
+              action: () => apiFetch(this.apiBase, `/sync/${p.name}`, { method: "POST" }),
             });
           }
         }
@@ -474,13 +475,13 @@ class ShenasApp extends LitElement {
         id: "sync:all",
         category: "Pipe",
         label: "Sync All Pipes",
-        action: () => fetch(`${this.apiBase}/sync`, { method: "POST" }),
+        action: () => apiFetch(this.apiBase, `/sync`, { method: "POST" }),
       });
       commands.push({
         id: "seed:transforms",
         category: "Transform",
         label: "Seed Default Transforms",
-        action: () => fetch(`${this.apiBase}/transforms/seed`, { method: "POST" }),
+        action: () => apiFetch(this.apiBase, `/transforms/seed`, { method: "POST" }),
       });
     } catch { /* */ }
     this._registeredCommands.set("global", commands);
@@ -570,19 +571,14 @@ class ShenasApp extends LitElement {
         activeTabId: this._activeTabId,
         nextTabId: this._nextTabId,
       };
-      fetch(`${this.apiBase}/workspace`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(state),
-      }).catch(() => {});
+      apiFetch(this.apiBase, `/workspace`, { method: "PUT", json: state }).catch(() => {});
     }, 300);
   }
 
   async _loadWorkspace() {
     try {
-      const resp = await fetch(`${this.apiBase}/workspace`);
-      if (!resp.ok) return;
-      const state = await resp.json();
+      const state = await apiFetch(this.apiBase, `/workspace`);
+      if (!state) return;
       if (state.tabs && state.tabs.length > 0) {
         this._tabs = state.tabs;
         this._activeTabId = state.activeTabId || state.tabs[0].id;
@@ -646,9 +642,7 @@ class ShenasApp extends LitElement {
   }
 
   async _fetch(path) {
-    const resp = await fetch(`${this.apiBase}${path}`);
-    if (!resp.ok) return null;
-    return resp.json();
+    return apiFetch(this.apiBase, path);
   }
 
   _activeTab() {
@@ -687,7 +681,7 @@ class ShenasApp extends LitElement {
 
   render() {
     if (this._loading) {
-      return html`<p class="loading">Loading...</p>`;
+      return html`<shenas-page loading></shenas-page>`;
     }
 
     const active = this._activeTab();
@@ -808,8 +802,7 @@ class ShenasApp extends LitElement {
     this._inspectTable = key;
     this._inspectRows = null;
     try {
-      const resp = await fetch(`${this.apiBase}/db/preview/${schema}/${table}?limit=50`);
-      this._inspectRows = resp.ok ? await resp.json() : [];
+      this._inspectRows = (await apiFetch(this.apiBase, `/db/preview/${schema}/${table}?limit=50`)) || [];
     } catch {
       this._inspectRows = [];
     }
