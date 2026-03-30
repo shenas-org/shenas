@@ -344,6 +344,7 @@ class ShenasApp extends LitElement {
       cmd.action();
     }
     this._paletteOpen = false;
+    this._navPaletteOpen = false;
   }
 
   async _refreshComponents() {
