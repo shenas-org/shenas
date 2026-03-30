@@ -164,13 +164,6 @@ class TransformsPage extends LitElement {
     }));
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    this.dispatchEvent(new CustomEvent("register-command", {
-      bubbles: true, composed: true,
-      detail: { componentId: `transforms:${this.source}`, commands: [] },
-    }));
-  }
 
   _inspectTable(schema, table) {
     this.dispatchEvent(new CustomEvent("inspect-table", {
