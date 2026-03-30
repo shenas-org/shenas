@@ -74,10 +74,11 @@ def _get_active_theme() -> dict[str, Any] | None:
     """Find the one explicitly enabled theme. Falls back to --default-theme."""
     themes = _discover_plugins("shenas.themes")
     try:
-        from app.db import get_plugin_state
+        from app.db import get_all_plugin_states
 
+        states = {s["name"]: s for s in get_all_plugin_states("theme")}
         for plugin in themes:
-            state = get_plugin_state("theme", plugin["name"])
+            state = states.get(plugin["name"])
             if state and state["enabled"]:
                 return plugin
     except Exception:

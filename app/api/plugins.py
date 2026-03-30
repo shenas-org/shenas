@@ -90,7 +90,7 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
                 signature=sig_status,
                 description=desc,
                 commands=cmds,
-                enabled=state["enabled"] if state else True,
+                enabled=state["enabled"] if state else (kind not in _EXCLUSIVE_KINDS),
                 added_at=state["added_at"] if state else None,
                 updated_at=state["updated_at"] if state else None,
                 status_changed_at=state["status_changed_at"] if state else None,
@@ -346,6 +346,8 @@ def disable_plugin(kind: str, name: str) -> OkResponse:
     from app.db import upsert_plugin_state
 
     if kind in _EXCLUSIVE_KINDS:
+        if name == "default":
+            return OkResponse(ok=True, message=f"Cannot disable the default {kind}")
         upsert_plugin_state(kind, name, enabled=False)
         upsert_plugin_state(kind, "default", enabled=True)
         return OkResponse(ok=True, message=f"Switched {kind} to default")

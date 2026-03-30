@@ -10,7 +10,6 @@ except Exception:
 THEME = {
     "name": "default",
     "display_name": "Default",
-    "internal": True,
     "version": _version,
     "description": "Default shenas theme with system fonts and light colors",
     "static_dir": Path(__file__).parent / "static",

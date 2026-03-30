@@ -55,6 +55,7 @@ class CommandPalette extends LitElement {
       font-size: 0.95rem;
       outline: none;
       background: transparent;
+      color: var(--shenas-text, #222);
     }
     .hint {
       font-size: 0.7rem;

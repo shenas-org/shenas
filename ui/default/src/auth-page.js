@@ -199,7 +199,7 @@ class AuthPage extends LitElement {
           Open authorization page
         </a>
       </p>
-      <p style="font-size:0.85rem;color:#666">
+      <p style="font-size:0.85rem;color:var(--shenas-text-secondary, #666)">
         After authorizing in your browser, click Complete below.
       </p>
       <div class="actions">
