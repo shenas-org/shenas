@@ -161,13 +161,6 @@ class SettingsPage extends LitElement {
     }));
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    this.dispatchEvent(new CustomEvent("register-command", {
-      bubbles: true, composed: true,
-      detail: { componentId: "settings-page", commands: [] },
-    }));
-  }
 
 
   async _togglePlugin(kind, name, currentlyEnabled) {

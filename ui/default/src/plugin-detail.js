@@ -175,25 +175,12 @@ class PluginDetail extends LitElement {
   _registerCommands() {
     if (!this._info) return;
     const label = this._info.display_name || this.name;
-    const enabled = this._info.enabled !== false;
     const commands = [
-      { id: `toggle:${this.kind}:${this.name}`, category: "Plugin", label: `${enabled ? "Disable" : "Enable"} ${label}`, action: () => this._toggle() },
       { id: `remove:${this.kind}:${this.name}`, category: "Plugin", label: `Remove ${label}`, action: () => this._remove() },
     ];
-    if (this.kind === "pipe" && enabled) {
-      commands.unshift({ id: `sync:${this.name}`, category: "Pipe", label: `Sync ${label}`, action: () => this._sync() });
-    }
     this.dispatchEvent(new CustomEvent("register-command", {
       bubbles: true, composed: true,
       detail: { componentId: `plugin-detail:${this.kind}:${this.name}`, commands },
-    }));
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    this.dispatchEvent(new CustomEvent("register-command", {
-      bubbles: true, composed: true,
-      detail: { componentId: `plugin-detail:${this.kind}:${this.name}`, commands: [] },
     }));
   }
 
