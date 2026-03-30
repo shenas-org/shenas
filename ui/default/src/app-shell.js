@@ -113,6 +113,18 @@ class ShenasApp extends LitElement {
         color: var(--shenas-text, #222);
         background: var(--shenas-border-light, #f0f0f0);
       }
+      .tab-add {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--shenas-text-faint, #aaa);
+        font-size: 0.9rem;
+        padding: 0.4rem 0.6rem;
+        line-height: 1;
+      }
+      .tab-add:hover {
+        color: var(--shenas-text, #222);
+      }
       .tab-content {
         flex: 1;
         overflow-y: auto;
@@ -314,7 +326,7 @@ class ShenasApp extends LitElement {
     this._fetchData();
     this.addEventListener("plugin-state-changed", () => this._refreshComponents());
     this.addEventListener("inspect-table", (e) => this._inspect(e.detail.schema, e.detail.table));
-    this.addEventListener("navigate", (e) => this._openTab(e.detail.path, e.detail.label));
+    this.addEventListener("navigate", (e) => this._navigateTo(e.detail.path, e.detail.label));
     this.addEventListener("register-command", (e) => {
       const { componentId, commands } = e.detail;
       if (!commands || commands.length === 0) {
@@ -461,6 +473,19 @@ class ShenasApp extends LitElement {
     this._navPaletteOpen = false;
   }
 
+  _navigateTo(path, label) {
+    if (this._tabs.length === 0 || !this._activeTabId) {
+      this._openTab(path, label);
+      return;
+    }
+    const lbl = label || this._labelForPath(path);
+    this._tabs = this._tabs.map((t) =>
+      t.path === this._activeTabId ? { path, label: lbl } : t,
+    );
+    this._activeTabId = path;
+    this._router.goto(path);
+  }
+
   _openTab(path, label) {
     const existing = this._tabs.find((t) => t.path === path);
     if (existing) {
@@ -470,6 +495,10 @@ class ShenasApp extends LitElement {
       this._activeTabId = path;
     }
     this._router.goto(path);
+  }
+
+  _addTab() {
+    this._openTab("/settings", "Data Flow");
   }
 
   _closeTab(path) {
@@ -605,6 +634,7 @@ class ShenasApp extends LitElement {
                     <button class="tab-close" @click=${(e) => { e.stopPropagation(); this._closeTab(t.path); }}>x</button>
                   </div>
                 `)}
+                <button class="tab-add" title="New tab" @click=${this._addTab}>+</button>
               </div>
               <div class="tab-content">
                 ${this._router.outlet()}
@@ -638,7 +668,7 @@ class ShenasApp extends LitElement {
   _navItem(id, label, active) {
     return html`
       <a class="nav-item" href="/${id}" aria-selected=${active === id}
-        @click=${(e) => { e.preventDefault(); this._openTab(`/${id}`, label); }}>
+        @click=${(e) => { e.preventDefault(); (e.ctrlKey || e.metaKey) ? this._openTab(`/${id}`, label) : this._navigateTo(`/${id}`, label); }}>
         ${label}
       </a>
     `;
