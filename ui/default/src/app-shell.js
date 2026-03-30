@@ -328,6 +328,50 @@ class ShenasApp extends LitElement {
     this._navCommands = commands;
   }
 
+  async _registerGlobalCommands() {
+    const commands = [];
+    try {
+      for (const k of PLUGIN_KINDS) {
+        const plugins = (await this._fetch(`/plugins/${k.id}`)) || [];
+        for (const p of plugins) {
+          const name = p.display_name || p.name;
+          const enabled = p.enabled !== false;
+          commands.push({
+            id: `toggle:${k.id}:${p.name}`,
+            category: k.label,
+            label: `${enabled ? "Disable" : "Enable"} ${name}`,
+            action: async () => {
+              const action = enabled ? "disable" : "enable";
+              await fetch(`${this.apiBase}/plugins/${k.id}/${p.name}/${action}`, { method: "POST" });
+              await this._registerGlobalCommands();
+            },
+          });
+          if (k.id === "pipe" && enabled) {
+            commands.push({
+              id: `sync:${p.name}`,
+              category: "Pipe",
+              label: `Sync ${name}`,
+              action: () => fetch(`${this.apiBase}/sync/${p.name}`, { method: "POST" }),
+            });
+          }
+        }
+      }
+      commands.push({
+        id: "sync:all",
+        category: "Pipe",
+        label: "Sync All Pipes",
+        action: () => fetch(`${this.apiBase}/sync`, { method: "POST" }),
+      });
+      commands.push({
+        id: "seed:transforms",
+        category: "Transform",
+        label: "Seed Default Transforms",
+        action: () => fetch(`${this.apiBase}/transforms/seed`, { method: "POST" }),
+      });
+    } catch { /* */ }
+    this._registeredCommands.set("global", commands);
+  }
+
   _buildCommands() {
     const commands = [];
     for (const cmds of this._registeredCommands.values()) {
@@ -364,6 +408,7 @@ class ShenasApp extends LitElement {
       console.error("Failed to fetch data:", e);
     }
     this._loading = false;
+    this._registerGlobalCommands();
   }
 
   async _fetch(path) {
