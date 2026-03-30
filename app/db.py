@@ -259,15 +259,14 @@ def _ensure_workspace_table(con: duckdb.DuckDBPyConnection) -> None:
 
 def get_workspace() -> dict[str, Any]:
     """Get the workspace state. Returns empty dict if not set."""
-    con = connect()
-    cur = con.cursor()
+    import json
+
+    cur = connect().cursor()
     cur.execute("USE db")
     row = cur.execute("SELECT state FROM shenas_system.workspace WHERE id = 1").fetchone()
     cur.close()
     if not row:
         return {}
-    import json
-
     try:
         return json.loads(row[0])
     except Exception:
@@ -275,19 +274,16 @@ def get_workspace() -> dict[str, Any]:
 
 
 def save_workspace(state: dict[str, Any]) -> None:
-    """Save the workspace state."""
+    """Save the workspace state (atomic upsert)."""
     import json
 
-    con = connect()
-    cur = con.cursor()
-    cur.execute("USE db")
     data = json.dumps(state)
-    existing = cur.execute("SELECT id FROM shenas_system.workspace WHERE id = 1").fetchone()
-    if existing:
-        cur.execute("UPDATE shenas_system.workspace SET state = ?, updated_at = current_timestamp WHERE id = 1", [data])
-    else:
-        cur.execute("INSERT INTO shenas_system.workspace (id, state) VALUES (1, ?)", [data])
-    cur.close()
+    con = connect()
+    con.execute(
+        "INSERT INTO shenas_system.workspace (id, state, updated_at) VALUES (1, ?, current_timestamp) "
+        "ON CONFLICT (id) DO UPDATE SET state = ?, updated_at = current_timestamp",
+        [data, data],
+    )
 
 
 def dlt_destination() -> tuple[Any, duckdb.DuckDBPyConnection]:

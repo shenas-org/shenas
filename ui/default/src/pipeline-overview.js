@@ -143,7 +143,7 @@ class PipelineOverview extends LitElement {
       const id = `component:${c.name}`;
       nodeIds.add(id);
       elements.push({
-        data: { id, label: c.display_name || c.name, kind: "component" },
+        data: { id, label: c.display_name || c.name, kind: "component", enabled: c.enabled !== false ? "yes" : "no" },
       });
     }
 
@@ -168,19 +168,39 @@ class PipelineOverview extends LitElement {
       });
     }
 
+    // Track which pipe->schema pairs already have transform edges
+    const transformPairs = new Set();
+    for (const el of elements) {
+      if (el.data.edgeType === "transform") {
+        transformPairs.add(`${el.data.source}:${el.data.target}`);
+      }
+    }
+
     // Dependency edges (from package metadata)
     const depEdgeIds = new Set();
-    for (const [source, targets] of Object.entries(deps)) {
-      for (const target of targets) {
-        if (!nodeIds.has(source) || !nodeIds.has(target)) continue;
-        const edgeId = `dep:${source}:${target}`;
+    for (const [depSource, targets] of Object.entries(deps)) {
+      for (const depTarget of targets) {
+        const sourceKind = depSource.split(":")[0];
+        let edgeSource, edgeTarget;
+        if (sourceKind === "component") {
+          // Component depends on schema -> show as schema -> component
+          edgeSource = depTarget;
+          edgeTarget = depSource;
+        } else {
+          edgeSource = depSource;
+          edgeTarget = depTarget;
+        }
+        if (!nodeIds.has(edgeSource) || !nodeIds.has(edgeTarget)) continue;
+        // Skip pipe->schema dep edges when transforms already connect them
+        if (sourceKind === "pipe" && transformPairs.has(`${edgeSource}:${edgeTarget}`)) continue;
+        const edgeId = `dep:${edgeSource}:${edgeTarget}`;
         if (depEdgeIds.has(edgeId)) continue;
         depEdgeIds.add(edgeId);
         elements.push({
           data: {
             id: edgeId,
-            source,
-            target,
+            source: edgeSource,
+            target: edgeTarget,
             edgeType: "dependency",
           },
         });
@@ -346,8 +366,9 @@ class PipelineOverview extends LitElement {
         <span class="legend-item"><span class="legend-dot component"></span> Component</span>
         <span class="legend-item"><span class="legend-line enabled"></span> Transform</span>
         <span class="legend-item"><span class="legend-line disabled"></span> Disabled</span>
+        <span class="legend-item"><span class="legend-line" style="border-top:2px dotted var(--shenas-text-faint, #aaa);height:0;background:none"></span> Dependency</span>
       </div>
-      ${this._empty ? html`<p class="empty">No transforms configured. Add transforms in pipe settings.</p>` : ""}
+      ${this._empty ? html`<p class="empty">No connections found. Add transforms in pipe settings.</p>` : ""}
     `;
   }
 }
