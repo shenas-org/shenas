@@ -147,6 +147,46 @@ def active_theme() -> dict[str, str | None]:
     return {"name": app.state.default_theme, "css": None}
 
 
+@app.get("/api/dependencies")
+def plugin_dependencies() -> dict[str, list[str]]:
+    """Return cross-plugin dependencies from Python package metadata.
+
+    Reads importlib.metadata.requires() for all shenas-* packages.
+    Returns {"{kind}:{name}": ["{dep_kind}:{dep_name}", ...]}
+    """
+    from importlib.metadata import distributions
+
+    prefixes = {
+        "shenas-pipe-": "pipe",
+        "shenas-schema-": "schema",
+        "shenas-component-": "component",
+        "shenas-ui-": "ui",
+        "shenas-theme-": "theme",
+    }
+    result: dict[str, list[str]] = {}
+    for dist in distributions():
+        pkg_name = dist.metadata["Name"]
+        if pkg_name.endswith("-core"):
+            continue
+        kind = None
+        for prefix, k in prefixes.items():
+            if pkg_name.startswith(prefix):
+                kind = k
+                plugin_name = pkg_name.removeprefix(prefix)
+                break
+        if not kind:
+            continue
+        deps = []
+        for req in dist.requires or []:
+            req_name = req.split(";")[0].split("[")[0].split(">")[0].split("<")[0].split("=")[0].split("!")[0].strip()
+            for dep_prefix, dep_kind in prefixes.items():
+                if req_name.startswith(dep_prefix) and not req_name.endswith("-core"):
+                    deps.append(f"{dep_kind}:{req_name.removeprefix(dep_prefix)}")
+        if deps:
+            result[f"{kind}:{plugin_name}"] = deps
+    return result
+
+
 @app.get("/api/workspace")
 def get_workspace_state() -> dict[str, Any]:
     """Get the persisted workspace state (open tabs, active tab)."""
