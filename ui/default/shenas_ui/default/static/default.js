@@ -217,7 +217,7 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
     border-bottom-color: var(--shenas-primary, #0066cc);
     font-weight: 600;
   }
-`,v=m`
+`,y=m`
   .message {
     padding: 0.5rem 0.8rem;
     border-radius: 4px;
@@ -260,9 +260,9 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
         <tbody>
           ${this.rows.map(s=>a`
               <tr class="${this.rowClass?this.rowClass(s):""}">
-                ${this.columns.map(n=>a`
-                  <td class="${n.class||""}">
-                    ${n.render?n.render(s):s[n.key]}
+                ${this.columns.map(i=>a`
+                  <td class="${i.class||""}">
+                    ${i.render?i.render(s):s[i.key]}
                   </td>
                 `)}
                 ${e?a`<td class="actions-cell">${this.actions(s)}</td>`:""}
@@ -340,7 +340,7 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
         gap: 0.5rem;
         margin-top: 0.8rem;
       }
-    `]);customElements.define("shenas-form-panel",k);let R=!1;class S extends b{constructor(){super(),this.apiBase="/api",this._loading=!0,this._empty=!1,this._cy=null,this._elements=null,this._resizeObserver=null}connectedCallback(){super.connectedCallback(),this._fetchData()}disconnectedCallback(){super.disconnectedCallback(),this._cy&&(this._cy.destroy(),this._cy=null),this._resizeObserver&&(this._resizeObserver.disconnect(),this._resizeObserver=null)}async _fetchData(){this._loading=!0;try{const[e,t,s,n]=await Promise.all([fetch(`${this.apiBase}/plugins/pipe`),fetch(`${this.apiBase}/plugins/schema`),fetch(`${this.apiBase}/transforms`),fetch(`${this.apiBase}/db/schema-plugins`)]),i=e.ok?await e.json():[],r=t.ok?await t.json():[],l=s.ok?await s.json():[],o=n.ok?await n.json():{};this._buildElements(i,r,l,o)}catch(e){console.error("Failed to fetch overview data:",e)}this._loading=!1}_buildElements(e,t,s,n){const i=[],r=new Set,l={};for(const[o,p]of Object.entries(n))for(const c of p)l[c]=o;for(const o of e){const p=`pipe:${o.name}`;r.add(p),i.push({data:{id:p,label:o.display_name||o.name,kind:"pipe"}})}for(const o of t){const p=`schema:${o.name}`;r.add(p),i.push({data:{id:p,label:o.display_name||o.name,kind:"schema"}})}for(const o of s){const p=`pipe:${o.source_plugin}`,c=l[o.target_duckdb_table],h=c?`schema:${c}`:null;if(!h||!r.has(p)||!r.has(h))continue;const g=o.description||`${o.source_duckdb_table} -> ${o.target_duckdb_table}`,N=g.length>30?g.slice(0,28)+"...":g;i.push({data:{id:`transform:${o.id}`,source:p,target:h,label:N,enabled:o.enabled?"yes":"no",sourcePlugin:o.source_plugin}})}this._elements=i,this._empty=s.length===0}_initCytoscape(){const e=this.renderRoot.querySelector("#cy");!e||!this._elements||(R||(j.use(q),R=!0),this._cy&&this._cy.destroy(),this._cy=j({container:e,elements:this._elements,style:[{selector:"node",style:{label:"data(label)","text-valign":"center","text-halign":"center","font-size":12,color:"#fff","text-wrap":"wrap","text-max-width":100,width:120,height:40,shape:"round-rectangle"}},{selector:'node[kind="pipe"]',style:{"background-color":"#4a90d9",cursor:"pointer"}},{selector:'node[kind="schema"]',style:{"background-color":"#66bb6a",cursor:"pointer"}},{selector:"edge",style:{"curve-style":"bezier","target-arrow-shape":"triangle","target-arrow-color":"#999","line-color":"#999",cursor:"pointer",width:2,label:"data(label)","font-size":9,color:"#888","text-rotation":"autorotate","text-margin-y":-8}},{selector:'edge[enabled="yes"]',style:{"line-style":"solid"}},{selector:'edge[enabled="no"]',style:{"line-style":"dashed","line-color":"#ccc","target-arrow-color":"#ccc",opacity:.5}}],layout:{name:"dagre",rankDir:"LR",nodeSep:60,rankSep:150,padding:30},userZoomingEnabled:!0,userPanningEnabled:!0,boxSelectionEnabled:!1}),this._cy.on("tap","node",t=>{const s=t.target.data(),n=s.id.substring(s.id.indexOf(":")+1),i=s.kind==="pipe"?`/settings/pipe/${n}`:`/settings/schema/${n}`;this.dispatchEvent(new CustomEvent("navigate",{bubbles:!0,composed:!0,detail:{path:i}}))}),this._cy.on("tap","edge",t=>{const s=t.target.data("sourcePlugin");s&&this.dispatchEvent(new CustomEvent("navigate",{bubbles:!0,composed:!0,detail:{path:`/settings/pipe/${s}`}}))}),this._resizeObserver&&this._resizeObserver.disconnect(),this._resizeObserver=new ResizeObserver(()=>{this._cy&&(this._cy.resize(),this._cy.fit(void 0,30))}),this._resizeObserver.observe(e))}firstUpdated(){!this._loading&&this._elements&&this._initCytoscape()}updated(e){e.has("_loading")&&!this._loading&&this._elements&&requestAnimationFrame(()=>this._initCytoscape())}render(){return this._loading?a`<p class="loading">Loading overview...</p>`:a`
+    `]);customElements.define("shenas-form-panel",k);let R=!1;class S extends b{constructor(){super(),this.apiBase="/api",this._loading=!0,this._empty=!1,this._cy=null,this._elements=null,this._resizeObserver=null}connectedCallback(){super.connectedCallback(),this._fetchData()}disconnectedCallback(){super.disconnectedCallback(),this._cy&&(this._cy.destroy(),this._cy=null),this._resizeObserver&&(this._resizeObserver.disconnect(),this._resizeObserver=null)}async _fetchData(){this._loading=!0;try{const[e,t,s,i]=await Promise.all([fetch(`${this.apiBase}/plugins/pipe`),fetch(`${this.apiBase}/plugins/schema`),fetch(`${this.apiBase}/transforms`),fetch(`${this.apiBase}/db/schema-plugins`)]),n=e.ok?await e.json():[],r=t.ok?await t.json():[],l=s.ok?await s.json():[],o=i.ok?await i.json():{};this._buildElements(n,r,l,o)}catch(e){console.error("Failed to fetch overview data:",e)}this._loading=!1}_buildElements(e,t,s,i){const n=[],r=new Set,l={};for(const[o,p]of Object.entries(i))for(const c of p)l[c]=o;for(const o of e){const p=`pipe:${o.name}`;r.add(p),n.push({data:{id:p,label:o.display_name||o.name,kind:"pipe"}})}for(const o of t){const p=`schema:${o.name}`;r.add(p),n.push({data:{id:p,label:o.display_name||o.name,kind:"schema"}})}for(const o of s){const p=`pipe:${o.source_plugin}`,c=l[o.target_duckdb_table],h=c?`schema:${c}`:null;if(!h||!r.has(p)||!r.has(h))continue;const g=o.description||`${o.source_duckdb_table} -> ${o.target_duckdb_table}`,N=g.length>30?g.slice(0,28)+"...":g;n.push({data:{id:`transform:${o.id}`,source:p,target:h,label:N,enabled:o.enabled?"yes":"no",sourcePlugin:o.source_plugin}})}this._elements=n,this._empty=s.length===0}_initCytoscape(){const e=this.renderRoot.querySelector("#cy");!e||!this._elements||(R||(j.use(q),R=!0),this._cy&&this._cy.destroy(),this._cy=j({container:e,elements:this._elements,style:[{selector:"node",style:{label:"data(label)","text-valign":"center","text-halign":"center","font-size":12,color:"#fff","text-wrap":"wrap","text-max-width":100,width:120,height:40,shape:"round-rectangle"}},{selector:'node[kind="pipe"]',style:{"background-color":"#4a90d9",cursor:"pointer"}},{selector:'node[kind="schema"]',style:{"background-color":"#66bb6a",cursor:"pointer"}},{selector:"edge",style:{"curve-style":"bezier","target-arrow-shape":"triangle","target-arrow-color":"#999","line-color":"#999",cursor:"pointer",width:2,label:"data(label)","font-size":9,color:"#888","text-rotation":"autorotate","text-margin-y":-8}},{selector:'edge[enabled="yes"]',style:{"line-style":"solid"}},{selector:'edge[enabled="no"]',style:{"line-style":"dashed","line-color":"#ccc","target-arrow-color":"#ccc",opacity:.5}}],layout:{name:"dagre",rankDir:"LR",nodeSep:60,rankSep:150,padding:30},userZoomingEnabled:!0,userPanningEnabled:!0,boxSelectionEnabled:!1}),this._cy.on("tap","node",t=>{const s=t.target.data(),i=s.id.substring(s.id.indexOf(":")+1),n=s.kind==="pipe"?`/settings/pipe/${i}`:`/settings/schema/${i}`;this.dispatchEvent(new CustomEvent("navigate",{bubbles:!0,composed:!0,detail:{path:n}}))}),this._cy.on("tap","edge",t=>{const s=t.target.data("sourcePlugin");s&&this.dispatchEvent(new CustomEvent("navigate",{bubbles:!0,composed:!0,detail:{path:`/settings/pipe/${s}`}}))}),this._resizeObserver&&this._resizeObserver.disconnect(),this._resizeObserver=new ResizeObserver(()=>{this._cy&&(this._cy.resize(),this._cy.fit(void 0,30))}),this._resizeObserver.observe(e))}firstUpdated(){!this._loading&&this._elements&&this._initCytoscape()}updated(e){e.has("_loading")&&!this._loading&&this._elements&&requestAnimationFrame(()=>this._initCytoscape())}render(){return this._loading?a`<p class="loading">Loading overview...</p>`:a`
       <div id="cy"></div>
       <div class="legend">
         <span class="legend-item"><span class="legend-dot pipe"></span> Pipe</span>
@@ -389,7 +389,7 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
       }
       .legend-line.enabled { background: var(--shenas-text-muted, #888); }
       .legend-line.disabled { background: var(--shenas-text-faint, #aaa); border-top: 2px dashed var(--shenas-text-faint, #aaa); height: 0; }
-    `]);customElements.define("shenas-pipeline-overview",S);class C extends b{constructor(){super(),this.apiBase="/api",this.pipeName="",this._fields=[],this._instructions="",this._loading=!0,this._message=null,this._needsMfa=!1,this._oauthUrl=null,this._submitting=!1}willUpdate(e){e.has("pipeName")&&this._fetchFields()}async _fetchFields(){if(!this.pipeName)return;this._loading=!0,this._needsMfa=!1,this._oauthUrl=null;const e=await fetch(`${this.apiBase}/auth/${this.pipeName}/fields`);if(e.ok){const t=await e.json();this._fields=t.fields||[],this._instructions=t.instructions||""}this._loading=!1}async _submit(){var n,i;this._submitting=!0,this._message=null;const e={};if(this._needsMfa){const r=this.renderRoot.querySelector("#mfa-code");e.mfa_code=((n=r==null?void 0:r.value)==null?void 0:n.trim())||""}else if(this._oauthUrl)e.auth_complete="true";else for(const r of this._fields){const l=this.renderRoot.querySelector(`#field-${r.name}`),o=(i=l==null?void 0:l.value)==null?void 0:i.trim();o&&(e[r.name]=o)}const s=await(await fetch(`${this.apiBase}/auth/${this.pipeName}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({credentials:e})})).json();this._submitting=!1,s.ok?(this._message={type:"success",text:s.message},this._needsMfa=!1,this._oauthUrl=null):s.needs_mfa?(this._needsMfa=!0,this._message={type:"success",text:"MFA code required"}):s.oauth_url?(this._oauthUrl=s.oauth_url,this._message={type:"success",text:s.message}):(this._message={type:"error",text:s.error||"Authentication failed"},this._needsMfa=!1,this._oauthUrl=null)}render(){return this._loading?a`<p class="loading">Loading auth...</p>`:this._fields.length===0&&!this._instructions?a`<p class="empty">No authentication required for this plugin.</p>`:a`
+    `]);customElements.define("shenas-pipeline-overview",S);class C extends b{constructor(){super(),this.apiBase="/api",this.pipeName="",this._fields=[],this._instructions="",this._loading=!0,this._message=null,this._needsMfa=!1,this._oauthUrl=null,this._submitting=!1}willUpdate(e){e.has("pipeName")&&this._fetchFields()}async _fetchFields(){if(!this.pipeName)return;this._loading=!0,this._needsMfa=!1,this._oauthUrl=null;const e=await fetch(`${this.apiBase}/auth/${this.pipeName}/fields`);if(e.ok){const t=await e.json();this._fields=t.fields||[],this._instructions=t.instructions||""}this._loading=!1}async _submit(){var i,n;this._submitting=!0,this._message=null;const e={};if(this._needsMfa){const r=this.renderRoot.querySelector("#mfa-code");e.mfa_code=((i=r==null?void 0:r.value)==null?void 0:i.trim())||""}else if(this._oauthUrl)e.auth_complete="true";else for(const r of this._fields){const l=this.renderRoot.querySelector(`#field-${r.name}`),o=(n=l==null?void 0:l.value)==null?void 0:n.trim();o&&(e[r.name]=o)}const s=await(await fetch(`${this.apiBase}/auth/${this.pipeName}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({credentials:e})})).json();this._submitting=!1,s.ok?(this._message={type:"success",text:s.message},this._needsMfa=!1,this._oauthUrl=null):s.needs_mfa?(this._needsMfa=!0,this._message={type:"success",text:"MFA code required"}):s.oauth_url?(this._oauthUrl=s.oauth_url,this._message={type:"success",text:s.message}):(this._message={type:"error",text:s.error||"Authentication failed"},this._needsMfa=!1,this._oauthUrl=null)}render(){return this._loading?a`<p class="loading">Loading auth...</p>`:this._fields.length===0&&!this._instructions?a`<p class="empty">No authentication required for this plugin.</p>`:a`
       ${this._message?a`<div class="message ${this._message.type}">${this._message.text}</div>`:""}
       ${this._instructions?a`<div class="instructions">${this._instructions}</div>`:""}
       ${this._oauthUrl?this._renderOAuth():this._needsMfa?this._renderMfa():this._renderFields()}
@@ -434,7 +434,7 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
           ${this._submitting?"Completing...":"Complete"}
         </button>
       </div>
-    `}}d(C,"properties",{apiBase:{type:String,attribute:"api-base"},pipeName:{type:String,attribute:"pipe-name"},_fields:{state:!0},_instructions:{state:!0},_loading:{state:!0},_message:{state:!0},_needsMfa:{state:!0},_oauthUrl:{state:!0},_submitting:{state:!0}}),d(C,"styles",[_,v,f,m`
+    `}}d(C,"properties",{apiBase:{type:String,attribute:"api-base"},pipeName:{type:String,attribute:"pipe-name"},_fields:{state:!0},_instructions:{state:!0},_loading:{state:!0},_message:{state:!0},_needsMfa:{state:!0},_oauthUrl:{state:!0},_submitting:{state:!0}}),d(C,"styles",[_,y,f,m`
       :host {
         display: block;
       }
@@ -498,7 +498,7 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
               ${e.description?a`<div class="config-desc">${e.description}</div>`:""}
             </div>`}
       </div>
-    `}}d(E,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},_config:{state:!0},_loading:{state:!0},_message:{state:!0},_editing:{state:!0},_editValue:{state:!0}}),d(E,"styles",[_,v,f,m`
+    `}}d(E,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},_config:{state:!0},_loading:{state:!0},_message:{state:!0},_editing:{state:!0},_editValue:{state:!0}}),d(E,"styles",[_,y,f,m`
       :host {
         display: block;
       }
@@ -553,7 +553,7 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
         align-items: center;
         flex: 1;
       }
-    `]);customElements.define("shenas-config",E);class z extends b{constructor(){super();d(this,"_router",new L(this,[{path:"/",render:()=>this._renderDynamicHome()},{path:"/settings",render:()=>this._renderSettings("overview")},{path:"/settings/:kind",render:({kind:t})=>this._renderSettings(t)},{path:"/settings/:kind/:name",render:({kind:t,name:s})=>this._renderPluginDetail(t,s)},{path:"/settings/:kind/:name/config",render:({kind:t,name:s})=>this._renderPluginDetail(t,s,"config")},{path:"/settings/:kind/:name/auth",render:({kind:t,name:s})=>this._renderPluginDetail(t,s,"auth")},{path:"/:tab",render:({tab:t})=>this._renderDynamicTab(t)}]));this.apiBase="/api",this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map,this._leftWidth=160,this._rightWidth=220,this._dbStatus=null,this._inspectTable=null,this._inspectRows=null,this._paletteOpen=!1,this._paletteCommands=[],this._navPaletteOpen=!1,this._navCommands=[]}connectedCallback(){super.connectedCallback(),this._fetchData(),this.addEventListener("plugin-state-changed",()=>this._refreshComponents()),this.addEventListener("inspect-table",t=>this._inspect(t.detail.schema,t.detail.table)),this.addEventListener("navigate",t=>this._router.goto(t.detail.path)),this._keyHandler=t=>{(t.ctrlKey||t.metaKey)&&t.key==="p"?(t.preventDefault(),this._togglePalette()):(t.ctrlKey||t.metaKey)&&t.key==="o"&&(t.preventDefault(),this._toggleNavPalette())},document.addEventListener("keydown",this._keyHandler)}disconnectedCallback(){super.disconnectedCallback(),document.removeEventListener("keydown",this._keyHandler)}async _togglePalette(){if(this._paletteOpen){this._paletteOpen=!1;return}this._navPaletteOpen=!1,await this._buildCommands(),this._paletteOpen=!0}async _toggleNavPalette(){if(this._navPaletteOpen){this._navPaletteOpen=!1;return}this._paletteOpen=!1,await this._buildNavCommands(),this._navPaletteOpen=!0}async _buildNavCommands(){const t=[];for(const i of this._components)t.push({id:`nav:${i.name}`,category:"Page",label:i.display_name||i.name,path:`/${i.name}`});t.push({id:"nav:dataflow",category:"Settings",label:"Data Flow",path:"/settings/overview"});const s=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"},{id:"theme",label:"Themes"}];for(const i of s)t.push({id:`nav:settings:${i.id}`,category:"Settings",label:i.label,path:`/settings/${i.id}`});let n=[];try{n=(await Promise.all(s.map(async r=>(await this._fetch(`/plugins/${r.id}`)||[]).map(o=>({...o,kind:r.id,kindLabel:r.label}))))).flat()}catch{}for(const i of n)t.push({id:`nav:${i.kind}:${i.name}`,category:i.kindLabel,label:i.display_name||i.name,path:`/settings/${i.kind}/${i.name}`});this._navCommands=t}async _buildCommands(){const t=[];let s=[];try{s=await this._fetch("/plugins/pipe")||[]}catch{}for(const n of s){const i=n.display_name||n.name;t.push({id:`sync:${n.name}`,category:"Pipe",label:`Sync ${i}`,description:"Run sync now",action:()=>this._syncPipe(n.name)})}this._paletteCommands=t}async _syncPipe(t){try{await fetch(`${this.apiBase}/sync/${t}`,{method:"POST"})}catch{}}_executePaletteCommand(t){const s=t.detail;s.path?this._router.goto(s.path):s.action&&s.action(),this._paletteOpen=!1}async _refreshComponents(){this._components=await this._fetch("/components")||[]}async _fetchData(){this._loading=!0;try{const[t,s]=await Promise.all([this._fetch("/components"),this._fetch("/db/status")]);this._components=t||[],this._dbStatus=s}catch(t){console.error("Failed to fetch data:",t)}this._loading=!1}async _fetch(t){const s=await fetch(`${this.apiBase}${t}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"").split("/")[0]||(this._components.length>0?this._components[0].name:"settings")}_startDrag(t){return s=>{s.preventDefault();const n=s.clientX,i=t==="left"?this._leftWidth:this._rightWidth,r=s.target;r.classList.add("dragging");const l=p=>{const c=t==="left"?p.clientX-n:n-p.clientX,h=Math.max(80,Math.min(400,i+c));t==="left"?this._leftWidth=h:this._rightWidth=h},o=()=>{r.classList.remove("dragging"),window.removeEventListener("mousemove",l),window.removeEventListener("mouseup",o)};window.addEventListener("mousemove",l),window.addEventListener("mouseup",o)}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const t=this._activeTab();return a`
+    `]);customElements.define("shenas-config",E);const v=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"},{id:"theme",label:"Themes"}];class z extends b{constructor(){super();d(this,"_router",new L(this,[{path:"/",render:()=>this._renderDynamicHome()},{path:"/settings",render:()=>this._renderSettings("overview")},{path:"/settings/:kind",render:({kind:t})=>this._renderSettings(t)},{path:"/settings/:kind/:name",render:({kind:t,name:s})=>this._renderPluginDetail(t,s)},{path:"/settings/:kind/:name/config",render:({kind:t,name:s})=>this._renderPluginDetail(t,s,"config")},{path:"/settings/:kind/:name/auth",render:({kind:t,name:s})=>this._renderPluginDetail(t,s,"auth")},{path:"/:tab",render:({tab:t})=>this._renderDynamicTab(t)}]));this.apiBase="/api",this._components=[],this._loading=!0,this._loadedScripts=new Set,this._elementCache=new Map,this._leftWidth=160,this._rightWidth=220,this._dbStatus=null,this._inspectTable=null,this._inspectRows=null,this._paletteOpen=!1,this._paletteCommands=[],this._navPaletteOpen=!1,this._navCommands=[]}connectedCallback(){super.connectedCallback(),this._fetchData(),this.addEventListener("plugin-state-changed",()=>this._refreshComponents()),this.addEventListener("inspect-table",t=>this._inspect(t.detail.schema,t.detail.table)),this.addEventListener("navigate",t=>this._router.goto(t.detail.path)),this._keyHandler=t=>{(t.ctrlKey||t.metaKey)&&t.key==="p"?(t.preventDefault(),this._togglePalette()):(t.ctrlKey||t.metaKey)&&t.key==="o"&&(t.preventDefault(),this._toggleNavPalette())},document.addEventListener("keydown",this._keyHandler)}disconnectedCallback(){super.disconnectedCallback(),document.removeEventListener("keydown",this._keyHandler)}async _togglePalette(){if(this._paletteOpen){this._paletteOpen=!1;return}this._navPaletteOpen=!1,await this._buildCommands(),this._paletteOpen=!0}async _toggleNavPalette(){if(this._navPaletteOpen){this._navPaletteOpen=!1;return}this._paletteOpen=!1,await this._buildNavCommands(),this._navPaletteOpen=!0}async _buildNavCommands(){const t=[];for(const i of this._components)t.push({id:`nav:${i.name}`,category:"Page",label:i.display_name||i.name,path:`/${i.name}`});t.push({id:"nav:dataflow",category:"Settings",label:"Data Flow",path:"/settings/overview"});for(const i of v)t.push({id:`nav:settings:${i.id}`,category:"Settings",label:i.label,path:`/settings/${i.id}`});let s=[];try{s=(await Promise.all(v.map(async n=>(await this._fetch(`/plugins/${n.id}`)||[]).map(l=>({...l,kind:n.id,kindLabel:n.label}))))).flat()}catch{}for(const i of s)t.push({id:`nav:${i.kind}:${i.name}`,category:i.kindLabel,label:i.display_name||i.name,path:`/settings/${i.kind}/${i.name}`});this._navCommands=t}async _buildCommands(){const t=[];let s=[];try{s=await this._fetch("/plugins/pipe")||[]}catch{}for(const i of s){const n=i.display_name||i.name;t.push({id:`sync:${i.name}`,category:"Pipe",label:`Sync ${n}`,description:"Run sync now",action:()=>this._syncPipe(i.name)})}this._paletteCommands=t}async _syncPipe(t){try{await fetch(`${this.apiBase}/sync/${t}`,{method:"POST"})}catch{}}_executePaletteCommand(t){const s=t.detail;s.path?this._router.goto(s.path):s.action&&s.action(),this._paletteOpen=!1}async _refreshComponents(){this._components=await this._fetch("/components")||[]}async _fetchData(){this._loading=!0;try{const[t,s]=await Promise.all([this._fetch("/components"),this._fetch("/db/status")]);this._components=t||[],this._dbStatus=s}catch(t){console.error("Failed to fetch data:",t)}this._loading=!1}async _fetch(t){const s=await fetch(`${this.apiBase}${t}`);return s.ok?s.json():null}_activeTab(){return(window.location.pathname.replace(/^\/+/,"")||"").split("/")[0]||(this._components.length>0?this._components[0].name:"settings")}_startDrag(t){return s=>{s.preventDefault();const i=s.clientX,n=t==="left"?this._leftWidth:this._rightWidth,r=s.target;r.classList.add("dragging");const l=p=>{const c=t==="left"?p.clientX-i:i-p.clientX,h=Math.max(80,Math.min(400,n+c));t==="left"?this._leftWidth=h:this._rightWidth=h},o=()=>{r.classList.remove("dragging"),window.removeEventListener("mousemove",l),window.removeEventListener("mouseup",o)};window.addEventListener("mousemove",l),window.addEventListener("mouseup",o)}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;const t=this._activeTab();return a`
       <div class="layout">
         <div class="panel-left" style="width: ${this._leftWidth}px">
           <div class="header">
@@ -586,34 +586,34 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
         @execute=${this._executePaletteCommand}
         @close=${()=>{this._navPaletteOpen=!1}}
       ></shenas-command-palette>
-    `}_navItem(t,s,n){return a`
-      <a class="nav-item" href="/${t}" aria-selected=${n===t}>
+    `}_navItem(t,s,i){return a`
+      <a class="nav-item" href="/${t}" aria-selected=${i===t}>
         ${s}
       </a>
-    `}_renderDynamicHome(){return this._components.length>0?this._renderDynamicTab(this._components[0].name):this._renderSettings("pipe")}_renderDynamicTab(t){const s=this._components.find(n=>n.name===t);if(!s)return a`<p class="empty">Unknown page: ${t}</p>`;if(!this._loadedScripts.has(s.js)){this._loadedScripts=new Set([...this._loadedScripts,s.js]);const n=document.createElement("script");n.type="module",n.src=s.js,document.head.appendChild(n)}return a`<div class="component-host">
+    `}_renderDynamicHome(){return this._components.length>0?this._renderDynamicTab(this._components[0].name):this._renderSettings("pipe")}_renderDynamicTab(t){const s=this._components.find(i=>i.name===t);if(!s)return a`<p class="empty">Unknown page: ${t}</p>`;if(!this._loadedScripts.has(s.js)){this._loadedScripts=new Set([...this._loadedScripts,s.js]);const i=document.createElement("script");i.type="module",i.src=s.js,document.head.appendChild(i)}return a`<div class="component-host">
       ${this._getOrCreateElement(s)}
-    </div>`}_renderPluginDetail(t,s,n="details"){return a`<shenas-plugin-detail
+    </div>`}_renderPluginDetail(t,s,i="details"){return a`<shenas-plugin-detail
       api-base="${this.apiBase}"
       kind="${t}"
       name="${s}"
-      active-tab="${n}"
+      active-tab="${i}"
     ></shenas-plugin-detail>`}_renderSettings(t){return a`<shenas-settings
       api-base="${this.apiBase}"
       active-kind="${t||"overview"}"
       .onNavigate=${s=>{this._router.goto(`/settings/${s}`)}}
-    ></shenas-settings>`}async _inspect(t,s){if(!/^[a-zA-Z_]\w*$/.test(t)||!/^[a-zA-Z_]\w*$/.test(s))return;const n=`${t}.${s}`;if(this._inspectTable===n){this._inspectTable=null,this._inspectRows=null;return}this._inspectTable=n,this._inspectRows=null;try{const i=await fetch(`${this.apiBase}/db/preview/${t}/${s}?limit=50`);this._inspectRows=i.ok?await i.json():[]}catch{this._inspectRows=[]}}_renderDbStats(){const t=this._dbStatus;return t?a`
+    ></shenas-settings>`}async _inspect(t,s){if(!/^[a-zA-Z_]\w*$/.test(t)||!/^[a-zA-Z_]\w*$/.test(s))return;const i=`${t}.${s}`;if(this._inspectTable===i){this._inspectTable=null,this._inspectRows=null;return}this._inspectTable=i,this._inspectRows=null;try{const n=await fetch(`${this.apiBase}/db/preview/${t}/${s}?limit=50`);this._inspectRows=n.ok?await n.json():[]}catch{this._inspectRows=[]}}_renderDbStats(){const t=this._dbStatus;return t?a`
       <div class="db-section">
         <div class="db-meta">
           ${t.size_mb!=null?a`<code>${t.size_mb} MB</code>`:a`<span>Not created</span>`}
         </div>
         ${(t.schemas||[]).map(s=>a`
             <h4>${s.name}</h4>
-            ${s.tables.map(n=>a`
+            ${s.tables.map(i=>a`
                 <div class="db-table-row">
-                  <span class="db-table-name">${n.name}</span>
-                  <span class="db-table-count">${n.rows}</span>
+                  <span class="db-table-name">${i.name}</span>
+                  <span class="db-table-count">${i.rows}</span>
                 </div>
-                ${n.earliest?a`<span class="db-date-range">${n.earliest} - ${n.latest}</span>`:""}
+                ${i.earliest?a`<span class="db-date-range">${i.earliest} - ${i.latest}</span>`:""}
               `)}
           `)}
       </div>
@@ -806,7 +806,7 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-    `]);customElements.define("shenas-app",z);const y=[{id:"pipe",label:"Pipes"},{id:"schema",label:"Schemas"},{id:"component",label:"Components"},{id:"ui",label:"UI"},{id:"theme",label:"Themes"}];class T extends b{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null,this._installing=!1}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all(y.map(async({id:t})=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _togglePlugin(e,t,s){const n=s?"disable":"enable",r=await(await fetch(`${this.apiBase}/plugins/${e}/${t}/${n}`,{method:"POST"})).json();r.ok||(this._actionMessage={type:"error",text:r.message||`${n} failed`}),e==="theme"&&await this._applyActiveTheme(),await this._fetchAll()}async _applyActiveTheme(){const e=await fetch(`${this.apiBase}/theme`);if(!e.ok)return;const{css:t}=await e.json();let s=document.querySelector("link[data-shenas-theme]");t?(s||(s=document.createElement("link"),s.rel="stylesheet",s.setAttribute("data-shenas-theme",""),document.head.appendChild(s)),s.href=t):s&&s.remove()}async _install(e){var l,o;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(l=t==null?void 0:t.value)==null?void 0:l.trim();if(!s)return;this._actionMessage=null;const r=(o=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:o[0];r!=null&&r.ok?(this._actionMessage={type:"success",text:r.message},this._installing=!1,await this._fetchAll()):this._actionMessage={type:"error",text:(r==null?void 0:r.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
+    `]);customElements.define("shenas-app",z);class T extends b{constructor(){super(),this.apiBase="/api",this.activeKind="pipe",this.onNavigate=null,this._plugins={},this._loading=!0,this._actionMessage=null,this._installing=!1}connectedCallback(){super.connectedCallback(),this._fetchAll()}async _fetchAll(){this._loading=!0;const e={};await Promise.all(v.map(async({id:t})=>{const s=await fetch(`${this.apiBase}/plugins/${t}`);e[t]=s.ok?await s.json():[]})),this._plugins=e,this._loading=!1}async _togglePlugin(e,t,s){const i=s?"disable":"enable",r=await(await fetch(`${this.apiBase}/plugins/${e}/${t}/${i}`,{method:"POST"})).json();r.ok||(this._actionMessage={type:"error",text:r.message||`${i} failed`}),e==="theme"&&await this._applyActiveTheme(),await this._fetchAll()}async _applyActiveTheme(){const e=await fetch(`${this.apiBase}/theme`);if(!e.ok)return;const{css:t}=await e.json();let s=document.querySelector("link[data-shenas-theme]");t?(s||(s=document.createElement("link"),s.rel="stylesheet",s.setAttribute("data-shenas-theme",""),document.head.appendChild(s)),s.href=t):s&&s.remove()}async _install(e){var l,o;const t=this.shadowRoot.querySelector(`#install-${e}`),s=(l=t==null?void 0:t.value)==null?void 0:l.trim();if(!s)return;this._actionMessage=null;const r=(o=(await(await fetch(`${this.apiBase}/plugins/${e}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names:[s],skip_verify:!0})})).json()).results)==null?void 0:o[0];r!=null&&r.ok?(this._actionMessage={type:"success",text:r.message},this._installing=!1,await this._fetchAll()):this._actionMessage={type:"error",text:(r==null?void 0:r.message)||"Install failed"}}render(){return this._loading?a`<p class="loading">Loading plugins...</p>`:a`
       ${this._actionMessage?a`<div class="message ${this._actionMessage.type}">
             ${this._actionMessage.text}
           </div>`:""}
@@ -818,7 +818,7 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
                 Data Flow
               </a>
             </li>
-            ${y.map(({id:e,label:t})=>a`
+            ${v.map(({id:e,label:t})=>a`
                 <li>
                   <a
                     href="/settings/${e}"
@@ -837,12 +837,12 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
           ${this.activeKind==="overview"?a`<shenas-pipeline-overview api-base="${this.apiBase}"></shenas-pipeline-overview>`:this._renderKind(this.activeKind)}
         </div>
       </div>
-    `}_renderKind(e){var n;const t=this._plugins[e]||[],s=((n=y.find(i=>i.id===e))==null?void 0:n.label)||e;return a`
+    `}_renderKind(e){var i;const t=this._plugins[e]||[],s=((i=v.find(n=>n.id===e))==null?void 0:i.label)||e;return a`
       <h3>${s}</h3>
       <shenas-data-list
-        .columns=${[{label:"Name",render:i=>a`<a href="/settings/${e}/${i.name}">${i.display_name||i.name}</a>`},{key:"version",label:"Version",class:"mono"},{label:"Added",class:"mono",render:i=>i.added_at?i.added_at.slice(0,10):""},{label:"Status",render:i=>a`<status-toggle ?enabled=${i.enabled!==!1} toggleable @toggle=${()=>this._togglePlugin(e,i.name,i.enabled!==!1)}></status-toggle>`}]}
+        .columns=${[{label:"Name",render:n=>a`<a href="/settings/${e}/${n.name}">${n.display_name||n.name}</a>`},{key:"version",label:"Version",class:"mono"},{label:"Added",class:"mono",render:n=>n.added_at?n.added_at.slice(0,10):""},{label:"Status",render:n=>a`<status-toggle ?enabled=${n.enabled!==!1} toggleable @toggle=${()=>this._togglePlugin(e,n.name,n.enabled!==!1)}></status-toggle>`}]}
         .rows=${t}
-        .rowClass=${i=>i.enabled===!1?"disabled-row":""}
+        .rowClass=${n=>n.enabled===!1?"disabled-row":""}
         ?show-add=${!this._installing}
         @add=${()=>{this._installing=!0}}
         empty-text="No ${s.toLowerCase()} installed"
@@ -857,11 +857,11 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
               id="install-${e}"
               type="text"
               placeholder="Plugin name"
-              @keydown=${i=>i.key==="Enter"&&this._install(e)}
+              @keydown=${n=>n.key==="Enter"&&this._install(e)}
               style="width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--shenas-border-input, #ddd); border-radius: 4px; font-size: 0.85rem; box-sizing: border-box; background: var(--shenas-bg, #fff); color: var(--shenas-text, #222);"
             />
           </shenas-form-panel>`:""}
-    `}}d(T,"properties",{apiBase:{type:String,attribute:"api-base"},activeKind:{type:String,attribute:"active-kind"},onNavigate:{type:Function},_plugins:{state:!0},_loading:{state:!0},_actionMessage:{state:!0},_installing:{state:!0}}),d(T,"styles",[_,O,v,f,m`
+    `}}d(T,"properties",{apiBase:{type:String,attribute:"api-base"},activeKind:{type:String,attribute:"active-kind"},onNavigate:{type:Function},_plugins:{state:!0},_loading:{state:!0},_actionMessage:{state:!0},_installing:{state:!0}}),d(T,"styles",[_,O,y,f,m`
       :host {
         display: block;
         height: 100%;
@@ -916,8 +916,8 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
         font-size: 1rem;
         margin: 0 0 1rem;
       }
-    `]);customElements.define("shenas-settings",T);class B extends b{constructor(){super(),this.apiBase="/api",this.kind="",this.name="",this.activeTab="details",this._info=null,this._loading=!0,this._message=null,this._hasConfig=!1,this._hasAuth=!1,this._tables=[],this._syncing=!1,this._schemaTransforms=[]}willUpdate(e){(e.has("kind")||e.has("name"))&&this._fetchInfo()}async _fetchInfo(){var p;if(!this.kind||!this.name)return;this._loading=!0,this._message=null;const e=await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/info`);this._info=e.ok?await e.json():null;const t=this.kind==="pipe"||this.kind==="schema",[s,n,i,r,l]=await Promise.all([fetch(`${this.apiBase}/config?kind=${this.kind}&name=${this.name}`),this.kind==="pipe"?fetch(`${this.apiBase}/auth/${this.name}/fields`):Promise.resolve(null),t?fetch(`${this.apiBase}/db/status`):Promise.resolve(null),this.kind==="schema"?fetch(`${this.apiBase}/db/schema-plugins`):Promise.resolve(null),this.kind==="schema"?fetch(`${this.apiBase}/transforms`):Promise.resolve(null)]);if(s.ok){const c=await s.json();this._hasConfig=c.length>0&&c[0].entries.length>0}if(n!=null&&n.ok){const c=await n.json();this._hasAuth=((p=c.fields)==null?void 0:p.length)>0||!!c.instructions}const o=r!=null&&r.ok?(await r.json())[this.name]||[]:[];if(i!=null&&i.ok){const c=await i.json();if(this.kind==="pipe"){const h=(c.schemas||[]).find(g=>g.name===this.name);this._tables=h?h.tables.filter(g=>!g.name.startsWith("_dlt_")):[]}else if(this.kind==="schema"){const h=(c.schemas||[]).find(g=>g.name==="metrics");this._tables=h?h.tables.filter(g=>o.includes(g.name)):[]}}if(l!=null&&l.ok){const c=await l.json();this._schemaTransforms=c.filter(h=>o.includes(h.target_duckdb_table))}this._loading=!1}async _toggle(){var n;const e=((n=this._info)==null?void 0:n.enabled)!==!1?"disable":"enable",s=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/${e}`,{method:"POST"})).json();this._message={type:s.ok?"success":"error",text:s.message||`${e} failed`},await this._fetchInfo(),this.dispatchEvent(new CustomEvent("plugin-state-changed",{bubbles:!0,composed:!0}))}async _sync(){this._syncing=!0,this._message=null;try{const e=await fetch(`${this.apiBase}/sync/${this.name}`,{method:"POST"});if(!e.ok){const o=await e.json().catch(()=>({}));this._message={type:"error",text:o.detail||`Sync failed (${e.status})`},this._syncing=!1;return}const t=e.body.getReader(),s=new TextDecoder;let n="",i="",r=!1;for(;;){const{done:o,value:p}=await t.read();if(o)break;const c=s.decode(p,{stream:!0});for(const h of c.split(`
-`))h.startsWith("event: ")&&(n=h.slice(7).trim()),h.startsWith("data: ")&&(i=h.slice(6));n==="error"&&(r=!0)}let l="Sync complete";try{l=JSON.parse(i).message||l}catch{}this._message={type:r?"error":"success",text:l},r||await this._fetchInfo()}catch(e){this._message={type:"error",text:`Sync failed: ${e.message}`}}this._syncing=!1}async _remove(){const t=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}`,{method:"DELETE"})).json();t.ok?(window.history.pushState({},"",`/settings/${this.kind}`),window.dispatchEvent(new PopStateEvent("popstate"))):this._message={type:"error",text:t.message||"Remove failed"}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;if(!this._info)return a`<p>Plugin not found.</p>`;const e=this._info,t=e.enabled!==!1,s=`/settings/${this.kind}/${this.name}`;return a`
+    `]);customElements.define("shenas-settings",T);class B extends b{constructor(){super(),this.apiBase="/api",this.kind="",this.name="",this.activeTab="details",this._info=null,this._loading=!0,this._message=null,this._hasConfig=!1,this._hasAuth=!1,this._tables=[],this._syncing=!1,this._schemaTransforms=[]}willUpdate(e){(e.has("kind")||e.has("name"))&&this._fetchInfo()}async _fetchInfo(){var p;if(!this.kind||!this.name)return;this._loading=!0,this._message=null;const e=await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/info`);this._info=e.ok?await e.json():null;const t=this.kind==="pipe"||this.kind==="schema",[s,i,n,r,l]=await Promise.all([fetch(`${this.apiBase}/config?kind=${this.kind}&name=${this.name}`),this.kind==="pipe"?fetch(`${this.apiBase}/auth/${this.name}/fields`):Promise.resolve(null),t?fetch(`${this.apiBase}/db/status`):Promise.resolve(null),this.kind==="schema"?fetch(`${this.apiBase}/db/schema-plugins`):Promise.resolve(null),this.kind==="schema"?fetch(`${this.apiBase}/transforms`):Promise.resolve(null)]);if(s.ok){const c=await s.json();this._hasConfig=c.length>0&&c[0].entries.length>0}if(i!=null&&i.ok){const c=await i.json();this._hasAuth=((p=c.fields)==null?void 0:p.length)>0||!!c.instructions}const o=r!=null&&r.ok?(await r.json())[this.name]||[]:[];if(n!=null&&n.ok){const c=await n.json();if(this.kind==="pipe"){const h=(c.schemas||[]).find(g=>g.name===this.name);this._tables=h?h.tables.filter(g=>!g.name.startsWith("_dlt_")):[]}else if(this.kind==="schema"){const h=(c.schemas||[]).find(g=>g.name==="metrics");this._tables=h?h.tables.filter(g=>o.includes(g.name)):[]}}if(l!=null&&l.ok){const c=await l.json();this._schemaTransforms=c.filter(h=>o.includes(h.target_duckdb_table))}this._loading=!1}async _toggle(){var i;const e=((i=this._info)==null?void 0:i.enabled)!==!1?"disable":"enable",s=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/${e}`,{method:"POST"})).json();this._message={type:s.ok?"success":"error",text:s.message||`${e} failed`},await this._fetchInfo(),this.dispatchEvent(new CustomEvent("plugin-state-changed",{bubbles:!0,composed:!0}))}async _sync(){this._syncing=!0,this._message=null;try{const e=await fetch(`${this.apiBase}/sync/${this.name}`,{method:"POST"});if(!e.ok){const o=await e.json().catch(()=>({}));this._message={type:"error",text:o.detail||`Sync failed (${e.status})`},this._syncing=!1;return}const t=e.body.getReader(),s=new TextDecoder;let i="",n="",r=!1;for(;;){const{done:o,value:p}=await t.read();if(o)break;const c=s.decode(p,{stream:!0});for(const h of c.split(`
+`))h.startsWith("event: ")&&(i=h.slice(7).trim()),h.startsWith("data: ")&&(n=h.slice(6));i==="error"&&(r=!0)}let l="Sync complete";try{l=JSON.parse(n).message||l}catch{}this._message={type:r?"error":"success",text:l},r||await this._fetchInfo()}catch(e){this._message={type:"error",text:`Sync failed: ${e.message}`}}this._syncing=!1}async _remove(){const t=await(await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}`,{method:"DELETE"})).json();t.ok?(window.history.pushState({},"",`/settings/${this.kind}`),window.dispatchEvent(new PopStateEvent("popstate"))):this._message={type:"error",text:t.message||"Remove failed"}}render(){if(this._loading)return a`<p class="loading">Loading...</p>`;if(!this._info)return a`<p>Plugin not found.</p>`;const e=this._info,t=e.enabled!==!1,s=`/settings/${this.kind}/${this.name}`;return a`
       <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
 
       <div class="title-row">
@@ -982,7 +982,7 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
         <span class="state-label">${e}</span>
         <span class="state-value">${t.slice(0,19)}</span>
       </div>
-    `:""}}d(B,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},activeTab:{type:String,attribute:"active-tab"},_info:{state:!0},_loading:{state:!0},_message:{state:!0},_hasConfig:{state:!0},_hasAuth:{state:!0},_tables:{state:!0},_syncing:{state:!0},_schemaTransforms:{state:!0}}),d(B,"styles",[_,O,v,M,f,m`
+    `:""}}d(B,"properties",{apiBase:{type:String,attribute:"api-base"},kind:{type:String},name:{type:String},activeTab:{type:String,attribute:"active-tab"},_info:{state:!0},_loading:{state:!0},_message:{state:!0},_hasConfig:{state:!0},_hasAuth:{state:!0},_tables:{state:!0},_syncing:{state:!0},_schemaTransforms:{state:!0}}),d(B,"styles",[_,O,y,M,f,m`
       :host {
         display: block;
       }
@@ -1069,7 +1069,7 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
         `}
         empty-text="No transforms"
       ></shenas-data-list>
-    `}_renderCreateForm(){const e=this._newForm,t=this.source,s=this._dbTables[t]||[],n=Object.values(this._schemaTables||{}).flat();return a`
+    `}_renderCreateForm(){const e=this._newForm,t=this.source,s=this._dbTables[t]||[],i=Object.values(this._schemaTables||{}).flat();return a`
       <shenas-form-panel
         title="New transform"
         submit-label="Create"
@@ -1081,33 +1081,33 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
             Pipe table
             <select
               .value=${e.source_duckdb_table}
-              @change=${i=>this._updateNewForm("source_duckdb_table",i.target.value)}
+              @change=${n=>this._updateNewForm("source_duckdb_table",n.target.value)}
             >
               <option value="">-- select --</option>
-              ${s.map(i=>a`<option value=${i} ?selected=${e.source_duckdb_table===i}>${i}</option>`)}
+              ${s.map(n=>a`<option value=${n} ?selected=${e.source_duckdb_table===n}>${n}</option>`)}
             </select>
           </label>
           <label>
             Schema table
             <select
               .value=${e.target_duckdb_table}
-              @change=${i=>this._updateNewForm("target_duckdb_table",i.target.value)}
+              @change=${n=>this._updateNewForm("target_duckdb_table",n.target.value)}
             >
               <option value="">-- select --</option>
-              ${n.map(i=>a`<option value=${i} ?selected=${e.target_duckdb_table===i}>${i}</option>`)}
+              ${i.map(n=>a`<option value=${n} ?selected=${e.target_duckdb_table===n}>${n}</option>`)}
             </select>
           </label>
           <label class="form-full">
             Description
             <input
               .value=${e.description}
-              @input=${i=>this._updateNewForm("description",i.target.value)}
+              @input=${n=>this._updateNewForm("description",n.target.value)}
             />
           </label>
         </div>
         <textarea
           .value=${e.sql}
-          @input=${i=>this._updateNewForm("sql",i.target.value)}
+          @input=${n=>this._updateNewForm("sql",n.target.value)}
           placeholder="SELECT ... FROM ${t}.${e.source_duckdb_table||"table_name"}"
         ></textarea>
       </shenas-form-panel>
@@ -1147,7 +1147,7 @@ var I=Object.defineProperty;var F=(u,e,t)=>e in u?I(u,e,{enumerable:!0,configura
           </tbody>
         </table>
       </div>
-    `}}d(P,"properties",{apiBase:{type:String,attribute:"api-base"},source:{type:String},_transforms:{state:!0},_loading:{state:!0},_editing:{state:!0},_editSql:{state:!0},_message:{state:!0},_previewRows:{state:!0},_creating:{state:!0},_newForm:{state:!0},_dbTables:{state:!0},_schemaTables:{state:!0}}),d(P,"styles",[D,_,v,f,m`
+    `}}d(P,"properties",{apiBase:{type:String,attribute:"api-base"},source:{type:String},_transforms:{state:!0},_loading:{state:!0},_editing:{state:!0},_editSql:{state:!0},_message:{state:!0},_previewRows:{state:!0},_creating:{state:!0},_newForm:{state:!0},_dbTables:{state:!0},_schemaTables:{state:!0}}),d(P,"styles",[D,_,y,f,m`
       :host {
         display: block;
       }
