@@ -1,4 +1,5 @@
 import { LitElement, html, css } from "lit";
+import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
 import { buttonStyles, linkStyles, messageStyles, tabStyles, utilityStyles } from "./shared-styles.js";
 
 class PluginDetail extends LitElement {
@@ -121,37 +122,25 @@ class PluginDetail extends LitElement {
     if (!this.kind || !this.name) return;
     this._loading = true;
     this._message = null;
-    const resp = await fetch(
-      `${this.apiBase}/plugins/${this.kind}/${this.name}/info`,
-    );
-    this._info = resp.ok ? await resp.json() : null;
+    this._info = await apiFetch(this.apiBase, `/plugins/${this.kind}/${this.name}/info`);
     const needsDb = this.kind === "pipe" || this.kind === "schema";
-    const [configResp, authResp, dbResp, ownershipResp, transformsResp] = await Promise.all([
-      fetch(`${this.apiBase}/config?kind=${this.kind}&name=${this.name}`),
+    const [configItems, authData, db, ownership, allTransforms] = await Promise.all([
+      apiFetch(this.apiBase, `/config?kind=${this.kind}&name=${this.name}`),
       this.kind === "pipe"
-        ? fetch(`${this.apiBase}/auth/${this.name}/fields`)
-        : Promise.resolve(null),
-      needsDb ? fetch(`${this.apiBase}/db/status`) : Promise.resolve(null),
+        ? apiFetch(this.apiBase, `/auth/${this.name}/fields`)
+        : null,
+      needsDb ? apiFetch(this.apiBase, `/db/status`) : null,
       this.kind === "schema"
-        ? fetch(`${this.apiBase}/db/schema-plugins`)
-        : Promise.resolve(null),
+        ? apiFetch(this.apiBase, `/db/schema-plugins`)
+        : null,
       this.kind === "schema"
-        ? fetch(`${this.apiBase}/transforms`)
-        : Promise.resolve(null),
+        ? apiFetch(this.apiBase, `/transforms`)
+        : null,
     ]);
-    if (configResp.ok) {
-      const items = await configResp.json();
-      this._hasConfig = items.length > 0 && items[0].entries.length > 0;
-    }
-    if (authResp?.ok) {
-      const data = await authResp.json();
-      this._hasAuth = (data.fields?.length > 0) || !!data.instructions;
-    }
-    const ownedTables = ownershipResp?.ok
-      ? (await ownershipResp.json())[this.name] || []
-      : [];
-    if (dbResp?.ok) {
-      const db = await dbResp.json();
+    this._hasConfig = configItems && configItems.length > 0 && configItems[0].entries.length > 0;
+    this._hasAuth = !!(authData && ((authData.fields?.length > 0) || authData.instructions));
+    const ownedTables = ownership ? (ownership[this.name] || []) : [];
+    if (db) {
       if (this.kind === "pipe") {
         const schema = (db.schemas || []).find((s) => s.name === this.name);
         this._tables = schema ? schema.tables.filter((t) => !t.name.startsWith("_dlt_")) : [];
@@ -162,8 +151,7 @@ class PluginDetail extends LitElement {
           : [];
       }
     }
-    if (transformsResp?.ok) {
-      const allTransforms = await transformsResp.json();
+    if (allTransforms) {
       this._schemaTransforms = allTransforms.filter(
         (t) => ownedTables.includes(t.target_duckdb_table),
       );
@@ -186,14 +174,10 @@ class PluginDetail extends LitElement {
 
   async _toggle() {
     const action = this._info?.enabled !== false ? "disable" : "enable";
-    const resp = await fetch(
-      `${this.apiBase}/plugins/${this.kind}/${this.name}/${action}`,
-      { method: "POST" },
-    );
-    const data = await resp.json();
+    const { data } = await apiFetchFull(this.apiBase, `/plugins/${this.kind}/${this.name}/${action}`, { method: "POST" });
     this._message = {
-      type: data.ok ? "success" : "error",
-      text: data.message || `${action} failed`,
+      type: data?.ok ? "success" : "error",
+      text: data?.message || `${action} failed`,
     };
     await this._fetchInfo();
     this.dispatchEvent(new CustomEvent("plugin-state-changed", { bubbles: true, composed: true }));
@@ -236,12 +220,8 @@ class PluginDetail extends LitElement {
   }
 
   async _remove() {
-    const resp = await fetch(
-      `${this.apiBase}/plugins/${this.kind}/${this.name}`,
-      { method: "DELETE" },
-    );
-    const data = await resp.json();
-    if (data.ok) {
+    const { data } = await apiFetchFull(this.apiBase, `/plugins/${this.kind}/${this.name}`, { method: "DELETE" });
+    if (data?.ok) {
       window.history.pushState({}, "", `/settings/${this.kind}`);
       window.dispatchEvent(new PopStateEvent("popstate"));
     } else {
@@ -294,11 +274,7 @@ class PluginDetail extends LitElement {
           ? html`<shenas-auth api-base="${this.apiBase}" pipe-name="${this.name}"></shenas-auth>`
           : this._renderDetails(info, enabled)}
 
-      ${this._message
-        ? html`<div class="message ${this._message.type}">
-            ${this._message.text}
-          </div>`
-        : ""}
+      ${renderMessage(this._message)}
     `;
   }
 

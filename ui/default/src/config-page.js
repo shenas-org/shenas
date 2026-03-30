@@ -1,4 +1,5 @@
 import { LitElement, html, css } from "lit";
+import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
 import { buttonStyles, messageStyles, utilityStyles } from "./shared-styles.js";
 
 class ConfigPage extends LitElement {
@@ -96,13 +97,8 @@ class ConfigPage extends LitElement {
   async _fetchConfig() {
     if (!this.kind || !this.name) return;
     this._loading = true;
-    const resp = await fetch(`${this.apiBase}/config?kind=${this.kind}&name=${this.name}`);
-    if (resp.ok) {
-      const items = await resp.json();
-      this._config = items.length > 0 ? items[0] : null;
-    } else {
-      this._config = null;
-    }
+    const items = await apiFetch(this.apiBase, `/config?kind=${this.kind}&name=${this.name}`);
+    this._config = items && items.length > 0 ? items[0] : null;
     this._loading = false;
   }
 
@@ -117,18 +113,16 @@ class ConfigPage extends LitElement {
   }
 
   async _saveEdit(key) {
-    const resp = await fetch(`${this.apiBase}/config/${this.kind}/${this.name}`, {
+    const { ok, data } = await apiFetchFull(this.apiBase, `/config/${this.kind}/${this.name}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, value: this._editValue }),
+      json: { key, value: this._editValue },
     });
-    if (resp.ok) {
+    if (ok) {
       this._message = { type: "success", text: `Updated ${key}` };
       this._editing = null;
       await this._fetchConfig();
     } else {
-      const data = await resp.json();
-      this._message = { type: "error", text: data.detail || "Update failed" };
+      this._message = { type: "error", text: data?.detail || "Update failed" };
     }
   }
 
@@ -141,9 +135,7 @@ class ConfigPage extends LitElement {
     }
 
     return html`
-      ${this._message
-        ? html`<div class="message ${this._message.type}">${this._message.text}</div>`
-        : ""}
+      ${renderMessage(this._message)}
       ${this._config.entries.map((e) => this._renderEntry(e))}
     `;
   }
