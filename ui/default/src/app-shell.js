@@ -666,8 +666,8 @@ class ShenasApp extends LitElement {
     } catch (e) {
       console.error("Failed to fetch data:", e);
     }
+    await this._registerGlobalCommands();
     this._loading = false;
-    this._registerGlobalCommands();
     await this._loadWorkspace();
   }
 
