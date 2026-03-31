@@ -25,7 +25,7 @@ class ShenasApp extends LitElement {
 
   _router = new Router(this, [
     { path: "/", render: () => this._renderDynamicHome() },
-    { path: "/settings", render: () => this._renderSettings("overview") },
+    { path: "/settings", render: () => this._renderSettings("data-flow") },
     {
       path: "/settings/:kind",
       render: ({ kind }) => this._renderSettings(kind),
@@ -154,8 +154,14 @@ class ShenasApp extends LitElement {
       }
       .tab-content {
         flex: 1;
-        overflow-y: auto;
+        min-height: 0;
+        position: relative;
+      }
+      .tab-content-inner {
+        position: absolute;
+        inset: 0;
         padding: 1.5rem 2rem;
+        overflow-y: auto;
       }
       .empty-state {
         flex: 1;
@@ -414,7 +420,7 @@ class ShenasApp extends LitElement {
     }
 
     // Settings sections from shared PLUGIN_KINDS
-    commands.push({ id: "nav:dataflow", category: "Settings", label: "Data Flow", path: "/settings/overview" });
+    commands.push({ id: "nav:dataflow", category: "Settings", label: "Data Flow", path: "/settings/data-flow" });
     for (const k of PLUGIN_KINDS) {
       commands.push({ id: `nav:settings:${k.id}`, category: "Settings", label: k.label, path: `/settings/${k.id}` });
     }
@@ -522,6 +528,7 @@ class ShenasApp extends LitElement {
     this._tabs = this._tabs.map((t) =>
       t.id === this._activeTabId ? { ...t, path, label: lbl } : t,
     );
+    window.history.pushState({}, "", path);
     this._router.goto(path);
     this._saveWorkspace();
   }
@@ -530,6 +537,7 @@ class ShenasApp extends LitElement {
     const id = this._nextTabId++;
     this._tabs = [...this._tabs, { id, path, label: label || this._labelForPath(path) }];
     this._activeTabId = id;
+    window.history.pushState({}, "", path);
     this._router.goto(path);
     this._saveWorkspace();
   }
@@ -612,7 +620,7 @@ class ShenasApp extends LitElement {
   _labelForPath(path) {
     const p = path.replace(/^\/+/, "");
     if (!p || p === "settings") return "Data Flow";
-    if (p === "settings/overview") return "Data Flow";
+    if (p === "settings/data-flow") return "Data Flow";
     const parts = p.split("/");
     if (parts[0] === "settings") {
       if (parts.length === 2) {
@@ -721,7 +729,9 @@ class ShenasApp extends LitElement {
                 <button class="tab-add" title="New tab" @click=${this._addTab}>+</button>
               </div>
               <div class="tab-content">
-                ${this._router.outlet()}
+                <div class="tab-content-inner">
+                  ${this._router.outlet()}
+                </div>
               </div>`
             : html`
               <div class="empty-state">
@@ -792,7 +802,7 @@ class ShenasApp extends LitElement {
   _renderSettings(kind) {
     return html`<shenas-settings
       api-base="${this.apiBase}"
-      active-kind="${kind || 'overview'}"
+      active-kind="${kind || 'data-flow'}"
       .onNavigate=${(k) => {
         this._navigateTo(`/settings/${k}`);
       }}

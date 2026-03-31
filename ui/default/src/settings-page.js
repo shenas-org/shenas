@@ -38,6 +38,13 @@ class SettingsPage extends LitElement {
         padding: 0;
         margin: 0;
       }
+      .sidebar-section {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--shenas-text-faint, #aaa);
+        padding: 0.8rem 0.8rem 0.3rem;
+      }
       .sidebar li {
         margin: 0;
       }
@@ -167,10 +174,13 @@ class SettingsPage extends LitElement {
         <nav class="sidebar">
           <ul>
             <li>
-              <a href="/settings/overview" aria-selected=${this.activeKind === "overview"}>
+              <a href="/settings/data-flow" aria-selected=${this.activeKind === "data-flow"}>
                 Data Flow
               </a>
             </li>
+          </ul>
+          <div class="sidebar-section">Plugins</div>
+          <ul>
             ${PLUGIN_KINDS.map(
               ({ id, label }) => html`
                 <li>
@@ -189,7 +199,7 @@ class SettingsPage extends LitElement {
           </ul>
         </nav>
         <div class="content">
-          ${this.activeKind === "overview"
+          ${this.activeKind === "data-flow"
             ? html`<shenas-pipeline-overview api-base="${this.apiBase}"></shenas-pipeline-overview>`
             : this._renderKind(this.activeKind)}
         </div>
