@@ -8,6 +8,7 @@ class SettingsPage extends LitElement {
     apiBase: { type: String, attribute: "api-base" },
     activeKind: { type: String, attribute: "active-kind" },
     onNavigate: { type: Function },
+    allActions: { type: Array },
     _plugins: { state: true },
     _loading: { state: true },
     _actionMessage: { state: true },
@@ -178,6 +179,11 @@ class SettingsPage extends LitElement {
                 Data Flow
               </a>
             </li>
+            <li>
+              <a href="/settings/hotkeys" aria-selected=${this.activeKind === "hotkeys"}>
+                Hotkeys
+              </a>
+            </li>
           </ul>
           <div class="sidebar-section">Plugins</div>
           <ul>
@@ -201,7 +207,9 @@ class SettingsPage extends LitElement {
         <div class="content">
           ${this.activeKind === "data-flow"
             ? html`<shenas-pipeline-overview api-base="${this.apiBase}"></shenas-pipeline-overview>`
-            : this._renderKind(this.activeKind)}
+            : this.activeKind === "hotkeys"
+              ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
+              : this._renderKind(this.activeKind)}
         </div>
       </div>
       </shenas-page>

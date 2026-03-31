@@ -1,7 +1,7 @@
 import { LitElement, html, css } from "lit";
 import { Router } from "@lit-labs/router";
 import { apiFetch } from "./api.js";
-import { PLUGIN_KINDS } from "./constants.js";
+import { PLUGIN_KINDS, matchesHotkey } from "./constants.js";
 import { linkStyles, utilityStyles } from "./shared-styles.js";
 
 class ShenasApp extends LitElement {
@@ -368,27 +368,34 @@ class ShenasApp extends LitElement {
         this._registeredCommands.set(componentId, commands);
       }
     });
+    this._loadHotkeys();
     this._keyHandler = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "p") {
-        e.preventDefault();
-        this._togglePalette();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "o") {
-        e.preventDefault();
-        this._toggleNavPalette();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "w") {
-        e.preventDefault();
-        if (this._activeTabId != null) this._closeTab(this._activeTabId);
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "t") {
-        e.preventDefault();
-        this._addTab();
+      for (const [actionId, binding] of Object.entries(this._hotkeys)) {
+        if (binding && matchesHotkey(e, binding)) {
+          for (const cmds of this._registeredCommands.values()) {
+            const cmd = cmds.find((c) => c.id === actionId);
+            if (cmd && cmd.action) {
+              e.preventDefault();
+              cmd.action();
+              return;
+            }
+          }
+        }
       }
     };
     document.addEventListener("keydown", this._keyHandler);
+    this.addEventListener("hotkeys-changed", () => this._loadHotkeys());
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener("keydown", this._keyHandler);
+  }
+
+  _hotkeys = {};
+
+  async _loadHotkeys() {
+    this._hotkeys = (await apiFetch(this.apiBase, "/hotkeys")) || {};
   }
 
   _togglePalette() {
@@ -495,6 +502,13 @@ class ShenasApp extends LitElement {
       });
     } catch { /* */ }
     this._pluginDisplayNames = names;
+    // System actions (also triggerable from Ctrl+P)
+    commands.push(
+      { id: "command-palette", category: "System", label: "Command Palette", action: () => this._togglePalette() },
+      { id: "navigation-palette", category: "System", label: "Navigation Palette", action: () => this._toggleNavPalette() },
+      { id: "close-tab", category: "System", label: "Close Tab", action: () => { if (this._activeTabId != null) this._closeTab(this._activeTabId); } },
+      { id: "new-tab", category: "System", label: "New Tab", action: () => this._addTab() },
+    );
     this._registeredCommands.set("global", commands);
   }
 
@@ -799,10 +813,25 @@ class ShenasApp extends LitElement {
     ></shenas-plugin-detail>`;
   }
 
+  _getAllActions() {
+    const seen = new Set();
+    const actions = [];
+    for (const cmds of this._registeredCommands.values()) {
+      for (const cmd of cmds) {
+        if (!seen.has(cmd.id) && cmd.action) {
+          seen.add(cmd.id);
+          actions.push({ id: cmd.id, label: cmd.label, category: cmd.category });
+        }
+      }
+    }
+    return actions;
+  }
+
   _renderSettings(kind) {
     return html`<shenas-settings
       api-base="${this.apiBase}"
       active-kind="${kind || 'data-flow'}"
+      .allActions=${this._getAllActions()}
       .onNavigate=${(k) => {
         this._navigateTo(`/settings/${k}`);
       }}
