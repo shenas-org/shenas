@@ -443,13 +443,17 @@ class ShenasApp extends LitElement {
     this._navCommands = commands;
   }
 
+  _pluginDisplayNames = {};
+
   async _registerGlobalCommands() {
     const commands = [];
+    const names = {};
     try {
       for (const k of PLUGIN_KINDS) {
         const plugins = (await this._fetch(`/plugins/${k.id}`)) || [];
         for (const p of plugins) {
           const name = p.display_name || p.name;
+          names[`${k.id}:${p.name}`] = name;
           const enabled = p.enabled !== false;
           commands.push({
             id: `toggle:${k.id}:${p.name}`,
@@ -484,6 +488,7 @@ class ShenasApp extends LitElement {
         action: () => apiFetch(this.apiBase, `/transforms/seed`, { method: "POST" }),
       });
     } catch { /* */ }
+    this._pluginDisplayNames = names;
     this._registeredCommands.set("global", commands);
   }
 
@@ -614,7 +619,10 @@ class ShenasApp extends LitElement {
         const kind = PLUGIN_KINDS.find((k) => k.id === parts[1]);
         return kind ? kind.label : parts[1];
       }
-      if (parts.length >= 3) return parts[2];
+      if (parts.length >= 3) {
+        const key = `${parts[1]}:${parts[2]}`;
+        return this._pluginDisplayNames[key] || parts[2];
+      }
     }
     const comp = this._components.find((c) => c.name === parts[0]);
     return comp ? (comp.display_name || comp.name) : parts[0];

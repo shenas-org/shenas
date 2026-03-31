@@ -242,7 +242,7 @@ def _pipe_config_tables_with_frequency(cur: duckdb.DuckDBPyConnection) -> list[t
           AND table_schema = 'config'
           AND table_name LIKE 'pipe_%'
     """).fetchall()
-    return [(f'config."{r[1]}"', r[1][len("pipe_"):]) for r in rows]
+    return [(f'config."{r[1]}"', r[1][len("pipe_") :]) for r in rows]
 
 
 def get_pipes_due_for_sync() -> list[dict[str, Any]]:
