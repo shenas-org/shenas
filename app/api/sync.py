@@ -207,5 +207,3 @@ def get_sync_schedule() -> list[ScheduleInfo]:
     from app.db import get_all_sync_schedules
 
     return [ScheduleInfo(**row) for row in get_all_sync_schedules()]
-
-
