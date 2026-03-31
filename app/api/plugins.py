@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import importlib
 import json
+import logging
 import subprocess
+
 from html.parser import HTMLParser
 from typing import Any
 from pathlib import Path
@@ -19,6 +21,8 @@ from app.models import InstallRequest, InstallResponse, InstallResult, OkRespons
 from repository.signing import load_public_key, verify_bytes
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
+
+log = logging.getLogger(f"shenas.{__name__}")
 
 VALID_KINDS = {"pipe", "schema", "component", "ui", "theme"}
 
@@ -337,6 +341,7 @@ def enable_plugin(kind: str, name: str) -> OkResponse:
             if state["name"] != name and state["enabled"]:
                 upsert_plugin_state(kind, state["name"], enabled=False)
     upsert_plugin_state(kind, name, enabled=True)
+    log.info("Plugin enabled: %s %s", kind, name)
     return OkResponse(ok=True, message=f"Enabled {kind} {name}")
 
 
@@ -353,4 +358,5 @@ def disable_plugin(kind: str, name: str) -> OkResponse:
         upsert_plugin_state(kind, "default", enabled=True)
         return OkResponse(ok=True, message=f"Switched {kind} to default")
     upsert_plugin_state(kind, name, enabled=False)
+    log.info("Plugin disabled: %s %s", kind, name)
     return OkResponse(ok=True, message=f"Disabled {kind} {name}")

@@ -11,7 +11,7 @@ from pathlib import Path as _Path
 from typing import Any
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
@@ -22,7 +22,12 @@ async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
     from telemetry.setup import init_telemetry
 
+    import asyncio
+
+    from telemetry.dispatcher import set_loop
+
     init_telemetry("shenas-server")
+    set_loop(asyncio.get_running_loop())
     FastAPIInstrumentor.instrument_app(application)
     yield
 
@@ -185,6 +190,122 @@ def plugin_dependencies() -> dict[str, list[str]]:
         if deps:
             result[f"{kind}:{plugin_name}"] = deps
     return result
+
+
+@app.get("/api/logs")
+def get_logs(limit: int = 100, severity: str | None = None, search: str | None = None) -> list[dict[str, Any]]:
+    """Query telemetry logs."""
+    from app.db import connect
+
+    limit = max(1, min(limit, 1000))
+    con = connect(read_only=True)
+    cur = con.cursor()
+    try:
+        cur.execute("USE db")
+        conditions = []
+        params: list[Any] = []
+        if severity:
+            conditions.append("severity = ?")
+            params.append(severity)
+        if search:
+            conditions.append("body LIKE ?")
+            params.append(f"%{search}%")
+        where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+        rows = cur.execute(
+            f"SELECT timestamp, trace_id, span_id, severity, body, attributes, service_name "
+            f"FROM telemetry.logs{where} ORDER BY timestamp DESC LIMIT {limit}",
+            params,
+        ).fetchall()
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, r)) for r in rows]
+    except Exception:
+        return []
+    finally:
+        cur.close()
+
+
+@app.get("/api/spans")
+def get_spans(limit: int = 100, search: str | None = None) -> list[dict[str, Any]]:
+    """Query telemetry spans."""
+    from app.db import connect
+
+    limit = max(1, min(limit, 1000))
+    con = connect(read_only=True)
+    cur = con.cursor()
+    try:
+        cur.execute("USE db")
+        conditions = []
+        params: list[Any] = []
+        if search:
+            conditions.append("name LIKE ?")
+            params.append(f"%{search}%")
+        where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+        rows = cur.execute(
+            f"SELECT trace_id, span_id, parent_span_id, name, kind, service_name, "
+            f"status_code, start_time, end_time, duration_ms, attributes "
+            f"FROM telemetry.spans{where} ORDER BY start_time DESC LIMIT {limit}",
+            params,
+        ).fetchall()
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, r)) for r in rows]
+    except Exception:
+        return []
+    finally:
+        cur.close()
+
+
+@app.get("/api/stream/logs")
+async def stream_logs() -> StreamingResponse:
+    """SSE stream of new log entries as they arrive."""
+    import asyncio
+    import json
+
+    from telemetry.dispatcher import subscribe, unsubscribe
+
+    async def _generate() -> AsyncIterator[str]:
+        q = subscribe()
+        try:
+            while True:
+                try:
+                    event = await asyncio.wait_for(q.get(), timeout=30)
+                    if event["type"] == "logs":
+                        for row in event["data"]:
+                            yield f"data: {json.dumps(row, default=str)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            unsubscribe(q)
+
+    return StreamingResponse(_generate(), media_type="text/event-stream")
+
+
+@app.get("/api/stream/spans")
+async def stream_spans() -> StreamingResponse:
+    """SSE stream of new span entries as they arrive."""
+    import asyncio
+    import json
+
+    from telemetry.dispatcher import subscribe, unsubscribe
+
+    async def _generate() -> AsyncIterator[str]:
+        q = subscribe()
+        try:
+            while True:
+                try:
+                    event = await asyncio.wait_for(q.get(), timeout=30)
+                    if event["type"] == "spans":
+                        for row in event["data"]:
+                            yield f"data: {json.dumps(row, default=str)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            unsubscribe(q)
+
+    return StreamingResponse(_generate(), media_type="text/event-stream")
 
 
 @app.get("/api/hotkeys")
