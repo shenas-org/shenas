@@ -1,0 +1,21 @@
+[project]
+name = "shenas-schema-core"
+dynamic = ["version"]
+description = "Shared utilities for shenas canonical schemas"
+requires-python = ">=3.11"
+dependencies = [
+    "duckdb>=1.2.0",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "schema-core/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "schema-core/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_schemas"]

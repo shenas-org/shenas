@@ -4,11 +4,11 @@ projects:
   - 'app'
   - 'app/desktop'
   - 'repository'
-  - 'pipes/*'
-  - 'schemas/*'
-  - 'components/*'
-  - 'ui/*'
-  - 'vendor'
+  - 'plugins/pipes/*'
+  - 'plugins/schemas/*'
+  - 'plugins/components/*'
+  - 'plugins/ui/*'
+  - 'app/vendor'
 
 vcs:
   defaultBranch: 'main'

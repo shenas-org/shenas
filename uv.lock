@@ -1989,28 +1989,28 @@ requires-dist = [
     { name = "opentelemetry-sdk", specifier = ">=1.25.0" },
     { name = "pyarrow", specifier = ">=23.0.1" },
     { name = "rich", specifier = ">=14.3.3" },
-    { name = "shenas-ui-default", editable = "ui/default" },
+    { name = "shenas-ui-default", editable = "plugins/ui/default" },
     { name = "typer", specifier = ">=0.24.1" },
     { name = "uvicorn", specifier = ">=0.42.0" },
 ]
 
 [[package]]
 name = "shenas-component-data-table"
-source = { editable = "components/data-table" }
+source = { editable = "plugins/components/data-table" }
 
 [[package]]
 name = "shenas-component-fitness-dashboard"
-source = { editable = "components/fitness-dashboard" }
+source = { editable = "plugins/components/fitness-dashboard" }
 dependencies = [
     { name = "shenas-schema-fitness" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-schema-fitness", editable = "schemas/fitness" }]
+requires-dist = [{ name = "shenas-schema-fitness", editable = "plugins/schemas/fitness" }]
 
 [[package]]
 name = "shenas-pipe-core"
-source = { editable = "pipes/core" }
+source = { editable = "plugins/pipes/core" }
 dependencies = [
     { name = "duckdb" },
     { name = "google-api-python-client" },
@@ -2032,13 +2032,13 @@ requires-dist = [
     { name = "opentelemetry-api", specifier = ">=1.25.0" },
     { name = "pendulum", specifier = ">=3.0.0" },
     { name = "rich", specifier = ">=14.0.0" },
-    { name = "shenas-schema-core", editable = "schemas/core" },
+    { name = "shenas-schema-core", editable = "plugins/schemas/core" },
     { name = "typer", specifier = ">=0.24.0" },
 ]
 
 [[package]]
 name = "shenas-pipe-duolingo"
-source = { editable = "pipes/duolingo" }
+source = { editable = "plugins/pipes/duolingo" }
 dependencies = [
     { name = "dlt", extra = ["duckdb"] },
     { name = "httpx" },
@@ -2053,14 +2053,14 @@ requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "pendulum", specifier = ">=3.0.0" },
-    { name = "shenas-pipe-core", editable = "pipes/core" },
-    { name = "shenas-schema-habits", editable = "schemas/habits" },
-    { name = "shenas-schema-outcomes", editable = "schemas/outcomes" },
+    { name = "shenas-pipe-core", editable = "plugins/pipes/core" },
+    { name = "shenas-schema-habits", editable = "plugins/schemas/habits" },
+    { name = "shenas-schema-outcomes", editable = "plugins/schemas/outcomes" },
 ]
 
 [[package]]
 name = "shenas-pipe-garmin"
-source = { editable = "pipes/garmin" }
+source = { editable = "plugins/pipes/garmin" }
 dependencies = [
     { name = "dlt", extra = ["duckdb"] },
     { name = "garminconnect" },
@@ -2074,13 +2074,13 @@ requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "garminconnect", specifier = ">=0.2.40" },
     { name = "pendulum", specifier = ">=3.0.0" },
-    { name = "shenas-pipe-core", editable = "pipes/core" },
-    { name = "shenas-schema-fitness", editable = "schemas/fitness" },
+    { name = "shenas-pipe-core", editable = "plugins/pipes/core" },
+    { name = "shenas-schema-fitness", editable = "plugins/schemas/fitness" },
 ]
 
 [[package]]
 name = "shenas-pipe-gcalendar"
-source = { editable = "pipes/gcalendar" }
+source = { editable = "plugins/pipes/gcalendar" }
 dependencies = [
     { name = "dlt", extra = ["duckdb"] },
     { name = "pendulum" },
@@ -2091,22 +2091,22 @@ dependencies = [
 requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "pendulum", specifier = ">=3.0.0" },
-    { name = "shenas-pipe-core", editable = "pipes/core" },
+    { name = "shenas-pipe-core", editable = "plugins/pipes/core" },
 ]
 
 [[package]]
 name = "shenas-pipe-gmail"
-source = { editable = "pipes/gmail" }
+source = { editable = "plugins/pipes/gmail" }
 dependencies = [
     { name = "shenas-pipe-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-pipe-core", editable = "pipes/core" }]
+requires-dist = [{ name = "shenas-pipe-core", editable = "plugins/pipes/core" }]
 
 [[package]]
 name = "shenas-pipe-gtakeout"
-source = { editable = "pipes/gtakeout" }
+source = { editable = "plugins/pipes/gtakeout" }
 dependencies = [
     { name = "dlt", extra = ["duckdb"] },
     { name = "ijson" },
@@ -2117,12 +2117,12 @@ dependencies = [
 requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "ijson", specifier = ">=3.0" },
-    { name = "shenas-pipe-core", editable = "pipes/core" },
+    { name = "shenas-pipe-core", editable = "plugins/pipes/core" },
 ]
 
 [[package]]
 name = "shenas-pipe-lunchmoney"
-source = { editable = "pipes/lunchmoney" }
+source = { editable = "plugins/pipes/lunchmoney" }
 dependencies = [
     { name = "dlt", extra = ["duckdb"] },
     { name = "lunchable" },
@@ -2136,13 +2136,13 @@ requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "lunchable", specifier = ">=1.4.0" },
     { name = "pendulum", specifier = ">=3.0.0" },
-    { name = "shenas-pipe-core", editable = "pipes/core" },
-    { name = "shenas-schema-finance", editable = "schemas/finance" },
+    { name = "shenas-pipe-core", editable = "plugins/pipes/core" },
+    { name = "shenas-schema-finance", editable = "plugins/schemas/finance" },
 ]
 
 [[package]]
 name = "shenas-pipe-obsidian"
-source = { editable = "pipes/obsidian" }
+source = { editable = "plugins/pipes/obsidian" }
 dependencies = [
     { name = "dlt", extra = ["duckdb"] },
     { name = "pyyaml" },
@@ -2154,13 +2154,13 @@ dependencies = [
 requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },
-    { name = "shenas-pipe-core", editable = "pipes/core" },
-    { name = "shenas-schema-outcomes", editable = "schemas/outcomes" },
+    { name = "shenas-pipe-core", editable = "plugins/pipes/core" },
+    { name = "shenas-schema-outcomes", editable = "plugins/schemas/outcomes" },
 ]
 
 [[package]]
 name = "shenas-pipe-spotify"
-source = { editable = "pipes/spotify" }
+source = { editable = "plugins/pipes/spotify" }
 dependencies = [
     { name = "dlt", extra = ["duckdb"] },
     { name = "shenas-pipe-core" },
@@ -2170,7 +2170,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
-    { name = "shenas-pipe-core", editable = "pipes/core" },
+    { name = "shenas-pipe-core", editable = "plugins/pipes/core" },
     { name = "spotipy", specifier = ">=2.24.0" },
 ]
 
@@ -2194,7 +2194,7 @@ requires-dist = [
 
 [[package]]
 name = "shenas-schema-core"
-source = { editable = "schemas/core" }
+source = { editable = "plugins/schemas/core" }
 dependencies = [
     { name = "duckdb" },
 ]
@@ -2204,55 +2204,55 @@ requires-dist = [{ name = "duckdb", specifier = ">=1.2.0" }]
 
 [[package]]
 name = "shenas-schema-finance"
-source = { editable = "schemas/finance" }
+source = { editable = "plugins/schemas/finance" }
 dependencies = [
     { name = "shenas-schema-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-schema-core", editable = "schemas/core" }]
+requires-dist = [{ name = "shenas-schema-core", editable = "plugins/schemas/core" }]
 
 [[package]]
 name = "shenas-schema-fitness"
-source = { editable = "schemas/fitness" }
+source = { editable = "plugins/schemas/fitness" }
 dependencies = [
     { name = "shenas-schema-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-schema-core", editable = "schemas/core" }]
+requires-dist = [{ name = "shenas-schema-core", editable = "plugins/schemas/core" }]
 
 [[package]]
 name = "shenas-schema-habits"
-source = { editable = "schemas/habits" }
+source = { editable = "plugins/schemas/habits" }
 dependencies = [
     { name = "shenas-schema-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-schema-core", editable = "schemas/core" }]
+requires-dist = [{ name = "shenas-schema-core", editable = "plugins/schemas/core" }]
 
 [[package]]
 name = "shenas-schema-outcomes"
-source = { editable = "schemas/outcomes" }
+source = { editable = "plugins/schemas/outcomes" }
 dependencies = [
     { name = "shenas-schema-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-schema-core", editable = "schemas/core" }]
+requires-dist = [{ name = "shenas-schema-core", editable = "plugins/schemas/core" }]
 
 [[package]]
 name = "shenas-theme-dark"
-source = { editable = "themes/dark" }
+source = { editable = "plugins/themes/dark" }
 
 [[package]]
 name = "shenas-theme-default"
-source = { editable = "themes/default" }
+source = { editable = "plugins/themes/default" }
 
 [[package]]
 name = "shenas-ui-default"
-source = { editable = "ui/default" }
+source = { editable = "plugins/ui/default" }
 
 [[package]]
 name = "shenas-workspace"
@@ -2297,23 +2297,23 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "ruff", specifier = ">=0.15.8" },
     { name = "shenas-app", editable = "app" },
-    { name = "shenas-component-data-table", editable = "components/data-table" },
-    { name = "shenas-component-fitness-dashboard", editable = "components/fitness-dashboard" },
-    { name = "shenas-pipe-duolingo", editable = "pipes/duolingo" },
-    { name = "shenas-pipe-garmin", editable = "pipes/garmin" },
-    { name = "shenas-pipe-gcalendar", editable = "pipes/gcalendar" },
-    { name = "shenas-pipe-gmail", editable = "pipes/gmail" },
-    { name = "shenas-pipe-gtakeout", editable = "pipes/gtakeout" },
-    { name = "shenas-pipe-lunchmoney", editable = "pipes/lunchmoney" },
-    { name = "shenas-pipe-obsidian", editable = "pipes/obsidian" },
-    { name = "shenas-pipe-spotify", editable = "pipes/spotify" },
-    { name = "shenas-schema-finance", editable = "schemas/finance" },
-    { name = "shenas-schema-fitness", editable = "schemas/fitness" },
-    { name = "shenas-schema-habits", editable = "schemas/habits" },
-    { name = "shenas-schema-outcomes", editable = "schemas/outcomes" },
-    { name = "shenas-theme-dark", editable = "themes/dark" },
-    { name = "shenas-theme-default", editable = "themes/default" },
-    { name = "shenas-ui-default", editable = "ui/default" },
+    { name = "shenas-component-data-table", editable = "plugins/components/data-table" },
+    { name = "shenas-component-fitness-dashboard", editable = "plugins/components/fitness-dashboard" },
+    { name = "shenas-pipe-duolingo", editable = "plugins/pipes/duolingo" },
+    { name = "shenas-pipe-garmin", editable = "plugins/pipes/garmin" },
+    { name = "shenas-pipe-gcalendar", editable = "plugins/pipes/gcalendar" },
+    { name = "shenas-pipe-gmail", editable = "plugins/pipes/gmail" },
+    { name = "shenas-pipe-gtakeout", editable = "plugins/pipes/gtakeout" },
+    { name = "shenas-pipe-lunchmoney", editable = "plugins/pipes/lunchmoney" },
+    { name = "shenas-pipe-obsidian", editable = "plugins/pipes/obsidian" },
+    { name = "shenas-pipe-spotify", editable = "plugins/pipes/spotify" },
+    { name = "shenas-schema-finance", editable = "plugins/schemas/finance" },
+    { name = "shenas-schema-fitness", editable = "plugins/schemas/fitness" },
+    { name = "shenas-schema-habits", editable = "plugins/schemas/habits" },
+    { name = "shenas-schema-outcomes", editable = "plugins/schemas/outcomes" },
+    { name = "shenas-theme-dark", editable = "plugins/themes/dark" },
+    { name = "shenas-theme-default", editable = "plugins/themes/default" },
+    { name = "shenas-ui-default", editable = "plugins/ui/default" },
     { name = "ty", specifier = ">=0.0.26" },
 ]
 

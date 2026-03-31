@@ -1,0 +1,28 @@
+[project]
+name = "shenas-pipe-garmin"
+dynamic = ["version"]
+description = "Garmin Connect dlt connector for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "garminconnect>=0.2.40",
+    "pendulum>=3.0.0",
+    "shenas-pipe-core",
+    "shenas-schema-fitness",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.pipes"]
+garmin = "shenas_pipes.garmin.cli:app"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "pipe-garmin/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "pipe-garmin/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shenas_pipes"]
