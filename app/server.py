@@ -195,6 +195,9 @@ def get_workspace_state() -> dict[str, Any]:
 
         return get_workspace()
     except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception("Failed to load workspace")
         return {}
 
 
@@ -205,9 +208,12 @@ def save_workspace_state(body: dict[str, Any]) -> dict[str, bool]:
         from app.db import save_workspace
 
         save_workspace(body)
+        return {"ok": True}
     except Exception:
-        pass
-    return {"ok": True}
+        import logging
+
+        logging.getLogger(__name__).exception("Failed to save workspace")
+        return {"ok": False}
 
 
 @app.get("/api/components")
