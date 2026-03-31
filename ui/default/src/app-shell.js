@@ -511,6 +511,7 @@ class ShenasApp extends LitElement {
       t.id === this._activeTabId ? { ...t, path, label: lbl } : t,
     );
     this._router.goto(path);
+    this._saveWorkspace();
   }
 
   _openTab(path, label) {
@@ -518,6 +519,7 @@ class ShenasApp extends LitElement {
     this._tabs = [...this._tabs, { id, path, label: label || this._labelForPath(path) }];
     this._activeTabId = id;
     this._router.goto(path);
+    this._saveWorkspace();
   }
 
   async _addTab() {
@@ -540,6 +542,7 @@ class ShenasApp extends LitElement {
         window.history.pushState({}, "", "/");
       }
     }
+    this._saveWorkspace();
   }
 
   _switchTab(id) {
@@ -547,6 +550,55 @@ class ShenasApp extends LitElement {
     if (!tab) return;
     this._activeTabId = id;
     this._router.goto(tab.path);
+    this._saveWorkspace();
+  }
+
+  _saveWorkspaceTimer = null;
+
+  _saveWorkspace() {
+    clearTimeout(this._saveWorkspaceTimer);
+    this._saveWorkspaceTimer = setTimeout(() => {
+      const state = {
+        tabs: this._tabs,
+        activeTabId: this._activeTabId,
+        nextTabId: this._nextTabId,
+      };
+      fetch(`${this.apiBase}/workspace`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state),
+      }).catch(() => {});
+    }, 300);
+  }
+
+  async _loadWorkspace() {
+    try {
+      const resp = await fetch(`${this.apiBase}/workspace`);
+      if (!resp.ok) return;
+      const state = await resp.json();
+      if (state.tabs && state.tabs.length > 0) {
+        this._tabs = state.tabs;
+        this._activeTabId = state.activeTabId || state.tabs[0].id;
+        this._nextTabId = state.nextTabId || (Math.max(...state.tabs.map((t) => t.id)) + 1);
+        // If URL has a specific path (shared link), open it
+        const urlPath = window.location.pathname;
+        if (urlPath && urlPath !== "/" && !this._tabs.some((t) => t.path === urlPath)) {
+          this._openTab(urlPath);
+          return;
+        }
+        // Navigate to the active tab
+        const active = this._tabs.find((t) => t.id === this._activeTabId);
+        if (active) this._router.goto(active.path);
+      } else {
+        // No saved state -- open from URL if present
+        const path = window.location.pathname;
+        if (path && path !== "/") this._openTab(path);
+      }
+    } catch {
+      // No workspace -- open from URL
+      const path = window.location.pathname;
+      if (path && path !== "/") this._openTab(path);
+    }
   }
 
   _labelForPath(path) {
@@ -583,11 +635,7 @@ class ShenasApp extends LitElement {
     }
     this._loading = false;
     this._registerGlobalCommands();
-    // Open initial tab from URL if not root
-    const path = window.location.pathname;
-    if (path && path !== "/") {
-      this._openTab(path);
-    }
+    await this._loadWorkspace();
   }
 
   async _fetch(path) {

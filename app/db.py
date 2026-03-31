@@ -78,6 +78,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
     _ensure_plugin_table(con)
     _ensure_transforms_table(con)
+    _ensure_workspace_table(con)
 
 
 def _ensure_transforms_table(con: duckdb.DuckDBPyConnection) -> None:
@@ -244,6 +245,49 @@ def is_plugin_enabled(kind: str, name: str) -> bool:
     if state is None:
         return True
     return state["enabled"]
+
+
+def _ensure_workspace_table(con: duckdb.DuckDBPyConnection) -> None:
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS shenas_system.workspace (
+            id INTEGER PRIMARY KEY DEFAULT 1,
+            state VARCHAR NOT NULL DEFAULT '{}',
+            updated_at TIMESTAMP DEFAULT current_timestamp
+        )
+    """)
+
+
+def get_workspace() -> dict[str, Any]:
+    """Get the workspace state. Returns empty dict if not set."""
+    con = connect()
+    cur = con.cursor()
+    cur.execute("USE db")
+    row = cur.execute("SELECT state FROM shenas_system.workspace WHERE id = 1").fetchone()
+    cur.close()
+    if not row:
+        return {}
+    import json
+
+    try:
+        return json.loads(row[0])
+    except Exception:
+        return {}
+
+
+def save_workspace(state: dict[str, Any]) -> None:
+    """Save the workspace state."""
+    import json
+
+    con = connect()
+    cur = con.cursor()
+    cur.execute("USE db")
+    data = json.dumps(state)
+    existing = cur.execute("SELECT id FROM shenas_system.workspace WHERE id = 1").fetchone()
+    if existing:
+        cur.execute("UPDATE shenas_system.workspace SET state = ?, updated_at = current_timestamp WHERE id = 1", [data])
+    else:
+        cur.execute("INSERT INTO shenas_system.workspace (id, state) VALUES (1, ?)", [data])
+    cur.close()
 
 
 def dlt_destination() -> tuple[Any, duckdb.DuckDBPyConnection]:
