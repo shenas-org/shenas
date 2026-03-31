@@ -120,7 +120,7 @@ class PipelineOverview extends LitElement {
       const id = `pipe:${p.name}`;
       nodeIds.add(id);
       elements.push({
-        data: { id, label: p.display_name || p.name, kind: "pipe" },
+        data: { id, label: p.display_name || p.name, kind: "pipe", enabled: p.enabled !== false ? "yes" : "no" },
       });
     }
 
@@ -128,7 +128,7 @@ class PipelineOverview extends LitElement {
       const id = `schema:${s.name}`;
       nodeIds.add(id);
       elements.push({
-        data: { id, label: s.display_name || s.name, kind: "schema" },
+        data: { id, label: s.display_name || s.name, kind: "schema", enabled: s.enabled !== false ? "yes" : "no" },
       });
     }
 
@@ -194,6 +194,10 @@ class PipelineOverview extends LitElement {
         {
           selector: 'node[kind="schema"]',
           style: { "background-color": "#66bb6a", "cursor": "pointer" },
+        },
+        {
+          selector: 'node[enabled="no"]',
+          style: { opacity: 0.4, "border-width": 2, "border-color": "#999", "border-style": "dashed" },
         },
         {
           selector: "edge",
