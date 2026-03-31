@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
-import { buttonStyles, messageStyles, tableStyles, utilityStyles } from "./shared-styles.js";
+import { apiFetch, apiFetchFull, registerCommands, renderMessage } from "./api.js";
+import { buttonStyles, formStyles, messageStyles, tableStyles } from "./shared-styles.js";
 
 const _inspectBtnStyle = "background:none;border:none;cursor:pointer;color:var(--shenas-text-faint, #aaa);font-size:0.7rem;padding:0 2px";
 
@@ -22,8 +23,8 @@ class TransformsPage extends LitElement {
   static styles = [
     tableStyles,
     buttonStyles,
+    formStyles,
     messageStyles,
-    utilityStyles,
     css`
       :host {
         display: block;
@@ -78,18 +79,12 @@ class TransformsPage extends LitElement {
         margin-bottom: 0.8rem;
       }
       .form-grid label {
-        font-size: 0.8rem;
-        color: var(--shenas-text-secondary, #666);
         display: flex;
         flex-direction: column;
         gap: 0.2rem;
       }
       .form-grid input,
       .form-grid select {
-        padding: 0.35rem 0.5rem;
-        border: 1px solid var(--shenas-border-input, #ddd);
-        border-radius: 4px;
-        font-size: 0.85rem;
         font-family: monospace;
       }
       .form-full {
@@ -131,8 +126,7 @@ class TransformsPage extends LitElement {
   async _fetchAll() {
     this._loading = true;
     const params = this.source ? `?source=${this.source}` : "";
-    const resp = await fetch(`${this.apiBase}/transforms${params}`);
-    this._transforms = resp.ok ? await resp.json() : [];
+    this._transforms = (await apiFetch(this.apiBase, `/transforms${params}`)) || [];
     this._loading = false;
     this._registerCommands();
   }
@@ -158,10 +152,7 @@ class TransformsPage extends LitElement {
         });
       }
     }
-    this.dispatchEvent(new CustomEvent("register-command", {
-      bubbles: true, composed: true,
-      detail: { componentId: `transforms:${this.source}`, commands },
-    }));
+    registerCommands(this, `transforms:${this.source}`, commands);
   }
 
 
@@ -175,24 +166,19 @@ class TransformsPage extends LitElement {
 
   async _toggle(t) {
     const action = t.enabled ? "disable" : "enable";
-    await fetch(`${this.apiBase}/transforms/${t.id}/${action}`, {
-      method: "POST",
-    });
+    await apiFetch(this.apiBase, `/transforms/${t.id}/${action}`, { method: "POST" });
     await this._fetchAll();
   }
 
   async _delete(t) {
-    const resp = await fetch(`${this.apiBase}/transforms/${t.id}`, {
-      method: "DELETE",
-    });
-    const data = await resp.json();
-    if (data.ok) {
+    const { ok, data } = await apiFetchFull(this.apiBase, `/transforms/${t.id}`, { method: "DELETE" });
+    if (ok && data?.ok) {
       this._message = { type: "success", text: data.message };
       await this._fetchAll();
     } else {
       this._message = {
         type: "error",
-        text: data.detail || data.message || "Delete failed",
+        text: data?.detail || data?.message || "Delete failed",
       };
     }
   }
@@ -210,18 +196,16 @@ class TransformsPage extends LitElement {
   }
 
   async _saveEdit() {
-    const resp = await fetch(`${this.apiBase}/transforms/${this._editing}`, {
+    const { ok, data } = await apiFetchFull(this.apiBase, `/transforms/${this._editing}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sql: this._editSql }),
+      json: { sql: this._editSql },
     });
-    if (resp.ok) {
+    if (ok) {
       this._message = { type: "success", text: "Transform updated" };
       this._editing = null;
       await this._fetchAll();
     } else {
-      const data = await resp.json();
-      this._message = { type: "error", text: data.detail || "Update failed" };
+      this._message = { type: "error", text: data?.detail || "Update failed" };
     }
   }
 
@@ -230,12 +214,12 @@ class TransformsPage extends LitElement {
     this._newForm = this._emptyForm();
     this._editing = null;
     this._previewRows = null;
-    const [tablesResp, schemaTablesResp] = await Promise.all([
-      fetch(`${this.apiBase}/db/tables`),
-      fetch(`${this.apiBase}/db/schema-tables`),
+    const [tables, schemaTables] = await Promise.all([
+      apiFetch(this.apiBase, `/db/tables`),
+      apiFetch(this.apiBase, `/db/schema-tables`),
     ]);
-    this._dbTables = tablesResp.ok ? await tablesResp.json() : {};
-    this._schemaTables = schemaTablesResp.ok ? await schemaTablesResp.json() : {};
+    this._dbTables = tables || {};
+    this._schemaTables = schemaTables || {};
   }
 
   _cancelCreate() {
@@ -253,10 +237,9 @@ class TransformsPage extends LitElement {
       this._message = { type: "error", text: "Fill in all required fields" };
       return;
     }
-    const resp = await fetch(`${this.apiBase}/transforms`, {
+    const { ok, data } = await apiFetchFull(this.apiBase, `/transforms`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      json: {
         source_duckdb_schema: this.source,
         source_duckdb_table: f.source_duckdb_table,
         target_duckdb_schema: "metrics",
@@ -264,46 +247,34 @@ class TransformsPage extends LitElement {
         source_plugin: this.source,
         description: f.description,
         sql: f.sql,
-      }),
+      },
     });
-    if (resp.ok) {
+    if (ok) {
       this._message = { type: "success", text: "Transform created" };
       this._creating = false;
       this._newForm = this._emptyForm();
       await this._fetchAll();
     } else {
-      const data = await resp.json();
-      this._message = { type: "error", text: data.detail || "Create failed" };
+      this._message = { type: "error", text: data?.detail || "Create failed" };
     }
   }
 
   async _preview() {
-    const resp = await fetch(
-      `${this.apiBase}/transforms/${this._editing}/test?limit=5`,
-      { method: "POST" },
-    );
-    if (resp.ok) {
-      this._previewRows = await resp.json();
+    const { ok, data } = await apiFetchFull(this.apiBase, `/transforms/${this._editing}/test?limit=5`, { method: "POST" });
+    if (ok) {
+      this._previewRows = data;
     } else {
-      const data = await resp.json();
       this._message = {
         type: "error",
-        text: data.detail || "Preview failed",
+        text: data?.detail || "Preview failed",
       };
     }
   }
 
   render() {
-    if (this._loading) {
-      return html`<p class="loading">Loading transforms...</p>`;
-    }
-
     return html`
-      ${this._message
-        ? html`<div class="message ${this._message.type}">
-            ${this._message.text}
-          </div>`
-        : ""}
+      <shenas-page ?loading=${this._loading} loading-text="Loading transforms...">
+      ${renderMessage(this._message)}
       ${this._editing ? this._renderEditor() : ""}
       ${this._creating ? this._renderCreateForm() : ""}
       <shenas-data-list
@@ -328,6 +299,7 @@ class TransformsPage extends LitElement {
         `}
         empty-text="No transforms"
       ></shenas-data-list>
+      </shenas-page>
     `;
   }
 

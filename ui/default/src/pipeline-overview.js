@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
 import cytoscape, { dagre } from "cytoscape";
+import { apiFetch } from "./api.js";
 import { utilityStyles } from "./shared-styles.js";
 
 let _dagreRegistered = false;
@@ -87,21 +88,15 @@ class PipelineOverview extends LitElement {
   async _fetchData() {
     this._loading = true;
     try {
-      const [pipesResp, schemasResp, transformsResp, ownershipResp, componentsResp, depsResp] = await Promise.all([
-        fetch(`${this.apiBase}/plugins/pipe`),
-        fetch(`${this.apiBase}/plugins/schema`),
-        fetch(`${this.apiBase}/transforms`),
-        fetch(`${this.apiBase}/db/schema-plugins`),
-        fetch(`${this.apiBase}/plugins/component`),
-        fetch(`${this.apiBase}/dependencies`),
+      const [pipes, schemas, transforms, ownership, components, deps] = await Promise.all([
+        apiFetch(this.apiBase, `/plugins/pipe`),
+        apiFetch(this.apiBase, `/plugins/schema`),
+        apiFetch(this.apiBase, `/transforms`),
+        apiFetch(this.apiBase, `/db/schema-plugins`),
+        apiFetch(this.apiBase, `/plugins/component`),
+        apiFetch(this.apiBase, `/dependencies`),
       ]);
-      const pipes = pipesResp.ok ? await pipesResp.json() : [];
-      const schemas = schemasResp.ok ? await schemasResp.json() : [];
-      const transforms = transformsResp.ok ? await transformsResp.json() : [];
-      const ownership = ownershipResp.ok ? await ownershipResp.json() : {};
-      const components = componentsResp.ok ? await componentsResp.json() : [];
-      const deps = depsResp.ok ? await depsResp.json() : {};
-      this._buildElements(pipes, schemas, transforms, ownership, components, deps);
+      this._buildElements(pipes || [], schemas || [], transforms || [], ownership || {}, components || [], deps || {});
     } catch (e) {
       console.error("Failed to fetch overview data:", e);
     }
@@ -354,21 +349,19 @@ class PipelineOverview extends LitElement {
   }
 
   render() {
-    if (this._loading) {
-      return html`<p class="loading">Loading overview...</p>`;
-    }
-
     return html`
-      <div id="cy"></div>
-      <div class="legend">
-        <span class="legend-item"><span class="legend-dot pipe"></span> Pipe</span>
-        <span class="legend-item"><span class="legend-dot schema"></span> Schema</span>
-        <span class="legend-item"><span class="legend-dot component"></span> Component</span>
-        <span class="legend-item"><span class="legend-line enabled"></span> Transform</span>
-        <span class="legend-item"><span class="legend-line disabled"></span> Disabled</span>
-        <span class="legend-item"><span class="legend-line" style="border-top:2px dotted var(--shenas-text-faint, #aaa);height:0;background:none"></span> Dependency</span>
-      </div>
-      ${this._empty ? html`<p class="empty">No connections found. Add transforms in pipe settings.</p>` : ""}
+      <shenas-page ?loading=${this._loading} loading-text="Loading overview...">
+        <div id="cy"></div>
+        <div class="legend">
+          <span class="legend-item"><span class="legend-dot pipe"></span> Pipe</span>
+          <span class="legend-item"><span class="legend-dot schema"></span> Schema</span>
+          <span class="legend-item"><span class="legend-dot component"></span> Component</span>
+          <span class="legend-item"><span class="legend-line enabled"></span> Transform</span>
+          <span class="legend-item"><span class="legend-line disabled"></span> Disabled</span>
+          <span class="legend-item"><span class="legend-line" style="border-top:2px dotted var(--shenas-text-faint, #aaa);height:0;background:none"></span> Dependency</span>
+        </div>
+        ${this._empty ? html`<p class="empty">No connections found. Add transforms in pipe settings.</p>` : ""}
+      </shenas-page>
     `;
   }
 }
