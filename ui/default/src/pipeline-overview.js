@@ -16,14 +16,11 @@ class PipelineOverview extends LitElement {
     utilityStyles,
     css`
       :host {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
+        display: block;
       }
       #cy {
         width: 100%;
-        flex: 1;
-        min-height: 200px;
+        height: calc(100vh - 10rem);
         border: 1px solid var(--shenas-border, #e0e0e0);
         border-radius: 8px;
         background: var(--shenas-bg-secondary, #fafafa);
