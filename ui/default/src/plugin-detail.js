@@ -226,7 +226,8 @@ class PluginDetail extends LitElement {
 
   render() {
     return html`
-      <shenas-page ?loading=${this._loading} ?empty=${!this._info} empty-text="Plugin not found.">
+      <shenas-page ?loading=${this._loading} ?empty=${!this._info} empty-text="Plugin not found."
+        display-name="${this._info?.display_name || this._info?.name || this.name}">
         ${this._info ? this._renderContent() : ""}
       </shenas-page>
     `;

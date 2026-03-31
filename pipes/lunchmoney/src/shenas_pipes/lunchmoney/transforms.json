@@ -21,7 +21,7 @@
     "target_duckdb_schema": "metrics",
     "target_duckdb_table": "monthly_category",
     "description": "Aggregate monthly spending by category",
-    "sql": "SELECT STRFTIME(date::DATE, '%Y-%m') as month, COALESCE(category_name, 'Uncategorized') as category, 'lunchmoney' as source, SUM(ABS(to_base)) as amount_spent, COUNT(*) as transaction_count FROM lunchmoney.transactions WHERE status != 'pending' AND NOT is_income GROUP BY STRFTIME(date::DATE, '%Y-%m'), COALESCE(category_name, 'Uncategorized')"
+    "sql": "SELECT STRFTIME(date::DATE, '%Y-%m') as month, COALESCE(category_name, 'Uncategorized') as category, 'lunchmoney' as source, SUM(ABS(to_base)) as amount_spent, COUNT(*) as transaction_count, NULL as budget_amount FROM lunchmoney.transactions WHERE status != 'pending' AND NOT is_income GROUP BY STRFTIME(date::DATE, '%Y-%m'), COALESCE(category_name, 'Uncategorized')"
   },
   {
     "source_duckdb_schema": "lunchmoney",

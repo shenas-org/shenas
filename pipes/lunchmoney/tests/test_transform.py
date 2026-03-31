@@ -39,7 +39,8 @@ def con() -> duckdb.DuckDBPyConnection:
     db.execute("""
         CREATE TABLE metrics.monthly_category (
             month VARCHAR, category VARCHAR, source VARCHAR,
-            amount_spent DOUBLE, transaction_count BIGINT
+            amount_spent DOUBLE, transaction_count BIGINT,
+            budget_amount DOUBLE
         )
     """)
     db.execute("""

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import importlib
+import logging
 import sys
 import types
+
 from typing import Any
 
 from fastapi import APIRouter
@@ -12,6 +14,8 @@ from fastapi import APIRouter
 from app.models import AuthFieldsResponse, AuthRequest, AuthResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+log = logging.getLogger(f"shenas.{__name__}")
 
 # Server-side pending auth state. Survives module reimports of pipe auth modules.
 # Keys are pipe names, values are dicts with thread + state from OAuth/MFA flows.
@@ -60,6 +64,7 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
 
     try:
         auth_fn(body.credentials)
+        log.info("Auth success: %s", pipe_name)
         return AuthResponse(ok=True, message=f"Authenticated {pipe_name}")
     except ValueError as exc:
         msg = str(exc)
@@ -75,6 +80,7 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
             return AuthResponse(ok=False, oauth_url=auth_url, message="Open this URL in your browser to authorize")
         return AuthResponse(ok=False, error=msg)
     except Exception as exc:
+        log.error("Auth failed: %s - %s", pipe_name, exc)
         return AuthResponse(ok=False, error=str(exc))
 
 

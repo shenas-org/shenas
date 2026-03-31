@@ -48,6 +48,7 @@ def run_sync(
     3. Flush in-memory data to the encrypted database
     4. Optionally run a transform function
     """
+    logger.info("Sync started: %s (dataset=%s, full_refresh=%s)", pipeline_name, dataset_name, full_refresh)
     with tracer.start_as_current_span("pipe.sync", attributes={"pipe.name": pipeline_name, "pipe.dataset": dataset_name}):
         import dlt
 
@@ -56,6 +57,7 @@ def run_sync(
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
         with tracer.start_as_current_span("pipe.fetch"):
+            logger.info("Fetching data: %s", pipeline_name)
             dest, mem_con = dlt_destination()
 
             pipeline = dlt.pipeline(
@@ -66,13 +68,16 @@ def run_sync(
 
             load_info = pipeline.run(resources, refresh="drop_sources" if full_refresh else None)
             print_load_info(load_info)
+            logger.info("Fetch complete: %s (%d packages)", pipeline_name, len(load_info.load_packages))
 
         with tracer.start_as_current_span("pipe.flush"):
-            logger.info("Flushing to encrypted database")
+            logger.info("Flushing to encrypted database: %s", pipeline_name)
             console.print("Flushing to encrypted database...", style="dim")
             flush_to_encrypted(mem_con, dataset_name)
 
         if transform_fn:
             with tracer.start_as_current_span("pipe.transform"):
-                logger.info("Running transform")
+                logger.info("Running transforms: %s", pipeline_name)
                 transform_fn()
+
+        logger.info("Sync complete: %s", pipeline_name)

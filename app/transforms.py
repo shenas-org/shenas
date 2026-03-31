@@ -15,7 +15,7 @@ import duckdb
 
 from app.db import connect
 
-log = logging.getLogger(__name__)
+log = logging.getLogger(f"shenas.{__name__}")
 
 _COLS = "id, source_duckdb_schema, source_duckdb_table, target_duckdb_schema, target_duckdb_table, source_plugin, description, sql, is_default, enabled, added_at, updated_at, status_changed_at"
 
@@ -160,6 +160,14 @@ def seed_defaults(source_plugin: str, defaults: list[dict[str, str]]) -> None:
     for d in defaults:
         key = (d["source_duckdb_table"], d["target_duckdb_table"])
         if key in existing_keys:
+            # Update SQL and description if changed
+            cur2 = _cursor()
+            cur2.execute(
+                "UPDATE shenas_system.transforms SET sql = ?, description = ?, updated_at = current_timestamp "
+                "WHERE source_plugin = ? AND source_duckdb_table = ? AND target_duckdb_table = ? AND is_default = true",
+                [d["sql"], d.get("description", ""), source_plugin, d["source_duckdb_table"], d["target_duckdb_table"]],
+            )
+            cur2.close()
             continue
         create_transform(
             source_duckdb_schema=d["source_duckdb_schema"],
@@ -180,6 +188,7 @@ def run_transforms(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
     and a separate cursor for reading transform definitions from the system table.
     """
     transforms = list_transforms(source_plugin)
+    log.info("Running transforms for %s (%d total)", source_plugin, len(transforms))
     count = 0
     for t in transforms:
         if not t["enabled"]:
