@@ -2073,19 +2073,15 @@ requires-dist = [
 name = "shenas-cli"
 source = { editable = "cli" }
 dependencies = [
-    { name = "cryptography" },
     { name = "httpx" },
     { name = "rich" },
-    { name = "shenas-repository" },
     { name = "typer" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "cryptography", specifier = ">=46.0.6" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "rich", specifier = ">=14.3.3" },
-    { name = "shenas-repository", editable = "repository" },
     { name = "typer", specifier = ">=0.24.1" },
 ]
 

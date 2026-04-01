@@ -4,11 +4,9 @@ dynamic = ["version"]
 description = "Shenas CLI -- lightweight command-line client"
 requires-python = ">=3.11"
 dependencies = [
-    "cryptography>=46.0.6",
     "httpx>=0.28.1",
     "rich>=14.3.3",
     "typer>=0.24.1",
-    "shenas-repository",
 ]
 
 [project.scripts]
