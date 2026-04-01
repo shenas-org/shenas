@@ -57,6 +57,7 @@ The monorepo is a uv workspace with 7 members, each a separate Python package:
 - **`shenas-app`** (`app/`) — FastAPI UI server, depends on shenas-cli
 - **`shenas-scheduler`** (`scheduler/`) — background sync daemon sidecar, depends on shenas-cli
 - **`shenas-repository`** (`repository/`) — PEP 503 package server + Ed25519 signing
+- **`shenas-fl-server`** (`fl-server/`) — federated learning coordinator (Flower + FastAPI), separate venv due to dependency conflicts
 - **`shenas-pipe-core`** (`plugins/pipes/core/`) — shared pipe utilities
 - **`shenas-schema-core`** (`plugins/schemas/core/`) — shared schema utilities
 
@@ -110,6 +111,7 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - `app/telemetry/` — OpenTelemetry exporters, DuckDB spans/logs, real-time SSE dispatcher
 - `app/vendor/` — shared frontend deps (Lit, Arrow, uPlot, Cytoscape) built with Rollup
 - `scheduler/` — background sync daemon sidecar (shenas-scheduler); polls server for due pipes
+- `fl-server/` — federated learning coordinator (Flower server + REST API); runs in its own venv
 - `repository/` — PEP 503 Simple Repository API server + Ed25519 signing
 - `scripts/` — build helpers (version bumping, pre-commit hook)
 - `plugins/pipes/core/` — shared pipe utilities (shenas-pipe-core)
