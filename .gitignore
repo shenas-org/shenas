@@ -19,6 +19,8 @@ shenas.egg-info/
 .shenas-fl/
 app/desktop/src-tauri/binaries/
 app/desktop/src-tauri/target/
+app/mobile/src-tauri/target/
+app/mobile/src-tauri/gen/
 app/desktop/src-tauri/gen/
 app/desktop/src-tauri/Cargo.lock
 app/desktop/pkg/
