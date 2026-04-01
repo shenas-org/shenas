@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.cli.client import ShenasServerError
-from app.sync_scheduler import SyncDaemon
+from scheduler.daemon import SyncDaemon
 
 
 def _make_daemon(mock_client: MagicMock | None = None) -> SyncDaemon:
@@ -70,7 +70,7 @@ class TestTick:
         daemon = _make_daemon(client)
         daemon._shutdown.set()
 
-        with patch("app.sync_scheduler.signal"):
+        with patch("scheduler.daemon.signal"):
             daemon.run()
 
 
@@ -112,7 +112,7 @@ class TestShutdown:
         daemon = _make_daemon(client)
         daemon._shutdown.set()
 
-        with patch("app.sync_scheduler.signal"):
+        with patch("scheduler.daemon.signal"):
             daemon.run()
 
     def test_shutdown_interrupts_tick(self) -> None:
