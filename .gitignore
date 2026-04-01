@@ -12,6 +12,7 @@ app/vendor/dist/
 htmlcov/
 .coverage
 .cache
+build/_pyinstaller_work/
 shenas.egg-info/
 .moon/cache/
 .moon/docker/

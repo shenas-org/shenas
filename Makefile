@@ -1,4 +1,4 @@
-.PHONY: install repository setup-hooks coverage
+.PHONY: install repository setup-hooks coverage pyinstaller pyinstaller-shenas pyinstaller-shenasctl pyinstaller-scheduler
 
 # Install CLI tools globally (~/.local/bin/)
 install:
@@ -20,3 +20,16 @@ coverage:
 	uv run --no-sync pytest --cov=repository --cov=app \
 		--cov=shenas_pipes --cov=shenas_schemas \
 		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
+
+# Build standalone binaries with PyInstaller
+pyinstaller:
+	uv run python build/pyinstaller_build.py
+
+pyinstaller-shenas:
+	uv run python build/pyinstaller_build.py shenas
+
+pyinstaller-shenasctl:
+	uv run python build/pyinstaller_build.py shenasctl
+
+pyinstaller-scheduler:
+	uv run python build/pyinstaller_build.py shenas-scheduler
