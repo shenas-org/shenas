@@ -6,6 +6,9 @@ requires-python = ">=3.11"
 
 [tool.uv]
 package = false
+# Flower pins typer<0.21 and rich<14 for its CLI. We only use
+# flwr.client and flwr.common at runtime, which work with newer versions.
+override-dependencies = ["typer>=0.24.1", "rich>=14.3.3"]
 
 [tool.uv.workspace]
 members = [
@@ -75,9 +78,13 @@ dev = [
     "ty>=0.0.26",
     "pyinstaller>=6.19.0",
 ]
+fl = [
+    "flwr>=1.15",
+    "torch>=2.0",
+]
 
 [tool.pytest.ini_options]
-testpaths = ["cli/tests", "app/tests", "scheduler/tests", "repository/tests", "app/telemetry/tests", "plugins/pipes/core/tests", "plugins/pipes/garmin/tests", "plugins/pipes/gmail/tests", "plugins/pipes/gcalendar/tests", "plugins/pipes/gtakeout/tests", "plugins/pipes/lunchmoney/tests", "plugins/pipes/obsidian/tests", "plugins/pipes/duolingo/tests", "plugins/pipes/spotify/tests", "plugins/schemas/fitness/tests", "plugins/schemas/finance/tests", "plugins/schemas/outcomes/tests", "plugins/schemas/habits/tests"]
+testpaths = ["cli/tests", "app/tests", "app/fl/tests", "scheduler/tests", "repository/tests", "app/telemetry/tests", "plugins/pipes/core/tests", "plugins/pipes/garmin/tests", "plugins/pipes/gmail/tests", "plugins/pipes/gcalendar/tests", "plugins/pipes/gtakeout/tests", "plugins/pipes/lunchmoney/tests", "plugins/pipes/obsidian/tests", "plugins/pipes/duolingo/tests", "plugins/pipes/spotify/tests", "plugins/schemas/fitness/tests", "plugins/schemas/finance/tests", "plugins/schemas/outcomes/tests", "plugins/schemas/habits/tests"]
 addopts = "--import-mode=importlib"
 pythonpath = ["."]
 
