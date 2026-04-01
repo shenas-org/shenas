@@ -17,11 +17,15 @@ PREFIX="$1"; shift
 DIRS="$@"
 
 # Find latest tag for this prefix
-LATEST=$(git describe --tags --match "$PREFIX/v*" --abbrev=0 2>/dev/null || echo "$PREFIX/v0.0.0")
-VERSION="${LATEST##*/v}"
+LATEST=$(git describe --tags --match "$PREFIX/v*" --abbrev=0 2>/dev/null || true)
 
-# Collect conventional commits since last tag that touch these dirs
-COMMITS=$(git log "$LATEST"..HEAD --pretty=format:"%s" -- $DIRS 2>/dev/null)
+if [ -n "$LATEST" ]; then
+  VERSION="${LATEST##*/v}"
+  COMMITS=$(git log "$LATEST"..HEAD --pretty=format:"%s" -- $DIRS 2>/dev/null)
+else
+  VERSION="0.0.0"
+  COMMITS=$(git log --pretty=format:"%s" -- $DIRS 2>/dev/null)
+fi
 [ -z "$COMMITS" ] && exit 0
 
 # Determine bump type (highest wins: major > minor > patch)
