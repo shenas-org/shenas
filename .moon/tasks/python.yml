@@ -8,6 +8,11 @@ implicitInputs:
   - '/uv.lock'
 
 tasks:
+  clean:
+    script: 'find $MOON_PROJECT_SOURCE -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; rm -rf $MOON_PROJECT_SOURCE/dist/ $MOON_PROJECT_SOURCE/*.egg-info'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false
   lint:
     script: 'uv run --no-sync ruff check $MOON_PROJECT_SOURCE/'
     inputs:

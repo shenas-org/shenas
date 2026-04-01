@@ -12,19 +12,26 @@ from typing import Any
 from pathlib import Path
 from urllib.request import urlopen
 
+
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, HTTPException
 
-from app.cli.commands.plugin_cmd import DEFAULT_INDEX, PREFIXES, PUBLIC_KEY_PATH, check_signature
 from app.db import get_plugin_state
 from app.models import InstallRequest, InstallResponse, InstallResult, OkResponse, PluginInfo, RemoveResponse
-from repository.signing import load_public_key, verify_bytes
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
 
 log = logging.getLogger(f"shenas.{__name__}")
 
+DEFAULT_INDEX = "http://127.0.0.1:7290"
+PACKAGES_DIR = Path(__file__).resolve().parent.parent.parent / "packages"
+PUBLIC_KEY_PATH = Path(".shenas") / "shenas.pub"
+
 VALID_KINDS = {"pipe", "schema", "component", "ui", "theme"}
+
+
+def _prefix(kind: str) -> str:
+    return f"shenas-{kind}-"
 
 
 NAMESPACES = {
@@ -62,10 +69,61 @@ def _is_internal(kind: str, name: str) -> bool:
     return False
 
 
+def _load_public_key(path: Path) -> Ed25519PublicKey:
+    """Load an Ed25519 public key from a PEM file."""
+    from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
+    key = load_pem_public_key(path.read_bytes())
+    if not isinstance(key, Ed25519PublicKey):
+        raise TypeError(f"Expected Ed25519 public key, got {type(key)}")
+    return key
+
+
+def _verify_file(public_key: Ed25519PublicKey, file_path: Path, sig_b64: str) -> bool:
+    """Verify a file against a base64-encoded Ed25519 signature."""
+    import base64
+
+    try:
+        public_key.verify(base64.b64decode(sig_b64), file_path.read_bytes())
+        return True
+    except Exception:
+        return False
+
+
+def _verify_bytes(public_key: Ed25519PublicKey, data: bytes, sig_b64: str) -> bool:
+    """Verify raw bytes against a base64-encoded Ed25519 signature."""
+    import base64
+
+    try:
+        public_key.verify(base64.b64decode(sig_b64), data)
+        return True
+    except Exception:
+        return False
+
+
+def check_signature(pkg_name: str, version: str) -> str:
+    """Check if a package wheel has a valid Ed25519 signature."""
+    if not PUBLIC_KEY_PATH.exists():
+        return "no key"
+
+    normalized = pkg_name.replace("-", "_")
+    matches = list(PACKAGES_DIR.glob(f"{normalized}-{version}*.whl")) if PACKAGES_DIR.is_dir() else []
+    if not matches:
+        return "unsigned"
+
+    wheel_path = matches[0]
+    sig_path = wheel_path.with_suffix(wheel_path.suffix + ".sig")
+    if not sig_path.exists():
+        return "unsigned"
+
+    pub_key = _load_public_key(PUBLIC_KEY_PATH)
+    return "valid" if _verify_file(pub_key, wheel_path, sig_path.read_text().strip()) else "invalid"
+
+
 def list_plugins_data(kind: str) -> list[PluginInfo]:
     import sys
 
-    prefix = PREFIXES[kind]
+    prefix = _prefix(kind)
     result = subprocess.run(
         ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
     )
@@ -144,7 +202,7 @@ def _verify_from_index(pkg_name: str, index_url: str, pub_key: Ed25519PublicKey)
     except Exception as exc:
         return f"Cannot download wheel: {exc}"
 
-    if not verify_bytes(pub_key, wheel_bytes, sig_b64):
+    if not _verify_bytes(pub_key, wheel_bytes, sig_b64):
         return f"SIGNATURE VERIFICATION FAILED for {pkg_name}"
 
     return None
@@ -160,13 +218,13 @@ def install_plugin(
     if _is_internal(kind, name):
         return InstallResult(name=name, ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
 
-    prefix = PREFIXES[kind]
+    prefix = _prefix(kind)
     pkg_name = f"{prefix}{name}"
 
     if not skip_verify:
         if not public_key_path.exists():
             return InstallResult(name=name, ok=False, message=f"Public key not found at {public_key_path}")
-        pub_key = load_public_key(public_key_path)
+        pub_key = _load_public_key(public_key_path)
         error = _verify_from_index(pkg_name, index_url, pub_key)
         if error:
             return InstallResult(name=name, ok=False, message=error)
@@ -194,7 +252,7 @@ def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
     if _is_internal(kind, name):
         return RemoveResponse(ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
 
-    pkg_name = f"{PREFIXES[kind]}{name}"
+    pkg_name = f"{_prefix(kind)}{name}"
     result = subprocess.run(["uv", "pip", "uninstall", pkg_name, "--python", sys.executable], capture_output=True, text=True)
 
     if result.returncode == 0:
@@ -277,7 +335,7 @@ def _plugin_description(kind: str, name: str) -> str:
             if isinstance(meta, dict) and meta.get("description"):
                 return meta["description"]
 
-    prefix = PREFIXES[kind]
+    prefix = _prefix(kind)
     pkg_name = f"{prefix}{name}"
     try:
         from importlib.metadata import metadata

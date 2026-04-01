@@ -43,9 +43,9 @@ jobs:
           # Map tag prefix to directory
           SIGN=false
           case "$PREFIX" in
-            pipe-*)      NAME="${PREFIX#pipe-}"; DIR="pipes/$NAME"; SIGN=true ;;
-            schema-*)    NAME="${PREFIX#schema-}"; DIR="schemas/$NAME"; SIGN=true ;;
-            component-*) NAME="${PREFIX#component-}"; DIR="components/$NAME"; SIGN=true ;;
+            pipe-*)      NAME="${PREFIX#pipe-}"; DIR="plugins/pipes/$NAME"; SIGN=true ;;
+            schema-*)    NAME="${PREFIX#schema-}"; DIR="plugins/schemas/$NAME"; SIGN=true ;;
+            component-*) NAME="${PREFIX#component-}"; DIR="plugins/components/$NAME"; SIGN=true ;;
             cli)         NAME="cli"; DIR="cli" ;;
             app)         NAME="app"; DIR="app" ;;
             repository)  NAME="repository"; DIR="repository" ;;

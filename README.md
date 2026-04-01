@@ -21,48 +21,47 @@ uv run shenasctl --help
 ## Development setup
 
 ```bash
-make dev-install    # editable install all pipes, schemas, components
 make setup-hooks    # install pre-commit hook (ruff + ty)
+make install        # install shenas + shenasrepoctl to ~/.local/bin/
 ```
 
 ## Data pipeline
 
 ```bash
 # Authenticate
-uv run shenasctl pipe garmin auth
-uv run shenasctl pipe lunchmoney auth
-uv run shenasctl pipe gmail auth
+shenasctl pipe garmin auth
+shenasctl pipe lunchmoney auth
+shenasctl pipe gmail auth
 
 # Configure obsidian vault path
-uv run shenasctl config set pipe obsidian vault_path /path/to/vault
+shenasctl config set pipe obsidian vault_path /path/to/vault
 
 # Sync raw data into DuckDB (also runs transform automatically)
-uv run shenasctl pipe sync          # sync all installed pipes
-uv run shenasctl pipe garmin sync   # sync a single pipe
+shenasctl pipe sync          # sync all installed pipes
+shenasctl pipe garmin sync   # sync a single pipe
 
 # Check what's loaded
-uv run shenasctl db status
+shenasctl db status
 ```
 
 ## Package management
 
 ```bash
-uv run shenasctl pipe list                # list installed pipes
-uv run shenasctl pipe add garmin          # install from repository
-uv run shenasctl pipe remove garmin       # uninstall
-uv run shenasctl schema list              # list installed schemas
-uv run shenasctl component list           # list installed components
+shenasctl pipe list                # list installed pipes
+shenasctl pipe add garmin          # install from repository
+shenasctl pipe remove garmin       # uninstall
+shenasctl schema list              # list installed schemas
+shenasctl component list           # list installed components
 ```
 
 ## Visualization
 
 ```bash
-# Build and install the dashboard component
-moon run component-fitness-dashboard:build
-uv pip install packages/shenas_component_fitness_dashboard-*.whl
+# Install the dashboard component from the repository
+shenasctl component add fitness-dashboard
 
 # Start the UI
-uv run shenas
+shenas
 # Open https://127.0.0.1:7280
 ```
 
@@ -72,7 +71,7 @@ All pipes, schemas, and components are distributed as Ed25519-signed Python whee
 
 ```bash
 # Generate signing keys
-uv run shenasrepoctl keygen
+shenasrepoctl keygen
 
 # Build and sign packages
 moon run :build
@@ -84,42 +83,48 @@ shenasrepoctl vendor garmin
 make repository
 
 # Install from the repository (in another terminal)
-uv run shenasctl pipe add garmin
+shenasctl pipe add garmin
 ```
 
 ## Testing
 
 ```bash
-moon run :test      # run all tests (271)
+moon run :test      # run all tests
 moon run :lint      # ruff check across all projects
 make coverage       # tests with coverage report
+make clean          # remove all build artifacts
 ```
 
 ## Architecture
 
 ```
-pipes/
-  core/              shared pipe utilities (shenas-pipe-core)
-  garmin/            Garmin Connect connector
-  lunchmoney/        Lunch Money connector
-  obsidian/          Obsidian daily notes (frontmatter)
-  gmail/             Gmail (OAuth2)
-schemas/
-  core/              shared schema utilities (shenas-schema-core)
-  fitness/           HRV, sleep, vitals, body metrics
-  finance/           transactions, spending, budgets
-  outcomes/          mood, stress, productivity, exercise, etc.
-components/
-  fitness-dashboard/ Lit + uPlot dashboard (built as wheel)
-  data-table/        sortable/filterable data table (built as wheel)
 app/                 FastAPI UI server (Arrow IPC queries)
+app/telemetry/       OpenTelemetry exporters, DuckDB spans/logs, SSE dispatcher
+app/vendor/          shared frontend deps (Lit, Arrow, uPlot, Cytoscape)
+app/desktop/         Tauri desktop app with bundled PyInstaller sidecars
+cli/                 lightweight CLI client (httpx + typer)
+scheduler/           background sync daemon sidecar
 repository/          PEP 503 package server + Ed25519 signing
-cli/                 shenas CLI
-tests/               repository server, frontend, CLI, signing tests
+plugins/
+  pipes/core/        shared pipe utilities (shenas-pipe-core)
+  pipes/garmin/      Garmin Connect connector
+  pipes/lunchmoney/  Lunch Money connector
+  pipes/obsidian/    Obsidian daily notes (frontmatter)
+  pipes/gmail/       Gmail (OAuth2)
+  pipes/duolingo/    Duolingo (JWT browser auth)
+  pipes/spotify/     Spotify (PKCE OAuth + history import)
+  schemas/core/      shared schema utilities (shenas-schema-core)
+  schemas/fitness/   HRV, sleep, vitals, body metrics
+  schemas/finance/   transactions, spending, budgets
+  schemas/outcomes/  mood, stress, productivity, exercise
+  schemas/habits/    daily habits
+  components/        Lit web components (built as wheels)
+  themes/            CSS custom properties (default + dark)
+  ui/default/        default UI shell (Lit SPA with tabs, command palette)
 ```
 
 **Data flow**: Source API -> dlt -> raw DuckDB tables -> SQL transform -> canonical `metrics.*` tables -> Arrow IPC -> web component
 
-**Plugin system**: Pipes register via `shenas.pipes` entry points, schemas via `shenas.schemas`, components via `shenas.components`. The CLI and UI discover them at runtime.
+**Plugin system**: Pipes register via `shenas.pipes` entry points, schemas via `shenas.schemas`, components via `shenas.components`. The CLI and UI discover them at runtime via `importlib.metadata`.
 
-**Core packages**: `shenas-pipe-core` and `shenas-schema-core` provide shared utilities (DRY). They are internal dependencies, not user-facing.
+**Core packages**: `shenas-pipe-core` and `shenas-schema-core` provide shared utilities. They are internal dependencies, not user-facing.
