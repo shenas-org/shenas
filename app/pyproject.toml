@@ -19,6 +19,7 @@ dependencies = [
     "typer>=0.24.1",
     "uvicorn>=0.42.0",
     "shenas-cli",
+    "shenas-repository",
     "shenas-ui-default",
 ]
 
