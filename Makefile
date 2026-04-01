@@ -1,4 +1,4 @@
-.PHONY: install repository setup-hooks coverage clean release-desktop setup-android android-emulator
+.PHONY: install repository setup-hooks coverage clean release-desktop setup-android android-emulator android-dev
 
 # Install CLI tools globally (~/.local/bin/)
 install:
@@ -93,6 +93,9 @@ setup-android:
 android-emulator:
 	@ANDROID_AVD_HOME=$(HOME)/.config/.android/avd \
 	$(ANDROID_SDK_ROOT)/emulator/emulator -avd shenas &
+
+android-dev:
+	cd app/mobile && bash build-ui.sh && npx tauri android dev
 
 # Tag a desktop release (version auto-computed from conventional commits)
 release-desktop:
