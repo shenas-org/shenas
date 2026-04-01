@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from rich.console import Console
 from rich.table import Table
 
-from app.cli.client import ShenasClient, ShenasServerError
+from cli.client import ShenasClient, ShenasServerError
 from repository.signing import load_public_key, verify_bytes
 
 console = Console()

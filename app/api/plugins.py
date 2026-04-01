@@ -15,7 +15,7 @@ from urllib.request import urlopen
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, HTTPException
 
-from app.cli.commands.plugin_cmd import DEFAULT_INDEX, PREFIXES, PUBLIC_KEY_PATH, check_signature
+from cli.commands.plugin_cmd import DEFAULT_INDEX, PREFIXES, PUBLIC_KEY_PATH, check_signature
 from app.db import get_plugin_state
 from app.models import InstallRequest, InstallResponse, InstallResult, OkResponse, PluginInfo, RemoveResponse
 from repository.signing import load_public_key, verify_bytes

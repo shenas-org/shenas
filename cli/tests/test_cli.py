@@ -4,8 +4,8 @@ import duckdb
 import pytest
 from typer.testing import CliRunner
 
-from app.cli.commands.plugin_cmd import check_signature
-from app.cli.main import app as main_app
+from cli.commands.plugin_cmd import check_signature
+from cli.main import app as main_app
 from app.api.db import _discover_schemas
 
 runner = CliRunner()
@@ -52,14 +52,14 @@ class TestDiscoverSchemas:
 
 class TestCheckSignature:
     def test_no_key(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr("app.cli.commands.plugin_cmd.PUBLIC_KEY_PATH", tmp_path / "nonexistent.pub")
+        monkeypatch.setattr("cli.commands.plugin_cmd.PUBLIC_KEY_PATH", tmp_path / "nonexistent.pub")
         assert check_signature("shenas-pipe-test", "1.0.0") == "no key"
 
     def test_no_wheel(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         pub = tmp_path / "shenas.pub"
         pub.write_text("fake")
-        monkeypatch.setattr("app.cli.commands.plugin_cmd.PUBLIC_KEY_PATH", pub)
-        monkeypatch.setattr("app.cli.commands.plugin_cmd.PACKAGES_DIR", tmp_path / "empty")
+        monkeypatch.setattr("cli.commands.plugin_cmd.PUBLIC_KEY_PATH", pub)
+        monkeypatch.setattr("cli.commands.plugin_cmd.PACKAGES_DIR", tmp_path / "empty")
         assert check_signature("shenas-pipe-test", "1.0.0") == "unsigned"
 
     def test_no_sig_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -68,8 +68,8 @@ class TestCheckSignature:
         pkg_dir = tmp_path / "packages"
         pkg_dir.mkdir()
         (pkg_dir / "shenas_pipe_test-1.0.0-py3-none-any.whl").write_bytes(b"whl")
-        monkeypatch.setattr("app.cli.commands.plugin_cmd.PUBLIC_KEY_PATH", pub)
-        monkeypatch.setattr("app.cli.commands.plugin_cmd.PACKAGES_DIR", pkg_dir)
+        monkeypatch.setattr("cli.commands.plugin_cmd.PUBLIC_KEY_PATH", pub)
+        monkeypatch.setattr("cli.commands.plugin_cmd.PACKAGES_DIR", pkg_dir)
         assert check_signature("shenas-pipe-test", "1.0.0") == "unsigned"
 
     def test_valid_signature(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -82,8 +82,8 @@ class TestCheckSignature:
         whl.write_bytes(b"real wheel")
         write_signature(load_private_key(priv), whl)
 
-        monkeypatch.setattr("app.cli.commands.plugin_cmd.PUBLIC_KEY_PATH", pub)
-        monkeypatch.setattr("app.cli.commands.plugin_cmd.PACKAGES_DIR", pkg_dir)
+        monkeypatch.setattr("cli.commands.plugin_cmd.PUBLIC_KEY_PATH", pub)
+        monkeypatch.setattr("cli.commands.plugin_cmd.PACKAGES_DIR", pkg_dir)
         assert check_signature("shenas-pipe-test", "1.0.0") == "valid"
 
     def test_invalid_signature(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -96,6 +96,6 @@ class TestCheckSignature:
         whl.write_bytes(b"real wheel")
         (pkg_dir / "shenas_pipe_test-1.0.0-py3-none-any.whl.sig").write_text("badsig==")
 
-        monkeypatch.setattr("app.cli.commands.plugin_cmd.PUBLIC_KEY_PATH", pub)
-        monkeypatch.setattr("app.cli.commands.plugin_cmd.PACKAGES_DIR", pkg_dir)
+        monkeypatch.setattr("cli.commands.plugin_cmd.PUBLIC_KEY_PATH", pub)
+        monkeypatch.setattr("cli.commands.plugin_cmd.PACKAGES_DIR", pkg_dir)
         assert check_signature("shenas-pipe-test", "1.0.0") == "invalid"

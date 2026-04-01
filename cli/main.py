@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typer
 
-from app.cli.commands import component, config_cmd, db_cmd, pipe, schema_cmd, service, theme_cmd, transform_cmd, ui_cmd
+from cli.commands import component, config_cmd, db_cmd, pipe, schema_cmd, service, theme_cmd, transform_cmd, ui_cmd
 
 app = typer.Typer(name="shenasctl", invoke_without_command=True)
 app.add_typer(pipe.app, name="pipe")

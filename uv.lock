@@ -13,6 +13,7 @@ resolution-markers = [
 [manifest]
 members = [
     "shenas-app",
+    "shenas-cli",
     "shenas-component-data-table",
     "shenas-component-fitness-dashboard",
     "shenas-pipe-core",
@@ -2042,6 +2043,7 @@ dependencies = [
     { name = "opentelemetry-sdk" },
     { name = "pyarrow" },
     { name = "rich" },
+    { name = "shenas-cli" },
     { name = "shenas-ui-default" },
     { name = "typer" },
     { name = "uvicorn" },
@@ -2061,9 +2063,30 @@ requires-dist = [
     { name = "opentelemetry-sdk", specifier = ">=1.25.0" },
     { name = "pyarrow", specifier = ">=23.0.1" },
     { name = "rich", specifier = ">=14.3.3" },
+    { name = "shenas-cli", editable = "cli" },
     { name = "shenas-ui-default", editable = "plugins/ui/default" },
     { name = "typer", specifier = ">=0.24.1" },
     { name = "uvicorn", specifier = ">=0.42.0" },
+]
+
+[[package]]
+name = "shenas-cli"
+source = { editable = "cli" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "httpx" },
+    { name = "rich" },
+    { name = "shenas-repository" },
+    { name = "typer" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cryptography", specifier = ">=46.0.6" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "rich", specifier = ">=14.3.3" },
+    { name = "shenas-repository", editable = "repository" },
+    { name = "typer", specifier = ">=0.24.1" },
 ]
 
 [[package]]
@@ -2268,13 +2291,13 @@ requires-dist = [
 name = "shenas-scheduler"
 source = { editable = "scheduler" }
 dependencies = [
-    { name = "shenas-app" },
+    { name = "shenas-cli" },
     { name = "typer" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "shenas-app", editable = "app" },
+    { name = "shenas-cli", editable = "cli" },
     { name = "typer", specifier = ">=0.24.1" },
 ]
 
@@ -2354,6 +2377,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
     { name = "shenas-app" },
+    { name = "shenas-cli" },
     { name = "shenas-component-data-table" },
     { name = "shenas-component-fitness-dashboard" },
     { name = "shenas-pipe-duolingo" },
@@ -2386,6 +2410,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "ruff", specifier = ">=0.15.8" },
     { name = "shenas-app", editable = "app" },
+    { name = "shenas-cli", editable = "cli" },
     { name = "shenas-component-data-table", editable = "plugins/components/data-table" },
     { name = "shenas-component-fitness-dashboard", editable = "plugins/components/fitness-dashboard" },
     { name = "shenas-pipe-duolingo", editable = "plugins/pipes/duolingo" },

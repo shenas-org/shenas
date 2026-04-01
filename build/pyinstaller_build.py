@@ -31,7 +31,7 @@ WORK_DIR = ROOT / "build" / "_pyinstaller_work"
 # The scheduler only needs httpx + typer.
 
 _IMPORTS_SHARED = [
-    "app.cli.client",
+    "cli.client",
 ]
 
 _IMPORTS_SERVER = [
@@ -44,18 +44,18 @@ _IMPORTS_SERVER = [
     "app.api.sync",
     "app.api.transforms",
     "app.cli",
-    "app.cli.main",
-    "app.cli.client",
-    "app.cli.commands",
-    "app.cli.commands.pipe",
-    "app.cli.commands.component",
-    "app.cli.commands.config_cmd",
-    "app.cli.commands.db_cmd",
-    "app.cli.commands.schema_cmd",
-    "app.cli.commands.service",
-    "app.cli.commands.theme_cmd",
-    "app.cli.commands.transform_cmd",
-    "app.cli.commands.ui_cmd",
+    "cli.main",
+    "cli.client",
+    "cli.commands",
+    "cli.commands.pipe",
+    "cli.commands.component",
+    "cli.commands.config_cmd",
+    "cli.commands.db_cmd",
+    "cli.commands.schema_cmd",
+    "cli.commands.service",
+    "cli.commands.theme_cmd",
+    "cli.commands.transform_cmd",
+    "cli.commands.ui_cmd",
     "app.db",
     "app.transforms",
     "app.telemetry",
@@ -90,30 +90,26 @@ _IMPORTS_SERVER = [
 ]
 
 _IMPORTS_CLI = [
-    "app",
     "app.cli",
-    "app.cli.main",
-    "app.cli.client",
-    "app.cli.commands",
-    "app.cli.commands.pipe",
-    "app.cli.commands.component",
-    "app.cli.commands.config_cmd",
-    "app.cli.commands.db_cmd",
-    "app.cli.commands.schema_cmd",
-    "app.cli.commands.service",
-    "app.cli.commands.theme_cmd",
-    "app.cli.commands.transform_cmd",
-    "app.cli.commands.ui_cmd",
-    "app.db",
-    "app.transforms",
-    "repository",
+    "cli.main",
+    "cli.client",
+    "cli.commands",
+    "cli.commands.pipe",
+    "cli.commands.component",
+    "cli.commands.config_cmd",
+    "cli.commands.db_cmd",
+    "cli.commands.schema_cmd",
+    "cli.commands.service",
+    "cli.commands.theme_cmd",
+    "cli.commands.transform_cmd",
+    "cli.commands.ui_cmd",
 ]
 
 _IMPORTS_SCHEDULER = [
     "scheduler",
     "scheduler.cli",
     "scheduler.daemon",
-    "app.cli.client",
+    "cli.client",
 ]
 
 # Modules to exclude globally
@@ -152,8 +148,16 @@ _EXCLUDES_LIGHTWEIGHT = [
 
 # Extra excludes for CLI (doesn't need server runtime)
 _EXCLUDES_CLI = [
+    "duckdb",
+    "dlt",
+    "pyarrow",
+    "numpy",
+    "pandas",
     "uvicorn",
+    "fastapi",
+    "starlette",
     "opentelemetry",
+    "pendulum",
     "fsspec",
     "google",
     "googleapiclient",

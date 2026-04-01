@@ -6,7 +6,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from app.cli.client import ShenasClient, ShenasServerError
+from cli.client import ShenasClient, ShenasServerError
 
 console = Console()
 

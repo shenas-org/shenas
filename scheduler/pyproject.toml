@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "Shenas background sync scheduler sidecar"
 requires-python = ">=3.11"
 dependencies = [
-    "shenas-app",
+    "shenas-cli",
     "typer>=0.24.1",
 ]
 
