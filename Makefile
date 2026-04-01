@@ -23,7 +23,7 @@ coverage:
 
 clean:
 	moon run :clean
-	rm -rf .moon/cache/
+	rm -rf .moon/cache/ packages/ .ruff_cache/ .pytest_cache/
 
 # Tag a desktop release (version auto-computed from conventional commits)
 release-desktop:
