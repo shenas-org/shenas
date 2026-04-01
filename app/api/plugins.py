@@ -12,12 +12,12 @@ from typing import Any
 from pathlib import Path
 from urllib.request import urlopen
 
+
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, HTTPException
 
 from app.db import get_plugin_state
 from app.models import InstallRequest, InstallResponse, InstallResult, OkResponse, PluginInfo, RemoveResponse
-from repository.signing import load_public_key, verify_bytes
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
 
@@ -69,6 +69,38 @@ def _is_internal(kind: str, name: str) -> bool:
     return False
 
 
+def _load_public_key(path: Path) -> Ed25519PublicKey:
+    """Load an Ed25519 public key from a PEM file."""
+    from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
+    key = load_pem_public_key(path.read_bytes())
+    if not isinstance(key, Ed25519PublicKey):
+        raise TypeError(f"Expected Ed25519 public key, got {type(key)}")
+    return key
+
+
+def _verify_file(public_key: Ed25519PublicKey, file_path: Path, sig_b64: str) -> bool:
+    """Verify a file against a base64-encoded Ed25519 signature."""
+    import base64
+
+    try:
+        public_key.verify(base64.b64decode(sig_b64), file_path.read_bytes())
+        return True
+    except Exception:
+        return False
+
+
+def _verify_bytes(public_key: Ed25519PublicKey, data: bytes, sig_b64: str) -> bool:
+    """Verify raw bytes against a base64-encoded Ed25519 signature."""
+    import base64
+
+    try:
+        public_key.verify(base64.b64decode(sig_b64), data)
+        return True
+    except Exception:
+        return False
+
+
 def check_signature(pkg_name: str, version: str) -> str:
     """Check if a package wheel has a valid Ed25519 signature."""
     if not PUBLIC_KEY_PATH.exists():
@@ -84,10 +116,8 @@ def check_signature(pkg_name: str, version: str) -> str:
     if not sig_path.exists():
         return "unsigned"
 
-    pub_key = load_public_key(PUBLIC_KEY_PATH)
-    from repository.signing import verify_file
-
-    return "valid" if verify_file(pub_key, wheel_path, sig_path.read_text().strip()) else "invalid"
+    pub_key = _load_public_key(PUBLIC_KEY_PATH)
+    return "valid" if _verify_file(pub_key, wheel_path, sig_path.read_text().strip()) else "invalid"
 
 
 def list_plugins_data(kind: str) -> list[PluginInfo]:
@@ -172,7 +202,7 @@ def _verify_from_index(pkg_name: str, index_url: str, pub_key: Ed25519PublicKey)
     except Exception as exc:
         return f"Cannot download wheel: {exc}"
 
-    if not verify_bytes(pub_key, wheel_bytes, sig_b64):
+    if not _verify_bytes(pub_key, wheel_bytes, sig_b64):
         return f"SIGNATURE VERIFICATION FAILED for {pkg_name}"
 
     return None
@@ -194,7 +224,7 @@ def install_plugin(
     if not skip_verify:
         if not public_key_path.exists():
             return InstallResult(name=name, ok=False, message=f"Public key not found at {public_key_path}")
-        pub_key = load_public_key(public_key_path)
+        pub_key = _load_public_key(public_key_path)
         error = _verify_from_index(pkg_name, index_url, pub_key)
         if error:
             return InstallResult(name=name, ok=False, message=error)
