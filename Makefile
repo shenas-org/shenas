@@ -1,4 +1,4 @@
-.PHONY: install repository setup-hooks coverage clean release-desktop
+.PHONY: install repository setup-hooks coverage clean release-desktop setup-android
 
 # Install CLI tools globally (~/.local/bin/)
 install:
@@ -24,6 +24,54 @@ coverage:
 clean:
 	moon run :clean
 	rm -rf .moon/cache/ packages/ .ruff_cache/ .pytest_cache/
+
+# Set up Android SDK, NDK, and Rust targets for mobile development
+ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
+NDK_VERSION = 27.2.12479018
+NDK_ZIP = android-ndk-r27d-linux.zip
+
+setup-android:
+	@echo "Setting up Android development environment..."
+	@# Command line tools
+	@if [ ! -d "$(ANDROID_SDK_ROOT)/cmdline-tools/latest" ]; then \
+		mkdir -p $(ANDROID_SDK_ROOT)/cmdline-tools; \
+		curl -sL -o /tmp/cmdline-tools.zip \
+			https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip; \
+		unzip -qo /tmp/cmdline-tools.zip -d $(ANDROID_SDK_ROOT)/cmdline-tools; \
+		mv $(ANDROID_SDK_ROOT)/cmdline-tools/cmdline-tools $(ANDROID_SDK_ROOT)/cmdline-tools/latest; \
+		rm /tmp/cmdline-tools.zip; \
+		echo "Installed command line tools"; \
+	else \
+		echo "Command line tools already installed"; \
+	fi
+	@# Accept licenses
+	@yes | $(ANDROID_SDK_ROOT)/cmdline-tools/latest/bin/sdkmanager --licenses --sdk_root=$(ANDROID_SDK_ROOT) > /dev/null 2>&1 || true
+	@# Platform tools + SDK
+	@$(ANDROID_SDK_ROOT)/cmdline-tools/latest/bin/sdkmanager \
+		"platform-tools" "platforms;android-35" --sdk_root=$(ANDROID_SDK_ROOT) | tail -1
+	@# NDK (download directly -- sdkmanager can silently fail)
+	@if [ ! -d "$(ANDROID_SDK_ROOT)/ndk/$(NDK_VERSION)" ]; then \
+		echo "Downloading Android NDK..."; \
+		curl -sL -o /tmp/$(NDK_ZIP) \
+			https://dl.google.com/android/repository/$(NDK_ZIP); \
+		mkdir -p $(ANDROID_SDK_ROOT)/ndk; \
+		unzip -qo /tmp/$(NDK_ZIP) -d $(ANDROID_SDK_ROOT)/ndk; \
+		mv $(ANDROID_SDK_ROOT)/ndk/android-ndk-r27d $(ANDROID_SDK_ROOT)/ndk/$(NDK_VERSION); \
+		rm /tmp/$(NDK_ZIP); \
+		echo "Installed NDK $(NDK_VERSION)"; \
+	else \
+		echo "NDK $(NDK_VERSION) already installed"; \
+	fi
+	@# Rust Android targets
+	@rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+	@# Mobile npm deps
+	@cd app/mobile && npm install
+	@echo ""
+	@echo "Android environment ready. Add to your shell profile:"
+	@echo "  export ANDROID_HOME=$(ANDROID_SDK_ROOT)"
+	@echo "  export NDK_HOME=$(ANDROID_SDK_ROOT)/ndk/$(NDK_VERSION)"
+	@echo ""
+	@echo "Then run: cd app/mobile && npx tauri android init"
 
 # Tag a desktop release (version auto-computed from conventional commits)
 release-desktop:
