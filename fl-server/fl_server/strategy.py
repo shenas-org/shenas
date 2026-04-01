@@ -52,7 +52,13 @@ class ShenasStrategy(FedAvg):
 
         if parameters is not None:
             weights = parameters_to_ndarrays(parameters)
-            self.store.save(self.task.name, server_round, weights)
+            self.store.save(
+                self.task.name,
+                server_round,
+                weights,
+                num_clients=len(results),
+                metrics=dict(metrics) if metrics else None,
+            )
             logger.info(
                 "Round %d complete for %s: %d clients, %d failures",
                 server_round,

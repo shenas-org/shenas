@@ -12,9 +12,10 @@ import threading
 from pathlib import Path
 
 import flwr as fl
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from flwr.server import ServerConfig
 
+from fl_server.auth import ClientRegistry
 from fl_server.models import ModelStore
 from fl_server.strategy import ShenasStrategy
 from fl_server.tasks import get_task, list_tasks
@@ -28,11 +29,52 @@ def _get_store() -> ModelStore:
     return api.state.store
 
 
-# ---- REST API ----
+def _get_registry() -> ClientRegistry:
+    return api.state.registry
+
+
+def _require_auth(request: Request) -> str:
+    """Dependency that verifies the Bearer token. Returns client name."""
+    registry: ClientRegistry = request.app.state.registry
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing Bearer token")
+    token = auth[7:]
+    client_name = registry.verify(token)
+    if client_name is None:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return client_name
+
+
+# ---- Client management (admin, no auth required -- run on trusted network) ----
+
+
+@api.post("/api/fl/clients")
+def register_client(name: str) -> dict:
+    """Register a new FL client. Returns the auth token (shown once)."""
+    token = _get_registry().register(name)
+    return {"name": name, "token": token}
+
+
+@api.get("/api/fl/clients")
+def list_clients() -> list[str]:
+    """List registered client names."""
+    return _get_registry().list_clients()
+
+
+@api.delete("/api/fl/clients/{name}")
+def revoke_client(name: str) -> dict:
+    """Revoke a client's access."""
+    if _get_registry().revoke(name):
+        return {"ok": True, "message": f"Revoked {name}"}
+    raise HTTPException(status_code=404, detail=f"Client '{name}' not found")
+
+
+# ---- Task & model endpoints (auth required) ----
 
 
 @api.get("/api/fl/tasks")
-def api_list_tasks() -> list[dict]:
+def api_list_tasks(_client: str = Depends(_require_auth)) -> list[dict]:
     return [
         {
             "name": t.name,
@@ -49,7 +91,7 @@ def api_list_tasks() -> list[dict]:
 
 
 @api.get("/api/fl/tasks/{name}")
-def api_get_task(name: str) -> dict:
+def api_get_task(name: str, _client: str = Depends(_require_auth)) -> dict:
     task = get_task(name)
     if task is None:
         raise HTTPException(status_code=404, detail=f"Task '{name}' not found")
@@ -71,7 +113,7 @@ def api_get_task(name: str) -> dict:
 
 
 @api.get("/api/fl/tasks/{name}/weights")
-def api_get_weights(name: str, round: int | None = None) -> dict:
+def api_get_weights(name: str, round: int | None = None, _client: str = Depends(_require_auth)) -> dict:
     """Get model weight metadata. Actual weights downloaded via Flower protocol."""
     store = _get_store()
     if round is not None:
@@ -88,6 +130,12 @@ def api_get_weights(name: str, round: int | None = None) -> dict:
         "shapes": [list(w.shape) for w in weights],
         "total_params": sum(w.size for w in weights),
     }
+
+
+@api.get("/api/fl/tasks/{name}/history")
+def api_task_history(name: str, _client: str = Depends(_require_auth)) -> list[dict]:
+    """Get version history for a task (all completed rounds with metadata)."""
+    return _get_store().history(name)
 
 
 @api.get("/api/fl/health")

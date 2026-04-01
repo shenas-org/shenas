@@ -32,8 +32,11 @@ def serve(
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
     )
 
+    from fl_server.auth import ClientRegistry
+
     store = ModelStore(weights_dir=weights_dir)
     fastapi_app.state.store = store
+    fastapi_app.state.registry = ClientRegistry()
 
     grpc_address = f"{grpc_host}:{grpc_port}"
     typer.echo(f"Starting FL server for task '{task}' on {grpc_address}")
@@ -42,6 +45,34 @@ def serve(
     start_fl_server_background(task, grpc_address=grpc_address, weights_dir=weights_dir)
 
     uvicorn.run(fastapi_app, host=api_host, port=api_port)
+
+
+@app.command("register")
+def register_cmd(
+    name: str = typer.Argument(help="Client name to register"),
+) -> None:
+    """Register a new FL client and print its auth token."""
+    from fl_server.auth import ClientRegistry
+
+    registry = ClientRegistry()
+    token = registry.register(name)
+    typer.echo(f"Client: {name}")
+    typer.echo(f"Token:  {token}")
+    typer.echo("\nStore this token securely -- it cannot be retrieved again.")
+
+
+@app.command("clients")
+def clients_cmd() -> None:
+    """List registered FL clients."""
+    from fl_server.auth import ClientRegistry
+
+    registry = ClientRegistry()
+    clients = registry.list_clients()
+    if not clients:
+        typer.echo("No clients registered")
+        return
+    for name in clients:
+        typer.echo(f"  {name}")
 
 
 @app.command("tasks")

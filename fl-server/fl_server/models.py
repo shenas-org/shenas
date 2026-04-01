@@ -12,7 +12,9 @@ with monotonically increasing round numbers.
 
 from __future__ import annotations
 
+import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -33,7 +35,15 @@ class ModelStore:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
-    def save(self, task_name: str, round_num: int, weights: list[np.ndarray]) -> Path:
+    def save(
+        self,
+        task_name: str,
+        round_num: int,
+        weights: list[np.ndarray],
+        *,
+        num_clients: int = 0,
+        metrics: dict | None = None,
+    ) -> Path:
         """Save weights for a completed round. Returns the saved path."""
         task_dir = self._task_dir(task_name)
         path = task_dir / f"round-{round_num:03d}.npz"
@@ -43,7 +53,22 @@ class ModelStore:
         if latest.is_symlink() or latest.exists():
             latest.unlink()
         latest.symlink_to(path.name)
-        logger.info("Saved weights for %s round %d (%d arrays)", task_name, round_num, len(weights))
+
+        # Write version metadata
+        meta_path = task_dir / f"round-{round_num:03d}.json"
+        meta = {
+            "round": round_num,
+            "task": task_name,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "num_clients": num_clients,
+            "num_arrays": len(weights),
+            "shapes": [list(w.shape) for w in weights],
+            "total_params": sum(w.size for w in weights),
+            "metrics": metrics or {},
+        }
+        meta_path.write_text(json.dumps(meta, indent=2))
+
+        logger.info("Saved weights for %s round %d (%d arrays, %d clients)", task_name, round_num, len(weights), num_clients)
         return path
 
     def load_latest(self, task_name: str) -> list[np.ndarray] | None:
@@ -70,3 +95,21 @@ class ModelStore:
             return None
         # round-003.npz -> 3
         return int(rounds[-1].stem.split("-")[1])
+
+    def get_round_meta(self, task_name: str, round_num: int) -> dict | None:
+        """Load metadata for a specific round."""
+        meta_path = self._task_dir(task_name) / f"round-{round_num:03d}.json"
+        if not meta_path.exists():
+            return None
+        return json.loads(meta_path.read_text())
+
+    def history(self, task_name: str) -> list[dict]:
+        """Return version history for a task (all rounds with metadata)."""
+        task_dir = self._task_dir(task_name)
+        history = []
+        for meta_path in sorted(task_dir.glob("round-*.json")):
+            try:
+                history.append(json.loads(meta_path.read_text()))
+            except Exception:
+                continue
+        return history
