@@ -51,7 +51,10 @@ jobs:
           uv run python scripts/sync-desktop-version.py "$VERSION"
 
       - name: Build PyInstaller sidecars
-        run: uv run python build/pyinstaller_build.py --desktop
+        run: |
+          uv run python build/pyinstaller_build.py --onefile
+          mkdir -p app/desktop/src-tauri/binaries
+          cp dist/pyinstaller/* app/desktop/src-tauri/binaries/
 
       - name: Install npm dependencies
         working-directory: app/desktop

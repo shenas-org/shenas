@@ -24,7 +24,7 @@ moon run app:test                   # run tests for a single project
 moon run :lint                      # run lint across all projects
 moon run :test                      # run tests across all projects
 moon run :coverage                  # run tests with coverage report
-moon run :pyinstaller               # build standalone binaries (onedir)
+moon run :pyinstaller               # build standalone binaries (onedir) to dist/
 moon run :build                     # build + sign all distributable wheels
 moon run pipe-garmin:build           # build + sign a single pipe
 moon run desktop:sidecars           # build PyInstaller sidecars for Tauri

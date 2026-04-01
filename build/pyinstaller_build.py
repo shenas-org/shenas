@@ -21,7 +21,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BUILD_DIR = ROOT / "build"
 DIST_DIR = ROOT / "dist" / "pyinstaller"
-DESKTOP_BIN_DIR = ROOT / "app" / "desktop" / "src-tauri" / "binaries"
 WORK_DIR = ROOT / "build" / "_pyinstaller_work"
 
 
@@ -554,9 +553,9 @@ def main() -> None:
     parser.add_argument("targets", nargs="*", help="Targets to build (default: all)")
     parser.add_argument("--list", action="store_true", help="List available targets")
     parser.add_argument(
-        "--desktop",
+        "--onefile",
         action="store_true",
-        help="Build --onefile binaries into app/desktop/src-tauri/binaries/ for Tauri sidecar bundling",
+        help="Build single-file binaries (for Tauri sidecars). Default is --onedir.",
     )
     args = parser.parse_args()
 
@@ -579,8 +578,8 @@ def main() -> None:
         print("PyInstaller not found. Install it with: uv add --dev pyinstaller")
         sys.exit(1)
 
-    onefile = args.desktop
-    dist_dir = DESKTOP_BIN_DIR if args.desktop else DIST_DIR
+    onefile = args.onefile
+    dist_dir = DIST_DIR
 
     # For --onefile on Linux, create a patched copy of libpython
     patched_libpython = None

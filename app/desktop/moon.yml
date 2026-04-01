@@ -13,10 +13,14 @@ tasks:
     inputs:
       - '/scripts/sync-desktop-version.py'
   sidecars:
-    command: 'uv run python ../../build/pyinstaller_build.py --desktop'
+    script: >
+      uv run python ../../build/pyinstaller_build.py --onefile &&
+      mkdir -p src-tauri/binaries &&
+      cp ../../dist/pyinstaller/shenas-* src-tauri/binaries/
     inputs:
       - '/build/**/*.py'
       - '/app/**/*.py'
+      - '/cli/**/*.py'
       - '/scheduler/**/*.py'
       - '/repository/**/*.py'
       - '/plugins/**/*.py'
