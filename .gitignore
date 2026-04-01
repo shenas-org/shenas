@@ -16,6 +16,7 @@ build/_pyinstaller_work/
 shenas.egg-info/
 .moon/cache/
 .moon/docker/
+app/desktop/src-tauri/binaries/
 app/desktop/src-tauri/target/
 app/desktop/src-tauri/gen/
 app/desktop/src-tauri/Cargo.lock

@@ -1,8 +1,9 @@
 """Build standalone binaries for shenas using PyInstaller.
 
 Usage:
-    uv run python build/pyinstaller_build.py                  # build all
+    uv run python build/pyinstaller_build.py                  # build all (onedir)
     uv run python build/pyinstaller_build.py shenas            # build one
+    uv run python build/pyinstaller_build.py --desktop          # onefile into Tauri binaries/
     uv run python build/pyinstaller_build.py --list            # list targets
 """
 
@@ -11,6 +12,8 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import platform
+import shutil
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BUILD_DIR = ROOT / "build"
 DIST_DIR = ROOT / "dist" / "pyinstaller"
+DESKTOP_BIN_DIR = ROOT / "app" / "desktop" / "src-tauri" / "binaries"
 WORK_DIR = ROOT / "build" / "_pyinstaller_work"
 
 # All shenas namespace packages that are discovered via entry_points().
@@ -153,46 +157,130 @@ def _collect_explicit_datas() -> list[tuple[str, str]]:
     return datas
 
 
-def _patch_execstack(internal_dir: Path) -> None:
-    """Clear the executable stack flag (PF_X) from ELF shared libraries.
+# ---- ELF execstack patching ----
 
-    Linux kernel 6.x enforces W^X and refuses to load .so files with
-    GNU_STACK marked RWE. Some Python builds (e.g. proto/python) have this
-    flag set. We patch the ELF program header in-place to clear PF_X.
-    """
-    import struct
+_PT_GNU_STACK = 0x6474E551
+_PF_X = 0x1
 
-    PT_GNU_STACK = 0x6474E551
-    PF_X = 0x1
 
-    for so_file in internal_dir.glob("*.so*"):
-        try:
-            with open(so_file, "r+b") as f:
-                ident = f.read(16)
-                if ident[:4] != b"\x7fELF" or ident[4] != 2:  # only 64-bit ELF
-                    continue
+def _patch_elf_execstack(path: Path) -> bool:
+    """Clear PF_X from GNU_STACK in a 64-bit ELF file. Returns True if patched."""
+    try:
+        with open(path, "r+b") as f:
+            ident = f.read(16)
+            if ident[:4] != b"\x7fELF" or ident[4] != 2:
+                return False
 
-                f.seek(32)  # e_phoff
-                phoff = struct.unpack("<Q", f.read(8))[0]
-                f.seek(54)  # e_phentsize, e_phnum
-                phentsize = struct.unpack("<H", f.read(2))[0]
-                phnum = struct.unpack("<H", f.read(2))[0]
+            f.seek(32)
+            phoff = struct.unpack("<Q", f.read(8))[0]
+            f.seek(54)
+            phentsize = struct.unpack("<H", f.read(2))[0]
+            phnum = struct.unpack("<H", f.read(2))[0]
 
-                for i in range(phnum):
-                    off = phoff + i * phentsize
-                    f.seek(off)
-                    p_type = struct.unpack("<I", f.read(4))[0]
-                    if p_type == PT_GNU_STACK:
+            for i in range(phnum):
+                off = phoff + i * phentsize
+                f.seek(off)
+                p_type = struct.unpack("<I", f.read(4))[0]
+                if p_type == _PT_GNU_STACK:
+                    f.seek(off + 4)
+                    p_flags = struct.unpack("<I", f.read(4))[0]
+                    if p_flags & _PF_X:
                         f.seek(off + 4)
-                        p_flags = struct.unpack("<I", f.read(4))[0]
-                        if p_flags & PF_X:
-                            f.seek(off + 4)
-                            f.write(struct.pack("<I", p_flags & ~PF_X))
-                            print(f"  Patched {so_file.name}: cleared executable stack flag")
-                        break
-        except Exception:
-            pass  # skip files we can't patch
+                        f.write(struct.pack("<I", p_flags & ~_PF_X))
+                        return True
+                    break
+    except Exception:
+        pass
+    return False
 
+
+def _find_libpython() -> Path | None:
+    """Locate libpython shared library by inspecting the Python binary's dependencies."""
+    python_bin = Path(sys.executable).resolve()
+
+    # Method 1: use ldd to find linked libpython
+    try:
+        result = subprocess.run(["ldd", str(python_bin)], capture_output=True, text=True, check=True)
+        for line in result.stdout.splitlines():
+            if "libpython" in line and "=>" in line:
+                # Format: "libpython3.11.so.1.0 => /path/to/lib (0x...)"
+                parts = line.strip().split("=>")
+                if len(parts) == 2:
+                    path = parts[1].strip().split("(")[0].strip()
+                    if path and Path(path).exists():
+                        return Path(path)
+    except Exception:
+        pass
+
+    # Method 2: search near the Python binary
+    python_home = python_bin.parent.parent / "lib"
+    for candidate in python_home.glob("libpython*.so*"):
+        if candidate.is_file() and not candidate.is_symlink():
+            return candidate
+
+    return None
+
+
+def _patch_source_libpython() -> Path | None:
+    """Create a patched copy of libpython with executable stack flag cleared.
+
+    Returns the path to the patched copy, or None if patching wasn't needed.
+    For --onefile mode, we pass this to PyInstaller via --add-binary to
+    override the bundled libpython.
+    """
+    if platform.system() != "Linux":
+        return None
+
+    libpython = _find_libpython()
+    if libpython is None:
+        print("  WARNING: Could not locate libpython shared library")
+        return None
+
+    # Check if it actually needs patching
+    try:
+        with open(libpython, "rb") as f:
+            ident = f.read(16)
+            if ident[:4] != b"\x7fELF" or ident[4] != 2:
+                return None
+            f.seek(32)
+            phoff = struct.unpack("<Q", f.read(8))[0]
+            f.seek(54)
+            phentsize = struct.unpack("<H", f.read(2))[0]
+            phnum = struct.unpack("<H", f.read(2))[0]
+            needs_patch = False
+            for i in range(phnum):
+                off = phoff + i * phentsize
+                f.seek(off)
+                p_type = struct.unpack("<I", f.read(4))[0]
+                if p_type == _PT_GNU_STACK:
+                    f.seek(off + 4)
+                    p_flags = struct.unpack("<I", f.read(4))[0]
+                    needs_patch = bool(p_flags & _PF_X)
+                    break
+            if not needs_patch:
+                print(f"  {libpython.name}: no executable stack flag, skipping patch")
+                return None
+    except Exception:
+        return None
+
+    # Create a patched copy
+    patched = WORK_DIR / libpython.name
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(libpython, patched)
+    if _patch_elf_execstack(patched):
+        print(f"  Created patched copy of {libpython.name} at {patched}")
+        return patched
+    return None
+
+
+def _patch_execstack_dir(directory: Path) -> None:
+    """Patch all .so files in a directory (for --onedir post-build)."""
+    for so_file in directory.glob("*.so*"):
+        if _patch_elf_execstack(so_file):
+            print(f"  Patched {so_file.name}: cleared executable stack flag")
+
+
+# ---- Build targets ----
 
 TARGETS = {
     "shenas": {
@@ -210,13 +298,20 @@ TARGETS = {
 }
 
 
-def build_target(name: str, target: dict[str, Path | str]) -> Path:
+def build_target(
+    name: str,
+    target: dict[str, Path | str],
+    *,
+    onefile: bool,
+    dist_dir: Path,
+    patched_libpython: Path | None = None,
+) -> Path:
     """Build a single PyInstaller target. Returns the output path."""
     triple = _target_triple()
     output_name = f"{name}-{triple}"
 
     print(f"\n{'=' * 60}")
-    print(f"Building {name} ({target['description']})")
+    print(f"Building {name} ({target['description']}) [{'onefile' if onefile else 'onedir'}]")
     print(f"{'=' * 60}\n")
 
     sep = _sep()
@@ -224,9 +319,9 @@ def build_target(name: str, target: dict[str, Path | str]) -> Path:
         sys.executable,
         "-m",
         "PyInstaller",
-        "--onedir",
+        "--onefile" if onefile else "--onedir",
         f"--name={output_name}",
-        f"--distpath={DIST_DIR}",
+        f"--distpath={dist_dir}",
         f"--workpath={WORK_DIR / name}",
         f"--specpath={WORK_DIR}",
         # Hidden imports for dynamic loading
@@ -237,6 +332,8 @@ def build_target(name: str, target: dict[str, Path | str]) -> Path:
         *[f"--add-data={src}{sep}{dest}" for src, dest in _collect_explicit_datas()],
         # .dist-info directories for importlib.metadata
         *[f"--add-data={src}{sep}{dest}" for src, dest in _collect_dist_info_datas()],
+        # Override bundled libpython with patched copy (execstack fix)
+        *([f"--add-binary={patched_libpython}{sep}."] if patched_libpython else []),
         # Exclude heavyweight modules not needed at runtime
         "--exclude-module=pytest",
         "--exclude-module=_pytest",
@@ -259,22 +356,26 @@ def build_target(name: str, target: dict[str, Path | str]) -> Path:
         print(f"\nFailed to build {name} (exit code {result.returncode})")
         sys.exit(result.returncode)
 
-    # --onedir places the binary inside a directory of the same name
-    output_path = DIST_DIR / output_name / output_name
-    if platform.system() == "Windows":
-        output_path = output_path.with_suffix(".exe")
+    if onefile:
+        output_path = dist_dir / output_name
+        if platform.system() == "Windows":
+            output_path = output_path.with_suffix(".exe")
+    else:
+        output_path = dist_dir / output_name / output_name
+        if platform.system() == "Windows":
+            output_path = output_path.with_suffix(".exe")
 
     print(f"\nBuilt: {output_path}")
     if output_path.exists():
         size_mb = output_path.stat().st_size / (1024 * 1024)
         print(f"Size: {size_mb:.1f} MB")
-        # Total directory size
-        dir_path = output_path.parent
-        total = sum(f.stat().st_size for f in dir_path.rglob("*") if f.is_file())
-        print(f"Total directory: {total / (1024 * 1024):.1f} MB")
-        # Patch executable stack on Linux (kernel 6.x blocks RWE stacks)
-        if platform.system() == "Linux":
-            _patch_execstack(output_path.parent / "_internal")
+        if not onefile:
+            dir_path = output_path.parent
+            total = sum(f.stat().st_size for f in dir_path.rglob("*") if f.is_file())
+            print(f"Total directory: {total / (1024 * 1024):.1f} MB")
+            # Post-build patch for --onedir
+            if platform.system() == "Linux":
+                _patch_execstack_dir(output_path.parent / "_internal")
 
     return output_path
 
@@ -288,6 +389,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Build shenas binaries with PyInstaller")
     parser.add_argument("targets", nargs="*", help="Targets to build (default: all)")
     parser.add_argument("--list", action="store_true", help="List available targets")
+    parser.add_argument(
+        "--desktop",
+        action="store_true",
+        help="Build --onefile binaries into app/desktop/src-tauri/binaries/ for Tauri sidecar bundling",
+    )
     args = parser.parse_args()
 
     if args.list:
@@ -309,12 +415,23 @@ def main() -> None:
         print("PyInstaller not found. Install it with: uv add --dev pyinstaller")
         sys.exit(1)
 
-    DIST_DIR.mkdir(parents=True, exist_ok=True)
+    onefile = args.desktop
+    dist_dir = DESKTOP_BIN_DIR if args.desktop else DIST_DIR
+
+    # For --onefile on Linux, create a patched copy of libpython
+    patched_libpython = None
+    if onefile and platform.system() == "Linux":
+        print("Preparing patched libpython for --onefile compatibility...")
+        patched_libpython = _patch_source_libpython()
+
+    dist_dir.mkdir(parents=True, exist_ok=True)
     WORK_DIR.mkdir(parents=True, exist_ok=True)
 
     results = {}
     for name in to_build:
-        results[name] = build_target(name, TARGETS[name])
+        results[name] = build_target(
+            name, TARGETS[name], onefile=onefile, dist_dir=dist_dir, patched_libpython=patched_libpython
+        )
 
     print(f"\n{'=' * 60}")
     print("Build complete!")

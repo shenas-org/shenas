@@ -1,4 +1,4 @@
-.PHONY: install repository setup-hooks coverage pyinstaller pyinstaller-shenas pyinstaller-shenasctl pyinstaller-scheduler
+.PHONY: install repository setup-hooks coverage pyinstaller pyinstaller-shenas pyinstaller-shenasctl pyinstaller-scheduler desktop-sidecars
 
 # Install CLI tools globally (~/.local/bin/)
 install:
@@ -33,3 +33,7 @@ pyinstaller-shenasctl:
 
 pyinstaller-scheduler:
 	uv run python build/pyinstaller_build.py shenas-scheduler
+
+# Build --onefile sidecars into app/desktop/src-tauri/binaries/ for Tauri
+desktop-sidecars:
+	uv run python build/pyinstaller_build.py --desktop

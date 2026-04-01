@@ -31,11 +31,17 @@
       "icons/128x128.png",
       "icons/256x256.png",
       "icons/icon.png"
+    ],
+    "externalBin": [
+      "binaries/shenas",
+      "binaries/shenasctl",
+      "binaries/shenas-scheduler"
     ]
   },
   "plugins": {
     "shell": {
-      "open": true
+      "open": true,
+      "sidecar": true
     }
   }
 }
