@@ -27,6 +27,6 @@ def main(
         level=getattr(logging, log_level.upper(), logging.INFO),
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
     )
-    from app.sync_scheduler import run_daemon
+    from scheduler.daemon import run_daemon
 
     run_daemon(server_url=server_url, check_interval=check_interval)

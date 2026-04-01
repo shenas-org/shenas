@@ -47,10 +47,11 @@ shenasrepoctl vendor garmin        # vendor a pipe and its deps
 
 ### Workspace packages
 
-The monorepo is a uv workspace with 5 members, each a separate Python package:
+The monorepo is a uv workspace with 6 members, each a separate Python package:
 
 - **`shenas-cli`** (`cli/`) — CLI entry point, depends on shenas-app + shenas-repository
 - **`shenas-app`** (`app/`) — FastAPI UI server (renamed from local_frontend)
+- **`shenas-scheduler`** (`scheduler/`) — background sync daemon sidecar, depends on shenas-app
 - **`shenas-repository`** (`repository/`) — PEP 503 package server + Ed25519 signing
 - **`shenas-pipe-core`** (`plugins/pipes/core/`) — shared pipe utilities
 - **`shenas-schema-core`** (`plugins/schemas/core/`) — shared schema utilities
@@ -104,6 +105,7 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - `app/` — FastAPI UI server (shenas-app); discovers plugins via entry points, serves Arrow IPC
 - `app/telemetry/` — OpenTelemetry exporters, DuckDB spans/logs, real-time SSE dispatcher
 - `app/vendor/` — shared frontend deps (Lit, Arrow, uPlot, Cytoscape) built with Rollup
+- `scheduler/` — background sync daemon sidecar (shenas-scheduler); polls server for due pipes
 - `repository/` — PEP 503 Simple Repository API server + Ed25519 signing
 - `scripts/` — build helpers (version bumping, pre-commit hook)
 - `plugins/pipes/core/` — shared pipe utilities (shenas-pipe-core)

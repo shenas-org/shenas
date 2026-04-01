@@ -24,7 +24,6 @@ dependencies = [
 [project.scripts]
 shenas = "app.server_cli:app"
 shenasctl = "app.cli.main:main"
-shenas-scheduler = "app.scheduler_cli:app"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
