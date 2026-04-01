@@ -27,10 +27,18 @@ class LinearModel(nn.Module):
 
 
 def get_model(name: str, n_features: int) -> nn.Module:
-    """Get a model by name. Phase 1 only supports 'linear'."""
+    """Get a model by name. Checks installed model plugins first, falls back to built-in linear."""
+    # Try model plugins
+    from fl_client.model_registry import get_model_meta
+
+    meta = get_model_meta(name)
+    if meta is not None and "model_cls" in meta:
+        return meta["model_cls"](n_features)
+
+    # Built-in fallback
     if name == "linear":
         return LinearModel(n_features)
-    raise ValueError(f"Unknown model: {name}. Available: linear")
+    raise ValueError(f"Unknown model: {name}. Available: linear, or install a model plugin")
 
 
 def get_weights(model: nn.Module) -> list[np.ndarray]:
