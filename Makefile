@@ -1,4 +1,4 @@
-.PHONY: install repository setup-hooks release-desktop
+.PHONY: install repository setup-hooks coverage release-desktop
 
 # Install CLI tools globally (~/.local/bin/)
 install:
@@ -15,6 +15,11 @@ setup-hooks:
 	cp scripts/pre-commit .git/hooks/pre-commit
 	chmod +x .git/hooks/pre-commit
 	@echo "Pre-commit hook installed."
+
+coverage:
+	uv run --no-sync pytest --cov=repository --cov=app \
+		--cov=shenas_pipes --cov=shenas_schemas \
+		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
 
 # Tag a desktop release (version auto-computed from conventional commits)
 release-desktop:
