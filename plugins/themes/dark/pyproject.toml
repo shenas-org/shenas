@@ -1,0 +1,22 @@
+[project]
+name = "shenas-theme-dark"
+dynamic = ["version"]
+description = "Dark theme for shenas"
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.themes"]
+dark = "shenas_themes.dark:THEME"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "theme-dark/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "theme-dark/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_themes"]

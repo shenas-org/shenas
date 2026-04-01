@@ -40,7 +40,7 @@ def main(
                 host=host,
                 port=port,
                 reload=True,
-                reload_dirs=["app", "pipes", "schemas", "ui", "components", "telemetry"],
+                reload_dirs=["app", "plugins"],
             )
             return
 
@@ -54,7 +54,7 @@ def main(
             host=host,
             port=port,
             reload=True,
-            reload_dirs=["app", "pipes", "schemas", "ui", "components", "telemetry"],
+            reload_dirs=["app", "plugins"],
             ssl_certfile=str(cert_file),
             ssl_keyfile=str(key_file),
         )

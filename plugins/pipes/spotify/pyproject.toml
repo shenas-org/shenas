@@ -1,0 +1,26 @@
+[project]
+name = "shenas-pipe-spotify"
+dynamic = ["version"]
+description = "Spotify dlt connector for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "spotipy>=2.24.0",
+    "shenas-pipe-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.pipes"]
+spotify = "shenas_pipes.spotify.cli:app"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "pipe-spotify/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "pipe-spotify/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shenas_pipes"]
