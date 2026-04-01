@@ -5,7 +5,7 @@
 use std::path::Path;
 use std::sync::Mutex;
 
-use duckdb::{params, Connection, Result};
+use duckdb::{Connection, Result};
 
 pub struct Database {
     conn: Mutex<Connection>,
@@ -34,6 +34,7 @@ impl Database {
         let conn = self.conn.lock().unwrap();
         conn.execute_batch(
             "CREATE SCHEMA IF NOT EXISTS shenas_system;
+             CREATE SEQUENCE IF NOT EXISTS shenas_system.transforms_id_seq START 1;
              CREATE TABLE IF NOT EXISTS shenas_system.plugins (
                  kind VARCHAR NOT NULL,
                  name VARCHAR NOT NULL,
@@ -55,10 +56,6 @@ impl Database {
                  enabled BOOLEAN DEFAULT true
              );",
         )?;
-        // Create sequence if not exists (DuckDB doesn't have IF NOT EXISTS for sequences)
-        let _ = conn.execute_batch(
-            "CREATE SEQUENCE IF NOT EXISTS shenas_system.transforms_id_seq START 1;",
-        );
         Ok(())
     }
 
@@ -68,7 +65,7 @@ impl Database {
         let mut stmt = conn.prepare(sql)?;
         let column_count = stmt.column_count();
         let column_names: Vec<String> = (0..column_count)
-            .map(|i| stmt.column_name(i).unwrap_or("?").to_string())
+            .map(|i| stmt.column_name(i).map_or("?", |v| v).to_string())
             .collect();
 
         let mut rows = Vec::new();

@@ -6,9 +6,9 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Query, State},
     http::StatusCode,
-    response::Json,
+    response::{Html, Json},
     routing::get,
     Router,
 };
@@ -21,18 +21,56 @@ pub type AppState = Arc<Database>;
 #[derive(Deserialize)]
 pub struct QueryParams {
     sql: String,
+    #[allow(dead_code)]
     #[serde(default)]
     format: Option<String>,
 }
 
 pub fn router(db: Arc<Database>) -> Router {
     Router::new()
+        .route("/", get(index))
         .route("/api/health", get(health))
         .route("/api/tables", get(tables))
         .route("/api/query", get(query))
         .route("/api/transforms", get(list_transforms))
         .route("/api/transforms/run", axum::routing::post(run_transforms))
         .with_state(db)
+}
+
+async fn index(State(db): State<AppState>) -> Html<String> {
+    let tables = db.list_tables().unwrap_or_default();
+    let table_count = tables.len();
+    Html(format!(
+        r#"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>shenas</title>
+    <style>
+        body {{ font-family: system-ui, sans-serif; margin: 1rem; background: #f5f5f5; color: #333; }}
+        h1 {{ font-size: 1.5rem; font-weight: 400; }}
+        .status {{ background: #fff; padding: 1rem; border-radius: 8px; margin: 1rem 0; }}
+        .ok {{ color: #2d7d46; }}
+        pre {{ background: #e8e8e8; padding: 0.5rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; }}
+    </style>
+</head>
+<body>
+    <h1>shenas mobile</h1>
+    <div class="status">
+        <p class="ok">Server running</p>
+        <p>Platform: Android (Rust + DuckDB + axum)</p>
+        <p>Tables: {table_count}</p>
+    </div>
+    <h2>API</h2>
+    <pre>GET /api/health
+GET /api/tables
+GET /api/query?sql=SELECT 1
+GET /api/transforms
+POST /api/transforms/run</pre>
+</body>
+</html>"#
+    ))
 }
 
 async fn health() -> Json<serde_json::Value> {
