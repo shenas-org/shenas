@@ -11,11 +11,11 @@ package = false
 members = [
     "app",
     "repository",
-    "pipes/*",
-    "schemas/*",
-    "components/*",
-    "ui/*",
-    "themes/*",
+    "plugins/pipes/*",
+    "plugins/schemas/*",
+    "plugins/components/*",
+    "plugins/ui/*",
+    "plugins/themes/*",
 ]
 
 [tool.uv.sources]
@@ -70,7 +70,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["app/cli/tests", "app/tests", "repository/tests", "telemetry/tests", "pipes/core/tests", "pipes/garmin/tests", "pipes/gmail/tests", "pipes/gcalendar/tests", "pipes/gtakeout/tests", "pipes/lunchmoney/tests", "pipes/obsidian/tests", "pipes/duolingo/tests", "pipes/spotify/tests", "schemas/fitness/tests", "schemas/finance/tests", "schemas/outcomes/tests", "schemas/habits/tests"]
+testpaths = ["app/cli/tests", "app/tests", "repository/tests", "app/telemetry/tests", "plugins/pipes/core/tests", "plugins/pipes/garmin/tests", "plugins/pipes/gmail/tests", "plugins/pipes/gcalendar/tests", "plugins/pipes/gtakeout/tests", "plugins/pipes/lunchmoney/tests", "plugins/pipes/obsidian/tests", "plugins/pipes/duolingo/tests", "plugins/pipes/spotify/tests", "plugins/schemas/fitness/tests", "plugins/schemas/finance/tests", "plugins/schemas/outcomes/tests", "plugins/schemas/habits/tests"]
 addopts = "--import-mode=importlib"
 pythonpath = ["."]
 

@@ -20,11 +20,11 @@ from app.api import api_router
 @asynccontextmanager
 async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-    from telemetry.setup import init_telemetry
+    from app.telemetry.setup import init_telemetry
 
     import asyncio
 
-    from telemetry.dispatcher import set_loop
+    from app.telemetry.dispatcher import set_loop
 
     init_telemetry("shenas-server")
     set_loop(asyncio.get_running_loop())
@@ -38,7 +38,7 @@ import os as _os  # noqa: E402
 app.state.ui_name = _os.environ.get("SHENAS_UI", "default")
 app.state.default_theme = _os.environ.get("SHENAS_DEFAULT_THEME", "default")
 app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")
-_vendor_dir = _Path(__file__).parent.parent / "vendor" / "dist"
+_vendor_dir = _Path(__file__).parent / "vendor" / "dist"
 if _vendor_dir.is_dir():
     app.mount("/vendor", StaticFiles(directory=str(_vendor_dir)), name="vendor")
 app.include_router(api_router)
@@ -260,7 +260,7 @@ async def stream_logs() -> StreamingResponse:
     import asyncio
     import json
 
-    from telemetry.dispatcher import subscribe, unsubscribe
+    from app.telemetry.dispatcher import subscribe, unsubscribe
 
     async def _generate() -> AsyncIterator[str]:
         q = subscribe()
@@ -287,7 +287,7 @@ async def stream_spans() -> StreamingResponse:
     import asyncio
     import json
 
-    from telemetry.dispatcher import subscribe, unsubscribe
+    from app.telemetry.dispatcher import subscribe, unsubscribe
 
     async def _generate() -> AsyncIterator[str]:
         q = subscribe()

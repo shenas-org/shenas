@@ -40,7 +40,8 @@ shenasrepoctl vendor garmin        # vendor a pipe and its deps
 - **pyarrow** — Arrow IPC streaming for app queries
 - **cryptography** — Ed25519 package signing
 - **hatchling** — wheel builder for pipes, schemas, and components
-- **Lit + uPlot + Vite** — frontend component stack
+- **Lit + uPlot + Cytoscape + Vite** — frontend component stack
+- **OpenTelemetry** — spans and logs exported to DuckDB, real-time SSE streaming
 
 ## Architecture
 
@@ -51,8 +52,8 @@ The monorepo is a uv workspace with 5 members, each a separate Python package:
 - **`shenas-cli`** (`cli/`) — CLI entry point, depends on shenas-app + shenas-repository
 - **`shenas-app`** (`app/`) — FastAPI UI server (renamed from local_frontend)
 - **`shenas-repository`** (`repository/`) — PEP 503 package server + Ed25519 signing
-- **`shenas-pipe-core`** (`pipes/core/`) — shared pipe utilities
-- **`shenas-schema-core`** (`schemas/core/`) — shared schema utilities
+- **`shenas-pipe-core`** (`plugins/pipes/core/`) — shared pipe utilities
+- **`shenas-schema-core`** (`plugins/schemas/core/`) — shared schema utilities
 
 Each has its own `pyproject.toml` with hatchling build, `VERSION` file, and `moon.yml` for task definitions. Cross-package imports (e.g. `cli` importing `repository.signing`, `app` importing `cli.db`) resolve via workspace editable installs with `dev-mode-dirs = [".."]` pointing to the repo root.
 
@@ -65,19 +66,19 @@ All plugins are uv workspace members. `uv sync` installs everything for developm
 ### Data flow: raw -> canonical
 
 1. **Sync**: Pipe fetches from API, dlt loads into source-specific schema (`garmin.*`, `lunchmoney.*`)
-2. **Transform**: Pipe's `MetricProviderBase._upsert()` runs SQL: DELETE by source, INSERT into `metrics.*` (runs automatically after sync)
+2. **Transform**: Configurable SQL transforms stored in DuckDB (`shenas_system.transforms`): DELETE by source, INSERT into `metrics.*` (runs automatically after sync)
 3. **Visualize**: Frontend queries `metrics.*` via Arrow IPC
 
 ### Shared core packages
 
-- **`shenas-pipe-core`** (`pipes/core/`) — shared pipe utilities: `resolve_start_date`, `date_range`, `is_empty_response`, `MetricProviderBase` (with `_upsert`), `create_pipe_app`, `run_sync`, `print_load_info`
-- **`shenas-schema-core`** (`schemas/core/`) — shared schema utilities: `Field` (metadata dataclass), `generate_ddl`, `ensure_schema`, `table_metadata`, `schema_metadata`, `MetricProvider` protocol
+- **`shenas-pipe-core`** (`plugins/pipes/core/`) — shared pipe utilities: `resolve_start_date`, `date_range`, `is_empty_response`, `create_pipe_app`, `run_sync`, `print_load_info`
+- **`shenas-schema-core`** (`plugins/schemas/core/`) — shared schema utilities: `Field` (metadata dataclass), `generate_ddl`, `ensure_schema`, `table_metadata`, `schema_metadata`, `MetricProvider` protocol
 
 Both are internal packages — hidden from `list`/`add`/`remove` commands. Pipes depend on `shenas-pipe-core`, schemas depend on `shenas-schema-core`.
 
 ### Canonical schema is dataclass-driven
 
-Each schema package (e.g. `schemas/fitness/`) contains only a `metrics.py` with dataclasses. Fields use `Annotated[type, Field(...)]` for structured metadata (description, unit, value_range, interpretation). DDL is generated from these by `shenas-schema-core` — no hand-written SQL.
+Each schema package (e.g. `plugins/schemas/fitness/`) contains only a `metrics.py` with dataclasses. Fields use `Annotated[type, Field(...)]` for structured metadata (description, unit, value_range, interpretation). DDL is generated from these by `shenas-schema-core` — no hand-written SQL.
 
 ### Package distribution
 
@@ -85,35 +86,43 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 
 ### Component packaging workaround
 
-`components/*/pyproject.build.toml` is renamed to `pyproject.toml` only during build (by the Makefile), then removed. This prevents uv from auto-discovering components as workspace members. Same for non-workspace schemas (e.g. `schemas/finance/`).
+`plugins/components/*/pyproject.build.toml` is renamed to `pyproject.toml` only during build (by the Makefile), then removed. This prevents uv from auto-discovering components as workspace members.
 
 ## Key conventions
 
 - **Naming**: `shenas-pipe-*`, `shenas-component-*`, `shenas-schema-*`
 - **Core packages**: `shenas-pipe-core`, `shenas-schema-core` (internal, not user-facing)
 - **Versioning**: Each package has a `VERSION` file read by hatchling. `scripts/bump-version.py` auto-increments patch on every build.
-- **Transforms are idempotent**: `MetricProviderBase._upsert()` does DELETE WHERE source, then INSERT
+- **Transforms are idempotent**: SQL transforms do DELETE WHERE source, then INSERT
+- **Plugin kinds**: pipe, schema, component, ui, theme (all in `plugins/`)
+- **Themes**: exclusive (only one enabled at a time), CSS custom properties pierce Shadow DOM
 - **Python namespaces**: `shenas_pipes.*`, `shenas_schemas.*`, `shenas_components.*` (not `pipes.*` — conflicts with stdlib)
 - **DuckDB schemas**: raw data in source-specific schemas (`garmin.*`, `lunchmoney.*`), canonical in `metrics.*`
 
 ## Modules
 
-- `cli/` — `shenas` CLI (shenas-cli); subcommands under `cli/commands/`
-- `pipes/core/` — shared pipe utilities (shenas-pipe-core)
-- `pipes/garmin/` — Garmin Connect dlt connector
-- `pipes/lunchmoney/` — Lunch Money dlt connector
-- `pipes/obsidian/` — Obsidian daily notes (frontmatter extraction)
-- `pipes/gmail/` — Gmail (OAuth2, embedded client credentials)
-- `schemas/core/` — shared schema utilities (shenas-schema-core)
-- `schemas/fitness/` — canonical fitness metrics (HRV, sleep, vitals, body)
-- `schemas/finance/` — canonical finance metrics (transactions, spending, budgets)
-- `schemas/outcomes/` — canonical outcome metrics (mood, stress, productivity, exercise, etc.)
+- `app/` — FastAPI UI server (shenas-app); discovers plugins via entry points, serves Arrow IPC
+- `app/telemetry/` — OpenTelemetry exporters, DuckDB spans/logs, real-time SSE dispatcher
+- `app/vendor/` — shared frontend deps (Lit, Arrow, uPlot, Cytoscape) built with Rollup
 - `repository/` — PEP 503 Simple Repository API server + Ed25519 signing
-- `app/` — FastAPI UI server (shenas-app); discovers components via entry points, serves Arrow IPC
-- `components/fitness-dashboard/` — Lit + uPlot fitness charts (built as wheel)
-- `components/data-table/` — Lit data table with sorting/filtering/pagination (built as wheel)
 - `scripts/` — build helpers (version bumping, pre-commit hook)
-- `tests/` — tests for repository, app, CLI, signing
+- `plugins/pipes/core/` — shared pipe utilities (shenas-pipe-core)
+- `plugins/pipes/garmin/` — Garmin Connect dlt connector
+- `plugins/pipes/lunchmoney/` — Lunch Money dlt connector
+- `plugins/pipes/obsidian/` — Obsidian daily notes (frontmatter extraction)
+- `plugins/pipes/gmail/` — Gmail (OAuth2, embedded client credentials)
+- `plugins/pipes/duolingo/` — Duolingo (JWT browser auth)
+- `plugins/pipes/spotify/` — Spotify (PKCE OAuth + history import)
+- `plugins/schemas/core/` — shared schema utilities (shenas-schema-core)
+- `plugins/schemas/fitness/` — canonical fitness metrics (HRV, sleep, vitals, body)
+- `plugins/schemas/finance/` — canonical finance metrics (transactions, spending, budgets)
+- `plugins/schemas/outcomes/` — canonical outcome metrics (mood, stress, productivity, exercise)
+- `plugins/schemas/habits/` — canonical habits metrics (daily habits)
+- `plugins/components/fitness-dashboard/` — Lit + uPlot fitness charts (built as wheel)
+- `plugins/components/data-table/` — Lit data table with sorting/filtering/pagination (built as wheel)
+- `plugins/themes/default/` — default light theme (CSS custom properties)
+- `plugins/themes/dark/` — dark theme
+- `plugins/ui/default/` — default UI shell (Lit SPA with tabs, command palette, data flow graph)
 
 ## Git workflow
 
