@@ -1,7 +1,7 @@
 """Build standalone binaries for shenas using PyInstaller.
 
 Usage:
-    uv run python build/pyinstaller_build.py                  # build all (onedir)
+    uv run python build/pyinstaller_build.py                  # build all (onedir, shared _internal)
     uv run python build/pyinstaller_build.py shenas            # build one
     uv run python build/pyinstaller_build.py --desktop          # onefile into Tauri binaries/
     uv run python build/pyinstaller_build.py --list            # list targets
@@ -24,11 +24,17 @@ DIST_DIR = ROOT / "dist" / "pyinstaller"
 DESKTOP_BIN_DIR = ROOT / "app" / "desktop" / "src-tauri" / "binaries"
 WORK_DIR = ROOT / "build" / "_pyinstaller_work"
 
-# All shenas namespace packages that are discovered via entry_points().
-# PyInstaller can't trace these dynamically, so we include them as
-# hidden imports.
-_HIDDEN_IMPORTS = [
-    # Our packages
+
+# ---- Per-target hidden imports ----
+# Only include what each target actually needs. The server is the fattest
+# (full app + plugins + telemetry). The CLI needs commands but not uvicorn.
+# The scheduler only needs httpx + typer.
+
+_IMPORTS_SHARED = [
+    "app.cli.client",
+]
+
+_IMPORTS_SERVER = [
     "app",
     "app.server",
     "app.server_cli",
@@ -57,36 +63,17 @@ _HIDDEN_IMPORTS = [
     "app.telemetry.exporters",
     "app.telemetry.dispatcher",
     "app.telemetry.schema",
-    "scheduler",
-    "scheduler.cli",
-    "scheduler.daemon",
     "repository",
-    # Plugin namespace packages (discovered via entry_points)
+    # Internal/bundled plugin packages (user plugins installed separately)
     "shenas_pipes",
     "shenas_pipes.core",
-    "shenas_pipes.garmin",
-    "shenas_pipes.lunchmoney",
-    "shenas_pipes.obsidian",
-    "shenas_pipes.gmail",
-    "shenas_pipes.gcalendar",
-    "shenas_pipes.gtakeout",
-    "shenas_pipes.duolingo",
-    "shenas_pipes.spotify",
     "shenas_schemas",
     "shenas_schemas.core",
-    "shenas_schemas.fitness",
-    "shenas_schemas.finance",
-    "shenas_schemas.outcomes",
-    "shenas_schemas.habits",
-    "shenas_components",
-    "shenas_components.fitness_dashboard",
-    "shenas_components.data_table",
-    "shenas_themes",
-    "shenas_themes.default",
-    "shenas_themes.dark",
     "shenas_ui",
     "shenas_ui.default",
-    # Key dependencies with dynamic imports
+    "shenas_themes",
+    "shenas_themes.default",
+    # Dependencies with dynamic imports
     "uvicorn.logging",
     "uvicorn.loops",
     "uvicorn.loops.auto",
@@ -100,6 +87,78 @@ _HIDDEN_IMPORTS = [
     "multipart",
     "opentelemetry.instrumentation.fastapi",
     "opentelemetry.instrumentation.httpx",
+]
+
+_IMPORTS_CLI = [
+    "app",
+    "app.cli",
+    "app.cli.main",
+    "app.cli.client",
+    "app.cli.commands",
+    "app.cli.commands.pipe",
+    "app.cli.commands.component",
+    "app.cli.commands.config_cmd",
+    "app.cli.commands.db_cmd",
+    "app.cli.commands.schema_cmd",
+    "app.cli.commands.service",
+    "app.cli.commands.theme_cmd",
+    "app.cli.commands.transform_cmd",
+    "app.cli.commands.ui_cmd",
+    "app.db",
+    "app.transforms",
+    "repository",
+]
+
+_IMPORTS_SCHEDULER = [
+    "scheduler",
+    "scheduler.cli",
+    "scheduler.daemon",
+    "app.cli.client",
+]
+
+# Modules to exclude globally
+_EXCLUDES_GLOBAL = [
+    "pytest",
+    "_pytest",
+    "py",
+    "setuptools",
+    "pip",
+    "wheel",
+    "distutils",
+    "tkinter",
+    "unittest",
+    "xmlrpc",
+    "pydoc",
+    "doctest",
+]
+
+# Extra excludes for lightweight targets (scheduler/CLI don't need these)
+_EXCLUDES_LIGHTWEIGHT = [
+    "pyarrow",
+    "numpy",
+    "pandas",
+    "uvicorn",
+    "fastapi",
+    "starlette",
+    "opentelemetry",
+    "dlt",
+    "pendulum",
+    "fsspec",
+    "google",
+    "googleapiclient",
+    "google_auth_httplib2",
+    "httplib2",
+]
+
+# Extra excludes for CLI (doesn't need server runtime)
+_EXCLUDES_CLI = [
+    "uvicorn",
+    "opentelemetry",
+    "fsspec",
+    "google",
+    "googleapiclient",
+    "google_auth_httplib2",
+    "httplib2",
 ]
 
 
@@ -119,42 +178,83 @@ def _target_triple() -> str:
     return f"{arch}-{system}"
 
 
-def _collect_dist_info_datas() -> list[tuple[str, str]]:
+# Internal packages to include in dist-info. Non-internal plugins (garmin,
+# fitness-dashboard, etc.) are installed separately by the user.
+_INTERNAL_PACKAGES = {
+    "shenas-app",
+    "shenas-scheduler",
+    "shenas-pipe-core",
+    "shenas-schema-core",
+    "shenas-ui-default",
+    "shenas-theme-default",
+    "dlt",
+    "duckdb",
+}
+
+
+def _collect_dist_info_datas(target_name: str) -> list[tuple[str, str]]:
     """Collect .dist-info directories so importlib.metadata.entry_points() works at runtime."""
     datas: list[tuple[str, str]] = []
+    # Scheduler only needs its own dist-info + shenas-app (for the client)
+    scheduler_only = {"shenas-scheduler", "shenas-app"}
+
     for dist in importlib.metadata.distributions():
         name = dist.metadata["Name"] or ""
-        if name.startswith("shenas-") or name in ("dlt", "duckdb"):
-            if dist._path and dist._path.exists():  # noqa: SLF001
-                datas.append((str(dist._path), dist._path.name))
+        if name not in _INTERNAL_PACKAGES:
+            continue
+        if target_name == "shenas-scheduler" and name not in scheduler_only:
+            continue
+        if dist._path and dist._path.exists():  # noqa: SLF001
+            datas.append((str(dist._path), dist._path.name))
     return datas
 
 
-def _collect_package_datas() -> list[str]:
+def _collect_package_datas(target_name: str) -> list[str]:
     """Packages whose non-.py data files (JSON, CSS, HTML, static) must be included.
 
-    Note: we intentionally exclude 'app' and 'dlt' from --collect-data because
-    they pull in huge amounts of unwanted data (node_modules, desktop build
-    artifacts, dlt internal fixtures). Instead we use --add-data for specific
-    files from those packages.
+    Only internal packages are bundled. User plugins (pipes, schemas,
+    components, themes, UI) are installed separately via shenasctl.
     """
+    if target_name == "shenas-scheduler":
+        return []
     return [
-        "shenas_pipes",
-        "shenas_schemas",
-        "shenas_components",
-        "shenas_themes",
-        "shenas_ui",
+        "shenas_pipes.core",
+        "shenas_schemas.core",
+        "shenas_ui.default",
+        "shenas_themes.default",
     ]
 
 
-def _collect_explicit_datas() -> list[tuple[str, str]]:
-    """Specific data files from app/ and dlt that are needed at runtime."""
+def _collect_explicit_datas(target_name: str) -> list[tuple[str, str]]:
+    """Specific data files from app/ that are needed at runtime."""
+    if target_name == "shenas-scheduler":
+        return []
     datas: list[tuple[str, str]] = []
-    # app/static/ contains the fallback HTML
     static_dir = ROOT / "app" / "static"
     if static_dir.is_dir():
         datas.append((str(static_dir), "app/static"))
     return datas
+
+
+def _get_hidden_imports(target_name: str) -> list[str]:
+    """Return hidden imports for a specific target."""
+    if target_name == "shenas":
+        return _IMPORTS_SERVER
+    if target_name == "shenasctl":
+        return _IMPORTS_CLI
+    if target_name == "shenas-scheduler":
+        return _IMPORTS_SCHEDULER
+    return _IMPORTS_SERVER  # fallback to full
+
+
+def _get_excludes(target_name: str) -> list[str]:
+    """Return module exclusions for a specific target."""
+    excludes = list(_EXCLUDES_GLOBAL)
+    if target_name == "shenas-scheduler":
+        excludes.extend(_EXCLUDES_LIGHTWEIGHT)
+    elif target_name == "shenasctl":
+        excludes.extend(_EXCLUDES_CLI)
+    return excludes
 
 
 # ---- ELF execstack patching ----
@@ -198,12 +298,10 @@ def _find_libpython() -> Path | None:
     """Locate libpython shared library by inspecting the Python binary's dependencies."""
     python_bin = Path(sys.executable).resolve()
 
-    # Method 1: use ldd to find linked libpython
     try:
         result = subprocess.run(["ldd", str(python_bin)], capture_output=True, text=True, check=True)
         for line in result.stdout.splitlines():
             if "libpython" in line and "=>" in line:
-                # Format: "libpython3.11.so.1.0 => /path/to/lib (0x...)"
                 parts = line.strip().split("=>")
                 if len(parts) == 2:
                     path = parts[1].strip().split("(")[0].strip()
@@ -212,7 +310,6 @@ def _find_libpython() -> Path | None:
     except Exception:
         pass
 
-    # Method 2: search near the Python binary
     python_home = python_bin.parent.parent / "lib"
     for candidate in python_home.glob("libpython*.so*"):
         if candidate.is_file() and not candidate.is_symlink():
@@ -222,12 +319,7 @@ def _find_libpython() -> Path | None:
 
 
 def _patch_source_libpython() -> Path | None:
-    """Create a patched copy of libpython with executable stack flag cleared.
-
-    Returns the path to the patched copy, or None if patching wasn't needed.
-    For --onefile mode, we pass this to PyInstaller via --add-binary to
-    override the bundled libpython.
-    """
+    """Create a patched copy of libpython with executable stack flag cleared."""
     if platform.system() != "Linux":
         return None
 
@@ -236,7 +328,6 @@ def _patch_source_libpython() -> Path | None:
         print("  WARNING: Could not locate libpython shared library")
         return None
 
-    # Check if it actually needs patching
     try:
         with open(libpython, "rb") as f:
             ident = f.read(16)
@@ -263,7 +354,6 @@ def _patch_source_libpython() -> Path | None:
     except Exception:
         return None
 
-    # Create a patched copy
     patched = WORK_DIR / libpython.name
     WORK_DIR.mkdir(parents=True, exist_ok=True)
     shutil.copy2(libpython, patched)
@@ -315,6 +405,9 @@ def build_target(
     print(f"{'=' * 60}\n")
 
     sep = _sep()
+    hidden_imports = _get_hidden_imports(name)
+    excludes = _get_excludes(name)
+
     cmd = [
         sys.executable,
         "-m",
@@ -324,25 +417,23 @@ def build_target(
         f"--distpath={dist_dir}",
         f"--workpath={WORK_DIR / name}",
         f"--specpath={WORK_DIR}",
-        # Hidden imports for dynamic loading
-        *[f"--hidden-import={mod}" for mod in _HIDDEN_IMPORTS],
-        # Package data (transforms.json, static files, CSS, HTML)
-        *[f"--collect-data={pkg}" for pkg in _collect_package_datas()],
-        # Explicit data files from packages too large for --collect-data
-        *[f"--add-data={src}{sep}{dest}" for src, dest in _collect_explicit_datas()],
-        # .dist-info directories for importlib.metadata
-        *[f"--add-data={src}{sep}{dest}" for src, dest in _collect_dist_info_datas()],
+        # Strip debug symbols from shared libraries
+        "--strip",
+        # Hidden imports (target-specific)
+        *[f"--hidden-import={mod}" for mod in hidden_imports],
+        # Package data (target-specific)
+        *[f"--collect-data={pkg}" for pkg in _collect_package_datas(name)],
+        # Explicit data files
+        *[f"--add-data={src}{sep}{dest}" for src, dest in _collect_explicit_datas(name)],
+        # .dist-info directories for importlib.metadata (target-specific)
+        *[f"--add-data={src}{sep}{dest}" for src, dest in _collect_dist_info_datas(name)],
         # Override bundled libpython with patched copy (execstack fix)
         *([f"--add-binary={patched_libpython}{sep}."] if patched_libpython else []),
-        # Exclude heavyweight modules not needed at runtime
-        "--exclude-module=pytest",
-        "--exclude-module=_pytest",
-        "--exclude-module=py",
-        "--exclude-module=setuptools",
-        "--exclude-module=pip",
-        "--exclude-module=wheel",
-        "--exclude-module=distutils",
-        # Search path: repo root so `app`, `scheduler`, `repository` resolve
+        # No UPX (adds startup latency)
+        "--noupx",
+        # Module exclusions (target-specific)
+        *[f"--exclude-module={mod}" for mod in excludes],
+        # Search path
         f"--paths={ROOT}",
         # Clean build
         "--clean",
@@ -351,6 +442,7 @@ def build_target(
     ]
 
     print(f"Running PyInstaller with {len(cmd)} args...")
+    print(f"  Hidden imports: {len(hidden_imports)}, Excludes: {len(excludes)}")
     result = subprocess.run(cmd, cwd=str(ROOT))
     if result.returncode != 0:
         print(f"\nFailed to build {name} (exit code {result.returncode})")
@@ -373,11 +465,79 @@ def build_target(
             dir_path = output_path.parent
             total = sum(f.stat().st_size for f in dir_path.rglob("*") if f.is_file())
             print(f"Total directory: {total / (1024 * 1024):.1f} MB")
-            # Post-build patch for --onedir
             if platform.system() == "Linux":
                 _patch_execstack_dir(output_path.parent / "_internal")
 
     return output_path
+
+
+def _merge_onedir_outputs(dist_dir: Path, built_targets: dict[str, Path]) -> None:
+    """Merge multiple --onedir builds into a shared directory.
+
+    PyInstaller --onedir creates <name>/<name> + <name>/_internal/ per target.
+    Since all targets share the same Python runtime and many of the same
+    libraries, we merge them into a single directory with one _internal/.
+    """
+    if len(built_targets) < 2:
+        return
+
+    triple = _target_triple()
+    shared_dir = dist_dir / f"shenas-{triple}"
+    shared_internal = shared_dir / "_internal"
+
+    print(f"\n{'=' * 60}")
+    print(f"Merging {len(built_targets)} targets into {shared_dir}")
+    print(f"{'=' * 60}\n")
+
+    # Use the fattest target's _internal as the base
+    fattest_name = "shenas"  # server has the most deps
+    fattest_path = built_targets.get(fattest_name)
+    if not fattest_path:
+        fattest_path = next(iter(built_targets.values()))
+
+    fattest_dir = fattest_path.parent
+    fattest_internal = fattest_dir / "_internal"
+
+    # Create shared directory and move the fattest _internal
+    shared_dir.mkdir(parents=True, exist_ok=True)
+    if shared_internal.exists():
+        shutil.rmtree(shared_internal)
+    shutil.move(str(fattest_internal), str(shared_internal))
+
+    # Copy the fattest executable
+    shutil.copy2(fattest_path, shared_dir / fattest_path.name)
+
+    # Merge other targets: copy their _internal files (fills gaps) and executables
+    for name, path in built_targets.items():
+        if path == fattest_path:
+            continue
+        target_dir = path.parent
+        target_internal = target_dir / "_internal"
+
+        # Copy any files from this target's _internal that aren't in the shared one
+        if target_internal.exists():
+            for src_file in target_internal.rglob("*"):
+                if src_file.is_file():
+                    rel = src_file.relative_to(target_internal)
+                    dest = shared_internal / rel
+                    if not dest.exists():
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(src_file, dest)
+
+        # Copy the executable
+        shutil.copy2(path, shared_dir / path.name)
+
+    # Clean up individual target directories
+    for path in built_targets.values():
+        target_dir = path.parent
+        if target_dir != shared_dir and target_dir.exists():
+            shutil.rmtree(target_dir)
+
+    # Report sizes
+    total = sum(f.stat().st_size for f in shared_dir.rglob("*") if f.is_file())
+    executables = [f for f in shared_dir.iterdir() if f.is_file() and not f.name.startswith(".")]
+    print(f"Shared directory: {total / (1024 * 1024):.1f} MB")
+    print(f"Executables: {', '.join(f.name for f in executables)}")
 
 
 def _sep() -> str:
@@ -430,15 +590,26 @@ def main() -> None:
     results = {}
     for name in to_build:
         results[name] = build_target(
-            name, TARGETS[name], onefile=onefile, dist_dir=dist_dir, patched_libpython=patched_libpython
+            name,
+            TARGETS[name],
+            onefile=onefile,
+            dist_dir=dist_dir,
+            patched_libpython=patched_libpython,
         )
+
+    # For --onedir with multiple targets, merge into shared directory
+    if not onefile and len(results) > 1:
+        _merge_onedir_outputs(dist_dir, results)
 
     print(f"\n{'=' * 60}")
     print("Build complete!")
     print(f"{'=' * 60}")
     for name, path in results.items():
-        status = "OK" if path.exists() else "MISSING"
-        print(f"  {name:20s} {status:8s} {path}")
+        if path.exists():
+            size_mb = path.stat().st_size / (1024 * 1024)
+            print(f"  {name:20s} {size_mb:>7.1f} MB  {path}")
+        else:
+            print(f"  {name:20s} {'MISSING':>7s}  {path}")
 
 
 if __name__ == "__main__":
