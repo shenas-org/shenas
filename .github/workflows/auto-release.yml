@@ -24,8 +24,8 @@ jobs:
 
       - name: Detect changes and create tags
         run: |
+          # Desktop is excluded -- use `make release-desktop` manually.
           PACKAGES=(
-            "desktop:app/ app/desktop/"
             "repository:repository/"
             "pipe-core:plugins/pipes/core/"
             "pipe-garmin:plugins/pipes/garmin/"
@@ -51,33 +51,11 @@ jobs:
             PREFIX="${entry%%:*}"
             DIRS="${entry#*:}"
 
-            # Check if any files changed in this push
-            CHANGED=$(git diff --name-only HEAD~1 -- $DIRS 2>/dev/null)
-            [ -z "$CHANGED" ] && continue
+            OUTPUT=$(bash scripts/bump-tag.sh "$PREFIX" $DIRS)
+            [ -z "$OUTPUT" ] && continue
 
-            # Get latest tag for this package
-            LATEST=$(git describe --tags --match "$PREFIX/v*" --abbrev=0 2>/dev/null || echo "$PREFIX/v0.0.0")
-            VERSION="${LATEST##*/v}"
-
-            # Get conventional commits since last tag that touch this package
-            COMMITS=$(git log "$LATEST"..HEAD --pretty=format:"%s" -- $DIRS 2>/dev/null)
-            [ -z "$COMMITS" ] && continue
-
-            # Determine bump (highest wins: major > minor > patch)
-            BUMP="patch"
-            echo "$COMMITS" | grep -qiE "^feat(\(.*\))?:" && BUMP="minor"
-            echo "$COMMITS" | grep -qiE "^feat(\(.*\))?!:|BREAKING CHANGE" && BUMP="major"
-
-            # Compute new version
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-            case "$BUMP" in
-              major) NEW="$((MAJOR+1)).0.0" ;;
-              minor) NEW="$MAJOR.$((MINOR+1)).0" ;;
-              patch) NEW="$MAJOR.$MINOR.$((PATCH+1))" ;;
-            esac
-
-            TAG="$PREFIX/v$NEW"
-            echo "::notice::Releasing $TAG ($BUMP bump from $VERSION)"
+            eval "$OUTPUT"
+            echo "::notice::Releasing $TAG ($BUMP bump from $PREV)"
             git tag "$TAG"
             TAGS_CREATED=$((TAGS_CREATED+1))
           done

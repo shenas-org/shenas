@@ -19,6 +19,7 @@ uv sync                             # install dependencies
 make install                        # install shenas + shenasrepoctl to ~/.local/bin/
 make repository                     # start PEP 503 package server on :7290
 make setup-hooks                    # install git pre-commit hook
+make release-desktop                # tag a desktop release (version from commits)
 moon run app:test                   # run tests for a single project
 moon run :lint                      # run lint across all projects
 moon run :test                      # run tests across all projects
