@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicegui-reference/tauri-v2-schemas/main/tauri.conf.json",
   "productName": "shenas",
-  "version": "0.4.0",
+  "version": "0.21.2",
   "identifier": "com.shenas.desktop",
   "build": {
     "frontendDist": "../src"
@@ -34,9 +34,20 @@
     ],
     "externalBin": [
       "binaries/shenas",
-      "binaries/shenasctl",
       "binaries/shenas-scheduler"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/bin/shenasctl": "binaries/shenasctl-x86_64-unknown-linux-gnu"
+        }
+      },
+      "rpm": {
+        "files": {
+          "/usr/bin/shenasctl": "binaries/shenasctl-x86_64-unknown-linux-gnu"
+        }
+      }
+    }
   },
   "plugins": {
     "shell": {
