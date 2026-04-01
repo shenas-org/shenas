@@ -3,6 +3,10 @@ name = "shenas-mobile"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "shenas_mobile"
+crate-type = ["staticlib", "cdylib", "lib"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

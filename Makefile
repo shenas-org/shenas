@@ -62,8 +62,22 @@ setup-android:
 	else \
 		echo "NDK $(NDK_VERSION) already installed"; \
 	fi
-	@# Rust Android targets
-	@rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+	@# Rust Android targets (skip if rustup not available)
+	@if command -v rustup > /dev/null 2>&1; then \
+		rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android; \
+	else \
+		echo "rustup not found -- install Android Rust targets manually if needed"; \
+	fi
+	@# Emulator + system image
+	@$(ANDROID_SDK_ROOT)/cmdline-tools/latest/bin/sdkmanager \
+		"emulator" "system-images;android-35;google_apis;x86_64" --sdk_root=$(ANDROID_SDK_ROOT) | tail -1
+	@if ! $(ANDROID_SDK_ROOT)/cmdline-tools/latest/bin/avdmanager list avd 2>/dev/null | grep -q "shenas"; then \
+		$(ANDROID_SDK_ROOT)/cmdline-tools/latest/bin/avdmanager create avd \
+			-n shenas -k "system-images;android-35;google_apis;x86_64" --force --device "pixel_6"; \
+		echo "Created AVD: shenas"; \
+	else \
+		echo "AVD 'shenas' already exists"; \
+	fi
 	@# Mobile npm deps
 	@cd app/mobile && npm install
 	@echo ""
@@ -71,7 +85,9 @@ setup-android:
 	@echo "  export ANDROID_HOME=$(ANDROID_SDK_ROOT)"
 	@echo "  export NDK_HOME=$(ANDROID_SDK_ROOT)/ndk/$(NDK_VERSION)"
 	@echo ""
-	@echo "Then run: cd app/mobile && npx tauri android init"
+	@echo "Then run:"
+	@echo "  cd app/mobile && npx tauri android init"
+	@echo "  npx tauri android dev"
 
 # Tag a desktop release (version auto-computed from conventional commits)
 release-desktop:
