@@ -103,14 +103,12 @@ fn main() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
                 // Kill server if we spawned it
-                let server = window.state::<ServerProcess>();
-                if let Some(child) = server.0.lock().unwrap().take() {
+                if let Some(child) = window.state::<ServerProcess>().0.lock().unwrap().take() {
                     let _ = child.kill();
                 }
 
                 // Kill sync daemon if we spawned it
-                let daemon = window.state::<DaemonProcess>();
-                if let Some(child) = daemon.0.lock().unwrap().take() {
+                if let Some(child) = window.state::<DaemonProcess>().0.lock().unwrap().take() {
                     let _ = child.kill();
                 }
             }
