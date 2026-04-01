@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 import duckdb
 import pytest
-from opentelemetry.sdk._logs import LoggerProvider
-from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+from opentelemetry.sdk._logs import LoggerProvider  # type: ignore[attr-defined]
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor  # type: ignore[attr-defined]
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -76,6 +76,7 @@ class TestSpanExporter:
         rows = con.execute("SELECT * FROM telemetry.spans").fetchall()
         assert len(rows) == 1
         row = con.execute("SELECT name, service_name, duration_ms FROM telemetry.spans").fetchone()
+        assert row is not None
         assert row[0] == "test-operation"
         assert row[1] == "test-service"
         assert row[2] >= 0
@@ -119,7 +120,9 @@ class TestSpanExporter:
 
         import json
 
-        attrs = con.execute("SELECT attributes FROM telemetry.spans").fetchone()[0]
+        result = con.execute("SELECT attributes FROM telemetry.spans").fetchone()
+        assert result is not None
+        attrs = result[0]
         parsed = json.loads(attrs)
         assert parsed["pipe.name"] == "garmin"
         assert parsed["rows"] == 42
@@ -159,6 +162,7 @@ class TestLogExporter:
         rows = con.execute("SELECT * FROM telemetry.logs").fetchall()
         assert len(rows) == 1
         row = con.execute("SELECT severity, body, service_name FROM telemetry.logs").fetchone()
+        assert row is not None
         assert row[0] == "INFO"
         assert "test log message" in row[1]
 
@@ -193,13 +197,15 @@ class TestLogExporter:
 
         span_row = con.execute("SELECT trace_id FROM telemetry.spans").fetchone()
         log_row = con.execute("SELECT trace_id, span_id FROM telemetry.logs").fetchone()
+        assert span_row is not None
+        assert log_row is not None
         assert log_row[0] == span_row[0]
         assert log_row[1] is not None
 
     def test_empty_batch(self, con: duckdb.DuckDBPyConnection) -> None:
         with patch("app.telemetry.exporters._connect", _mock_connect(con)):
             exporter = DuckDBLogExporter()
-            from opentelemetry.sdk._logs.export import LogExportResult
+            from opentelemetry.sdk._logs.export import LogRecordExportResult  # type: ignore[attr-defined]
 
             result = exporter.export([])
-            assert result == LogExportResult.SUCCESS
+            assert result == LogRecordExportResult.SUCCESS

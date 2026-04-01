@@ -1,23 +1,19 @@
 """Custom OpenTelemetry exporters that write to DuckDB."""
 
-from __future__ import annotations
-
 import json
 import logging
 import threading
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import duckdb
-from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
+from opentelemetry.sdk._logs import ReadableLogRecord  # type: ignore[attr-defined]
+from opentelemetry.sdk._logs.export import LogRecordExporter, LogRecordExportResult  # type: ignore[attr-defined]
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
 from app.telemetry.schema import ensure_telemetry_schema
-
-if TYPE_CHECKING:
-    from opentelemetry.sdk._logs import LogData
 
 # Dedicated logger that does NOT go through the OTel log bridge (only 'shenas.*'
 # loggers are bridged in setup.py). This prevents recursive writes.
@@ -91,7 +87,7 @@ class DuckDBSpanExporter(SpanExporter):
     def __init__(self) -> None:
         self._lock = threading.Lock()
 
-    def export(self, spans: list[ReadableSpan]) -> SpanExportResult:
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         try:
             with self._lock:
                 try:
@@ -152,25 +148,25 @@ class DuckDBSpanExporter(SpanExporter):
         pass
 
 
-class DuckDBLogExporter(LogExporter):
+class DuckDBLogExporter(LogRecordExporter):
     """Export OpenTelemetry log records to DuckDB telemetry.logs table."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._exporting = threading.local()
 
-    def export(self, batch: Sequence[LogData]) -> LogExportResult:
+    def export(self, batch: Sequence[ReadableLogRecord]) -> LogRecordExportResult:
         # Recursion guard: if we're already inside an export call on this thread,
         # skip to prevent infinite loops (log -> export -> log -> export -> ...).
         if getattr(self._exporting, "active", False):
-            return LogExportResult.SUCCESS
+            return LogRecordExportResult.SUCCESS
         self._exporting.active = True
         try:
             with self._lock:
                 try:
                     con = _connect()
                 except Exception:
-                    return LogExportResult.SUCCESS
+                    return LogRecordExportResult.SUCCESS
 
                 rows = []
                 for record in batch:
@@ -207,9 +203,9 @@ class DuckDBLogExporter(LogExporter):
                 if rows:
                     con.executemany(_LOG_INSERT, rows)
                     _dispatch("logs", rows)
-                return LogExportResult.SUCCESS
+                return LogRecordExportResult.SUCCESS
         except Exception:
-            return LogExportResult.FAILURE
+            return LogRecordExportResult.FAILURE
         finally:
             self._exporting.active = False
 

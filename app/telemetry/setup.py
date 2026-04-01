@@ -7,8 +7,8 @@ import logging
 import threading
 
 from opentelemetry import trace
-from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler  # type: ignore[attr-defined]
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor  # type: ignore[attr-defined]
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor

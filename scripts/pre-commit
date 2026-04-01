@@ -14,6 +14,6 @@ echo "Running ruff format check..."
 uv run ruff format --check .
 
 echo "Running ty check..."
-uv run ty check repository/ app/ --exclude "**/telemetry/**" --exclude "**/vendor/**"
+uv run ty check repository/ app/ --exclude "**/vendor/**"
 
 echo "All checks passed."
