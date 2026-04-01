@@ -5,8 +5,16 @@ stack: 'frontend'
 tags: ['mobile']
 
 tasks:
+  build-ui:
+    command: 'bash build-ui.sh'
+    inputs:
+      - '/plugins/ui/default/src/**/*'
+      - '/app/vendor/src/**/*'
+      - '/app/static/**/*'
+    outputs:
+      - 'ui-dist/'
   clean:
-    script: 'rm -rf src-tauri/target/ src-tauri/gen/'
+    script: 'rm -rf src-tauri/target/ src-tauri/gen/ ui-dist/'
     options:
       cache: false
   build-android:

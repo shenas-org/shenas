@@ -1,22 +1,29 @@
-//! REST API endpoints -- same contract as the Python FastAPI server.
+//! REST API endpoints + embedded UI serving.
 //!
-//! The Lit UI calls these endpoints identically whether the backend
-//! is Python (desktop) or Rust (mobile).
+//! Serves the same API contract as the Python FastAPI server, plus the
+//! built Lit UI from the embedded ui-dist/ directory.
 
 use std::sync::Arc;
 
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
-    response::{Html, Json},
+    http::{header, StatusCode, Uri},
+    response::{Html, IntoResponse, Json, Response},
     routing::get,
     Router,
 };
+use rust_embed::Embed;
 use serde::Deserialize;
 
 use crate::db::Database;
 
 pub type AppState = Arc<Database>;
+
+/// Embed the built UI files at compile time.
+/// Run `bash build-ui.sh` before `cargo build` to populate ui-dist/.
+#[derive(Embed)]
+#[folder = "../ui-dist/"]
+struct UiAssets;
 
 #[derive(Deserialize)]
 pub struct QueryParams {
@@ -28,49 +35,42 @@ pub struct QueryParams {
 
 pub fn router(db: Arc<Database>) -> Router {
     Router::new()
-        .route("/", get(index))
         .route("/api/health", get(health))
         .route("/api/tables", get(tables))
         .route("/api/query", get(query))
         .route("/api/transforms", get(list_transforms))
         .route("/api/transforms/run", axum::routing::post(run_transforms))
         .with_state(db)
+        // Fallback: serve embedded UI files
+        .fallback(get(serve_ui))
 }
 
-async fn index(State(db): State<AppState>) -> Html<String> {
-    let tables = db.list_tables().unwrap_or_default();
-    let table_count = tables.len();
-    Html(format!(
-        r#"<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>shenas</title>
-    <style>
-        body {{ font-family: system-ui, sans-serif; margin: 1rem; background: #f5f5f5; color: #333; }}
-        h1 {{ font-size: 1.5rem; font-weight: 400; }}
-        .status {{ background: #fff; padding: 1rem; border-radius: 8px; margin: 1rem 0; }}
-        .ok {{ color: #2d7d46; }}
-        pre {{ background: #e8e8e8; padding: 0.5rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; }}
-    </style>
-</head>
-<body>
-    <h1>shenas mobile</h1>
-    <div class="status">
-        <p class="ok">Server running</p>
-        <p>Platform: Android (Rust + DuckDB + axum)</p>
-        <p>Tables: {table_count}</p>
-    </div>
-    <h2>API</h2>
-    <pre>GET /api/health
-GET /api/tables
-GET /api/query?sql=SELECT 1
-GET /api/transforms
-POST /api/transforms/run</pre>
-</body>
-</html>"#
-    ))
+/// Serve embedded UI files. Falls back to index.html for SPA routing.
+async fn serve_ui(uri: Uri) -> Response {
+    let path = uri.path().trim_start_matches('/');
+
+    // Try exact file match
+    if let Some(file) = UiAssets::get(path) {
+        let mime = mime_guess::from_path(path).first_or_text_plain();
+        return (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, mime.as_ref())],
+            file.data,
+        )
+            .into_response();
+    }
+
+    // SPA fallback: serve index.html for non-API, non-file paths
+    if let Some(file) = UiAssets::get("index.html") {
+        return (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, "text/html")],
+            file.data,
+        )
+            .into_response();
+    }
+
+    (StatusCode::NOT_FOUND, "Not found").into_response()
 }
 
 async fn health() -> Json<serde_json::Value> {
