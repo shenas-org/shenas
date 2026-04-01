@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 
-from fl_client.client import ShenasClient
+from app.fl.client import ShenasClient
 
 
 def _mock_task() -> dict:
@@ -22,7 +22,7 @@ def _mock_task() -> dict:
 
 class TestShenasClient:
     def test_get_parameters(self) -> None:
-        with patch("fl_client.client.httpx.get") as mock_get:
+        with patch("app.fl.client.httpx.get") as mock_get:
             mock_get.return_value = MagicMock(status_code=200, json=MagicMock(return_value=_mock_task()))
             mock_get.return_value.raise_for_status = MagicMock()
 
@@ -34,7 +34,7 @@ class TestShenasClient:
             assert params[1].shape == (1,)  # bias
 
     def test_fit_with_data(self) -> None:
-        with patch("fl_client.client.httpx.get") as mock_get:
+        with patch("app.fl.client.httpx.get") as mock_get:
             mock_get.return_value = MagicMock(status_code=200, json=MagicMock(return_value=_mock_task()))
             mock_get.return_value.raise_for_status = MagicMock()
 
@@ -54,7 +54,7 @@ class TestShenasClient:
             assert len(updated_weights) == 2
 
     def test_fit_no_data(self) -> None:
-        with patch("fl_client.client.httpx.get") as mock_get:
+        with patch("app.fl.client.httpx.get") as mock_get:
             mock_get.return_value = MagicMock(status_code=200, json=MagicMock(return_value=_mock_task()))
             mock_get.return_value.raise_for_status = MagicMock()
 
@@ -68,7 +68,7 @@ class TestShenasClient:
             assert n_samples == 0
 
     def test_evaluate(self) -> None:
-        with patch("fl_client.client.httpx.get") as mock_get:
+        with patch("app.fl.client.httpx.get") as mock_get:
             mock_get.return_value = MagicMock(status_code=200, json=MagicMock(return_value=_mock_task()))
             mock_get.return_value.raise_for_status = MagicMock()
 

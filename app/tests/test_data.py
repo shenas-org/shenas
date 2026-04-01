@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from fl_client.data import DataFetcher
+from app.fl.data import DataFetcher
 
 
 class TestDataFetcher:

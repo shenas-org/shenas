@@ -29,7 +29,7 @@ class LinearModel(nn.Module):
 def get_model(name: str, n_features: int) -> nn.Module:
     """Get a model by name. Checks installed model plugins first, falls back to built-in linear."""
     # Try model plugins
-    from fl_client.model_registry import get_model_meta
+    from app.fl.model_registry import get_model_meta
 
     meta = get_model_meta(name)
     if meta is not None and "model_cls" in meta:
@@ -61,7 +61,7 @@ def train(
     epochs: int = 3,
     batch_size: int = 32,
     lr: float = 0.001,
-) -> dict[str, float]:
+) -> dict:
     """Train the model on local data. Returns metrics dict."""
     device = torch.device("cpu")
     model = model.to(device)
@@ -103,7 +103,7 @@ def train(
     return {"loss": avg_loss, "num-examples": len(X)}
 
 
-def evaluate(model: nn.Module, X: np.ndarray, y: np.ndarray) -> dict[str, float]:
+def evaluate(model: nn.Module, X: np.ndarray, y: np.ndarray) -> dict:
     """Evaluate model on local data. Returns metrics dict."""
     device = torch.device("cpu")
     model = model.to(device)

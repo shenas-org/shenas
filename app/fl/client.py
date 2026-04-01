@@ -5,17 +5,15 @@ FL REST API, queries the local shenas instance for training data, trains
 locally, and returns weight updates.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 
 import httpx
 from flwr.client import NumPyClient
-from flwr.common import NDArrays
+from flwr.common import NDArrays, Scalar  # noqa: TC002
 
-from fl_client.data import DataFetcher
-from fl_client.trainer import evaluate, get_model, get_weights, set_weights, train
+from app.fl.data import DataFetcher
+from app.fl.trainer import evaluate, get_model, get_weights, set_weights, train
 
 logger = logging.getLogger(__name__)
 
@@ -49,21 +47,22 @@ class ShenasClient(NumPyClient):
             task = self._get_task()
             self.model = get_model(task["model"], n_features)
 
-    def get_parameters(self, config: dict[str, Any]) -> NDArrays:
+    def get_parameters(self, config: dict[str, Scalar]) -> NDArrays:
         """Return current model weights."""
         task = self._get_task()
         n_features = len(task["features"])
         self._ensure_model(n_features)
         return get_weights(self.model)
 
-    def fit(self, parameters: NDArrays, config: dict[str, Any]) -> tuple[NDArrays, int, dict[str, float]]:
+    def fit(self, parameters: NDArrays, config: dict[str, Scalar]) -> tuple[NDArrays, int, dict[str, Scalar]]:
         """Train on local data and return updated weights."""
         task = self._get_task()
         data = self.fetcher.fetch(task["query"], task["features"], task["target"])
 
         if data is None:
             logger.warning("No training data available, returning unchanged weights")
-            return parameters, 0, {"loss": 0.0}
+            metrics: dict[str, Scalar] = {"loss": 0.0}
+            return parameters, 0, metrics
 
         X, y = data
         self._ensure_model(X.shape[1])
@@ -80,13 +79,14 @@ class ShenasClient(NumPyClient):
 
         return get_weights(self.model), len(X), metrics
 
-    def evaluate(self, parameters: NDArrays, config: dict[str, Any]) -> tuple[float, int, dict[str, float]]:
+    def evaluate(self, parameters: NDArrays, config: dict[str, Scalar]) -> tuple[float, int, dict[str, Scalar]]:
         """Evaluate model on local data."""
         task = self._get_task()
         data = self.fetcher.fetch(task["query"], task["features"], task["target"])
 
         if data is None:
-            return 0.0, 0, {"loss": 0.0}
+            empty: dict[str, Scalar] = {"loss": 0.0}
+            return 0.0, 0, empty
 
         X, y = data
         self._ensure_model(X.shape[1])

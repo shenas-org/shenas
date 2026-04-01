@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException
 
-from fl_client.inference import InferenceEngine
+from app.fl.inference import InferenceEngine
 
 api = FastAPI(title="shenas-fl-client", description="Local federated learning inference")
 

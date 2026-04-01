@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from fl_client.trainer import LinearModel, evaluate, get_model, get_weights, set_weights, train
+from app.fl.trainer import LinearModel, evaluate, get_model, get_weights, set_weights, train
 
 
 class TestModel:

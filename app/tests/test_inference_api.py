@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
-from fl_client.api import api
-from fl_client.inference import InferenceEngine
+from app.fl.api import api
+from app.fl.inference import InferenceEngine
 
 
 def _make_client() -> TestClient:

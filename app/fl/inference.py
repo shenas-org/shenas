@@ -13,8 +13,8 @@ import httpx
 import numpy as np
 import torch
 
-from fl_client.data import DataFetcher
-from fl_client.trainer import get_model, set_weights
+from app.fl.data import DataFetcher
+from app.fl.trainer import get_model, set_weights
 
 logger = logging.getLogger(__name__)
 

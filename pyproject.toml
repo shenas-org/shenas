@@ -6,6 +6,9 @@ requires-python = ">=3.11"
 
 [tool.uv]
 package = false
+# Flower pins typer<0.21 and rich<14 for its CLI. We only use
+# flwr.client and flwr.common at runtime, which work with newer versions.
+override-dependencies = ["typer>=0.24.1", "rich>=14.3.3"]
 
 [tool.uv.workspace]
 members = [
@@ -74,6 +77,8 @@ dev = [
     "ruff>=0.15.8",
     "ty>=0.0.26",
     "pyinstaller>=6.19.0",
+    "flwr>=1.15",
+    "torch>=2.0",
 ]
 
 [tool.pytest.ini_options]
