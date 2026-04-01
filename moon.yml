@@ -6,7 +6,12 @@ tasks:
     options:
       cache: false
   lint:
-    script: 'uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync ty check repository/ app/ --exclude "**/vendor/**"'
+    script: 'uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync ty check repository/ app/ --exclude "**/vendor/**" --exclude "**/fl/**"'
+  # Run with: uv sync --group fl && moon run :lint-fl
+  lint-fl:
+    script: 'uv run --no-sync ty check app/fl/'
+    inputs:
+      - 'app/fl/**/*.py'
     inputs:
       - '**/*.py'
   test:

@@ -2913,7 +2913,6 @@ source = { virtual = "." }
 [package.dev-dependencies]
 dev = [
     { name = "commitizen" },
-    { name = "flwr" },
     { name = "httpx" },
     { name = "pyinstaller" },
     { name = "pytest" },
@@ -2939,8 +2938,11 @@ dev = [
     { name = "shenas-theme-dark" },
     { name = "shenas-theme-default" },
     { name = "shenas-ui-default" },
-    { name = "torch" },
     { name = "ty" },
+]
+fl = [
+    { name = "flwr" },
+    { name = "torch" },
 ]
 
 [package.metadata]
@@ -2948,7 +2950,6 @@ dev = [
 [package.metadata.requires-dev]
 dev = [
     { name = "commitizen", specifier = ">=4.13.9" },
-    { name = "flwr", specifier = ">=1.15" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pyinstaller", specifier = ">=6.19.0" },
     { name = "pytest", specifier = ">=9.0.2" },
@@ -2974,8 +2975,11 @@ dev = [
     { name = "shenas-theme-dark", editable = "plugins/themes/dark" },
     { name = "shenas-theme-default", editable = "plugins/themes/default" },
     { name = "shenas-ui-default", editable = "plugins/ui/default" },
-    { name = "torch", specifier = ">=2.0" },
     { name = "ty", specifier = ">=0.0.26" },
+]
+fl = [
+    { name = "flwr", specifier = ">=1.15" },
+    { name = "torch", specifier = ">=2.0" },
 ]
 
 [[package]]
