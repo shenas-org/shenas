@@ -187,6 +187,47 @@ def plugin_dependencies() -> dict[str, list[str]]:
     return result
 
 
+@app.get("/api/hotkeys")
+def get_hotkeys_api() -> dict[str, str]:
+    """Get all hotkey bindings."""
+    from app.db import get_hotkeys
+
+    return get_hotkeys()
+
+
+@app.put("/api/hotkeys/{action_id}")
+def set_hotkey_api(action_id: str, body: dict[str, str]) -> dict[str, bool]:
+    """Set a hotkey binding for an action."""
+    from app.db import set_hotkey
+
+    binding = body.get("binding", "")
+    if binding:
+        set_hotkey(action_id, binding)
+    else:
+        from app.db import delete_hotkey
+
+        delete_hotkey(action_id)
+    return {"ok": True}
+
+
+@app.delete("/api/hotkeys/{action_id}")
+def delete_hotkey_api(action_id: str) -> dict[str, bool]:
+    """Remove a hotkey binding."""
+    from app.db import delete_hotkey
+
+    delete_hotkey(action_id)
+    return {"ok": True}
+
+
+@app.post("/api/hotkeys/reset")
+def reset_hotkeys_api() -> dict[str, bool]:
+    """Reset all hotkeys to defaults."""
+    from app.db import reset_hotkeys
+
+    reset_hotkeys()
+    return {"ok": True}
+
+
 @app.get("/api/workspace")
 def get_workspace_state() -> dict[str, Any]:
     """Get the persisted workspace state (open tabs, active tab)."""

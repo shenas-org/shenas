@@ -79,6 +79,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     _ensure_plugin_table(con)
     _ensure_transforms_table(con)
     _ensure_workspace_table(con)
+    _ensure_hotkeys_table(con)
 
 
 def _ensure_transforms_table(con: duckdb.DuckDBPyConnection) -> None:
@@ -374,6 +375,67 @@ def save_workspace(state: dict[str, Any]) -> None:
         "ON CONFLICT (id) DO UPDATE SET state = ?, updated_at = current_timestamp",
         [data, data],
     )
+
+
+_DEFAULT_HOTKEYS = [
+    ("command-palette", "Ctrl+P"),
+    ("navigation-palette", "Ctrl+O"),
+    ("close-tab", "Ctrl+W"),
+    ("new-tab", "Ctrl+T"),
+]
+
+
+def _ensure_hotkeys_table(con: duckdb.DuckDBPyConnection) -> None:
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS shenas_system.hotkeys (
+            action_id VARCHAR PRIMARY KEY,
+            binding VARCHAR NOT NULL DEFAULT '',
+            updated_at TIMESTAMP DEFAULT current_timestamp
+        )
+    """)
+    row = con.execute("SELECT COUNT(*) FROM shenas_system.hotkeys").fetchone()
+    if row and row[0] == 0:
+        for action_id, binding in _DEFAULT_HOTKEYS:
+            con.execute(
+                "INSERT INTO shenas_system.hotkeys (action_id, binding) VALUES (?, ?)",
+                [action_id, binding],
+            )
+
+
+def get_hotkeys() -> dict[str, str]:
+    """Get all hotkey bindings as {action_id: binding}."""
+    cur = connect().cursor()
+    cur.execute("USE db")
+    rows = cur.execute("SELECT action_id, binding FROM shenas_system.hotkeys ORDER BY action_id").fetchall()
+    cur.close()
+    return {r[0]: r[1] for r in rows}
+
+
+def set_hotkey(action_id: str, binding: str) -> None:
+    """Set a single hotkey binding (upsert)."""
+    con = connect()
+    con.execute(
+        "INSERT INTO shenas_system.hotkeys (action_id, binding, updated_at) VALUES (?, ?, current_timestamp) "
+        "ON CONFLICT (action_id) DO UPDATE SET binding = ?, updated_at = current_timestamp",
+        [action_id, binding, binding],
+    )
+
+
+def delete_hotkey(action_id: str) -> None:
+    """Remove a hotkey binding."""
+    con = connect()
+    con.execute("DELETE FROM shenas_system.hotkeys WHERE action_id = ?", [action_id])
+
+
+def reset_hotkeys() -> None:
+    """Reset hotkeys to defaults."""
+    con = connect()
+    con.execute("DELETE FROM shenas_system.hotkeys")
+    for action_id, binding in _DEFAULT_HOTKEYS:
+        con.execute(
+            "INSERT INTO shenas_system.hotkeys (action_id, binding) VALUES (?, ?)",
+            [action_id, binding],
+        )
 
 
 def dlt_destination() -> tuple[Any, duckdb.DuckDBPyConnection]:
