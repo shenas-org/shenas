@@ -2,7 +2,7 @@
 # Compute the next semver tag for a package based on conventional commits.
 #
 # Usage: scripts/bump-tag.sh <prefix> <dirs...>
-# Output: Shell-evaluable variables (TAG, BUMP, PREV, COMMITS) or nothing if
+# Output: TAG, BUMP, PREV as key=value lines (one per line), or nothing if
 #         there are no changes since the last tag.
 #
 # Does NOT create or push tags -- the caller decides what to do with the output.
@@ -38,11 +38,10 @@ case "$BUMP" in
 esac
 
 TAG="$PREFIX/v$NEW"
+COMMIT_COUNT=$(echo "$COMMITS" | wc -l)
 
-# Output as shell-evaluable variables
+# Output as simple key=value (safe to eval -- no user content)
 echo "TAG=$TAG"
 echo "BUMP=$BUMP"
 echo "PREV=$LATEST"
-echo "COMMITS<<EOF"
-echo "$COMMITS"
-echo "EOF"
+echo "COMMIT_COUNT=$COMMIT_COUNT"

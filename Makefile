@@ -30,10 +30,10 @@ release-desktop:
 	@output=$$(bash scripts/bump-tag.sh desktop app/ app/desktop/ build/ scheduler/); \
 	if [ -z "$$output" ]; then echo "No desktop changes to release."; exit 0; fi; \
 	eval "$$output"; \
-	echo "$$TAG ($$BUMP bump from $$PREV)"; \
+	echo "$$TAG ($$BUMP bump from $$PREV, $$COMMIT_COUNT commits)"; \
 	echo ""; \
-	echo "$$COMMITS" | head -20; \
-	echo ""; \
+	git log "$$PREV"..HEAD --pretty=format:"  %s" -- app/ app/desktop/ build/ scheduler/ | head -20; \
+	echo ""; echo ""; \
 	read -p "Create tag $$TAG and push? [y/N] " confirm; \
 	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
 		git tag "$$TAG" && git push origin "$$TAG"; \
