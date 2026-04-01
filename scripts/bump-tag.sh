@@ -26,8 +26,8 @@ COMMITS=$(git log "$LATEST"..HEAD --pretty=format:"%s" -- $DIRS 2>/dev/null)
 
 # Determine bump type (highest wins: major > minor > patch)
 BUMP="patch"
-echo "$COMMITS" | grep -qiE "^feat(\(.*\))?:" && BUMP="minor"
-echo "$COMMITS" | grep -qiE "^feat(\(.*\))?!:|BREAKING CHANGE" && BUMP="major"
+if echo "$COMMITS" | grep -qiE "^feat(\(.*\))?:"; then BUMP="minor"; fi
+if echo "$COMMITS" | grep -qiE "^feat(\(.*\))?!:|BREAKING CHANGE"; then BUMP="major"; fi
 
 # Compute new version
 IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
