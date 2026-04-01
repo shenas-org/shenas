@@ -16,15 +16,18 @@ uv run pytest                       # run tests
 uv run cz commit                    # conventional commit
 uv add <package>                    # add a dependency
 uv sync                             # install dependencies
-make dev-uninstall                  # uninstall all shenas-* packages
+make install                        # install shenas + shenasrepoctl to ~/.local/bin/
 make repository                     # start PEP 503 package server on :7290
-make coverage                       # run tests with coverage report
 make setup-hooks                    # install git pre-commit hook
 moon run app:test                   # run tests for a single project
 moon run :lint                      # run lint across all projects
 moon run :test                      # run tests across all projects
+moon run :coverage                  # run tests with coverage report
+moon run :pyinstaller               # build standalone binaries (onedir)
 moon run :build                     # build + sign all distributable wheels
 moon run pipe-garmin:build           # build + sign a single pipe
+moon run desktop:sidecars           # build PyInstaller sidecars for Tauri
+moon run desktop:tauri              # build desktop app (builds sidecars first)
 shenasrepoctl sign-all packages/   # sign all unsigned wheels
 shenasrepoctl vendor garmin        # vendor a pipe and its deps
 ```

@@ -12,6 +12,16 @@ tasks:
     script: 'python ../../scripts/sync-desktop-version.py'
     inputs:
       - '/scripts/sync-desktop-version.py'
+  sidecars:
+    command: 'uv run python ../../build/pyinstaller_build.py --desktop'
+    inputs:
+      - '/build/**/*.py'
+      - '/app/**/*.py'
+      - '/scheduler/**/*.py'
+      - '/repository/**/*.py'
+      - '/plugins/**/*.py'
+    outputs:
+      - 'src-tauri/binaries/'
   tauri:
     command: 'npx tauri build'
     inputs:
@@ -23,6 +33,7 @@ tasks:
       - 'src-tauri/target/release/bundle/'
     deps:
       - '~:sync-version'
+      - '~:sidecars'
   build:
     command: 'makepkg -sf'
     inputs:
