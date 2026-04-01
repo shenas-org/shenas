@@ -8,6 +8,10 @@ dependsOn:
   - 'app'
 
 tasks:
+  clean:
+    script: 'rm -rf src-tauri/target/ src-tauri/binaries/ pkg/ node_modules/'
+    options:
+      cache: false
   sync-version:
     script: 'python ../../scripts/sync-desktop-version.py'
     inputs:

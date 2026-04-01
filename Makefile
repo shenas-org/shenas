@@ -22,10 +22,8 @@ coverage:
 		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
 
 clean:
-	rm -rf dist/ build/_pyinstaller_work/ app/desktop/src-tauri/binaries/
-	rm -rf app/desktop/src-tauri/target/ app/desktop/pkg/
+	moon run :clean
 	rm -rf .moon/cache/
-	rm -rf htmlcov/ .coverage coverage.json
 
 # Tag a desktop release (version auto-computed from conventional commits)
 release-desktop:

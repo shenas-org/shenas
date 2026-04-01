@@ -1,6 +1,10 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
 
 tasks:
+  clean:
+    script: 'rm -rf dist/ build/_pyinstaller_work/ htmlcov/ .coverage coverage.json packages/'
+    options:
+      cache: false
   lint:
     script: 'uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync ty check repository/ app/ --exclude "**/vendor/**"'
     inputs:
