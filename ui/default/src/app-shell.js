@@ -42,6 +42,7 @@ class ShenasApp extends LitElement {
       path: "/settings/:kind/:name/auth",
       render: ({ kind, name }) => this._renderPluginDetail(kind, name, "auth"),
     },
+    { path: "/logs", render: () => html`<shenas-logs api-base="${this.apiBase}"></shenas-logs>` },
     { path: "/:tab", render: ({ tab }) => this._renderDynamicTab(tab) },
   ]);
 
@@ -359,6 +360,13 @@ class ShenasApp extends LitElement {
     this._fetchData();
     this.addEventListener("plugin-state-changed", () => this._refreshComponents());
     this.addEventListener("inspect-table", (e) => this._inspect(e.detail.schema, e.detail.table));
+    this.addEventListener("page-title", (e) => {
+      if (this._activeTabId != null) {
+        this._tabs = this._tabs.map((t) =>
+          t.id === this._activeTabId ? { ...t, label: e.detail.title } : t,
+        );
+      }
+    });
     this.addEventListener("navigate", (e) => this._navigateTo(e.detail.path, e.detail.label));
     this.addEventListener("register-command", (e) => {
       const { componentId, commands } = e.detail;
@@ -471,7 +479,7 @@ class ShenasApp extends LitElement {
           commands.push({
             id: `toggle:${k.id}:${p.name}`,
             category: k.label,
-            label: `${enabled ? "Disable" : "Enable"} ${name}`,
+            label: `Toggle ${name}`,
             action: async () => {
               const action = enabled ? "disable" : "enable";
               await apiFetch(this.apiBase, `/plugins/${k.id}/${p.name}/${action}`, { method: "POST" });
@@ -666,8 +674,8 @@ class ShenasApp extends LitElement {
     } catch (e) {
       console.error("Failed to fetch data:", e);
     }
+    await this._registerGlobalCommands();
     this._loading = false;
-    this._registerGlobalCommands();
     await this._loadWorkspace();
   }
 
@@ -725,6 +733,7 @@ class ShenasApp extends LitElement {
           </div>
           <nav class="nav">
             ${this._components.map((c) => this._navItem(c.name, c.display_name || c.name, active))}
+            ${this._navItem("logs", "Logs", active)}
             ${this._navItem("settings", "Settings", active)}
           </nav>
         </div>
@@ -824,6 +833,11 @@ class ShenasApp extends LitElement {
         }
       }
     }
+    actions.sort((a, b) => {
+      if (a.category === "System" && b.category !== "System") return -1;
+      if (a.category !== "System" && b.category === "System") return 1;
+      return 0;
+    });
     return actions;
   }
 

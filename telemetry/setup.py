@@ -48,7 +48,9 @@ def init_telemetry(service_name: str) -> None:
     _logger_provider = LoggerProvider(resource=resource)
     _logger_provider.add_log_record_processor(BatchLogRecordProcessor(DuckDBLogExporter()))
     handler = LoggingHandler(logger_provider=_logger_provider)
-    logging.getLogger("shenas").addHandler(handler)
+    shenas_logger = logging.getLogger("shenas")
+    shenas_logger.addHandler(handler)
+    shenas_logger.setLevel(logging.DEBUG)
 
     atexit.register(shutdown_telemetry)
 

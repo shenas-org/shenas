@@ -7,6 +7,7 @@ import inspect
 import json
 import logging
 import subprocess
+
 import sys
 import threading
 from collections.abc import Iterator
@@ -18,6 +19,8 @@ from fastapi.responses import StreamingResponse
 from app.models import ScheduleInfo, SyncRequest
 
 router = APIRouter(prefix="/sync", tags=["sync"])
+
+log = logging.getLogger(f"shenas.{__name__}")
 
 PIPE_PREFIX = "shenas-pipe-"
 
@@ -110,6 +113,7 @@ def _run_pipe_sync(
     extra: dict[str, str | int | bool] | None = None,
 ) -> Iterator[str]:
     """Run a single pipe's sync command, yielding SSE events."""
+    log.info("Sync started: %s", ep_name)
     yield _sse_event("progress", {"pipe": ep_name, "message": "starting sync"})
 
     sync_callback = None
@@ -141,9 +145,11 @@ def _run_pipe_sync(
     try:
         sync_callback(**kwargs)
         _mark_synced(ep_name)
+        log.info("Sync complete: %s", ep_name)
         yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
     except SystemExit as exc:
         if exc.code and exc.code != 0:
+            log.error("Sync failed: %s (exit code %s)", ep_name, exc.code)
             yield _sse_event("error", {"pipe": ep_name, "message": f"Sync failed (exit code {exc.code}). Check server logs."})
         else:
             _mark_synced(ep_name)

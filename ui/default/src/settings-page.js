@@ -167,9 +167,16 @@ class SettingsPage extends LitElement {
     }
   }
 
+  _displayName() {
+    if (this.activeKind === "data-flow") return "Data Flow";
+    if (this.activeKind === "hotkeys") return "Hotkeys";
+    const kind = PLUGIN_KINDS.find((k) => k.id === this.activeKind);
+    return kind ? kind.label : this.activeKind;
+  }
+
   render() {
     return html`
-      <shenas-page ?loading=${this._loading} loading-text="Loading plugins...">
+      <shenas-page ?loading=${this._loading} loading-text="Loading plugins..." display-name="${this._displayName()}">
         ${renderMessage(this._actionMessage)}
         <div class="layout">
         <nav class="sidebar">

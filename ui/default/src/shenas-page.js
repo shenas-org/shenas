@@ -21,6 +21,7 @@ class ShenasPage extends LitElement {
     empty: { type: Boolean, reflect: true },
     loadingText: { type: String, attribute: "loading-text" },
     emptyText: { type: String, attribute: "empty-text" },
+    displayName: { type: String, attribute: "display-name" },
   };
 
   static styles = [utilityStyles];
@@ -31,6 +32,17 @@ class ShenasPage extends LitElement {
     this.empty = false;
     this.loadingText = "Loading...";
     this.emptyText = "No data";
+    this.displayName = "";
+  }
+
+  updated(changed) {
+    if (changed.has("displayName") && this.displayName) {
+      this.dispatchEvent(new CustomEvent("page-title", {
+        bubbles: true,
+        composed: true,
+        detail: { title: this.displayName },
+      }));
+    }
   }
 
   render() {
