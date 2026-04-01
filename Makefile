@@ -1,4 +1,4 @@
-.PHONY: install repository setup-hooks coverage release-desktop
+.PHONY: install repository setup-hooks coverage clean release-desktop
 
 # Install CLI tools globally (~/.local/bin/)
 install:
@@ -20,6 +20,9 @@ coverage:
 	uv run --no-sync pytest --cov=repository --cov=app \
 		--cov=shenas_pipes --cov=shenas_schemas \
 		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
+
+clean:
+	rm -rf dist/ build/_pyinstaller_work/ app/desktop/src-tauri/binaries/ htmlcov/ .coverage coverage.json
 
 # Tag a desktop release (version auto-computed from conventional commits)
 release-desktop:
