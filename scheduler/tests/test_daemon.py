@@ -6,13 +6,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cli.client import ShenasServerError
+from scheduler.client import ShenasServerError
 from scheduler.daemon import SyncDaemon
 
 
 def _make_daemon(mock_client: MagicMock | None = None) -> SyncDaemon:
-    """Create a SyncDaemon with a mocked ShenasClient."""
-    with patch("cli.client.ShenasClient", return_value=mock_client or MagicMock()):
+    """Create a SyncDaemon with a mocked SchedulerClient."""
+    with patch("scheduler.client.SchedulerClient", return_value=mock_client or MagicMock()):
         daemon = SyncDaemon(server_url="http://localhost:7280", check_interval=1)
     return daemon
 
