@@ -9,7 +9,7 @@ metadata:
 spec:
   ingressClassName: gce
   rules:
-    - host: repo.shenas.dev
+    - host: repo.shenas.net
       http:
         paths:
           - path: /
@@ -19,7 +19,7 @@ spec:
                 name: repo-server
                 port:
                   number: 80
-    - host: fl.shenas.dev
+    - host: fl.shenas.net
       http:
         paths:
           - path: /api
@@ -44,5 +44,5 @@ metadata:
   namespace: shenas
 spec:
   domains:
-    - repo.shenas.dev
-    - fl.shenas.dev
+    - repo.shenas.net
+    - fl.shenas.net

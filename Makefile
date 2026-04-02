@@ -1,4 +1,4 @@
-.PHONY: install repo-server setup-hooks coverage clean release-desktop
+.PHONY: install repo-server setup-hooks coverage clean release-desktop infra-init infra-plan infra-apply infra-output infra-destroy
 
 # Install CLI tools globally (~/.local/bin/)
 install:
@@ -41,3 +41,19 @@ release-desktop:
 	else \
 		echo "Aborted"; \
 	fi
+
+# Infrastructure (OpenTofu)
+infra-init:
+	cd deploy/tofu && tofu init
+
+infra-plan:
+	cd deploy/tofu && tofu plan
+
+infra-apply:
+	cd deploy/tofu && tofu apply
+
+infra-output:
+	cd deploy/tofu && tofu output
+
+infra-destroy:
+	cd deploy/tofu && tofu destroy
