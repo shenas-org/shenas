@@ -14,7 +14,7 @@ echo "Running ruff format check..."
 uv run ruff format --check .
 
 echo "Running ty check..."
-uv run ty check repository/ app/ --exclude "**/vendor/**" --exclude "**/fl/**"
+uv run ty check repo-server/ app/ --exclude "**/vendor/**" --exclude "**/fl/**" --extra-search-path repo-server
 
 # Check FL modules only if torch is installed
 if uv run python -c "import torch" 2>/dev/null; then

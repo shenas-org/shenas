@@ -8,7 +8,6 @@ convert to numpy arrays for training.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import httpx
 import numpy as np
@@ -25,22 +24,40 @@ class DataFetcher:
     def fetch(self, query: str, features: list[str], target: str) -> tuple[np.ndarray, np.ndarray] | None:
         """Execute a SQL query against the local shenas server and return (X, y).
 
+        The server returns Arrow IPC format. We parse it with pyarrow and
+        extract the requested columns as numpy arrays.
+
         Returns None if no data is available or the server is unreachable.
         """
         try:
-            resp = self._client.get("/api/query", params={"sql": query, "format": "json"})
+            resp = self._client.get("/api/query", params={"sql": query})
             if resp.status_code != 200:
                 logger.warning("Query failed (status %d): %s", resp.status_code, resp.text[:200])
                 return None
 
-            rows: list[dict[str, Any]] = resp.json()
-            if not rows:
+            import pyarrow.ipc
+
+            reader = pyarrow.ipc.open_stream(resp.content)
+            table = reader.read_all()
+
+            if table.num_rows == 0:
                 logger.info("Query returned no rows")
                 return None
 
-            # Extract feature matrix and target vector
-            X = np.array([[float(row.get(f, 0) or 0) for f in features] for row in rows], dtype=np.float32)
-            y = np.array([float(row.get(target, 0) or 0) for row in rows], dtype=np.float32)
+            # Extract feature columns
+            X_cols = []
+            for f in features:
+                if f not in table.column_names:
+                    logger.warning("Feature column '%s' not in query results", f)
+                    return None
+                X_cols.append(table.column(f).to_numpy(zero_copy_only=False).astype(np.float32))
+
+            X = np.column_stack(X_cols)
+
+            if target not in table.column_names:
+                logger.warning("Target column '%s' not in query results", target)
+                return None
+            y = table.column(target).to_numpy(zero_copy_only=False).astype(np.float32)
 
             # Drop rows with NaN
             valid = ~(np.isnan(X).any(axis=1) | np.isnan(y))

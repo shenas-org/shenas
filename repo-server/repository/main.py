@@ -7,7 +7,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 
-from repository.repository import PackageRepository, normalize
+from repository.server import PackageRepository, normalize
 
 app = FastAPI(title="Simple Package Repository", docs_url=None, redoc_url=None)
 

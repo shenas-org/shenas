@@ -6,7 +6,7 @@ tasks:
     options:
       cache: false
   lint:
-    script: 'uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync ty check repository/ app/ --exclude "**/vendor/**" --exclude "**/fl/**"'
+    script: 'uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync ty check repo-server/ app/ --exclude "**/vendor/**" --exclude "**/fl/**" --extra-search-path repo-server'
   # Run with: uv sync --group fl && moon run :lint-fl
   lint-fl:
     script: 'uv run --no-sync ty check app/fl/'
@@ -22,7 +22,7 @@ tasks:
       - '~:lint'
   coverage:
     script: >
-      uv run --no-sync pytest --cov=repository --cov=app
+      uv run --no-sync pytest --cov=repo_server --cov=app
       --cov=shenas_pipes --cov=shenas_schemas
       --cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
     inputs:
@@ -33,5 +33,5 @@ tasks:
       - 'build/**/*.py'
       - 'app/**/*.py'
       - 'scheduler/**/*.py'
-      - 'repository/**/*.py'
+      - 'repo-server/**/*.py'
       - 'plugins/**/*.py'

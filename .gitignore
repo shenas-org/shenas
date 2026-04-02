@@ -17,6 +17,9 @@ shenas.egg-info/
 .moon/cache/
 .moon/docker/
 .shenas-fl/
+deploy/tofu/.terraform/
+deploy/tofu/*.tfstate*
+deploy/tofu/.terraform.lock.hcl
 app/desktop/src-tauri/binaries/
 app/desktop/src-tauri/target/
 app/mobile/ui-dist/
