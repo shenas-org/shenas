@@ -19,5 +19,3 @@ duckdb = { version = "1.4", features = ["bundled"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 axum = "0.8"
 tower-http = { version = "0.6", features = ["cors", "fs"] }
-rust-embed = "8"
-mime_guess = "2"

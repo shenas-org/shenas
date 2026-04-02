@@ -20,6 +20,7 @@ shenas.egg-info/
 app/desktop/src-tauri/binaries/
 app/desktop/src-tauri/target/
 app/mobile/ui-dist/
+app/mobile/src-tauri/ui-dist/
 app/mobile/src-tauri/target/
 app/mobile/src-tauri/gen/
 app/desktop/src-tauri/gen/

@@ -39,5 +39,9 @@ echo "  Copying static assets..."
 cp -r "$ROOT/app/static/images" "$DIST/static/" 2>/dev/null || true
 cp "$ROOT/app/static/"*.json "$DIST/static/" 2>/dev/null || true
 
+# Copy into src-tauri/ for rust-embed (relative paths with ../ can fail)
+rm -rf "$ROOT/app/mobile/src-tauri/ui-dist"
+cp -r "$DIST" "$ROOT/app/mobile/src-tauri/ui-dist"
+
 echo "UI built: $DIST"
 ls -lh "$DIST"

@@ -28,6 +28,9 @@
       "icons/128x128.png",
       "icons/256x256.png",
       "icons/icon.png"
+    ],
+    "resources": [
+      "ui-dist/**/*"
     ]
   },
   "plugins": {
