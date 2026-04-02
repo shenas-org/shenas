@@ -93,7 +93,9 @@ android-emulator:
 	$(ANDROID_SDK_ROOT)/emulator/emulator -avd shenas &
 
 android-dev:
-	cd app/mobile && bash build-ui.sh && npx tauri android dev
+	cd app/mobile && \
+	if [ ! -d src-tauri/gen/android ]; then npx tauri android init; fi && \
+	bash build-ui.sh && cd src-tauri && cargo clean && cd .. && npx tauri android dev
 
 # Tag a desktop release (version auto-computed from conventional commits)
 release-desktop:

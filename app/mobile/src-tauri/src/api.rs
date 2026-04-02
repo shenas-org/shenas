@@ -1,9 +1,8 @@
-//! REST API endpoints + UI file serving.
+//! REST API endpoints.
 //!
-//! Serves the same API contract as the Python FastAPI server, plus the
-//! built Lit UI from a filesystem directory passed at startup.
+//! Same contract as the Python FastAPI server. The Lit UI is served by
+//! Tauri's built-in asset protocol, not by axum.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::{
@@ -14,7 +13,6 @@ use axum::{
     Router,
 };
 use serde::Deserialize;
-use tower_http::services::{ServeDir, ServeFile};
 
 use crate::db::Database;
 
@@ -28,14 +26,7 @@ pub struct QueryParams {
     format: Option<String>,
 }
 
-pub fn router(db: Arc<Database>, ui_dir: PathBuf) -> Router {
-    eprintln!("Serving UI from {:?} (exists: {})", ui_dir, ui_dir.exists());
-
-    let index_html = ui_dir.join("index.html");
-    let serve_ui = ServeDir::new(&ui_dir)
-        .append_index_html_on_directories(true)
-        .fallback(ServeFile::new(index_html));
-
+pub fn router(db: Arc<Database>) -> Router {
     Router::new()
         .route("/api/health", get(health))
         .route("/api/tables", get(tables))
@@ -55,10 +46,7 @@ pub fn router(db: Arc<Database>, ui_dir: PathBuf) -> Router {
         .route("/api/stream/spans", get(stub_empty_sse))
         .route("/api/sync/schedule", get(stub_empty_array))
         .with_state(db)
-        .fallback_service(serve_ui)
 }
-
-// ---- Stubs ----
 
 async fn stub_empty_array() -> Json<serde_json::Value> {
     Json(serde_json::json!([]))
@@ -85,8 +73,6 @@ async fn db_status(State(db): State<AppState>) -> Json<serde_json::Value> {
         "schemas": {},
     }))
 }
-
-// ---- Core endpoints ----
 
 async fn health() -> Json<serde_json::Value> {
     Json(serde_json::json!({"status": "ok", "platform": "mobile"}))

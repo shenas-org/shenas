@@ -8,7 +8,7 @@ use tauri::Manager;
 
 const API_PORT: u16 = 7280;
 
-fn start_api_server(database: Arc<db::Database>, ui_dir: PathBuf) {
+fn start_api_server(database: Arc<db::Database>) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -16,7 +16,7 @@ fn start_api_server(database: Arc<db::Database>, ui_dir: PathBuf) {
             .expect("Failed to create Tokio runtime");
 
         rt.block_on(async {
-            let app = api::router(database, ui_dir);
+            let app = api::router(database);
             let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", API_PORT))
                 .await
                 .expect("Failed to bind API server");
@@ -24,49 +24,6 @@ fn start_api_server(database: Arc<db::Database>, ui_dir: PathBuf) {
             axum::serve(listener, app).await.unwrap();
         });
     });
-}
-
-/// Extract UI assets from Tauri's bundled resources to the writable data dir.
-/// On Android, bundled assets live inside the APK and can't be served by axum.
-/// We use Tauri's resource resolver to copy them out on first launch.
-fn extract_ui_to_data_dir(app: &tauri::App) -> PathBuf {
-    let data_dir = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("/tmp/shenas"));
-    let ui_dir = data_dir.join("mobile-dist");
-
-    // Check if already extracted (skip on subsequent launches)
-    if ui_dir.join("index.html").exists() {
-        eprintln!("UI already extracted at {:?}", ui_dir);
-        return ui_dir;
-    }
-
-    eprintln!("Extracting UI to {:?}", ui_dir);
-    std::fs::create_dir_all(&ui_dir).ok();
-
-    // Use Tauri's resource resolver to read bundled files
-    let resource_path = app.path().resource_dir().unwrap_or_default();
-    let src = resource_path.join("mobile-dist");
-    if src.exists() {
-        // Desktop: resources are on the filesystem
-        copy_dir_recursive(&src, &ui_dir);
-    } else {
-        eprintln!("WARNING: no mobile-dist in resources, UI will not load");
-    }
-
-    ui_dir
-}
-
-fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) {
-    std::fs::create_dir_all(dst).ok();
-    if let Ok(entries) = std::fs::read_dir(src) {
-        for entry in entries.flatten() {
-            let dest = dst.join(entry.file_name());
-            if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-                copy_dir_recursive(&entry.path(), &dest);
-            } else {
-                std::fs::copy(entry.path(), dest).ok();
-            }
-        }
-    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -95,19 +52,9 @@ pub fn run() {
                 }
             };
 
-            let ui_dir = extract_ui_to_data_dir(app);
-            start_api_server(database, ui_dir);
-
-            // Navigate WebView to axum -- serves both UI and API on same origin
-            let window = app.get_webview_window("main").unwrap();
-            window
-                .navigate(
-                    format!("http://127.0.0.1:{}", API_PORT)
-                        .parse()
-                        .unwrap(),
-                )
-                .unwrap();
-
+            // Start API server -- UI calls it via http://127.0.0.1:7280/api
+            // Tauri serves the frontend via its built-in asset protocol
+            start_api_server(database);
             eprintln!("setup: done");
             Ok(())
         })

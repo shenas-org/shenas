@@ -34,6 +34,9 @@ npm run build --silent 2>/dev/null
 cp shenas_ui/default/static/default.js "$DIST/ui/default/"
 cp default.html "$DIST/index.html"
 
+# Patch api-base: Tauri serves UI from its asset protocol, API is on localhost
+sed -i 's|api-base="/api"|api-base="http://127.0.0.1:7280/api"|' "$DIST/index.html"
+
 # Copy static assets
 echo "  Copying static assets..."
 cp -r "$ROOT/app/static/images" "$DIST/static/" 2>/dev/null || true

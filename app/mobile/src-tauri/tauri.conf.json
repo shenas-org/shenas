@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.shenas.mobile",
   "build": {
-    "frontendDist": "../src"
+    "frontendDist": "../mobile-dist"
   },
   "app": {
     "windows": [
@@ -28,9 +28,6 @@
       "icons/128x128.png",
       "icons/256x256.png",
       "icons/icon.png"
-    ],
-    "resources": [
-      "../mobile-dist/**/*"
     ]
   },
   "plugins": {
