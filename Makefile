@@ -46,15 +46,16 @@ release-desktop:
 infra-init:
 	cd deploy/tofu && tofu init
 
-# One-time: import resources created before OpenTofu
+# One-time: import resources created before OpenTofu (skips already-imported)
 infra-import:
-	cd deploy/tofu && \
-	tofu import google_container_cluster.shenas projects/shenas-491609/locations/us-east4/clusters/shenas && \
-	tofu import google_compute_global_address.ingress_ip projects/shenas-491609/global/addresses/shenas-ip && \
-	tofu import google_artifact_registry_repository.shenas projects/shenas-491609/locations/us-east4/repositories/shenas && \
-	tofu import google_service_account.github_deploy projects/shenas-491609/serviceAccounts/github-deploy@shenas-491609.iam.gserviceaccount.com && \
-	tofu import google_iam_workload_identity_pool.github projects/shenas-491609/locations/global/workloadIdentityPools/github-pool && \
-	tofu import google_iam_workload_identity_pool_provider.github projects/shenas-491609/locations/global/workloadIdentityPools/github-pool/providers/github-provider && \
+	@cd deploy/tofu; \
+	_import() { echo "Importing $$1..."; tofu import "$$1" "$$2" 2>&1 | grep -v "already managed" || true; }; \
+	_import google_container_cluster.shenas projects/shenas-491609/locations/us-east4/clusters/shenas; \
+	_import google_compute_global_address.ingress_ip projects/shenas-491609/global/addresses/shenas-ip; \
+	_import google_artifact_registry_repository.shenas projects/shenas-491609/locations/us-east4/repositories/shenas; \
+	_import google_service_account.github_deploy projects/shenas-491609/serviceAccounts/github-deploy@shenas-491609.iam.gserviceaccount.com; \
+	_import google_iam_workload_identity_pool.github projects/shenas-491609/locations/global/workloadIdentityPools/github-pool; \
+	_import google_iam_workload_identity_pool_provider.github projects/shenas-491609/locations/global/workloadIdentityPools/github-pool/providers/github-provider; \
 	echo "Import complete. Run: make infra-plan"
 
 infra-plan:
