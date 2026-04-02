@@ -50,6 +50,19 @@ jobs:
             cd "$dir" && npm install --silent && npm test && cd "$GITHUB_WORKSPACE"
           done
 
+  infra:
+    name: Infra Validate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+      - name: Validate
+        working-directory: deploy/tofu
+        run: |
+          tofu init -backend=false
+          tofu validate
+
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
