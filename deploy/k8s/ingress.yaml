@@ -4,10 +4,10 @@ metadata:
   name: shenas-ingress
   namespace: shenas
   annotations:
-    kubernetes.io/ingress.class: "gce"
     networking.gke.io/managed-certificates: "shenas-cert"
     kubernetes.io/ingress.global-static-ip-name: "shenas-ip"
 spec:
+  ingressClassName: gce
   rules:
     - host: repo.shenas.dev
       http:
