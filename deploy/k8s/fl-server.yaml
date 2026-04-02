@@ -25,11 +25,11 @@ spec:
               name: http
           resources:
             requests:
-              cpu: 250m
-              memory: 512Mi
+              cpu: 50m
+              memory: 128Mi
             limits:
-              cpu: "1"
-              memory: 1Gi
+              cpu: 500m
+              memory: 512Mi
           volumeMounts:
             - name: weights
               mountPath: /app/.shenas-fl
@@ -63,7 +63,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi
+      storage: 256Mi
   storageClassName: standard-rwo
 ---
 apiVersion: v1
