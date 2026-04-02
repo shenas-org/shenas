@@ -156,7 +156,15 @@ class SettingsPage extends LitElement {
       @media (max-width: 768px) {
         .sidebar { display: none; }
         .burger { display: flex; }
-        .layout { gap: 0; }
+        .layout {
+          gap: 0;
+          flex-direction: column;
+        }
+        .content {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+        }
       }
     `,
   ];
@@ -164,7 +172,7 @@ class SettingsPage extends LitElement {
   constructor() {
     super();
     this.apiBase = "/api";
-    this.activeKind = "pipe";
+    this.activeKind = "data-flow";
     this.onNavigate = null;
     this._plugins = {};
     this._loading = true;
