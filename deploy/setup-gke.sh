@@ -16,7 +16,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 # Configuration
-PROJECT="${PROJECT:-$(gcloud config get-value project 2>/dev/null)}"
+PROJECT="${PROJECT:-shenas-491609}"
 REGION="${REGION:-us-east4}"
 ZONE="${ZONE:-${REGION}-a}"
 CLUSTER_NAME="${CLUSTER_NAME:-shenas}"
