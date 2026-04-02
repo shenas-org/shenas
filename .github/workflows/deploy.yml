@@ -62,7 +62,7 @@ jobs:
       - name: Build, push, deploy
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-          docker build -t "${REGISTRY}/repo-server:${TAG}" \
+          docker build --build-arg VERSION="${TAG##*/v}" -t "${REGISTRY}/repo-server:${TAG}" \
                        -t "${REGISTRY}/repo-server:latest" \
                        -f deploy/docker/Dockerfile.repo-server .
           docker push "${REGISTRY}/repo-server" --all-tags
@@ -110,7 +110,7 @@ jobs:
       - name: Build, push, deploy
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-          docker build -t "${REGISTRY}/fl-server:${TAG}" \
+          docker build --build-arg VERSION="${TAG##*/v}" -t "${REGISTRY}/fl-server:${TAG}" \
                        -t "${REGISTRY}/fl-server:latest" \
                        -f deploy/docker/Dockerfile.fl-server .
           docker push "${REGISTRY}/fl-server" --all-tags
