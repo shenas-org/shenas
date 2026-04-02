@@ -24,20 +24,25 @@ jobs:
 
       - name: Detect changes and create tags
         run: |
+          # Desktop is excluded -- use `make release-desktop` manually.
           PACKAGES=(
-            "desktop:app/ app/desktop/"
             "repository:repository/"
-            "pipe-core:pipes/core/"
-            "pipe-garmin:pipes/garmin/"
-            "pipe-lunchmoney:pipes/lunchmoney/"
-            "pipe-obsidian:pipes/obsidian/"
-            "pipe-gmail:pipes/gmail/"
-            "schema-core:schemas/core/"
-            "schema-fitness:schemas/fitness/"
-            "schema-finance:schemas/finance/"
-            "schema-outcomes:schemas/outcomes/"
-            "component-fitness-dashboard:components/fitness-dashboard/"
-            "component-data-table:components/data-table/"
+            "pipe-core:plugins/pipes/core/"
+            "pipe-garmin:plugins/pipes/garmin/"
+            "pipe-lunchmoney:plugins/pipes/lunchmoney/"
+            "pipe-obsidian:plugins/pipes/obsidian/"
+            "pipe-gmail:plugins/pipes/gmail/"
+            "pipe-gcalendar:plugins/pipes/gcalendar/"
+            "pipe-gtakeout:plugins/pipes/gtakeout/"
+            "pipe-duolingo:plugins/pipes/duolingo/"
+            "pipe-spotify:plugins/pipes/spotify/"
+            "schema-core:plugins/schemas/core/"
+            "schema-fitness:plugins/schemas/fitness/"
+            "schema-finance:plugins/schemas/finance/"
+            "schema-outcomes:plugins/schemas/outcomes/"
+            "schema-habits:plugins/schemas/habits/"
+            "component-fitness-dashboard:plugins/components/fitness-dashboard/"
+            "component-data-table:plugins/components/data-table/"
           )
 
           TAGS_CREATED=0
@@ -46,33 +51,11 @@ jobs:
             PREFIX="${entry%%:*}"
             DIRS="${entry#*:}"
 
-            # Check if any files changed in this push
-            CHANGED=$(git diff --name-only HEAD~1 -- $DIRS 2>/dev/null)
-            [ -z "$CHANGED" ] && continue
+            OUTPUT=$(bash scripts/bump-tag.sh "$PREFIX" $DIRS)
+            [ -z "$OUTPUT" ] && continue
 
-            # Get latest tag for this package
-            LATEST=$(git describe --tags --match "$PREFIX/v*" --abbrev=0 2>/dev/null || echo "$PREFIX/v0.0.0")
-            VERSION="${LATEST##*/v}"
-
-            # Get conventional commits since last tag that touch this package
-            COMMITS=$(git log "$LATEST"..HEAD --pretty=format:"%s" -- $DIRS 2>/dev/null)
-            [ -z "$COMMITS" ] && continue
-
-            # Determine bump (highest wins: major > minor > patch)
-            BUMP="patch"
-            echo "$COMMITS" | grep -qiE "^feat(\(.*\))?:" && BUMP="minor"
-            echo "$COMMITS" | grep -qiE "^feat(\(.*\))?!:|BREAKING CHANGE" && BUMP="major"
-
-            # Compute new version
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-            case "$BUMP" in
-              major) NEW="$((MAJOR+1)).0.0" ;;
-              minor) NEW="$MAJOR.$((MINOR+1)).0" ;;
-              patch) NEW="$MAJOR.$MINOR.$((PATCH+1))" ;;
-            esac
-
-            TAG="$PREFIX/v$NEW"
-            echo "::notice::Releasing $TAG ($BUMP bump from $VERSION)"
+            eval "$OUTPUT"
+            echo "::notice::Releasing $TAG ($BUMP bump from $PREV)"
             git tag "$TAG"
             TAGS_CREATED=$((TAGS_CREATED+1))
           done

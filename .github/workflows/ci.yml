@@ -23,7 +23,7 @@ jobs:
         run: |
           uv run ruff check .
           uv run ruff format --check .
-          uv run ty check repository/ app/
+          uv run ty check repository/ app/ --exclude "**/vendor/**"
 
   test:
     name: Test
@@ -44,7 +44,7 @@ jobs:
         run: uv run --no-sync pytest
       - name: Run component tests
         run: |
-          for comp in components/*/package.json; do
+          for comp in plugins/components/*/package.json; do
             dir=$(dirname "$comp")
             echo "Testing $dir"
             cd "$dir" && npm install --silent && npm test && cd "$GITHUB_WORKSPACE"

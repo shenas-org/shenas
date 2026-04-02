@@ -8,10 +8,28 @@ dependsOn:
   - 'app'
 
 tasks:
+  clean:
+    script: 'rm -rf src-tauri/target/ src-tauri/binaries/ pkg/ node_modules/'
+    options:
+      cache: false
   sync-version:
     script: 'python ../../scripts/sync-desktop-version.py'
     inputs:
       - '/scripts/sync-desktop-version.py'
+  sidecars:
+    script: >
+      uv run python ../../build/pyinstaller_build.py --onefile &&
+      mkdir -p src-tauri/binaries &&
+      cp ../../dist/pyinstaller/shenas-* src-tauri/binaries/
+    inputs:
+      - '/build/**/*.py'
+      - '/app/**/*.py'
+      - '/cli/**/*.py'
+      - '/scheduler/**/*.py'
+      - '/repository/**/*.py'
+      - '/plugins/**/*.py'
+    outputs:
+      - 'src-tauri/binaries/'
   tauri:
     command: 'npx tauri build'
     inputs:
@@ -23,6 +41,7 @@ tasks:
       - 'src-tauri/target/release/bundle/'
     deps:
       - '~:sync-version'
+      - '~:sidecars'
   build:
     command: 'makepkg -sf'
     inputs:

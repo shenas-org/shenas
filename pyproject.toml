@@ -10,6 +10,7 @@ package = false
 [tool.uv.workspace]
 members = [
     "app",
+    "cli",
     "scheduler",
     "repository",
     "plugins/pipes/*",
@@ -21,6 +22,7 @@ members = [
 
 [tool.uv.sources]
 shenas-app = { workspace = true }
+shenas-cli = { workspace = true }
 shenas-scheduler = { workspace = true }
 shenas-repository = { workspace = true }
 shenas-pipe-core = { workspace = true }
@@ -46,6 +48,7 @@ shenas-theme-dark = { workspace = true }
 [dependency-groups]
 dev = [
     "shenas-app",
+    "shenas-cli",
     "shenas-scheduler",
     "shenas-pipe-garmin",
     "shenas-pipe-lunchmoney",
@@ -70,10 +73,11 @@ dev = [
     "pytest-cov>=7.1.0",
     "ruff>=0.15.8",
     "ty>=0.0.26",
+    "pyinstaller>=6.19.0",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["app/cli/tests", "app/tests", "scheduler/tests", "repository/tests", "app/telemetry/tests", "plugins/pipes/core/tests", "plugins/pipes/garmin/tests", "plugins/pipes/gmail/tests", "plugins/pipes/gcalendar/tests", "plugins/pipes/gtakeout/tests", "plugins/pipes/lunchmoney/tests", "plugins/pipes/obsidian/tests", "plugins/pipes/duolingo/tests", "plugins/pipes/spotify/tests", "plugins/schemas/fitness/tests", "plugins/schemas/finance/tests", "plugins/schemas/outcomes/tests", "plugins/schemas/habits/tests"]
+testpaths = ["cli/tests", "app/tests", "scheduler/tests", "repository/tests", "app/telemetry/tests", "plugins/pipes/core/tests", "plugins/pipes/garmin/tests", "plugins/pipes/gmail/tests", "plugins/pipes/gcalendar/tests", "plugins/pipes/gtakeout/tests", "plugins/pipes/lunchmoney/tests", "plugins/pipes/obsidian/tests", "plugins/pipes/duolingo/tests", "plugins/pipes/spotify/tests", "plugins/schemas/fitness/tests", "plugins/schemas/finance/tests", "plugins/schemas/outcomes/tests", "plugins/schemas/habits/tests"]
 addopts = "--import-mode=importlib"
 pythonpath = ["."]
 

@@ -10,6 +10,11 @@ fileGroups:
     - 'package.json'
 
 tasks:
+  clean:
+    script: 'rm -rf $MOON_PROJECT_SOURCE/node_modules/ $MOON_PROJECT_SOURCE/dist/'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false
   test:
     command: 'npm test'
     inputs:

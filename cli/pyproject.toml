@@ -1,15 +1,16 @@
 [project]
-name = "shenas-scheduler"
+name = "shenas-cli"
 dynamic = ["version"]
-description = "Shenas background sync scheduler sidecar"
+description = "Shenas CLI -- lightweight command-line client"
 requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.28.1",
+    "rich>=14.3.3",
     "typer>=0.24.1",
 ]
 
 [project.scripts]
-shenas-scheduler = "scheduler.cli:app"
+shenasctl = "cli.main:main"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
@@ -17,9 +18,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 source = "vcs"
-tag-pattern = "scheduler/v(?P<version>[^+]+)"
+tag-pattern = "cli/v(?P<version>[^+]+)"
 raw-options.root = ".."
-raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "scheduler/v*"]
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "cli/v*"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]

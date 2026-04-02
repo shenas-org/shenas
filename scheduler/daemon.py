@@ -17,9 +17,9 @@ class SyncDaemon:
     """Polls the server for pipes due to sync and triggers them via REST."""
 
     def __init__(self, server_url: str, check_interval: int = 60) -> None:
-        from app.cli.client import ShenasClient
+        from scheduler.client import SchedulerClient
 
-        self.client = ShenasClient(base_url=server_url)
+        self.client = SchedulerClient(base_url=server_url)
         self.check_interval = check_interval
         self._shutdown = threading.Event()
 
@@ -45,7 +45,7 @@ class SyncDaemon:
         self._shutdown.set()
 
     def _tick(self) -> None:
-        from app.cli.client import ShenasServerError
+        from scheduler.client import ShenasServerError
 
         try:
             schedule = self.client.get_sync_schedule()
@@ -64,7 +64,7 @@ class SyncDaemon:
             self._sync_pipe(item["name"])
 
     def _sync_pipe(self, name: str) -> None:
-        from app.cli.client import ShenasServerError
+        from scheduler.client import ShenasServerError
 
         logger.info("Starting sync for %s", name)
         try:

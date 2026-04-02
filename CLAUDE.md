@@ -16,15 +16,19 @@ uv run pytest                       # run tests
 uv run cz commit                    # conventional commit
 uv add <package>                    # add a dependency
 uv sync                             # install dependencies
-make dev-uninstall                  # uninstall all shenas-* packages
+make install                        # install shenas + shenasrepoctl to ~/.local/bin/
 make repository                     # start PEP 503 package server on :7290
-make coverage                       # run tests with coverage report
 make setup-hooks                    # install git pre-commit hook
+make release-desktop                # tag a desktop release (version from commits)
 moon run app:test                   # run tests for a single project
 moon run :lint                      # run lint across all projects
 moon run :test                      # run tests across all projects
+moon run :coverage                  # run tests with coverage report
+moon run :pyinstaller               # build standalone binaries (onedir) to dist/
 moon run :build                     # build + sign all distributable wheels
 moon run pipe-garmin:build           # build + sign a single pipe
+moon run desktop:sidecars           # build PyInstaller sidecars for Tauri
+moon run desktop:tauri              # build desktop app (builds sidecars first)
 shenasrepoctl sign-all packages/   # sign all unsigned wheels
 shenasrepoctl vendor garmin        # vendor a pipe and its deps
 ```
@@ -47,11 +51,11 @@ shenasrepoctl vendor garmin        # vendor a pipe and its deps
 
 ### Workspace packages
 
-The monorepo is a uv workspace with 6 members, each a separate Python package:
+The monorepo is a uv workspace with 7 members, each a separate Python package:
 
-- **`shenas-cli`** (`cli/`) — CLI entry point, depends on shenas-app + shenas-repository
-- **`shenas-app`** (`app/`) — FastAPI UI server (renamed from local_frontend)
-- **`shenas-scheduler`** (`scheduler/`) — background sync daemon sidecar, depends on shenas-app
+- **`shenas-cli`** (`cli/`) — lightweight CLI client (httpx + typer + cryptography), no server deps
+- **`shenas-app`** (`app/`) — FastAPI UI server, depends on shenas-cli
+- **`shenas-scheduler`** (`scheduler/`) — background sync daemon sidecar, depends on shenas-cli
 - **`shenas-repository`** (`repository/`) — PEP 503 package server + Ed25519 signing
 - **`shenas-pipe-core`** (`plugins/pipes/core/`) — shared pipe utilities
 - **`shenas-schema-core`** (`plugins/schemas/core/`) — shared schema utilities

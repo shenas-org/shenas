@@ -1,4 +1,4 @@
-.PHONY: install repository setup-hooks coverage
+.PHONY: install repository setup-hooks coverage clean release-desktop
 
 # Install CLI tools globally (~/.local/bin/)
 install:
@@ -20,3 +20,24 @@ coverage:
 	uv run --no-sync pytest --cov=repository --cov=app \
 		--cov=shenas_pipes --cov=shenas_schemas \
 		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
+
+clean:
+	moon run :clean
+	rm -rf .moon/cache/
+
+# Tag a desktop release (version auto-computed from conventional commits)
+release-desktop:
+	@output=$$(bash scripts/bump-tag.sh desktop app/ app/desktop/ build/ scheduler/); \
+	if [ -z "$$output" ]; then echo "No desktop changes to release."; exit 0; fi; \
+	eval "$$output"; \
+	echo "$$TAG ($$BUMP bump from $$PREV)"; \
+	echo ""; \
+	echo "$$COMMITS" | head -20; \
+	echo ""; \
+	read -p "Create tag $$TAG and push? [y/N] " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		git tag "$$TAG" && git push origin "$$TAG"; \
+		echo "Tagged and pushed $$TAG"; \
+	else \
+		echo "Aborted"; \
+	fi
