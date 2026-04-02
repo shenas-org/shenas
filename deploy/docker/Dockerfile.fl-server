@@ -1,0 +1,20 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install uv for fast dependency resolution
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Copy fl-server package
+COPY fl-server/ ./fl-server/
+
+# Install dependencies (no .git in Docker context, so fake the version)
+ARG VERSION=0.0.0
+RUN cd fl-server && SETUPTOOLS_SCM_PRETEND_VERSION=$VERSION uv pip install --system --no-cache .
+
+# Weights persisted to a volume
+VOLUME /app/.shenas-fl
+
+EXPOSE 8080 8081
+
+CMD ["shenas-fl", "serve", "--grpc-host", "0.0.0.0", "--api-host", "0.0.0.0"]

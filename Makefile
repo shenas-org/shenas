@@ -1,13 +1,13 @@
-.PHONY: install repository setup-hooks coverage clean release-desktop
+.PHONY: install repo-server setup-hooks coverage clean release-desktop infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
 
 # Install CLI tools globally (~/.local/bin/)
 install:
 	uv tool install --editable app/ --force
-	uv tool install --editable repository/ --force
+	uv tool install --editable repo-server/ --force
 	@echo "Installed shenas, shenasctl, shenasrepoctl to ~/.local/bin/"
 	@echo "Run 'shenasctl --install-completion' for tab completion"
 
-repository:
+repo-server:
 	uv run python -m repository.main $(CURDIR)/packages
 
 # Install git pre-commit hook
@@ -17,7 +17,7 @@ setup-hooks:
 	@echo "Pre-commit hook installed."
 
 coverage:
-	uv run --no-sync pytest --cov=repository --cov=app \
+	uv run --no-sync pytest --cov=repo_server --cov=app \
 		--cov=shenas_pipes --cov=shenas_schemas \
 		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
 
@@ -41,3 +41,55 @@ release-desktop:
 	else \
 		echo "Aborted"; \
 	fi
+
+# Infrastructure (OpenTofu)
+infra-init:
+	cd deploy/tofu && tofu init
+
+# One-time: import resources created before OpenTofu (skips already-imported)
+infra-import:
+	@cd deploy/tofu; \
+	_import() { echo "Importing $$1..."; tofu import "$$1" "$$2" 2>&1 | grep -v "already managed" || true; }; \
+	_import google_container_cluster.shenas projects/shenas-491609/locations/us-east4/clusters/shenas; \
+	_import google_compute_global_address.ingress_ip projects/shenas-491609/global/addresses/shenas-ip; \
+	_import google_artifact_registry_repository.shenas projects/shenas-491609/locations/us-east4/repositories/shenas; \
+	_import google_service_account.github_deploy projects/shenas-491609/serviceAccounts/github-deploy@shenas-491609.iam.gserviceaccount.com; \
+	_import google_iam_workload_identity_pool.github projects/shenas-491609/locations/global/workloadIdentityPools/github-pool; \
+	_import google_iam_workload_identity_pool_provider.github projects/shenas-491609/locations/global/workloadIdentityPools/github-pool/providers/github-provider; \
+	echo "Import complete. Run: make infra-plan"
+
+infra-plan:
+	cd deploy/tofu && tofu plan
+
+infra-apply:
+	cd deploy/tofu && tofu apply
+
+infra-output:
+	cd deploy/tofu && tofu output
+
+infra-destroy:
+	cd deploy/tofu && tofu destroy
+
+# Set GitHub repo variables from tofu outputs (requires gh CLI)
+infra-gh-vars:
+	@WIF=$$(cd deploy/tofu && tofu output -raw wif_provider) && \
+	SA=$$(cd deploy/tofu && tofu output -raw service_account) && \
+	gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --body "$$WIF" && \
+	gh variable set GCP_SERVICE_ACCOUNT --body "$$SA" && \
+	echo "GitHub variables set:" && \
+	echo "  GCP_WORKLOAD_IDENTITY_PROVIDER: $$WIF" && \
+	echo "  GCP_SERVICE_ACCOUNT: $$SA"
+
+# Kubernetes
+k8s-apply:
+	kubectl apply -f deploy/k8s/namespace.yaml
+	@for f in deploy/k8s/*.yaml; do \
+		sed "s|REGION|us-east4|g; s|PROJECT_ID|shenas-491609|g" "$$f" | kubectl apply -f -; \
+	done
+
+k8s-status:
+	@kubectl get deployments,services,ingress,managedcertificate -n shenas
+
+k8s-logs:
+	@echo "=== repo-server ===" && kubectl logs -n shenas -l app=repo-server --tail=20 2>/dev/null || true
+	@echo "=== fl-server ===" && kubectl logs -n shenas -l app=fl-server --tail=20 2>/dev/null || true

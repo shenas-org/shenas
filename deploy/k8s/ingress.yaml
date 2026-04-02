@@ -1,0 +1,48 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shenas-ingress
+  namespace: shenas
+  annotations:
+    networking.gke.io/managed-certificates: "shenas-cert"
+    kubernetes.io/ingress.global-static-ip-name: "shenas-ip"
+spec:
+  ingressClassName: gce
+  rules:
+    - host: repo.shenas.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: repo-server
+                port:
+                  number: 80
+    - host: fl.shenas.net
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: fl-server-api
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: fl-server-grpc
+                port:
+                  number: 8080
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: shenas-cert
+  namespace: shenas
+spec:
+  domains:
+    - repo.shenas.net
+    - fl.shenas.net

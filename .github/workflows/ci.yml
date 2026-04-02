@@ -23,7 +23,7 @@ jobs:
         run: |
           uv run ruff check .
           uv run ruff format --check .
-          uv run ty check repository/ app/ --exclude "**/vendor/**" --exclude "**/fl/**"
+          uv run ty check repo-server/ app/ --exclude "**/vendor/**" --exclude "**/fl/**" --extra-search-path repo-server
 
   test:
     name: Test
@@ -49,6 +49,19 @@ jobs:
             echo "Testing $dir"
             cd "$dir" && npm install --silent && npm test && cd "$GITHUB_WORKSPACE"
           done
+
+  infra:
+    name: Infra Validate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+      - name: Validate
+        working-directory: deploy/tofu
+        run: |
+          tofu init -backend=false
+          tofu validate
 
   coverage:
     name: Coverage
