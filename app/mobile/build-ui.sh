@@ -34,8 +34,9 @@ npm run build --silent 2>/dev/null
 cp shenas_ui/default/static/default.js "$DIST/ui/default/"
 cp default.html "$DIST/index.html"
 
-# Patch api-base: Tauri serves UI from its asset protocol, API is on localhost
+# Patch for mobile: API base and remove service worker (doesn't work in Tauri)
 sed -i 's|api-base="/api"|api-base="http://127.0.0.1:7280/api"|' "$DIST/index.html"
+sed -i '/serviceWorker/d' "$DIST/index.html"
 
 # Copy static assets
 echo "  Copying static assets..."
