@@ -1,4 +1,4 @@
-.PHONY: install repo-server setup-hooks coverage clean release-desktop infra-init infra-import infra-plan infra-apply infra-output infra-destroy
+.PHONY: install repo-server setup-hooks coverage clean release-desktop infra-init infra-import infra-plan infra-apply infra-output infra-destroy k8s-apply k8s-status k8s-logs
 
 # Install CLI tools globally (~/.local/bin/)
 install:
@@ -69,3 +69,17 @@ infra-output:
 
 infra-destroy:
 	cd deploy/tofu && tofu destroy
+
+# Kubernetes
+k8s-apply:
+	kubectl apply -f deploy/k8s/namespace.yaml
+	@for f in deploy/k8s/*.yaml; do \
+		sed "s|REGION|us-east4|g; s|PROJECT_ID|shenas-491609|g" "$$f" | kubectl apply -f -; \
+	done
+
+k8s-status:
+	@kubectl get deployments,services,ingress,managedcertificate -n shenas
+
+k8s-logs:
+	@echo "=== repo-server ===" && kubectl logs -n shenas -l app=repo-server --tail=20 2>/dev/null || true
+	@echo "=== fl-server ===" && kubectl logs -n shenas -l app=fl-server --tail=20 2>/dev/null || true
