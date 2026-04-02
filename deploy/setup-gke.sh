@@ -5,6 +5,7 @@
 #   - gcloud CLI installed and authenticated
 #   - Docker installed
 #   - kubectl installed
+#   - IAM setup complete: bash deploy/setup-iam.sh
 #
 # Usage:
 #   bash deploy/setup-gke.sh                    # interactive setup
