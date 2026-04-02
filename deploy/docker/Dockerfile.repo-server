@@ -1,0 +1,18 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install uv for fast dependency resolution
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Copy only what repo-server needs
+COPY repo-server/ ./repo-server/
+COPY packages/ ./packages/
+
+# Install dependencies
+RUN cd repo-server && uv pip install --system --no-cache .
+
+EXPOSE 7290
+
+# Serve packages from /app/packages
+CMD ["uvicorn", "repository.main:app", "--host", "0.0.0.0", "--port", "7290"]

@@ -1,0 +1,70 @@
+name: Deploy to GKE
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service to deploy"
+        required: true
+        type: choice
+        options:
+          - all
+          - repo-server
+          - fl-server
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION || 'europe-north1' }}
+  CLUSTER_NAME: shenas
+  REPO_NAME: shenas
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.service }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER_NAME }}
+          location: ${{ env.REGION }}
+
+      - name: Build and push repo-server
+        if: inputs.service == 'all' || inputs.service == 'repo-server'
+        run: |
+          REGISTRY="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}"
+          docker build -t "${REGISTRY}/repo-server:${{ github.sha }}" \
+                       -t "${REGISTRY}/repo-server:latest" \
+                       -f deploy/docker/Dockerfile.repo-server .
+          docker push "${REGISTRY}/repo-server" --all-tags
+          sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" deploy/k8s/repo-server.yaml | \
+            sed "s|:latest|:${{ github.sha }}|g" | kubectl apply -f -
+          kubectl rollout status deployment/repo-server -n shenas --timeout=120s
+
+      - name: Build and push fl-server
+        if: inputs.service == 'all' || inputs.service == 'fl-server'
+        run: |
+          REGISTRY="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}"
+          docker build -t "${REGISTRY}/fl-server:${{ github.sha }}" \
+                       -t "${REGISTRY}/fl-server:latest" \
+                       -f deploy/docker/Dockerfile.fl-server .
+          docker push "${REGISTRY}/fl-server" --all-tags
+          sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" deploy/k8s/fl-server.yaml | \
+            sed "s|:latest|:${{ github.sha }}|g" | kubectl apply -f -
+          kubectl rollout status deployment/fl-server -n shenas --timeout=120s

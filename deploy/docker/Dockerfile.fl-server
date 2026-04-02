@@ -1,0 +1,19 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install uv for fast dependency resolution
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Copy fl-server package
+COPY fl-server/ ./fl-server/
+
+# Install dependencies (fl-server has its own venv requirements)
+RUN cd fl-server && uv pip install --system --no-cache .
+
+# Weights persisted to a volume
+VOLUME /app/.shenas-fl
+
+EXPOSE 8080 8081
+
+CMD ["shenas-fl", "serve", "--grpc-host", "0.0.0.0", "--api-host", "0.0.0.0"]

@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fl-server
+  namespace: shenas
+  labels:
+    app: fl-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fl-server
+  template:
+    metadata:
+      labels:
+        app: fl-server
+    spec:
+      containers:
+        - name: fl-server
+          image: REGION-docker.pkg.dev/PROJECT_ID/shenas/fl-server:latest
+          ports:
+            - containerPort: 8080
+              name: grpc
+            - containerPort: 8081
+              name: http
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: weights
+              mountPath: /app/.shenas-fl
+          readinessProbe:
+            httpGet:
+              path: /api/fl/health
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/fl/health
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+      volumes:
+        - name: weights
+          persistentVolumeClaim:
+            claimName: fl-weights
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fl-weights
+  namespace: shenas
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: standard-rwo
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fl-server-grpc
+  namespace: shenas
+spec:
+  selector:
+    app: fl-server
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: grpc
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fl-server-api
+  namespace: shenas
+spec:
+  selector:
+    app: fl-server
+  ports:
+    - port: 80
+      targetPort: 8081
+      name: http
+  type: ClusterIP
