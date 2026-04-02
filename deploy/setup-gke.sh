@@ -8,7 +8,7 @@
 #
 # Usage:
 #   bash deploy/setup-gke.sh                    # interactive setup
-#   PROJECT=my-project REGION=europe-north1 bash deploy/setup-gke.sh  # non-interactive
+#   PROJECT=my-project REGION=us-east1 bash deploy/setup-gke.sh  # non-interactive
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -16,7 +16,7 @@ cd "$ROOT"
 
 # Configuration
 PROJECT="${PROJECT:-$(gcloud config get-value project 2>/dev/null)}"
-REGION="${REGION:-europe-north1}"
+REGION="${REGION:-us-east1}"
 ZONE="${ZONE:-${REGION}-a}"
 CLUSTER_NAME="${CLUSTER_NAME:-shenas}"
 REPO_NAME="shenas"
