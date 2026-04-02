@@ -56,7 +56,7 @@ The monorepo is a uv workspace with 7 members, each a separate Python package:
 - **`shenas-cli`** (`cli/`) — lightweight CLI client (httpx + typer + cryptography), no server deps
 - **`shenas-app`** (`app/`) — FastAPI UI server, depends on shenas-cli
 - **`shenas-scheduler`** (`scheduler/`) — background sync daemon sidecar, depends on shenas-cli
-- **`shenas-repository`** (`repository/`) — PEP 503 package server + Ed25519 signing
+- **`shenas-repository`** (`repo-server/`) — PEP 503 package server + Ed25519 signing
 - **`shenas-fl-server`** (`fl-server/`) — federated learning coordinator (Flower + FastAPI), separate venv due to dependency conflicts
 - **`shenas-pipe-core`** (`plugins/pipes/core/`) — shared pipe utilities
 - **`shenas-schema-core`** (`plugins/schemas/core/`) — shared schema utilities
@@ -88,7 +88,7 @@ Each schema package (e.g. `plugins/schemas/fitness/`) contains only a `metrics.p
 
 ### Package distribution
 
-All artifacts (pipes, components, schemas) are Python wheels served from a PEP 503 server (`repository/`). Wheels are Ed25519-signed (`.whl.sig` files alongside wheels in `packages/`). `shenas pipe add <name>` verifies the signature before installing.
+All artifacts (pipes, components, schemas) are Python wheels served from a PEP 503 server (`repo-server/`). Wheels are Ed25519-signed (`.whl.sig` files alongside wheels in `packages/`). `shenas pipe add <name>` verifies the signature before installing.
 
 ### Component packaging workaround
 
@@ -113,7 +113,7 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - `app/vendor/` — shared frontend deps (Lit, Arrow, uPlot, Cytoscape) built with Rollup
 - `scheduler/` — background sync daemon sidecar (shenas-scheduler); polls server for due pipes
 - `fl-server/` — federated learning coordinator (Flower server + REST API); runs in its own venv
-- `repository/` — PEP 503 Simple Repository API server + Ed25519 signing
+- `repo-server/` — PEP 503 Simple Repository API server + Ed25519 signing
 - `scripts/` — build helpers (version bumping, pre-commit hook)
 - `plugins/pipes/core/` — shared pipe utilities (shenas-pipe-core)
 - `plugins/pipes/garmin/` — Garmin Connect dlt connector

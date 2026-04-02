@@ -1,8 +1,11 @@
 """Skip all FL tests when torch is not installed."""
 
-import pytest
-
+_torch_available = False
 try:
     import torch  # noqa: F401
+
+    _torch_available = True
 except ImportError:
-    pytest.skip("FL dependencies not installed (uv sync --group fl)", allow_module_level=True)
+    pass
+
+collect_ignore_glob = [] if _torch_available else ["test_*.py"]
