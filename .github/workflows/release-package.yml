@@ -6,7 +6,7 @@ on:
       - 'pipe-*/v*'
       - 'schema-*/v*'
       - 'component-*/v*'
-      - 'repository/v*'
+      - 'repo-server/v*'
 
 permissions:
   contents: write
@@ -48,7 +48,7 @@ jobs:
             component-*) NAME="${PREFIX#component-}"; DIR="plugins/components/$NAME"; SIGN=true ;;
             cli)         NAME="cli"; DIR="cli" ;;
             app)         NAME="app"; DIR="app" ;;
-            repository)  NAME="repository"; DIR="repo-server" ;;
+            repo-server)  NAME="repo-server"; DIR="repo-server" ;;
             *)           echo "Unknown tag prefix: $PREFIX"; exit 1 ;;
           esac
 

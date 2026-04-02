@@ -19,9 +19,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 source = "vcs"
-tag-pattern = "repository/v(?P<version>[^+]+)"
+tag-pattern = "repo-server/v(?P<version>[^+]+)"
 raw-options.root = ".."
-raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "repository/v*"]
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "repo-server/v*"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["repository"]
