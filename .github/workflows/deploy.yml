@@ -17,10 +17,10 @@ on:
           - fl-server
 
 env:
-  PROJECT_ID: shenas
+  PROJECT_ID: shenas-491609
   REGION: us-east4
   CLUSTER_NAME: shenas
-  REGISTRY: us-east4-docker.pkg.dev/shenas/shenas
+  REGISTRY: us-east4-docker.pkg.dev/shenas-491609/shenas
 
 jobs:
   deploy-repo-server:

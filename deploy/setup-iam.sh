@@ -14,7 +14,7 @@
 #   bash deploy/setup-iam.sh
 set -euo pipefail
 
-PROJECT="${PROJECT:-shenas}"
+PROJECT="${PROJECT:-shenas-491609}"
 REGION="${REGION:-us-east4}"
 GITHUB_REPO="afuncke/shenas"
 SA_NAME="github-deploy"
