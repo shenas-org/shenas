@@ -83,8 +83,9 @@ echo "Building fl-server image..."
 docker build -t "${REGISTRY}/fl-server:latest" -f deploy/docker/Dockerfile.fl-server .
 docker push "${REGISTRY}/fl-server:latest"
 
-# 8. Update manifests with actual project/region
+# 8. Apply Kubernetes manifests (namespace first)
 echo "Applying Kubernetes manifests..."
+kubectl apply -f deploy/k8s/namespace.yaml
 for f in deploy/k8s/*.yaml; do
     sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT}|g" "$f" | kubectl apply -f -
 done
