@@ -1,4 +1,4 @@
-.PHONY: install repo-server setup-hooks coverage clean release-desktop infra-init infra-plan infra-apply infra-output infra-destroy
+.PHONY: install repo-server setup-hooks coverage clean release-desktop infra-init infra-import infra-plan infra-apply infra-output infra-destroy
 
 # Install CLI tools globally (~/.local/bin/)
 install:
@@ -45,6 +45,15 @@ release-desktop:
 # Infrastructure (OpenTofu)
 infra-init:
 	cd deploy/tofu && tofu init
+
+# One-time: import resources created before OpenTofu
+infra-import:
+	cd deploy/tofu && \
+	tofu import google_container_cluster.shenas projects/shenas-491609/locations/us-east4/clusters/shenas && \
+	tofu import google_compute_global_address.ingress_ip projects/shenas-491609/global/addresses/shenas-ip && \
+	tofu import google_artifact_registry_repository.shenas projects/shenas-491609/locations/us-east4/repositories/shenas && \
+	tofu import google_service_account.github_deploy projects/shenas-491609/serviceAccounts/github-deploy@shenas-491609.iam.gserviceaccount.com && \
+	echo "Import complete. Run: make infra-plan"
 
 infra-plan:
 	cd deploy/tofu && tofu plan
