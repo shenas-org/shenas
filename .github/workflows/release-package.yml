@@ -48,7 +48,7 @@ jobs:
             component-*) NAME="${PREFIX#component-}"; DIR="plugins/components/$NAME"; SIGN=true ;;
             cli)         NAME="cli"; DIR="cli" ;;
             app)         NAME="app"; DIR="app" ;;
-            repository)  NAME="repository"; DIR="repository" ;;
+            repository)  NAME="repository"; DIR="repo-server" ;;
             *)           echo "Unknown tag prefix: $PREFIX"; exit 1 ;;
           esac
 

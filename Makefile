@@ -1,13 +1,13 @@
-.PHONY: install repository setup-hooks coverage clean release-desktop
+.PHONY: install repo-server setup-hooks coverage clean release-desktop
 
 # Install CLI tools globally (~/.local/bin/)
 install:
 	uv tool install --editable app/ --force
-	uv tool install --editable repository/ --force
+	uv tool install --editable repo-server/ --force
 	@echo "Installed shenas, shenasctl, shenasrepoctl to ~/.local/bin/"
 	@echo "Run 'shenasctl --install-completion' for tab completion"
 
-repository:
+repo-server:
 	uv run python -m repository.main $(CURDIR)/packages
 
 # Install git pre-commit hook
@@ -17,7 +17,7 @@ setup-hooks:
 	@echo "Pre-commit hook installed."
 
 coverage:
-	uv run --no-sync pytest --cov=repository --cov=app \
+	uv run --no-sync pytest --cov=repo_server --cov=app \
 		--cov=shenas_pipes --cov=shenas_schemas \
 		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
 

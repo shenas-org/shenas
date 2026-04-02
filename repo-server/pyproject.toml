@@ -24,5 +24,4 @@ raw-options.root = ".."
 raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "repository/v*"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["."]
-dev-mode-dirs = [".."]
+packages = ["repository"]

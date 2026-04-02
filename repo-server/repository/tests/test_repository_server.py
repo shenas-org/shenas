@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from repository.main import app
-from repository.repository import (
+from repository.server import (
     PackageRepository,
     normalize,
     package_name_from_filename,
