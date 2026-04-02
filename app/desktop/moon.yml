@@ -20,7 +20,7 @@ tasks:
     script: >
       uv run python ../../build/pyinstaller_build.py --onefile &&
       mkdir -p src-tauri/binaries &&
-      cp ../../dist/pyinstaller/shenas-* src-tauri/binaries/
+      cp ../../dist/pyinstaller/* src-tauri/binaries/
     inputs:
       - '/build/**/*.py'
       - '/app/**/*.py'
