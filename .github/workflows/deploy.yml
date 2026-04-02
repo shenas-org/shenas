@@ -14,7 +14,7 @@ on:
 
 env:
   PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-  REGION: ${{ vars.GCP_REGION || 'us-east1' }}
+  REGION: ${{ vars.GCP_REGION || 'us-east4' }}
   CLUSTER_NAME: shenas
   REPO_NAME: shenas
 
