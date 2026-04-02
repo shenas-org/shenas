@@ -22,6 +22,10 @@ deploy/tofu/*.tfstate*
 deploy/tofu/.terraform.lock.hcl
 app/desktop/src-tauri/binaries/
 app/desktop/src-tauri/target/
+app/mobile/mobile-dist/
+app/mobile/src-tauri/mobile-dist/
+app/mobile/src-tauri/target/
+app/mobile/src-tauri/gen/
 app/desktop/src-tauri/gen/
 app/desktop/src-tauri/Cargo.lock
 app/desktop/pkg/

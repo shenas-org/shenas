@@ -1,0 +1,35 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'rust'
+stack: 'frontend'
+tags: ['mobile']
+
+tasks:
+  build-ui:
+    command: 'bash build-ui.sh'
+    inputs:
+      - '/plugins/ui/default/src/**/*'
+      - '/app/vendor/src/**/*'
+      - '/app/static/**/*'
+    outputs:
+      - 'mobile-dist/'
+  clean:
+    script: 'rm -rf src-tauri/target/ src-tauri/gen/ mobile-dist/'
+    options:
+      cache: false
+  build-android:
+    command: 'npx tauri android build'
+    inputs:
+      - 'src-tauri/**/*'
+      - 'src/**/*'
+    outputs:
+      - 'src-tauri/gen/android/app/build/'
+  build-ios:
+    command: 'npx tauri ios build'
+    inputs:
+      - 'src-tauri/**/*'
+      - 'src/**/*'
+  dev-android:
+    command: 'npx tauri android dev'
+  dev-ios:
+    command: 'npx tauri ios dev'
