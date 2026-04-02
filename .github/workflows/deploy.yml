@@ -3,8 +3,8 @@ name: Deploy to GKE
 on:
   push:
     tags:
-      - 'repo-server/v*'
-      - 'fl-server/v*'
+      - 'server/repository/v*'
+      - 'server/fl/v*'
   workflow_dispatch:
     inputs:
       service:
@@ -27,7 +27,7 @@ jobs:
     name: Deploy repo-server
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/repo-server/v')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/server/repository/v')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.service == 'all' || inputs.service == 'repo-server'))
     permissions:
       contents: read
@@ -64,10 +64,10 @@ jobs:
           TAG="${{ steps.version.outputs.tag }}"
           docker build --build-arg VERSION="${TAG##*/v}" -t "${REGISTRY}/repo-server:${TAG}" \
                        -t "${REGISTRY}/repo-server:latest" \
-                       -f deploy/docker/Dockerfile.repo-server .
+                       -f server/deploy/docker/Dockerfile.repo-server .
           docker push "${REGISTRY}/repo-server" --all-tags
-          kubectl apply -f deploy/k8s/namespace.yaml
-          sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" deploy/k8s/repo-server.yaml | \
+          kubectl apply -f server/deploy/k8s/namespace.yaml
+          sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" server/deploy/k8s/repo-server.yaml | \
             sed "s|:latest|:${TAG}|g" | kubectl apply -f -
           kubectl rollout status deployment/repo-server -n shenas --timeout=120s
 
@@ -75,7 +75,7 @@ jobs:
     name: Deploy fl-server
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/fl-server/v')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/server/fl/v')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.service == 'all' || inputs.service == 'fl-server'))
     permissions:
       contents: read
@@ -112,10 +112,10 @@ jobs:
           TAG="${{ steps.version.outputs.tag }}"
           docker build --build-arg VERSION="${TAG##*/v}" -t "${REGISTRY}/fl-server:${TAG}" \
                        -t "${REGISTRY}/fl-server:latest" \
-                       -f deploy/docker/Dockerfile.fl-server .
+                       -f server/deploy/docker/Dockerfile.fl-server .
           docker push "${REGISTRY}/fl-server" --all-tags
-          kubectl apply -f deploy/k8s/namespace.yaml
-          sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" deploy/k8s/fl-server.yaml | \
+          kubectl apply -f server/deploy/k8s/namespace.yaml
+          sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" server/deploy/k8s/fl-server.yaml | \
             sed "s|:latest|:${TAG}|g" | kubectl apply -f -
           kubectl rollout status deployment/fl-server -n shenas --timeout=120s
 
@@ -142,6 +142,6 @@ jobs:
 
       - name: Apply ingress
         run: |
-          kubectl apply -f deploy/k8s/namespace.yaml
-          kubectl apply -f deploy/k8s/ingress.yaml
+          kubectl apply -f server/deploy/k8s/namespace.yaml
+          kubectl apply -f server/deploy/k8s/ingress.yaml
 

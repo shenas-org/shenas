@@ -6,7 +6,7 @@ tasks:
     options:
       cache: false
   lint:
-    script: 'uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync ty check repo-server/ app/ --exclude "**/vendor/**" --exclude "**/fl/**" --extra-search-path repo-server'
+    script: 'uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync ty check server/repository/ app/ --exclude "**/vendor/**" --exclude "**/fl/**" --extra-search-path server/repository'
   # Run with: uv sync --group fl && moon run :lint-fl
   lint-fl:
     script: 'uv run --no-sync ty check app/fl/'
@@ -33,5 +33,5 @@ tasks:
       - 'build/**/*.py'
       - 'app/**/*.py'
       - 'scheduler/**/*.py'
-      - 'repo-server/**/*.py'
+      - 'server/repository/**/*.py'
       - 'plugins/**/*.py'
