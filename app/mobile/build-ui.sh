@@ -2,7 +2,7 @@
 # Build the Lit UI and vendor deps, then assemble into a single static
 # directory that the Rust server embeds at compile time.
 #
-# Output: app/mobile/ui-dist/
+# Output: app/mobile/mobile-dist/
 #   ├── index.html           (the UI shell HTML)
 #   ├── vendor/              (Lit, uPlot, Arrow, Cytoscape)
 #   ├── ui/default/          (built UI JS)
@@ -11,7 +11,7 @@
 set -e
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-DIST="$ROOT/app/mobile/ui-dist"
+DIST="$ROOT/app/mobile/mobile-dist"
 
 echo "Building UI for mobile..."
 
@@ -38,10 +38,6 @@ cp default.html "$DIST/index.html"
 echo "  Copying static assets..."
 cp -r "$ROOT/app/static/images" "$DIST/static/" 2>/dev/null || true
 cp "$ROOT/app/static/"*.json "$DIST/static/" 2>/dev/null || true
-
-# Copy into src-tauri/ for rust-embed (relative paths with ../ can fail)
-rm -rf "$ROOT/app/mobile/src-tauri/ui-dist"
-cp -r "$DIST" "$ROOT/app/mobile/src-tauri/ui-dist"
 
 echo "UI built: $DIST"
 ls -lh "$DIST"

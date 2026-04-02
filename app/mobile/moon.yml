@@ -12,9 +12,9 @@ tasks:
       - '/app/vendor/src/**/*'
       - '/app/static/**/*'
     outputs:
-      - 'ui-dist/'
+      - 'mobile-dist/'
   clean:
-    script: 'rm -rf src-tauri/target/ src-tauri/gen/ ui-dist/'
+    script: 'rm -rf src-tauri/target/ src-tauri/gen/ mobile-dist/'
     options:
       cache: false
   build-android:

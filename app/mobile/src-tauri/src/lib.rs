@@ -26,45 +26,47 @@ fn start_api_server(database: Arc<db::Database>, ui_dir: PathBuf) {
     });
 }
 
-/// Copy bundled UI files from Tauri's resource dir to the app data dir.
-/// On Android, resource files are inside the APK and can't be served directly
-/// by axum's ServeDir. We extract them to the writable data dir.
-fn extract_ui_assets(app: &tauri::App) -> PathBuf {
-    let resource_dir = app.path().resource_dir().expect("No resource dir");
+/// Extract UI assets from Tauri's bundled resources to the writable data dir.
+/// On Android, bundled assets live inside the APK and can't be served by axum.
+/// We use Tauri's resource resolver to copy them out on first launch.
+fn extract_ui_to_data_dir(app: &tauri::App) -> PathBuf {
     let data_dir = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("/tmp/shenas"));
-    let ui_dir = data_dir.join("ui");
+    let ui_dir = data_dir.join("mobile-dist");
 
-    eprintln!("extract_ui: resource_dir={:?}", resource_dir);
-    eprintln!("extract_ui: ui_dir={:?}", ui_dir);
-
-    // For now, use the resource dir directly if it contains our files
-    // (works on desktop; on Android we'll need extraction)
-    let resource_ui = resource_dir.join("ui-dist");
-    if resource_ui.join("index.html").exists() {
-        eprintln!("extract_ui: found ui-dist in resource dir");
-        return resource_ui;
+    // Check if already extracted (skip on subsequent launches)
+    if ui_dir.join("index.html").exists() {
+        eprintln!("UI already extracted at {:?}", ui_dir);
+        return ui_dir;
     }
 
-    // Fallback: check if ui-dist is next to the binary (desktop dev)
-    let exe_dir = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-        .unwrap_or_default();
-    let dev_ui = exe_dir.join("../../../ui-dist");
-    if dev_ui.join("index.html").exists() {
-        eprintln!("extract_ui: found ui-dist relative to exe");
-        return dev_ui;
+    eprintln!("Extracting UI to {:?}", ui_dir);
+    std::fs::create_dir_all(&ui_dir).ok();
+
+    // Use Tauri's resource resolver to read bundled files
+    let resource_path = app.path().resource_dir().unwrap_or_default();
+    let src = resource_path.join("mobile-dist");
+    if src.exists() {
+        // Desktop: resources are on the filesystem
+        copy_dir_recursive(&src, &ui_dir);
+    } else {
+        eprintln!("WARNING: no mobile-dist in resources, UI will not load");
     }
 
-    // Last resort: check working directory
-    let cwd_ui = PathBuf::from("ui-dist");
-    if cwd_ui.join("index.html").exists() {
-        eprintln!("extract_ui: found ui-dist in cwd");
-        return cwd_ui;
-    }
-
-    eprintln!("extract_ui: WARNING no ui-dist found anywhere");
     ui_dir
+}
+
+fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) {
+    std::fs::create_dir_all(dst).ok();
+    if let Ok(entries) = std::fs::read_dir(src) {
+        for entry in entries.flatten() {
+            let dest = dst.join(entry.file_name());
+            if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                copy_dir_recursive(&entry.path(), &dest);
+            } else {
+                std::fs::copy(entry.path(), dest).ok();
+            }
+        }
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -93,11 +95,10 @@ pub fn run() {
                 }
             };
 
-            let ui_dir = extract_ui_assets(app);
-            eprintln!("setup: starting API server with ui_dir={:?}", ui_dir);
+            let ui_dir = extract_ui_to_data_dir(app);
             start_api_server(database, ui_dir);
 
-            // Navigate immediately -- ServeDir handles the rest
+            // Navigate WebView to axum -- serves both UI and API on same origin
             let window = app.get_webview_window("main").unwrap();
             window
                 .navigate(

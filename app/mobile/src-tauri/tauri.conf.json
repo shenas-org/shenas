@@ -30,7 +30,7 @@
       "icons/icon.png"
     ],
     "resources": [
-      "ui-dist/**/*"
+      "../mobile-dist/**/*"
     ]
   },
   "plugins": {
