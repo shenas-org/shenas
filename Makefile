@@ -1,4 +1,4 @@
-.PHONY: install repo-server setup-hooks coverage clean release-desktop infra-init infra-import infra-plan infra-apply infra-output infra-destroy k8s-apply k8s-status k8s-logs
+.PHONY: install repo-server setup-hooks coverage clean release-desktop infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
 
 # Install CLI tools globally (~/.local/bin/)
 install:
@@ -69,6 +69,16 @@ infra-output:
 
 infra-destroy:
 	cd deploy/tofu && tofu destroy
+
+# Set GitHub repo variables from tofu outputs (requires gh CLI)
+infra-gh-vars:
+	@WIF=$$(cd deploy/tofu && tofu output -raw wif_provider) && \
+	SA=$$(cd deploy/tofu && tofu output -raw service_account) && \
+	gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --body "$$WIF" && \
+	gh variable set GCP_SERVICE_ACCOUNT --body "$$SA" && \
+	echo "GitHub variables set:" && \
+	echo "  GCP_WORKLOAD_IDENTITY_PROVIDER: $$WIF" && \
+	echo "  GCP_SERVICE_ACCOUNT: $$SA"
 
 # Kubernetes
 k8s-apply:
