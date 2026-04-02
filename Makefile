@@ -53,6 +53,8 @@ infra-import:
 	tofu import google_compute_global_address.ingress_ip projects/shenas-491609/global/addresses/shenas-ip && \
 	tofu import google_artifact_registry_repository.shenas projects/shenas-491609/locations/us-east4/repositories/shenas && \
 	tofu import google_service_account.github_deploy projects/shenas-491609/serviceAccounts/github-deploy@shenas-491609.iam.gserviceaccount.com && \
+	tofu import google_iam_workload_identity_pool.github projects/shenas-491609/locations/global/workloadIdentityPools/github-pool && \
+	tofu import google_iam_workload_identity_pool_provider.github projects/shenas-491609/locations/global/workloadIdentityPools/github-pool/providers/github-provider && \
 	echo "Import complete. Run: make infra-plan"
 
 infra-plan:
