@@ -30,7 +30,7 @@ WORK_DIR = ROOT / "build" / "_pyinstaller_work"
 # The scheduler only needs httpx + typer.
 
 _IMPORTS_SHARED = [
-    "cli.client",
+    "shenasctl.client",
 ]
 
 _IMPORTS_SERVER = [
@@ -43,18 +43,18 @@ _IMPORTS_SERVER = [
     "app.api.sync",
     "app.api.transforms",
     "app.cli",
-    "cli.main",
-    "cli.client",
-    "cli.commands",
-    "cli.commands.pipe",
-    "cli.commands.component",
-    "cli.commands.config_cmd",
-    "cli.commands.db_cmd",
-    "cli.commands.schema_cmd",
-    "cli.commands.service",
-    "cli.commands.theme_cmd",
-    "cli.commands.transform_cmd",
-    "cli.commands.ui_cmd",
+    "shenasctl.main",
+    "shenasctl.client",
+    "shenasctl.commands",
+    "shenasctl.commands.pipe",
+    "shenasctl.commands.component",
+    "shenasctl.commands.config_cmd",
+    "shenasctl.commands.db_cmd",
+    "shenasctl.commands.schema_cmd",
+    "shenasctl.commands.service",
+    "shenasctl.commands.theme_cmd",
+    "shenasctl.commands.transform_cmd",
+    "shenasctl.commands.ui_cmd",
     "app.db",
     "app.transforms",
     "app.telemetry",
@@ -90,25 +90,25 @@ _IMPORTS_SERVER = [
 
 _IMPORTS_CLI = [
     "app.cli",
-    "cli.main",
-    "cli.client",
-    "cli.commands",
-    "cli.commands.pipe",
-    "cli.commands.component",
-    "cli.commands.config_cmd",
-    "cli.commands.db_cmd",
-    "cli.commands.schema_cmd",
-    "cli.commands.service",
-    "cli.commands.theme_cmd",
-    "cli.commands.transform_cmd",
-    "cli.commands.ui_cmd",
+    "shenasctl.main",
+    "shenasctl.client",
+    "shenasctl.commands",
+    "shenasctl.commands.pipe",
+    "shenasctl.commands.component",
+    "shenasctl.commands.config_cmd",
+    "shenasctl.commands.db_cmd",
+    "shenasctl.commands.schema_cmd",
+    "shenasctl.commands.service",
+    "shenasctl.commands.theme_cmd",
+    "shenasctl.commands.transform_cmd",
+    "shenasctl.commands.ui_cmd",
 ]
 
 _IMPORTS_SCHEDULER = [
     "scheduler",
     "scheduler.cli",
     "scheduler.daemon",
-    "cli.client",
+    "shenasctl.client",
 ]
 
 # Modules to exclude globally
