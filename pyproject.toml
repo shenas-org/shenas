@@ -15,7 +15,7 @@ members = [
     "app",
     "cli",
     "scheduler",
-    "repo-server",
+    "server/repository",
     "plugins/pipes/*",
     "plugins/schemas/*",
     "plugins/components/*",
@@ -84,9 +84,9 @@ fl = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["cli/tests", "app/tests", "app/fl/tests", "scheduler/tests", "repo-server/repository/tests", "app/telemetry/tests", "plugins/pipes/core/tests", "plugins/pipes/garmin/tests", "plugins/pipes/gmail/tests", "plugins/pipes/gcalendar/tests", "plugins/pipes/gtakeout/tests", "plugins/pipes/lunchmoney/tests", "plugins/pipes/obsidian/tests", "plugins/pipes/duolingo/tests", "plugins/pipes/spotify/tests", "plugins/schemas/fitness/tests", "plugins/schemas/finance/tests", "plugins/schemas/outcomes/tests", "plugins/schemas/habits/tests"]
+testpaths = ["cli/tests", "app/tests", "app/fl/tests", "scheduler/tests", "server/repository/repository/tests", "app/telemetry/tests", "plugins/pipes/core/tests", "plugins/pipes/garmin/tests", "plugins/pipes/gmail/tests", "plugins/pipes/gcalendar/tests", "plugins/pipes/gtakeout/tests", "plugins/pipes/lunchmoney/tests", "plugins/pipes/obsidian/tests", "plugins/pipes/duolingo/tests", "plugins/pipes/spotify/tests", "plugins/schemas/fitness/tests", "plugins/schemas/finance/tests", "plugins/schemas/outcomes/tests", "plugins/schemas/habits/tests"]
 addopts = "--import-mode=importlib"
-pythonpath = [".", "repo-server"]
+pythonpath = [".", "server/repository"]
 
 [tool.ruff]
 line-length = 127

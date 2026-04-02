@@ -26,8 +26,8 @@ jobs:
         run: |
           # Desktop is excluded -- use `make release-desktop` manually.
           PACKAGES=(
-            "repo-server:repo-server/"
-            "fl-server:fl-server/"
+            "repo-server:server/repository/"
+            "fl-server:server/fl/"
             "pipe-core:plugins/pipes/core/"
             "pipe-garmin:plugins/pipes/garmin/"
             "pipe-lunchmoney:plugins/pipes/lunchmoney/"

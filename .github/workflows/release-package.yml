@@ -6,7 +6,7 @@ on:
       - 'pipe-*/v*'
       - 'schema-*/v*'
       - 'component-*/v*'
-      - 'repo-server/v*'
+      - 'server/repository/v*'
 
 permissions:
   contents: write

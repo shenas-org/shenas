@@ -1,7 +1,7 @@
 .PHONY: install repo-server setup-hooks coverage clean release-desktop setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
 install:
 	uv tool install --editable app/ --force
-	uv tool install --editable repo-server/ --force
+	uv tool install --editable server/repository/ --force
 	@echo "Installed shenas, shenasctl, shenasrepoctl to ~/.local/bin/"
 	@echo "Run 'shenasctl --install-completion' for tab completion"
 
@@ -116,11 +116,11 @@ release-desktop:
 
 # Infrastructure (OpenTofu)
 infra-init:
-	cd deploy/tofu && tofu init
+	cd server/server/deploy/tofu && tofu init
 
 # One-time: import resources created before OpenTofu (skips already-imported)
 infra-import:
-	@cd deploy/tofu; \
+	@cd server/server/deploy/tofu; \
 	_import() { echo "Importing $$1..."; tofu import "$$1" "$$2" 2>&1 | grep -v "already managed" || true; }; \
 	_import google_container_cluster.shenas projects/shenas-491609/locations/us-east4/clusters/shenas; \
 	_import google_compute_global_address.ingress_ip projects/shenas-491609/global/addresses/shenas-ip; \
@@ -131,21 +131,21 @@ infra-import:
 	echo "Import complete. Run: make infra-plan"
 
 infra-plan:
-	cd deploy/tofu && tofu plan
+	cd server/server/deploy/tofu && tofu plan
 
 infra-apply:
-	cd deploy/tofu && tofu apply
+	cd server/server/deploy/tofu && tofu apply
 
 infra-output:
-	cd deploy/tofu && tofu output
+	cd server/server/deploy/tofu && tofu output
 
 infra-destroy:
-	cd deploy/tofu && tofu destroy
+	cd server/server/deploy/tofu && tofu destroy
 
 # Set GitHub repo variables from tofu outputs (requires gh CLI)
 infra-gh-vars:
-	@WIF=$$(cd deploy/tofu && tofu output -raw wif_provider) && \
-	SA=$$(cd deploy/tofu && tofu output -raw service_account) && \
+	@WIF=$$(cd server/server/deploy/tofu && tofu output -raw wif_provider) && \
+	SA=$$(cd server/server/deploy/tofu && tofu output -raw service_account) && \
 	gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --body "$$WIF" && \
 	gh variable set GCP_SERVICE_ACCOUNT --body "$$SA" && \
 	echo "GitHub variables set:" && \
@@ -154,8 +154,8 @@ infra-gh-vars:
 
 # Kubernetes
 k8s-apply:
-	kubectl apply -f deploy/k8s/namespace.yaml
-	@for f in deploy/k8s/*.yaml; do \
+	kubectl apply -f server/deploy/k8s/namespace.yaml
+	@for f in server/deploy/k8s/*.yaml; do \
 		sed "s|REGION|us-east4|g; s|PROJECT_ID|shenas-491609|g" "$$f" | kubectl apply -f -; \
 	done
 
