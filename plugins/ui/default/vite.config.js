@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   test: {
     environment: "happy-dom",
+    setupFiles: ["src/__tests__/setup.js"],
   },
   build: {
     outDir: "shenas_ui/default/static",
