@@ -45,6 +45,7 @@ pub fn router(db: Arc<Database>) -> Router {
         .route("/api/stream/logs", get(stub_empty_sse))
         .route("/api/stream/spans", get(stub_empty_sse))
         .route("/api/sync/schedule", get(stub_empty_array))
+        .route("/api/components", get(stub_empty_array))
         .with_state(db)
 }
 
@@ -64,14 +65,14 @@ async fn stub_empty_sse() -> &'static str {
     ""
 }
 
-async fn db_status(State(db): State<AppState>) -> Json<serde_json::Value> {
-    let tables = db.list_tables().unwrap_or_default();
-    Json(serde_json::json!({
-        "path": "mobile (embedded)",
-        "size_mb": 0,
-        "tables": tables.len(),
-        "schemas": {},
-    }))
+async fn db_status(State(db): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
+    match db.status() {
+        Ok(status) => Ok(Json(status)),
+        Err(e) => {
+            eprintln!("DB status error: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
 
 async fn health() -> Json<serde_json::Value> {
