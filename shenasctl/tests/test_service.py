@@ -8,9 +8,9 @@ from unittest.mock import patch
 
 class TestLinux:
     def test_install_creates_services(self, tmp_path: Path) -> None:
-        from cli.commands.service import _linux_install
+        from shenasctl.commands.service import _linux_install
 
-        with patch("cli.commands.service._linux_service_dir", return_value=tmp_path):
+        with patch("shenasctl.commands.service._linux_service_dir", return_value=tmp_path):
             _linux_install("/usr/bin/shenas")
 
         server_svc = tmp_path / "shenas.service"
@@ -26,27 +26,27 @@ class TestLinux:
         assert "ExecStart=" in scheduler_content
 
     def test_uninstall_removes_services(self, tmp_path: Path) -> None:
-        from cli.commands.service import _linux_uninstall
+        from shenasctl.commands.service import _linux_uninstall
 
         (tmp_path / "shenas.service").write_text("[Unit]\n")
         (tmp_path / "shenas-scheduler.service").write_text("[Unit]\n")
 
-        with patch("cli.commands.service._linux_service_dir", return_value=tmp_path):
+        with patch("shenasctl.commands.service._linux_service_dir", return_value=tmp_path):
             _linux_uninstall()
 
         assert not (tmp_path / "shenas.service").exists()
         assert not (tmp_path / "shenas-scheduler.service").exists()
 
     def test_uninstall_no_files(self, tmp_path: Path) -> None:
-        from cli.commands.service import _linux_uninstall
+        from shenasctl.commands.service import _linux_uninstall
 
-        with patch("cli.commands.service._linux_service_dir", return_value=tmp_path):
+        with patch("shenasctl.commands.service._linux_service_dir", return_value=tmp_path):
             _linux_uninstall()  # should not raise
 
     def test_status(self, tmp_path: Path) -> None:
-        from cli.commands.service import _linux_status
+        from shenasctl.commands.service import _linux_status
 
-        with patch("cli.commands.service._linux_service_dir", return_value=tmp_path):
+        with patch("shenasctl.commands.service._linux_service_dir", return_value=tmp_path):
             assert _linux_status() is False
 
             (tmp_path / "shenas.service").write_text("[Unit]\n")
@@ -55,11 +55,11 @@ class TestLinux:
 
 class TestMacOS:
     def test_install_creates_plists(self, tmp_path: Path) -> None:
-        from cli.commands.service import _macos_install
+        from shenasctl.commands.service import _macos_install
 
         with (
-            patch("cli.commands.service._macos_plist_path", side_effect=lambda label: tmp_path / f"{label}.plist"),
-            patch("cli.commands.service._find_scheduler_binary", return_value="/usr/bin/shenas-scheduler"),
+            patch("shenasctl.commands.service._macos_plist_path", side_effect=lambda label: tmp_path / f"{label}.plist"),
+            patch("shenasctl.commands.service._find_scheduler_binary", return_value="/usr/bin/shenas-scheduler"),
         ):
             _macos_install("/usr/bin/shenas")
 
@@ -77,21 +77,21 @@ class TestMacOS:
         assert "/usr/bin/shenas-scheduler" in daemon_content
 
     def test_uninstall_removes_plists(self, tmp_path: Path) -> None:
-        from cli.commands.service import _macos_uninstall
+        from shenasctl.commands.service import _macos_uninstall
 
         (tmp_path / "com.shenas.server.plist").write_text("<plist/>")
         (tmp_path / "com.shenas.sync-daemon.plist").write_text("<plist/>")
 
-        with patch("cli.commands.service._macos_plist_path", side_effect=lambda label: tmp_path / f"{label}.plist"):
+        with patch("shenasctl.commands.service._macos_plist_path", side_effect=lambda label: tmp_path / f"{label}.plist"):
             _macos_uninstall()
 
         assert not (tmp_path / "com.shenas.server.plist").exists()
         assert not (tmp_path / "com.shenas.sync-daemon.plist").exists()
 
     def test_status(self, tmp_path: Path) -> None:
-        from cli.commands.service import _macos_status
+        from shenasctl.commands.service import _macos_status
 
-        with patch("cli.commands.service._macos_plist_path", return_value=tmp_path / "com.shenas.server.plist"):
+        with patch("shenasctl.commands.service._macos_plist_path", return_value=tmp_path / "com.shenas.server.plist"):
             assert _macos_status() is False
 
             (tmp_path / "com.shenas.server.plist").write_text("<plist/>")
@@ -100,11 +100,11 @@ class TestMacOS:
 
 class TestWindows:
     def test_install_creates_vbs(self, tmp_path: Path) -> None:
-        from cli.commands.service import _windows_install
+        from shenasctl.commands.service import _windows_install
 
         with (
-            patch("cli.commands.service._windows_vbs_path", return_value=tmp_path / "shenas-server.vbs"),
-            patch("cli.commands.service._find_scheduler_binary", return_value="C:\\shenas\\shenas-scheduler.exe"),
+            patch("shenasctl.commands.service._windows_vbs_path", return_value=tmp_path / "shenas-server.vbs"),
+            patch("shenasctl.commands.service._find_scheduler_binary", return_value="C:\\shenas\\shenas-scheduler.exe"),
         ):
             _windows_install("C:\\shenas\\shenas.exe")
 
@@ -116,27 +116,27 @@ class TestWindows:
         assert "shenas-scheduler.exe" in content
 
     def test_uninstall_removes_vbs(self, tmp_path: Path) -> None:
-        from cli.commands.service import _windows_uninstall
+        from shenasctl.commands.service import _windows_uninstall
 
         vbs = tmp_path / "shenas-server.vbs"
         vbs.write_text("Set WshShell = ...\n")
 
-        with patch("cli.commands.service._windows_vbs_path", return_value=vbs):
+        with patch("shenasctl.commands.service._windows_vbs_path", return_value=vbs):
             _windows_uninstall()
 
         assert not vbs.exists()
 
     def test_uninstall_no_file(self, tmp_path: Path) -> None:
-        from cli.commands.service import _windows_uninstall
+        from shenasctl.commands.service import _windows_uninstall
 
-        with patch("cli.commands.service._windows_vbs_path", return_value=tmp_path / "missing.vbs"):
+        with patch("shenasctl.commands.service._windows_vbs_path", return_value=tmp_path / "missing.vbs"):
             _windows_uninstall()  # should not raise
 
     def test_status(self, tmp_path: Path) -> None:
-        from cli.commands.service import _windows_status
+        from shenasctl.commands.service import _windows_status
 
         vbs = tmp_path / "shenas-server.vbs"
-        with patch("cli.commands.service._windows_vbs_path", return_value=vbs):
+        with patch("shenasctl.commands.service._windows_vbs_path", return_value=vbs):
             assert _windows_status() is False
 
             vbs.write_text("Set WshShell = ...\n")

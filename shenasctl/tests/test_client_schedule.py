@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cli.client import ShenasClient
+from shenasctl.client import ShenasClient
 
 
 @pytest.fixture()
