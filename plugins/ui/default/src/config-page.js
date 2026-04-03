@@ -12,6 +12,8 @@ class ConfigPage extends LitElement {
     _message: { state: true },
     _editing: { state: true },
     _editValue: { state: true },
+    _freqNum: { state: true },
+    _freqUnit: { state: true },
   };
 
   static styles = [
@@ -70,6 +72,8 @@ class ConfigPage extends LitElement {
     `,
   ];
 
+  static _UNIT_MULTIPLIERS = { seconds: 1 / 60, minutes: 1, hours: 60, days: 1440 };
+
   constructor() {
     super();
     this.apiBase = "/api";
@@ -80,6 +84,8 @@ class ConfigPage extends LitElement {
     this._message = null;
     this._editing = null;
     this._editValue = "";
+    this._freqNum = "";
+    this._freqUnit = "hours";
   }
 
   willUpdate(changed) {
@@ -99,6 +105,25 @@ class ConfigPage extends LitElement {
   _startEdit(key, currentValue) {
     this._editing = key;
     this._editValue = currentValue || "";
+    if (key === "sync_frequency" && currentValue) {
+      const mins = parseFloat(currentValue);
+      if (mins >= 1440 && mins % 1440 === 0) {
+        this._freqNum = String(mins / 1440);
+        this._freqUnit = "days";
+      } else if (mins >= 60 && mins % 60 === 0) {
+        this._freqNum = String(mins / 60);
+        this._freqUnit = "hours";
+      } else if (mins >= 1) {
+        this._freqNum = String(mins);
+        this._freqUnit = "minutes";
+      } else {
+        this._freqNum = String(mins * 60);
+        this._freqUnit = "seconds";
+      }
+    } else if (key === "sync_frequency") {
+      this._freqNum = "";
+      this._freqUnit = "hours";
+    }
   }
 
   _cancelEdit() {
@@ -106,10 +131,30 @@ class ConfigPage extends LitElement {
     this._editValue = "";
   }
 
+  _freqToMinutes() {
+    const num = parseFloat(this._freqNum);
+    if (isNaN(num) || num <= 0) return null;
+    return String(Math.round(num * ConfigPage._UNIT_MULTIPLIERS[this._freqUnit]));
+  }
+
+  _formatFreq(minutes) {
+    const m = parseFloat(minutes);
+    if (isNaN(m)) return minutes;
+    if (m >= 1440 && m % 1440 === 0) return `${m / 1440} day${m / 1440 !== 1 ? "s" : ""}`;
+    if (m >= 60 && m % 60 === 0) return `${m / 60} hour${m / 60 !== 1 ? "s" : ""}`;
+    if (m >= 1) return `${m} minute${m !== 1 ? "s" : ""}`;
+    return `${m * 60} second${m * 60 !== 1 ? "s" : ""}`;
+  }
+
   async _saveEdit(key) {
+    const value = key === "sync_frequency" ? this._freqToMinutes() : this._editValue;
+    if (key === "sync_frequency" && value === null) {
+      this._message = { type: "error", text: "Enter a positive number" };
+      return;
+    }
     const { ok, data } = await apiFetchFull(this.apiBase, `/config/${this.kind}/${this.name}`, {
       method: "PUT",
-      json: { key, value: this._editValue },
+      json: { key, value },
     });
     if (ok) {
       this._message = { type: "success", text: `Updated ${key}` };
@@ -131,13 +176,33 @@ class ConfigPage extends LitElement {
     `;
   }
 
+  _renderFreqEdit(entry) {
+    return html`
+      <div class="edit-row">
+        <input class="config-input" type="number" min="0" step="any" style="width: 80px"
+          .value=${this._freqNum}
+          @input=${(ev) => { this._freqNum = ev.target.value; }}
+          @keydown=${(ev) => { if (ev.key === "Enter") this._saveEdit(entry.key); if (ev.key === "Escape") this._cancelEdit(); }}
+        />
+        <select @change=${(ev) => { this._freqUnit = ev.target.value; }}>
+          ${Object.keys(ConfigPage._UNIT_MULTIPLIERS).map((u) => html`
+            <option value=${u} ?selected=${this._freqUnit === u}>${u}</option>
+          `)}
+        </select>
+        <button @click=${() => this._saveEdit(entry.key)}>Save</button>
+        <button @click=${this._cancelEdit}>Cancel</button>
+      </div>`;
+  }
+
   _renderEntry(entry) {
     const isEditing = this._editing === entry.key;
+    const isFreq = entry.key === "sync_frequency";
+    const displayValue = isFreq && entry.value ? this._formatFreq(entry.value) : entry.value;
     return html`
       <div class="config-row">
-        <div class="config-key">${entry.key}</div>
+        <div class="config-key">${entry.label || entry.key}</div>
         ${isEditing
-          ? html`
+          ? (isFreq ? this._renderFreqEdit(entry) : html`
             <div class="edit-row">
               <input class="config-input"
                 .value=${this._editValue}
@@ -146,14 +211,14 @@ class ConfigPage extends LitElement {
               />
               <button @click=${() => this._saveEdit(entry.key)}>Save</button>
               <button @click=${this._cancelEdit}>Cancel</button>
-            </div>`
+            </div>`)
           : html`
             <div class="config-detail">
-              <div class="config-value ${entry.value ? "" : "empty"}"
+              <div class="config-value ${displayValue ? "" : "empty"}"
                 @click=${() => this._startEdit(entry.key, entry.value)}
                 style="cursor: pointer"
                 title="Click to edit"
-              >${entry.value || "not set"}</div>
+              >${displayValue || "not set"}</div>
               ${entry.description ? html`<div class="config-desc">${entry.description}</div>` : ""}
             </div>`}
       </div>

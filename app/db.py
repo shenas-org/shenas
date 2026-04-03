@@ -371,9 +371,9 @@ def save_workspace(state: dict[str, Any]) -> None:
     data = json.dumps(state)
     con = connect()
     con.execute(
-        "INSERT INTO shenas_system.workspace (id, state, updated_at) VALUES (1, ?, current_timestamp) "
-        "ON CONFLICT (id) DO UPDATE SET state = ?, updated_at = current_timestamp",
-        [data, data],
+        "INSERT INTO shenas_system.workspace (id, state, updated_at) VALUES (1, ?, now()) "
+        "ON CONFLICT (id) DO UPDATE SET state = excluded.state, updated_at = now()",
+        [data],
     )
 
 
