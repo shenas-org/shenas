@@ -110,6 +110,7 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - `app/` — FastAPI UI server (shenas-app); discovers plugins via entry points, serves Arrow IPC
 - `app/telemetry/` — OpenTelemetry exporters, DuckDB spans/logs, real-time SSE dispatcher
 - `app/fl/` — Flower FL client, PyTorch training, inference engine, model plugin registry
+- `app/mobile/` — Tauri v2 mobile app (Rust core: axum + DuckDB, no Python)
 - `app/vendor/` — shared frontend deps (Lit, Arrow, uPlot, Cytoscape) built with Rollup
 - `scheduler/` — background sync daemon sidecar (shenas-scheduler); polls server for due pipes
 - `fl-server/` — federated learning coordinator (Flower server + REST API); runs in its own venv
