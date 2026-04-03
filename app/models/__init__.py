@@ -61,6 +61,7 @@ class AuthResponse(BaseModel):
 
 class ConfigEntry(BaseModel):
     key: str
+    label: str = ""
     value: str | None = None
     description: str = ""
 

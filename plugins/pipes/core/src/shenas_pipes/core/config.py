@@ -28,10 +28,11 @@ def get_config(con: duckdb.DuckDBPyConnection, config_cls: type) -> dict[str, An
     """Read the single config row. Returns None if not set."""
     ensure_config_table(con, config_cls)
     table = config_cls.__table__
-    row = con.execute(f"SELECT * FROM config.{table} LIMIT 1").fetchone()
+    cols = [f.name for f in dataclasses.fields(config_cls)]
+    col_list = ", ".join(cols)
+    row = con.execute(f"SELECT {col_list} FROM config.{table} LIMIT 1").fetchone()
     if row is None:
         return None
-    cols = [f.name for f in dataclasses.fields(config_cls)]
     return dict(zip(cols, row))
 
 

@@ -4,6 +4,7 @@ import { buttonStyles, utilityStyles } from "./shared-styles.js";
 class LogsPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
+    pipe: { type: String },
     _activeTab: { state: true },
     _logs: { state: true },
     _spans: { state: true },
@@ -251,10 +252,11 @@ class LogsPage extends LitElement {
 
   async _fetchBoth() {
     this._loading = true;
+    const pipeQs = this.pipe ? `?pipe=${encodeURIComponent(this.pipe)}` : "";
     try {
       const [logsResp, spansResp] = await Promise.all([
-        fetch(`${this.apiBase}/logs`),
-        fetch(`${this.apiBase}/spans`),
+        fetch(`${this.apiBase}/logs${pipeQs}`),
+        fetch(`${this.apiBase}/spans${pipeQs}`),
       ]);
       if (logsResp.ok) this._logs = await logsResp.json();
       if (spansResp.ok) this._spans = await spansResp.json();
@@ -268,6 +270,7 @@ class LogsPage extends LitElement {
     const params = new URLSearchParams();
     if (this._search) params.set("search", this._search);
     if (this._activeTab === "logs" && this._severity) params.set("severity", this._severity);
+    if (this.pipe) params.set("pipe", this.pipe);
     const qs = params.toString() ? `?${params}` : "";
     try {
       const endpoint = this._activeTab === "logs" ? "logs" : "spans";

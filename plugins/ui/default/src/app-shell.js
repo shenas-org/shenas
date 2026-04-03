@@ -549,7 +549,7 @@ class ShenasApp extends LitElement {
               id: `sync:${p.name}`,
               category: "Pipe",
               label: `Sync ${name}`,
-              action: () => apiFetch(this.apiBase, `/sync/${p.name}`, { method: "POST" }),
+              action: () => fetch(`${this.apiBase}/sync/${p.name}`, { method: "POST" }),
             });
           }
         }
@@ -558,7 +558,7 @@ class ShenasApp extends LitElement {
         id: "sync:all",
         category: "Pipe",
         label: "Sync All Pipes",
-        action: () => apiFetch(this.apiBase, `/sync`, { method: "POST" }),
+        action: () => fetch(`${this.apiBase}/sync`, { method: "POST" }),
       });
       commands.push({
         id: "seed:transforms",

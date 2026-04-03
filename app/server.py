@@ -193,7 +193,9 @@ def plugin_dependencies() -> dict[str, list[str]]:
 
 
 @app.get("/api/logs")
-def get_logs(limit: int = 100, severity: str | None = None, search: str | None = None) -> list[dict[str, Any]]:
+def get_logs(
+    limit: int = 100, severity: str | None = None, search: str | None = None, pipe: str | None = None
+) -> list[dict[str, Any]]:
     """Query telemetry logs."""
     from app.db import connect
 
@@ -210,6 +212,9 @@ def get_logs(limit: int = 100, severity: str | None = None, search: str | None =
         if search:
             conditions.append("body LIKE ?")
             params.append(f"%{search}%")
+        if pipe:
+            conditions.append("(body LIKE ? OR attributes LIKE ?)")
+            params.extend([f"%{pipe}%", f"%{pipe}%"])
         where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
         rows = cur.execute(
             f"SELECT timestamp, trace_id, span_id, severity, body, attributes, service_name "
@@ -225,7 +230,7 @@ def get_logs(limit: int = 100, severity: str | None = None, search: str | None =
 
 
 @app.get("/api/spans")
-def get_spans(limit: int = 100, search: str | None = None) -> list[dict[str, Any]]:
+def get_spans(limit: int = 100, search: str | None = None, pipe: str | None = None) -> list[dict[str, Any]]:
     """Query telemetry spans."""
     from app.db import connect
 
@@ -239,6 +244,9 @@ def get_spans(limit: int = 100, search: str | None = None) -> list[dict[str, Any
         if search:
             conditions.append("name LIKE ?")
             params.append(f"%{search}%")
+        if pipe:
+            conditions.append("(name LIKE ? OR attributes LIKE ?)")
+            params.extend([f"%{pipe}%", f"%{pipe}%"])
         where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
         rows = cur.execute(
             f"SELECT trace_id, span_id, parent_span_id, name, kind, service_name, "
