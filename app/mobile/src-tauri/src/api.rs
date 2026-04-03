@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
+    http::{HeaderValue, Method, StatusCode},
     response::Json,
     routing::get,
     Router,
@@ -27,6 +27,11 @@ pub struct QueryParams {
 }
 
 pub fn router(db: Arc<Database>) -> Router {
+    let cors = tower_http::cors::CorsLayer::new()
+        .allow_origin("https://tauri.localhost".parse::<HeaderValue>().unwrap())
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+        .allow_headers(tower_http::cors::Any);
+
     Router::new()
         .route("/api/health", get(health))
         .route("/api/tables", get(tables))
@@ -47,6 +52,7 @@ pub fn router(db: Arc<Database>) -> Router {
         .route("/api/sync/schedule", get(stub_empty_array))
         .route("/api/components", get(stub_empty_array))
         .with_state(db)
+        .layer(cors)
 }
 
 async fn stub_empty_array() -> Json<serde_json::Value> {
