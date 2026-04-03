@@ -13,6 +13,7 @@ class SettingsPage extends LitElement {
     _loading: { state: true },
     _actionMessage: { state: true },
     _installing: { state: true },
+    _menuOpen: { state: true },
   };
 
   static styles = [
@@ -82,6 +83,81 @@ class SettingsPage extends LitElement {
         font-size: 1rem;
         margin: 0 0 1rem;
       }
+      /* Burger menu button (hidden on desktop) */
+      .burger {
+        display: none;
+        background: none;
+        border: 1px solid var(--shenas-border, #e0e0e0);
+        border-radius: 6px;
+        padding: 0.4rem 0.6rem;
+        cursor: pointer;
+        color: var(--shenas-text-secondary, #666);
+        margin-bottom: 0.5rem;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.85rem;
+      }
+      .burger svg { flex-shrink: 0; }
+      /* Overlay menu (mobile) */
+      .menu-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.3);
+        z-index: 100;
+      }
+      .menu-overlay.open { display: block; }
+      .menu-panel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 220px;
+        background: var(--shenas-bg, #fff);
+        z-index: 101;
+        padding: 1rem;
+        overflow-y: auto;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+      }
+      .menu-panel .menu-close {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.2rem;
+        color: var(--shenas-text-muted, #888);
+        float: right;
+      }
+      .menu-panel a {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 0.5rem;
+        font-size: 0.9rem;
+        color: var(--shenas-text-secondary, #666);
+        text-decoration: none;
+        border-radius: 4px;
+      }
+      .menu-panel a:hover {
+        background: var(--shenas-bg-hover, #f5f5f5);
+      }
+      .menu-panel a[aria-selected="true"] {
+        background: var(--shenas-bg-selected, #f0f4ff);
+        color: var(--shenas-text, #222);
+        font-weight: 600;
+      }
+      .menu-panel a svg { flex-shrink: 0; }
+      .menu-panel .sidebar-section {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--shenas-text-faint, #aaa);
+        padding: 0.8rem 0.5rem 0.3rem;
+      }
+      @media (max-width: 768px) {
+        .sidebar { display: none; }
+        .burger { display: flex; }
+        .layout { gap: 0; }
+      }
     `,
   ];
 
@@ -94,6 +170,7 @@ class SettingsPage extends LitElement {
     this._loading = true;
     this._actionMessage = null;
     this._installing = false;
+    this._menuOpen = false;
   }
 
   connectedCallback() {
@@ -179,6 +256,34 @@ class SettingsPage extends LitElement {
       <shenas-page ?loading=${this._loading} loading-text="Loading plugins..." display-name="${this._displayName()}">
         ${renderMessage(this._actionMessage)}
         <div class="layout">
+        <button class="burger" @click=${() => { this._menuOpen = true; }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          ${this._displayName()}
+        </button>
+        <div class="menu-overlay ${this._menuOpen ? "open" : ""}" @click=${() => { this._menuOpen = false; }}></div>
+        ${this._menuOpen ? html`
+          <div class="menu-panel">
+            <button class="menu-close" @click=${() => { this._menuOpen = false; }}>x</button>
+            <a href="/settings/data-flow" aria-selected=${this.activeKind === "data-flow"}
+              @click=${(e) => { e.preventDefault(); this._menuOpen = false; if (this.onNavigate) this.onNavigate("/settings/data-flow"); }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              Data Flow
+            </a>
+            <a href="/settings/hotkeys" aria-selected=${this.activeKind === "hotkeys"}
+              @click=${(e) => { e.preventDefault(); this._menuOpen = false; if (this.onNavigate) this.onNavigate("/settings/hotkeys"); }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6" y2="8"/><line x1="10" y1="8" x2="10" y2="8"/><line x1="14" y1="8" x2="14" y2="8"/><line x1="18" y1="8" x2="18" y2="8"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/></svg>
+              Hotkeys
+            </a>
+            <div class="sidebar-section">Plugins</div>
+            ${PLUGIN_KINDS.map(({ id, label }) => html`
+              <a href="/settings/${id}" aria-selected=${this.activeKind === id}
+                @click=${(e) => { e.preventDefault(); this._menuOpen = false; if (this.onNavigate) this.onNavigate(`/settings/${id}`); }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.5 2H3.5C2.67 2 2 2.67 2 3.5v17C2 21.33 2.67 22 3.5 22h17c.83 0 1.5-.67 1.5-1.5v-17C22 2.67 21.33 2 20.5 2zM8 19H5v-3h3v3zm0-5H5v-3h3v3zm0-5H5V6h3v3z"/></svg>
+                ${label} (${(this._plugins[id] || []).length})
+              </a>
+            `)}
+          </div>
+        ` : ""}
         <nav class="sidebar">
           <ul>
             <li>
