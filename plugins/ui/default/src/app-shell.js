@@ -331,6 +331,56 @@ class ShenasApp extends LitElement {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      /* Bottom nav for mobile */
+      .bottom-nav {
+        display: none;
+        border-top: 1px solid var(--shenas-border, #e0e0e0);
+        background: var(--shenas-bg, #fff);
+        padding: 0.3rem 0;
+      }
+      .bottom-nav nav {
+        display: flex;
+        justify-content: space-around;
+      }
+      .bottom-nav .nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        font-size: 0.65rem;
+        padding: 0.4rem 0.6rem;
+        border-radius: 4px;
+      }
+      /* Responsive: narrow screens */
+      @media (max-width: 768px) {
+        .layout {
+          flex-direction: column;
+        }
+        .panel-left {
+          display: none;
+        }
+        .panel-right {
+          display: none;
+        }
+        .divider {
+          display: none;
+        }
+        .panel-middle {
+          flex: 1;
+        }
+        .tab-bar {
+          display: none;
+        }
+        .tab-content-inner {
+          padding: 1rem;
+        }
+        .bottom-nav {
+          display: block;
+        }
+        .header {
+          display: none;
+        }
+      }
     `,
   ];
 
@@ -759,12 +809,24 @@ class ShenasApp extends LitElement {
             : html`
               <div class="empty-state">
                 <img src="/static/images/shenas.png" alt="shenas" />
-                <p>Open a page from the sidebar or press Ctrl+O</p>
+                <p>Open a page from the sidebar</p>
               </div>`}
         </div>
         <div class="divider" @mousedown=${this._startDrag("right")}></div>
         <div class="panel-right" style="width: ${this._rightWidth}px">
           ${this._inspectTable ? this._renderInspect() : this._renderDbStats()}
+        </div>
+        <div class="bottom-nav">
+          <nav>
+            ${this._components.map((c) => html`
+              <a class="nav-item" href="/${c.name}" @click=${(e) => { e.preventDefault(); this._navigateTo(`/${c.name}`); }}
+                aria-selected=${active?.path === `/${c.name}`}>${c.display_name || c.name}</a>
+            `)}
+            <a class="nav-item" href="/logs" @click=${(e) => { e.preventDefault(); this._navigateTo("/logs"); }}
+              aria-selected=${active?.path === "/logs"}>Logs</a>
+            <a class="nav-item" href="/settings" @click=${(e) => { e.preventDefault(); this._navigateTo("/settings"); }}
+              aria-selected=${active?.path?.startsWith("/settings")}>Settings</a>
+          </nav>
         </div>
       </div>
       <shenas-command-palette
