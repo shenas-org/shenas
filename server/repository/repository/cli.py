@@ -109,7 +109,19 @@ def vendor(
     packages_dir.mkdir(parents=True, exist_ok=True)
     pkg_name = f"shenas-pipe-{pipe}"
     result = subprocess.run(
-        ["uv", "pip", "download", pkg_name, "--dest", str(packages_dir), "--find-links", str(packages_dir)],
+        [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            "pip",
+            "download",
+            pkg_name,
+            "--dest",
+            str(packages_dir),
+            "--find-links",
+            str(packages_dir),
+        ],
         capture_output=True,
         text=True,
     )

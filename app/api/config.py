@@ -18,18 +18,19 @@ def _discover_config_classes() -> dict[str, type]:
     if _CONFIG_CLASSES:
         return _CONFIG_CLASSES
 
-    for module_path, class_name in [
-        ("shenas_pipes.garmin.config", "GarminConfig"),
-        ("shenas_pipes.lunchmoney.config", "LunchMoneyConfig"),
-        ("shenas_pipes.obsidian.config", "ObsidianConfig"),
-        ("shenas_pipes.gmail.config", "GmailConfig"),
-    ]:
+    import dataclasses
+    from importlib.metadata import entry_points
+
+    for ep in entry_points(group="shenas.pipes"):
+        module_path = f"shenas_pipes.{ep.name}.config"
         try:
             mod = importlib.import_module(module_path)
-            cls = getattr(mod, class_name)
-            _CONFIG_CLASSES[cls.__table__] = cls
-        except (ImportError, AttributeError):
-            pass
+        except ImportError:
+            continue
+        for attr in dir(mod):
+            obj = getattr(mod, attr)
+            if isinstance(obj, type) and dataclasses.is_dataclass(obj) and hasattr(obj, "__table__"):
+                _CONFIG_CLASSES[obj.__table__] = obj
 
     return _CONFIG_CLASSES
 
@@ -76,6 +77,7 @@ def list_configs(kind: str | None = None, name: str | None = None) -> list[Confi
             entries.append(
                 ConfigEntry(
                     key=col["name"],
+                    label=col["name"].replace("_", " ").title(),
                     value=display_val,
                     description=col.get("description", ""),
                 )
@@ -99,11 +101,22 @@ def get_config_value(kind: str, name: str, key: str) -> ConfigValueResponse:
 
 @router.put("/{kind}/{name}")
 def set_config(kind: str, name: str, body: ConfigSetRequest) -> OkResponse:
-    from shenas_pipes.core.config import set_config as _set_config
+    from shenas_pipes.core.config import config_metadata, set_config as _set_config
 
     cls = _get_config_class(kind, name)
+    value = body.value
+    if value is not None:
+        meta = config_metadata(cls)
+        for col in meta["columns"]:
+            if col["name"] == body.key:
+                db_type = col.get("db_type", "").upper()
+                if db_type == "INTEGER":
+                    value = int(value)
+                elif db_type in ("FLOAT", "DOUBLE", "REAL"):
+                    value = float(value)
+                break
     con = connect()
-    _set_config(con, cls, **{body.key: body.value})
+    _set_config(con, cls, **{body.key: value})
     return OkResponse(ok=True)
 
 

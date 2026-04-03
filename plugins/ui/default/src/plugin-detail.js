@@ -252,24 +252,28 @@ class PluginDetail extends LitElement {
         </div>
       </div>
 
-      ${this._hasConfig || this._hasAuth
-        ? html`
-          <div class="tabs">
-            <a class="tab" href="${basePath}" aria-selected=${this.activeTab === "details"}>Details</a>
-            ${this._hasConfig
-              ? html`<a class="tab" href="${basePath}/config" aria-selected=${this.activeTab === "config"}>Config</a>`
-              : ""}
-            ${this._hasAuth
-              ? html`<a class="tab" href="${basePath}/auth" aria-selected=${this.activeTab === "auth"}>Auth</a>`
-              : ""}
-          </div>`
-        : ""}
+      <div class="tabs">
+        <a class="tab" href="${basePath}" aria-selected=${this.activeTab === "details"}
+          @click=${(e) => { e.preventDefault(); this.activeTab = "details"; }}>Details</a>
+        ${this._hasConfig
+          ? html`<a class="tab" href="${basePath}/config" aria-selected=${this.activeTab === "config"}
+              @click=${(e) => { e.preventDefault(); this.activeTab = "config"; }}>Config</a>`
+          : ""}
+        ${this._hasAuth
+          ? html`<a class="tab" href="${basePath}/auth" aria-selected=${this.activeTab === "auth"}
+              @click=${(e) => { e.preventDefault(); this.activeTab = "auth"; }}>Auth</a>`
+          : ""}
+        <a class="tab" aria-selected=${this.activeTab === "logs"}
+          @click=${(e) => { e.preventDefault(); this.activeTab = "logs"; }}>Logs</a>
+      </div>
 
       ${this.activeTab === "config" && this._hasConfig
         ? html`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`
         : this.activeTab === "auth" && this._hasAuth
           ? html`<shenas-auth api-base="${this.apiBase}" pipe-name="${this.name}"></shenas-auth>`
-          : this._renderDetails(info, enabled)}
+          : this.activeTab === "logs"
+            ? html`<shenas-logs api-base="${this.apiBase}" pipe="${this.name}"></shenas-logs>`
+            : this._renderDetails(info, enabled)}
 
       ${renderMessage(this._message)}
     `;
