@@ -4021,6 +4021,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-shell",
  "tokio",
+ "tower-http",
 ]
 
 [[package]]

@@ -1,4 +1,10 @@
 .PHONY: install repo-server setup-hooks coverage clean release-desktop setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
+
+# Set up Android SDK, NDK, and Rust targets for mobile development
+ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
+NDK_VERSION = 27.2.12479018
+NDK_ZIP = android-ndk-r27d-linux.zip
+
 install:
 	uv tool install --editable app/ --force
 	uv tool install --editable server/repository/ --force
@@ -22,11 +28,6 @@ coverage:
 clean:
 	moon run :clean
 	rm -rf .moon/cache/ packages/ .ruff_cache/ .pytest_cache/
-
-# Set up Android SDK, NDK, and Rust targets for mobile development
-ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
-NDK_VERSION = 27.2.12479018
-NDK_ZIP = android-ndk-r27d-linux.zip
 
 setup-android:
 	@echo "Setting up Android development environment..."
