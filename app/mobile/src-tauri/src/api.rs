@@ -28,7 +28,7 @@ pub struct QueryParams {
 
 pub fn router(db: Arc<Database>) -> Router {
     let cors = tower_http::cors::CorsLayer::new()
-        .allow_origin("https://tauri.localhost".parse::<HeaderValue>().unwrap())
+        .allow_origin("http://tauri.localhost".parse::<HeaderValue>().unwrap())
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers(tower_http::cors::Any);
 
