@@ -91,6 +91,63 @@ impl Database {
         )
     }
 
+    /// Get database status with schema/table info (matches Python db_status format).
+    pub fn status(&self) -> Result<serde_json::Value> {
+        let conn = self.conn.lock().unwrap();
+
+        // Get schemas and tables (excluding system schemas and dlt internals)
+        let mut stmt = conn.prepare(
+            "SELECT table_schema, table_name
+             FROM information_schema.tables
+             WHERE table_schema NOT IN ('information_schema', 'pg_catalog', 'main', 'shenas_system')
+             ORDER BY table_schema, table_name",
+        )?;
+
+        let mut schemas: std::collections::BTreeMap<String, Vec<serde_json::Value>> =
+            std::collections::BTreeMap::new();
+
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            let schema: String = row.get(0)?;
+            let table: String = row.get(1)?;
+
+            // Skip dlt internal tables
+            if table.starts_with("_dlt_") {
+                continue;
+            }
+
+            // Get row count
+            let count_sql = format!("SELECT COUNT(*) FROM \"{}\".\"{}\"", schema, table);
+            let count: i64 = conn
+                .query_row(&count_sql, [], |r| r.get(0))
+                .unwrap_or(0);
+
+            schemas
+                .entry(schema)
+                .or_default()
+                .push(serde_json::json!({
+                    "name": table,
+                    "rows": count,
+                }));
+        }
+
+        let schemas_list: Vec<serde_json::Value> = schemas
+            .into_iter()
+            .map(|(name, tables)| {
+                serde_json::json!({
+                    "name": name,
+                    "tables": tables,
+                })
+            })
+            .collect();
+
+        Ok(serde_json::json!({
+            "path": "mobile (embedded)",
+            "size_mb": 0,
+            "schemas": schemas_list,
+        }))
+    }
+
     /// Execute a SQL statement (INSERT, DELETE, etc.) -- no results.
     pub fn execute(&self, sql: &str) -> Result<usize> {
         let conn = self.conn.lock().unwrap();
