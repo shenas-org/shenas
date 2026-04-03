@@ -51,6 +51,9 @@ pub fn router(db: Arc<Database>) -> Router {
         .route("/api/stream/spans", get(stub_empty_sse))
         .route("/api/sync/schedule", get(stub_empty_array))
         .route("/api/components", get(stub_empty_array))
+        .route("/api/logs", get(stub_empty_array))
+        .route("/api/spans", get(stub_empty_array))
+        .route("/api/db/schema-plugins", get(stub_empty_object))
         .with_state(db)
         .layer(cors)
 }
