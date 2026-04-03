@@ -1,6 +1,6 @@
 from typer.testing import CliRunner
 
-from cli.main import app as main_app
+from shenasctl.main import app as main_app
 
 runner = CliRunner()
 

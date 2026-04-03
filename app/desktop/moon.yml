@@ -24,7 +24,7 @@ tasks:
     inputs:
       - '/build/**/*.py'
       - '/app/**/*.py'
-      - '/cli/**/*.py'
+      - '/shenasctl/**/*.py'
       - '/scheduler/**/*.py'
       - '/repository/**/*.py'
       - '/plugins/**/*.py'

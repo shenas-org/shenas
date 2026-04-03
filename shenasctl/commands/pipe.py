@@ -6,8 +6,8 @@ import click
 import typer
 from rich.console import Console
 
-from cli.client import ShenasClient, ShenasServerError
-from cli.commands.plugin_cmd import DEFAULT_INDEX, install, uninstall
+from shenasctl.client import ShenasClient, ShenasServerError
+from shenasctl.commands.plugin_cmd import DEFAULT_INDEX, install, uninstall
 
 console = Console()
 
@@ -71,7 +71,7 @@ def _register_pipe_commands() -> None:
 
 
 def _add_info_command(pipe_app: typer.Typer, pipe_name: str) -> None:
-    from cli.commands.plugin_cmd import info as _info_plugin
+    from shenasctl.commands.plugin_cmd import info as _info_plugin
 
     @pipe_app.command("info")
     def _info() -> None:

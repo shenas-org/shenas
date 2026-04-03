@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typer
 
-from cli.commands.plugin_cmd import DEFAULT_INDEX, install, register_plugin_commands, uninstall
+from shenasctl.commands.plugin_cmd import DEFAULT_INDEX, install, register_plugin_commands, uninstall
 
 app = typer.Typer(help="Schema commands.", invoke_without_command=True)
 
@@ -19,7 +19,7 @@ def _default(ctx: typer.Context) -> None:
 @app.command("list")
 def list_cmd() -> None:
     """List installed schema plugins."""
-    from cli.commands.plugin_cmd import list_plugins
+    from shenasctl.commands.plugin_cmd import list_plugins
 
     list_plugins("schema")
 
