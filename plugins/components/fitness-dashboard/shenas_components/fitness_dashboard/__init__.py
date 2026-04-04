@@ -1,18 +1,12 @@
 from pathlib import Path
 
-try:
-    from importlib.metadata import version
+from shenas_components.core import Component
 
-    _version = version("shenas-component-fitness-dashboard")
-except Exception:
-    _version = "dev"
 
-COMPONENT = {
-    "name": "fitness-dashboard",
-    "display_name": "Fitness Dashboard",
-    "version": _version,
-    "description": "Canonical fitness metrics dashboard with HRV, sleep, vitals, and body charts",
-    "static_dir": Path(__file__).parent / "static",
-    "tag": "shenas-dashboard",
-    "entrypoint": "fitness-dashboard.js",
-}
+class FitnessDashboardComponent(Component):
+    name = "fitness-dashboard"
+    display_name = "Fitness Dashboard"
+    description = "Canonical fitness metrics dashboard with HRV, sleep, vitals, and body charts"
+    static_dir = Path(__file__).parent / "static"
+    tag = "shenas-dashboard"
+    entrypoint = "fitness-dashboard.js"

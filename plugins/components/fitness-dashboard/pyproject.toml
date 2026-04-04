@@ -13,7 +13,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project.entry-points."shenas.components"]
-fitness-dashboard = "shenas_components.fitness_dashboard:COMPONENT"
+fitness-dashboard = "shenas_components.fitness_dashboard:FitnessDashboardComponent"
 
 [tool.hatch.version]
 source = "vcs"
