@@ -7,6 +7,9 @@ from typing import TYPE_CHECKING, Any
 
 import dlt
 
+from shenas_pipes.duolingo.tables import Course, DailyXP, UserProfile
+from shenas_schemas.core.dlt import dataclass_to_dlt_columns
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -18,7 +21,11 @@ def _epoch_to_date(epoch: int) -> date:
     return datetime.fromtimestamp(epoch, tz=UTC).date()
 
 
-@dlt.resource(write_disposition="merge", primary_key="date")
+@dlt.resource(
+    write_disposition="merge",
+    primary_key=list(DailyXP.__pk__),
+    columns=dataclass_to_dlt_columns(DailyXP),
+)
 def daily_xp(
     client: DuolingoClient,
     start_date: str,
@@ -39,13 +46,19 @@ def daily_xp(
         }
 
 
-@dlt.resource(write_disposition="replace")
+@dlt.resource(
+    write_disposition="replace",
+    columns=dataclass_to_dlt_columns(Course),
+)
 def courses(client: DuolingoClient) -> Iterator[dict[str, Any]]:
     """Yield the user's active language courses."""
     yield from client.get_courses()
 
 
-@dlt.resource(write_disposition="replace")
+@dlt.resource(
+    write_disposition="replace",
+    columns=dataclass_to_dlt_columns(UserProfile),
+)
 def user_profile(client: DuolingoClient) -> Iterator[dict[str, Any]]:
     """Yield the user's profile and streak info."""
     data = client.get_user()
