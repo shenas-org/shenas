@@ -2,29 +2,31 @@
 
 from unittest.mock import patch
 
-import typer
 from fastapi.testclient import TestClient
 
 from app.server import app
 from app.tests.conftest import parse_sse
+from shenas_pipes.core.abc import Pipe
 
 client = TestClient(app)
 
 
-def _make_pipe_app(sync_fn=None) -> typer.Typer:
-    """Create a minimal pipe typer app with a sync command."""
-    pipe_app = typer.Typer()
+class _FakePipe(Pipe):
+    """Minimal Pipe subclass for testing."""
 
-    if sync_fn is None:
+    name = "fake"
+    display_name = "Fake"
 
-        def sync_fn(
-            start_date: str = typer.Option("30 days ago"),
-            full_refresh: bool = typer.Option(False),
-        ) -> None:
-            pass
+    def __init__(self, sync_fn=None) -> None:
+        # Skip real __init__ (DataclassStore) to avoid DB dependency
+        self._sync_fn = sync_fn
 
-    pipe_app.command("sync")(sync_fn)
-    return pipe_app
+    def resources(self, client):
+        return []
+
+    def sync(self, *, full_refresh: bool = False, **_kwargs) -> None:
+        if self._sync_fn:
+            self._sync_fn(full_refresh=full_refresh)
 
 
 class TestSyncAll:
@@ -38,10 +40,10 @@ class TestSyncAll:
         assert any(e.get("message") == "all syncs complete" for e in events)
 
     def test_sync_all_with_pipe(self) -> None:
-        pipe_app = _make_pipe_app()
+        pipe = _FakePipe()
         with (
             patch("app.api.sync._installed_pipe_names", return_value=["testpipe"]),
-            patch("app.api.sync._load_pipe_app", return_value=pipe_app),
+            patch("app.api.sync._load_pipe", return_value=pipe),
         ):
             resp = client.post("/api/sync")
 
@@ -52,16 +54,13 @@ class TestSyncAll:
         assert any(e["pipe"] == "testpipe" and e["message"] == "done" for e in complete)
 
     def test_sync_all_reports_failure(self) -> None:
-        def failing_sync(
-            start_date: str = typer.Option("30 days ago"),
-            full_refresh: bool = typer.Option(False),
-        ) -> None:
+        def failing_sync(*, full_refresh: bool = False) -> None:
             raise RuntimeError("Auth expired")
 
-        pipe_app = _make_pipe_app(failing_sync)
+        pipe = _FakePipe(failing_sync)
         with (
             patch("app.api.sync._installed_pipe_names", return_value=["badpipe"]),
-            patch("app.api.sync._load_pipe_app", return_value=pipe_app),
+            patch("app.api.sync._load_pipe", return_value=pipe),
         ):
             resp = client.post("/api/sync")
 
@@ -72,10 +71,10 @@ class TestSyncAll:
 
 class TestSyncPipe:
     def test_sync_single_pipe(self) -> None:
-        pipe_app = _make_pipe_app()
+        pipe = _FakePipe()
         with (
             patch("app.api.sync._installed_pipe_names", return_value=["garmin"]),
-            patch("app.api.sync._load_pipe_app", return_value=pipe_app),
+            patch("app.api.sync._load_pipe", return_value=pipe),
         ):
             resp = client.post("/api/sync/garmin")
 
@@ -88,54 +87,33 @@ class TestSyncPipe:
             resp = client.post("/api/sync/nonexistent")
         assert resp.status_code == 404
 
-    def test_sync_pipe_with_params(self) -> None:
+    def test_sync_pipe_with_full_refresh(self) -> None:
         captured = {}
 
-        def sync_fn(
-            start_date: str = typer.Option("30 days ago"),
-            full_refresh: bool = typer.Option(False),
-        ) -> None:
-            captured["start_date"] = start_date
+        def sync_fn(*, full_refresh: bool = False) -> None:
             captured["full_refresh"] = full_refresh
 
-        pipe_app = _make_pipe_app(sync_fn)
+        pipe = _FakePipe(sync_fn)
         with (
             patch("app.api.sync._installed_pipe_names", return_value=["garmin"]),
-            patch("app.api.sync._load_pipe_app", return_value=pipe_app),
+            patch("app.api.sync._load_pipe", return_value=pipe),
         ):
-            resp = client.post("/api/sync/garmin", json={"start_date": "2026-01-01", "full_refresh": True})
+            resp = client.post("/api/sync/garmin", json={"full_refresh": True})
 
         assert resp.status_code == 200
-        assert captured["start_date"] == "2026-01-01"
         assert captured["full_refresh"] is True
 
     def test_sync_pipe_error(self) -> None:
-        def failing_sync(
-            start_date: str = typer.Option("30 days ago"),
-            full_refresh: bool = typer.Option(False),
-        ) -> None:
+        def failing_sync(*, full_refresh: bool = False) -> None:
             raise RuntimeError("Connection refused")
 
-        pipe_app = _make_pipe_app(failing_sync)
+        pipe = _FakePipe(failing_sync)
         with (
             patch("app.api.sync._installed_pipe_names", return_value=["garmin"]),
-            patch("app.api.sync._load_pipe_app", return_value=pipe_app),
+            patch("app.api.sync._load_pipe", return_value=pipe),
         ):
             resp = client.post("/api/sync/garmin")
 
         events = parse_sse(resp.text)
         errors = [e for e in events if e["_event"] == "error"]
         assert any("Connection refused" in e["message"] for e in errors)
-
-    def test_sync_pipe_no_sync_command(self) -> None:
-        empty_app = typer.Typer()
-        empty_app.command("auth")(lambda: None)
-        with (
-            patch("app.api.sync._installed_pipe_names", return_value=["nosync"]),
-            patch("app.api.sync._load_pipe_app", return_value=empty_app),
-        ):
-            resp = client.post("/api/sync/nosync")
-
-        events = parse_sse(resp.text)
-        errors = [e for e in events if e["_event"] == "error"]
-        assert any("no sync command found" in e["message"] for e in errors)

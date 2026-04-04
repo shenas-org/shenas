@@ -1,29 +1,40 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from shenas_pipes.lunchmoney.auth import build_client
+from shenas_pipes.lunchmoney.pipe import LunchMoneyPipe
+
+
+@pytest.fixture
+def pipe() -> LunchMoneyPipe:
+    p = LunchMoneyPipe.__new__(LunchMoneyPipe)
+    p._auth_store = MagicMock()
+    p._config_store = MagicMock()
+    return p
 
 
 class TestBuildClient:
-    def test_no_key_raises(self) -> None:
-        with (
-            patch("shenas_pipes.lunchmoney.auth._get_stored_key", return_value=None),
-            pytest.raises(RuntimeError, match="No API key"),
-        ):
-            build_client()
+    def test_no_key_raises(self, pipe: LunchMoneyPipe) -> None:
+        pipe._auth_store.get.return_value = None
+        with pytest.raises(RuntimeError, match="No API key"):
+            pipe.build_client()
 
-    @patch("shenas_pipes.lunchmoney.auth.LunchMoney")
-    def test_api_key_stores_and_returns(self, mock_lm_cls) -> None:  # type: ignore[no-untyped-def]
-        with patch("shenas_pipes.lunchmoney.auth._store_key") as mock_store:
-            client = build_client(api_key="test-key-123")
-        mock_store.assert_called_once_with("test-key-123")
-        mock_lm_cls.assert_called_once_with(access_token="test-key-123")
-        assert client is mock_lm_cls.return_value
-
-    @patch("shenas_pipes.lunchmoney.auth.LunchMoney")
-    def test_reads_from_keyring(self, mock_lm_cls) -> None:  # type: ignore[no-untyped-def]
-        with patch("shenas_pipes.lunchmoney.auth._get_stored_key", return_value="stored-key"):
-            client = build_client()
+    @patch("lunchable.LunchMoney")
+    def test_api_key_from_store(self, mock_lm_cls: MagicMock, pipe: LunchMoneyPipe) -> None:
+        pipe._auth_store.get.return_value = {"api_key": "stored-key"}
+        client = pipe.build_client()
         mock_lm_cls.assert_called_once_with(access_token="stored-key")
         assert client is mock_lm_cls.return_value
+
+
+class TestAuthenticate:
+    @patch("lunchable.LunchMoney")
+    def test_stores_api_key(self, mock_lm_cls: MagicMock, pipe: LunchMoneyPipe) -> None:
+        pipe.authenticate({"api_key": "test-key-123"})
+        mock_lm_cls.assert_called_once_with(access_token="test-key-123")
+        mock_lm_cls.return_value.get_user.assert_called_once()
+        pipe._auth_store.set.assert_called_once_with(LunchMoneyPipe.Auth, api_key="test-key-123")
+
+    def test_missing_key_raises(self, pipe: LunchMoneyPipe) -> None:
+        with pytest.raises(ValueError, match="api_key is required"):
+            pipe.authenticate({})

@@ -5,32 +5,12 @@ from typing import TYPE_CHECKING, Any
 import dlt
 import pendulum
 
-from shenas_pipes.garmin.auth import build_client
-from shenas_pipes.garmin.utils import date_range, is_empty_response, resolve_start_date
+from shenas_pipes.garmin.utils import date_range, is_empty_response
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from garminconnect import Garmin
-
-
-@dlt.source(name="garmin_connect")
-def garmin_connect(
-    email: str = dlt.secrets.value,
-    password: str = dlt.secrets.value,
-    start_date: str = dlt.config.value,
-    token_store: str | None = None,
-) -> Any:
-    client = build_client(email, password, token_store)
-    resolved = resolve_start_date(start_date)
-    return (
-        activities(client, resolved),
-        daily_stats(client, resolved),
-        sleep(client, resolved),
-        hrv(client, resolved),
-        spo2(client, resolved),
-        body_composition(client, resolved),
-    )
 
 
 @dlt.resource(write_disposition="merge", primary_key="activity_id")

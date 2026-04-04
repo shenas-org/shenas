@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import importlib
-import inspect
 import json
 import logging
 import subprocess
@@ -12,14 +10,16 @@ import sys
 import threading
 from typing import TYPE_CHECKING
 
-import typer
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+from app.api.pipes import _load_pipe
 from app.models import ScheduleInfo, SyncRequest
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from shenas_pipes.core.abc import Pipe
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -74,29 +74,6 @@ def _installed_pipe_names() -> list[str]:
     ]
 
 
-def _load_pipe_app(name: str) -> typer.Typer:
-    """Load a pipe's typer app by importing its CLI module directly."""
-    module_name = f"shenas_pipes.{name}.cli"
-    # Invalidate caches so packages installed after server start are found
-    importlib.invalidate_caches()
-    try:
-        mod = importlib.import_module(module_name)
-    except ModuleNotFoundError:
-        # Module might be installed but the namespace package path is stale.
-        # Refresh sys.path entries by re-importing the namespace package.
-        import sys
-
-        for key in list(sys.modules):
-            if key == "shenas_pipes" or key.startswith("shenas_pipes."):
-                del sys.modules[key]
-        try:
-            mod = importlib.import_module(module_name)
-        except ModuleNotFoundError as exc:
-            msg = f"Cannot import {module_name}: {exc}. Ensure pipes are installed and server is running from the workspace."
-            raise ImportError(msg) from exc
-    return mod.app
-
-
 def _mark_synced(pipe_name: str) -> None:
     from app.db import update_synced_at
 
@@ -106,56 +83,22 @@ def _mark_synced(pipe_name: str) -> None:
         logging.getLogger(__name__).exception("Failed to update synced_at for %s", pipe_name)
 
 
-def _run_pipe_sync(  # noqa: PLR0912
+def _run_pipe_sync(
     ep_name: str,
-    pipe_app: typer.Typer,
-    start_date: str | None,
+    pipe: Pipe,
     full_refresh: bool,
-    extra: dict[str, str | int | bool] | None = None,
 ) -> Iterator[str]:
     """Run a single pipe's sync command, yielding SSE events."""
     log.info("Sync started: %s", ep_name)
     yield _sse_event("progress", {"pipe": ep_name, "message": "starting sync"})
 
-    sync_callback = None
-    for cmd in pipe_app.registered_commands:
-        cmd_name = cmd.name or (getattr(cmd.callback, "__name__", None) if cmd.callback else None)
-        if cmd_name == "sync" and cmd.callback:
-            sync_callback = cmd.callback
-            break
-
-    if not sync_callback:
-        yield _sse_event("error", {"pipe": ep_name, "message": "no sync command found"})
-        return
-
-    kwargs = {}
-    for p_name, p in inspect.signature(sync_callback).parameters.items():
-        if isinstance(p.default, typer.models.OptionInfo):
-            kwargs[p_name] = p.default.default
-
-    if start_date and "start_date" in kwargs:
-        kwargs["start_date"] = start_date
-    if full_refresh and "full_refresh" in kwargs:
-        kwargs["full_refresh"] = True
-    # Pass extra options that match the callback's parameters
-    if extra:
-        for k, v in extra.items():
-            if k in kwargs:
-                kwargs[k] = v
-
     try:
-        sync_callback(**kwargs)
+        pipe.sync(full_refresh=full_refresh)
         _mark_synced(ep_name)
         log.info("Sync complete: %s", ep_name)
         yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
-    except SystemExit as exc:
-        if exc.code and exc.code != 0:
-            log.exception("Sync failed: %s (exit code %s)", ep_name, exc.code)
-            yield _sse_event("error", {"pipe": ep_name, "message": f"Sync failed (exit code {exc.code}). Check server logs."})
-        else:
-            _mark_synced(ep_name)
-            yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
     except Exception as exc:
+        log.exception("Sync failed: %s", ep_name)
         yield _sse_event("error", {"pipe": ep_name, "message": str(exc)})
 
 
@@ -168,8 +111,8 @@ def sync_all() -> StreamingResponse:
                 yield _sse_event("progress", {"pipe": name, "message": "skipping: sync already in progress"})
                 continue
             try:
-                pipe_app = _load_pipe_app(name)
-                yield from _run_pipe_sync(name, pipe_app, start_date=None, full_refresh=False)
+                pipe = _load_pipe(name)
+                yield from _run_pipe_sync(name, pipe, full_refresh=False)
             except Exception as exc:
                 yield _sse_event("error", {"pipe": name, "message": str(exc)})
                 failed.append(name)
@@ -198,8 +141,8 @@ def sync_pipe(name: str, body: SyncRequest | None = None) -> StreamingResponse:
 
     def _stream() -> Iterator[str]:
         try:
-            pipe_app = _load_pipe_app(name)
-            yield from _run_pipe_sync(name, pipe_app, body.start_date, body.full_refresh, body.extra)
+            pipe = _load_pipe(name)
+            yield from _run_pipe_sync(name, pipe, body.full_refresh)
         except Exception as exc:
             yield _sse_event("error", {"pipe": name, "message": str(exc)})
         finally:
