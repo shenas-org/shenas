@@ -42,7 +42,6 @@ def _patches(con: duckdb.DuckDBPyConnection):
     return (
         patch("app.db.cursor", lambda: _mock_cursor(con)),
         patch("app.telemetry.exporters._ensure_schema"),
-        patch("app.telemetry.exporters._dispatch"),
     )
 
 
@@ -62,7 +61,7 @@ class TestSchema:
 
 class TestSpanExporter:
     def test_exports_span(self, con: duckdb.DuckDBPyConnection) -> None:
-        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
+        with _patches(con)[0], _patches(con)[1]:
             exporter = DuckDBSpanExporter()
 
             resource = Resource.create({"service.name": "test-service"})
@@ -80,7 +79,7 @@ class TestSpanExporter:
         assert rows[0][3] == "test-operation"
 
     def test_exports_nested_spans(self, con: duckdb.DuckDBPyConnection) -> None:
-        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
+        with _patches(con)[0], _patches(con)[1]:
             exporter = DuckDBSpanExporter()
             resource = Resource.create({"service.name": "test"})
             provider = TracerProvider(resource=resource)
@@ -98,7 +97,7 @@ class TestSpanExporter:
         assert child[1] is not None
 
     def test_exports_attributes(self, con: duckdb.DuckDBPyConnection) -> None:
-        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
+        with _patches(con)[0], _patches(con)[1]:
             exporter = DuckDBSpanExporter()
             resource = Resource.create({"service.name": "test"})
             provider = TracerProvider(resource=resource)
@@ -114,7 +113,7 @@ class TestSpanExporter:
         assert '"http.method": "GET"' in rows[0][0]
 
     def test_empty_batch(self, con: duckdb.DuckDBPyConnection) -> None:
-        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
+        with _patches(con)[0], _patches(con)[1]:
             exporter = DuckDBSpanExporter()
             from opentelemetry.sdk.trace.export import SpanExportResult
 
@@ -134,7 +133,7 @@ class TestLogExporter:
     def test_exports_log(self, con: duckdb.DuckDBPyConnection) -> None:
         import logging
 
-        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
+        with _patches(con)[0], _patches(con)[1]:
             from opentelemetry._logs import set_logger_provider
             from opentelemetry.sdk._logs import LoggerProvider
             from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
@@ -166,7 +165,7 @@ class TestLogExporter:
     def test_log_with_trace_context(self, con: duckdb.DuckDBPyConnection) -> None:
         import logging
 
-        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
+        with _patches(con)[0], _patches(con)[1]:
             from opentelemetry._logs import set_logger_provider
             from opentelemetry.sdk._logs import LoggerProvider
             from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
@@ -199,7 +198,7 @@ class TestLogExporter:
         assert traced[0][1] is not None
 
     def test_empty_batch(self, con: duckdb.DuckDBPyConnection) -> None:
-        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
+        with _patches(con)[0], _patches(con)[1]:
             exporter = DuckDBLogExporter()
             result = exporter.export([])
             from opentelemetry.sdk._logs.export import LogRecordExportResult
