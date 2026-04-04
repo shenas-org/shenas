@@ -31,28 +31,9 @@ def _prefix(kind: str) -> str:
     return f"shenas-{kind}-"
 
 
-NAMESPACES = {
-    "pipe": "shenas_pipes",
-    "schema": "shenas_schemas",
-    "component": "shenas_components",
-    "ui": "shenas_ui",
-    "theme": "shenas_themes",
-}
-
-
 def _validate_kind(kind: str) -> None:
     if kind not in VALID_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid kind: {kind}. Must be one of: {', '.join(sorted(VALID_KINDS))}")
-
-
-def _is_internal(kind: str, name: str) -> bool:
-    """Check if a plugin is internal (hidden from list/add/remove/UI)."""
-    if name == "core":
-        return True
-    from app.api.pipes import _load_plugin
-
-    cls = _load_plugin(kind, name)
-    return cls.internal if cls else False
 
 
 def _load_public_key(path: Path) -> Ed25519PublicKey:
@@ -124,11 +105,8 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
     items = []
     for p in sorted(matched, key=lambda x: x["name"]):
         short_name = p["name"].removeprefix(prefix)
-        if _is_internal(kind, short_name):
-            continue
-
         plugin_cls = _load_plugin(kind, short_name)
-        if not plugin_cls:
+        if not plugin_cls or plugin_cls.internal or short_name == "core":
             continue
         plugin = plugin_cls()
         pi = plugin.get_info()
@@ -142,7 +120,7 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
                 signature=check_signature(p["name"], p["version"]),
                 description=pi.get("description", ""),
                 commands=pi.get("commands", []),
-                enabled=state["enabled"] if state else not plugin_cls.exclusive,
+                enabled=state["enabled"] if state else plugin_cls.enabled_by_default,
                 has_auth=pi.get("has_auth"),
                 sync_frequency=pi.get("sync_frequency"),
                 added_at=state["added_at"] if state else None,
@@ -207,7 +185,10 @@ def install_plugin(
     public_key_path: Path = PUBLIC_KEY_PATH,
     skip_verify: bool = False,
 ) -> InstallResult:
-    if _is_internal(kind, name):
+    from app.api.pipes import _load_plugin
+
+    cls = _load_plugin(kind, name)
+    if (cls and cls.internal) or name == "core":
         return InstallResult(name=name, ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
 
     prefix = _prefix(kind)
@@ -241,7 +222,10 @@ def install_plugin(
 def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
     import sys
 
-    if _is_internal(kind, name):
+    from app.api.pipes import _load_plugin
+
+    cls = _load_plugin(kind, name)
+    if (cls and cls.internal) or name == "core":
         return RemoveResponse(ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
 
     pkg_name = f"{_prefix(kind)}{name}"

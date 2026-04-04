@@ -62,16 +62,18 @@ def _installed_pipe_names() -> list[str]:
     if result.returncode != 0:
         return []
     packages = json.loads(result.stdout)
-    from app.api.plugins import _is_internal
+    from app.api.pipes import _load_plugin
     from app.db import is_plugin_enabled
 
-    return [
-        p["name"].removeprefix(PIPE_PREFIX)
-        for p in packages
-        if p["name"].startswith(PIPE_PREFIX)
-        and not _is_internal("pipe", p["name"].removeprefix(PIPE_PREFIX))
-        and is_plugin_enabled("pipe", p["name"].removeprefix(PIPE_PREFIX))
-    ]
+    names = []
+    for p in packages:
+        if not p["name"].startswith(PIPE_PREFIX):
+            continue
+        name = p["name"].removeprefix(PIPE_PREFIX)
+        cls = _load_plugin("pipe", name)
+        if cls and not cls.internal and name != "core" and is_plugin_enabled("pipe", name):
+            names.append(name)
+    return names
 
 
 def _mark_synced(pipe_name: str) -> None:

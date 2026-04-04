@@ -38,6 +38,7 @@ class Plugin(abc.ABC):
     display_name: ClassVar[str]
     description: ClassVar[str] = ""
     internal: ClassVar[bool] = False
+    enabled_by_default: ClassVar[bool] = True
 
     @property
     def version(self) -> str | None:
@@ -54,33 +55,22 @@ class Plugin(abc.ABC):
         """Plugin kind string for package naming."""
         return "plugin"
 
-    exclusive: ClassVar[bool] = False
-
     @property
     def commands(self) -> list[str]:
         return []
 
     def enable(self) -> str:
-        """Enable this plugin. For exclusive kinds, disables siblings."""
-        from app.db import get_all_plugin_states, upsert_plugin_state
+        """Enable this plugin."""
+        from app.db import upsert_plugin_state
 
-        if self.exclusive:
-            for state in get_all_plugin_states(self._kind):
-                if state["name"] != self.name and state["enabled"]:
-                    upsert_plugin_state(self._kind, state["name"], enabled=False)
         upsert_plugin_state(self._kind, self.name, enabled=True)
         return f"Enabled {self._kind} {self.name}"
 
     def disable(self) -> str:
-        """Disable this plugin. For exclusive kinds, enables default."""
+        """Disable this plugin."""
         from app.db import upsert_plugin_state
 
-        if self.exclusive and self.name == "default":
-            return f"Cannot disable the default {self._kind}"
         upsert_plugin_state(self._kind, self.name, enabled=False)
-        if self.exclusive:
-            upsert_plugin_state(self._kind, "default", enabled=True)
-            return f"Switched {self._kind} to default"
         return f"Disabled {self._kind} {self.name}"
 
     def get_info(self) -> dict[str, Any]:
@@ -300,16 +290,41 @@ class Component(StaticPlugin):
     entrypoint: ClassVar[str]
 
 
-class Theme(StaticPlugin):
-    """CSS theme."""
+class _SelectOneMixin:
+    """Mixin for plugin kinds where only one can be active at a time."""
+
+    enabled_by_default: ClassVar[bool] = False
+
+    def enable(self) -> str:
+        """Select this plugin, deselecting all others of the same kind."""
+        from app.db import get_all_plugin_states, upsert_plugin_state
+
+        for state in get_all_plugin_states(self._kind):
+            if state["name"] != self.name and state["enabled"]:
+                upsert_plugin_state(self._kind, state["name"], enabled=False)
+        upsert_plugin_state(self._kind, self.name, enabled=True)
+        return f"Selected {self._kind} {self.name}"
+
+    def disable(self) -> str:
+        """Deselect this plugin, falling back to 'default'."""
+        from app.db import upsert_plugin_state
+
+        if self.name == "default":
+            return f"Cannot deselect the default {self._kind}"
+        upsert_plugin_state(self._kind, self.name, enabled=False)
+        upsert_plugin_state(self._kind, "default", enabled=True)
+        return f"Switched {self._kind} to default"
+
+
+class Theme(_SelectOneMixin, StaticPlugin):
+    """CSS theme. Only one active at a time."""
 
     _kind = "theme"
-    exclusive = True
     css: ClassVar[str]
 
 
-class UI(StaticPlugin):
-    """UI shell (HTML + JS app shell)."""
+class UI(_SelectOneMixin, StaticPlugin):
+    """UI shell. Only one active at a time."""
 
     _kind = "ui"
     html: ClassVar[str]
