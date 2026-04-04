@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from shenas_plugins.core import Theme
+from shenas_themes.core import Theme
 
 
 class DefaultTheme(Theme):

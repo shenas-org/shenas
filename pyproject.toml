@@ -44,9 +44,12 @@ shenas-schema-fitness = { workspace = true }
 shenas-schema-finance = { workspace = true }
 shenas-schema-outcomes = { workspace = true }
 shenas-schema-habits = { workspace = true }
+shenas-component-core = { workspace = true }
 shenas-component-fitness-dashboard = { workspace = true }
 shenas-component-data-table = { workspace = true }
+shenas-ui-core = { workspace = true }
 shenas-ui-default = { workspace = true }
+shenas-theme-core = { workspace = true }
 shenas-theme-default = { workspace = true }
 shenas-theme-dark = { workspace = true }
 
@@ -135,7 +138,7 @@ unfixable = []
 "scripts/**/*.py" = ["T20"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "shenas_plugins", "shenas_pipes", "shenas_schemas", "shenas_components", "repository", "scheduler"]
+known-first-party = ["app", "shenas_plugins", "shenas_pipes", "shenas_schemas", "shenas_components", "shenas_themes", "shenas_ui", "repository", "scheduler"]
 
 [tool.commitizen]
 version_provider = "uv"
