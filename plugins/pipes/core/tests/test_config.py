@@ -25,6 +25,9 @@ class SampleConfig:
 
 @pytest.fixture()
 def con() -> duckdb.DuckDBPyConnection:
+    from shenas_pipes.core import config as _config_mod
+
+    _config_mod._ensured_tables.discard("test_pkg")
     return duckdb.connect(":memory:")
 
 

@@ -42,6 +42,14 @@ class ShenasApp extends LitElement {
       path: "/settings/:kind/:name/auth",
       render: ({ kind, name }) => this._renderPluginDetail(kind, name, "auth"),
     },
+    {
+      path: "/settings/:kind/:name/data",
+      render: ({ kind, name }) => this._renderPluginDetail(kind, name, "data"),
+    },
+    {
+      path: "/settings/:kind/:name/logs",
+      render: ({ kind, name }) => this._renderPluginDetail(kind, name, "logs"),
+    },
     { path: "/logs", render: () => html`<shenas-logs api-base="${this.apiBase}"></shenas-logs>` },
     { path: "/:tab", render: ({ tab }) => this._renderDynamicTab(tab) },
   ]);

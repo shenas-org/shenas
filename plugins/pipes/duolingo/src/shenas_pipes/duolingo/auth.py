@@ -1,4 +1,4 @@
-"""Duolingo JWT token management via OS keyring.
+"""Duolingo JWT token management via encrypted DuckDB.
 
 Duolingo has no official API and blocks programmatic login with CAPTCHA.
 Authentication requires a JWT token extracted from the browser:
@@ -11,10 +11,14 @@ Authentication requires a JWT token extracted from the browser:
 
 from __future__ import annotations
 
-from shenas_pipes.duolingo.client import DuolingoClient
+from dataclasses import dataclass
+from typing import Annotated, ClassVar
 
-KEYRING_SERVICE = "shenas"
-KEYRING_KEY = "duolingo_jwt"
+from shenas_pipes.core.auth import get_auth, set_auth
+from shenas_pipes.core.base_auth import PipeAuth
+from shenas_pipes.core.db import connect
+from shenas_pipes.duolingo.client import DuolingoClient
+from shenas_schemas.core.field import Field
 
 AUTH_FIELDS: list[dict[str, str | bool]] = [
     {"name": "jwt_token", "prompt": "JWT token", "hide": False},
@@ -30,32 +34,33 @@ AUTH_INSTRUCTIONS = (
 )
 
 
-def _get_stored_jwt() -> str | None:
-    """Read JWT from OS keyring."""
-    try:
-        import keyring
+@dataclass
+class DuolingoAuth(PipeAuth):
+    """Duolingo authentication credentials."""
 
-        return keyring.get_password(KEYRING_SERVICE, KEYRING_KEY)
-    except Exception:
-        return None
+    __table__: ClassVar[str] = "pipe_duolingo"
+
+    jwt_token: Annotated[str | None, Field(db_type="VARCHAR", description="Browser JWT token", category="secret")] = None
+
+
+def _get_stored_jwt() -> str | None:
+    """Read JWT from encrypted DuckDB."""
+    row = get_auth(connect(), DuolingoAuth)
+    if row and row.get("jwt_token"):
+        return row["jwt_token"]
+    return None
 
 
 def _store_jwt(jwt: str) -> None:
-    """Write JWT to OS keyring."""
-    import keyring
-
-    try:
-        keyring.delete_password(KEYRING_SERVICE, KEYRING_KEY)
-    except Exception:
-        pass
-    keyring.set_password(KEYRING_SERVICE, KEYRING_KEY, jwt)
+    """Write JWT to encrypted DuckDB."""
+    set_auth(connect(), DuolingoAuth, jwt_token=jwt)
 
 
 def build_client() -> DuolingoClient:
     """Build a Duolingo client from a stored JWT token."""
     jwt = _get_stored_jwt()
     if not jwt:
-        raise RuntimeError("No JWT token found. Run 'shenasctl pipe duolingo auth' first.")
+        raise RuntimeError("No JWT token found. Configure authentication in the Auth tab.")
     return DuolingoClient(jwt)
 
 

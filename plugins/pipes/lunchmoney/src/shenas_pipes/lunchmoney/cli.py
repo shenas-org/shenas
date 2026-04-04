@@ -15,7 +15,7 @@ Authenticates via API key from Lunch Money Settings > Developers."""
 
 @app.command()
 def auth() -> None:
-    """Store a Lunch Money API key in OS keyring.
+    """Store a Lunch Money API key in database.
 
     Get your key from: Lunch Money > Settings > Developers > Request new Access Token
     """
@@ -28,7 +28,7 @@ def auth() -> None:
         client = build_client(api_key=api_key)
         user = client.get_user()
         console.print(f"[green]Authenticated as {user.user_name} ({user.user_email})[/green]")
-        console.print("[green]API key saved to OS keyring[/green]")
+        console.print("[green]API key saved to database[/green]")
     except Exception as exc:
         console.print(f"[red]Authentication failed:[/red] {exc}")
         raise typer.Exit(code=1)

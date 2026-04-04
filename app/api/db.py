@@ -17,12 +17,16 @@ router = APIRouter(prefix="/db", tags=["db"])
 
 
 def _discover_schemas(con: duckdb.DuckDBPyConnection) -> dict[str, list[str]]:
-    rows = con.execute(
-        "SELECT table_schema, table_name FROM information_schema.tables "
-        "WHERE table_schema NOT IN ('information_schema', 'main') "
-        "AND table_schema NOT LIKE '%\\_staging' ESCAPE '\\' "
-        "ORDER BY table_schema, table_name"
-    ).fetchall()
+    cur = con.cursor()
+    try:
+        rows = cur.execute(
+            "SELECT table_schema, table_name FROM information_schema.tables "
+            "WHERE table_schema NOT IN ('information_schema', 'main') "
+            "AND table_schema NOT LIKE '%\\_staging' ESCAPE '\\' "
+            "ORDER BY table_schema, table_name"
+        ).fetchall()
+    finally:
+        cur.close()
     schemas: dict[str, list[str]] = {}
     for schema, table in rows:
         schemas.setdefault(schema, []).append(table)
@@ -31,21 +35,25 @@ def _discover_schemas(con: duckdb.DuckDBPyConnection) -> dict[str, list[str]]:
 
 def _table_stats(con: duckdb.DuckDBPyConnection, schema: str, name: str) -> TableStats:
     qualified = f'"{schema}"."{name}"'
-    row = con.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()
-    rows = row[0] if row else 0
-    cols = len(con.execute(f"DESCRIBE {qualified}").fetchall())
-    earliest = None
-    latest = None
-    for date_col in ("date", "calendar_date", "start_time_local"):
-        try:
-            res = con.execute(f"SELECT MIN({date_col}), MAX({date_col}) FROM {qualified}").fetchone()
-            if res is None:
+    cur = con.cursor()
+    try:
+        row = cur.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()
+        rows = row[0] if row else 0
+        cols = len(cur.execute(f"DESCRIBE {qualified}").fetchall())
+        earliest = None
+        latest = None
+        for date_col in ("date", "calendar_date", "start_time_local"):
+            try:
+                res = cur.execute(f"SELECT MIN({date_col}), MAX({date_col}) FROM {qualified}").fetchone()
+                if res is None:
+                    continue
+                earliest = str(res[0])[:10] if res[0] else None
+                latest = str(res[1])[:10] if res[1] else None
+                break
+            except duckdb.Error:
                 continue
-            earliest = str(res[0])[:10] if res[0] else None
-            latest = str(res[1])[:10] if res[1] else None
-            break
-        except duckdb.Error:
-            continue
+    finally:
+        cur.close()
     return TableStats(name=name, rows=rows, earliest=earliest, latest=latest, cols=cols)
 
 
@@ -89,13 +97,18 @@ def db_status() -> DBStatusResponse:
     )
 
 
+_INTERNAL_SCHEMAS = {"config", "auth", "shenas_system", "telemetry"}
+
+
 @router.get("/tables")
 def db_tables() -> dict[str, list[str]]:
-    """Return schema -> table names mapping (excludes dlt internal tables)."""
+    """Return schema -> table names mapping (excludes internal and dlt tables)."""
     try:
         con = connect(read_only=True)
         schemas = _discover_schemas(con)
-        return {s: [t for t in tables if not t.startswith("_dlt_")] for s, tables in schemas.items()}
+        return {
+            s: [t for t in tables if not t.startswith("_dlt_")] for s, tables in schemas.items() if s not in _INTERNAL_SCHEMAS
+        }
     except Exception:
         return {}
 

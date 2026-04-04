@@ -1,40 +1,46 @@
-"""Lunch Money API key management via OS keyring."""
+"""Lunch Money API key management via encrypted DuckDB."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Annotated, ClassVar
+
 from lunchable import LunchMoney
 
-KEYRING_SERVICE = "shenas"
-KEYRING_KEY = "lunchmoney_api_key"
+from shenas_pipes.core.auth import get_auth, set_auth
+from shenas_pipes.core.base_auth import PipeAuth
+from shenas_pipes.core.db import connect
+from shenas_schemas.core.field import Field
 
 AUTH_FIELDS: list[dict[str, str | bool]] = [
     {"name": "api_key", "prompt": "API key", "hide": True},
 ]
 
 
-def _get_stored_key() -> str | None:
-    """Read API key from OS keyring."""
-    try:
-        import keyring
+@dataclass
+class LunchMoneyAuth(PipeAuth):
+    """Lunch Money authentication credentials."""
 
-        return keyring.get_password(KEYRING_SERVICE, KEYRING_KEY)
-    except Exception:
-        return None
+    __table__: ClassVar[str] = "pipe_lunchmoney"
+
+    api_key: Annotated[str | None, Field(db_type="VARCHAR", description="Lunch Money API key", category="secret")] = None
+
+
+def _get_stored_key() -> str | None:
+    """Read API key from encrypted DuckDB."""
+    row = get_auth(connect(), LunchMoneyAuth)
+    if row and row.get("api_key"):
+        return row["api_key"]
+    return None
 
 
 def _store_key(api_key: str) -> None:
-    """Write API key to OS keyring."""
-    import keyring
-
-    try:
-        keyring.delete_password(KEYRING_SERVICE, KEYRING_KEY)
-    except Exception:
-        pass
-    keyring.set_password(KEYRING_SERVICE, KEYRING_KEY, api_key)
+    """Write API key to encrypted DuckDB."""
+    set_auth(connect(), LunchMoneyAuth, api_key=api_key)
 
 
 def build_client(api_key: str | None = None, **_kwargs: str) -> LunchMoney:
-    """Build a Lunch Money client from provided key or OS keyring."""
+    """Build a Lunch Money client from provided key or stored credentials."""
     if api_key:
         _store_key(api_key)
         return LunchMoney(access_token=api_key)
@@ -43,7 +49,7 @@ def build_client(api_key: str | None = None, **_kwargs: str) -> LunchMoney:
     if stored:
         return LunchMoney(access_token=stored)
 
-    raise RuntimeError("No API key found. Run 'shenasctl pipe lunchmoney auth' first.")
+    raise RuntimeError("No API key found. Configure authentication in the Auth tab.")
 
 
 def authenticate(credentials: dict[str, str]) -> None:
