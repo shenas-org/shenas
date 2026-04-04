@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio as _asyncio
 import os as _os
+import pathlib as _pathlib
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -55,6 +56,15 @@ def _mount_static(kind: str, url_prefix: str) -> None:
             )
 
 
+# App-level static dirs
+
+_app_dir = _pathlib.Path(__file__).parent
+app.mount("/static", StaticFiles(directory=str(_app_dir / "static")), name="static")
+_vendor_dir = _app_dir / "vendor" / "dist"
+if _vendor_dir.is_dir():
+    app.mount("/vendor", StaticFiles(directory=str(_vendor_dir)), name="vendor")
+
+# Plugin static dirs
 _mount_static("component", "components")
 _mount_static("ui", "ui")
 _mount_static("theme", "themes")
