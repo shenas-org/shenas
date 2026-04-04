@@ -134,3 +134,25 @@ def test(transform_id: int, limit: int = 10) -> list[dict[str, Any]]:  # noqa: P
         return test_transform(transform_id, limit)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/run/pipe/{pipe_name}")
+def run_pipe_transforms(pipe_name: str) -> dict[str, Any]:
+    """Run all enabled transforms for a specific pipe."""
+    from app.db import connect
+    from app.transforms import run_transforms
+
+    con = connect()
+    count = run_transforms(con, pipe_name)
+    return {"pipe": pipe_name, "count": count}
+
+
+@router.post("/run/schema/{schema_name}")
+def run_schema_transforms(schema_name: str) -> dict[str, Any]:
+    """Run all enabled transforms targeting a specific schema table."""
+    from app.db import connect
+    from app.transforms import run_transforms_by_target
+
+    con = connect()
+    count = run_transforms_by_target(con, schema_name)
+    return {"schema": schema_name, "count": count}
