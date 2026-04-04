@@ -18,6 +18,7 @@ _pending_mfa: dict[str, Any] = {}
 class GarminPipe(Pipe):
     name = "garmin"
     display_name = "Garmin Connect"
+    primary_table = "daily_stats"
     description = (
         "Syncs health and fitness data from Garmin Connect.\n\n"
         "Authenticates via email/password with MFA support. Tokens are stored "

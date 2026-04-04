@@ -13,6 +13,7 @@ from shenas_schemas.core.field import Field
 class ObsidianPipe(Pipe):
     name = "obsidian"
     display_name = "Obsidian"
+    primary_table = "daily_notes"
     description = (
         "Extracts frontmatter fields from Obsidian daily notes.\n\n"
         "Scans a configured daily notes folder for markdown files, parses YAML "

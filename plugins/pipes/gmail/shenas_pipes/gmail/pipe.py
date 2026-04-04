@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 class GmailPipe(Pipe):
     name = "gmail"
     display_name = "Gmail"
+    primary_table = "messages"
     description = (
         "Syncs email metadata from Gmail.\n\n"
         "Uses Google OAuth2 with shared credentials from shenas-pipe-core. "

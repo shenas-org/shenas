@@ -29,6 +29,7 @@ class Pipe(Plugin):
     Auth: ClassVar[type] = PipeAuth
 
     auth_instructions: ClassVar[str] = ""
+    primary_table: ClassVar[str] = ""
 
     # Populated by __init__
     _config_store: DataclassStore
@@ -171,6 +172,7 @@ class Pipe(Plugin):
             **super().get_info(),
             "has_auth": self.is_authenticated,
             "sync_frequency": self.sync_frequency,
+            "primary_table": self.primary_table,
             "commands": self.commands,
         }
 

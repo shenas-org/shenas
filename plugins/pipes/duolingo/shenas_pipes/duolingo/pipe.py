@@ -13,6 +13,7 @@ from shenas_schemas.core.field import Field
 class DuolingoPipe(Pipe):
     name = "duolingo"
     display_name = "Duolingo"
+    primary_table = "daily_xp"
     description = (
         "Syncs daily XP, course progress, and profile data from Duolingo.\n\n"
         "Duolingo has no official API. This pipe uses the unofficial REST API "

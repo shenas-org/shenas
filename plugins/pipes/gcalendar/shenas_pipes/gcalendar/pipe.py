@@ -13,6 +13,7 @@ from shenas_schemas.core.field import Field
 class GCalendarPipe(Pipe):
     name = "gcalendar"
     display_name = "Google Calendar"
+    primary_table = "events"
     description = (
         "Syncs events and calendar metadata from Google Calendar.\n\n"
         "Uses Google OAuth2 with shared credentials from shenas-pipe-core."
