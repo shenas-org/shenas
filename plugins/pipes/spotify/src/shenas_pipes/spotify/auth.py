@@ -78,7 +78,7 @@ def build_client() -> spotipy.Spotify:
     """Build a Spotify client from stored tokens, refreshing if needed."""
     tokens = _get_stored_tokens()
     if not tokens or "access_token" not in tokens:
-        raise RuntimeError("No Spotify tokens found. Run 'shenasctl pipe spotify auth' first.")
+        raise RuntimeError("No Spotify tokens found. Configure authentication in the Auth tab.")
 
     cache = _MemoryCacheHandler()
     cache.token_info = {

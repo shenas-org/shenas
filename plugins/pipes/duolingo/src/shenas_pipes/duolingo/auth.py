@@ -55,7 +55,7 @@ def build_client() -> DuolingoClient:
     """Build a Duolingo client from a stored JWT token."""
     jwt = _get_stored_jwt()
     if not jwt:
-        raise RuntimeError("No JWT token found. Run 'shenasctl pipe duolingo auth' first.")
+        raise RuntimeError("No JWT token found. Configure authentication in the Auth tab.")
     return DuolingoClient(jwt)
 
 

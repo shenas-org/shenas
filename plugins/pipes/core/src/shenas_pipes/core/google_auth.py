@@ -36,6 +36,7 @@ class GoogleAuth:
     """
 
     AUTH_FIELDS: list[dict[str, str]] = []
+    AUTH_INSTRUCTIONS: str = "Click Authenticate to sign in with your Google account."
 
     def __init__(
         self,
@@ -107,7 +108,7 @@ class GoogleAuth:
             self._store_token(creds)
             return build(self.api_name, self.api_version, credentials=creds, static_discovery=self.static_discovery)
 
-        raise RuntimeError(f"No valid credentials. Run 'shenasctl pipe {self.name} auth' first.")
+        raise RuntimeError("No valid credentials. Configure authentication in the Auth tab.")
 
     def authenticate(self, credentials: dict[str, str]) -> None:
         """OAuth2 browser flow with URL passback for the REST auth API."""

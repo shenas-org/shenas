@@ -17,11 +17,40 @@ from shenas_schemas.core.ddl import generate_ddl
 from shenas_schemas.core.introspect import table_metadata
 
 
+_ensured_tables: set[str] = set()
+
+
 def ensure_config_table(con: duckdb.DuckDBPyConnection, config_cls: type) -> None:
-    """Create the config schema and the config table if they don't exist."""
-    con.execute("CREATE SCHEMA IF NOT EXISTS config")
-    ddl = generate_ddl(config_cls).replace("metrics.", "config.")
-    con.execute(ddl)
+    """Create the config schema and table if they don't exist, and add missing columns."""
+    table = config_cls.__table__
+    if table in _ensured_tables:
+        return
+
+    from shenas_schemas.core.introspect import table_metadata
+
+    cur = con.cursor()
+    try:
+        cur.execute("CREATE SCHEMA IF NOT EXISTS config")
+        ddl = generate_ddl(config_cls).replace("metrics.", "config.")
+        cur.execute(ddl)
+
+        # Add any columns that exist in the dataclass but not yet in the table
+        existing = {
+            r[0]
+            for r in cur.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = 'config' AND table_name = ?",
+                [table],
+            ).fetchall()
+        }
+        meta = table_metadata(config_cls)
+        for col in meta["columns"]:
+            if col["name"] not in existing:
+                db_type = col.get("db_type", "VARCHAR")
+                cur.execute(f"ALTER TABLE config.{table} ADD COLUMN {col['name']} {db_type}")
+    finally:
+        cur.close()
+
+    _ensured_tables.add(table)
 
 
 def get_config(con: duckdb.DuckDBPyConnection, config_cls: type) -> dict[str, Any] | None:
@@ -30,7 +59,11 @@ def get_config(con: duckdb.DuckDBPyConnection, config_cls: type) -> dict[str, An
     table = config_cls.__table__
     cols = [f.name for f in dataclasses.fields(config_cls)]
     col_list = ", ".join(cols)
-    row = con.execute(f"SELECT {col_list} FROM config.{table} LIMIT 1").fetchone()
+    cur = con.cursor()
+    try:
+        row = cur.execute(f"SELECT {col_list} FROM config.{table} LIMIT 1").fetchone()
+    finally:
+        cur.close()
     if row is None:
         return None
     return dict(zip(cols, row))
@@ -65,19 +98,27 @@ def set_config(con: duckdb.DuckDBPyConnection, config_cls: type, **kwargs: Any) 
                 defaults[f.name] = None
         merged = {**defaults, **kwargs}
 
-    con.execute(f"DELETE FROM config.{table}")
     cols = [f.name for f in dataclasses.fields(config_cls)]
     placeholders = ", ".join(["?"] * len(cols))
     col_names = ", ".join(cols)
     values = [merged.get(c) for c in cols]
-    con.execute(f"INSERT INTO config.{table} ({col_names}) VALUES ({placeholders})", values)
+    cur = con.cursor()
+    try:
+        cur.execute(f"DELETE FROM config.{table}")
+        cur.execute(f"INSERT INTO config.{table} ({col_names}) VALUES ({placeholders})", values)
+    finally:
+        cur.close()
 
 
 def delete_config(con: duckdb.DuckDBPyConnection, config_cls: type) -> None:
     """Delete all config for a package."""
     ensure_config_table(con, config_cls)
     table = config_cls.__table__
-    con.execute(f"DELETE FROM config.{table}")
+    cur = con.cursor()
+    try:
+        cur.execute(f"DELETE FROM config.{table}")
+    finally:
+        cur.close()
 
 
 def config_metadata(config_cls: type) -> dict[str, Any]:

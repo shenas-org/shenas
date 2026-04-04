@@ -72,7 +72,7 @@ def build_client(email: str | None = None, password: str | None = None, **_kwarg
 
     # Fall back to credential login
     if not email or not password:
-        raise RuntimeError("No valid tokens found. Run 'shenas pipe garmin auth' first.")
+        raise RuntimeError("No valid tokens found. Configure authentication in the Auth tab.")
 
     client = Garmin(email=email, password=password)
     with tempfile.TemporaryDirectory(prefix="garmin_tokens_") as tmp:
@@ -80,7 +80,7 @@ def build_client(email: str | None = None, password: str | None = None, **_kwarg
             client.login(tmp)
         except Exception:
             client.login()
-            client.garth.dump(tmp)
+            client.client.dump(tmp)
         _store_tokens(Path(tmp))
 
     return client
@@ -89,7 +89,7 @@ def build_client(email: str | None = None, password: str | None = None, **_kwarg
 def save_tokens_from_client(client: Garmin) -> None:
     """Save a client's garth tokens to OS keyring."""
     with tempfile.TemporaryDirectory(prefix="garmin_tokens_") as tmp:
-        client.garth.dump(tmp)
+        client.client.dump(tmp)
         _store_tokens(Path(tmp))
 
 
@@ -112,9 +112,6 @@ def authenticate(credentials: dict[str, str]) -> None:
         raise ValueError("email and password are required")
 
     client = Garmin(email=email, password=password, return_on_mfa=True)
-    client.garth.sess.headers.update({"User-Agent": BROWSER_UA})
-    client.garth.oauth1_token = None
-    client.garth.oauth2_token = None
 
     result1, result2 = client.login()
 

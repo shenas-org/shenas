@@ -73,6 +73,7 @@ class ConfigPage extends LitElement {
   ];
 
   static _UNIT_MULTIPLIERS = { seconds: 1 / 60, minutes: 1, hours: 60, days: 1440 };
+  static _DURATION_FIELDS = new Set(["sync_frequency", "lookback_period"]);
 
   constructor() {
     super();
@@ -105,7 +106,7 @@ class ConfigPage extends LitElement {
   _startEdit(key, currentValue) {
     this._editing = key;
     this._editValue = currentValue || "";
-    if (key === "sync_frequency" && currentValue) {
+    if (ConfigPage._DURATION_FIELDS.has(key) && currentValue) {
       const mins = parseFloat(currentValue);
       if (mins >= 1440 && mins % 1440 === 0) {
         this._freqNum = String(mins / 1440);
@@ -120,7 +121,7 @@ class ConfigPage extends LitElement {
         this._freqNum = String(mins * 60);
         this._freqUnit = "seconds";
       }
-    } else if (key === "sync_frequency") {
+    } else if (ConfigPage._DURATION_FIELDS.has(key)) {
       this._freqNum = "";
       this._freqUnit = "hours";
     }
@@ -147,8 +148,8 @@ class ConfigPage extends LitElement {
   }
 
   async _saveEdit(key) {
-    const value = key === "sync_frequency" ? this._freqToMinutes() : this._editValue;
-    if (key === "sync_frequency" && value === null) {
+    const value = ConfigPage._DURATION_FIELDS.has(key) ? this._freqToMinutes() : this._editValue;
+    if (ConfigPage._DURATION_FIELDS.has(key) && value === null) {
       this._message = { type: "error", text: "Enter a positive number" };
       return;
     }
@@ -196,7 +197,7 @@ class ConfigPage extends LitElement {
 
   _renderEntry(entry) {
     const isEditing = this._editing === entry.key;
-    const isFreq = entry.key === "sync_frequency";
+    const isFreq = ConfigPage._DURATION_FIELDS.has(entry.key);
     const displayValue = isFreq && entry.value ? this._formatFreq(entry.value) : entry.value;
     return html`
       <div class="config-row">

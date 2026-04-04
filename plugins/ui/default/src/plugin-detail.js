@@ -16,6 +16,9 @@ class PluginDetail extends LitElement {
     _tables: { state: true },
     _syncing: { state: true },
     _schemaTransforms: { state: true },
+    _selectedTable: { state: true },
+    _previewRows: { state: true },
+    _previewLoading: { state: true },
   };
 
   static styles = [
@@ -92,6 +95,41 @@ class PluginDetail extends LitElement {
         letter-spacing: 0.05em;
         margin: 1.5rem 0 0.5rem;
       }
+      .data-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 1rem 0;
+      }
+      .data-toolbar select {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.9rem;
+        border: 1px solid var(--shenas-border, #ccc);
+        border-radius: 4px;
+      }
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+        overflow-x: auto;
+        display: block;
+      }
+      .data-table th, .data-table td {
+        padding: 0.35rem 0.6rem;
+        border: 1px solid var(--shenas-border-light, #e8e8e8);
+        text-align: left;
+        white-space: nowrap;
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .data-table th {
+        background: var(--shenas-bg-secondary, #f5f5f5);
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+      }
     `,
   ];
 
@@ -109,6 +147,9 @@ class PluginDetail extends LitElement {
     this._tables = [];
     this._syncing = false;
     this._schemaTransforms = [];
+    this._selectedTable = null;
+    this._previewRows = null;
+    this._previewLoading = false;
   }
 
   willUpdate(changed) {
@@ -224,6 +265,36 @@ class PluginDetail extends LitElement {
     }
   }
 
+  async _fetchPreview(tableName) {
+    this._selectedTable = tableName;
+    if (!tableName) { this._previewRows = null; return; }
+    this._previewLoading = true;
+    this._previewRows = await apiFetch(this.apiBase, `/db/preview/${this.name}/${tableName}?limit=100`);
+    this._previewLoading = false;
+  }
+
+  _renderData() {
+    const tables = this._tables || [];
+    if (tables.length === 0) return html`<p style="color:var(--shenas-text-muted,#888)">No tables synced yet.</p>`;
+    return html`
+      <div class="data-toolbar">
+        <select @change=${(e) => this._fetchPreview(e.target.value)}>
+          <option value="">Select a table</option>
+          ${tables.map((t) => html`<option value=${t.name} ?selected=${this._selectedTable === t.name}>${t.name}${t.rows ? ` (${t.rows})` : ""}</option>`)}
+        </select>
+        ${this._previewLoading ? html`<span style="color:var(--shenas-text-muted,#888)">Loading...</span>` : ""}
+      </div>
+      ${this._previewRows && this._previewRows.length > 0 ? html`
+        <table class="data-table">
+          <thead><tr>${Object.keys(this._previewRows[0]).map((col) => html`<th>${col}</th>`)}</tr></thead>
+          <tbody>${this._previewRows.map((row) => html`
+            <tr>${Object.values(row).map((val) => html`<td title="${val ?? ""}">${val ?? ""}</td>`)}</tr>
+          `)}</tbody>
+        </table>
+      ` : this._selectedTable && !this._previewLoading ? html`<p style="color:var(--shenas-text-muted,#888)">Table is empty.</p>` : ""}
+    `;
+  }
+
   render() {
     return html`
       <shenas-page ?loading=${this._loading} ?empty=${!this._info} empty-text="Plugin not found."
@@ -252,6 +323,8 @@ class PluginDetail extends LitElement {
         </div>
       </div>
 
+      ${renderMessage(this._message)}
+
       <div class="tabs">
         <a class="tab" href="${basePath}" aria-selected=${this.activeTab === "details"}
           @click=${(e) => { e.preventDefault(); this.activeTab = "details"; }}>Details</a>
@@ -263,6 +336,8 @@ class PluginDetail extends LitElement {
           ? html`<a class="tab" href="${basePath}/auth" aria-selected=${this.activeTab === "auth"}
               @click=${(e) => { e.preventDefault(); this.activeTab = "auth"; }}>Auth</a>`
           : ""}
+        <a class="tab" aria-selected=${this.activeTab === "data"}
+          @click=${(e) => { e.preventDefault(); this.activeTab = "data"; }}>Data</a>
         <a class="tab" aria-selected=${this.activeTab === "logs"}
           @click=${(e) => { e.preventDefault(); this.activeTab = "logs"; }}>Logs</a>
       </div>
@@ -271,11 +346,11 @@ class PluginDetail extends LitElement {
         ? html`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`
         : this.activeTab === "auth" && this._hasAuth
           ? html`<shenas-auth api-base="${this.apiBase}" pipe-name="${this.name}"></shenas-auth>`
-          : this.activeTab === "logs"
-            ? html`<shenas-logs api-base="${this.apiBase}" pipe="${this.name}"></shenas-logs>`
-            : this._renderDetails(info, enabled)}
-
-      ${renderMessage(this._message)}
+          : this.activeTab === "data"
+            ? this._renderData()
+            : this.activeTab === "logs"
+              ? html`<shenas-logs api-base="${this.apiBase}" pipe="${this.name}"></shenas-logs>`
+              : this._renderDetails(info, enabled)}
     `;
   }
 

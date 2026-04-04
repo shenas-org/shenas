@@ -1,17 +1,16 @@
 from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
+from shenas_pipes.core.base_config import PipeConfig
 from shenas_schemas.core.field import Field
 
 
 @dataclass
-class GtakeoutConfig:
+class GtakeoutConfig(PipeConfig):
     """Google Takeout pipe configuration."""
 
     __table__: ClassVar[str] = "pipe_gtakeout"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
 
-    id: Annotated[int, Field(db_type="INTEGER", description="Config row identifier")] = 1
     latest: Annotated[
         int,
         Field(
@@ -32,15 +31,3 @@ class GtakeoutConfig:
             example_value=".tgz",
         ),
     ] = ""
-    sync_frequency: (
-        Annotated[
-            int,
-            Field(
-                db_type="INTEGER",
-                description="Sync frequency in minutes (unset = no scheduled sync)",
-                ui_widget="text",
-                example_value="1440",
-            ),
-        ]
-        | None
-    ) = None

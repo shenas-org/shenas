@@ -43,7 +43,7 @@ def build_client(api_key: str | None = None, **_kwargs: str) -> LunchMoney:
     if stored:
         return LunchMoney(access_token=stored)
 
-    raise RuntimeError("No API key found. Run 'shenasctl pipe lunchmoney auth' first.")
+    raise RuntimeError("No API key found. Configure authentication in the Auth tab.")
 
 
 def authenticate(credentials: dict[str, str]) -> None:
