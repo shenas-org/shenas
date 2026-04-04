@@ -414,7 +414,10 @@ class LogsPage extends LitElement {
 
   _formatTime(ts) {
     if (!ts) return "-";
-    return String(ts).replace("T", " ").slice(0, 23);
+    const d = new Date(String(ts).endsWith("Z") ? ts : ts + "Z");
+    if (isNaN(d)) return String(ts).replace("T", " ").slice(0, 23);
+    const pad = (n, len = 2) => String(n).padStart(len, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
   }
 }
 
