@@ -14,12 +14,27 @@ import threading
 from pathlib import Path
 from typing import Any
 
+import contextlib
+from collections.abc import Generator
+
 import duckdb
 
 DB_PATH = Path("data") / "shenas.duckdb"
 
 _con: duckdb.DuckDBPyConnection | None = None
 _lock = threading.RLock()
+
+
+@contextlib.contextmanager
+def cursor() -> Generator[duckdb.DuckDBPyConnection, None, None]:
+    """Get a cursor on the shared connection with USE db set."""
+    con = connect()
+    cur = con.cursor()
+    try:
+        cur.execute("USE db")
+        yield cur
+    finally:
+        cur.close()
 
 
 def get_db_key() -> str:
