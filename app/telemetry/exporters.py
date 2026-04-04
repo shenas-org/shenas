@@ -5,7 +5,6 @@ import logging
 import threading
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Any
 
 from opentelemetry.sdk._logs import ReadableLogRecord  # type: ignore[attr-defined]
 from opentelemetry.sdk._logs.export import LogRecordExporter, LogRecordExportResult  # type: ignore[attr-defined]
@@ -18,34 +17,6 @@ from app.telemetry.schema import ensure_telemetry_schema
 # loggers are bridged in setup.py). This prevents recursive writes.
 _logger = logging.getLogger("telemetry.exporters")
 
-
-def _dispatch(event_type: str, rows: list[tuple[Any, ...]]) -> None:
-    """Notify real-time subscribers. Silently ignored if no subscribers."""
-    try:
-        from app.telemetry.dispatcher import notify
-
-        cols = _SPAN_COLS if event_type == "spans" else _LOG_COLS
-        notify(event_type, [dict(zip(cols, r, strict=False)) for r in rows])
-    except Exception:
-        pass
-
-
-_SPAN_COLS = (
-    "trace_id",
-    "span_id",
-    "parent_span_id",
-    "name",
-    "kind",
-    "service_name",
-    "status_code",
-    "status_message",
-    "start_time",
-    "end_time",
-    "duration_ms",
-    "attributes",
-    "events",
-)
-_LOG_COLS = ("timestamp", "trace_id", "span_id", "severity", "body", "attributes", "service_name")
 
 _SPAN_INSERT = """\
 INSERT INTO telemetry.spans (
@@ -139,7 +110,6 @@ class DuckDBSpanExporter(SpanExporter):
 
                     with cursor() as cur:
                         cur.executemany(_SPAN_INSERT, rows)
-                    _dispatch("spans", rows)
                 return SpanExportResult.SUCCESS
         except Exception:
             return SpanExportResult.FAILURE
@@ -205,7 +175,6 @@ class DuckDBLogExporter(LogRecordExporter):
 
                     with cursor() as cur:
                         cur.executemany(_LOG_INSERT, rows)
-                    _dispatch("logs", rows)
                 return LogRecordExportResult.SUCCESS
         except Exception:
             return LogRecordExportResult.FAILURE
