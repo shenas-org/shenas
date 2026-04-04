@@ -36,10 +36,23 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
 
 
 class TestIndex:
+    @staticmethod
+    def _make_fake_ui(tmp_path: Path) -> type:
+        from shenas_pipes.core.abc import UI
+
+        class FakeUI(UI):
+            name = "default"
+            display_name = "Default"
+            static_dir = tmp_path
+            html = "default.html"
+            entrypoint = "default.js"
+
+        return FakeUI
+
     def test_serves_ui_html(self, client: TestClient, tmp_path: Path) -> None:
         html_file = tmp_path / "default.html"
         html_file.write_text("<html><body>test ui</body></html>")
-        fake_ui = [{"name": "default", "version": "1.0", "static_dir": tmp_path, "html": "default.html"}]
+        fake_ui = [self._make_fake_ui(tmp_path)]
         with patch.object(server_module, "_discover_plugins", return_value=fake_ui):
             resp = client.get("/")
         assert resp.status_code == 200
@@ -54,7 +67,7 @@ class TestIndex:
     def test_spa_fallback(self, client: TestClient, tmp_path: Path) -> None:
         html_file = tmp_path / "default.html"
         html_file.write_text("<html><body>spa shell</body></html>")
-        fake_ui = [{"name": "default", "version": "1.0", "static_dir": tmp_path, "html": "default.html"}]
+        fake_ui = [self._make_fake_ui(tmp_path)]
         with patch.object(server_module, "_discover_plugins", return_value=fake_ui):
             resp = client.get("/some/deep/route")
         assert resp.status_code == 200

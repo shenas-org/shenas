@@ -123,10 +123,6 @@ def _load_schema_plugins() -> dict[str, list[str]]:
             obj = ep.load()
             if isinstance(obj, type) and issubclass(obj, Schema) and hasattr(obj, "tables"):
                 result[ep.name] = sorted(obj.tables)
-            elif isinstance(obj, dict):
-                tables = obj.get("tables", [])
-                if tables:
-                    result[ep.name] = sorted(tables)
         except Exception:
             continue
     return result

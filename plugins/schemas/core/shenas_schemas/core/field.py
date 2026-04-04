@@ -19,5 +19,6 @@ class Field:
     category: str | None = None  # "secret", "connection", "schedule", "wellbeing", etc.
     interpretation: str | None = None
     default: str | None = None  # default value (for config fields)
+    db_default: str | None = None  # SQL DEFAULT expression (e.g. "current_timestamp", "'{}'")
     ui_widget: str | None = None  # "text", "number", "toggle", "password", "select", "textarea"
     options: tuple[str, ...] | None = None  # choices for select widgets

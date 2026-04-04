@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 import json
 import logging
 import subprocess
@@ -40,9 +39,6 @@ NAMESPACES = {
     "theme": "shenas_themes",
 }
 
-# Standard metadata dict names exported by each plugin type
-_META_ATTRS = ("COMPONENT", "UI", "SCHEMA", "PLUGIN", "THEME")
-
 
 def _validate_kind(kind: str) -> None:
     if kind not in VALID_KINDS:
@@ -53,17 +49,29 @@ def _is_internal(kind: str, name: str) -> bool:
     """Check if a plugin is internal (hidden from list/add/remove/UI)."""
     if name == "core":
         return True
-    namespace = NAMESPACES.get(kind)
-    if not namespace:
+    from importlib.metadata import entry_points as _ep
+
+    from shenas_pipes.core.abc import Plugin
+
+    _kind_to_group = {
+        "pipe": "shenas.pipes",
+        "schema": "shenas.schemas",
+        "component": "shenas.components",
+        "ui": "shenas.ui",
+        "theme": "shenas.themes",
+    }
+    group = _kind_to_group.get(kind)
+    if not group:
         return False
-    try:
-        mod = importlib.import_module(f"{namespace}.{name}")
-        for attr in _META_ATTRS:
-            meta = getattr(mod, attr, None)
-            if isinstance(meta, dict) and meta.get("internal"):
-                return True
-    except (ImportError, ModuleNotFoundError):
-        pass
+    for ep in _ep(group=group):
+        if ep.name == name:
+            try:
+                obj = ep.load()
+                if isinstance(obj, type) and issubclass(obj, Plugin):
+                    return obj.internal
+            except Exception:
+                pass
+            break
     return False
 
 
@@ -324,16 +332,31 @@ def _plugin_commands(kind: str, name: str) -> list[str]:
         return commands
 
 
-def _load_plugin_module(kind: str, name: str) -> Any:
-    """Try to import a plugin module (cli first, then __init__)."""
-    namespace = NAMESPACES[kind]
-    py_name = name.replace("-", "_")
-    for mod_suffix in ("cli", ""):
-        mod_name = f"{namespace}.{py_name}.{mod_suffix}".rstrip(".")
-        try:
-            return importlib.import_module(mod_name)
-        except (ImportError, ModuleNotFoundError):
-            continue
+def _load_plugin_class(kind: str, name: str) -> type | None:
+    """Load a plugin ABC class from its entry point."""
+    from importlib.metadata import entry_points as _ep
+
+    from shenas_pipes.core.abc import Plugin
+
+    _kind_to_group = {
+        "pipe": "shenas.pipes",
+        "schema": "shenas.schemas",
+        "component": "shenas.components",
+        "ui": "shenas.ui",
+        "theme": "shenas.themes",
+    }
+    group = _kind_to_group.get(kind)
+    if not group:
+        return None
+    for ep in _ep(group=group):
+        if ep.name == name:
+            try:
+                obj = ep.load()
+                if isinstance(obj, type) and issubclass(obj, Plugin):
+                    return obj
+            except Exception:
+                pass
+            break
     return None
 
 
@@ -347,18 +370,9 @@ def _plugin_display_name(kind: str, name: str) -> str:
         except Exception:
             pass
 
-    mod = _load_plugin_module(kind, name)
-    if mod:
-        for attr in ("DISPLAY_NAME", "PIPE_DISPLAY_NAME"):
-            val = getattr(mod, attr, None)
-            if val:
-                return val
-        for attr in _META_ATTRS:
-            meta = getattr(mod, attr, None)
-            if isinstance(meta, dict) and meta.get("display_name"):
-                return meta["display_name"]
-            if isinstance(meta, type) and hasattr(meta, "display_name"):
-                return meta.display_name
+    plugin_cls = _load_plugin_class(kind, name)
+    if plugin_cls:
+        return getattr(plugin_cls, "display_name", "")
     return ""
 
 
@@ -374,18 +388,11 @@ def _plugin_description(kind: str, name: str) -> str:
         except Exception:
             pass
 
-    mod = _load_plugin_module(kind, name)
-    if mod:
-        for attr in ("DESCRIPTION", "PIPE_DESCRIPTION"):
-            val = getattr(mod, attr, None)
-            if val:
-                return val
-        for attr in _META_ATTRS:
-            meta = getattr(mod, attr, None)
-            if isinstance(meta, dict) and meta.get("description"):
-                return meta["description"]
-            if isinstance(meta, type) and hasattr(meta, "description"):
-                return meta.description
+    plugin_cls = _load_plugin_class(kind, name)
+    if plugin_cls:
+        desc = getattr(plugin_cls, "description", "")
+        if desc:
+            return desc
 
     prefix = _prefix(kind)
     pkg_name = f"{prefix}{name}"

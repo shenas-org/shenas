@@ -12,15 +12,90 @@ import contextlib
 import os
 import secrets
 import threading
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 import duckdb
+
+from shenas_schemas.core.field import Field
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
 DB_PATH = Path("data") / "shenas.duckdb"
+
+
+# -- System table dataclasses (DDL generated from these) ----------------------
+
+
+@dataclass
+class _TransformRow:
+    __table__: ClassVar[str] = "transforms"
+    __pk__: ClassVar[tuple[str, ...]] = ("id",)
+
+    id: Annotated[
+        int, Field(db_type="INTEGER", description="Transform ID", db_default="nextval('shenas_system.transform_seq')")
+    ] = 0
+    source_duckdb_schema: Annotated[str, Field(db_type="VARCHAR", description="Source schema")] = ""
+    source_duckdb_table: Annotated[str, Field(db_type="VARCHAR", description="Source table")] = ""
+    target_duckdb_schema: Annotated[str, Field(db_type="VARCHAR", description="Target schema")] = ""
+    target_duckdb_table: Annotated[str, Field(db_type="VARCHAR", description="Target table")] = ""
+    source_plugin: Annotated[str, Field(db_type="VARCHAR", description="Source plugin name")] = ""
+    description: Annotated[str, Field(db_type="VARCHAR", description="Transform description", db_default="''")] | None = None
+    sql: Annotated[str, Field(db_type="TEXT", description="Transform SQL")] = ""
+    is_default: Annotated[bool, Field(db_type="BOOLEAN", description="Is a default transform", db_default="FALSE")] | None = (
+        None
+    )
+    enabled: Annotated[bool, Field(db_type="BOOLEAN", description="Is enabled", db_default="TRUE")] | None = None
+    added_at: Annotated[str, Field(db_type="TIMESTAMP", description="When added", db_default="current_timestamp")] | None = (
+        None
+    )
+    updated_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last updated")] | None = None
+    status_changed_at: Annotated[str, Field(db_type="TIMESTAMP", description="When status changed")] | None = None
+
+
+@dataclass
+class _PluginRow:
+    __table__: ClassVar[str] = "plugins"
+    __pk__: ClassVar[tuple[str, ...]] = ("kind", "name")
+
+    kind: Annotated[str, Field(db_type="VARCHAR", description="Plugin kind")] = ""
+    name: Annotated[str, Field(db_type="VARCHAR", description="Plugin name")] = ""
+    enabled: Annotated[bool, Field(db_type="BOOLEAN", description="Is enabled", db_default="TRUE")] = True
+    added_at: Annotated[str, Field(db_type="TIMESTAMP", description="When added", db_default="current_timestamp")] | None = (
+        None
+    )
+    updated_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last updated")] | None = None
+    status_changed_at: Annotated[str, Field(db_type="TIMESTAMP", description="When status changed")] | None = None
+    synced_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last synced")] | None = None
+
+
+@dataclass
+class _WorkspaceRow:
+    __table__: ClassVar[str] = "workspace"
+    __pk__: ClassVar[tuple[str, ...]] = ("id",)
+
+    id: Annotated[int, Field(db_type="INTEGER", description="Row ID")] = 1
+    state: Annotated[str, Field(db_type="VARCHAR", description="Workspace state JSON", db_default="'{}'")] = "{}"
+    updated_at: (
+        Annotated[str, Field(db_type="TIMESTAMP", description="When last updated", db_default="current_timestamp")] | None
+    ) = None
+
+
+@dataclass
+class _HotkeyRow:
+    __table__: ClassVar[str] = "hotkeys"
+    __pk__: ClassVar[tuple[str, ...]] = ("action_id",)
+
+    action_id: Annotated[str, Field(db_type="VARCHAR", description="Action identifier")] = ""
+    binding: Annotated[str, Field(db_type="VARCHAR", description="Key binding", db_default="''")] = ""
+    updated_at: (
+        Annotated[str, Field(db_type="TIMESTAMP", description="When last updated", db_default="current_timestamp")] | None
+    ) = None
+
+
+_SYSTEM_TABLES: list[type] = [_TransformRow, _PluginRow, _WorkspaceRow, _HotkeyRow]
 
 _con: duckdb.DuckDBPyConnection | None = None
 _lock = threading.RLock()
@@ -89,70 +164,11 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:  # noqa: ARG0
 
 def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     """Create system tables if they don't exist."""
-    con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
-    _ensure_plugin_table(con)
-    _ensure_transforms_table(con)
-    _ensure_workspace_table(con)
-    _ensure_hotkeys_table(con)
+    from shenas_schemas.core.ddl import ensure_schema
 
-
-def _ensure_transforms_table(con: duckdb.DuckDBPyConnection) -> None:
-    """Create the transforms table."""
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS shenas_system.transforms (
-            id INTEGER PRIMARY KEY DEFAULT nextval('shenas_system.transform_seq'),
-            source_duckdb_schema VARCHAR NOT NULL,
-            source_duckdb_table VARCHAR NOT NULL,
-            target_duckdb_schema VARCHAR NOT NULL,
-            target_duckdb_table VARCHAR NOT NULL,
-            source_plugin VARCHAR NOT NULL,
-            description VARCHAR DEFAULT '',
-            sql TEXT NOT NULL,
-            is_default BOOLEAN DEFAULT FALSE,
-            enabled BOOLEAN DEFAULT TRUE,
-            added_at TIMESTAMP DEFAULT current_timestamp,
-            updated_at TIMESTAMP,
-            status_changed_at TIMESTAMP
-        )
-    """)
-    # Add description if missing (table may predate this column)
-    cols = {
-        r[0]
-        for r in con.execute(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_schema = 'shenas_system' AND table_name = 'transforms'"
-        ).fetchall()
-    }
-    if "description" not in cols:
-        con.execute("ALTER TABLE shenas_system.transforms ADD COLUMN description VARCHAR DEFAULT ''")
-
-
-def _ensure_plugin_table(con: duckdb.DuckDBPyConnection) -> None:
-    """Create the plugin state table if it doesn't exist."""
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS shenas_system.plugins (
-            kind VARCHAR NOT NULL,
-            name VARCHAR NOT NULL,
-            enabled BOOLEAN NOT NULL DEFAULT TRUE,
-            added_at TIMESTAMP DEFAULT current_timestamp,
-            updated_at TIMESTAMP,
-            status_changed_at TIMESTAMP,
-            PRIMARY KEY (kind, name)
-        )
-    """)
-    # Add status_changed_at if missing (table may predate this column)
-    cols = {
-        r[0]
-        for r in con.execute(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_schema = 'shenas_system' AND table_name = 'plugins'"
-        ).fetchall()
-    }
-    if "status_changed_at" not in cols:
-        con.execute("ALTER TABLE shenas_system.plugins ADD COLUMN status_changed_at TIMESTAMP")
-    if "synced_at" not in cols:
-        con.execute("ALTER TABLE shenas_system.plugins ADD COLUMN synced_at TIMESTAMP")
+    ensure_schema(con, _SYSTEM_TABLES, schema="shenas_system")
+    _seed_default_hotkeys(con)
 
 
 def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
@@ -352,16 +368,6 @@ def is_plugin_enabled(kind: str, name: str) -> bool:
     return state["enabled"]
 
 
-def _ensure_workspace_table(con: duckdb.DuckDBPyConnection) -> None:
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS shenas_system.workspace (
-            id INTEGER PRIMARY KEY DEFAULT 1,
-            state VARCHAR NOT NULL DEFAULT '{}',
-            updated_at TIMESTAMP DEFAULT current_timestamp
-        )
-    """)
-
-
 def get_workspace() -> dict[str, Any]:
     """Get the workspace state. Returns empty dict if not set."""
     import json
@@ -399,14 +405,7 @@ _DEFAULT_HOTKEYS = [
 ]
 
 
-def _ensure_hotkeys_table(con: duckdb.DuckDBPyConnection) -> None:
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS shenas_system.hotkeys (
-            action_id VARCHAR PRIMARY KEY,
-            binding VARCHAR NOT NULL DEFAULT '',
-            updated_at TIMESTAMP DEFAULT current_timestamp
-        )
-    """)
+def _seed_default_hotkeys(con: duckdb.DuckDBPyConnection) -> None:
     row = con.execute("SELECT COUNT(*) FROM shenas_system.hotkeys").fetchone()
     if row and row[0] == 0:
         for action_id, binding in _DEFAULT_HOTKEYS:

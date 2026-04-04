@@ -7,7 +7,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from importlib.metadata import entry_points
 from pathlib import Path as _Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -17,6 +17,8 @@ from app.api import api_router
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+
+    from shenas_pipes.core.abc import StaticPlugin, Theme
 
 
 @asynccontextmanager
@@ -46,32 +48,15 @@ if _vendor_dir.is_dir():
 app.include_router(api_router)
 
 
-def _discover_plugins(group: str, include_internal: bool = True) -> list[dict[str, Any]]:
-    """Discover installed plugins via entry points.
-
-    Supports both ABC classes (StaticPlugin subclasses) and legacy dicts.
-    """
+def _discover_plugins(group: str, include_internal: bool = True) -> list[type[StaticPlugin]]:
+    """Discover installed plugins via entry points."""
     from shenas_pipes.core.abc import StaticPlugin
 
-    plugins: list[dict[str, Any]] = []
+    plugins: list[type[StaticPlugin]] = []
     for ep in entry_points(group=group):
         try:
             obj = ep.load()
-            if isinstance(obj, type) and issubclass(obj, StaticPlugin):
-                plugin = {
-                    "name": obj.name,
-                    "display_name": obj.display_name,
-                    "description": obj.description,
-                    "static_dir": obj.static_dir,
-                    "internal": obj.internal,
-                }
-                # Copy kind-specific attributes
-                for attr in ("css", "html", "entrypoint", "tag"):
-                    if hasattr(obj, attr):
-                        plugin[attr] = getattr(obj, attr)
-                if include_internal or not plugin.get("internal"):
-                    plugins.append(plugin)
-            elif isinstance(obj, dict) and "static_dir" in obj and (include_internal or not obj.get("internal")):
+            if isinstance(obj, type) and issubclass(obj, StaticPlugin) and (include_internal or not obj.internal):
                 plugins.append(obj)
         except Exception:
             pass
@@ -81,12 +66,12 @@ def _discover_plugins(group: str, include_internal: bool = True) -> list[dict[st
 def _mount_static_plugins(group: str, url_prefix: str) -> None:
     """Mount static dirs for plugins discovered via the given entry point group."""
     for plugin in _discover_plugins(group):
-        static_dir = plugin["static_dir"]
+        static_dir = plugin.static_dir
         if static_dir.is_dir():
             app.mount(
-                f"/{url_prefix}/{plugin['name']}",
+                f"/{url_prefix}/{plugin.name}",
                 StaticFiles(directory=str(static_dir)),
-                name=f"{url_prefix}-{plugin['name']}",
+                name=f"{url_prefix}-{plugin.name}",
             )
 
 
@@ -95,15 +80,15 @@ _mount_static_plugins("shenas.ui", "ui")
 _mount_static_plugins("shenas.themes", "themes")
 
 
-def _get_active_theme() -> dict[str, Any] | None:
+def _get_active_theme() -> type[Theme] | None:
     """Find the one explicitly enabled theme. Falls back to --default-theme."""
-    themes = _discover_plugins("shenas.themes")
+    themes = cast("list[type[Theme]]", _discover_plugins("shenas.themes"))
     try:
         from app.db import get_all_plugin_states
 
         states = {s["name"]: s for s in get_all_plugin_states("theme")}
         for plugin in themes:
-            state = states.get(plugin["name"])
+            state = states.get(plugin.name)
             if state and state["enabled"]:
                 return plugin
     except Exception:
@@ -111,16 +96,16 @@ def _get_active_theme() -> dict[str, Any] | None:
     # Fallback: no theme explicitly enabled -- use --default-theme
     fallback = getattr(app.state, "default_theme", "default")
     for plugin in themes:
-        if plugin["name"] == fallback:
+        if plugin.name == fallback:
             return plugin
     return themes[0] if themes else None
 
 
-def _get_active_ui() -> dict[str, Any] | None:
+def _get_active_ui() -> type[StaticPlugin] | None:
     """Find the active UI plugin."""
     ui_name = app.state.ui_name
     for plugin in _discover_plugins("shenas.ui"):
-        if plugin["name"] == ui_name:
+        if plugin.name == ui_name:
             return plugin
     return None
 
@@ -151,13 +136,13 @@ def _serve_ui_html() -> HTMLResponse:
     """Read and serve the active UI plugin's HTML from disk, or a fallback."""
     ui = _get_active_ui()
     if ui:
-        static_dir = ui["static_dir"]
-        html_file = static_dir / ui.get("html", "index.html")
+        static_dir = ui.static_dir
+        html_file = static_dir / getattr(ui, "html", "index.html")
         if html_file.exists():
             content = html_file.read_text()
             theme = _get_active_theme()
-            if theme and theme.get("css"):
-                css_link = f'<link rel="stylesheet" href="/themes/{theme["name"]}/{theme["css"]}" data-shenas-theme>'
+            if theme and getattr(theme, "css", None):
+                css_link = f'<link rel="stylesheet" href="/themes/{theme.name}/{theme.css}" data-shenas-theme>'
                 content = content.replace("</head>", f"  {css_link}\n  </head>")
             return HTMLResponse(content=content)
     return HTMLResponse(content=_FALLBACK_HTML.format(ui_name=app.state.ui_name))
@@ -167,8 +152,8 @@ def _serve_ui_html() -> HTMLResponse:
 def active_theme() -> dict[str, str | None]:
     """Return the active theme name and CSS URL."""
     theme = _get_active_theme()
-    if theme and theme.get("css"):
-        return {"name": theme["name"], "css": f"/themes/{theme['name']}/{theme['css']}"}
+    if theme and getattr(theme, "css", None):
+        return {"name": theme.name, "css": f"/themes/{theme.name}/{theme.css}"}
     return {"name": app.state.default_theme, "css": None}
 
 
@@ -414,14 +399,14 @@ def list_component_metadata() -> list[dict[str, str]]:
     components = _discover_plugins("shenas.components", include_internal=False)
     return [
         {
-            "name": c["name"],
-            "display_name": c.get("display_name", c["name"]),
-            "tag": c.get("tag", f"shenas-{c['name']}"),
-            "js": f"/components/{c['name']}/{c.get('entrypoint', c['name'] + '.js')}",
-            "description": c.get("description", ""),
+            "name": c.name,
+            "display_name": getattr(c, "display_name", c.name),
+            "tag": getattr(c, "tag", f"shenas-{c.name}"),
+            "js": f"/components/{c.name}/{getattr(c, 'entrypoint', c.name + '.js')}",
+            "description": getattr(c, "description", ""),
         }
         for c in components
-        if is_plugin_enabled("component", c["name"])
+        if is_plugin_enabled("component", c.name)
     ]
 
 
