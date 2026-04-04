@@ -1,6 +1,8 @@
 """Tests for the config CRUD API endpoints."""
 
 from collections.abc import Iterator
+from dataclasses import dataclass
+from typing import Annotated, ClassVar
 from unittest.mock import patch
 
 import duckdb
@@ -8,22 +10,28 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.server import app
+from shenas_schemas.core.field import Field
 
 CONFIG_MOD = "shenas_pipes.core.config"
 
 
-# Fake config class for testing
+@dataclass
 class _FakeConfig:
-    __table__ = "pipe_testpipe"
+    __table__: ClassVar[str] = "pipe_testpipe"
+    __pk__: ClassVar[tuple[str, ...]] = ("id",)
+
+    id: Annotated[int, Field(db_type="INTEGER", description="Primary key")] = 1
+    api_key: Annotated[str, Field(db_type="VARCHAR", description="API key", category="secret")] | None = None
+    username: Annotated[str, Field(db_type="VARCHAR", description="Username")] | None = None
 
 
 FAKE_CLASSES = {"pipe_testpipe": _FakeConfig}
 
 FAKE_METADATA = {
     "columns": [
-        {"name": "id", "description": "Primary key"},
-        {"name": "api_key", "description": "API key", "category": "secret"},
-        {"name": "username", "description": "Username"},
+        {"name": "id", "description": "Primary key", "db_type": "INTEGER"},
+        {"name": "api_key", "description": "API key", "category": "secret", "db_type": "VARCHAR"},
+        {"name": "username", "description": "Username", "db_type": "VARCHAR"},
     ]
 }
 

@@ -111,7 +111,17 @@ class TestDbStatus:
         assert "db_path" in data
 
     def test_db_status_with_tables(self, client: TestClient) -> None:
-        with patch("app.api.db.DB_PATH") as mock_path:
+        fake_schemas = {"metrics": ["daily_hrv", "daily_sleep"], "garmin": ["activities"]}
+        with (
+            patch("app.api.db.DB_PATH") as mock_path,
+            patch("app.api.db._discover_schemas", return_value=fake_schemas),
+            patch(
+                "app.api.db._table_stats",
+                side_effect=lambda _c, s, n: __import__("app.models", fromlist=["TableStats"]).TableStats(
+                    name=n, rows=10, cols=5
+                ),
+            ),
+        ):
             mock_path.exists.return_value = True
             mock_path.stat.return_value.st_size = 1024 * 1024
             mock_path.__str__ = lambda _: "data/shenas.duckdb"

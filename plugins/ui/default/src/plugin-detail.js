@@ -11,8 +11,6 @@ class PluginDetail extends LitElement {
     _info: { state: true },
     _loading: { state: true },
     _message: { state: true },
-    _hasConfig: { state: true },
-    _hasAuth: { state: true },
     _tables: { state: true },
     _syncing: { state: true },
     _schemaTransforms: { state: true },
@@ -142,8 +140,6 @@ class PluginDetail extends LitElement {
     this._info = null;
     this._loading = true;
     this._message = null;
-    this._hasConfig = false;
-    this._hasAuth = false;
     this._tables = [];
     this._syncing = false;
     this._schemaTransforms = [];
@@ -164,11 +160,7 @@ class PluginDetail extends LitElement {
     this._message = null;
     this._info = await apiFetch(this.apiBase, `/plugins/${this.kind}/${this.name}/info`);
     const needsDb = this.kind === "pipe" || this.kind === "schema";
-    const [configItems, authData, db, ownership, allTransforms] = await Promise.all([
-      apiFetch(this.apiBase, `/config?kind=${this.kind}&name=${this.name}`),
-      this.kind === "pipe"
-        ? apiFetch(this.apiBase, `/auth/${this.name}/fields`)
-        : null,
+    const [db, ownership, allTransforms] = await Promise.all([
       needsDb ? apiFetch(this.apiBase, `/db/status`) : null,
       this.kind === "schema"
         ? apiFetch(this.apiBase, `/db/schema-plugins`)
@@ -177,8 +169,6 @@ class PluginDetail extends LitElement {
         ? apiFetch(this.apiBase, `/transforms`)
         : null,
     ]);
-    this._hasConfig = configItems && configItems.length > 0 && configItems[0].entries.length > 0;
-    this._hasAuth = !!(authData && ((authData.fields?.length > 0) || authData.instructions));
     const ownedTables = ownership ? (ownership[this.name] || []) : [];
     if (db) {
       if (this.kind === "pipe") {
@@ -265,6 +255,13 @@ class PluginDetail extends LitElement {
     }
   }
 
+  _switchTab(tab) {
+    this.activeTab = tab;
+    const base = `/settings/${this.kind}/${this.name}`;
+    const path = tab === "details" ? base : `${base}/${tab}`;
+    window.history.pushState({}, "", path);
+  }
+
   async _fetchPreview(tableName) {
     this._selectedTable = tableName;
     if (!tableName) { this._previewRows = null; return; }
@@ -327,24 +324,22 @@ class PluginDetail extends LitElement {
 
       <div class="tabs">
         <a class="tab" href="${basePath}" aria-selected=${this.activeTab === "details"}
-          @click=${(e) => { e.preventDefault(); this.activeTab = "details"; }}>Details</a>
-        ${this._hasConfig
-          ? html`<a class="tab" href="${basePath}/config" aria-selected=${this.activeTab === "config"}
-              @click=${(e) => { e.preventDefault(); this.activeTab = "config"; }}>Config</a>`
-          : ""}
-        ${this._hasAuth
-          ? html`<a class="tab" href="${basePath}/auth" aria-selected=${this.activeTab === "auth"}
-              @click=${(e) => { e.preventDefault(); this.activeTab = "auth"; }}>Auth</a>`
-          : ""}
-        <a class="tab" aria-selected=${this.activeTab === "data"}
-          @click=${(e) => { e.preventDefault(); this.activeTab = "data"; }}>Data</a>
-        <a class="tab" aria-selected=${this.activeTab === "logs"}
-          @click=${(e) => { e.preventDefault(); this.activeTab = "logs"; }}>Logs</a>
+          @click=${(e) => { e.preventDefault(); this._switchTab("details"); }}>Details</a>
+        <a class="tab" href="${basePath}/config" aria-selected=${this.activeTab === "config"}
+          @click=${(e) => { e.preventDefault(); this._switchTab("config"); }}>Config</a>
+        ${this.kind === "pipe" ? html`
+          <a class="tab" href="${basePath}/auth" aria-selected=${this.activeTab === "auth"}
+            @click=${(e) => { e.preventDefault(); this._switchTab("auth"); }}>Auth</a>
+        ` : ""}
+        <a class="tab" href="${basePath}/data" aria-selected=${this.activeTab === "data"}
+          @click=${(e) => { e.preventDefault(); this._switchTab("data"); }}>Data</a>
+        <a class="tab" href="${basePath}/logs" aria-selected=${this.activeTab === "logs"}
+          @click=${(e) => { e.preventDefault(); this._switchTab("logs"); }}>Logs</a>
       </div>
 
-      ${this.activeTab === "config" && this._hasConfig
+      ${this.activeTab === "config"
         ? html`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`
-        : this.activeTab === "auth" && this._hasAuth
+        : this.activeTab === "auth"
           ? html`<shenas-auth api-base="${this.apiBase}" pipe-name="${this.name}"></shenas-auth>`
           : this.activeTab === "data"
             ? this._renderData()

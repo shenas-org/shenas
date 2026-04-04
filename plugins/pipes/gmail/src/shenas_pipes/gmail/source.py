@@ -72,8 +72,8 @@ def _batch_get_messages(service: Any, msg_ids: list[str]) -> list[dict[str, Any]
     return results
 
 
-BATCH_SIZE = 50
-PAGE_DELAY = 2
+BATCH_SIZE = 25
+PAGE_DELAY = 3
 
 
 def message_pages(service: Any, query: str = "") -> Iterator[list[dict[str, Any]]]:
@@ -81,7 +81,7 @@ def message_pages(service: Any, query: str = "") -> Iterator[list[dict[str, Any]
     page_token: str | None = None
     page_num = 0
     while True:
-        params: dict[str, Any] = {"userId": "me", "maxResults": BATCH_SIZE}
+        params: dict[str, Any] = {"userId": "me", "maxResults": 25}
         if query:
             params["q"] = query
         if page_token:

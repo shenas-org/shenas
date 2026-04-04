@@ -346,6 +346,7 @@ class LogsPage extends LitElement {
         </div>
         ${expanded ? html`
           <div class="detail">
+            <div style="white-space:pre-wrap; word-break:break-word; margin-bottom:0.5rem">${log.body || ""}</div>
             ${this._detailRow("Service", log.service_name)}
             ${this._detailRow("Trace ID", log.trace_id)}
             ${this._detailRow("Span ID", log.span_id)}

@@ -17,8 +17,6 @@ from googleapiclient.discovery import build
 if TYPE_CHECKING:
     from googleapiclient.discovery import Resource
 
-KEYRING_SERVICE = "shenas"
-
 # Shared state for multi-step OAuth flows (e.g. URL passback).
 # Keys are pipe names, values are dicts with thread + state.
 pending_oauth: dict[str, dict[str, Any]] = {}
@@ -45,6 +43,7 @@ class GoogleAuth:
         api_name: str,
         api_version: str,
         *,
+        auth_cls: type,
         static_discovery: bool = True,
     ) -> None:
         self.name: str = name
@@ -52,7 +51,7 @@ class GoogleAuth:
         self.api_name: str = api_name
         self.api_version: str = api_version
         self.static_discovery: bool = static_discovery
-        self.keyring_key: str = f"{name}_token"
+        self.auth_cls: type = auth_cls
 
     def _get_client_config(self) -> dict[str, Any]:
         env_prefix = f"SHENAS_{self.name.upper()}"
@@ -69,27 +68,25 @@ class GoogleAuth:
         }
 
     def _get_stored_token(self) -> Credentials | None:
-        try:
-            import keyring
+        from shenas_pipes.core.auth import get_auth
+        from shenas_pipes.core.db import connect
 
-            data = keyring.get_password(KEYRING_SERVICE, self.keyring_key)
-            if data:
-                return Credentials.from_authorized_user_info(json.loads(data), self.scopes)
-        except Exception:
-            pass
+        row = get_auth(connect(), self.auth_cls)
+        if row and row.get("token"):
+            return Credentials.from_authorized_user_info(json.loads(row["token"]), self.scopes)
         return None
 
     def _store_token(self, creds: Credentials) -> None:
-        import keyring
+        self._store_token_str(creds.to_json())
 
-        try:
-            keyring.delete_password(KEYRING_SERVICE, self.keyring_key)
-        except Exception:
-            pass
-        keyring.set_password(KEYRING_SERVICE, self.keyring_key, creds.to_json())
+    def _store_token_str(self, token_json: str) -> None:
+        from shenas_pipes.core.auth import set_auth
+        from shenas_pipes.core.db import connect
+
+        set_auth(connect(), self.auth_cls, token=token_json)
 
     def build_client(self, run_auth_flow: bool = False) -> Resource:
-        """Build a Google API service from keyring tokens or OAuth flow."""
+        """Build a Google API service from stored tokens or OAuth flow."""
         creds = self._get_stored_token()
 
         if creds and creds.valid:
