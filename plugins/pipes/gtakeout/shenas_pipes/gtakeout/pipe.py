@@ -57,6 +57,10 @@ class GTakeoutPipe(Pipe):
             ),
         ] = ""
 
+    @property
+    def auth_fields(self) -> list:  # No user input -- browser OAuth
+        return []
+
     auth_instructions = "Click Authenticate to sign in with your Google account."
 
     def _google_auth(self) -> Any:
