@@ -20,6 +20,7 @@ client = TestClient(app)
 def _mock_plugin_state():
     with (
         patch("app.api.plugins.get_plugin_state", return_value=None),
+        patch("app.api.plugins._pipe_status", return_value=(True, None)),
         patch("app.db.upsert_plugin_state"),
         patch("app.db.remove_plugin_state"),
         patch("app.db.is_plugin_enabled", return_value=True),

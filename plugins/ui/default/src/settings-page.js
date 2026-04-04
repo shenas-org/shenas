@@ -345,6 +345,13 @@ class SettingsPage extends LitElement {
     `;
   }
 
+  _formatFreq(m) {
+    if (m >= 1440 && m % 1440 === 0) return `${m / 1440}d`;
+    if (m >= 60 && m % 60 === 0) return `${m / 60}h`;
+    if (m >= 1) return `${m}m`;
+    return `${m * 60}s`;
+  }
+
   _renderKind(kind) {
     const plugins = this._plugins[kind] || [];
     const label = PLUGIN_KINDS.find((k) => k.id === kind)?.label || kind;
@@ -354,8 +361,13 @@ class SettingsPage extends LitElement {
         .columns=${[
           { label: "Name", render: (p) => html`<a href="/settings/${kind}/${p.name}">${p.display_name || p.name}</a>` },
           { key: "version", label: "Version", class: "mono" },
-          { label: "Added", class: "mono", render: (p) => p.added_at ? p.added_at.slice(0, 10) : "" },
-          { label: "Status", render: (p) => html`<status-toggle ?enabled=${p.enabled !== false} toggleable @toggle=${() => this._togglePlugin(kind, p.name, p.enabled !== false)}></status-toggle>` },
+          ...(kind === "pipe" ? [
+            { label: "Sync Freq.", class: "mono", render: (p) => p.sync_frequency ? this._formatFreq(p.sync_frequency) : "" },
+            { label: "Last Synced", class: "mono", render: (p) => p.synced_at ? p.synced_at.slice(0, 16).replace("T", " ") : "never" },
+          ] : []),
+          { label: "Status", render: (p) => kind === "pipe" && p.has_auth === false
+            ? html`<span style="color:var(--shenas-error,#c62828);font-size:0.8rem">Needs Auth</span>`
+            : html`<status-toggle ?enabled=${p.enabled !== false} toggleable @toggle=${() => this._togglePlugin(kind, p.name, p.enabled !== false)}></status-toggle>` },
         ]}
         .rows=${plugins}
         .rowClass=${(p) => p.enabled === false ? "disabled-row" : ""}

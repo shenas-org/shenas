@@ -10,10 +10,11 @@ from typing import Annotated, Any, ClassVar
 
 from garminconnect import Garmin
 
-from shenas_pipes.core.auth import get_auth, set_auth
+from shenas_pipes.core.store import DataclassStore
 from shenas_pipes.core.base_auth import PipeAuth
-from shenas_pipes.core.db import connect
 from shenas_schemas.core.field import Field
+
+_auth = DataclassStore("auth")
 
 # Pending MFA state for multi-step auth flow
 pending_mfa: dict[str, object] = {}
@@ -37,7 +38,7 @@ class GarminAuth(PipeAuth):
 
 def _get_stored_tokens() -> dict[str, Any] | None:
     """Read serialized garth tokens from encrypted DuckDB."""
-    row = get_auth(connect(), GarminAuth)
+    row = _auth.get(GarminAuth)
     if row and row.get("tokens"):
         return json.loads(row["tokens"])
     return None
@@ -49,7 +50,7 @@ def _store_tokens(token_dir: Path) -> None:
     for f in token_dir.iterdir():
         if f.suffix == ".json":
             tokens[f.name] = f.read_text()
-    set_auth(connect(), GarminAuth, tokens=json.dumps(tokens))
+    _auth.set(GarminAuth, tokens=json.dumps(tokens))
 
 
 def _tokens_to_dir(tokens: dict[str, str]) -> Path:

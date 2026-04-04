@@ -7,10 +7,11 @@ from typing import Annotated, ClassVar
 
 from lunchable import LunchMoney
 
-from shenas_pipes.core.auth import get_auth, set_auth
+from shenas_pipes.core.store import DataclassStore
 from shenas_pipes.core.base_auth import PipeAuth
-from shenas_pipes.core.db import connect
 from shenas_schemas.core.field import Field
+
+_auth = DataclassStore("auth")
 
 AUTH_FIELDS: list[dict[str, str | bool]] = [
     {"name": "api_key", "prompt": "API key", "hide": True},
@@ -28,7 +29,7 @@ class LunchMoneyAuth(PipeAuth):
 
 def _get_stored_key() -> str | None:
     """Read API key from encrypted DuckDB."""
-    row = get_auth(connect(), LunchMoneyAuth)
+    row = _auth.get(LunchMoneyAuth)
     if row and row.get("api_key"):
         return row["api_key"]
     return None
@@ -36,7 +37,7 @@ def _get_stored_key() -> str | None:
 
 def _store_key(api_key: str) -> None:
     """Write API key to encrypted DuckDB."""
-    set_auth(connect(), LunchMoneyAuth, api_key=api_key)
+    _auth.set(LunchMoneyAuth, api_key=api_key)
 
 
 def build_client(api_key: str | None = None, **_kwargs: str) -> LunchMoney:
