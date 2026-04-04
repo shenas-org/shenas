@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
 import subprocess
 import sys
-import threading
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException
@@ -26,27 +24,6 @@ router = APIRouter(prefix="/sync", tags=["sync"])
 log = logging.getLogger(f"shenas.{__name__}")
 
 PIPE_PREFIX = "shenas-pipe-"
-
-# Per-pipe sync lock to prevent concurrent syncs of the same pipe
-_sync_locks: dict[str, threading.Lock] = {}
-_sync_locks_guard = threading.Lock()
-
-
-def acquire_sync_lock(name: str) -> bool:
-    """Try to acquire the sync lock for a pipe. Returns False if already locked."""
-    with _sync_locks_guard:
-        if name not in _sync_locks:
-            _sync_locks[name] = threading.Lock()
-    return _sync_locks[name].acquire(blocking=False)
-
-
-def release_sync_lock(name: str) -> None:
-    """Release the sync lock for a pipe."""
-    with _sync_locks_guard:
-        lock = _sync_locks.get(name)
-    if lock is not None:
-        with contextlib.suppress(RuntimeError):
-            lock.release()
 
 
 def _sse_event(event: str, data: dict[str, str]) -> str:
@@ -76,32 +53,24 @@ def _installed_pipe_names() -> list[str]:
     return names
 
 
-def _mark_synced(pipe_name: str) -> None:
-    from app.db import update_synced_at
-
-    try:
-        update_synced_at("pipe", pipe_name)
-    except Exception:
-        logging.getLogger(__name__).exception("Failed to update synced_at for %s", pipe_name)
-
-
 def _run_pipe_sync(
-    ep_name: str,
     pipe: Pipe,
     full_refresh: bool,
 ) -> Iterator[str]:
-    """Run a single pipe's sync command, yielding SSE events."""
-    log.info("Sync started: %s", ep_name)
-    yield _sse_event("progress", {"pipe": ep_name, "message": "starting sync"})
+    """Run a single pipe's sync, yielding SSE events.
+
+    Locking and synced_at bookkeeping are handled by the Pipe ABC.
+    """
+    log.info("Sync started: %s", pipe.name)
+    yield _sse_event("progress", {"pipe": pipe.name, "message": "starting sync"})
 
     try:
         pipe.sync(full_refresh=full_refresh)
-        _mark_synced(ep_name)
-        log.info("Sync complete: %s", ep_name)
-        yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
+        log.info("Sync complete: %s", pipe.name)
+        yield _sse_event("complete", {"pipe": pipe.name, "message": "done"})
     except Exception as exc:
-        log.exception("Sync failed: %s", ep_name)
-        yield _sse_event("error", {"pipe": ep_name, "message": str(exc)})
+        log.exception("Sync failed: %s", pipe.name)
+        yield _sse_event("error", {"pipe": pipe.name, "message": str(exc)})
 
 
 @router.post("")
@@ -109,17 +78,23 @@ def sync_all() -> StreamingResponse:
     def _stream() -> Iterator[str]:
         failed = []
         for name in _installed_pipe_names():
-            if not acquire_sync_lock(name):
+            try:
+                pipe = _load_pipe(name)
+            except Exception as exc:
+                yield _sse_event("error", {"pipe": name, "message": str(exc)})
+                failed.append(name)
+                continue
+
+            if not pipe.acquire_sync_lock():
                 yield _sse_event("progress", {"pipe": name, "message": "skipping: sync already in progress"})
                 continue
             try:
-                pipe = _load_pipe(name)
-                yield from _run_pipe_sync(name, pipe, full_refresh=False)
+                yield from _run_pipe_sync(pipe, full_refresh=False)
             except Exception as exc:
                 yield _sse_event("error", {"pipe": name, "message": str(exc)})
                 failed.append(name)
             finally:
-                release_sync_lock(name)
+                pipe.release_sync_lock()
 
         if failed:
             yield _sse_event("error", {"message": f"Failed: {', '.join(failed)}"})
@@ -133,22 +108,21 @@ def sync_all() -> StreamingResponse:
 def sync_pipe(name: str, body: SyncRequest | None = None) -> StreamingResponse:
     body = body or SyncRequest()
 
-    # Verify the pipe is installed
     if name not in _installed_pipe_names():
         raise HTTPException(status_code=404, detail=f"Pipe not found: {name}")
 
-    # Acquire lock before starting the stream so callers get HTTP 409, not an SSE error
-    if not acquire_sync_lock(name):
+    pipe = _load_pipe(name)
+
+    if not pipe.acquire_sync_lock():
         raise HTTPException(status_code=409, detail="Sync already in progress")
 
     def _stream() -> Iterator[str]:
         try:
-            pipe = _load_pipe(name)
-            yield from _run_pipe_sync(name, pipe, body.full_refresh)
+            yield from _run_pipe_sync(pipe, body.full_refresh)
         except Exception as exc:
             yield _sse_event("error", {"pipe": name, "message": str(exc)})
         finally:
-            release_sync_lock(name)
+            pipe.release_sync_lock()
 
     return StreamingResponse(_stream(), media_type="text/event-stream")
 

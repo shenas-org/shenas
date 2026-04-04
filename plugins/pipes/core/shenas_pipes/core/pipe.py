@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import abc
+import contextlib
 import dataclasses
 import logging
+import threading
 from typing import Any, ClassVar
 
 from shenas_plugins.core.base_auth import PipeAuth
@@ -30,6 +32,10 @@ class Pipe(Plugin):
 
     auth_instructions: ClassVar[str] = ""
     primary_table: ClassVar[str] = ""
+
+    # Class-level sync lock: prevents concurrent syncs of the same pipe
+    _sync_locks: ClassVar[dict[str, threading.Lock]] = {}
+    _sync_locks_guard: ClassVar[threading.Lock] = threading.Lock()
 
     # Populated by __init__
     _config_store: DataclassStore
@@ -187,13 +193,38 @@ class Pipe(Plugin):
         """Build an API client from stored credentials. Override for auth."""
         return None
 
+    def acquire_sync_lock(self) -> bool:
+        """Try to acquire the sync lock for this pipe. Returns False if already locked."""
+        with self._sync_locks_guard:
+            if self.name not in self._sync_locks:
+                self._sync_locks[self.name] = threading.Lock()
+        return self._sync_locks[self.name].acquire(blocking=False)
+
+    def release_sync_lock(self) -> None:
+        """Release the sync lock for this pipe."""
+        with self._sync_locks_guard:
+            lock = self._sync_locks.get(self.name)
+        if lock is not None:
+            with contextlib.suppress(RuntimeError):
+                lock.release()
+
+    def _mark_synced(self) -> None:
+        """Update the synced_at timestamp in the plugin state table."""
+        try:
+            from app.db import update_synced_at
+
+            update_synced_at("pipe", self.name)
+        except Exception:
+            logger.exception("Failed to update synced_at for %s", self.name)
+
     def sync(self, *, full_refresh: bool = False, **_kwargs: Any) -> None:
-        """Default sync: build_client -> resources -> run_sync -> transform."""
+        """Default sync: build_client -> resources -> run_sync -> transform -> mark synced."""
         from shenas_pipes.core.cli import run_sync
 
         client = self.build_client()
         res = self.resources(client)
         run_sync(self.name, self.name, res, full_refresh, self._auto_transform)
+        self._mark_synced()
 
     def _auto_transform(self) -> None:
         """Run transforms if this pipe has a transforms.json."""
