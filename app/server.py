@@ -4,11 +4,10 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from importlib.metadata import entry_points
 from pathlib import Path as _Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -16,15 +15,18 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
 
 @asynccontextmanager
 async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-    from app.telemetry.setup import init_telemetry
-
     import asyncio
 
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
     from app.telemetry.dispatcher import set_loop
+    from app.telemetry.setup import init_telemetry
 
     init_telemetry("shenas-server")
     set_loop(asyncio.get_running_loop())
@@ -50,9 +52,8 @@ def _discover_plugins(group: str, include_internal: bool = True) -> list[dict[st
     for ep in entry_points(group=group):
         try:
             plugin = ep.load()
-            if isinstance(plugin, dict) and "static_dir" in plugin:
-                if include_internal or not plugin.get("internal"):
-                    plugins.append(plugin)
+            if isinstance(plugin, dict) and "static_dir" in plugin and (include_internal or not plugin.get("internal")):
+                plugins.append(plugin)
         except Exception:
             pass
     return plugins
@@ -222,7 +223,7 @@ def get_logs(
             params,
         ).fetchall()
         cols = [d[0] for d in cur.description]
-        return [dict(zip(cols, r)) for r in rows]
+        return [dict(zip(cols, r, strict=False)) for r in rows]
     except Exception:
         return []
     finally:
@@ -255,7 +256,7 @@ def get_spans(limit: int = 100, search: str | None = None, pipe: str | None = No
             params,
         ).fetchall()
         cols = [d[0] for d in cur.description]
-        return [dict(zip(cols, r)) for r in rows]
+        return [dict(zip(cols, r, strict=False)) for r in rows]
     except Exception:
         return []
     finally:
@@ -279,7 +280,7 @@ async def stream_logs() -> StreamingResponse:
                     if event["type"] == "logs":
                         for row in event["data"]:
                             yield f"data: {json.dumps(row, default=str)}\n\n"
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield ": keepalive\n\n"
         except asyncio.CancelledError:
             pass
@@ -306,7 +307,7 @@ async def stream_spans() -> StreamingResponse:
                     if event["type"] == "spans":
                         for row in event["data"]:
                             yield f"data: {json.dumps(row, default=str)}\n\n"
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield ": keepalive\n\n"
         except asyncio.CancelledError:
             pass
@@ -412,8 +413,8 @@ def index() -> HTMLResponse:
 
 
 @app.get("/{path:path}", response_class=HTMLResponse, include_in_schema=False)
-def spa_fallback(request: Request, path: str) -> HTMLResponse:
+def spa_fallback(_request: Request, path: str) -> HTMLResponse:
     """SPA catch-all: serve the UI HTML for paths without file extensions."""
-    if "." in path.split("/")[-1]:
+    if "." in path.rsplit("/", maxsplit=1)[-1]:
         return HTMLResponse(status_code=404, content="Not found")
     return _serve_ui_html()

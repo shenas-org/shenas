@@ -5,16 +5,16 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+import repository.main as server_module
 from repository.main import app
 from repository.server import (
     PackageRepository,
     normalize,
     package_name_from_filename,
 )
-import repository.main as server_module
 
 
-@pytest.fixture()
+@pytest.fixture
 def packages_dir(tmp_path: Path) -> Path:
     """Create a temp packages dir with fake wheel and tarball."""
     whl = tmp_path / "my_package-1.0.0-py3-none-any.whl"
@@ -26,7 +26,7 @@ def packages_dir(tmp_path: Path) -> Path:
     return tmp_path
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(packages_dir: Path) -> Iterator[TestClient]:
     """TestClient with initialized repository."""
     server_module._repo = PackageRepository(packages_dir)
@@ -119,7 +119,7 @@ class TestPackageRepository:
         repo = PackageRepository(packages_dir)
         pkg = repo.get_package("my-package")
         assert pkg is not None
-        whl_file = [f for f in pkg.files if f.path.name.endswith(".whl")][0]
+        whl_file = next(f for f in pkg.files if f.path.name.endswith(".whl"))
         expected = hashlib.sha256(b"fake wheel content").hexdigest()
         assert whl_file.sha256 == expected
 

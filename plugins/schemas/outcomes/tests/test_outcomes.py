@@ -55,7 +55,7 @@ class TestIntrospect:
 
     def test_column_metadata(self) -> None:
         meta = table_metadata(DailyOutcome)
-        mood = [c for c in meta["columns"] if c["name"] == "mood"][0]
+        mood = next(c for c in meta["columns"] if c["name"] == "mood")
         assert mood["db_type"] == "INTEGER"
         assert mood.get("value_range") == (0, 9)
         assert "interpretation" in mood

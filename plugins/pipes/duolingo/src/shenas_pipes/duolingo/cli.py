@@ -62,11 +62,10 @@ def sync(
     ]
 
     def _transform() -> None:
-        from shenas_schemas.habits import ensure_schema as ensure_habits
-        from shenas_schemas.outcomes import ensure_schema as ensure_outcomes
-
         from app.transforms import run_transforms, seed_defaults
         from shenas_pipes.core.transform import load_transform_defaults
+        from shenas_schemas.habits import ensure_schema as ensure_habits
+        from shenas_schemas.outcomes import ensure_schema as ensure_outcomes
 
         con = connect()
         ensure_outcomes(con)

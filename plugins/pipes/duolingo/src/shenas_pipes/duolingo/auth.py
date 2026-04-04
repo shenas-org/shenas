@@ -14,8 +14,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
-from shenas_pipes.core.store import DataclassStore
 from shenas_pipes.core.base_auth import PipeAuth
+from shenas_pipes.core.store import DataclassStore
 from shenas_pipes.duolingo.client import DuolingoClient
 from shenas_schemas.core.field import Field
 

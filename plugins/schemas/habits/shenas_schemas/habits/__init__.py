@@ -28,10 +28,10 @@ SCHEMA = {
 __all__ = [
     "ALL_TABLES",
     "CANONICAL_TABLES",
+    "SCHEMA",
     "DailyHabits",
     "Field",
     "MetricProvider",
-    "SCHEMA",
     "ensure_schema",
     "generate_ddl",
     "schema_metadata",

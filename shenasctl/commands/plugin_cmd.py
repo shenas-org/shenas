@@ -165,7 +165,7 @@ def register_plugin_commands(parent_app: typer.Typer, kind: str, panel: str) -> 
         def _default(ctx: typer.Context) -> None:
             if ctx.invoked_subcommand is None:
                 typer.echo(ctx.get_help())
-                raise typer.Exit()
+                raise typer.Exit
 
         if "describe" in commands:
             _add_info(plugin_app, name, kind)

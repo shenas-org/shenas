@@ -105,13 +105,13 @@ class TestDDL:
     def test_nullable_fields_have_no_not_null(self) -> None:
         ddl = generate_ddl(DailyHRV)
         lines = ddl.split("\n")
-        rmssd_line = [line for line in lines if "rmssd" in line][0]
+        rmssd_line = next(line for line in lines if "rmssd" in line)
         assert "NOT NULL" not in rmssd_line
 
     def test_pk_fields_have_not_null(self) -> None:
         ddl = generate_ddl(DailyHRV)
         lines = ddl.split("\n")
-        date_line = [line for line in lines if line.strip().startswith("date ")][0]
+        date_line = next(line for line in lines if line.strip().startswith("date "))
         assert "NOT NULL" in date_line
 
     def test_ensure_schema_creates_tables(self) -> None:
@@ -149,25 +149,25 @@ class TestIntrospect:
 
     def test_column_metadata_has_description(self) -> None:
         meta = table_metadata(DailyHRV)
-        rmssd = [c for c in meta["columns"] if c["name"] == "rmssd"][0]
+        rmssd = next(c for c in meta["columns"] if c["name"] == "rmssd")
         assert "description" in rmssd
         assert "db_type" in rmssd
         assert rmssd["db_type"] == "DOUBLE"
 
     def test_column_metadata_has_unit(self) -> None:
         meta = table_metadata(DailyHRV)
-        rmssd = [c for c in meta["columns"] if c["name"] == "rmssd"][0]
+        rmssd = next(c for c in meta["columns"] if c["name"] == "rmssd")
         assert rmssd.get("unit") == "ms"
 
     def test_column_metadata_has_interpretation(self) -> None:
         meta = table_metadata(DailyHRV)
-        rmssd = [c for c in meta["columns"] if c["name"] == "rmssd"][0]
+        rmssd = next(c for c in meta["columns"] if c["name"] == "rmssd")
         assert "interpretation" in rmssd
 
     def test_nullable_flag(self) -> None:
         meta = table_metadata(DailyHRV)
-        date_col = [c for c in meta["columns"] if c["name"] == "date"][0]
-        rmssd_col = [c for c in meta["columns"] if c["name"] == "rmssd"][0]
+        date_col = next(c for c in meta["columns"] if c["name"] == "date")
+        rmssd_col = next(c for c in meta["columns"] if c["name"] == "rmssd")
         assert date_col["nullable"] is False
         assert rmssd_col["nullable"] is True
 

@@ -196,7 +196,8 @@ class DailyVitals:
                 value_range=(0, 5000),
                 example_value=450,
                 category="activity",
-                interpretation="Higher values indicate more physical activity; varies widely by body size and exercise intensity",
+                interpretation="Higher values indicate more physical activity;"
+                " varies widely by body size and exercise intensity",
             ),
         ]
         | None

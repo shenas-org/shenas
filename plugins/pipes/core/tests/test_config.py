@@ -110,12 +110,12 @@ class TestMetadata:
 
     def test_secret_category(self) -> None:
         meta = config_metadata(SampleConfig)
-        api_key = [c for c in meta["columns"] if c["name"] == "api_key"][0]
+        api_key = next(c for c in meta["columns"] if c["name"] == "api_key")
         assert api_key["category"] == "secret"
         assert api_key["ui_widget"] == "password"
 
     def test_default_value(self) -> None:
         meta = config_metadata(SampleConfig)
-        start = [c for c in meta["columns"] if c["name"] == "start_date"][0]
+        start = next(c for c in meta["columns"] if c["name"] == "start_date")
         assert start.get("default") == "30 days ago"
         assert start["ui_widget"] == "text"

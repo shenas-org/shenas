@@ -15,8 +15,8 @@ import spotipy
 from spotipy.cache_handler import CacheHandler
 from spotipy.oauth2 import SpotifyPKCE
 
-from shenas_pipes.core.store import DataclassStore
 from shenas_pipes.core.base_auth import PipeAuth
+from shenas_pipes.core.store import DataclassStore
 from shenas_schemas.core.field import Field
 
 _auth = DataclassStore("auth")
@@ -177,7 +177,7 @@ def authenticate(credentials: dict[str, str]) -> None:
                     self.send_response(400)
                     self.end_headers()
 
-            def log_message(self, format: str, *args: Any) -> None:
+            def log_message(self, fmt: str, *args: Any) -> None:
                 pass
 
         try:

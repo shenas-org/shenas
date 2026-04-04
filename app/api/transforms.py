@@ -125,7 +125,7 @@ def disable(transform_id: int) -> dict[str, Any]:
 
 
 @router.post("/{transform_id}/test")
-def test(transform_id: int, limit: int = 10) -> list[dict[str, Any]]:
+def test(transform_id: int, limit: int = 10) -> list[dict[str, Any]]:  # noqa: PT028
     """Dry-run a transform's SQL and return preview rows."""
     t = get_transform(transform_id)
     if not t:

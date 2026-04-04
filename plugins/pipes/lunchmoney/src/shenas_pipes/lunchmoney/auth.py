@@ -7,8 +7,8 @@ from typing import Annotated, ClassVar
 
 from lunchable import LunchMoney
 
-from shenas_pipes.core.store import DataclassStore
 from shenas_pipes.core.base_auth import PipeAuth
+from shenas_pipes.core.store import DataclassStore
 from shenas_schemas.core.field import Field
 
 _auth = DataclassStore("auth")

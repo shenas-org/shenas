@@ -6,9 +6,8 @@ import importlib
 
 from fastapi import APIRouter, HTTPException
 
-from shenas_pipes.core.store import DataclassStore
-
 from app.models import ConfigEntry, ConfigItem, ConfigSetRequest, ConfigValueResponse, OkResponse
+from shenas_pipes.core.store import DataclassStore
 
 router = APIRouter(prefix="/config", tags=["config"])
 

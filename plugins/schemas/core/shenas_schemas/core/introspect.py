@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import types
-from typing import Any, Annotated, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
 from shenas_schemas.core.field import Field
 

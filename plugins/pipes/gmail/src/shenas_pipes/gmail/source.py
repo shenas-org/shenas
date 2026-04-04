@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Iterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import dlt
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -55,13 +57,14 @@ def _api_call_with_retry(fn: Any, max_retries: int = 5) -> Any:
                 time.sleep(wait)
             else:
                 raise
+    return None
 
 
 def _batch_get_messages(service: Any, msg_ids: list[str]) -> list[dict[str, Any]]:
     """Fetch multiple messages in a single batch request."""
     results: list[dict[str, Any]] = []
 
-    def _callback(request_id: str, response: Any, exception: Any) -> None:
+    def _callback(_request_id: str, response: Any, exception: Any) -> None:
         if exception is None:
             results.append(response)
 
@@ -107,7 +110,7 @@ def message_pages(service: Any, query: str = "") -> Iterator[list[dict[str, Any]
 def messages(
     service: Any,
     query: str = "",
-    cursor: dlt.sources.incremental[int] = dlt.sources.incremental("internal_date", initial_value=None),
+    _cursor: dlt.sources.incremental[int] = dlt.sources.incremental("internal_date", initial_value=None),
 ) -> Iterator[list[dict[str, Any]]]:
     """Yield Gmail messages in batches for single-resource usage."""
     yield from message_pages(service, query)
@@ -117,5 +120,4 @@ def messages(
 def labels(service: Any) -> Iterator[dict[str, Any]]:
     """Yield all Gmail labels."""
     result = service.users().labels().list(userId="me").execute()
-    for label in result.get("labels", []):
-        yield label
+    yield from result.get("labels", [])

@@ -35,7 +35,7 @@ class TestWeights:
         new_weights = [np.ones_like(w) for w in weights]
         set_weights(model, new_weights)
         restored = get_weights(model)
-        for w, expected in zip(restored, new_weights):
+        for w, expected in zip(restored, new_weights, strict=False):
             np.testing.assert_array_almost_equal(w, expected)
 
 

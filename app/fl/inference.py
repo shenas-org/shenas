@@ -134,17 +134,17 @@ class InferenceEngine:
             resp = httpx.get(f"{self.fl_api_url}/api/fl/tasks", timeout=10.0)
             if resp.status_code != 200:
                 return []
-            for task in resp.json():
-                if task.get("latest_round") is not None:
-                    models.append(
-                        {
-                            "name": task["name"],
-                            "description": task.get("description", ""),
-                            "round": task["latest_round"],
-                            "features": task["features"],
-                            "target": task["target"],
-                        }
-                    )
+            models.extend(
+                {
+                    "name": task["name"],
+                    "description": task.get("description", ""),
+                    "round": task["latest_round"],
+                    "features": task["features"],
+                    "target": task["target"],
+                }
+                for task in resp.json()
+                if task.get("latest_round") is not None
+            )
         except Exception:
             pass
         return models

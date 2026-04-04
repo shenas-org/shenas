@@ -8,7 +8,7 @@ import os
 import sys
 import threading
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -33,7 +33,7 @@ class GoogleAuth:
     Token storage, OAuth flow, and REST auth passback are all handled here.
     """
 
-    AUTH_FIELDS: list[dict[str, str]] = []
+    AUTH_FIELDS: ClassVar[list[dict[str, str]]] = []
     AUTH_INSTRUCTIONS: str = "Click Authenticate to sign in with your Google account."
 
     def __init__(
@@ -110,6 +110,7 @@ class GoogleAuth:
     def authenticate(self, credentials: dict[str, str]) -> None:
         """OAuth2 browser flow with URL passback for the REST auth API."""
         from google_auth_oauthlib.flow import InstalledAppFlow
+
         from shenas_pipes.core.google_auth import pending_oauth
 
         if credentials.get("auth_complete") == "true" and self.name in pending_oauth:

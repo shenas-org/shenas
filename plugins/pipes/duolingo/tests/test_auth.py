@@ -11,9 +11,8 @@ MODULE = "shenas_pipes.duolingo.auth"
 
 class TestBuildClient:
     def test_no_jwt_raises(self) -> None:
-        with patch(f"{MODULE}._get_stored_jwt", return_value=None):
-            with pytest.raises(RuntimeError, match="No JWT token"):
-                build_client()
+        with patch(f"{MODULE}._get_stored_jwt", return_value=None), pytest.raises(RuntimeError, match="No JWT token"):
+            build_client()
 
     def test_returns_client_with_jwt(self) -> None:
         jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjYzMDcyMDAwMDAsImlhdCI6MCwic3ViIjoxMjM0NX0.X"

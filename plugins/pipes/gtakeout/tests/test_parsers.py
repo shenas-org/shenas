@@ -10,7 +10,7 @@ from shenas_pipes.gtakeout.parsers.photos import parse_photos_metadata
 from shenas_pipes.gtakeout.parsers.youtube import parse_search_history, parse_subscriptions, parse_watch_history
 
 
-@pytest.fixture()
+@pytest.fixture
 def tmp(tmp_path: Path) -> Path:
     return tmp_path
 

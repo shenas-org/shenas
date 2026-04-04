@@ -8,16 +8,17 @@ encrypted database -- no second file ATTACH needed.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import secrets
 import threading
 from pathlib import Path
-from typing import Any
-
-import contextlib
-from collections.abc import Generator
+from typing import TYPE_CHECKING, Any
 
 import duckdb
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 DB_PATH = Path("data") / "shenas.duckdb"
 
@@ -54,10 +55,8 @@ def set_db_key(key: str) -> None:
     """Store the database encryption key in the OS keyring."""
     import keyring
 
-    try:
+    with contextlib.suppress(Exception):
         keyring.delete_password("shenas", "db_key")
-    except Exception:
-        pass
     keyring.set_password("shenas", "db_key", key)
 
 
@@ -66,7 +65,7 @@ def generate_db_key() -> str:
     return secrets.token_hex(32)
 
 
-def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
+def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:  # noqa: ARG001
     """Get the shared DuckDB connection.
 
     Uses a single long-lived connection for all operations.
@@ -474,16 +473,14 @@ def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) ->
     with _lock:
         server_con = connect()
 
-        schemas_to_copy = []
         all_schemas = [r[0] for r in mem_con.execute("SELECT schema_name FROM information_schema.schemata").fetchall()]
-        for s in all_schemas:
-            if s in (dataset_name, f"{dataset_name}_staging"):
-                schemas_to_copy.append(s)
+        schemas_to_copy = [s for s in all_schemas if s in (dataset_name, f"{dataset_name}_staging")]
 
         for schema in schemas_to_copy:
             server_con.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
             tables = mem_con.execute(
-                f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}' AND table_catalog = 'memory'"
+                "SELECT table_name FROM information_schema.tables"
+                f" WHERE table_schema = '{schema}' AND table_catalog = 'memory'"
             ).fetchall()
             for (table_name,) in tables:
                 tmp_name = f"_flush_{schema}_{table_name}".replace("-", "_")
