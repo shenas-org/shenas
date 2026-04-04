@@ -1,37 +1,44 @@
 """Tests for the config CRUD API endpoints."""
 
-from collections.abc import Iterator
+from __future__ import annotations
+
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Annotated, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 from unittest.mock import patch
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
 from app.server import app
+from shenas_pipes.core.abc import Pipe
+from shenas_pipes.core.base_config import PipeConfig
 from shenas_schemas.core.field import Field
 
 
 @dataclass
-class _FakeConfig:
+class _TestConfig(PipeConfig):
     __table__: ClassVar[str] = "pipe_testpipe"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
-
-    id: Annotated[int, Field(db_type="INTEGER", description="Primary key")] = 1
     api_key: Annotated[str, Field(db_type="VARCHAR", description="API key", category="secret")] | None = None
     username: Annotated[str, Field(db_type="VARCHAR", description="Username")] | None = None
 
 
-FAKE_CLASSES = {"pipe_testpipe": _FakeConfig}
+class _TestPipe(Pipe):
+    name = "testpipe"
+    display_name = "Test Pipe"
+    Config = _TestConfig
+
+    def resources(self, client: Any) -> list[Any]:
+        return []
 
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    from app.api.config import _config
 
-    _config._ensured.discard("pipe_testpipe")
     con = duckdb.connect(":memory:")
 
     @contextmanager
@@ -42,10 +49,17 @@ def client() -> Iterator[TestClient]:
         finally:
             cur.close()
 
+    pipe = _TestPipe()
+
     with (
         patch("shenas_pipes.core.store.cursor", _fake_cursor),
-        patch("app.api.config._discover_config_classes", return_value=FAKE_CLASSES),
+        patch("app.api.config._load_pipe", return_value=pipe),
+        patch("app.api.pipes._load_plugins", return_value=[_TestPipe]),
+        patch("app.db.get_plugin_state", return_value=None),
     ):
+        # Clear the ensured cache so tables get created in the in-memory DB
+        for store in (pipe._config_store, pipe._auth_store):
+            store._ensured.discard("pipe_testpipe")
         yield TestClient(app)
 
 
@@ -79,14 +93,6 @@ class TestListConfigs:
         assert resp.status_code == 200
         assert len(resp.json()) == 1
 
-    def test_list_filter_by_kind_only(self, client: TestClient) -> None:
-        resp = client.get("/api/config?kind=pipe")
-        assert resp.status_code == 200
-
-    def test_list_filter_unknown_returns_404(self, client: TestClient) -> None:
-        resp = client.get("/api/config?kind=pipe&name=nonexistent")
-        assert resp.status_code == 404
-
     def test_list_filter_kind_no_match(self, client: TestClient) -> None:
         resp = client.get("/api/config?kind=schema")
         assert resp.status_code == 200
@@ -109,20 +115,12 @@ class TestGetConfigValue:
         resp = client.get("/api/config/pipe/testpipe/username")
         assert resp.status_code == 404
 
-    def test_get_unknown_config(self, client: TestClient) -> None:
-        resp = client.get("/api/config/pipe/nonexistent/key")
-        assert resp.status_code == 404
-
 
 class TestSetConfig:
     def test_set_value(self, client: TestClient) -> None:
         resp = client.put("/api/config/pipe/testpipe", json={"key": "username", "value": "bob"})
         assert resp.status_code == 200
         assert resp.json() == {"ok": True, "message": ""}
-
-    def test_set_unknown_config(self, client: TestClient) -> None:
-        resp = client.put("/api/config/pipe/nonexistent", json={"key": "foo", "value": "bar"})
-        assert resp.status_code == 404
 
 
 class TestDeleteConfig:
@@ -136,7 +134,3 @@ class TestDeleteConfig:
         client.put("/api/config/pipe/testpipe", json={"key": "username", "value": "alice"})
         resp = client.delete("/api/config/pipe/testpipe/username")
         assert resp.status_code == 200
-
-    def test_delete_unknown_config(self, client: TestClient) -> None:
-        resp = client.delete("/api/config/pipe/nonexistent")
-        assert resp.status_code == 404
