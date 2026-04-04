@@ -19,7 +19,7 @@ members = [
     "plugins/pipes/*",
     "plugins/schemas/*",
     "plugins/components/*",
-    "plugins/ui/*",
+    "plugins/uis/*",
     "plugins/themes/*",
 ]
 
