@@ -13,6 +13,7 @@ from shenas_schemas.core.field import Field
 class LunchMoneyPipe(Pipe):
     name = "lunchmoney"
     display_name = "Lunch Money"
+    primary_table = "transactions"
     description = "Syncs financial data from Lunch Money.\n\nAuthenticates via API key from Lunch Money Settings > Developers."
 
     @dataclass
