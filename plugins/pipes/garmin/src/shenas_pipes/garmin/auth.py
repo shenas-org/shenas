@@ -1,16 +1,19 @@
-"""Garmin Connect OAuth token management via OS keyring."""
+"""Garmin Connect OAuth token management via encrypted DuckDB."""
 
 from __future__ import annotations
 
 import json
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, ClassVar
 
 from garminconnect import Garmin
 
-KEYRING_SERVICE = "shenas"
-KEYRING_KEY = "garmin_tokens"
+from shenas_pipes.core.auth import get_auth, set_auth
+from shenas_pipes.core.base_auth import PipeAuth
+from shenas_pipes.core.db import connect
+from shenas_schemas.core.field import Field
 
 # Pending MFA state for multi-step auth flow
 pending_mfa: dict[str, object] = {}
@@ -21,32 +24,32 @@ AUTH_FIELDS: list[dict[str, str | bool]] = [
 ]
 
 
-def _get_stored_tokens() -> dict[str, Any] | None:
-    """Read serialized garth tokens from OS keyring."""
-    try:
-        import keyring
+@dataclass
+class GarminAuth(PipeAuth):
+    """Garmin authentication credentials."""
 
-        data = keyring.get_password(KEYRING_SERVICE, KEYRING_KEY)
-        if data:
-            return json.loads(data)
-    except Exception:
-        pass
+    __table__: ClassVar[str] = "pipe_garmin"
+
+    tokens: Annotated[
+        str | None, Field(db_type="VARCHAR", description="JSON blob of garth token files", category="secret")
+    ] = None
+
+
+def _get_stored_tokens() -> dict[str, Any] | None:
+    """Read serialized garth tokens from encrypted DuckDB."""
+    row = get_auth(connect(), GarminAuth)
+    if row and row.get("tokens"):
+        return json.loads(row["tokens"])
     return None
 
 
 def _store_tokens(token_dir: Path) -> None:
-    """Serialize garth token files from a directory into OS keyring."""
-    import keyring
-
+    """Serialize garth token files from a directory into encrypted DuckDB."""
     tokens: dict[str, str] = {}
     for f in token_dir.iterdir():
         if f.suffix == ".json":
             tokens[f.name] = f.read_text()
-    try:
-        keyring.delete_password(KEYRING_SERVICE, KEYRING_KEY)
-    except Exception:
-        pass
-    keyring.set_password(KEYRING_SERVICE, KEYRING_KEY, json.dumps(tokens))
+    set_auth(connect(), GarminAuth, tokens=json.dumps(tokens))
 
 
 def _tokens_to_dir(tokens: dict[str, str]) -> Path:
@@ -58,8 +61,8 @@ def _tokens_to_dir(tokens: dict[str, str]) -> Path:
 
 
 def build_client(email: str | None = None, password: str | None = None, **_kwargs: str) -> Garmin:
-    """Build a Garmin client from keyring tokens or credentials."""
-    # Try keyring tokens first
+    """Build a Garmin client from stored tokens or credentials."""
+    # Try stored tokens first
     stored = _get_stored_tokens()
     if stored:
         tmp_dir = _tokens_to_dir(stored)
@@ -72,7 +75,7 @@ def build_client(email: str | None = None, password: str | None = None, **_kwarg
 
     # Fall back to credential login
     if not email or not password:
-        raise RuntimeError("No valid tokens found. Run 'shenas pipe garmin auth' first.")
+        raise RuntimeError("No valid tokens found. Configure authentication in the Auth tab.")
 
     client = Garmin(email=email, password=password)
     with tempfile.TemporaryDirectory(prefix="garmin_tokens_") as tmp:
@@ -80,16 +83,16 @@ def build_client(email: str | None = None, password: str | None = None, **_kwarg
             client.login(tmp)
         except Exception:
             client.login()
-            client.garth.dump(tmp)
+            client.client.dump(tmp)
         _store_tokens(Path(tmp))
 
     return client
 
 
 def save_tokens_from_client(client: Garmin) -> None:
-    """Save a client's garth tokens to OS keyring."""
+    """Save a client's garth tokens to encrypted DuckDB."""
     with tempfile.TemporaryDirectory(prefix="garmin_tokens_") as tmp:
-        client.garth.dump(tmp)
+        client.client.dump(tmp)
         _store_tokens(Path(tmp))
 
 
@@ -112,9 +115,6 @@ def authenticate(credentials: dict[str, str]) -> None:
         raise ValueError("email and password are required")
 
     client = Garmin(email=email, password=password, return_on_mfa=True)
-    client.garth.sess.headers.update({"User-Agent": BROWSER_UA})
-    client.garth.oauth1_token = None
-    client.garth.oauth2_token = None
 
     result1, result2 = client.login()
 

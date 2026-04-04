@@ -12,12 +12,12 @@ DESCRIPTION = """Syncs daily XP, course progress, and profile data from Duolingo
 
 Duolingo has no official API. This pipe uses the unofficial REST API
 with a JWT token extracted from your browser session. The token is
-long-lived (months) and stored in the OS keyring."""
+long-lived (months) and stored in the database."""
 
 
 @app.command()
 def auth() -> None:
-    """Store a Duolingo JWT token in OS keyring."""
+    """Store a Duolingo JWT token in database."""
     from shenas_pipes.duolingo.auth import AUTH_INSTRUCTIONS, _store_jwt
     from shenas_pipes.duolingo.client import DuolingoClient
 
@@ -34,7 +34,7 @@ def auth() -> None:
             client.close()
         _store_jwt(jwt)
         console.print(f"[green]Authenticated as {name}[/green]")
-        console.print("[green]JWT saved to OS keyring[/green]")
+        console.print("[green]JWT saved to database[/green]")
     except Exception as exc:
         console.print(f"[red]Invalid token:[/red] {exc}")
         raise typer.Exit(code=1)

@@ -1,4 +1,4 @@
-"""Spotify OAuth2 token management via OS keyring.
+"""Spotify OAuth2 token management via encrypted DuckDB.
 
 Uses PKCE (Proof Key for Code Exchange) flow which allows http://localhost
 redirect URIs. No client secret needed -- only a client ID.
@@ -8,11 +8,17 @@ from __future__ import annotations
 
 import json
 import threading
-from typing import Any
+from dataclasses import dataclass
+from typing import Annotated, Any, ClassVar
 
 import spotipy
 from spotipy.cache_handler import CacheHandler
 from spotipy.oauth2 import SpotifyPKCE
+
+from shenas_pipes.core.auth import get_auth, set_auth
+from shenas_pipes.core.base_auth import PipeAuth
+from shenas_pipes.core.db import connect
+from shenas_schemas.core.field import Field
 
 
 class _MemoryCacheHandler(CacheHandler):
@@ -28,8 +34,6 @@ class _MemoryCacheHandler(CacheHandler):
         self.token_info = token_info
 
 
-KEYRING_SERVICE = "shenas"
-KEYRING_KEY = "spotify_tokens"
 REDIRECT_URI = "http://127.0.0.1:8090/callback"
 SCOPES = "user-read-recently-played user-top-read user-library-read"
 
@@ -50,35 +54,36 @@ AUTH_INSTRUCTIONS = (
 _pending_auth: dict[str, Any] = {}
 
 
-def _get_stored_tokens() -> dict[str, Any] | None:
-    """Read tokens from OS keyring."""
-    try:
-        import keyring
+@dataclass
+class SpotifyAuth(PipeAuth):
+    """Spotify authentication credentials."""
 
-        data = keyring.get_password(KEYRING_SERVICE, KEYRING_KEY)
-        if data:
-            return json.loads(data)
-    except Exception:
-        pass
+    __table__: ClassVar[str] = "pipe_spotify"
+
+    tokens: Annotated[
+        str | None,
+        Field(db_type="VARCHAR", description="JSON blob of OAuth2 tokens (access, refresh, client_id)", category="secret"),
+    ] = None
+
+
+def _get_stored_tokens() -> dict[str, Any] | None:
+    """Read tokens from encrypted DuckDB."""
+    row = get_auth(connect(), SpotifyAuth)
+    if row and row.get("tokens"):
+        return json.loads(row["tokens"])
     return None
 
 
 def _store_tokens(tokens: dict[str, Any]) -> None:
-    """Write tokens to OS keyring."""
-    import keyring
-
-    try:
-        keyring.delete_password(KEYRING_SERVICE, KEYRING_KEY)
-    except Exception:
-        pass
-    keyring.set_password(KEYRING_SERVICE, KEYRING_KEY, json.dumps(tokens))
+    """Write tokens to encrypted DuckDB."""
+    set_auth(connect(), SpotifyAuth, tokens=json.dumps(tokens))
 
 
 def build_client() -> spotipy.Spotify:
     """Build a Spotify client from stored tokens, refreshing if needed."""
     tokens = _get_stored_tokens()
     if not tokens or "access_token" not in tokens:
-        raise RuntimeError("No Spotify tokens found. Run 'shenasctl pipe spotify auth' first.")
+        raise RuntimeError("No Spotify tokens found. Configure authentication in the Auth tab.")
 
     cache = _MemoryCacheHandler()
     cache.token_info = {

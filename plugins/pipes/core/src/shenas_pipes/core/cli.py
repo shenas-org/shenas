@@ -50,30 +50,63 @@ def run_sync(
     """
     logger.info("Sync started: %s (dataset=%s, full_refresh=%s)", pipeline_name, dataset_name, full_refresh)
     with tracer.start_as_current_span("pipe.sync", attributes={"pipe.name": pipeline_name, "pipe.dataset": dataset_name}):
+        import threading
+
         import dlt
 
         from shenas_pipes.core.db import DB_PATH, dlt_destination, flush_to_encrypted
 
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-        with tracer.start_as_current_span("pipe.fetch"):
-            logger.info("Fetching data: %s", pipeline_name)
-            dest, mem_con = dlt_destination()
+        refresh = "drop_sources" if full_refresh else None
+        total = len(resources)
 
-            pipeline = dlt.pipeline(
-                pipeline_name=pipeline_name,
-                destination=dest,
-                dataset_name=dataset_name,
-            )
+        for i, resource in enumerate(resources):
+            resource_name = getattr(resource, "name", None) or f"resource_{i}"
+            with tracer.start_as_current_span("pipe.fetch", attributes={"resource": resource_name}):
+                logger.info("Fetching %s (%d/%d): %s", pipeline_name, i + 1, total, resource_name)
+                dest, mem_con = dlt_destination()
 
-            load_info = pipeline.run(resources, refresh="drop_sources" if full_refresh else None)
-            print_load_info(load_info)
-            logger.info("Fetch complete: %s (%d packages)", pipeline_name, len(load_info.load_packages))
+                pipeline = dlt.pipeline(
+                    pipeline_name=pipeline_name,
+                    destination=dest,
+                    dataset_name=dataset_name,
+                )
 
-        with tracer.start_as_current_span("pipe.flush"):
-            logger.info("Flushing to encrypted database: %s", pipeline_name)
-            console.print("Flushing to encrypted database...", style="dim")
-            flush_to_encrypted(mem_con, dataset_name)
+                load_result: list[Any] = []
+                load_error: list[Exception] = []
+
+                def _run(res: Any = resource, ref: str = refresh if i == 0 else None) -> None:
+                    try:
+                        load_result.append(pipeline.run(res, refresh=ref))
+                    except Exception as exc:
+                        load_error.append(exc)
+
+                t = threading.Thread(target=_run, daemon=True)
+                t.start()
+                elapsed = 0
+                while t.is_alive():
+                    t.join(timeout=10)
+                    if t.is_alive():
+                        elapsed += 10
+                        logger.info("Still fetching %s/%s... (%ds elapsed)", pipeline_name, resource_name, elapsed)
+
+                if load_error:
+                    logger.error("Fetch failed for %s/%s: %s", pipeline_name, resource_name, load_error[0])
+                    raise load_error[0]
+                if not load_result:
+                    logger.error("Fetch returned no result for %s/%s", pipeline_name, resource_name)
+                    raise RuntimeError(f"pipeline.run() returned no result for {resource_name}")
+
+                print_load_info(load_result[0])
+                logger.info("Fetch complete: %s/%s", pipeline_name, resource_name)
+
+            with tracer.start_as_current_span("pipe.flush", attributes={"resource": resource_name}):
+                logger.info("Flushing %s/%s to encrypted database", pipeline_name, resource_name)
+                flush_to_encrypted(mem_con, dataset_name)
+
+            # Only apply refresh on the first resource
+            refresh = None
 
         if transform_fn:
             with tracer.start_as_current_span("pipe.transform"):

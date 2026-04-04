@@ -13,6 +13,7 @@ class AuthPage extends LitElement {
     _needsMfa: { state: true },
     _oauthUrl: { state: true },
     _submitting: { state: true },
+    _stored: { state: true },
   };
 
   static styles = [
@@ -35,6 +36,20 @@ class AuthPage extends LitElement {
         margin-top: 0.5rem;
         color: var(--shenas-primary, #0066cc);
       }
+      .stored-creds {
+        margin-bottom: 1rem;
+        padding: 0.6rem 0.8rem;
+        background: var(--shenas-success-bg, #e8f5e9);
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: var(--shenas-success, #2e7d32);
+      }
+      .stored-item {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.15rem 0;
+      }
     `,
   ];
 
@@ -49,6 +64,7 @@ class AuthPage extends LitElement {
     this._needsMfa = false;
     this._oauthUrl = null;
     this._submitting = false;
+    this._stored = [];
   }
 
   willUpdate(changed) {
@@ -66,6 +82,7 @@ class AuthPage extends LitElement {
     if (data) {
       this._fields = data.fields || [];
       this._instructions = data.instructions || "";
+      this._stored = data.stored || [];
     }
     this._loading = false;
   }
@@ -98,6 +115,7 @@ class AuthPage extends LitElement {
       this._message = { type: "success", text: data.message };
       this._needsMfa = false;
       this._oauthUrl = null;
+      this._fetchFields();
     } else if (data.needs_mfa) {
       this._needsMfa = true;
       this._message = { type: "success", text: "MFA code required" };
@@ -117,6 +135,11 @@ class AuthPage extends LitElement {
       <shenas-page ?loading=${this._loading} ?empty=${empty}
         loading-text="Loading auth..." empty-text="No authentication required for this plugin.">
         ${renderMessage(this._message)}
+        ${this._stored.length > 0
+          ? html`<div class="stored-creds">
+              ${this._stored.map((s) => html`<div class="stored-item">&#10003; ${s} configured</div>`)}
+            </div>`
+          : ""}
         ${this._instructions
           ? html`<div class="instructions">${this._instructions}</div>`
           : ""}

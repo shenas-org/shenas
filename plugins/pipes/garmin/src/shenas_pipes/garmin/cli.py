@@ -16,16 +16,12 @@ DISPLAY_NAME = "Garmin Connect"
 DESCRIPTION = """Syncs health and fitness data from Garmin Connect.
 
 Authenticates via email/password with MFA support. Tokens are stored
-in the OS keyring."""
-
-BROWSER_UA = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-)
+in the database."""
 
 
 @app.command()
 def auth() -> None:
-    """Authenticate with Garmin Connect and save the session token to OS keyring."""
+    """Authenticate with Garmin Connect and save the session token to database."""
     from garminconnect import Garmin
 
     from shenas_pipes.garmin.auth import save_tokens_from_client
@@ -36,9 +32,6 @@ def auth() -> None:
     console.print("Authenticating...", style="dim")
     try:
         client = Garmin(email=email, password=password, return_on_mfa=True)
-        client.garth.sess.headers.update({"User-Agent": BROWSER_UA})
-        client.garth.oauth1_token = None
-        client.garth.oauth2_token = None
 
         result1, result2 = client.login()
 
@@ -57,7 +50,7 @@ def auth() -> None:
         raise typer.Exit(code=1)
 
     save_tokens_from_client(client)
-    console.print("[green]Token saved to OS keyring[/green]")
+    console.print("[green]Token saved to database[/green]")
 
 
 @app.command()

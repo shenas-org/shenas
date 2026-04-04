@@ -126,14 +126,45 @@ def _complete_mfa(pipe_name: str, mod: object, mfa_code: str) -> AuthResponse:
 
 @router.get("/{pipe_name}/fields")
 def auth_fields(pipe_name: str) -> AuthFieldsResponse:
-    """Get the credential fields and instructions for a pipe's auth flow."""
+    """Get the credential fields, instructions, and stored credential status."""
     try:
         mod = _load_auth_module(pipe_name)
     except ModuleNotFoundError:
         return AuthFieldsResponse()
+
+    stored: list[str] = []
+    try:
+        import dataclasses
+
+        from shenas_pipes.core.auth import auth_metadata, get_auth
+        from shenas_pipes.core.base_auth import PipeAuth
+
+        # Find the auth dataclass in the module
+        auth_cls = None
+        for attr in dir(mod):
+            obj = getattr(mod, attr)
+            if isinstance(obj, type) and issubclass(obj, PipeAuth) and obj is not PipeAuth and dataclasses.is_dataclass(obj):
+                auth_cls = obj
+                break
+
+        if auth_cls:
+            from app.db import connect
+
+            row = get_auth(connect(), auth_cls)
+            meta = auth_metadata(auth_cls)
+            for col in meta["columns"]:
+                if col["name"] == "id":
+                    continue
+                val = row.get(col["name"]) if row else None
+                if val:
+                    stored.append(col["name"].replace("_", " ").title())
+    except Exception:
+        pass
+
     return AuthFieldsResponse(
         fields=getattr(mod, "AUTH_FIELDS", []),
         instructions=getattr(mod, "AUTH_INSTRUCTIONS", ""),
+        stored=stored,
     )
 
 

@@ -39,6 +39,7 @@ class AuthField(BaseModel):
 class AuthFieldsResponse(BaseModel):
     fields: list[AuthField] = []
     instructions: str = ""
+    stored: list[str] = []
 
 
 # --- Auth ---
