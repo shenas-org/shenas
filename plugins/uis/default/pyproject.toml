@@ -3,7 +3,9 @@ name = "shenas-ui-default"
 dynamic = ["version"]
 description = "Default shenas UI shell -- app layout, navigation, and plugin host"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "shenas-plugin-core",
+]
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]

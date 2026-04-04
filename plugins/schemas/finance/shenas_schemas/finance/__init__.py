@@ -1,4 +1,4 @@
-from shenas_pipes.core.abc import Schema
+from shenas_plugins.core import Schema
 from shenas_schemas.core import Field, MetricProvider, generate_ddl, table_metadata
 from shenas_schemas.finance.metrics import (
     ALL_TABLES,

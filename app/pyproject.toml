@@ -18,6 +18,7 @@ dependencies = [
   "rich>=14.3.3",
   "typer>=0.24.1",
   "uvicorn>=0.42.0",
+  "shenas-plugin-core",
   "shenas-pipe-core",
   "shenas-theme-default",
   "shenas-ui-default",

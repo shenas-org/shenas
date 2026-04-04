@@ -25,6 +25,7 @@ members = [
     "shenas-pipe-lunchmoney",
     "shenas-pipe-obsidian",
     "shenas-pipe-spotify",
+    "shenas-plugin-core",
     "shenas-repository",
     "shenas-scheduler",
     "shenas-schema-core",
@@ -2603,6 +2604,7 @@ dependencies = [
     { name = "pyarrow" },
     { name = "rich" },
     { name = "shenas-pipe-core" },
+    { name = "shenas-plugin-core" },
     { name = "shenas-theme-default" },
     { name = "shenas-ui-default" },
     { name = "typer" },
@@ -2624,6 +2626,7 @@ requires-dist = [
     { name = "pyarrow", specifier = ">=23.0.1" },
     { name = "rich", specifier = ">=14.3.3" },
     { name = "shenas-pipe-core", editable = "plugins/pipes/core" },
+    { name = "shenas-plugin-core", editable = "plugins/core" },
     { name = "shenas-theme-default", editable = "plugins/themes/default" },
     { name = "shenas-ui-default", editable = "plugins/uis/default" },
     { name = "typer", specifier = ">=0.24.1" },
@@ -2671,6 +2674,7 @@ dependencies = [
     { name = "opentelemetry-api" },
     { name = "pendulum" },
     { name = "rich" },
+    { name = "shenas-plugin-core" },
     { name = "shenas-schema-core" },
     { name = "typer" },
 ]
@@ -2684,6 +2688,7 @@ requires-dist = [
     { name = "opentelemetry-api", specifier = ">=1.25.0" },
     { name = "pendulum", specifier = ">=3.0.0" },
     { name = "rich", specifier = ">=14.0.0" },
+    { name = "shenas-plugin-core", editable = "plugins/core" },
     { name = "shenas-schema-core", editable = "plugins/schemas/core" },
     { name = "typer", specifier = ">=0.24.0" },
 ]
@@ -2827,6 +2832,16 @@ requires-dist = [
 ]
 
 [[package]]
+name = "shenas-plugin-core"
+source = { editable = "plugins/core" }
+dependencies = [
+    { name = "shenas-schema-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "shenas-schema-core", editable = "plugins/schemas/core" }]
+
+[[package]]
 name = "shenas-repository"
 source = { editable = "server/repository" }
 dependencies = [
@@ -2872,53 +2887,87 @@ requires-dist = [{ name = "duckdb", specifier = ">=1.2.0" }]
 name = "shenas-schema-finance"
 source = { editable = "plugins/schemas/finance" }
 dependencies = [
+    { name = "shenas-plugin-core" },
     { name = "shenas-schema-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-schema-core", editable = "plugins/schemas/core" }]
+requires-dist = [
+    { name = "shenas-plugin-core", editable = "plugins/core" },
+    { name = "shenas-schema-core", editable = "plugins/schemas/core" },
+]
 
 [[package]]
 name = "shenas-schema-fitness"
 source = { editable = "plugins/schemas/fitness" }
 dependencies = [
+    { name = "shenas-plugin-core" },
     { name = "shenas-schema-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-schema-core", editable = "plugins/schemas/core" }]
+requires-dist = [
+    { name = "shenas-plugin-core", editable = "plugins/core" },
+    { name = "shenas-schema-core", editable = "plugins/schemas/core" },
+]
 
 [[package]]
 name = "shenas-schema-habits"
 source = { editable = "plugins/schemas/habits" }
 dependencies = [
+    { name = "shenas-plugin-core" },
     { name = "shenas-schema-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-schema-core", editable = "plugins/schemas/core" }]
+requires-dist = [
+    { name = "shenas-plugin-core", editable = "plugins/core" },
+    { name = "shenas-schema-core", editable = "plugins/schemas/core" },
+]
 
 [[package]]
 name = "shenas-schema-outcomes"
 source = { editable = "plugins/schemas/outcomes" }
 dependencies = [
+    { name = "shenas-plugin-core" },
     { name = "shenas-schema-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-schema-core", editable = "plugins/schemas/core" }]
+requires-dist = [
+    { name = "shenas-plugin-core", editable = "plugins/core" },
+    { name = "shenas-schema-core", editable = "plugins/schemas/core" },
+]
 
 [[package]]
 name = "shenas-theme-dark"
 source = { editable = "plugins/themes/dark" }
+dependencies = [
+    { name = "shenas-plugin-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "shenas-plugin-core", editable = "plugins/core" }]
 
 [[package]]
 name = "shenas-theme-default"
 source = { editable = "plugins/themes/default" }
+dependencies = [
+    { name = "shenas-plugin-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "shenas-plugin-core", editable = "plugins/core" }]
 
 [[package]]
 name = "shenas-ui-default"
 source = { editable = "plugins/uis/default" }
+dependencies = [
+    { name = "shenas-plugin-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "shenas-plugin-core", editable = "plugins/core" }]
 
 [[package]]
 name = "shenas-workspace"

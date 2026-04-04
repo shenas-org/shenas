@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from shenas_pipes.core.abc import Theme
+from shenas_plugins.core import Theme
 
 
 class DefaultTheme(Theme):

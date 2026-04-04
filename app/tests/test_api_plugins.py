@@ -19,7 +19,7 @@ client = TestClient(app)
 # Mock plugin state DB functions for all tests in this module
 @pytest.fixture(autouse=True)
 def _mock_plugin_state():
-    from shenas_pipes.core.abc import Pipe
+    from shenas_plugins.core import Pipe
 
     class _FakePipe(Pipe):
         name = "test"
@@ -176,25 +176,42 @@ class TestUninstallPlugin:
 
 
 class TestDiscoverSchemas:
+    @staticmethod
+    def _with_mock_cursor(con: duckdb.DuckDBPyConnection):
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _fake():
+            cur = con.cursor()
+            try:
+                yield cur
+            finally:
+                cur.close()
+
+        return patch("app.api.db.cursor", _fake)
+
     def test_discover_schemas(self) -> None:
         con = duckdb.connect(":memory:")
         con.execute("CREATE SCHEMA myschema")
         con.execute("CREATE TABLE myschema.mytable (id INTEGER)")
-        schemas = _discover_schemas(con)
+        with self._with_mock_cursor(con):
+            schemas = _discover_schemas()
         assert "myschema" in schemas
         assert "mytable" in schemas["myschema"]
         con.close()
 
     def test_discover_schemas_excludes_system(self) -> None:
         con = duckdb.connect(":memory:")
-        schemas = _discover_schemas(con)
+        with self._with_mock_cursor(con):
+            schemas = _discover_schemas()
         assert "information_schema" not in schemas
         assert "main" not in schemas
         con.close()
 
     def test_discover_schemas_empty(self) -> None:
         con = duckdb.connect(":memory:")
-        schemas = _discover_schemas(con)
+        with self._with_mock_cursor(con):
+            schemas = _discover_schemas()
         assert schemas == {}
         con.close()
 

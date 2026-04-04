@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, Any
 
-from shenas_pipes.core.abc import Pipe
-from shenas_pipes.core.base_config import PipeConfig
+from shenas_plugins.core import Pipe
+from shenas_plugins.core.base_config import PipeConfig
 from shenas_schemas.core.field import Field
 
 
