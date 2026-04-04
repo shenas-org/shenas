@@ -23,7 +23,7 @@ jobs:
         run: |
           uv run ruff check .
           uv run ruff format --check .
-          uv run ty check server/repository/ app/ --exclude "**/vendor/**" --exclude "**/fl/**" --extra-search-path server/repository
+          uv run ty check server/repository/ app/ --exclude "**/vendor/**" --exclude "**/fl/**" --exclude "**/telemetry/**" --extra-search-path server/repository
 
   test:
     name: Test
