@@ -114,11 +114,11 @@ release-desktop:
 
 # Infrastructure (OpenTofu)
 infra-init:
-	cd server/server/deploy/tofu && tofu init
+	cd server/deploy/tofu && tofu init
 
 # One-time: import resources created before OpenTofu (skips already-imported)
 infra-import:
-	@cd server/server/deploy/tofu; \
+	@cd server/deploy/tofu; \
 	_import() { echo "Importing $$1..."; tofu import "$$1" "$$2" 2>&1 | grep -v "already managed" || true; }; \
 	_import google_container_cluster.shenas projects/shenas-491609/locations/us-east4/clusters/shenas; \
 	_import google_compute_global_address.ingress_ip projects/shenas-491609/global/addresses/shenas-ip; \
@@ -129,21 +129,21 @@ infra-import:
 	echo "Import complete. Run: make infra-plan"
 
 infra-plan:
-	cd server/server/deploy/tofu && tofu plan
+	cd server/deploy/tofu && tofu plan
 
 infra-apply:
-	cd server/server/deploy/tofu && tofu apply
+	cd server/deploy/tofu && tofu apply
 
 infra-output:
-	cd server/server/deploy/tofu && tofu output
+	cd server/deploy/tofu && tofu output
 
 infra-destroy:
-	cd server/server/deploy/tofu && tofu destroy
+	cd server/deploy/tofu && tofu destroy
 
 # Set GitHub repo variables from tofu outputs (requires gh CLI)
 infra-gh-vars:
-	@WIF=$$(cd server/server/deploy/tofu && tofu output -raw wif_provider) && \
-	SA=$$(cd server/server/deploy/tofu && tofu output -raw service_account) && \
+	@WIF=$$(cd server/deploy/tofu && tofu output -raw wif_provider) && \
+	SA=$$(cd server/deploy/tofu && tofu output -raw service_account) && \
 	gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --body "$$WIF" && \
 	gh variable set GCP_SERVICE_ACCOUNT --body "$$SA" && \
 	echo "GitHub variables set:" && \
