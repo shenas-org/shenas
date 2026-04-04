@@ -1,11 +1,11 @@
-"""Query and table listing endpoints (moved from server.py)."""
+"""Query and table listing endpoints."""
 
 from __future__ import annotations
 
 import duckdb
 from fastapi import APIRouter, Response
 
-from app.db import connect
+from app.db import cursor
 from app.models import HealthResponse
 
 router = APIRouter()
@@ -18,18 +18,13 @@ def health() -> HealthResponse:
 
 @router.get("/tables")
 def api_tables() -> list[dict[str, str]]:
-    con = connect(read_only=True)
-    cur = con.cursor()
-    cur.execute("USE db")
-    try:
+    with cursor() as cur:
         rows = cur.execute(
             "SELECT table_schema, table_name FROM information_schema.tables "
             "WHERE table_schema NOT IN ('information_schema', 'main') "
             "AND table_schema NOT LIKE '%\\_staging' ESCAPE '\\' "
             "ORDER BY table_schema, table_name"
         ).fetchall()
-    finally:
-        cur.close()
     return [{"schema": r[0], "table": r[1]} for r in rows]
 
 
@@ -37,15 +32,11 @@ def api_tables() -> list[dict[str, str]]:
 def api_query(sql: str) -> Response:
     import pyarrow as pa
 
-    con = connect(read_only=True)
-    cur = con.cursor()
-    cur.execute("USE db")
     try:
-        arrow_table = cur.execute(sql).arrow().read_all()
+        with cursor() as cur:
+            arrow_table = cur.execute(sql).arrow().read_all()
     except duckdb.Error as exc:
-        cur.close()
         return Response(content=str(exc), status_code=400, media_type="text/plain")
-    cur.close()
 
     sink = pa.BufferOutputStream()
     with pa.ipc.new_stream(sink, arrow_table.schema) as writer:
