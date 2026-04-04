@@ -1,7 +1,7 @@
 import pendulum
 import pytest
 
-from shenas_pipes.lunchmoney.utils import resolve_start_date
+from shenas_pipes.core.utils import resolve_start_date
 
 
 class TestResolveStartDate:

@@ -11,9 +11,6 @@ install:
 	@echo "Installed shenas, shenasctl, shenasrepoctl to ~/.local/bin/"
 	@echo "Run 'shenasctl --install-completion' for tab completion"
 
-repo-server:
-	uv run python -m repository.main $(CURDIR)/packages
-
 # Install git pre-commit hook
 setup-hooks:
 	cp scripts/pre-commit .git/hooks/pre-commit

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 import dlt
 import pendulum
 
-from shenas_pipes.garmin.utils import date_range, is_empty_response
+from shenas_pipes.core.utils import date_range, is_empty_response
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

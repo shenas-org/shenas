@@ -113,15 +113,20 @@ def _load_schema_plugins() -> dict[str, list[str]]:
     """Load schema plugin name -> table names from entry points."""
     from importlib.metadata import entry_points
 
+    from shenas_pipes.core.abc import Schema
+
     result: dict[str, list[str]] = {}
     for ep in entry_points(group="shenas.schemas"):
         if ep.name == "core":
             continue
         try:
-            schema_dict = ep.load()
-            tables = schema_dict.get("tables", []) if isinstance(schema_dict, dict) else []
-            if tables:
-                result[ep.name] = sorted(tables)
+            obj = ep.load()
+            if isinstance(obj, type) and issubclass(obj, Schema) and hasattr(obj, "tables"):
+                result[ep.name] = sorted(obj.tables)
+            elif isinstance(obj, dict):
+                tables = obj.get("tables", [])
+                if tables:
+                    result[ep.name] = sorted(tables)
         except Exception:
             continue
     return result
