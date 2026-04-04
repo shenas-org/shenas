@@ -16,7 +16,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project.entry-points."shenas.pipes"]
-garmin = "shenas_pipes.garmin.cli:app"
+garmin = "shenas_pipes.garmin.pipe:GarminPipe"
 
 [tool.hatch.version]
 source = "vcs"

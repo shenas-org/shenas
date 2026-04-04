@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.entry-points."shenas.pipes"]
-gcalendar = "shenas_pipes.gcalendar.cli:app"
+gcalendar = "shenas_pipes.gcalendar.pipe:GCalendarPipe"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
