@@ -3,9 +3,9 @@ name: Deploy to GKE
 on:
   push:
     tags:
-      - 'repository/v*'
-      - 'fl/v*'
-      - 'shenas.net/v*'
+      - 'server/repository/v*'
+      - 'server/fl/v*'
+      - 'server/shenas.net/v*'
   workflow_dispatch:
     inputs:
       service:
@@ -29,7 +29,7 @@ jobs:
     name: Deploy repo-server
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/repository/v')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/server/repository/v')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.service == 'all' || inputs.service == 'repo-server'))
     permissions:
       contents: read
@@ -77,7 +77,7 @@ jobs:
     name: Deploy fl-server
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/fl/v')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/server/fl/v')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.service == 'all' || inputs.service == 'fl-server'))
     permissions:
       contents: read
@@ -125,7 +125,7 @@ jobs:
     name: Deploy shenas-net
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/shenas.net/v')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/server/shenas.net/v')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.service == 'all' || inputs.service == 'shenas-net'))
     permissions:
       contents: read
