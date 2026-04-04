@@ -142,7 +142,7 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
                 signature=check_signature(p["name"], p["version"]),
                 description=pi.get("description", ""),
                 commands=pi.get("commands", []),
-                enabled=state["enabled"] if state else not plugin_cls.exclusive,
+                enabled=state["enabled"] if state else plugin_cls.enabled_by_default,
                 has_auth=pi.get("has_auth"),
                 sync_frequency=pi.get("sync_frequency"),
                 added_at=state["added_at"] if state else None,
