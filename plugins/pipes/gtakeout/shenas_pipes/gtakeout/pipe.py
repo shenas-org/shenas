@@ -17,6 +17,7 @@ from shenas_schemas.core.field import Field
 class GTakeoutPipe(Pipe):
     name = "gtakeout"
     display_name = "Google Takeout"
+    primary_table = "photos_metadata"
     description = (
         "Finds and parses Google Takeout archives from Google Drive.\n\n"
         "Uses Google OAuth2 to search Drive for Takeout zip/tgz files, downloads "

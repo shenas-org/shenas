@@ -34,6 +34,7 @@ class _MemoryCacheHandler(CacheHandler):
 class SpotifyPipe(Pipe):
     name = "spotify"
     display_name = "Spotify"
+    primary_table = "recently_played"
     description = (
         "Syncs listening data from Spotify.\n\n"
         "Uses OAuth2 PKCE flow (no client secret needed). Create an app at "

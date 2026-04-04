@@ -279,6 +279,12 @@ class PluginDetail extends LitElement {
   _renderData() {
     const tables = this._tables || [];
     if (tables.length === 0) return html`<p style="color:var(--shenas-text-muted,#888)">No tables synced yet.</p>`;
+    if (!this._selectedTable && this._info?.primary_table) {
+      const primary = this._info.primary_table;
+      if (tables.some((t) => t.name === primary)) {
+        this._fetchPreview(primary);
+      }
+    }
     return html`
       <div class="data-toolbar">
         <select @change=${(e) => this._fetchPreview(e.target.value)}>
