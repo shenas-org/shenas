@@ -30,6 +30,10 @@ async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(lifespan=_lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
+# Initialize OpenTelemetry (spans + logs exported to DuckDB)
+_telemetry = __import__("app.telemetry.setup", fromlist=["init_telemetry"])
+_telemetry.init_telemetry("shenas-server")
+
 # Global env-based settings
 app.state.ui_name = _os.environ.get("SHENAS_UI", "default")
 app.state.default_theme = _os.environ.get("SHENAS_DEFAULT_THEME", "default")
