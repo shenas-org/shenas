@@ -205,12 +205,11 @@ def run_transforms(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
         try:
             con.execute(f"DELETE FROM {target} WHERE source = ?", [t["source_plugin"]])
             # Extract column names from the SELECT to build INSERT INTO ... (cols) SELECT
-            cur = con.cursor()
-            try:
+            from app.db import cursor
+
+            with cursor() as cur:
                 cur.execute(f"SELECT * FROM ({t['sql']}) _t LIMIT 0")
                 col_names = ", ".join(f'"{d[0]}"' for d in cur.description)
-            finally:
-                cur.close()
             con.execute(f"INSERT INTO {target} ({col_names}) {t['sql']}")
             count += 1
         except Exception:
