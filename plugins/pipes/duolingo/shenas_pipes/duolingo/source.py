@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any
 
 import dlt
@@ -13,26 +13,26 @@ if TYPE_CHECKING:
     from shenas_pipes.duolingo.client import DuolingoClient
 
 
-def _epoch_to_date(epoch: int) -> str:
-    """Convert epoch seconds to ISO date string."""
-    return datetime.fromtimestamp(epoch, tz=UTC).strftime("%Y-%m-%d")
+def _epoch_to_date(epoch: int) -> date:
+    """Convert epoch seconds to a date object."""
+    return datetime.fromtimestamp(epoch, tz=UTC).date()
 
 
 @dlt.resource(write_disposition="merge", primary_key="date")
 def daily_xp(
     client: DuolingoClient,
     start_date: str,
-    cursor: dlt.sources.incremental[str] = dlt.sources.incremental("date", initial_value=None),
+    cursor: dlt.sources.incremental[date] = dlt.sources.incremental("date", initial_value=None),
 ) -> Iterator[dict[str, Any]]:
     """Yield daily XP summaries."""
-    effective_start = (cursor.last_value or start_date)[:10]
+    effective_start = str(cursor.last_value or start_date)[:10]
     for summary in client.get_xp_summaries(effective_start):
         raw_date = summary.get("date")
         if raw_date is None:
             continue
-        date = _epoch_to_date(raw_date) if isinstance(raw_date, int) else str(raw_date)
+        d = _epoch_to_date(raw_date) if isinstance(raw_date, int) else date.fromisoformat(str(raw_date)[:10])
         yield {
-            "date": date,
+            "date": d,
             "xp_gained": summary.get("gainedXp") or 0,
             "num_sessions": summary.get("numSessions") or 0,
             "total_session_time_sec": summary.get("totalSessionTime") or 0,

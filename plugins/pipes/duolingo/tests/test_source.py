@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from unittest.mock import MagicMock
 
 from shenas_pipes.duolingo.source import courses, daily_xp, user_profile
@@ -15,7 +16,7 @@ class TestDailyXp:
 
         results = list(daily_xp(client, "2026-03-25"))
         assert len(results) == 2
-        assert results[0]["date"] == "2026-03-28"
+        assert results[0]["date"] == date(2026, 3, 28)
         assert results[0]["xp_gained"] == 150
         assert results[1]["num_sessions"] == 2
 
