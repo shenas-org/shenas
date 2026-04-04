@@ -5,6 +5,6 @@
     "target_duckdb_schema": "metrics",
     "target_duckdb_table": "events",
     "description": "Map Spotify recently played tracks to unified events timeline",
-    "sql": "SELECT 'spotify' as source, track_id || '_' || played_at as source_id, played_at::TIMESTAMP as start_at, NULL::TIMESTAMP as end_at, duration_ms / 60000.0 as duration_min, track_name || ' - ' || artists as title, NULL as description, NULL as location, 'music' as category, false as all_day, json_object('track_id', track_id, 'artists', artists, 'album', album_name, 'popularity', popularity, 'explicit', explicit) as metadata FROM spotify.recently_played WHERE played_at IS NOT NULL"
+    "sql": "SELECT 'spotify' as source, track_id || '_' || played_at as source_id, played_at::TIMESTAMP as start_at, played_at::TIMESTAMP + (duration_ms * INTERVAL '1 millisecond') AS end_at, duration_ms / 60000.0 as duration_min, track_name || ' - ' || artists as title, NULL as description, NULL as location, 'music' as category, false as all_day, json_object('track_id', track_id, 'artists', artists, 'album', album_name, 'popularity', popularity, 'explicit', explicit) as metadata FROM spotify.recently_played WHERE played_at IS NOT NULL"
   }
 ]
