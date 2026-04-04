@@ -120,6 +120,58 @@ def check_signature(pkg_name: str, version: str) -> str:
     return "valid" if _verify_file(pub_key, wheel_path, sig_path.read_text().strip()) else "invalid"
 
 
+def _pipe_status(name: str) -> tuple[bool | None, int | None]:
+    """Check if a pipe has auth credentials and its sync frequency."""
+    import dataclasses
+    import importlib
+
+    from shenas_pipes.core.base_auth import PipeAuth
+
+    has_auth = None
+    sync_freq = None
+
+    # Check auth
+    try:
+        mod = importlib.import_module(f"shenas_pipes.{name}.auth")
+        auth_cls = None
+        for attr in dir(mod):
+            obj = getattr(mod, attr)
+            if isinstance(obj, type) and issubclass(obj, PipeAuth) and obj is not PipeAuth and dataclasses.is_dataclass(obj):
+                auth_cls = obj
+                break
+        if auth_cls:
+            from shenas_pipes.core.store import DataclassStore
+
+            _auth = DataclassStore("auth")
+            row = _auth.get(auth_cls)
+            has_auth = bool(row and any(v for k, v in row.items() if k != "id"))
+        else:
+            has_auth = True  # no auth needed
+    except ImportError:
+        has_auth = True  # no auth module = no auth needed
+
+    # Check sync frequency from config
+    try:
+        mod = importlib.import_module(f"shenas_pipes.{name}.config")
+        config_cls = None
+        for attr in dir(mod):
+            obj = getattr(mod, attr)
+            if isinstance(obj, type) and dataclasses.is_dataclass(obj) and hasattr(obj, "__table__"):
+                config_cls = obj
+                break
+        if config_cls:
+            from shenas_pipes.core.store import DataclassStore
+
+            _config = DataclassStore("config")
+            row = _config.get(config_cls)
+            if row:
+                sync_freq = row.get("sync_frequency")
+    except Exception:
+        pass
+
+    return has_auth, sync_freq
+
+
 def list_plugins_data(kind: str) -> list[PluginInfo]:
     import sys
 
@@ -143,6 +195,12 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
         desc = _plugin_description(kind, short_name)
         cmds = _plugin_commands(kind, short_name)
         state = get_plugin_state(kind, short_name)
+
+        has_auth = None
+        sync_freq = None
+        if kind == "pipe":
+            has_auth, sync_freq = _pipe_status(short_name)
+
         items.append(
             PluginInfo(
                 name=short_name,
@@ -153,6 +211,8 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
                 description=desc,
                 commands=cmds,
                 enabled=state["enabled"] if state else (kind not in _EXCLUSIVE_KINDS),
+                has_auth=has_auth,
+                sync_frequency=sync_freq,
                 added_at=state["added_at"] if state else None,
                 updated_at=state["updated_at"] if state else None,
                 status_changed_at=state["status_changed_at"] if state else None,
@@ -351,10 +411,22 @@ def plugin_info(kind: str, name: str) -> dict[str, Any]:
     """Get full info for an installed plugin: description and state."""
     _validate_kind(kind)
     state = get_plugin_state(kind, name)
+    # Get version from installed packages
+    version = None
+    prefix = _prefix(kind)
+    pkg_name = f"{prefix}{name}"
+    try:
+        from importlib.metadata import version as get_version
+
+        version = get_version(pkg_name)
+    except Exception:
+        pass
+
     return {
         "name": name,
         "display_name": _plugin_display_name(kind, name),
         "kind": kind,
+        "version": version,
         "description": _plugin_description(kind, name),
         "enabled": state["enabled"] if state else True,
         "added_at": state["added_at"] if state else None,

@@ -68,10 +68,10 @@ class GoogleAuth:
         }
 
     def _get_stored_token(self) -> Credentials | None:
-        from shenas_pipes.core.auth import get_auth
-        from shenas_pipes.core.db import connect
+        from shenas_pipes.core.store import DataclassStore
 
-        row = get_auth(connect(), self.auth_cls)
+        _auth = DataclassStore("auth")
+        row = _auth.get(self.auth_cls)
         if row and row.get("token"):
             return Credentials.from_authorized_user_info(json.loads(row["token"]), self.scopes)
         return None
@@ -80,10 +80,10 @@ class GoogleAuth:
         self._store_token_str(creds.to_json())
 
     def _store_token_str(self, token_json: str) -> None:
-        from shenas_pipes.core.auth import set_auth
-        from shenas_pipes.core.db import connect
+        from shenas_pipes.core.store import DataclassStore
 
-        set_auth(connect(), self.auth_cls, token=token_json)
+        _auth = DataclassStore("auth")
+        _auth.set(self.auth_cls, token=token_json)
 
     def build_client(self, run_auth_flow: bool = False) -> Resource:
         """Build a Google API service from stored tokens or OAuth flow."""

@@ -56,6 +56,12 @@ class PluginDetail extends LitElement {
         vertical-align: middle;
         margin-left: 0.3rem;
       }
+      .version {
+        color: var(--shenas-text-muted, #999);
+        font-size: 0.7rem;
+        font-weight: 400;
+        vertical-align: middle;
+      }
       .description {
         color: var(--shenas-text-secondary, #666);
         line-height: 1.6;
@@ -311,7 +317,7 @@ class PluginDetail extends LitElement {
       <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
 
       <div class="title-row">
-        <h2>${info.display_name || info.name} <span class="kind-badge">${info.kind}</span></h2>
+        <h2>${info.display_name || info.name} <span class="kind-badge">${info.kind}</span>${info.version ? html` <span class="version">${info.version}</span>` : ""}</h2>
         <div class="title-actions">
           ${this.kind === "pipe" && enabled
             ? html`<button @click=${this._sync} ?disabled=${this._syncing}>${this._syncing ? "Syncing..." : "Sync"}</button>`

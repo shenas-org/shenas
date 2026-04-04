@@ -14,11 +14,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
-from shenas_pipes.core.auth import get_auth, set_auth
+from shenas_pipes.core.store import DataclassStore
 from shenas_pipes.core.base_auth import PipeAuth
-from shenas_pipes.core.db import connect
 from shenas_pipes.duolingo.client import DuolingoClient
 from shenas_schemas.core.field import Field
+
+_auth = DataclassStore("auth")
 
 AUTH_FIELDS: list[dict[str, str | bool]] = [
     {"name": "jwt_token", "prompt": "JWT token", "hide": False},
@@ -45,7 +46,7 @@ class DuolingoAuth(PipeAuth):
 
 def _get_stored_jwt() -> str | None:
     """Read JWT from encrypted DuckDB."""
-    row = get_auth(connect(), DuolingoAuth)
+    row = _auth.get(DuolingoAuth)
     if row and row.get("jwt_token"):
         return row["jwt_token"]
     return None
@@ -53,7 +54,7 @@ def _get_stored_jwt() -> str | None:
 
 def _store_jwt(jwt: str) -> None:
     """Write JWT to encrypted DuckDB."""
-    set_auth(connect(), DuolingoAuth, jwt_token=jwt)
+    _auth.set(DuolingoAuth, jwt_token=jwt)
 
 
 def build_client() -> DuolingoClient:

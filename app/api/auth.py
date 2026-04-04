@@ -12,6 +12,7 @@ from typing import Any
 from fastapi import APIRouter
 
 from app.models import AuthFieldsResponse, AuthRequest, AuthResponse
+from shenas_pipes.core.store import DataclassStore
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -136,7 +137,6 @@ def auth_fields(pipe_name: str) -> AuthFieldsResponse:
     try:
         import dataclasses
 
-        from shenas_pipes.core.auth import auth_metadata, get_auth
         from shenas_pipes.core.base_auth import PipeAuth
 
         # Find the auth dataclass in the module
@@ -148,10 +148,9 @@ def auth_fields(pipe_name: str) -> AuthFieldsResponse:
                 break
 
         if auth_cls:
-            from app.db import connect
-
-            row = get_auth(connect(), auth_cls)
-            meta = auth_metadata(auth_cls)
+            _auth = DataclassStore("auth")
+            row = _auth.get(auth_cls)
+            meta = _auth.metadata(auth_cls)
             for col in meta["columns"]:
                 if col["name"] == "id":
                     continue

@@ -15,10 +15,11 @@ import spotipy
 from spotipy.cache_handler import CacheHandler
 from spotipy.oauth2 import SpotifyPKCE
 
-from shenas_pipes.core.auth import get_auth, set_auth
+from shenas_pipes.core.store import DataclassStore
 from shenas_pipes.core.base_auth import PipeAuth
-from shenas_pipes.core.db import connect
 from shenas_schemas.core.field import Field
+
+_auth = DataclassStore("auth")
 
 
 class _MemoryCacheHandler(CacheHandler):
@@ -68,7 +69,7 @@ class SpotifyAuth(PipeAuth):
 
 def _get_stored_tokens() -> dict[str, Any] | None:
     """Read tokens from encrypted DuckDB."""
-    row = get_auth(connect(), SpotifyAuth)
+    row = _auth.get(SpotifyAuth)
     if row and row.get("tokens"):
         return json.loads(row["tokens"])
     return None
@@ -76,7 +77,7 @@ def _get_stored_tokens() -> dict[str, Any] | None:
 
 def _store_tokens(tokens: dict[str, Any]) -> None:
     """Write tokens to encrypted DuckDB."""
-    set_auth(connect(), SpotifyAuth, tokens=json.dumps(tokens))
+    _auth.set(SpotifyAuth, tokens=json.dumps(tokens))
 
 
 def build_client() -> spotipy.Spotify:
