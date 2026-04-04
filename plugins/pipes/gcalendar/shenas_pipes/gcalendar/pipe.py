@@ -53,10 +53,6 @@ class GCalendarPipe(Pipe):
         self._google_auth().authenticate(credentials)
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_pipes.gcalendar.source import calendars, events
+        from shenas_pipes.gcalendar.source import all_events, calendars
 
-        # Fetch events from all calendars, not just primary
-        cal_list = client.calendarList().list().execute().get("items", [])
-        event_resources = [events(client, calendar_id=cal["id"]) for cal in cal_list]
-
-        return [*event_resources, calendars(client)]
+        return [all_events(client), calendars(client)]
