@@ -1,3 +1,3 @@
-from shenas_pipes.lunchmoney.source import lunchmoney
+from shenas_pipes.lunchmoney.pipe import LunchMoneyPipe
 
-__all__ = ["lunchmoney"]
+__all__ = ["LunchMoneyPipe"]

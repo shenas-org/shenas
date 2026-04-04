@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
-
 from fastapi import APIRouter, HTTPException
 
 from app.models import ConfigEntry, ConfigItem, ConfigSetRequest, ConfigValueResponse, OkResponse
@@ -19,19 +17,18 @@ def _discover_config_classes() -> dict[str, type]:
     if _CONFIG_CLASSES:
         return _CONFIG_CLASSES
 
-    import dataclasses
     from importlib.metadata import entry_points
 
+    from shenas_pipes.core.base_config import PipeConfig
+
     for ep in entry_points(group="shenas.pipes"):
-        module_path = f"shenas_pipes.{ep.name}.config"
         try:
-            mod = importlib.import_module(module_path)
-        except ImportError:
+            cls = ep.load()
+            pipe = cls()
+            if pipe.Config is not PipeConfig:
+                _CONFIG_CLASSES[pipe.Config.__table__] = pipe.Config
+        except Exception:
             continue
-        for attr in dir(mod):
-            obj = getattr(mod, attr)
-            if isinstance(obj, type) and dataclasses.is_dataclass(obj) and hasattr(obj, "__table__"):
-                _CONFIG_CLASSES[obj.__table__] = obj
 
     return _CONFIG_CLASSES
 

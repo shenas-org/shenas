@@ -1,3 +1,3 @@
-from shenas_pipes.garmin.source import garmin_connect
+from shenas_pipes.garmin.pipe import GarminPipe
 
-__all__ = ["garmin_connect"]
+__all__ = ["GarminPipe"]

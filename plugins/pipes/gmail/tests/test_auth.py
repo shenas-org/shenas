@@ -2,35 +2,32 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from shenas_pipes.gmail.auth import _auth, build_client
+from shenas_pipes.gmail.pipe import GmailPipe
+
+
+@pytest.fixture
+def pipe() -> GmailPipe:
+    p = GmailPipe.__new__(GmailPipe)
+    p._auth_store = MagicMock()
+    p._config_store = MagicMock()
+    return p
 
 
 class TestBuildClient:
-    def test_no_credentials_raises(self) -> None:
-        with (
-            patch.object(_auth, "_get_stored_token", return_value=None),
-            pytest.raises(RuntimeError, match="No valid credentials"),
-        ):
-            build_client()
+    @patch("shenas_pipes.core.google_auth.GoogleAuth.build_client")
+    def test_no_credentials_raises(self, mock_build_client: MagicMock, pipe: GmailPipe) -> None:
+        mock_build_client.side_effect = RuntimeError("No valid credentials")
+        with pytest.raises(RuntimeError, match="No valid credentials"):
+            pipe.build_client()
 
-    @patch("shenas_pipes.core.google_auth.build")
-    def test_valid_token(self, mock_build: MagicMock) -> None:
-        mock_creds = MagicMock()
-        mock_creds.valid = True
-        with patch.object(_auth, "_get_stored_token", return_value=mock_creds):
-            build_client()
-        mock_build.assert_called_once_with("gmail", "v1", credentials=mock_creds, static_discovery=True)
+    @patch("shenas_pipes.core.google_auth.GoogleAuth.build_client")
+    def test_valid_token(self, mock_build_client: MagicMock, pipe: GmailPipe) -> None:
+        mock_service = MagicMock()
+        mock_build_client.return_value = mock_service
+        result = pipe.build_client()
+        assert result is mock_service
 
-    @patch("shenas_pipes.core.google_auth.build")
-    def test_expired_token_refreshes(self, mock_build: MagicMock) -> None:
-        mock_creds = MagicMock()
-        mock_creds.valid = False
-        mock_creds.expired = True
-        mock_creds.refresh_token = "refresh123"
-        with (
-            patch.object(_auth, "_get_stored_token", return_value=mock_creds),
-            patch.object(_auth, "_store_token") as mock_store,
-        ):
-            build_client()
-        mock_creds.refresh.assert_called_once()
-        mock_store.assert_called_once_with(mock_creds)
+    @patch("shenas_pipes.core.google_auth.GoogleAuth.build_client")
+    def test_calls_google_auth(self, mock_build_client: MagicMock, pipe: GmailPipe) -> None:
+        pipe.build_client()
+        mock_build_client.assert_called_once()

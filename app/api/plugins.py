@@ -120,52 +120,38 @@ def check_signature(pkg_name: str, version: str) -> str:
 
 def _pipe_status(name: str) -> tuple[bool | None, int | None]:
     """Check if a pipe has auth credentials and its sync frequency."""
-    import dataclasses
-    import importlib
-
-    from shenas_pipes.core.base_auth import PipeAuth
+    from app.api.pipes import _load_pipe
+    from shenas_pipes.core.base_config import PipeConfig
+    from shenas_pipes.core.store import DataclassStore
 
     has_auth = None
     sync_freq = None
 
-    # Check auth
     try:
-        mod = importlib.import_module(f"shenas_pipes.{name}.auth")
-        auth_cls = None
-        for attr in dir(mod):
-            obj = getattr(mod, attr)
-            if isinstance(obj, type) and issubclass(obj, PipeAuth) and obj is not PipeAuth and dataclasses.is_dataclass(obj):
-                auth_cls = obj
-                break
-        if auth_cls:
-            from shenas_pipes.core.store import DataclassStore
+        pipe = _load_pipe(name)
+    except Exception:
+        return None, None
 
+    # Check auth
+    if not pipe.has_auth:
+        has_auth = True  # no auth needed
+    else:
+        try:
             _auth = DataclassStore("auth")
-            row = _auth.get(auth_cls)
+            row = _auth.get(pipe.Auth)
             has_auth = bool(row and any(v for k, v in row.items() if k != "id"))
-        else:
-            has_auth = True  # no auth needed
-    except ImportError:
-        has_auth = True  # no auth module = no auth needed
+        except Exception:
+            has_auth = None
 
     # Check sync frequency from config
-    try:
-        mod = importlib.import_module(f"shenas_pipes.{name}.config")
-        config_cls = None
-        for attr in dir(mod):
-            obj = getattr(mod, attr)
-            if isinstance(obj, type) and dataclasses.is_dataclass(obj) and hasattr(obj, "__table__"):
-                config_cls = obj
-                break
-        if config_cls:
-            from shenas_pipes.core.store import DataclassStore
-
+    if pipe.Config is not PipeConfig:
+        try:
             _config = DataclassStore("config")
-            row = _config.get(config_cls)
+            row = _config.get(pipe.Config)
             if row:
                 sync_freq = row.get("sync_frequency")
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     return has_auth, sync_freq
 
@@ -322,33 +308,20 @@ def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
 
 
 def _plugin_commands(kind: str, name: str) -> list[str]:
-    """Detect available commands for a plugin by introspecting its modules."""
+    """Detect available commands for a plugin."""
     commands = ["describe"]
 
     if kind != "pipe":
         return commands
 
-    namespace = "shenas_pipes"
-    commands.append("sync")
+    from app.api.pipes import _load_pipe
 
     try:
-        auth_mod = importlib.import_module(f"{namespace}.{name}.auth")
-        if getattr(auth_mod, "AUTH_FIELDS", None) is not None:
-            commands.append("auth")
-    except (ImportError, ModuleNotFoundError):
-        pass
-
-    try:
-        config_mod = importlib.import_module(f"{namespace}.{name}.config")
-        for attr_name in dir(config_mod):
-            cls = getattr(config_mod, attr_name)
-            if hasattr(cls, "__table__") and isinstance(cls.__table__, str):
-                commands.append("config")
-                break
-    except (ImportError, ModuleNotFoundError):
-        pass
-
-    return commands
+        pipe = _load_pipe(name)
+        return pipe.commands
+    except Exception:
+        commands.append("sync")
+        return commands
 
 
 def _load_plugin_module(kind: str, name: str) -> Any:
@@ -365,14 +338,21 @@ def _load_plugin_module(kind: str, name: str) -> Any:
 
 
 def _plugin_display_name(kind: str, name: str) -> str:
-    """Load a human-readable display name from a plugin module."""
+    """Load a human-readable display name from a plugin."""
+    if kind == "pipe":
+        from app.api.pipes import _load_pipe
+
+        try:
+            return _load_pipe(name).display_name
+        except Exception:
+            pass
+
     mod = _load_plugin_module(kind, name)
     if mod:
         for attr in ("DISPLAY_NAME", "PIPE_DISPLAY_NAME"):
             val = getattr(mod, attr, None)
             if val:
                 return val
-        # Check metadata dicts (COMPONENT, UI, SCHEMA)
         for attr in _META_ATTRS:
             meta = getattr(mod, attr, None)
             if isinstance(meta, dict) and meta.get("display_name"):
@@ -381,7 +361,17 @@ def _plugin_display_name(kind: str, name: str) -> str:
 
 
 def _plugin_description(kind: str, name: str) -> str:
-    """Load a description from a plugin module."""
+    """Load a description from a plugin."""
+    if kind == "pipe":
+        from app.api.pipes import _load_pipe
+
+        try:
+            desc = _load_pipe(name).description
+            if desc:
+                return desc
+        except Exception:
+            pass
+
     mod = _load_plugin_module(kind, name)
     if mod:
         for attr in ("DESCRIPTION", "PIPE_DESCRIPTION"):

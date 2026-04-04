@@ -6,32 +6,10 @@ from typing import TYPE_CHECKING, Any
 import dlt
 import pendulum
 
-from shenas_pipes.lunchmoney.auth import build_client
-from shenas_pipes.lunchmoney.utils import resolve_start_date
-
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from lunchable import LunchMoney
-
-
-@dlt.source(name="lunchmoney")
-def lunchmoney(
-    api_key: str = dlt.secrets.value,
-    start_date: str = dlt.config.value,
-    token_store: str | None = None,
-) -> Any:
-    client = build_client(api_key, token_store)
-    resolved = resolve_start_date(start_date)
-    return (
-        transactions(client, resolved),
-        categories(client),
-        tags(client),
-        budgets(client, resolved),
-        recurring_items(client),
-        assets(client),
-        plaid_accounts(client),
-    )
 
 
 @dlt.resource(write_disposition="merge", primary_key="id")

@@ -7,10 +7,28 @@ import threading
 from dataclasses import dataclass
 from typing import Annotated, Any
 
+from spotipy.cache_handler import CacheHandler
+
 from shenas_pipes.core.abc import Pipe
 from shenas_pipes.core.base_auth import PipeAuth
 from shenas_pipes.core.base_config import PipeConfig
 from shenas_schemas.core.field import Field
+
+REDIRECT_URI = "http://127.0.0.1:8090/callback"
+SCOPES = "user-read-recently-played user-top-read user-library-read"
+
+_pending_auth: dict[str, Any] = {}
+
+
+class _MemoryCacheHandler(CacheHandler):
+    def __init__(self) -> None:
+        self.token_info: dict[str, Any] | None = None
+
+    def get_cached_token(self) -> dict[str, Any] | None:
+        return self.token_info
+
+    def save_token_to_cache(self, token_info: dict[str, Any]) -> None:
+        self.token_info = token_info
 
 
 class SpotifyPipe(Pipe):
@@ -69,8 +87,6 @@ class SpotifyPipe(Pipe):
         import spotipy
         from spotipy.oauth2 import SpotifyPKCE
 
-        from shenas_pipes.spotify.auth import REDIRECT_URI, SCOPES, _MemoryCacheHandler
-
         row = self._auth_store.get(self.Auth)
         if not row or not row.get("tokens"):
             msg = "No Spotify tokens found. Configure authentication in the Auth tab."
@@ -119,7 +135,6 @@ class SpotifyPipe(Pipe):
         return spotipy.Spotify(auth=token_info["access_token"])
 
     def authenticate(self, credentials: dict[str, str]) -> None:
-        from shenas_pipes.spotify.auth import REDIRECT_URI, SCOPES, _MemoryCacheHandler, _pending_auth
 
         if credentials.get("auth_complete") == "true":
             state = _pending_auth.pop("spotify", None)

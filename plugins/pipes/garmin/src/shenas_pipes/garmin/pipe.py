@@ -12,6 +12,8 @@ from shenas_pipes.core.abc import Pipe
 from shenas_pipes.core.base_auth import PipeAuth
 from shenas_schemas.core.field import Field
 
+_pending_mfa: dict[str, Any] = {}
+
 
 class GarminPipe(Pipe):
     name = "garmin"
@@ -76,8 +78,6 @@ class GarminPipe(Pipe):
     def authenticate(self, credentials: dict[str, str]) -> None:
         from garminconnect import Garmin
 
-        from shenas_pipes.garmin.auth import pending_mfa
-
         email = credentials.get("email")
         password = credentials.get("password")
 
@@ -89,7 +89,7 @@ class GarminPipe(Pipe):
         result1, result2 = client.login()
 
         if result1 == "needs_mfa":
-            pending_mfa["garmin"] = {"client": client, "mfa_state": result2}
+            _pending_mfa["garmin"] = {"client": client, "mfa_state": result2}
             msg = "MFA code required"
             raise ValueError(msg)
 
