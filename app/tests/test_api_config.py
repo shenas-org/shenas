@@ -53,8 +53,8 @@ def client() -> Iterator[TestClient]:
 
     with (
         patch("shenas_pipes.core.store.cursor", _fake_cursor),
-        patch("app.api.config._load_pipe", return_value=pipe),
-        patch("app.api.pipes._load_plugins", return_value=[_TestPipe]),
+        patch("app.api.config._load_plugin", return_value=_TestPipe),
+        patch("app.api.config._load_plugins", return_value=[_TestPipe]),
         patch("app.db.get_plugin_state", return_value=None),
     ):
         # Clear the ensured cache so tables get created in the in-memory DB
