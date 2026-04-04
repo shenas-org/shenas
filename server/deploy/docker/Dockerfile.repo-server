@@ -11,7 +11,7 @@ COPY packages/ ./packages/
 
 # Install dependencies (no .git in Docker context, so fake the version)
 ARG VERSION=0.0.0
-RUN cd server/repository && SETUPTOOLS_SCM_PRETEND_VERSION=$VERSION uv pip install --system --no-cache .
+RUN cd repo-server && SETUPTOOLS_SCM_PRETEND_VERSION=$VERSION uv pip install --system --no-cache .
 
 EXPOSE 7290
 
