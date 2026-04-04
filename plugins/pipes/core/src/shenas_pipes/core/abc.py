@@ -40,15 +40,40 @@ class Plugin(abc.ABC):
     internal: ClassVar[bool] = False
 
     @property
+    def version(self) -> str | None:
+        """Installed package version."""
+        try:
+            from importlib.metadata import version
+
+            return version(f"shenas-{self._kind}-{self.name}")
+        except Exception:
+            return None
+
+    @property
+    def _kind(self) -> str:
+        """Plugin kind string for package naming."""
+        return "plugin"
+
+    @property
     def commands(self) -> list[str]:
         return []
 
     def info(self) -> dict[str, Any]:
-        """Plugin metadata for API responses."""
+        """Full plugin metadata for API responses."""
+        from app.db import get_plugin_state
+
+        state = get_plugin_state(self._kind, self.name)
         return {
             "name": self.name,
             "display_name": self.display_name,
+            "kind": self._kind,
+            "version": self.version,
             "description": self.description,
+            "enabled": state["enabled"] if state else True,
+            "added_at": state["added_at"] if state else None,
+            "updated_at": state["updated_at"] if state else None,
+            "status_changed_at": state["status_changed_at"] if state else None,
+            "synced_at": state["synced_at"] if state else None,
         }
 
 
@@ -64,6 +89,8 @@ class Pipe(Plugin):
     The base class provides default ``sync()`` (build_client -> resources ->
     run_sync -> auto_transform) and auto-derived auth_fields / __table__.
     """
+
+    _kind = "pipe"
 
     Config: ClassVar[type] = PipeConfig
     Auth: ClassVar[type] = PipeAuth
@@ -208,6 +235,7 @@ class Pipe(Plugin):
 class Schema(Plugin):
     """Canonical metrics schema."""
 
+    _kind = "schema"
     all_tables: ClassVar[list[type]]
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -242,6 +270,7 @@ class StaticPlugin(Plugin):
 class Component(StaticPlugin):
     """UI component (custom element)."""
 
+    _kind = "component"
     tag: ClassVar[str]
     entrypoint: ClassVar[str]
 
@@ -249,12 +278,14 @@ class Component(StaticPlugin):
 class Theme(StaticPlugin):
     """CSS theme."""
 
+    _kind = "theme"
     css: ClassVar[str]
 
 
 class UI(StaticPlugin):
     """UI shell (HTML + JS app shell)."""
 
+    _kind = "ui"
     html: ClassVar[str]
     entrypoint: ClassVar[str]
 
