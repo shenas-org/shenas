@@ -1,17 +1,11 @@
 from pathlib import Path
 
-try:
-    from importlib.metadata import version
+from shenas_pipes.core.abc import Theme
 
-    _version = version("shenas-theme-default")
-except Exception:
-    _version = "dev"
 
-THEME = {
-    "name": "default",
-    "display_name": "Default",
-    "version": _version,
-    "description": "Default shenas theme with system fonts and light colors",
-    "static_dir": Path(__file__).parent / "static",
-    "css": "default.css",
-}
+class DefaultTheme(Theme):
+    name = "default"
+    display_name = "Default"
+    description = "Default shenas theme with system fonts and light colors"
+    static_dir = Path(__file__).parent / "static"
+    css = "default.css"

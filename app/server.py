@@ -47,13 +47,32 @@ app.include_router(api_router)
 
 
 def _discover_plugins(group: str, include_internal: bool = True) -> list[dict[str, Any]]:
-    """Discover installed plugins via entry points."""
+    """Discover installed plugins via entry points.
+
+    Supports both ABC classes (StaticPlugin subclasses) and legacy dicts.
+    """
+    from shenas_pipes.core.abc import StaticPlugin
+
     plugins: list[dict[str, Any]] = []
     for ep in entry_points(group=group):
         try:
-            plugin = ep.load()
-            if isinstance(plugin, dict) and "static_dir" in plugin and (include_internal or not plugin.get("internal")):
-                plugins.append(plugin)
+            obj = ep.load()
+            if isinstance(obj, type) and issubclass(obj, StaticPlugin):
+                plugin = {
+                    "name": obj.name,
+                    "display_name": obj.display_name,
+                    "description": obj.description,
+                    "static_dir": obj.static_dir,
+                    "internal": obj.internal,
+                }
+                # Copy kind-specific attributes
+                for attr in ("css", "html", "entrypoint", "tag"):
+                    if hasattr(obj, attr):
+                        plugin[attr] = getattr(obj, attr)
+                if include_internal or not plugin.get("internal"):
+                    plugins.append(plugin)
+            elif isinstance(obj, dict) and "static_dir" in obj and (include_internal or not obj.get("internal")):
+                plugins.append(obj)
         except Exception:
             pass
     return plugins
