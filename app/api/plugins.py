@@ -119,7 +119,7 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
     installed = json.loads(result.stdout)
     matched = [p for p in installed if p["name"].startswith(prefix)]
 
-    from app.api.pipes import _load_pipe, _load_plugin
+    from app.api.pipes import _load_plugin
 
     items = []
     for p in sorted(matched, key=lambda x: x["name"]):
@@ -127,42 +127,24 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
         if _is_internal(kind, short_name):
             continue
 
-        # Load plugin class for metadata
         plugin_cls = _load_plugin(kind, short_name)
-        if kind == "pipe":
-            try:
-                pipe = _load_pipe(short_name)
-                display = pipe.display_name
-                desc = pipe.description
-                cmds = pipe.commands
-                has_auth = pipe.is_authenticated
-                sync_freq = pipe.sync_frequency
-            except Exception:
-                display = plugin_cls.display_name if plugin_cls else ""
-                desc = plugin_cls.description if plugin_cls else ""
-                cmds = ["sync"]
-                has_auth = None
-                sync_freq = None
-        else:
-            display = plugin_cls.display_name if plugin_cls else ""
-            desc = plugin_cls.description if plugin_cls else ""
-            cmds = []
-            has_auth = None
-            sync_freq = None
-
+        if not plugin_cls:
+            continue
+        plugin = plugin_cls()
+        pi = plugin.get_info()
         state = get_plugin_state(kind, short_name)
         items.append(
             PluginInfo(
                 name=short_name,
-                display_name=display,
+                display_name=pi.get("display_name", ""),
                 package=p["name"],
                 version=p["version"],
                 signature=check_signature(p["name"], p["version"]),
-                description=desc,
-                commands=cmds,
+                description=pi.get("description", ""),
+                commands=pi.get("commands", []),
                 enabled=state["enabled"] if state else (kind not in _EXCLUSIVE_KINDS),
-                has_auth=has_auth,
-                sync_frequency=sync_freq,
+                has_auth=pi.get("has_auth"),
+                sync_frequency=pi.get("sync_frequency"),
                 added_at=state["added_at"] if state else None,
                 updated_at=state["updated_at"] if state else None,
                 status_changed_at=state["status_changed_at"] if state else None,
@@ -276,18 +258,13 @@ def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
 @router.get("/{kind}/{name}/info")
 def plugin_info(kind: str, name: str) -> dict[str, Any]:
     """Get full info for an installed plugin."""
-    from app.api.pipes import _load_pipe, _load_plugin
+    from app.api.pipes import _load_plugin
 
     _validate_kind(kind)
-    if kind == "pipe":
-        try:
-            return _load_pipe(name).info()
-        except Exception:
-            pass
     cls = _load_plugin(kind, name)
-    if cls:
-        return cls().info()
-    return {"name": name, "kind": kind}
+    if not cls:
+        raise HTTPException(status_code=404, detail=f"Plugin not found: {kind}/{name}")
+    return cls().get_info()
 
 
 @router.get("/{kind}")

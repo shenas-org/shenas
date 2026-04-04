@@ -30,10 +30,10 @@ def _mock_plugin_state():
         def resources(self, client: Any) -> list[Any]:
             return []
 
-    fake_pipe = _FakePipe()
     with (
         patch("app.api.plugins.get_plugin_state", return_value=None),
-        patch("app.api.pipes._load_pipe", return_value=fake_pipe),
+        patch("app.db.get_plugin_state", return_value=None),
+        patch("app.api.pipes._load_plugin", return_value=_FakePipe),
         patch("app.db.upsert_plugin_state"),
         patch("app.db.remove_plugin_state"),
         patch("app.db.is_plugin_enabled", return_value=True),
