@@ -6,7 +6,7 @@ from unittest.mock import patch
 import duckdb
 import pytest
 
-from shenas_pipes.core.store import DataclassStore
+from shenas_plugins.core.store import DataclassStore
 from shenas_schemas.core.field import Field
 
 _config = DataclassStore("config")
@@ -61,7 +61,7 @@ def _mock_cursor():
         finally:
             cur.close()
 
-    with patch("shenas_pipes.core.store.cursor", _fake_cursor):
+    with patch("shenas_plugins.core.store.cursor", _fake_cursor):
         yield
 
 

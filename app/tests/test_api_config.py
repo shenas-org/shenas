@@ -15,8 +15,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.server import app
-from shenas_pipes.core.abc import Pipe
-from shenas_pipes.core.base_config import PipeConfig
+from shenas_plugins.core import Pipe
+from shenas_plugins.core.base_config import PipeConfig
 from shenas_schemas.core.field import Field
 
 
@@ -52,9 +52,9 @@ def client() -> Iterator[TestClient]:
     pipe = _TestPipe()
 
     with (
-        patch("shenas_pipes.core.store.cursor", _fake_cursor),
+        patch("shenas_plugins.core.store.cursor", _fake_cursor),
         patch("app.api.config._load_plugin", return_value=_TestPipe),
-        patch("app.api.config._load_plugins", return_value=[_TestPipe]),
+        patch("app.api.config._load_plugins", side_effect=lambda k, **_kw: [_TestPipe] if k == "pipe" else []),
         patch("app.db.get_plugin_state", return_value=None),
     ):
         # Clear the ensured cache so tables get created in the in-memory DB

@@ -19,7 +19,7 @@ from app.models import ScheduleInfo, SyncRequest
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from shenas_pipes.core.abc import Pipe
+    from shenas_plugins.core import Pipe
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 

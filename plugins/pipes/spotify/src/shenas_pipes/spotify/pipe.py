@@ -9,9 +9,9 @@ from typing import Annotated, Any
 
 from spotipy.cache_handler import CacheHandler
 
-from shenas_pipes.core.abc import Pipe
-from shenas_pipes.core.base_auth import PipeAuth
-from shenas_pipes.core.base_config import PipeConfig
+from shenas_plugins.core import Pipe
+from shenas_plugins.core.base_auth import PipeAuth
+from shenas_plugins.core.base_config import PipeConfig
 from shenas_schemas.core.field import Field
 
 REDIRECT_URI = "http://127.0.0.1:8090/callback"

@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any
 
-from shenas_pipes.core.abc import Pipe
-from shenas_pipes.core.base_auth import PipeAuth
+from shenas_plugins.core import Pipe
+from shenas_plugins.core.base_auth import PipeAuth
 from shenas_schemas.core.field import Field
 
 _pending_mfa: dict[str, Any] = {}

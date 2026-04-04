@@ -3,7 +3,9 @@ name = "shenas-theme-default"
 dynamic = ["version"]
 description = "Default shenas theme"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "shenas-plugin-core",
+]
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]

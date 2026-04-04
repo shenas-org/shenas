@@ -9,33 +9,29 @@ from typing import Any
 import duckdb
 from fastapi import APIRouter, HTTPException
 
-from app.db import DB_PATH, connect
+from app.db import DB_PATH, cursor
 from app.models import DBStatusResponse, OkResponse, SchemaInfo, TableStats
 
 router = APIRouter(prefix="/db", tags=["db"])
 
 
-def _discover_schemas(con: duckdb.DuckDBPyConnection) -> dict[str, list[str]]:
-    cur = con.cursor()
-    try:
+def _discover_schemas() -> dict[str, list[str]]:
+    with cursor() as cur:
         rows = cur.execute(
             "SELECT table_schema, table_name FROM information_schema.tables "
             "WHERE table_schema NOT IN ('information_schema', 'main') "
             "AND table_schema NOT LIKE '%\\_staging' ESCAPE '\\' "
             "ORDER BY table_schema, table_name"
         ).fetchall()
-    finally:
-        cur.close()
     schemas: dict[str, list[str]] = {}
     for schema, table in rows:
         schemas.setdefault(schema, []).append(table)
     return schemas
 
 
-def _table_stats(con: duckdb.DuckDBPyConnection, schema: str, name: str) -> TableStats:
+def _table_stats(schema: str, name: str) -> TableStats:
     qualified = f'"{schema}"."{name}"'
-    cur = con.cursor()
-    try:
+    with cursor() as cur:
         row = cur.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()
         rows = row[0] if row else 0
         cols = len(cur.execute(f"DESCRIBE {qualified}").fetchall())
@@ -51,14 +47,11 @@ def _table_stats(con: duckdb.DuckDBPyConnection, schema: str, name: str) -> Tabl
                 break
             except duckdb.Error:
                 continue
-    finally:
-        cur.close()
     return TableStats(name=name, rows=rows, earliest=earliest, latest=latest, cols=cols)
 
 
 @router.get("/status")
 def db_status() -> DBStatusResponse:
-    # Key source
     if os.environ.get("SHENAS_DB_KEY"):
         key_source = "env"
     else:
@@ -77,10 +70,9 @@ def db_status() -> DBStatusResponse:
     if DB_PATH.exists():
         size_mb = round(DB_PATH.stat().st_size / (1024 * 1024), 1)
         try:
-            con = connect(read_only=True)
-            schemas = _discover_schemas(con)
+            schemas = _discover_schemas()
             for schema_name, tables in schemas.items():
-                table_list = [_table_stats(con, schema_name, name) for name in tables if not name.startswith("_dlt_")]
+                table_list = [_table_stats(schema_name, name) for name in tables if not name.startswith("_dlt_")]
                 schemas_data.append(SchemaInfo(name=schema_name, tables=table_list))
         except Exception:
             pass
@@ -100,8 +92,7 @@ _INTERNAL_SCHEMAS = {"config", "auth", "shenas_system", "telemetry"}
 def db_tables() -> dict[str, list[str]]:
     """Return schema -> table names mapping (excludes internal and dlt tables)."""
     try:
-        con = connect(read_only=True)
-        schemas = _discover_schemas(con)
+        schemas = _discover_schemas()
         return {
             s: [t for t in tables if not t.startswith("_dlt_")] for s, tables in schemas.items() if s not in _INTERNAL_SCHEMAS
         }
@@ -141,18 +132,11 @@ def table_preview(schema: str, table: str, limit: int = 50) -> list[dict[str, An
     if not _IDENTIFIER_RE.match(schema) or not _IDENTIFIER_RE.match(table):
         raise HTTPException(status_code=400, detail="Invalid schema or table name")
     limit = min(max(1, limit), 500)
-    con = connect(read_only=True)
-    cur = con.cursor()
-    try:
-        cur.execute("USE db")
-        qualified = f'"{schema}"."{table}"'
+    qualified = f'"{schema}"."{table}"'
+    with cursor() as cur:
         rows = cur.execute(f"SELECT * FROM {qualified} LIMIT {limit}").fetchall()
         cols = [desc[0] for desc in cur.description]
         return [dict(zip(cols, row, strict=False)) for row in rows]
-    except Exception:
-        raise HTTPException(status_code=400, detail=f"Failed to preview {schema}.{table}")
-    finally:
-        cur.close()
 
 
 @router.post("/keygen")
