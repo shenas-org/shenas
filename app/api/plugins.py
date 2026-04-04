@@ -49,30 +49,10 @@ def _is_internal(kind: str, name: str) -> bool:
     """Check if a plugin is internal (hidden from list/add/remove/UI)."""
     if name == "core":
         return True
-    from importlib.metadata import entry_points as _ep
+    from app.api.pipes import _load_plugin
 
-    from shenas_pipes.core.abc import Plugin
-
-    _kind_to_group = {
-        "pipe": "shenas.pipes",
-        "schema": "shenas.schemas",
-        "component": "shenas.components",
-        "ui": "shenas.ui",
-        "theme": "shenas.themes",
-    }
-    group = _kind_to_group.get(kind)
-    if not group:
-        return False
-    for ep in _ep(group=group):
-        if ep.name == name:
-            try:
-                obj = ep.load()
-                if isinstance(obj, type) and issubclass(obj, Plugin):
-                    return obj.internal
-            except Exception:
-                pass
-            break
-    return False
+    cls = _load_plugin(kind, name)
+    return cls.internal if cls else False
 
 
 def _load_public_key(path: Path) -> Ed25519PublicKey:
@@ -126,44 +106,6 @@ def check_signature(pkg_name: str, version: str) -> str:
     return "valid" if _verify_file(pub_key, wheel_path, sig_path.read_text().strip()) else "invalid"
 
 
-def _pipe_status(name: str) -> tuple[bool | None, int | None]:
-    """Check if a pipe has auth credentials and its sync frequency."""
-    from app.api.pipes import _load_pipe
-    from shenas_pipes.core.base_config import PipeConfig
-    from shenas_pipes.core.store import DataclassStore
-
-    has_auth = None
-    sync_freq = None
-
-    try:
-        pipe = _load_pipe(name)
-    except Exception:
-        return None, None
-
-    # Check auth
-    if not pipe.has_auth:
-        has_auth = True  # no auth needed
-    else:
-        try:
-            _auth = DataclassStore("auth")
-            row = _auth.get(pipe.Auth)
-            has_auth = bool(row and any(v for k, v in row.items() if k != "id"))
-        except Exception:
-            has_auth = None
-
-    # Check sync frequency from config
-    if pipe.Config is not PipeConfig:
-        try:
-            _config = DataclassStore("config")
-            row = _config.get(pipe.Config)
-            if row:
-                sync_freq = row.get("sync_frequency")
-        except Exception:
-            pass
-
-    return has_auth, sync_freq
-
-
 def list_plugins_data(kind: str) -> list[PluginInfo]:
     import sys
 
@@ -177,29 +119,45 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
     installed = json.loads(result.stdout)
     matched = [p for p in installed if p["name"].startswith(prefix)]
 
+    from app.api.pipes import _load_pipe, _load_plugin
+
     items = []
     for p in sorted(matched, key=lambda x: x["name"]):
         short_name = p["name"].removeprefix(prefix)
         if _is_internal(kind, short_name):
             continue
-        sig_status = check_signature(p["name"], p["version"])
-        display = _plugin_display_name(kind, short_name)
-        desc = _plugin_description(kind, short_name)
-        cmds = _plugin_commands(kind, short_name)
-        state = get_plugin_state(kind, short_name)
 
-        has_auth = None
-        sync_freq = None
+        # Load plugin class for metadata
+        plugin_cls = _load_plugin(kind, short_name)
         if kind == "pipe":
-            has_auth, sync_freq = _pipe_status(short_name)
+            try:
+                pipe = _load_pipe(short_name)
+                display = pipe.display_name
+                desc = pipe.description
+                cmds = pipe.commands
+                has_auth = pipe.is_authenticated
+                sync_freq = pipe.sync_frequency
+            except Exception:
+                display = plugin_cls.display_name if plugin_cls else ""
+                desc = plugin_cls.description if plugin_cls else ""
+                cmds = ["sync"]
+                has_auth = None
+                sync_freq = None
+        else:
+            display = plugin_cls.display_name if plugin_cls else ""
+            desc = plugin_cls.description if plugin_cls else ""
+            cmds = []
+            has_auth = None
+            sync_freq = None
 
+        state = get_plugin_state(kind, short_name)
         items.append(
             PluginInfo(
                 name=short_name,
                 display_name=display,
                 package=p["name"],
                 version=p["version"],
-                signature=sig_status,
+                signature=check_signature(p["name"], p["version"]),
                 description=desc,
                 commands=cmds,
                 enabled=state["enabled"] if state else (kind not in _EXCLUSIVE_KINDS),
@@ -315,86 +273,43 @@ def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
     return RemoveResponse(ok=False, message=result.stderr.strip() or f"Failed to uninstall {pkg_name}")
 
 
-def _plugin_commands(kind: str, name: str) -> list[str]:
-    """Detect available commands for a plugin."""
-    commands = ["describe"]
-
-    if kind != "pipe":
-        return commands
-
-    from app.api.pipes import _load_pipe
-
-    try:
-        pipe = _load_pipe(name)
-        return pipe.commands
-    except Exception:
-        commands.append("sync")
-        return commands
-
-
-def _plugin_display_name(kind: str, name: str) -> str:
-    """Load a human-readable display name from a plugin."""
-    from app.api.pipes import _load_pipe, _load_plugin
-
-    if kind == "pipe":
-        try:
-            return _load_pipe(name).display_name
-        except Exception:
-            pass
-    else:
-        cls = _load_plugin(kind, name)
-        if cls:
-            return cls.display_name
-    return ""
-
-
-def _plugin_description(kind: str, name: str) -> str:
-    """Load a description from a plugin."""
-    from app.api.pipes import _load_pipe, _load_plugin
-
-    if kind == "pipe":
-        try:
-            return _load_pipe(name).description
-        except Exception:
-            pass
-    else:
-        cls = _load_plugin(kind, name)
-        if cls and cls.description:
-            return cls.description
-
-    prefix = _prefix(kind)
-    pkg_name = f"{prefix}{name}"
-    try:
-        from importlib.metadata import metadata
-
-        m = metadata(pkg_name)
-        return m["Summary"] or ""
-    except Exception:
-        return ""
-
-
 @router.get("/{kind}/{name}/info")
 def plugin_info(kind: str, name: str) -> dict[str, Any]:
     """Get full info for an installed plugin: description and state."""
+    from app.api.pipes import _load_pipe, _load_plugin
+
     _validate_kind(kind)
     state = get_plugin_state(kind, name)
-    # Get version from installed packages
+
+    # Get version
     version = None
-    prefix = _prefix(kind)
-    pkg_name = f"{prefix}{name}"
     try:
         from importlib.metadata import version as get_version
 
-        version = get_version(pkg_name)
+        version = get_version(f"{_prefix(kind)}{name}")
     except Exception:
         pass
 
+    # Get metadata from plugin class
+    if kind == "pipe":
+        try:
+            pipe = _load_pipe(name)
+            display = pipe.display_name
+            desc = pipe.description
+        except Exception:
+            display = ""
+            desc = ""
+    else:
+        cls = _load_plugin(kind, name)
+        display = cls.display_name if cls else ""
+        desc = cls.description if cls else ""
+
     return {
         "name": name,
-        "display_name": _plugin_display_name(kind, name),
+        "display_name": display,
         "kind": kind,
         "version": version,
-        "description": _plugin_description(kind, name),
+        "description": desc,
         "enabled": state["enabled"] if state else True,
         "added_at": state["added_at"] if state else None,
         "updated_at": state["updated_at"] if state else None,
