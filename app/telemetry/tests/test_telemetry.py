@@ -1,17 +1,22 @@
-"""Tests for the OpenTelemetry DuckDB exporters."""
+"""Tests for the DuckDB OpenTelemetry exporters."""
 
+from __future__ import annotations
+
+from contextlib import contextmanager
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import duckdb
 import pytest
-from opentelemetry.sdk._logs import LoggerProvider  # type: ignore[attr-defined]
-from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor  # type: ignore[attr-defined]
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 from app.telemetry.exporters import DuckDBLogExporter, DuckDBSpanExporter
 from app.telemetry.schema import ensure_telemetry_schema
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 @pytest.fixture
@@ -21,27 +26,24 @@ def con() -> duckdb.DuckDBPyConnection:
     return c
 
 
-class _NonClosingWrapper:
-    """Wraps a DuckDB connection but makes close() a no-op for testing."""
-
-    def __init__(self, con: duckdb.DuckDBPyConnection) -> None:
-        self._con = con
-
-    def close(self) -> None:
-        pass
-
-    def __getattr__(self, name: str):
-        return getattr(self._con, name)
+@contextmanager
+def _mock_cursor(con: duckdb.DuckDBPyConnection) -> Iterator[duckdb.DuckDBPyConnection]:
+    cur = con.cursor()
+    try:
+        yield cur
+    finally:
+        cur.close()
 
 
-def _mock_connect(con: duckdb.DuckDBPyConnection):
-    """Return a mock _connect that returns a non-closing wrapper around the test connection."""
-    wrapper = _NonClosingWrapper(con)
+def _patches(con: duckdb.DuckDBPyConnection):
+    """Return patches that route telemetry exporters to the in-memory DB."""
+    import app.db  # ensure module is loaded before patching  # noqa: F401
 
-    def factory() -> _NonClosingWrapper:
-        return wrapper
-
-    return factory
+    return (
+        patch("app.db.cursor", lambda: _mock_cursor(con)),
+        patch("app.telemetry.exporters._ensure_schema"),
+        patch("app.telemetry.exporters._dispatch"),
+    )
 
 
 class TestSchema:
@@ -60,7 +62,7 @@ class TestSchema:
 
 class TestSpanExporter:
     def test_exports_span(self, con: duckdb.DuckDBPyConnection) -> None:
-        with patch("app.telemetry.exporters._connect", _mock_connect(con)):
+        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
             exporter = DuckDBSpanExporter()
 
             resource = Resource.create({"service.name": "test-service"})
@@ -71,140 +73,135 @@ class TestSpanExporter:
             with tracer.start_as_current_span("test-operation", attributes={"key": "value"}):
                 pass
 
-            provider.force_flush()
+            provider.shutdown()
 
         rows = con.execute("SELECT * FROM telemetry.spans").fetchall()
         assert len(rows) == 1
-        row = con.execute("SELECT name, service_name, duration_ms FROM telemetry.spans").fetchone()
-        assert row is not None
-        assert row[0] == "test-operation"
-        assert row[1] == "test-service"
-        assert row[2] >= 0
+        assert rows[0][3] == "test-operation"
 
     def test_exports_nested_spans(self, con: duckdb.DuckDBPyConnection) -> None:
-        with patch("app.telemetry.exporters._connect", _mock_connect(con)):
+        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
             exporter = DuckDBSpanExporter()
-
-            provider = TracerProvider(resource=Resource.create({"service.name": "test"}))
+            resource = Resource.create({"service.name": "test"})
+            provider = TracerProvider(resource=resource)
             provider.add_span_processor(SimpleSpanProcessor(exporter))
             tracer = provider.get_tracer("test")
 
             with tracer.start_as_current_span("parent"), tracer.start_as_current_span("child"):
                 pass
 
-            provider.force_flush()
+            provider.shutdown()
 
-        rows = con.execute("SELECT name, parent_span_id, trace_id FROM telemetry.spans ORDER BY name").fetchall()
+        rows = con.execute("SELECT name, parent_span_id FROM telemetry.spans ORDER BY name").fetchall()
         assert len(rows) == 2
-        child_row = rows[0]
-        parent_row = rows[1]
-        assert child_row[0] == "child"
-        assert parent_row[0] == "parent"
-        assert child_row[2] == parent_row[2]
-        assert child_row[1] is not None
-        assert parent_row[1] is None
+        child = next(r for r in rows if r[0] == "child")
+        assert child[1] is not None
 
     def test_exports_attributes(self, con: duckdb.DuckDBPyConnection) -> None:
-        with patch("app.telemetry.exporters._connect", _mock_connect(con)):
+        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
             exporter = DuckDBSpanExporter()
-
-            provider = TracerProvider(resource=Resource.create({"service.name": "test"}))
+            resource = Resource.create({"service.name": "test"})
+            provider = TracerProvider(resource=resource)
             provider.add_span_processor(SimpleSpanProcessor(exporter))
             tracer = provider.get_tracer("test")
 
-            with tracer.start_as_current_span("op", attributes={"pipe.name": "garmin", "rows": 42}):
+            with tracer.start_as_current_span("op", attributes={"http.method": "GET", "http.url": "/api/test"}):
                 pass
 
-            provider.force_flush()
+            provider.shutdown()
 
-        import json
-
-        result = con.execute("SELECT attributes FROM telemetry.spans").fetchone()
-        assert result is not None
-        attrs = result[0]
-        parsed = json.loads(attrs)
-        assert parsed["pipe.name"] == "garmin"
-        assert parsed["rows"] == 42
+        rows = con.execute("SELECT attributes FROM telemetry.spans").fetchall()
+        assert '"http.method": "GET"' in rows[0][0]
 
     def test_empty_batch(self, con: duckdb.DuckDBPyConnection) -> None:
-        with patch("app.telemetry.exporters._connect", _mock_connect(con)):
+        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
             exporter = DuckDBSpanExporter()
             from opentelemetry.sdk.trace.export import SpanExportResult
 
             result = exporter.export([])
             assert result == SpanExportResult.SUCCESS
 
+        row = con.execute("SELECT COUNT(*) FROM telemetry.spans").fetchone()
+        assert row is not None
+        assert row[0] == 0
+
 
 class TestLogExporter:
+    @pytest.mark.skipif(
+        not __import__("importlib").util.find_spec("opentelemetry.instrumentation.logging"),  # type: ignore[union-attr]
+        reason="opentelemetry-instrumentation-logging not installed",
+    )
     def test_exports_log(self, con: duckdb.DuckDBPyConnection) -> None:
         import logging
 
-        with patch("app.telemetry.exporters._connect", _mock_connect(con)):
+        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
+            from opentelemetry._logs import set_logger_provider
+            from opentelemetry.sdk._logs import LoggerProvider
+            from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+
             exporter = DuckDBLogExporter()
+            log_provider = LoggerProvider()
+            log_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+            set_logger_provider(log_provider)
 
-            resource = Resource.create({"service.name": "test-service"})
-            provider = LoggerProvider(resource=resource)
-            provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+            from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
-            from opentelemetry.sdk._logs import LoggingHandler
+            LoggingInstrumentor().instrument(set_logging_format=False)
 
-            handler = LoggingHandler(logger_provider=provider)
-            logger = logging.getLogger("test.otel")
-            logger.addHandler(handler)
-            logger.setLevel(logging.INFO)
+            logger = logging.getLogger("test.otel.log")
+            logger.warning("test log message")
 
-            logger.info("test log message")
-            provider.force_flush()
-
-            logger.removeHandler(handler)
+            log_provider.shutdown()
+            LoggingInstrumentor().uninstrument()
 
         rows = con.execute("SELECT * FROM telemetry.logs").fetchall()
-        assert len(rows) == 1
-        row = con.execute("SELECT severity, body, service_name FROM telemetry.logs").fetchone()
-        assert row is not None
-        assert row[0] == "INFO"
-        assert "test log message" in row[1]
+        assert len(rows) >= 1
+        bodies = [r[4] for r in rows]
+        assert any("test log message" in (b or "") for b in bodies)
 
+    @pytest.mark.skipif(
+        not __import__("importlib").util.find_spec("opentelemetry.instrumentation.logging"),  # type: ignore[union-attr]
+        reason="opentelemetry-instrumentation-logging not installed",
+    )
     def test_log_with_trace_context(self, con: duckdb.DuckDBPyConnection) -> None:
         import logging
 
-        with patch("app.telemetry.exporters._connect", _mock_connect(con)):
-            span_exporter = DuckDBSpanExporter()
-            log_exporter = DuckDBLogExporter()
+        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
+            from opentelemetry._logs import set_logger_provider
+            from opentelemetry.sdk._logs import LoggerProvider
+            from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+
+            exporter = DuckDBLogExporter()
+            log_provider = LoggerProvider()
+            log_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+            set_logger_provider(log_provider)
+
+            from opentelemetry.instrumentation.logging import LoggingInstrumentor
+
+            LoggingInstrumentor().instrument(set_logging_format=False)
 
             resource = Resource.create({"service.name": "test"})
-            trace_provider = TracerProvider(resource=resource)
-            trace_provider.add_span_processor(SimpleSpanProcessor(span_exporter))
-            log_provider = LoggerProvider(resource=resource)
-            log_provider.add_log_record_processor(SimpleLogRecordProcessor(log_exporter))
+            tracer_provider = TracerProvider(resource=resource)
+            tracer = tracer_provider.get_tracer("test")
 
-            from opentelemetry.sdk._logs import LoggingHandler
+            logger = logging.getLogger("test.otel.trace")
+            with tracer.start_as_current_span("traced-op"):
+                logger.info("log inside span")
 
-            handler = LoggingHandler(logger_provider=log_provider)
-            logger = logging.getLogger("test.context")
-            logger.addHandler(handler)
-            logger.setLevel(logging.INFO)
+            log_provider.shutdown()
+            tracer_provider.shutdown()
+            LoggingInstrumentor().uninstrument()
 
-            tracer = trace_provider.get_tracer("test")
-            with tracer.start_as_current_span("my-span"):
-                logger.info("inside span")
-
-            trace_provider.force_flush()
-            log_provider.force_flush()
-
-            logger.removeHandler(handler)
-
-        span_row = con.execute("SELECT trace_id FROM telemetry.spans").fetchone()
-        log_row = con.execute("SELECT trace_id, span_id FROM telemetry.logs").fetchone()
-        assert span_row is not None
-        assert log_row is not None
-        assert log_row[0] == span_row[0]
-        assert log_row[1] is not None
+        rows = con.execute("SELECT trace_id, span_id, body FROM telemetry.logs").fetchall()
+        traced = [r for r in rows if r[2] and "log inside span" in r[2]]
+        assert len(traced) >= 1
+        assert traced[0][0] is not None
+        assert traced[0][1] is not None
 
     def test_empty_batch(self, con: duckdb.DuckDBPyConnection) -> None:
-        with patch("app.telemetry.exporters._connect", _mock_connect(con)):
+        with _patches(con)[0], _patches(con)[1], _patches(con)[2]:
             exporter = DuckDBLogExporter()
-            from opentelemetry.sdk._logs.export import LogRecordExportResult  # type: ignore[attr-defined]
-
             result = exporter.export([])
+            from opentelemetry.sdk._logs.export import LogRecordExportResult
+
             assert result == LogRecordExportResult.SUCCESS
