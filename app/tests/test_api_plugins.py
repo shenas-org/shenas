@@ -19,7 +19,7 @@ client = TestClient(app)
 # Mock plugin state DB functions for all tests in this module
 @pytest.fixture(autouse=True)
 def _mock_plugin_state():
-    from shenas_plugins.core import Pipe
+    from shenas_pipes.core.pipe import Pipe
 
     class _FakePipe(Pipe):
         name = "test"

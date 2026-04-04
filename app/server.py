@@ -16,7 +16,7 @@ from app.api import api_router
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from shenas_plugins.core import Theme
+    from shenas_themes.core import Theme
 
 
 @asynccontextmanager

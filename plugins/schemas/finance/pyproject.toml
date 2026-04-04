@@ -4,7 +4,6 @@ dynamic = ["version"]
 description = "Canonical finance metrics schema for shenas"
 requires-python = ">=3.11"
 dependencies = [
-    "shenas-plugin-core",
     "shenas-schema-core",
 ]
 
