@@ -25,4 +25,4 @@ raw-options.root = "../../.."
 raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "pipe-garmin/v*"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/shenas_pipes"]
+packages = ["shenas_pipes"]
