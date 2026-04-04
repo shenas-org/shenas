@@ -30,6 +30,7 @@ members = [
     "shenas-repository",
     "shenas-scheduler",
     "shenas-schema-core",
+    "shenas-schema-events",
     "shenas-schema-finance",
     "shenas-schema-fitness",
     "shenas-schema-habits",
@@ -2908,6 +2909,20 @@ dependencies = [
 requires-dist = [
     { name = "duckdb", specifier = ">=1.2.0" },
     { name = "shenas-plugin-core", editable = "plugins/core" },
+]
+
+[[package]]
+name = "shenas-schema-events"
+source = { editable = "plugins/schemas/events" }
+dependencies = [
+    { name = "shenas-plugin-core" },
+    { name = "shenas-schema-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "shenas-plugin-core", editable = "plugins/core" },
+    { name = "shenas-schema-core", editable = "plugins/schemas/core" },
 ]
 
 [[package]]
