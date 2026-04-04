@@ -204,7 +204,14 @@ def run_transforms(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
         target = f'"{t["target_duckdb_schema"]}"."{t["target_duckdb_table"]}"'
         try:
             con.execute(f"DELETE FROM {target} WHERE source = ?", [t["source_plugin"]])
-            con.execute(f"INSERT INTO {target} {t['sql']}")
+            # Extract column names from the SELECT to build INSERT INTO ... (cols) SELECT
+            cur = con.cursor()
+            try:
+                cur.execute(f"SELECT * FROM ({t['sql']}) _t LIMIT 0")
+                col_names = ", ".join(f'"{d[0]}"' for d in cur.description)
+            finally:
+                cur.close()
+            con.execute(f"INSERT INTO {target} ({col_names}) {t['sql']}")
             count += 1
         except Exception:
             log.exception("Transform #%d failed (%s -> %s)", t["id"], t["source_plugin"], target)
