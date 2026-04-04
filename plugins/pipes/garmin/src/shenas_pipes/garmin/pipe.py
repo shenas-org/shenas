@@ -95,6 +95,9 @@ class GarminPipe(Pipe):
 
         self._save_tokens_from_client(client)
 
+    def get_pending_mfa_state(self) -> dict[str, Any] | None:
+        return _pending_mfa.pop("garmin", None)
+
     def complete_mfa(self, state: dict[str, Any], mfa_code: str) -> None:
         client = state["client"]
         mfa_state = state["mfa_state"]
