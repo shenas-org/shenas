@@ -142,7 +142,7 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
                 signature=check_signature(p["name"], p["version"]),
                 description=pi.get("description", ""),
                 commands=pi.get("commands", []),
-                enabled=state["enabled"] if state else (kind not in _EXCLUSIVE_KINDS),
+                enabled=state["enabled"] if state else not plugin_cls.exclusive,
                 has_auth=pi.get("has_auth"),
                 sync_frequency=pi.get("sync_frequency"),
                 added_at=state["added_at"] if state else None,
@@ -289,36 +289,29 @@ def remove_plugin(kind: str, name: str) -> RemoveResponse:
     return uninstall_plugin(name, kind)
 
 
-_EXCLUSIVE_KINDS = {"theme"}
-
-
 @router.post("/{kind}/{name}/enable")
 def enable_plugin(kind: str, name: str) -> OkResponse:
-    """Enable a plugin. For exclusive kinds (theme), disables all others."""
-    _validate_kind(kind)
-    from app.db import get_all_plugin_states, upsert_plugin_state
+    """Enable a plugin."""
+    from app.api.pipes import _load_plugin
 
-    if kind in _EXCLUSIVE_KINDS:
-        for state in get_all_plugin_states(kind):
-            if state["name"] != name and state["enabled"]:
-                upsert_plugin_state(kind, state["name"], enabled=False)
-    upsert_plugin_state(kind, name, enabled=True)
+    _validate_kind(kind)
+    cls = _load_plugin(kind, name)
+    if not cls:
+        raise HTTPException(status_code=404, detail=f"Plugin not found: {kind}/{name}")
+    msg = cls().enable()
     log.info("Plugin enabled: %s %s", kind, name)
-    return OkResponse(ok=True, message=f"Enabled {kind} {name}")
+    return OkResponse(ok=True, message=msg)
 
 
 @router.post("/{kind}/{name}/disable")
 def disable_plugin(kind: str, name: str) -> OkResponse:
-    """Disable a plugin. For exclusive kinds (theme), enables the default instead."""
-    _validate_kind(kind)
-    from app.db import upsert_plugin_state
+    """Disable a plugin."""
+    from app.api.pipes import _load_plugin
 
-    if kind in _EXCLUSIVE_KINDS:
-        if name == "default":
-            return OkResponse(ok=True, message=f"Cannot disable the default {kind}")
-        upsert_plugin_state(kind, name, enabled=False)
-        upsert_plugin_state(kind, "default", enabled=True)
-        return OkResponse(ok=True, message=f"Switched {kind} to default")
-    upsert_plugin_state(kind, name, enabled=False)
+    _validate_kind(kind)
+    cls = _load_plugin(kind, name)
+    if not cls:
+        raise HTTPException(status_code=404, detail=f"Plugin not found: {kind}/{name}")
+    msg = cls().disable()
     log.info("Plugin disabled: %s %s", kind, name)
-    return OkResponse(ok=True, message=f"Disabled {kind} {name}")
+    return OkResponse(ok=True, message=msg)
