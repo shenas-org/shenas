@@ -5,7 +5,12 @@ from __future__ import annotations
 from importlib.metadata import entry_points
 from typing import TypeVar
 
-from shenas_plugins.core import UI, Component, Pipe, Plugin, Schema, StaticPlugin, Theme
+from shenas_components.core import Component
+from shenas_pipes.core.pipe import Pipe  # noqa: TC001
+from shenas_plugins.core import Plugin, StaticPlugin
+from shenas_schemas.core.schema import Schema
+from shenas_themes.core import Theme
+from shenas_ui.core import UI
 
 T = TypeVar("T", bound=Plugin)
 

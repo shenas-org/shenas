@@ -4,7 +4,6 @@ dynamic = ["version"]
 description = "Canonical daily habits schema for shenas"
 requires-python = ">=3.11"
 dependencies = [
-    "shenas-plugin-core",
     "shenas-schema-core",
 ]
 

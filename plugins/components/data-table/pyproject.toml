@@ -3,7 +3,9 @@ name = "shenas-component-data-table"
 dynamic = ["version"]
 description = "Data table with filtering, sorting, pagination, and column resizing"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "shenas-component-core",
+]
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]

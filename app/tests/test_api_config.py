@@ -15,7 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.server import app
-from shenas_plugins.core import Pipe
+from shenas_pipes.core.pipe import Pipe
 from shenas_plugins.core.base_config import PipeConfig
 from shenas_schemas.core.field import Field
 

@@ -1,5 +1,4 @@
-from shenas_plugins.core import Schema
-from shenas_schemas.core import Field, MetricProvider, generate_ddl, table_metadata
+from shenas_schemas.core import Field, MetricProvider, Schema, generate_ddl, table_metadata
 from shenas_schemas.outcomes.metrics import ALL_TABLES, DailyOutcome
 
 

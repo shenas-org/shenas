@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.server import app
 from app.tests.conftest import parse_sse
-from shenas_plugins.core import Pipe
+from shenas_pipes.core.pipe import Pipe
 
 client = TestClient(app)
 

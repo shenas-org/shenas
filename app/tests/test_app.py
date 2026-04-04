@@ -37,7 +37,7 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
 class TestIndex:
     @staticmethod
     def _make_fake_ui(tmp_path: Path) -> type:
-        from shenas_plugins.core import UI
+        from shenas_ui.core import UI
 
         class FakeUI(UI):
             name = "default"
