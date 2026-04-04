@@ -14,18 +14,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
-@dlt.resource(write_disposition="merge", primary_key=list(Event.__pk__), columns=dataclass_to_dlt_columns(Event))
-def events(
-    service: Any,
-    start_date: str = "30 days ago",
-    calendar_id: str = "primary",
-) -> Iterator[dict[str, Any]]:
-    """Yield calendar events from the given date onwards."""
-    import pendulum
-
-    resolved = resolve_start_date(start_date)
-    time_min = pendulum.parse(resolved).start_of("day").isoformat()
-
+def _fetch_events(service: Any, calendar_id: str, time_min: str) -> Iterator[dict[str, Any]]:
+    """Yield events from a single calendar."""
     page_token: str | None = None
     while True:
         result = (
@@ -67,6 +57,22 @@ def events(
         page_token = result.get("nextPageToken")
         if not page_token:
             break
+
+
+@dlt.resource(write_disposition="merge", primary_key=list(Event.__pk__), columns=dataclass_to_dlt_columns(Event))
+def all_events(
+    service: Any,
+    start_date: str = "30 days ago",
+) -> Iterator[dict[str, Any]]:
+    """Yield events from all calendars."""
+    import pendulum
+
+    resolved = resolve_start_date(start_date)
+    time_min = pendulum.parse(resolved).start_of("day").isoformat()
+
+    cal_list = service.calendarList().list().execute().get("items", [])
+    for cal in cal_list:
+        yield from _fetch_events(service, cal["id"], time_min)
 
 
 @dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(Calendar))
