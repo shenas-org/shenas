@@ -38,8 +38,11 @@ class Pipe(Plugin):
         super().__init_subclass__(**kwargs)
         if not hasattr(cls, "name"):
             return
-        # Auto-set __table__ on inner Config/Auth classes
-        if cls.Config is not PipeConfig and not hasattr(cls.Config, "__table__"):
+        # Auto-set __table__ on Config/Auth classes
+        if cls.Config is PipeConfig:
+            # Pipe uses base PipeConfig -- create a per-pipe subclass so __table__ is unique
+            cls.Config = type(f"{cls.name.title()}Config", (PipeConfig,), {"__table__": f"pipe_{cls.name}"})
+        elif not hasattr(cls.Config, "__table__"):
             cls.Config.__table__ = f"pipe_{cls.name}"
         if cls.Auth is not PipeAuth and not hasattr(cls.Auth, "__table__"):
             cls.Auth.__table__ = f"pipe_{cls.name}"
@@ -102,7 +105,7 @@ class Pipe(Plugin):
 
     @property
     def has_config(self) -> bool:
-        return self.Config is not PipeConfig
+        return True  # All pipes have config (at minimum sync_frequency, lookback_period)
 
     @property
     def commands(self) -> list[str]:
