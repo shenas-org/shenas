@@ -1,4 +1,5 @@
-from collections.abc import Iterator
+import contextlib
+from collections.abc import Generator, Iterator
 from pathlib import Path
 from unittest.mock import patch
 
@@ -30,7 +31,20 @@ def test_con() -> duckdb.DuckDBPyConnection:
 
 @pytest.fixture
 def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
-    with patch("app.api.query.connect", return_value=test_con):
+    @contextlib.contextmanager
+    def _fake_cursor() -> Generator[duckdb.DuckDBPyConnection, None, None]:
+        cur = test_con.cursor()
+        try:
+            cur.execute("USE db")
+            yield cur
+        finally:
+            cur.close()
+
+    with (
+        patch("app.db.cursor", _fake_cursor),
+        patch("app.api.query.cursor", _fake_cursor),
+        patch("app.api.db.cursor", _fake_cursor),
+    ):
         yield TestClient(app)
 
 
