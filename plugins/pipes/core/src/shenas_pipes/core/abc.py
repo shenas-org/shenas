@@ -183,11 +183,67 @@ class Pipe(Plugin):
             return None
 
     @property
+    def has_config(self) -> bool:
+        return self.Config is not PipeConfig
+
+    @property
     def commands(self) -> list[str]:
         cmds = ["sync"]
         if self.has_auth:
             cmds.append("auth")
         return cmds
+
+    def get_config_entries(self) -> list[dict[str, str | None]]:
+        """Return config entries for UI display (key, label, value, description)."""
+        if not self.has_config:
+            return []
+        from shenas_schemas.core.introspect import table_metadata
+
+        row = self._config_store.get(self.Config)
+        meta = table_metadata(self.Config)
+        entries = []
+        for col in meta["columns"]:
+            if col["name"] == "id":
+                continue
+            val = row.get(col["name"]) if row else None
+            is_secret = col.get("category") == "secret"
+            display_val = "********" if (is_secret and val) else (str(val) if val is not None else None)
+            entries.append(
+                {
+                    "key": col["name"],
+                    "label": col["name"].replace("_", " ").title(),
+                    "value": display_val,
+                    "description": col.get("description", ""),
+                }
+            )
+        return entries
+
+    def set_config_value(self, key: str, value: str | None) -> None:
+        """Set a config value with type coercion from string."""
+        if not self.has_config:
+            return
+        if value is not None:
+            from shenas_schemas.core.introspect import table_metadata
+
+            meta = table_metadata(self.Config)
+            for col in meta["columns"]:
+                if col["name"] == key:
+                    db_type = col.get("db_type", "").upper()
+                    if db_type == "INTEGER":
+                        value = int(value)  # type: ignore[assignment]
+                    elif db_type in ("FLOAT", "DOUBLE", "REAL"):
+                        value = float(value)  # type: ignore[assignment]
+                    break
+        self._config_store.set(self.Config, **{key: value})
+
+    def get_config_value(self, key: str) -> Any | None:
+        """Get a single config value."""
+        return self._config_store.get_value(self.Config, key) if self.has_config else None
+
+    def delete_config(self) -> None:
+        """Delete all config."""
+        if self.has_config:
+            self._config_store.delete(self.Config)
 
     def get_info(self) -> dict[str, Any]:
         return {
