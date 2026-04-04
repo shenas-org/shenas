@@ -56,6 +56,22 @@ class Plugin(abc.ABC):
         return "plugin"
 
     @property
+    def has_config(self) -> bool:
+        return False
+
+    def get_config_entries(self) -> list[dict[str, str | None]]:
+        return []
+
+    def set_config_value(self, key: str, value: str | None) -> None:  # noqa: B027
+        """Set a config value. Override in subclasses with config."""
+
+    def get_config_value(self, key: str) -> Any | None:  # noqa: ARG002
+        return None
+
+    def delete_config(self) -> None:  # noqa: B027
+        """Delete all config. Override in subclasses with config."""
+
+    @property
     def commands(self) -> list[str]:
         return []
 

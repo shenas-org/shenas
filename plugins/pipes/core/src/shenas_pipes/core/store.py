@@ -7,7 +7,7 @@ but shares the same CRUD logic.
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from typing import Any, ClassVar
 
 from app.db import cursor
 from shenas_schemas.core.introspect import table_metadata
@@ -16,9 +16,16 @@ from shenas_schemas.core.introspect import table_metadata
 class DataclassStore:
     """Single-row dataclass-backed table store in a named DuckDB schema."""
 
+    _ensured_by_schema: ClassVar[dict[str, set[str]]] = {}
+
     def __init__(self, schema: str) -> None:
         self.schema = schema
-        self._ensured: set[str] = set()
+        if schema not in self._ensured_by_schema:
+            self._ensured_by_schema[schema] = set()
+
+    @property
+    def _ensured(self) -> set[str]:
+        return self._ensured_by_schema[self.schema]
 
     def ensure_table(self, cls: type) -> None:
         table = cls.__table__
