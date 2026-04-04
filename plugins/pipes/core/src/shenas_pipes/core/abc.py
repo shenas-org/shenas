@@ -58,7 +58,7 @@ class Plugin(abc.ABC):
     def commands(self) -> list[str]:
         return []
 
-    def info(self) -> dict[str, Any]:
+    def get_info(self) -> dict[str, Any]:
         """Full plugin metadata for API responses."""
         from app.db import get_plugin_state
 
@@ -174,9 +174,9 @@ class Pipe(Plugin):
             cmds.append("auth")
         return cmds
 
-    def info(self) -> dict[str, Any]:
+    def get_info(self) -> dict[str, Any]:
         return {
-            **super().info(),
+            **super().get_info(),
             "has_auth": self.is_authenticated,
             "sync_frequency": self.sync_frequency,
             "commands": self.commands,
