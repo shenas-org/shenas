@@ -6,8 +6,8 @@ import logging
 from dataclasses import dataclass
 from typing import Annotated, Any
 
-from shenas_pipes.core.abc import Pipe
-from shenas_pipes.core.base_auth import PipeAuth
+from shenas_plugins.core import Pipe
+from shenas_plugins.core.base_auth import PipeAuth
 from shenas_schemas.core.field import Field
 
 logger = logging.getLogger(__name__)

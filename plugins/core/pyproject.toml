@@ -1,0 +1,21 @@
+[project]
+name = "shenas-plugin-core"
+dynamic = ["version"]
+description = "Core plugin ABC definitions for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-schema-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "plugin-core/v(?P<version>[^+]+)"
+raw-options.root = "../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "plugin-core/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_plugins"]

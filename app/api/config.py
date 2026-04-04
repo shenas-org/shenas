@@ -1,4 +1,4 @@
-"""Config CRUD API endpoints -- delegates to Plugin.has_config / Pipe config methods."""
+"""Config CRUD API endpoints -- delegates to Plugin.has_config methods."""
 
 from __future__ import annotations
 
@@ -6,11 +6,9 @@ from fastapi import APIRouter, HTTPException
 
 from app.api.pipes import _load_plugin, _load_plugins
 from app.models import ConfigEntry, ConfigItem, ConfigSetRequest, ConfigValueResponse, OkResponse
-from shenas_pipes.core.abc import Plugin
+from shenas_plugins.core import Plugin
 
 router = APIRouter(prefix="/config", tags=["config"])
-
-CONFIGURABLE_KINDS = ("pipe",)
 
 
 def _resolve_plugin(kind: str, name: str) -> Plugin:
@@ -25,10 +23,9 @@ def _resolve_plugin(kind: str, name: str) -> Plugin:
 
 @router.get("")
 def list_configs(kind: str | None = None, name: str | None = None) -> list[ConfigItem]:
+    kinds = [kind] if kind else ["pipe"]
     result = []
-    for k in CONFIGURABLE_KINDS:
-        if kind and kind != k:
-            continue
+    for k in kinds:
         for plugin_cls in _load_plugins(k, base=Plugin):
             plugin = plugin_cls()
             if not plugin.has_config:

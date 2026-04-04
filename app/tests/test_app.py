@@ -30,14 +30,14 @@ def test_con() -> duckdb.DuckDBPyConnection:
 
 @pytest.fixture
 def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
-    with patch("app.api.query.connect", return_value=test_con), patch("app.api.db.connect", return_value=test_con):
+    with patch("app.api.query.connect", return_value=test_con):
         yield TestClient(app)
 
 
 class TestIndex:
     @staticmethod
     def _make_fake_ui(tmp_path: Path) -> type:
-        from shenas_pipes.core.abc import UI
+        from shenas_plugins.core import UI
 
         class FakeUI(UI):
             name = "default"
@@ -128,9 +128,7 @@ class TestDbStatus:
             patch("app.api.db._discover_schemas", return_value=fake_schemas),
             patch(
                 "app.api.db._table_stats",
-                side_effect=lambda _c, s, n: __import__("app.models", fromlist=["TableStats"]).TableStats(
-                    name=n, rows=10, cols=5
-                ),
+                side_effect=lambda s, n: __import__("app.models", fromlist=["TableStats"]).TableStats(name=n, rows=10, cols=5),
             ),
         ):
             mock_path.exists.return_value = True

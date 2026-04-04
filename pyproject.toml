@@ -16,6 +16,7 @@ members = [
     "shenasctl",
     "scheduler",
     "server/repository",
+    "plugins/core",
     "plugins/pipes/*",
     "plugins/schemas/*",
     "plugins/components/*",
@@ -28,6 +29,7 @@ shenas-app = { workspace = true }
 shenas-cli = { workspace = true }
 shenas-scheduler = { workspace = true }
 shenas-repository = { workspace = true }
+shenas-plugin-core = { workspace = true }
 shenas-pipe-core = { workspace = true }
 shenas-pipe-garmin = { workspace = true }
 shenas-pipe-lunchmoney = { workspace = true }
@@ -133,7 +135,7 @@ unfixable = []
 "scripts/**/*.py" = ["T20"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "shenas_pipes", "shenas_schemas", "shenas_components", "repository", "scheduler"]
+known-first-party = ["app", "shenas_plugins", "shenas_pipes", "shenas_schemas", "shenas_components", "repository", "scheduler"]
 
 [tool.commitizen]
 version_provider = "uv"

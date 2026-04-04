@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from shenas_pipes.core.abc import UI
+from shenas_plugins.core import UI
 
 
 class DefaultUI(UI):

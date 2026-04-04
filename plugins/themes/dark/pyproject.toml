@@ -3,7 +3,9 @@ name = "shenas-theme-dark"
 dynamic = ["version"]
 description = "Dark theme for shenas"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "shenas-plugin-core",
+]
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
