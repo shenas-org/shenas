@@ -6,6 +6,8 @@ import dlt
 import pendulum
 
 from shenas_pipes.core.utils import date_range, is_empty_response
+from shenas_pipes.garmin.tables import HRV, Activity, BodyComposition, DailyStat, Sleep, SpO2
+from shenas_schemas.core.dlt import dataclass_to_dlt_columns
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -13,7 +15,7 @@ if TYPE_CHECKING:
     from garminconnect import Garmin
 
 
-@dlt.resource(write_disposition="merge", primary_key="activity_id")
+@dlt.resource(write_disposition="merge", primary_key=list(Activity.__pk__), columns=dataclass_to_dlt_columns(Activity))
 def activities(
     client: Garmin,
     start_date: str,
@@ -27,7 +29,7 @@ def activities(
         yield row
 
 
-@dlt.resource(write_disposition="merge", primary_key="calendarDate")
+@dlt.resource(write_disposition="merge", primary_key=list(DailyStat.__pk__), columns=dataclass_to_dlt_columns(DailyStat))
 def daily_stats(
     client: Garmin,
     start_date: str,
@@ -40,7 +42,7 @@ def daily_stats(
         yield data
 
 
-@dlt.resource(write_disposition="merge", primary_key="calendarDate")
+@dlt.resource(write_disposition="merge", primary_key=list(Sleep.__pk__), columns=dataclass_to_dlt_columns(Sleep))
 def sleep(
     client: Garmin,
     start_date: str,
@@ -54,7 +56,7 @@ def sleep(
         yield data
 
 
-@dlt.resource(write_disposition="merge", primary_key="calendarDate")
+@dlt.resource(write_disposition="merge", primary_key=list(HRV.__pk__), columns=dataclass_to_dlt_columns(HRV))
 def hrv(
     client: Garmin,
     start_date: str,
@@ -68,7 +70,7 @@ def hrv(
         yield data
 
 
-@dlt.resource(write_disposition="merge", primary_key="calendarDate")
+@dlt.resource(write_disposition="merge", primary_key=list(SpO2.__pk__), columns=dataclass_to_dlt_columns(SpO2))
 def spo2(
     client: Garmin,
     start_date: str,
@@ -81,7 +83,9 @@ def spo2(
         yield data
 
 
-@dlt.resource(write_disposition="merge", primary_key="samplePk")
+@dlt.resource(
+    write_disposition="merge", primary_key=list(BodyComposition.__pk__), columns=dataclass_to_dlt_columns(BodyComposition)
+)
 def body_composition(client: Garmin, start_date: str) -> Iterator[dict[str, Any]]:
     end_date = pendulum.now().to_date_string()
     data = client.get_body_composition(start_date, end_date)

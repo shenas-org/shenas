@@ -8,6 +8,9 @@ from typing import TYPE_CHECKING, Any
 
 import dlt
 
+from shenas_pipes.gmail.tables import Label, Message
+from shenas_schemas.core.dlt import dataclass_to_dlt_columns
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -106,7 +109,7 @@ def message_pages(service: Any, query: str = "") -> Iterator[list[dict[str, Any]
         time.sleep(PAGE_DELAY)
 
 
-@dlt.resource(write_disposition="merge", primary_key="id")
+@dlt.resource(write_disposition="merge", primary_key=list(Message.__pk__), columns=dataclass_to_dlt_columns(Message))
 def messages(
     service: Any,
     query: str = "",
@@ -116,7 +119,7 @@ def messages(
     yield from message_pages(service, query)
 
 
-@dlt.resource(write_disposition="replace")
+@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(Label))
 def labels(service: Any) -> Iterator[dict[str, Any]]:
     """Yield all Gmail labels."""
     result = service.users().labels().list(userId="me").execute()

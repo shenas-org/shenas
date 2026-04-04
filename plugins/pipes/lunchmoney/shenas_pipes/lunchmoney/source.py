@@ -6,13 +6,28 @@ from typing import TYPE_CHECKING, Any
 import dlt
 import pendulum
 
+from shenas_pipes.lunchmoney.tables import (
+    Asset,
+    Budget,
+    Category,
+    PlaidAccount,
+    RecurringItem,
+    Tag,
+    Transaction,
+)
+from shenas_schemas.core.dlt import dataclass_to_dlt_columns
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from lunchable import LunchMoney
 
 
-@dlt.resource(write_disposition="merge", primary_key="id")
+@dlt.resource(
+    write_disposition="merge",
+    primary_key=list(Transaction.__pk__),
+    columns=dataclass_to_dlt_columns(Transaction),
+)
 def transactions(
     client: LunchMoney,
     start_date: str,
@@ -28,21 +43,21 @@ def transactions(
         yield tx.model_dump(mode="json")
 
 
-@dlt.resource(write_disposition="replace")
+@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(Category))
 def categories(client: LunchMoney) -> Iterator[dict[str, Any]]:
     rows = client.get_categories()
     for cat in rows:
         yield cat.model_dump(mode="json")
 
 
-@dlt.resource(write_disposition="replace")
+@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(Tag))
 def tags(client: LunchMoney) -> Iterator[dict[str, Any]]:
     rows = client.get_tags()
     for tag in rows:
         yield tag.model_dump(mode="json")
 
 
-@dlt.resource(write_disposition="replace")
+@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(Budget))
 def budgets(client: LunchMoney, start_date: str) -> Iterator[dict[str, Any]]:
     start = date_type.fromisoformat(start_date[:10])
     end = pendulum.now().date()
@@ -51,21 +66,25 @@ def budgets(client: LunchMoney, start_date: str) -> Iterator[dict[str, Any]]:
         yield budget.model_dump(mode="json")
 
 
-@dlt.resource(write_disposition="merge", primary_key="id")
+@dlt.resource(
+    write_disposition="merge",
+    primary_key=list(RecurringItem.__pk__),
+    columns=dataclass_to_dlt_columns(RecurringItem),
+)
 def recurring_items(client: LunchMoney) -> Iterator[dict[str, Any]]:
     rows = client.get_recurring_items()
     for item in rows:
         yield item.model_dump(mode="json")
 
 
-@dlt.resource(write_disposition="replace")
+@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(Asset))
 def assets(client: LunchMoney) -> Iterator[dict[str, Any]]:
     rows = client.get_assets()
     for asset in rows:
         yield asset.model_dump(mode="json")
 
 
-@dlt.resource(write_disposition="replace")
+@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(PlaidAccount))
 def plaid_accounts(client: LunchMoney) -> Iterator[dict[str, Any]]:
     rows = client.get_plaid_accounts()
     for acct in rows:
