@@ -20,7 +20,7 @@ router = APIRouter(prefix="/plugins", tags=["plugins"])
 
 log = logging.getLogger(f"shenas.{__name__}")
 
-DEFAULT_INDEX = "http://127.0.0.1:7290"
+DEFAULT_INDEX = "https://repo.shenas.net"
 PACKAGES_DIR = Path(__file__).resolve().parent.parent.parent / "packages"
 PUBLIC_KEY_PATH = Path(".shenas") / "shenas.pub"
 

@@ -158,6 +158,27 @@ def table_preview(schema: str, table: str, limit: int = 50) -> list[dict[str, An
         return [dict(zip(cols, row, strict=False)) for row in rows]
 
 
+@router.delete("/schema/{schema_plugin}/flush")
+def flush_schema(schema_plugin: str) -> dict[str, Any]:
+    """Delete all rows from tables owned by a schema plugin."""
+    plugins = _load_schema_plugins()
+    tables = plugins.get(schema_plugin)
+    if not tables:
+        raise HTTPException(status_code=404, detail=f"Schema plugin not found: {schema_plugin}")
+    total = 0
+    with cursor() as cur:
+        for table in tables:
+            if not _IDENTIFIER_RE.match(table):
+                continue
+            try:
+                row = cur.execute(f'SELECT count(*) FROM "metrics"."{table}"').fetchone()
+                cur.execute(f'DELETE FROM "metrics"."{table}"')
+                total += row[0] if row else 0
+            except duckdb.CatalogException:
+                continue
+    return {"schema": schema_plugin, "tables": tables, "rows_deleted": total}
+
+
 @router.post("/keygen")
 def db_keygen() -> OkResponse:
     """Generate a database encryption key and store it in the OS keyring."""

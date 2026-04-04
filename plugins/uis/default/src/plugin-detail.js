@@ -13,6 +13,7 @@ class PluginDetail extends LitElement {
     _message: { state: true },
     _tables: { state: true },
     _syncing: { state: true },
+    _transforming: { state: true },
     _schemaTransforms: { state: true },
     _selectedTable: { state: true },
     _previewRows: { state: true },
@@ -199,9 +200,16 @@ class PluginDetail extends LitElement {
   _registerCommands() {
     if (!this._info) return;
     const label = this._info.display_name || this.name;
-    registerCommands(this, `plugin-detail:${this.kind}:${this.name}`, [
+    const cmds = [
       { id: `remove:${this.kind}:${this.name}`, category: "Plugin", label: `Remove ${label}`, action: () => this._remove() },
-    ]);
+    ];
+    if (this.kind === "schema") {
+      cmds.unshift(
+        { id: `flush:${this.kind}:${this.name}`, category: "Plugin", label: `Flush ${label}`, action: () => this._flush() },
+        { id: `transform:${this.kind}:${this.name}`, category: "Plugin", label: `Transform ${label}`, action: () => this._runTransforms() },
+      );
+    }
+    registerCommands(this, `plugin-detail:${this.kind}:${this.name}`, cmds);
   }
 
   async _toggle() {
@@ -251,6 +259,38 @@ class PluginDetail extends LitElement {
     this._syncing = false;
   }
 
+  async _runTransforms() {
+    this._transforming = true;
+    this._message = null;
+    try {
+      const { data } = await apiFetchFull(this.apiBase, `/transforms/run/schema/${this.name}`, { method: "POST" });
+      if (data?.count != null) {
+        this._message = { type: "success", text: `Ran ${data.count} transform(s)` };
+        await this._fetchInfo();
+      } else {
+        this._message = { type: "error", text: data?.detail || "Transform failed" };
+      }
+    } catch (e) {
+      this._message = { type: "error", text: `Transform failed: ${e.message}` };
+    }
+    this._transforming = false;
+  }
+
+  async _flush() {
+    this._message = null;
+    try {
+      const { data } = await apiFetchFull(this.apiBase, `/db/schema/${this.name}/flush`, { method: "DELETE" });
+      if (data?.rows_deleted != null) {
+        this._message = { type: "success", text: `Flushed ${data.rows_deleted} rows` };
+        await this._fetchInfo();
+      } else {
+        this._message = { type: "error", text: data?.detail || "Flush failed" };
+      }
+    } catch (e) {
+      this._message = { type: "error", text: `Flush failed: ${e.message}` };
+    }
+  }
+
   async _remove() {
     const { data } = await apiFetchFull(this.apiBase, `/plugins/${this.kind}/${this.name}`, { method: "DELETE" });
     if (data?.ok) {
@@ -272,7 +312,8 @@ class PluginDetail extends LitElement {
     this._selectedTable = tableName;
     if (!tableName) { this._previewRows = null; return; }
     this._previewLoading = true;
-    this._previewRows = await apiFetch(this.apiBase, `/db/preview/${this.name}/${tableName}?limit=100`);
+    const dbSchema = this.kind === "schema" ? "metrics" : this.name;
+    this._previewRows = await apiFetch(this.apiBase, `/db/preview/${dbSchema}/${tableName}?limit=100`);
     this._previewLoading = false;
   }
 
@@ -327,6 +368,12 @@ class PluginDetail extends LitElement {
         <div class="title-actions">
           ${this.kind === "pipe" && enabled
             ? html`<button @click=${this._sync} ?disabled=${this._syncing}>${this._syncing ? "Syncing..." : "Sync"}</button>`
+            : ""}
+          ${this.kind === "schema"
+            ? html`<button @click=${this._runTransforms} ?disabled=${this._transforming}>${this._transforming ? "Transforming..." : "Transform"}</button>`
+            : ""}
+          ${this.kind === "schema"
+            ? html`<button class="danger" @click=${this._flush}>Flush</button>`
             : ""}
           <button class="danger" @click=${this._remove}>Remove</button>
         </div>

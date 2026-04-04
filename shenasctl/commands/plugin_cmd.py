@@ -16,7 +16,7 @@ from shenasctl.client import ShenasClient, ShenasServerError
 
 console = Console()
 
-DEFAULT_INDEX = "http://127.0.0.1:7290"
+DEFAULT_INDEX = "https://repo.shenas.net"
 
 SIG_STYLE = {
     "valid": "[green]verified[/green]",

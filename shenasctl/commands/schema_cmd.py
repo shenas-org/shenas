@@ -42,3 +42,22 @@ def remove_cmd(
     """Remove one or more schema plugins."""
     for name in names:
         uninstall(name, "schema")
+
+
+@app.command("flush")
+def flush_cmd(
+    names: list[str] = typer.Argument(help="Schema names, e.g. 'events fitness'"),
+) -> None:
+    """Delete all rows from a schema's metrics tables."""
+    from rich.console import Console
+
+    from shenasctl.client import api_request
+
+    console = Console()
+    for name in names:
+        resp = api_request("DELETE", f"/db/schema/{name}/flush")
+        if resp.get("rows_deleted") is not None:
+            tables = ", ".join(resp["tables"])
+            console.print(f"[green]Flushed {resp['rows_deleted']} rows from {name} ({tables})[/green]")
+        else:
+            console.print(f"[red]Failed to flush {name}: {resp.get('detail', 'unknown error')}[/red]")
