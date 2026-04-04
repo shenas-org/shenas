@@ -61,7 +61,7 @@ def _mock_cursor():
         finally:
             cur.close()
 
-    with patch("shenas_plugins.core.store.cursor", _fake_cursor):
+    with patch("app.db.cursor", _fake_cursor):
         yield
 
 
