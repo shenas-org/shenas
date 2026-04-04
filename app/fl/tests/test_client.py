@@ -63,7 +63,7 @@ class TestShenasClient:
             client.fetcher.fetch.return_value = None
 
             init_weights = client.get_parameters({})
-            updated_weights, n_samples, metrics = client.fit(init_weights, {})
+            _updated_weights, n_samples, _metrics = client.fit(init_weights, {})
 
             assert n_samples == 0
 
@@ -80,7 +80,7 @@ class TestShenasClient:
             client.fetcher.fetch.return_value = (X, y)
 
             params = client.get_parameters({})
-            loss, n_samples, metrics = client.evaluate(params, {})
+            _loss, n_samples, metrics = client.evaluate(params, {})
 
             assert n_samples == 30
             assert "mae" in metrics

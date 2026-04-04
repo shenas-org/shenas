@@ -71,11 +71,10 @@ def sync(
     console.print(f"Syncing daily notes from [bold]{notes_folder}[/bold]...", style="dim")
 
     def _transform() -> None:
-        from shenas_pipes.core.db import connect
-        from shenas_schemas.outcomes import ensure_schema
-
         from app.transforms import run_transforms, seed_defaults
+        from shenas_pipes.core.db import connect
         from shenas_pipes.core.transform import load_transform_defaults
+        from shenas_schemas.outcomes import ensure_schema
 
         con = connect()
         ensure_schema(con)

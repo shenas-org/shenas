@@ -27,7 +27,7 @@ class _FakeConfig:
 FAKE_CLASSES = {"pipe_testpipe": _FakeConfig}
 
 
-@pytest.fixture()
+@pytest.fixture
 def client() -> Iterator[TestClient]:
     from app.api.config import _config
 

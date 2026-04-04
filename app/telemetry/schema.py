@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-import duckdb
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import duckdb
 
 CREATE_SPANS = """\
 CREATE TABLE IF NOT EXISTS telemetry.spans (

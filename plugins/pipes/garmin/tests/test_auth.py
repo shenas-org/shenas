@@ -7,9 +7,11 @@ from shenas_pipes.garmin.auth import build_client
 
 class TestBuildClient:
     def test_no_tokens_no_credentials_raises(self) -> None:
-        with patch("shenas_pipes.garmin.auth._get_stored_tokens", return_value=None):
-            with pytest.raises(RuntimeError, match="No valid tokens"):
-                build_client()
+        with (
+            patch("shenas_pipes.garmin.auth._get_stored_tokens", return_value=None),
+            pytest.raises(RuntimeError, match="No valid tokens"),
+        ):
+            build_client()
 
     @patch("shenas_pipes.garmin.auth.Garmin")
     def test_keyring_login_success(self, mock_garmin_cls: MagicMock) -> None:

@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import dataclasses
 import types
-from typing import Annotated, get_args, get_origin, get_type_hints
-
-import duckdb
+from typing import TYPE_CHECKING, Annotated, get_args, get_origin, get_type_hints
 
 from shenas_schemas.core.field import Field
+
+if TYPE_CHECKING:
+    import duckdb
 
 _TYPE_MAP: dict[type, str] = {
     str: "VARCHAR",

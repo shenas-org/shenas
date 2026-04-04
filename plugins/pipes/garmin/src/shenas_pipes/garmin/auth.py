@@ -10,8 +10,8 @@ from typing import Annotated, Any, ClassVar
 
 from garminconnect import Garmin
 
-from shenas_pipes.core.store import DataclassStore
 from shenas_pipes.core.base_auth import PipeAuth
+from shenas_pipes.core.store import DataclassStore
 from shenas_schemas.core.field import Field
 
 _auth = DataclassStore("auth")

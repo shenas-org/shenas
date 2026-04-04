@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import dlt
-import spotipy
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    import spotipy
 
 
 def _artists_str(artists: list[dict[str, Any]]) -> str:
@@ -28,7 +31,7 @@ def recently_played(
     if cursor.last_value:
         from datetime import datetime
 
-        dt = datetime.fromisoformat(cursor.last_value.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(cursor.last_value)
         after_ms = int(dt.timestamp() * 1000)
         params["after"] = after_ms
 

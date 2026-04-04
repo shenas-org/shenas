@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from shenasctl.client import ShenasClient
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
-@pytest.fixture()
+
+@pytest.fixture
 def client() -> Iterator[ShenasClient]:
     c = ShenasClient()
     yield c

@@ -16,10 +16,11 @@ from flwr.common import (
     ndarrays_to_parameters,
     parameters_to_ndarrays,
 )
-from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
 
 if TYPE_CHECKING:
+    from flwr.server.client_proxy import ClientProxy
+
     from fl_server.models import ModelStore
     from fl_server.tasks import Task
 
@@ -69,7 +70,7 @@ class ShenasStrategy(FedAvg):
 
         return parameters, metrics
 
-    def initialize_parameters(self, client_manager: object) -> Parameters | None:
+    def initialize_parameters(self, _client_manager: object) -> Parameters | None:
         """Load latest weights from store if available, otherwise let clients init."""
         existing = self.store.load_latest(self.task.name)
         if existing is not None:

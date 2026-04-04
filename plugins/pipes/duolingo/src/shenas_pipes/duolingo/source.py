@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 import dlt
 
-from shenas_pipes.duolingo.client import DuolingoClient
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from shenas_pipes.duolingo.client import DuolingoClient
 
 
 def _epoch_to_date(epoch: int) -> str:
     """Convert epoch seconds to ISO date string."""
-    return datetime.fromtimestamp(epoch, tz=timezone.utc).strftime("%Y-%m-%d")
+    return datetime.fromtimestamp(epoch, tz=UTC).strftime("%Y-%m-%d")
 
 
 @dlt.resource(write_disposition="merge", primary_key="date")

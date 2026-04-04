@@ -50,7 +50,7 @@ class TestIntrospect:
 
     def test_column_metadata(self) -> None:
         meta = table_metadata(DailyHabits)
-        duo = [c for c in meta["columns"] if c["name"] == "duolingo"][0]
+        duo = next(c for c in meta["columns"] if c["name"] == "duolingo")
         assert duo["db_type"] == "BOOLEAN"
 
 

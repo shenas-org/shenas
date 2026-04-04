@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
 
 
 def parse_photos_metadata(files: list[Path]) -> Iterator[dict[str, Any]]:

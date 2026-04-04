@@ -13,7 +13,7 @@ register_plugin_commands(app, "component", "Installed Components")
 def _default(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
-        raise typer.Exit()
+        raise typer.Exit
 
 
 @app.command("list")

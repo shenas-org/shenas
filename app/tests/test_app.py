@@ -14,7 +14,7 @@ from app.server import app
 runner = CliRunner()
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_con() -> duckdb.DuckDBPyConnection:
     """In-memory DuckDB with test data, attached as 'db' like the real server."""
     con = duckdb.connect()
@@ -29,11 +29,10 @@ def test_con() -> duckdb.DuckDBPyConnection:
     return con
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
-    with patch("app.api.query.connect", return_value=test_con):
-        with patch("app.api.db.connect", return_value=test_con):
-            yield TestClient(app)
+    with patch("app.api.query.connect", return_value=test_con), patch("app.api.db.connect", return_value=test_con):
+        yield TestClient(app)
 
 
 class TestIndex:

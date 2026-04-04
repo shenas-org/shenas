@@ -13,8 +13,7 @@ from scheduler.daemon import SyncDaemon
 def _make_daemon(mock_client: MagicMock | None = None) -> SyncDaemon:
     """Create a SyncDaemon with a mocked SchedulerClient."""
     with patch("scheduler.client.SchedulerClient", return_value=mock_client or MagicMock()):
-        daemon = SyncDaemon(server_url="http://localhost:7280", check_interval=1)
-    return daemon
+        return SyncDaemon(server_url="http://localhost:7280", check_interval=1)
 
 
 class TestTick:
@@ -89,11 +88,11 @@ class TestSyncPipe:
         client.sync_pipe.assert_called_once_with("garmin")
 
     @pytest.mark.parametrize(
-        ("exception",),
+        "exception",
         [
-            (ShenasServerError(409, "Sync already in progress"),),
-            (ShenasServerError(500, "Internal error"),),
-            (RuntimeError("connection reset"),),
+            ShenasServerError(409, "Sync already in progress"),
+            ShenasServerError(500, "Internal error"),
+            RuntimeError("connection reset"),
         ],
         ids=["409-conflict", "server-error", "generic-exception"],
     )

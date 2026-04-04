@@ -9,15 +9,20 @@ canonical schemas and require full SQL expressiveness.
 from __future__ import annotations
 
 import logging
-from typing import Any
-
-import duckdb
+from typing import TYPE_CHECKING, Any
 
 from app.db import connect
 
+if TYPE_CHECKING:
+    import duckdb
+
 log = logging.getLogger(f"shenas.{__name__}")
 
-_COLS = "id, source_duckdb_schema, source_duckdb_table, target_duckdb_schema, target_duckdb_table, source_plugin, description, sql, is_default, enabled, added_at, updated_at, status_changed_at"
+_COLS = (
+    "id, source_duckdb_schema, source_duckdb_table, target_duckdb_schema,"
+    " target_duckdb_table, source_plugin, description, sql, is_default,"
+    " enabled, added_at, updated_at, status_changed_at"
+)
 
 
 def _cursor() -> duckdb.DuckDBPyConnection:
@@ -81,7 +86,8 @@ def create_transform(
     cur = _cursor()
     cur.execute(
         "INSERT INTO shenas_system.transforms "
-        "(source_duckdb_schema, source_duckdb_table, target_duckdb_schema, target_duckdb_table, source_plugin, description, sql, is_default) "
+        "(source_duckdb_schema, source_duckdb_table, target_duckdb_schema,"
+        " target_duckdb_table, source_plugin, description, sql, is_default) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
         [
             source_duckdb_schema,
@@ -136,7 +142,9 @@ def set_transform_enabled(transform_id: int, enabled: bool) -> dict[str, Any] | 
         return None
     cur = _cursor()
     cur.execute(
-        "UPDATE shenas_system.transforms SET enabled = ?, status_changed_at = current_timestamp, updated_at = current_timestamp WHERE id = ?",
+        "UPDATE shenas_system.transforms SET enabled = ?,"
+        " status_changed_at = current_timestamp,"
+        " updated_at = current_timestamp WHERE id = ?",
         [enabled, transform_id],
     )
     cur.close()
@@ -203,7 +211,7 @@ def run_transforms(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
     return count
 
 
-def test_transform(transform_id: int, limit: int = 10) -> list[dict[str, Any]]:
+def test_transform(transform_id: int, limit: int = 10) -> list[dict[str, Any]]:  # noqa: PT028
     """Dry-run a transform's SQL and return preview rows."""
     t = get_transform(transform_id)
     if not t:
@@ -212,4 +220,4 @@ def test_transform(transform_id: int, limit: int = 10) -> list[dict[str, Any]]:
     rows = cur.execute(f"SELECT * FROM ({t['sql']}) AS _preview LIMIT {limit}").fetchall()
     cols = [desc[0] for desc in cur.description]
     cur.close()
-    return [dict(zip(cols, row)) for row in rows]
+    return [dict(zip(cols, row, strict=False)) for row in rows]

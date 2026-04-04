@@ -13,12 +13,12 @@ from repository.signing import (
 )
 
 
-@pytest.fixture()
+@pytest.fixture
 def keypair(tmp_path: Path) -> tuple[Path, Path]:
     return generate_keypair(tmp_path / "keys")
 
 
-@pytest.fixture()
+@pytest.fixture
 def sample_file(tmp_path: Path) -> Path:
     f = tmp_path / "test.whl"
     f.write_bytes(b"fake wheel content for signing test")

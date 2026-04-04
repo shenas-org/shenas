@@ -4,20 +4,19 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-
 from fl_server.auth import ClientRegistry
 from fl_server.models import ModelStore
 from fl_server.server import api
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(tmp_path: Path) -> TestClient:
     api.state.store = ModelStore(weights_dir=tmp_path / "weights")
     api.state.registry = ClientRegistry(token_file=tmp_path / "clients.json")
     return TestClient(api)
 
 
-@pytest.fixture()
+@pytest.fixture
 def auth_header(client: TestClient) -> dict[str, str]:
     """Register a test client and return the auth header."""
     resp = client.post("/api/fl/clients", params={"name": "test-client"})

@@ -14,7 +14,7 @@ from app.telemetry.exporters import DuckDBLogExporter, DuckDBSpanExporter
 from app.telemetry.schema import ensure_telemetry_schema
 
 
-@pytest.fixture()
+@pytest.fixture
 def con() -> duckdb.DuckDBPyConnection:
     c = duckdb.connect(":memory:")
     ensure_telemetry_schema(c)
@@ -30,11 +30,11 @@ class _NonClosingWrapper:
     def close(self) -> None:
         pass
 
-    def __getattr__(self, name: str):  # noqa: ANN204
+    def __getattr__(self, name: str):
         return getattr(self._con, name)
 
 
-def _mock_connect(con: duckdb.DuckDBPyConnection):  # noqa: ANN201
+def _mock_connect(con: duckdb.DuckDBPyConnection):
     """Return a mock _connect that returns a non-closing wrapper around the test connection."""
     wrapper = _NonClosingWrapper(con)
 
@@ -89,9 +89,8 @@ class TestSpanExporter:
             provider.add_span_processor(SimpleSpanProcessor(exporter))
             tracer = provider.get_tracer("test")
 
-            with tracer.start_as_current_span("parent"):
-                with tracer.start_as_current_span("child"):
-                    pass
+            with tracer.start_as_current_span("parent"), tracer.start_as_current_span("child"):
+                pass
 
             provider.force_flush()
 

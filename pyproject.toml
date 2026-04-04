@@ -92,5 +92,48 @@ pythonpath = [".", "server/repository"]
 line-length = 127
 extend-exclude = ["app/desktop/src-tauri/target"]
 
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "D",       # pydocstyle -- no docstring enforcement
+    "ANN",     # flake8-annotations -- uses ty for type checking
+    "ERA",     # eradicate -- commented-out code detection (too noisy)
+    "FIX",     # fixme comments
+    "TD",      # todo comments
+    "S",       # bandit security -- too opinionated for a local-first app
+    "INP001",  # implicit namespace package (workspace members)
+    "COM812",  # missing trailing comma (conflicts with ruff formatter)
+    "ISC001",  # implicit string concat (conflicts with ruff formatter)
+    "T20",     # flake8-print -- print() used intentionally (CLI app)
+    "PLC0415", # import not at top level -- lazy imports used intentionally
+    "BLE001",  # blind exception -- broad except used in plugin discovery
+    "FBT",     # boolean trap -- too strict for CLI/API params
+    "EM",      # exception message style -- too verbose for small project
+    "TRY003",  # long exception messages -- same as EM
+    "B008",    # function call in default arg -- typer.Option() pattern
+    "PLW0603", # global statement -- used for singleton DB connection
+    "SLF001",  # private member access -- needed for plugin introspection
+    "N806",    # variable in function should be lowercase -- dataclass ClassVar pattern
+    "PLR2004", # magic value in comparison -- acceptable in small project
+    "TRY300",  # try-except-return -- acceptable pattern
+    "PTH123",  # open() vs Path.open() -- not worth changing
+    "NPY002",  # numpy random -- legacy pattern in FL code
+    "C901",    # too complex -- refactor later
+    "PLR0913", # too many arguments -- CLI/API functions
+    "PLW1510", # subprocess.run without check -- intentional
+    "B904",    # raise without from -- fix incrementally
+]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "PLR2004", "ARG"]
+"**/tests/**/*.py" = ["S101", "PLR2004", "ARG"]
+"build/**/*.py" = ["SLF001"]
+"scripts/**/*.py" = ["T20"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "shenas_pipes", "shenas_schemas", "shenas_components", "repository", "scheduler"]
+
 [tool.commitizen]
 version_provider = "uv"

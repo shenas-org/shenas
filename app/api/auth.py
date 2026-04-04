@@ -5,14 +5,15 @@ from __future__ import annotations
 import importlib
 import logging
 import sys
-import types
-
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter
 
 from app.models import AuthFieldsResponse, AuthRequest, AuthResponse
 from shenas_pipes.core.store import DataclassStore
+
+if TYPE_CHECKING:
+    import types
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -45,7 +46,7 @@ def _get_pending_state(pipe_name: str) -> dict[str, object] | None:
 
 
 @router.post("/{pipe_name}")
-def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
+def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:  # noqa: PLR0911
     """Start or continue a pipe's auth flow."""
     body = body or AuthRequest()
 
@@ -81,7 +82,7 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
             return AuthResponse(ok=False, oauth_url=auth_url, message="Open this URL in your browser to authorize")
         return AuthResponse(ok=False, error=msg)
     except Exception as exc:
-        log.error("Auth failed: %s - %s", pipe_name, exc)
+        log.exception("Auth failed: %s", pipe_name)
         return AuthResponse(ok=False, error=str(exc))
 
 

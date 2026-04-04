@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import dlt
 import pendulum
-from garminconnect import Garmin
 
 from shenas_pipes.garmin.auth import build_client
 from shenas_pipes.garmin.utils import date_range, is_empty_response, resolve_start_date
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from garminconnect import Garmin
 
 
 @dlt.source(name="garmin_connect")

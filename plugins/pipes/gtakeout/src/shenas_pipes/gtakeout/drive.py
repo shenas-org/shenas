@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import tarfile
 import zipfile
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def find_takeout_archives(service: Any) -> list[dict[str, Any]]:
@@ -113,7 +115,7 @@ def extract_archive(archive_path: Path, dest_dir: Path) -> Path:
                 if not str(resolved).startswith(str(extract_dir.resolve())):
                     continue
                 zf.extract(member, extract_dir)
-    elif name.endswith(".tgz") or name.endswith(".tar.gz"):
+    elif name.endswith((".tgz", ".tar.gz")):
         with tarfile.open(archive_path, "r:gz") as tf:
             for member in tf.getmembers():
                 resolved = (extract_dir / member.name).resolve()

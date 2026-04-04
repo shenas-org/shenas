@@ -57,7 +57,7 @@ def _register_pipe_commands() -> None:
         def _default(ctx: typer.Context) -> None:
             if ctx.invoked_subcommand is None:
                 typer.echo(ctx.get_help())
-                raise typer.Exit()
+                raise typer.Exit
 
         if "describe" in commands:
             _add_info_command(pipe_app, name)
@@ -238,7 +238,7 @@ _register_pipe_commands()
 def _default(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
-        raise typer.Exit()
+        raise typer.Exit
 
 
 @app.command("sync")

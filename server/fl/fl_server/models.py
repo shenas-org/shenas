@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -59,7 +59,7 @@ class ModelStore:
         meta = {
             "round": round_num,
             "task": task_name,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "num_clients": num_clients,
             "num_arrays": len(weights),
             "shapes": [list(w.shape) for w in weights],

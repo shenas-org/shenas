@@ -4,11 +4,10 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
 from fl_server.models import ModelStore
 
 
-@pytest.fixture()
+@pytest.fixture
 def store(tmp_path: Path) -> ModelStore:
     return ModelStore(weights_dir=tmp_path / "weights")
 

@@ -21,7 +21,7 @@ class DataFetcher:
     def __init__(self, server_url: str = "http://localhost:7280") -> None:
         self._client = httpx.Client(base_url=server_url, verify=False, timeout=30.0)
 
-    def fetch(self, query: str, features: list[str], target: str) -> tuple[np.ndarray, np.ndarray] | None:
+    def fetch(self, query: str, features: list[str], target: str) -> tuple[np.ndarray, np.ndarray] | None:  # noqa: PLR0911
         """Execute a SQL query against the local shenas server and return (X, y).
 
         The server returns Arrow IPC format. We parse it with pyarrow and

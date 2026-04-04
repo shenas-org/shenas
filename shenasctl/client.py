@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterator
-from typing import Any  # noqa: F401
+from typing import TYPE_CHECKING, Any
 
 import httpx
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 DEFAULT_SERVER_URL = "https://localhost:7280"
 

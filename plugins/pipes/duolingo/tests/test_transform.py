@@ -10,13 +10,14 @@ from shenas_pipes.core.transform import load_transform_defaults
 TRANSFORM_DEFAULTS = load_transform_defaults("duolingo")
 
 
-@pytest.fixture()
+@pytest.fixture
 def con() -> duckdb.DuckDBPyConnection:
     db = duckdb.connect(":memory:")
     db.execute("CREATE SCHEMA duolingo")
     db.execute("CREATE SCHEMA metrics")
     db.execute(
-        "CREATE TABLE duolingo.daily_xp (date VARCHAR, xp_gained INTEGER, num_sessions INTEGER, total_session_time_sec INTEGER)"
+        "CREATE TABLE duolingo.daily_xp (date VARCHAR, xp_gained INTEGER,"
+        " num_sessions INTEGER, total_session_time_sec INTEGER)"
     )
     db.execute("CREATE TABLE metrics.daily_outcomes (date DATE, source VARCHAR, daily_duolingo_xp INTEGER)")
     db.execute("CREATE TABLE metrics.daily_habits (date DATE, source VARCHAR, duolingo BOOLEAN)")

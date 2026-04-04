@@ -15,7 +15,7 @@ app = typer.Typer(help="Database commands.", invoke_without_command=True)
 def _default(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
-        raise typer.Exit()
+        raise typer.Exit
 
 
 @app.command()

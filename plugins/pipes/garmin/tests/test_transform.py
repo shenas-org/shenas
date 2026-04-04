@@ -10,14 +10,15 @@ from shenas_pipes.core.transform import load_transform_defaults
 TRANSFORM_DEFAULTS = load_transform_defaults("garmin")
 
 
-@pytest.fixture()
+@pytest.fixture
 def con() -> duckdb.DuckDBPyConnection:
     db = duckdb.connect(":memory:")
     db.execute("CREATE SCHEMA garmin")
     db.execute("CREATE SCHEMA metrics")
     db.execute("CREATE TABLE garmin.hrv (calendar_date VARCHAR, hrv_summary__last_night_avg DOUBLE)")
     db.execute(
-        "CREATE TABLE garmin.daily_stats (calendar_date VARCHAR, resting_heart_rate INTEGER, total_steps INTEGER, active_kilocalories DOUBLE)"
+        "CREATE TABLE garmin.daily_stats (calendar_date VARCHAR,"
+        " resting_heart_rate INTEGER, total_steps INTEGER, active_kilocalories DOUBLE)"
     )
     db.execute("CREATE TABLE metrics.daily_hrv (date DATE, source VARCHAR, rmssd DOUBLE)")
     db.execute(
