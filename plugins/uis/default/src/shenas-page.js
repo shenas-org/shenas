@@ -1,4 +1,4 @@
-import { LitElement, html } from "lit";
+import { LitElement, css, html } from "lit";
 import { utilityStyles } from "./shared-styles.js";
 
 /**
@@ -24,7 +24,20 @@ class ShenasPage extends LitElement {
     displayName: { type: String, attribute: "display-name" },
   };
 
-  static styles = [utilityStyles];
+  static styles = [
+    utilityStyles,
+    css`
+      :host([loading]), :host([empty]) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      .loading, .empty {
+        color: var(--shenas-text-muted, #888);
+      }
+    `,
+  ];
 
   constructor() {
     super();
