@@ -2,21 +2,24 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import inspect
 import json
 import logging
 import subprocess
-
 import sys
 import threading
-from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 import typer
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.models import ScheduleInfo, SyncRequest
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -42,10 +45,8 @@ def release_sync_lock(name: str) -> None:
     with _sync_locks_guard:
         lock = _sync_locks.get(name)
     if lock is not None:
-        try:
+        with contextlib.suppress(RuntimeError):
             lock.release()
-        except RuntimeError:
-            pass
 
 
 def _sse_event(event: str, data: dict[str, str]) -> str:
@@ -105,7 +106,7 @@ def _mark_synced(pipe_name: str) -> None:
         logging.getLogger(__name__).exception("Failed to update synced_at for %s", pipe_name)
 
 
-def _run_pipe_sync(
+def _run_pipe_sync(  # noqa: PLR0912
     ep_name: str,
     pipe_app: typer.Typer,
     start_date: str | None,
@@ -149,7 +150,7 @@ def _run_pipe_sync(
         yield _sse_event("complete", {"pipe": ep_name, "message": "done"})
     except SystemExit as exc:
         if exc.code and exc.code != 0:
-            log.error("Sync failed: %s (exit code %s)", ep_name, exc.code)
+            log.exception("Sync failed: %s (exit code %s)", ep_name, exc.code)
             yield _sse_event("error", {"pipe": ep_name, "message": f"Sync failed (exit code {exc.code}). Check server logs."})
         else:
             _mark_synced(ep_name)

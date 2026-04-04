@@ -9,11 +9,13 @@ Supports three export formats:
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import dlt
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
 
 
 def _find_history_files(export_dir: Path) -> list[Path]:
@@ -91,9 +93,6 @@ def streaming_history(export_dir: Path) -> Iterator[dict[str, Any]]:
             entries = json.load(f)
 
         for entry in entries:
-            if _is_legacy(entry):
-                row = _parse_legacy(entry)
-            else:
-                row = _parse_extended(entry)
+            row = _parse_legacy(entry) if _is_legacy(entry) else _parse_extended(entry)
             if row:
                 yield row

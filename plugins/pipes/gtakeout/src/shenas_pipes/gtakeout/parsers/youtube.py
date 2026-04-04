@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import csv
-from collections.abc import Iterator
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import ijson
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
 
 
 def parse_watch_history(files: list[Path]) -> Iterator[dict[str, Any]]:

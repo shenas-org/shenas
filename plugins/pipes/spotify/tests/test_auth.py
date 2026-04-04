@@ -11,9 +11,11 @@ MODULE = "shenas_pipes.spotify.auth"
 
 class TestBuildClient:
     def test_no_tokens_raises(self) -> None:
-        with patch(f"{MODULE}._get_stored_tokens", return_value=None):
-            with pytest.raises(RuntimeError, match="No Spotify tokens"):
-                build_client()
+        with (
+            patch(f"{MODULE}._get_stored_tokens", return_value=None),
+            pytest.raises(RuntimeError, match="No Spotify tokens"),
+        ):
+            build_client()
 
     @patch(f"{MODULE}.SpotifyPKCE")
     @patch(f"{MODULE}.spotipy.Spotify")
@@ -45,5 +47,5 @@ class TestAuthenticate:
         mock_pkce.get_authorize_url.return_value = "https://accounts.spotify.com/authorize?foo=bar"
         mock_pkce_cls.return_value = mock_pkce
 
-        with pytest.raises(ValueError, match="OAUTH_URL:https://accounts.spotify.com/authorize"):
+        with pytest.raises(ValueError, match=r"OAUTH_URL:https://accounts.spotify.com/authorize"):
             authenticate({"client_id": "cid"})

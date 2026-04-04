@@ -207,7 +207,7 @@ def _collect_dist_info_datas(target_name: str) -> list[tuple[str, str]]:
             continue
         if target_name == "shenas-scheduler" and name not in scheduler_only:
             continue
-        if dist._path and dist._path.exists():  # noqa: SLF001
+        if dist._path and dist._path.exists():
             datas.append((str(dist._path), dist._path.name))
     return datas
 
@@ -321,7 +321,7 @@ def _find_libpython() -> Path | None:
     return None
 
 
-def _patch_source_libpython() -> Path | None:
+def _patch_source_libpython() -> Path | None:  # noqa: PLR0911
     """Create a patched copy of libpython with executable stack flag cleared."""
     if platform.system() != "Linux":
         return None
@@ -511,7 +511,7 @@ def _merge_onedir_outputs(dist_dir: Path, built_targets: dict[str, Path]) -> Non
     shutil.copy2(fattest_path, shared_dir / fattest_path.name)
 
     # Merge other targets: copy their _internal files (fills gaps) and executables
-    for name, path in built_targets.items():
+    for path in built_targets.values():
         if path == fattest_path:
             continue
         target_dir = path.parent

@@ -40,7 +40,7 @@ class SyncDaemon:
 
         logger.info("Sync daemon stopped")
 
-    def _handle_signal(self, signum: int, frame: object) -> None:
+    def _handle_signal(self, signum: int, _frame: object) -> None:
         logger.info("Received signal %d, shutting down", signum)
         self._shutdown.set()
 
@@ -81,7 +81,7 @@ class SyncDaemon:
             if exc.status_code == 409:
                 logger.debug("Skipping %s: sync already in progress", name)
             else:
-                logger.error("Sync %s failed: %s", name, exc.detail)
+                logger.exception("Sync %s failed: %s", name, exc.detail)
         except Exception:
             logger.exception("Sync %s failed", name)
 

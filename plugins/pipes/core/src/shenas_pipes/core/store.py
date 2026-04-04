@@ -10,7 +10,6 @@ import dataclasses
 from typing import Any
 
 from app.db import cursor
-
 from shenas_schemas.core.ddl import generate_ddl
 from shenas_schemas.core.introspect import table_metadata
 
@@ -56,7 +55,7 @@ class DataclassStore:
             row = cur.execute(f"SELECT {col_list} FROM {self.schema}.{table} LIMIT 1").fetchone()
         if row is None:
             return None
-        return dict(zip(cols, row))
+        return dict(zip(cols, row, strict=False))
 
     def get_value(self, cls: type, key: str) -> Any | None:
         row = self.get(cls)

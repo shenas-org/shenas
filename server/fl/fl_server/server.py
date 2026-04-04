@@ -10,15 +10,18 @@ from __future__ import annotations
 import logging
 import threading
 from pathlib import Path
+from typing import TYPE_CHECKING, Annotated
 
 import flwr as fl
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from flwr.server import ServerConfig
 
-from fl_server.auth import ClientRegistry
 from fl_server.models import ModelStore
 from fl_server.strategy import ShenasStrategy
 from fl_server.tasks import get_task, list_tasks
+
+if TYPE_CHECKING:
+    from fl_server.auth import ClientRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +77,7 @@ def revoke_client(name: str) -> dict:
 
 
 @api.get("/api/fl/tasks")
-def api_list_tasks(_client: str = Depends(_require_auth)) -> list[dict]:
+def api_list_tasks(_client: Annotated[str, Depends(_require_auth)]) -> list[dict]:
     return [
         {
             "name": t.name,
@@ -91,7 +94,7 @@ def api_list_tasks(_client: str = Depends(_require_auth)) -> list[dict]:
 
 
 @api.get("/api/fl/tasks/{name}")
-def api_get_task(name: str, _client: str = Depends(_require_auth)) -> dict:
+def api_get_task(name: str, _client: Annotated[str, Depends(_require_auth)]) -> dict:
     task = get_task(name)
     if task is None:
         raise HTTPException(status_code=404, detail=f"Task '{name}' not found")
@@ -113,19 +116,23 @@ def api_get_task(name: str, _client: str = Depends(_require_auth)) -> dict:
 
 
 @api.get("/api/fl/tasks/{name}/weights")
-def api_get_weights(name: str, round: int | None = None, _client: str = Depends(_require_auth)) -> dict:
+def api_get_weights(
+    name: str,
+    _client: Annotated[str, Depends(_require_auth)],
+    round_num: Annotated[int | None, Query(alias="round")] = None,
+) -> dict:
     """Get model weight metadata. Actual weights downloaded via Flower protocol."""
     store = _get_store()
-    if round is not None:
-        weights = store.load_round(name, round)
+    if round_num is not None:
+        weights = store.load_round(name, round_num)
     else:
         weights = store.load_latest(name)
-        round = store.latest_round(name)
+        round_num = store.latest_round(name)
     if weights is None:
         raise HTTPException(status_code=404, detail="No weights available")
     return {
         "task": name,
-        "round": round,
+        "round": round_num,
         "num_arrays": len(weights),
         "shapes": [list(w.shape) for w in weights],
         "total_params": sum(w.size for w in weights),
@@ -133,7 +140,7 @@ def api_get_weights(name: str, round: int | None = None, _client: str = Depends(
 
 
 @api.get("/api/fl/tasks/{name}/history")
-def api_task_history(name: str, _client: str = Depends(_require_auth)) -> list[dict]:
+def api_task_history(name: str, _client: Annotated[str, Depends(_require_auth)]) -> list[dict]:
     """Get version history for a task (all completed rounds with metadata)."""
     return _get_store().history(name)
 

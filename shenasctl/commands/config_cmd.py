@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any  # noqa: F401
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -46,7 +46,7 @@ def _default(ctx: typer.Context) -> None:
         except ShenasServerError as exc:
             _handle_error(exc)
         _display_configs(configs)
-        raise typer.Exit()
+        raise typer.Exit
 
 
 @app.command("list")

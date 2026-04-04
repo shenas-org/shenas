@@ -6,12 +6,10 @@ import importlib
 import json
 import logging
 import subprocess
-
 from html.parser import HTMLParser
-from typing import Any
 from pathlib import Path
+from typing import Any
 from urllib.request import urlopen
-
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, HTTPException
@@ -445,9 +443,10 @@ def list_plugins(kind: str) -> list[PluginInfo]:
 @router.post("/{kind}")
 def add_plugins(kind: str, body: InstallRequest) -> InstallResponse:
     _validate_kind(kind)
-    results = []
-    for name in body.names:
-        results.append(install_plugin(name, kind, index_url=body.index_url or DEFAULT_INDEX, skip_verify=body.skip_verify))
+    results = [
+        install_plugin(name, kind, index_url=body.index_url or DEFAULT_INDEX, skip_verify=body.skip_verify)
+        for name in body.names
+    ]
     return InstallResponse(results=results)
 
 

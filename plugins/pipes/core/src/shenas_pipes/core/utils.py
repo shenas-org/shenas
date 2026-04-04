@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 import pendulum
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 def resolve_start_date(value: str) -> str:

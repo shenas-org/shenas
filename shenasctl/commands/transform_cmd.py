@@ -15,7 +15,7 @@ app = typer.Typer(help="Transform commands.", invoke_without_command=True)
 def _default(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
-        raise typer.Exit()
+        raise typer.Exit
 
 
 @app.command("seed")
@@ -105,8 +105,8 @@ def show_cmd(
 
 @app.command("test")
 def test_cmd(
-    transform_id: int = typer.Argument(help="Transform ID"),
-    limit: int = typer.Option(10, "--limit", help="Number of preview rows"),
+    transform_id: int = typer.Argument(help="Transform ID"),  # noqa: PT028
+    limit: int = typer.Option(10, "--limit", help="Number of preview rows"),  # noqa: PT028
 ) -> None:
     """Preview a transform's output without writing to the target table."""
     try:
@@ -162,6 +162,7 @@ def edit_cmd(
     import shlex
     import subprocess
     import tempfile
+    from pathlib import Path
 
     try:
         t = ShenasClient()._request("GET", f"/api/transforms/{transform_id}")
@@ -184,7 +185,7 @@ def edit_cmd(
     with open(tmp_path) as f:
         new_sql = f.read().strip()
 
-    os.unlink(tmp_path)
+    Path(tmp_path).unlink()
 
     if new_sql == t["sql"]:
         console.print("[dim]No changes[/dim]")

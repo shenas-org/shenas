@@ -47,9 +47,11 @@ class TestRequestErrorHandling:
         mock_resp.text = "Not found"
 
         client = ShenasClient()
-        with patch.object(client._client, "request", return_value=mock_resp):
-            with pytest.raises(ShenasServerError) as exc_info:
-                client._request("GET", "/api/missing")
+        with (
+            patch.object(client._client, "request", return_value=mock_resp),
+            pytest.raises(ShenasServerError) as exc_info,
+        ):
+            client._request("GET", "/api/missing")
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == "Not found"
         client.close()
@@ -61,9 +63,11 @@ class TestRequestErrorHandling:
         mock_resp.text = "Internal Server Error"
 
         client = ShenasClient()
-        with patch.object(client._client, "request", return_value=mock_resp):
-            with pytest.raises(ShenasServerError) as exc_info:
-                client._request("GET", "/api/broken")
+        with (
+            patch.object(client._client, "request", return_value=mock_resp),
+            pytest.raises(ShenasServerError) as exc_info,
+        ):
+            client._request("GET", "/api/broken")
         assert exc_info.value.status_code == 500
         assert exc_info.value.detail == "Internal Server Error"
         client.close()

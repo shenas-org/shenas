@@ -34,12 +34,12 @@ SCHEMA = {
 __all__ = [
     "ALL_TABLES",
     "CANONICAL_TABLES",
+    "SCHEMA",
     "DailySpending",
     "Field",
     "MetricProvider",
     "MonthlyCategory",
     "MonthlyOverview",
-    "SCHEMA",
     "Transaction",
     "ensure_schema",
     "generate_ddl",

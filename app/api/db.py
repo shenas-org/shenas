@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import os
 import re
-
-import duckdb
 from typing import Any
 
+import duckdb
 from fastapi import APIRouter, HTTPException
 
 from app.db import DB_PATH, connect
@@ -81,10 +80,7 @@ def db_status() -> DBStatusResponse:
             con = connect(read_only=True)
             schemas = _discover_schemas(con)
             for schema_name, tables in schemas.items():
-                table_list = []
-                for name in tables:
-                    if not name.startswith("_dlt_"):
-                        table_list.append(_table_stats(con, schema_name, name))
+                table_list = [_table_stats(con, schema_name, name) for name in tables if not name.startswith("_dlt_")]
                 schemas_data.append(SchemaInfo(name=schema_name, tables=table_list))
         except Exception:
             pass
@@ -163,7 +159,7 @@ def table_preview(schema: str, table: str, limit: int = 50) -> list[dict[str, An
         qualified = f'"{schema}"."{table}"'
         rows = cur.execute(f"SELECT * FROM {qualified} LIMIT {limit}").fetchall()
         cols = [desc[0] for desc in cur.description]
-        return [dict(zip(cols, row)) for row in rows]
+        return [dict(zip(cols, row, strict=False)) for row in rows]
     except Exception:
         raise HTTPException(status_code=400, detail=f"Failed to preview {schema}.{table}")
     finally:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import threading
 from typing import Any
@@ -44,14 +45,10 @@ def notify(event_type: str, data: list[dict[str, Any]]) -> None:
             if _loop and _loop.is_running():
                 _loop.call_soon_threadsafe(_put_nowait, q, event)
             else:
-                try:
+                with contextlib.suppress(asyncio.QueueFull):
                     q.put_nowait(event)
-                except asyncio.QueueFull:
-                    pass
 
 
 def _put_nowait(q: asyncio.Queue[dict[str, Any]], event: dict[str, Any]) -> None:
-    try:
+    with contextlib.suppress(asyncio.QueueFull):
         q.put_nowait(event)
-    except asyncio.QueueFull:
-        pass

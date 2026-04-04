@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import dlt
 
@@ -12,6 +10,10 @@ from shenas_pipes.gtakeout.drive import iter_files
 from shenas_pipes.gtakeout.parsers.location import parse_location_records, parse_semantic_locations
 from shenas_pipes.gtakeout.parsers.photos import parse_photos_metadata
 from shenas_pipes.gtakeout.parsers.youtube import parse_search_history, parse_subscriptions, parse_watch_history
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
 
 
 @dlt.resource(write_disposition="merge", primary_key=["title", "photo_taken_timestamp"])

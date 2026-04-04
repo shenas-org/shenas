@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import dlt
 
 from shenas_pipes.core.utils import resolve_start_date
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 @dlt.resource(write_disposition="merge", primary_key="id")

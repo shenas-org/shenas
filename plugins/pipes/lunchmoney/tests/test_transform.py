@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 import duckdb
 import pytest
 
@@ -9,7 +8,7 @@ from shenas_pipes.core.transform import load_transform_defaults
 TRANSFORM_DEFAULTS = load_transform_defaults("lunchmoney")
 
 
-@pytest.fixture()
+@pytest.fixture
 def con() -> duckdb.DuckDBPyConnection:
     db = duckdb.connect(":memory:")
     db.execute("CREATE SCHEMA lunchmoney")

@@ -7,10 +7,13 @@ will provide custom architectures.
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
-import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
+
+if TYPE_CHECKING:
+    import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -49,14 +52,14 @@ def get_weights(model: nn.Module) -> list[np.ndarray]:
 def set_weights(model: nn.Module, weights: list[np.ndarray]) -> None:
     """Set model weights from a list of numpy arrays."""
     state_dict = model.state_dict()
-    for (key, _), w in zip(state_dict.items(), weights):
+    for (key, _), w in zip(state_dict.items(), weights, strict=False):
         state_dict[key] = torch.tensor(w)
     model.load_state_dict(state_dict)
 
 
 def train(
     model: nn.Module,
-    X: np.ndarray,
+    X: np.ndarray,  # noqa: N803
     y: np.ndarray,
     epochs: int = 3,
     batch_size: int = 32,
@@ -81,7 +84,7 @@ def train(
     total_loss = 0.0
     n_batches = 0
 
-    for epoch in range(epochs):
+    for _epoch in range(epochs):
         perm = torch.randperm(len(X_t))
         for i in range(0, len(X_t), batch_size):
             batch_idx = perm[i : i + batch_size]
@@ -103,7 +106,7 @@ def train(
     return {"loss": avg_loss, "num-examples": len(X)}
 
 
-def evaluate(model: nn.Module, X: np.ndarray, y: np.ndarray) -> dict:
+def evaluate(model: nn.Module, X: np.ndarray, y: np.ndarray) -> dict:  # noqa: N803
     """Evaluate model on local data. Returns metrics dict."""
     device = torch.device("cpu")
     model = model.to(device)

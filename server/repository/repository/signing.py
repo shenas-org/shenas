@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import base64
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
@@ -15,6 +15,9 @@ from cryptography.hazmat.primitives.serialization import (
     PrivateFormat,
     PublicFormat,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def generate_keypair(key_dir: Path) -> tuple[Path, Path]:

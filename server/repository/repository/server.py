@@ -3,7 +3,10 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 DIST_EXTENSIONS = {".whl", ".tar.gz", ".zip", ".egg", ".tar.bz2"}
 
@@ -22,7 +25,7 @@ def file_sha256(path: Path) -> str:
 
 def package_name_from_filename(filename: str) -> str | None:
     if filename.endswith(".whl"):
-        return filename.split("-")[0]
+        return filename.split("-", maxsplit=1)[0]
     if filename.endswith((".tar.gz", ".tar.bz2", ".zip", ".egg")):
         stem = re.sub(r"\.(tar\.gz|tar\.bz2|zip|egg)$", "", filename)
         match = re.match(r"^([A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?)-", stem)

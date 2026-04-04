@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
 from datetime import date as date_type
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import dlt
 import pendulum
-from lunchable import LunchMoney
 
 from shenas_pipes.lunchmoney.auth import build_client
 from shenas_pipes.lunchmoney.utils import resolve_start_date
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from lunchable import LunchMoney
 
 
 @dlt.source(name="lunchmoney")

@@ -4,7 +4,7 @@ import json
 import logging
 import threading
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import duckdb
@@ -26,7 +26,7 @@ def _dispatch(event_type: str, rows: list[tuple[Any, ...]]) -> None:
         from app.telemetry.dispatcher import notify
 
         cols = _SPAN_COLS if event_type == "spans" else _LOG_COLS
-        notify(event_type, [dict(zip(cols, r)) for r in rows])
+        notify(event_type, [dict(zip(cols, r, strict=False)) for r in rows])
     except Exception:
         pass
 
@@ -63,7 +63,7 @@ INSERT INTO telemetry.logs (
 
 def _ns_to_iso(ns: int) -> str:
     secs, remainder = divmod(ns, 10**9)
-    dt = datetime.fromtimestamp(secs, tz=timezone.utc).replace(microsecond=remainder // 1000)
+    dt = datetime.fromtimestamp(secs, tz=UTC).replace(microsecond=remainder // 1000)
     return dt.isoformat()
 
 
@@ -109,15 +109,14 @@ class DuckDBSpanExporter(SpanExporter):
                     if span.resource:
                         service_name = span.resource.attributes.get("service.name")
 
-                    events_list = []
-                    for event in span.events:
-                        events_list.append(
-                            {
-                                "name": event.name,
-                                "timestamp": _ns_to_iso(event.timestamp) if event.timestamp else None,
-                                "attributes": dict(event.attributes) if event.attributes else {},
-                            }
-                        )
+                    events_list = [
+                        {
+                            "name": event.name,
+                            "timestamp": _ns_to_iso(event.timestamp) if event.timestamp else None,
+                            "attributes": dict(event.attributes) if event.attributes else {},
+                        }
+                        for event in span.events
+                    ]
 
                     rows.append(
                         (
@@ -184,7 +183,7 @@ class DuckDBLogExporter(LogRecordExporter):
                     if span_id and all(c == "0" for c in span_id):
                         span_id = None
 
-                    ts = data.get("timestamp") or datetime.now(timezone.utc).isoformat()
+                    ts = data.get("timestamp") or datetime.now(UTC).isoformat()
                     service_name = data.get("resource", {}).get("attributes", {}).get("service.name")
                     attributes = data.get("attributes")
 

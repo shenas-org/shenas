@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import typer
 from opentelemetry import trace
 from rich.console import Console
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 console = Console()
 logger = logging.getLogger("shenas.pipes")
@@ -21,7 +23,7 @@ def create_pipe_app(help_text: str) -> typer.Typer:
     def _default(ctx: typer.Context) -> None:
         if ctx.invoked_subcommand is None:
             typer.echo(ctx.get_help())
-            raise typer.Exit()
+            raise typer.Exit
 
     return app
 
@@ -76,11 +78,17 @@ def run_sync(
                 load_result: list[Any] = []
                 load_error: list[Exception] = []
 
-                def _run(res: Any = resource, ref: str = refresh if i == 0 else None) -> None:
+                def _run(
+                    res: Any = resource,
+                    ref: str = refresh if i == 0 else None,
+                    _load_result: list = load_result,
+                    _load_error: list = load_error,
+                    _pipeline: Any = pipeline,
+                ) -> None:
                     try:
-                        load_result.append(pipeline.run(res, refresh=ref))
+                        _load_result.append(_pipeline.run(res, refresh=ref))
                     except Exception as exc:
-                        load_error.append(exc)
+                        _load_error.append(exc)
 
                 t = threading.Thread(target=_run, daemon=True)
                 t.start()
