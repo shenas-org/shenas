@@ -54,9 +54,34 @@ class Plugin(abc.ABC):
         """Plugin kind string for package naming."""
         return "plugin"
 
+    exclusive: ClassVar[bool] = False
+
     @property
     def commands(self) -> list[str]:
         return []
+
+    def enable(self) -> str:
+        """Enable this plugin. For exclusive kinds, disables siblings."""
+        from app.db import get_all_plugin_states, upsert_plugin_state
+
+        if self.exclusive:
+            for state in get_all_plugin_states(self._kind):
+                if state["name"] != self.name and state["enabled"]:
+                    upsert_plugin_state(self._kind, state["name"], enabled=False)
+        upsert_plugin_state(self._kind, self.name, enabled=True)
+        return f"Enabled {self._kind} {self.name}"
+
+    def disable(self) -> str:
+        """Disable this plugin. For exclusive kinds, enables default."""
+        from app.db import upsert_plugin_state
+
+        if self.exclusive and self.name == "default":
+            return f"Cannot disable the default {self._kind}"
+        upsert_plugin_state(self._kind, self.name, enabled=False)
+        if self.exclusive:
+            upsert_plugin_state(self._kind, "default", enabled=True)
+            return f"Switched {self._kind} to default"
+        return f"Disabled {self._kind} {self.name}"
 
     def get_info(self) -> dict[str, Any]:
         """Full plugin metadata for API responses."""
@@ -279,6 +304,7 @@ class Theme(StaticPlugin):
     """CSS theme."""
 
     _kind = "theme"
+    exclusive = True
     css: ClassVar[str]
 
 
