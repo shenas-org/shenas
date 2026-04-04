@@ -128,13 +128,23 @@ _IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 @router.get("/preview/{schema}/{table}")
 def table_preview(schema: str, table: str, limit: int = 50) -> list[dict[str, Any]]:
-    """Return the first N rows of a table as JSON."""
+    """Return the first N rows of a table, ordered by primary key descending."""
     if not _IDENTIFIER_RE.match(schema) or not _IDENTIFIER_RE.match(table):
         raise HTTPException(status_code=400, detail="Invalid schema or table name")
     limit = min(max(1, limit), 500)
     qualified = f'"{schema}"."{table}"'
     with cursor() as cur:
-        rows = cur.execute(f"SELECT * FROM {qualified} LIMIT {limit}").fetchall()
+        # Try to find PK columns for ordering
+        pk_cols = [
+            r[0]
+            for r in cur.execute(
+                "SELECT column_name FROM information_schema.key_column_usage "
+                "WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position",
+                [schema, table],
+            ).fetchall()
+        ]
+        order_clause = " ORDER BY " + ", ".join(f'"{c}" DESC' for c in pk_cols) if pk_cols else ""
+        rows = cur.execute(f"SELECT * FROM {qualified}{order_clause} LIMIT {limit}").fetchall()
         cols = [desc[0] for desc in cur.description]
         return [dict(zip(cols, row, strict=False)) for row in rows]
 
