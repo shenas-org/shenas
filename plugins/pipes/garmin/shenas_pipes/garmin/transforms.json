@@ -30,5 +30,13 @@
     "target_duckdb_table": "daily_body",
     "description": "Extract body weight (grams to kg) from body composition data",
     "sql": "SELECT calendar_date::DATE as date, 'garmin' as source, weight / 1000.0 as weight_kg FROM garmin.body_composition WHERE calendar_date IS NOT NULL AND weight IS NOT NULL"
+  },
+  {
+    "source_duckdb_schema": "garmin",
+    "source_duckdb_table": "activities",
+    "target_duckdb_schema": "metrics",
+    "target_duckdb_table": "events",
+    "description": "Map Garmin activities to unified events timeline",
+    "sql": "SELECT 'garmin' as source, activity_id::VARCHAR as source_id, \"startTimeLocal\"::TIMESTAMP as start_at, NULL::TIMESTAMP as end_at, duration / 60.0 as duration_min, \"activityName\" as title, NULL as description, NULL as location, \"activityType\" as category, false as all_day, json_object('calories', calories, 'avg_hr', \"averageHR\", 'max_hr', \"maxHR\", 'distance_m', distance) as metadata FROM garmin.activities WHERE \"startTimeLocal\" IS NOT NULL"
   }
 ]
