@@ -33,7 +33,9 @@ def transactions(
     start_date: str,
     cursor: dlt.sources.incremental[str] = dlt.sources.incremental("date", initial_value=None),
 ) -> Iterator[dict[str, Any]]:
-    effective_start = (cursor.last_value or start_date)[:10]
+    from shenas_pipes.core.utils import resolve_start_date
+
+    effective_start = (cursor.last_value or resolve_start_date(start_date))[:10]
     end_date = pendulum.now().to_date_string()
     rows = client.get_transactions(
         start_date=date_type.fromisoformat(effective_start),
@@ -59,7 +61,9 @@ def tags(client: LunchMoney) -> Iterator[dict[str, Any]]:
 
 @dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(Budget))
 def budgets(client: LunchMoney, start_date: str) -> Iterator[dict[str, Any]]:
-    start = date_type.fromisoformat(start_date[:10])
+    from shenas_pipes.core.utils import resolve_start_date
+
+    start = date_type.fromisoformat(resolve_start_date(start_date)[:10])
     end = pendulum.now().date()
     data = client.get_budgets(start_date=start, end_date=end)
     for budget in data:
