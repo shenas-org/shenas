@@ -10,7 +10,6 @@ import dataclasses
 from typing import Any
 
 from app.db import cursor
-from shenas_schemas.core.ddl import generate_ddl
 from shenas_schemas.core.introspect import table_metadata
 
 
@@ -26,23 +25,10 @@ class DataclassStore:
         if table in self._ensured:
             return
 
-        with cursor() as cur:
-            cur.execute(f"CREATE SCHEMA IF NOT EXISTS {self.schema}")
-            ddl = generate_ddl(cls).replace("metrics.", f"{self.schema}.")
-            cur.execute(ddl)
+        from shenas_schemas.core.ddl import ensure_schema
 
-            existing = {
-                r[0]
-                for r in cur.execute(
-                    "SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ?",
-                    [self.schema, table],
-                ).fetchall()
-            }
-            meta = table_metadata(cls)
-            for col in meta["columns"]:
-                if col["name"] not in existing:
-                    db_type = col.get("db_type", "VARCHAR")
-                    cur.execute(f"ALTER TABLE {self.schema}.{table} ADD COLUMN {col['name']} {db_type}")
+        with cursor() as cur:
+            ensure_schema(cur, [cls], schema=self.schema)
 
         self._ensured.add(table)
 
