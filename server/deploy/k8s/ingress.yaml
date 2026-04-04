@@ -9,6 +9,16 @@ metadata:
 spec:
   ingressClassName: gce
   rules:
+    - host: shenas.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shenas-net
+                port:
+                  number: 80
     - host: repo.shenas.net
       http:
         paths:
@@ -44,5 +54,6 @@ metadata:
   namespace: shenas
 spec:
   domains:
+    - shenas.net
     - repo.shenas.net
     - fl.shenas.net

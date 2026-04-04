@@ -1,4 +1,4 @@
-.PHONY: install repo-server setup-hooks coverage clean release-desktop setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
+.PHONY: install repo-server setup-hooks coverage clean release-desktop release-repo-server release-fl-server release-shenas-net setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
 
 # Set up Android SDK, NDK, and Rust targets for mobile development
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
@@ -112,6 +112,56 @@ release-desktop:
 		echo "Aborted"; \
 	fi
 
+# Tag a server release (version auto-computed from conventional commits)
+# Usage: make release-repo-server / release-fl-server / release-shenas-net
+release-repo-server:
+	@output=$$(bash scripts/bump-tag.sh server/repository server/repository/); \
+	if [ -z "$$output" ]; then echo "No repo-server changes to release."; exit 0; fi; \
+	eval "$$output"; \
+	echo "$$TAG ($$BUMP bump from $$PREV, $$COMMIT_COUNT commits)"; \
+	echo ""; \
+	git log "$$PREV"..HEAD --pretty=format:"  %s" -- server/repository/ | head -20; \
+	echo ""; echo ""; \
+	read -p "Create tag $$TAG and push? [y/N] " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		git tag "$$TAG" && git push origin "$$TAG"; \
+		echo "Tagged and pushed $$TAG"; \
+	else \
+		echo "Aborted"; \
+	fi
+
+release-fl-server:
+	@output=$$(bash scripts/bump-tag.sh server/fl server/fl/); \
+	if [ -z "$$output" ]; then echo "No fl-server changes to release."; exit 0; fi; \
+	eval "$$output"; \
+	echo "$$TAG ($$BUMP bump from $$PREV, $$COMMIT_COUNT commits)"; \
+	echo ""; \
+	git log "$$PREV"..HEAD --pretty=format:"  %s" -- server/fl/ | head -20; \
+	echo ""; echo ""; \
+	read -p "Create tag $$TAG and push? [y/N] " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		git tag "$$TAG" && git push origin "$$TAG"; \
+		echo "Tagged and pushed $$TAG"; \
+	else \
+		echo "Aborted"; \
+	fi
+
+release-shenas-net:
+	@output=$$(bash scripts/bump-tag.sh server/shenas.net server/shenas.net/); \
+	if [ -z "$$output" ]; then echo "No shenas-net changes to release."; exit 0; fi; \
+	eval "$$output"; \
+	echo "$$TAG ($$BUMP bump from $$PREV, $$COMMIT_COUNT commits)"; \
+	echo ""; \
+	git log "$$PREV"..HEAD --pretty=format:"  %s" -- server/shenas.net/ | head -20; \
+	echo ""; echo ""; \
+	read -p "Create tag $$TAG and push? [y/N] " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		git tag "$$TAG" && git push origin "$$TAG"; \
+		echo "Tagged and pushed $$TAG"; \
+	else \
+		echo "Aborted"; \
+	fi
+
 # Infrastructure (OpenTofu)
 infra-init:
 	cd server/deploy/tofu && tofu init
@@ -163,3 +213,4 @@ k8s-status:
 k8s-logs:
 	@echo "=== repo-server ===" && kubectl logs -n shenas -l app=repo-server --tail=20 2>/dev/null || true
 	@echo "=== fl-server ===" && kubectl logs -n shenas -l app=fl-server --tail=20 2>/dev/null || true
+	@echo "=== shenas-net ===" && kubectl logs -n shenas -l app=shenas-net --tail=20 2>/dev/null || true
