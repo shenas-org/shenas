@@ -59,7 +59,9 @@ def _fetch_events(service: Any, calendar_id: str, time_min: str) -> Iterator[dic
             break
 
 
-@dlt.resource(write_disposition="merge", primary_key=list(Event.__pk__), columns=dataclass_to_dlt_columns(Event))
+@dlt.resource(
+    name="events", write_disposition="merge", primary_key=list(Event.__pk__), columns=dataclass_to_dlt_columns(Event)
+)
 def all_events(
     service: Any,
     start_date: str = "30 days ago",
