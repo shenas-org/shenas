@@ -2,12 +2,9 @@ import duckdb
 
 from shenas_schemas.habits import (
     ALL_TABLES,
-    CANONICAL_TABLES,
-    SCHEMA,
     DailyHabits,
-    ensure_schema,
+    HabitsSchema,
     generate_ddl,
-    schema_metadata,
     table_metadata,
 )
 
@@ -17,7 +14,7 @@ class TestMetrics:
         assert len(ALL_TABLES) == 1
 
     def test_canonical_table_names(self) -> None:
-        assert CANONICAL_TABLES == ["daily_habits"]
+        assert HabitsSchema.tables == ["daily_habits"]
 
     def test_daily_habits_fields(self) -> None:
         field_names = [f.name for f in DailyHabits.__dataclass_fields__.values()]
@@ -33,7 +30,7 @@ class TestDDL:
 
     def test_ensure_schema(self) -> None:
         con = duckdb.connect(":memory:")
-        ensure_schema(con)
+        HabitsSchema.ensure(con)
         tables = {
             r[0]
             for r in con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
@@ -44,7 +41,7 @@ class TestDDL:
 
 class TestIntrospect:
     def test_schema_metadata(self) -> None:
-        meta = schema_metadata()
+        meta = HabitsSchema.metadata()
         assert len(meta) == 1
         assert meta[0]["table"] == "daily_habits"
 
@@ -55,6 +52,8 @@ class TestIntrospect:
 
 
 class TestSchema:
-    def test_schema_dict(self) -> None:
-        assert SCHEMA["name"] == "habits"
-        assert SCHEMA["tables"] == ["daily_habits"]
+    def test_schema_name(self) -> None:
+        assert HabitsSchema.name == "habits"
+
+    def test_schema_tables(self) -> None:
+        assert HabitsSchema.tables == ["daily_habits"]

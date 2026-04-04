@@ -1,7 +1,7 @@
 import pendulum
 import pytest
 
-from shenas_pipes.garmin.utils import date_range, is_empty_response, resolve_start_date
+from shenas_pipes.core.utils import date_range, is_empty_response, resolve_start_date
 
 
 class TestResolveStartDate:

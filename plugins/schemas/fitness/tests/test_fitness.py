@@ -3,16 +3,13 @@ import pytest
 
 from shenas_schemas.fitness import (
     ALL_TABLES,
-    CANONICAL_TABLES,
-    SCHEMA,
     DailyBody,
     DailyHRV,
     DailySleep,
     DailyVitals,
     Field,
-    ensure_schema,
+    FitnessSchema,
     generate_ddl,
-    schema_metadata,
     table_metadata,
 )
 
@@ -50,7 +47,7 @@ class TestMetrics:
         assert len(ALL_TABLES) == 4
 
     def test_canonical_table_names(self) -> None:
-        assert set(CANONICAL_TABLES) == {"daily_hrv", "daily_sleep", "daily_vitals", "daily_body"}
+        assert set(FitnessSchema.tables) == {"daily_hrv", "daily_sleep", "daily_vitals", "daily_body"}
 
     def test_each_table_has_pk(self) -> None:
         for cls in ALL_TABLES:
@@ -116,18 +113,18 @@ class TestDDL:
 
     def test_ensure_schema_creates_tables(self) -> None:
         con = duckdb.connect(":memory:")
-        ensure_schema(con)
+        FitnessSchema.ensure(con)
         tables = {
             r[0]
             for r in con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
         }
-        assert tables == set(CANONICAL_TABLES)
+        assert tables == set(FitnessSchema.tables)
         con.close()
 
     def test_ensure_schema_idempotent(self) -> None:
         con = duckdb.connect(":memory:")
-        ensure_schema(con)
-        ensure_schema(con)
+        FitnessSchema.ensure(con)
+        FitnessSchema.ensure(con)
         tables = con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
         assert len(tables) == 4
         con.close()
@@ -135,10 +132,10 @@ class TestDDL:
 
 class TestIntrospect:
     def test_schema_metadata_returns_all_tables(self) -> None:
-        meta = schema_metadata()
+        meta = FitnessSchema.metadata()
         assert len(meta) == 4
         names = {t["table"] for t in meta}
-        assert names == set(CANONICAL_TABLES)
+        assert names == set(FitnessSchema.tables)
 
     def test_table_metadata_structure(self) -> None:
         meta = table_metadata(DailyHRV)
@@ -173,14 +170,15 @@ class TestIntrospect:
 
     def test_all_metric_fields_have_metadata(self) -> None:
         """Every non-PK field should have at least db_type and description."""
-        for table_meta in schema_metadata():
+        for table_meta in FitnessSchema.metadata():
             for col in table_meta["columns"]:
                 assert "db_type" in col, f"{table_meta['table']}.{col['name']} missing db_type"
                 assert "description" in col, f"{table_meta['table']}.{col['name']} missing description"
 
 
 class TestSchema:
-    def test_schema_dict(self) -> None:
-        assert SCHEMA["name"] == "fitness"
-        assert "version" in SCHEMA
-        assert SCHEMA["tables"] == CANONICAL_TABLES
+    def test_schema_name(self) -> None:
+        assert FitnessSchema.name == "fitness"
+
+    def test_schema_tables(self) -> None:
+        assert set(FitnessSchema.tables) == {"daily_hrv", "daily_sleep", "daily_vitals", "daily_body"}

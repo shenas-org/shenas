@@ -357,6 +357,8 @@ def _plugin_display_name(kind: str, name: str) -> str:
             meta = getattr(mod, attr, None)
             if isinstance(meta, dict) and meta.get("display_name"):
                 return meta["display_name"]
+            if isinstance(meta, type) and hasattr(meta, "display_name"):
+                return meta.display_name
     return ""
 
 
@@ -382,6 +384,8 @@ def _plugin_description(kind: str, name: str) -> str:
             meta = getattr(mod, attr, None)
             if isinstance(meta, dict) and meta.get("description"):
                 return meta["description"]
+            if isinstance(meta, type) and hasattr(meta, "description"):
+                return meta.description
 
     prefix = _prefix(kind)
     pkg_name = f"{prefix}{name}"
