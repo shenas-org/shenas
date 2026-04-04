@@ -17,9 +17,10 @@ class _FakePipe(Pipe):
     name = "fake"
     display_name = "Fake"
 
-    def __init__(self, sync_fn=None) -> None:
+    def __init__(self, sync_fn=None, *, pipe_name: str = "fake") -> None:
         # Skip real __init__ (DataclassStore) to avoid DB dependency
         self._sync_fn = sync_fn
+        self.name = pipe_name
 
     def resources(self, client):
         return []
@@ -40,7 +41,7 @@ class TestSyncAll:
         assert any(e.get("message") == "all syncs complete" for e in events)
 
     def test_sync_all_with_pipe(self) -> None:
-        pipe = _FakePipe()
+        pipe = _FakePipe(pipe_name="testpipe")
         with (
             patch("app.api.sync._installed_pipe_names", return_value=["testpipe"]),
             patch("app.api.sync._load_pipe", return_value=pipe),
@@ -57,7 +58,7 @@ class TestSyncAll:
         def failing_sync(*, full_refresh: bool = False) -> None:
             raise RuntimeError("Auth expired")
 
-        pipe = _FakePipe(failing_sync)
+        pipe = _FakePipe(failing_sync, pipe_name="badpipe")
         with (
             patch("app.api.sync._installed_pipe_names", return_value=["badpipe"]),
             patch("app.api.sync._load_pipe", return_value=pipe),
@@ -71,7 +72,7 @@ class TestSyncAll:
 
 class TestSyncPipe:
     def test_sync_single_pipe(self) -> None:
-        pipe = _FakePipe()
+        pipe = _FakePipe(pipe_name="garmin")
         with (
             patch("app.api.sync._installed_pipe_names", return_value=["garmin"]),
             patch("app.api.sync._load_pipe", return_value=pipe),
@@ -93,7 +94,7 @@ class TestSyncPipe:
         def sync_fn(*, full_refresh: bool = False) -> None:
             captured["full_refresh"] = full_refresh
 
-        pipe = _FakePipe(sync_fn)
+        pipe = _FakePipe(sync_fn, pipe_name="garmin")
         with (
             patch("app.api.sync._installed_pipe_names", return_value=["garmin"]),
             patch("app.api.sync._load_pipe", return_value=pipe),
@@ -107,7 +108,7 @@ class TestSyncPipe:
         def failing_sync(*, full_refresh: bool = False) -> None:
             raise RuntimeError("Connection refused")
 
-        pipe = _FakePipe(failing_sync)
+        pipe = _FakePipe(failing_sync, pipe_name="garmin")
         with (
             patch("app.api.sync._installed_pipe_names", return_value=["garmin"]),
             patch("app.api.sync._load_pipe", return_value=pipe),
