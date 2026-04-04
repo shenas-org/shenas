@@ -332,67 +332,35 @@ def _plugin_commands(kind: str, name: str) -> list[str]:
         return commands
 
 
-def _load_plugin_class(kind: str, name: str) -> type | None:
-    """Load a plugin ABC class from its entry point."""
-    from importlib.metadata import entry_points as _ep
-
-    from shenas_pipes.core.abc import Plugin
-
-    _kind_to_group = {
-        "pipe": "shenas.pipes",
-        "schema": "shenas.schemas",
-        "component": "shenas.components",
-        "ui": "shenas.ui",
-        "theme": "shenas.themes",
-    }
-    group = _kind_to_group.get(kind)
-    if not group:
-        return None
-    for ep in _ep(group=group):
-        if ep.name == name:
-            try:
-                obj = ep.load()
-                if isinstance(obj, type) and issubclass(obj, Plugin):
-                    return obj
-            except Exception:
-                pass
-            break
-    return None
-
-
 def _plugin_display_name(kind: str, name: str) -> str:
     """Load a human-readable display name from a plugin."""
-    if kind == "pipe":
-        from app.api.pipes import _load_pipe
+    from app.api.pipes import _load_pipe, _load_plugin
 
+    if kind == "pipe":
         try:
             return _load_pipe(name).display_name
         except Exception:
             pass
-
-    plugin_cls = _load_plugin_class(kind, name)
-    if plugin_cls:
-        return getattr(plugin_cls, "display_name", "")
+    else:
+        cls = _load_plugin(kind, name)
+        if cls:
+            return cls.display_name
     return ""
 
 
 def _plugin_description(kind: str, name: str) -> str:
     """Load a description from a plugin."""
-    if kind == "pipe":
-        from app.api.pipes import _load_pipe
+    from app.api.pipes import _load_pipe, _load_plugin
 
+    if kind == "pipe":
         try:
-            desc = _load_pipe(name).description
-            if desc:
-                return desc
+            return _load_pipe(name).description
         except Exception:
             pass
-
-    plugin_cls = _load_plugin_class(kind, name)
-    if plugin_cls:
-        desc = getattr(plugin_cls, "description", "")
-        if desc:
-            return desc
+    else:
+        cls = _load_plugin(kind, name)
+        if cls and cls.description:
+            return cls.description
 
     prefix = _prefix(kind)
     pkg_name = f"{prefix}{name}"

@@ -8,7 +8,6 @@ import pytest
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
-import app.server as server_module
 from app.server import app
 
 runner = CliRunner()
@@ -53,13 +52,13 @@ class TestIndex:
         html_file = tmp_path / "default.html"
         html_file.write_text("<html><body>test ui</body></html>")
         fake_ui = [self._make_fake_ui(tmp_path)]
-        with patch.object(server_module, "_discover_plugins", return_value=fake_ui):
+        with patch("app.api.pipes._load_uis", return_value=fake_ui):
             resp = client.get("/")
         assert resp.status_code == 200
         assert "test ui" in resp.text
 
     def test_fallback_when_no_ui(self, client: TestClient) -> None:
-        with patch.object(server_module, "_discover_plugins", return_value=[]):
+        with patch("app.api.pipes._load_uis", return_value=[]):
             resp = client.get("/")
         assert resp.status_code == 200
         assert "not installed" in resp.text
@@ -68,7 +67,7 @@ class TestIndex:
         html_file = tmp_path / "default.html"
         html_file.write_text("<html><body>spa shell</body></html>")
         fake_ui = [self._make_fake_ui(tmp_path)]
-        with patch.object(server_module, "_discover_plugins", return_value=fake_ui):
+        with patch("app.api.pipes._load_uis", return_value=fake_ui):
             resp = client.get("/some/deep/route")
         assert resp.status_code == 200
         assert "spa shell" in resp.text

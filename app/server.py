@@ -1,13 +1,11 @@
-# TODO: API authentication should be added when the UI is exposed beyond localhost.
-# Currently relies on HTTPS + localhost binding for security. See discussion in
-# commit history about bearer tokens, mTLS, and Unix sockets as future options.
+"""Shenas metrics server -- FastAPI app with plugin discovery."""
 
 from __future__ import annotations
 
+import asyncio as _asyncio
+import os as _os
 from contextlib import asynccontextmanager
-from importlib.metadata import entry_points
-from pathlib import Path as _Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -18,96 +16,94 @@ from app.api import api_router
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from shenas_pipes.core.abc import StaticPlugin, Theme
+    from shenas_pipes.core.abc import Theme
 
 
 @asynccontextmanager
-async def _lifespan(application: FastAPI) -> AsyncIterator[None]:
-    import asyncio
-
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
+async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:
     from app.telemetry.dispatcher import set_loop
-    from app.telemetry.setup import init_telemetry
 
-    init_telemetry("shenas-server")
-    set_loop(asyncio.get_running_loop())
-    FastAPIInstrumentor.instrument_app(application)
+    set_loop(_asyncio.get_running_loop())
     yield
 
 
-app = FastAPI(title="shenas", docs_url=None, redoc_url=None, lifespan=_lifespan)
-import os as _os  # noqa: E402
+app = FastAPI(lifespan=_lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
+# Global env-based settings
 app.state.ui_name = _os.environ.get("SHENAS_UI", "default")
 app.state.default_theme = _os.environ.get("SHENAS_DEFAULT_THEME", "default")
-app.mount("/static", StaticFiles(directory=str(_Path(__file__).parent / "static")), name="static")
-_vendor_dir = _Path(__file__).parent / "vendor" / "dist"
-if _vendor_dir.is_dir():
-    app.mount("/vendor", StaticFiles(directory=str(_vendor_dir)), name="vendor")
+
+# Register API routes
 app.include_router(api_router)
 
 
-def _discover_plugins(group: str, include_internal: bool = True) -> list[type[StaticPlugin]]:
-    """Discover installed plugins via entry points."""
-    from shenas_pipes.core.abc import StaticPlugin
-
-    plugins: list[type[StaticPlugin]] = []
-    for ep in entry_points(group=group):
-        try:
-            obj = ep.load()
-            if isinstance(obj, type) and issubclass(obj, StaticPlugin) and (include_internal or not obj.internal):
-                plugins.append(obj)
-        except Exception:
-            pass
-    return plugins
+# ---------------------------------------------------------------------------
+# Static plugin mounting
+# ---------------------------------------------------------------------------
 
 
-def _mount_static_plugins(group: str, url_prefix: str) -> None:
-    """Mount static dirs for plugins discovered via the given entry point group."""
-    for plugin in _discover_plugins(group):
-        static_dir = plugin.static_dir
-        if static_dir.is_dir():
+def _mount_static(kind: str, url_prefix: str) -> None:
+    """Mount static dirs for all plugins of a given kind."""
+    from app.api.pipes import _load_static_plugins
+
+    for plugin in _load_static_plugins(kind):
+        if plugin.static_dir.is_dir():
             app.mount(
                 f"/{url_prefix}/{plugin.name}",
-                StaticFiles(directory=str(static_dir)),
+                StaticFiles(directory=str(plugin.static_dir)),
                 name=f"{url_prefix}-{plugin.name}",
             )
 
 
-_mount_static_plugins("shenas.components", "components")
-_mount_static_plugins("shenas.ui", "ui")
-_mount_static_plugins("shenas.themes", "themes")
+_mount_static("component", "components")
+_mount_static("ui", "ui")
+_mount_static("theme", "themes")
+
+
+# ---------------------------------------------------------------------------
+# Theme + UI resolution
+# ---------------------------------------------------------------------------
 
 
 def _get_active_theme() -> type[Theme] | None:
     """Find the one explicitly enabled theme. Falls back to --default-theme."""
-    themes = cast("list[type[Theme]]", _discover_plugins("shenas.themes"))
+    from app.api.pipes import _load_themes
+
+    themes = _load_themes()
     try:
         from app.db import get_all_plugin_states
 
         states = {s["name"]: s for s in get_all_plugin_states("theme")}
-        for plugin in themes:
-            state = states.get(plugin.name)
+        for t in themes:
+            state = states.get(t.name)
             if state and state["enabled"]:
-                return plugin
+                return t
     except Exception:
         pass
-    # Fallback: no theme explicitly enabled -- use --default-theme
     fallback = getattr(app.state, "default_theme", "default")
-    for plugin in themes:
-        if plugin.name == fallback:
-            return plugin
+    for t in themes:
+        if t.name == fallback:
+            return t
     return themes[0] if themes else None
 
 
-def _get_active_ui() -> type[StaticPlugin] | None:
-    """Find the active UI plugin."""
+def _serve_ui_html() -> HTMLResponse:
+    """Read and serve the active UI plugin's HTML from disk, or a fallback."""
+    from app.api.pipes import _load_uis
+
+    uis = _load_uis()
     ui_name = app.state.ui_name
-    for plugin in _discover_plugins("shenas.ui"):
-        if plugin.name == ui_name:
-            return plugin
-    return None
+    ui = next((u for u in uis if u.name == ui_name), None)
+    if ui:
+        html_file = ui.static_dir / ui.html
+        if html_file.exists():
+            content = html_file.read_text()
+            theme = _get_active_theme()
+            if theme:
+                css_link = f'<link rel="stylesheet" href="/themes/{theme.name}/{theme.css}" data-shenas-theme>'
+                content = content.replace("</head>", f"  {css_link}\n  </head>")
+            return HTMLResponse(content=content)
+    return HTMLResponse(content=_FALLBACK_HTML.format(ui_name=ui_name))
 
 
 _FALLBACK_HTML = """\
@@ -132,38 +128,23 @@ _FALLBACK_HTML = """\
 </html>"""
 
 
-def _serve_ui_html() -> HTMLResponse:
-    """Read and serve the active UI plugin's HTML from disk, or a fallback."""
-    ui = _get_active_ui()
-    if ui:
-        static_dir = ui.static_dir
-        html_file = static_dir / getattr(ui, "html", "index.html")
-        if html_file.exists():
-            content = html_file.read_text()
-            theme = _get_active_theme()
-            if theme and getattr(theme, "css", None):
-                css_link = f'<link rel="stylesheet" href="/themes/{theme.name}/{theme.css}" data-shenas-theme>'
-                content = content.replace("</head>", f"  {css_link}\n  </head>")
-            return HTMLResponse(content=content)
-    return HTMLResponse(content=_FALLBACK_HTML.format(ui_name=app.state.ui_name))
+# ---------------------------------------------------------------------------
+# API endpoints (non-router, app-level)
+# ---------------------------------------------------------------------------
 
 
 @app.get("/api/theme")
 def active_theme() -> dict[str, str | None]:
     """Return the active theme name and CSS URL."""
     theme = _get_active_theme()
-    if theme and getattr(theme, "css", None):
+    if theme:
         return {"name": theme.name, "css": f"/themes/{theme.name}/{theme.css}"}
     return {"name": app.state.default_theme, "css": None}
 
 
 @app.get("/api/dependencies")
 def plugin_dependencies() -> dict[str, list[str]]:
-    """Return cross-plugin dependencies from Python package metadata.
-
-    Reads importlib.metadata.requires() for all shenas-* packages.
-    Returns {"{kind}:{name}": ["{dep_kind}:{dep_name}", ...]}
-    """
+    """Return cross-plugin dependencies from Python package metadata."""
     from importlib.metadata import distributions
 
     prefixes = {
@@ -199,7 +180,10 @@ def plugin_dependencies() -> dict[str, list[str]]:
 
 @app.get("/api/logs")
 def get_logs(
-    limit: int = 100, severity: str | None = None, search: str | None = None, pipe: str | None = None
+    limit: int = 100,
+    severity: str | None = None,
+    search: str | None = None,
+    pipe: str | None = None,
 ) -> list[dict[str, Any]]:
     """Query telemetry logs."""
     from app.db import connect
@@ -235,7 +219,11 @@ def get_logs(
 
 
 @app.get("/api/spans")
-def get_spans(limit: int = 100, search: str | None = None, pipe: str | None = None) -> list[dict[str, Any]]:
+def get_spans(
+    limit: int = 100,
+    search: str | None = None,
+    pipe: str | None = None,
+) -> list[dict[str, Any]]:
     """Query telemetry spans."""
     from app.db import connect
 
@@ -269,25 +257,22 @@ def get_spans(limit: int = 100, search: str | None = None, pipe: str | None = No
 
 @app.get("/api/stream/logs")
 async def stream_logs() -> StreamingResponse:
-    """SSE stream of new log entries as they arrive."""
-    import asyncio
-    import json
-
+    """SSE stream of new log entries."""
     from app.telemetry.dispatcher import subscribe, unsubscribe
 
+    q = subscribe()
+
     async def _generate() -> AsyncIterator[str]:
-        q = subscribe()
         try:
             while True:
                 try:
-                    event = await asyncio.wait_for(q.get(), timeout=30)
-                    if event["type"] == "logs":
-                        for row in event["data"]:
-                            yield f"data: {json.dumps(row, default=str)}\n\n"
+                    event = await _asyncio.wait_for(q.get(), timeout=30)
+                    if event.get("type") == "log":
+                        import json
+
+                        yield f"data: {json.dumps(event['data'])}\n\n"
                 except TimeoutError:
                     yield ": keepalive\n\n"
-        except asyncio.CancelledError:
-            pass
         finally:
             unsubscribe(q)
 
@@ -296,25 +281,22 @@ async def stream_logs() -> StreamingResponse:
 
 @app.get("/api/stream/spans")
 async def stream_spans() -> StreamingResponse:
-    """SSE stream of new span entries as they arrive."""
-    import asyncio
-    import json
-
+    """SSE stream of new span entries."""
     from app.telemetry.dispatcher import subscribe, unsubscribe
 
+    q = subscribe()
+
     async def _generate() -> AsyncIterator[str]:
-        q = subscribe()
         try:
             while True:
                 try:
-                    event = await asyncio.wait_for(q.get(), timeout=30)
-                    if event["type"] == "spans":
-                        for row in event["data"]:
-                            yield f"data: {json.dumps(row, default=str)}\n\n"
+                    event = await _asyncio.wait_for(q.get(), timeout=30)
+                    if event.get("type") == "span":
+                        import json
+
+                        yield f"data: {json.dumps(event['data'])}\n\n"
                 except TimeoutError:
                     yield ": keepalive\n\n"
-        except asyncio.CancelledError:
-            pass
         finally:
             unsubscribe(q)
 
@@ -322,40 +304,31 @@ async def stream_spans() -> StreamingResponse:
 
 
 @app.get("/api/hotkeys")
-def get_hotkeys_api() -> dict[str, str]:
-    """Get all hotkey bindings."""
+def get_hotkeys_endpoint() -> dict[str, str]:
     from app.db import get_hotkeys
 
     return get_hotkeys()
 
 
 @app.put("/api/hotkeys/{action_id}")
-def set_hotkey_api(action_id: str, body: dict[str, str]) -> dict[str, bool]:
-    """Set a hotkey binding for an action."""
+def set_hotkey(action_id: str, body: dict[str, str]) -> dict[str, bool]:
     from app.db import set_hotkey
 
     binding = body.get("binding", "")
-    if binding:
-        set_hotkey(action_id, binding)
-    else:
-        from app.db import delete_hotkey
-
-        delete_hotkey(action_id)
+    set_hotkey(action_id, binding)
     return {"ok": True}
 
 
 @app.delete("/api/hotkeys/{action_id}")
-def delete_hotkey_api(action_id: str) -> dict[str, bool]:
-    """Remove a hotkey binding."""
-    from app.db import delete_hotkey
+def delete_hotkey(action_id: str) -> dict[str, bool]:
+    from app.db import set_hotkey
 
-    delete_hotkey(action_id)
+    set_hotkey(action_id, "")
     return {"ok": True}
 
 
 @app.post("/api/hotkeys/reset")
-def reset_hotkeys_api() -> dict[str, bool]:
-    """Reset all hotkeys to defaults."""
+def reset_hotkeys() -> dict[str, bool]:
     from app.db import reset_hotkeys
 
     reset_hotkeys()
@@ -363,49 +336,36 @@ def reset_hotkeys_api() -> dict[str, bool]:
 
 
 @app.get("/api/workspace")
-def get_workspace_state() -> dict[str, Any]:
-    """Get the persisted workspace state (open tabs, active tab)."""
-    try:
-        from app.db import get_workspace
+def get_workspace_endpoint() -> dict[str, Any]:
+    from app.db import get_workspace
 
-        return get_workspace()
-    except Exception:
-        import logging
-
-        logging.getLogger(__name__).exception("Failed to load workspace")
-        return {}
+    return get_workspace()
 
 
 @app.put("/api/workspace")
-def save_workspace_state(body: dict[str, Any]) -> dict[str, bool]:
-    """Save the workspace state."""
-    try:
-        from app.db import save_workspace
+async def save_workspace_state(_request: Request) -> dict[str, bool]:
+    from app.db import save_workspace
 
-        save_workspace(body)
-        return {"ok": True}
-    except Exception:
-        import logging
-
-        logging.getLogger(__name__).exception("Failed to save workspace")
-        return {"ok": False}
+    body = await _request.json()
+    save_workspace(body)
+    return {"ok": True}
 
 
 @app.get("/api/components")
 def list_component_metadata() -> list[dict[str, str]]:
-    """Return component metadata needed by the UI shell (tag, entrypoint, JS URL)."""
+    """Return component metadata needed by the UI shell."""
+    from app.api.pipes import _load_components
     from app.db import is_plugin_enabled
 
-    components = _discover_plugins("shenas.components", include_internal=False)
     return [
         {
             "name": c.name,
-            "display_name": getattr(c, "display_name", c.name),
-            "tag": getattr(c, "tag", f"shenas-{c.name}"),
-            "js": f"/components/{c.name}/{getattr(c, 'entrypoint', c.name + '.js')}",
-            "description": getattr(c, "description", ""),
+            "display_name": c.display_name,
+            "tag": c.tag,
+            "js": f"/components/{c.name}/{c.entrypoint}",
+            "description": c.description,
         }
-        for c in components
+        for c in _load_components(include_internal=False)
         if is_plugin_enabled("component", c.name)
     ]
 
@@ -417,8 +377,6 @@ def index() -> HTMLResponse:
 
 
 @app.get("/{path:path}", response_class=HTMLResponse, include_in_schema=False)
-def spa_fallback(_request: Request, path: str) -> HTMLResponse:
-    """SPA catch-all: serve the UI HTML for paths without file extensions."""
-    if "." in path.rsplit("/", maxsplit=1)[-1]:
-        return HTMLResponse(status_code=404, content="Not found")
+def spa_fallback(path: str) -> HTMLResponse:  # noqa: ARG001
+    """SPA fallback -- serve UI HTML for any unmatched route."""
     return _serve_ui_html()
