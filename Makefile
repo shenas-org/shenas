@@ -115,7 +115,7 @@ release-desktop:
 # Tag a server release (version auto-computed from conventional commits)
 # Usage: make release-repo-server / release-fl-server / release-shenas-net
 release-repo-server:
-	@output=$$(bash scripts/bump-tag.sh server/repository server/repository/); \
+	@output=$$(bash scripts/bump-tag.sh repository server/repository/); \
 	if [ -z "$$output" ]; then echo "No repo-server changes to release."; exit 0; fi; \
 	eval "$$output"; \
 	echo "$$TAG ($$BUMP bump from $$PREV, $$COMMIT_COUNT commits)"; \
@@ -131,7 +131,7 @@ release-repo-server:
 	fi
 
 release-fl-server:
-	@output=$$(bash scripts/bump-tag.sh server/fl server/fl/); \
+	@output=$$(bash scripts/bump-tag.sh fl server/fl/); \
 	if [ -z "$$output" ]; then echo "No fl-server changes to release."; exit 0; fi; \
 	eval "$$output"; \
 	echo "$$TAG ($$BUMP bump from $$PREV, $$COMMIT_COUNT commits)"; \
@@ -147,7 +147,7 @@ release-fl-server:
 	fi
 
 release-shenas-net:
-	@output=$$(bash scripts/bump-tag.sh server/shenas.net server/shenas.net/); \
+	@output=$$(bash scripts/bump-tag.sh shenas.net server/shenas.net/); \
 	if [ -z "$$output" ]; then echo "No shenas-net changes to release."; exit 0; fi; \
 	eval "$$output"; \
 	echo "$$TAG ($$BUMP bump from $$PREV, $$COMMIT_COUNT commits)"; \
