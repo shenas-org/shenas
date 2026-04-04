@@ -2,15 +2,12 @@ import duckdb
 
 from shenas_schemas.finance import (
     ALL_TABLES,
-    CANONICAL_TABLES,
-    SCHEMA,
     DailySpending,
+    FinanceSchema,
     MonthlyCategory,
     MonthlyOverview,
     Transaction,
-    ensure_schema,
     generate_ddl,
-    schema_metadata,
     table_metadata,
 )
 
@@ -20,7 +17,7 @@ class TestMetrics:
         assert len(ALL_TABLES) == 4
 
     def test_canonical_table_names(self) -> None:
-        assert set(CANONICAL_TABLES) == {"transactions", "daily_spending", "monthly_category", "monthly_overview"}
+        assert set(FinanceSchema.tables) == {"transactions", "daily_spending", "monthly_category", "monthly_overview"}
 
     def test_each_table_has_pk(self) -> None:
         for cls in ALL_TABLES:
@@ -68,18 +65,18 @@ class TestDDL:
 
     def test_ensure_schema_creates_tables(self) -> None:
         con = duckdb.connect(":memory:")
-        ensure_schema(con)
+        FinanceSchema.ensure(con)
         tables = {
             r[0]
             for r in con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
         }
-        assert tables == set(CANONICAL_TABLES)
+        assert tables == set(FinanceSchema.tables)
         con.close()
 
     def test_ensure_schema_idempotent(self) -> None:
         con = duckdb.connect(":memory:")
-        ensure_schema(con)
-        ensure_schema(con)
+        FinanceSchema.ensure(con)
+        FinanceSchema.ensure(con)
         tables = con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
         assert len(tables) == 4
         con.close()
@@ -87,7 +84,7 @@ class TestDDL:
 
 class TestIntrospect:
     def test_schema_metadata_returns_all_tables(self) -> None:
-        meta = schema_metadata()
+        meta = FinanceSchema.metadata()
         assert len(meta) == 4
 
     def test_table_metadata_structure(self) -> None:
@@ -120,14 +117,15 @@ class TestIntrospect:
         assert amount_col["nullable"] is True
 
     def test_all_metric_fields_have_metadata(self) -> None:
-        for table_meta in schema_metadata():
+        for table_meta in FinanceSchema.metadata():
             for col in table_meta["columns"]:
                 assert "db_type" in col, f"{table_meta['table']}.{col['name']} missing db_type"
                 assert "description" in col, f"{table_meta['table']}.{col['name']} missing description"
 
 
 class TestSchema:
-    def test_schema_dict(self) -> None:
-        assert SCHEMA["name"] == "finance"
-        assert "version" in SCHEMA
-        assert SCHEMA["tables"] == CANONICAL_TABLES
+    def test_schema_name(self) -> None:
+        assert FinanceSchema.name == "finance"
+
+    def test_schema_tables(self) -> None:
+        assert set(FinanceSchema.tables) == {"transactions", "daily_spending", "monthly_category", "monthly_overview"}
