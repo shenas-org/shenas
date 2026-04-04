@@ -134,7 +134,7 @@ def table_preview(schema: str, table: str, limit: int = 50) -> list[dict[str, An
     limit = min(max(1, limit), 500)
     qualified = f'"{schema}"."{table}"'
     with cursor() as cur:
-        # Try to find PK columns for ordering
+        # Order by PK if available, else by first column
         pk_cols = [
             r[0]
             for r in cur.execute(
@@ -143,6 +143,15 @@ def table_preview(schema: str, table: str, limit: int = 50) -> list[dict[str, An
                 [schema, table],
             ).fetchall()
         ]
+        if not pk_cols:
+            # dlt doesn't create SQL PKs -- fall back to first column
+            first = cur.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position LIMIT 1",
+                [schema, table],
+            ).fetchone()
+            if first:
+                pk_cols = [first[0]]
         order_clause = " ORDER BY " + ", ".join(f'"{c}" DESC' for c in pk_cols) if pk_cols else ""
         rows = cur.execute(f"SELECT * FROM {qualified}{order_clause} LIMIT {limit}").fetchall()
         cols = [desc[0] for desc in cur.description]
