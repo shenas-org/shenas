@@ -241,6 +241,70 @@ class Pipe(Plugin):
         msg = f"{self.name} does not support MFA"
         raise NotImplementedError(msg)
 
+    def get_pending_mfa_state(self) -> dict[str, Any] | None:
+        """Return pending MFA state, or None. Override if pipe supports MFA."""
+        return None
+
+    @property
+    def stored_credentials(self) -> list[str]:
+        """Labels for stored credential fields that have values."""
+        if not self.has_auth:
+            return []
+        try:
+            from shenas_schemas.core.introspect import table_metadata
+
+            row = self._auth_store.get(self.Auth)
+            meta = table_metadata(self.Auth)
+            return [
+                col["name"].replace("_", " ").title()
+                for col in meta["columns"]
+                if col["name"] != "id" and row and row.get(col["name"])
+            ]
+        except Exception:
+            return []
+
+    def handle_auth(self, credentials: dict[str, str]) -> dict[str, Any]:  # noqa: PLR0911
+        """Dispatch auth flow. Returns a result dict for the API response.
+
+        Result keys: ok, message, error, needs_mfa, oauth_url.
+        """
+        # MFA completion
+        if "mfa_code" in credentials:
+            state = self.get_pending_mfa_state()
+            if state is None:
+                return {"ok": False, "error": "No pending MFA session. Start auth again."}
+            try:
+                self.complete_mfa(state, credentials["mfa_code"])
+                return {"ok": True, "message": f"Authenticated {self.name}"}
+            except Exception as exc:
+                return {"ok": False, "error": str(exc)}
+
+        # OAuth completion
+        if "auth_complete" in credentials:
+            try:
+                self.authenticate(credentials)
+                return {"ok": True, "message": f"Authenticated {self.name}"}
+            except Exception as exc:
+                return {"ok": False, "error": str(exc)}
+
+        # Initial auth
+        try:
+            self.authenticate(credentials)
+            return {"ok": True, "message": f"Authenticated {self.name}"}
+        except ValueError as exc:
+            msg = str(exc)
+            if "MFA code required" in msg:
+                return {"ok": False, "needs_mfa": True, "message": "MFA code required"}
+            if msg.startswith("OAUTH_URL:"):
+                return {
+                    "ok": False,
+                    "oauth_url": msg.removeprefix("OAUTH_URL:"),
+                    "message": "Open this URL in your browser to authorize",
+                }
+            return {"ok": False, "error": msg}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
 
 # ---------------------------------------------------------------------------
 # Schema
