@@ -56,15 +56,17 @@ jobs:
         id: version
         run: |
           if [[ "$GITHUB_REF" == refs/tags/*/v* ]]; then
-            echo "tag=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
+            TAG="${GITHUB_REF##*/}"
           else
-            echo "tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            TAG="v0.0.0-dev"
           fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Build, push, deploy
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-          docker build --build-arg VERSION="${TAG#v}" -t "${REGISTRY}/repo-server:${TAG}" \
+          docker build --build-arg VERSION="${{ steps.version.outputs.version }}" -t "${REGISTRY}/repo-server:${TAG}" \
                        -t "${REGISTRY}/repo-server:latest" \
                        -f server/deploy/docker/Dockerfile.repo-server .
           docker push "${REGISTRY}/repo-server" --all-tags
@@ -104,15 +106,17 @@ jobs:
         id: version
         run: |
           if [[ "$GITHUB_REF" == refs/tags/*/v* ]]; then
-            echo "tag=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
+            TAG="${GITHUB_REF##*/}"
           else
-            echo "tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            TAG="v0.0.0-dev"
           fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Build, push, deploy
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-          docker build --build-arg VERSION="${TAG#v}" -t "${REGISTRY}/fl-server:${TAG}" \
+          docker build --build-arg VERSION="${{ steps.version.outputs.version }}" -t "${REGISTRY}/fl-server:${TAG}" \
                        -t "${REGISTRY}/fl-server:latest" \
                        -f server/deploy/docker/Dockerfile.fl-server .
           docker push "${REGISTRY}/fl-server" --all-tags
@@ -152,10 +156,12 @@ jobs:
         id: version
         run: |
           if [[ "$GITHUB_REF" == refs/tags/*/v* ]]; then
-            echo "tag=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
+            TAG="${GITHUB_REF##*/}"
           else
-            echo "tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            TAG="v0.0.0-dev"
           fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Build, push, deploy
         run: |
