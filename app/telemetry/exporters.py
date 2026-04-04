@@ -7,7 +7,6 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-import duckdb
 from opentelemetry.sdk._logs import ReadableLogRecord  # type: ignore[attr-defined]
 from opentelemetry.sdk._logs.export import LogRecordExporter, LogRecordExportResult  # type: ignore[attr-defined]
 from opentelemetry.sdk.trace import ReadableSpan
@@ -70,15 +69,15 @@ def _ns_to_iso(ns: int) -> str:
 _schema_ensured = False
 
 
-def _connect() -> duckdb.DuckDBPyConnection:
+def _ensure_schema() -> None:
     global _schema_ensured
+    if _schema_ensured:
+        return
     from app.db import connect
 
     con = connect()
-    if not _schema_ensured:
-        ensure_telemetry_schema(con)
-        _schema_ensured = True
-    return con
+    ensure_telemetry_schema(con)
+    _schema_ensured = True
 
 
 class DuckDBSpanExporter(SpanExporter):
@@ -91,9 +90,8 @@ class DuckDBSpanExporter(SpanExporter):
         try:
             with self._lock:
                 try:
-                    con = _connect()
+                    _ensure_schema()
                 except Exception:
-                    # DB locked (e.g. during pipe sync) -- silently skip this batch
                     return SpanExportResult.SUCCESS
 
                 rows = []
@@ -137,7 +135,10 @@ class DuckDBSpanExporter(SpanExporter):
                     )
 
                 if rows:
-                    con.executemany(_SPAN_INSERT, rows)
+                    from app.db import cursor
+
+                    with cursor() as cur:
+                        cur.executemany(_SPAN_INSERT, rows)
                     _dispatch("spans", rows)
                 return SpanExportResult.SUCCESS
         except Exception:
@@ -163,7 +164,7 @@ class DuckDBLogExporter(LogRecordExporter):
         try:
             with self._lock:
                 try:
-                    con = _connect()
+                    _ensure_schema()
                 except Exception:
                     return LogRecordExportResult.SUCCESS
 
@@ -200,7 +201,10 @@ class DuckDBLogExporter(LogRecordExporter):
                     )
 
                 if rows:
-                    con.executemany(_LOG_INSERT, rows)
+                    from app.db import cursor
+
+                    with cursor() as cur:
+                        cur.executemany(_LOG_INSERT, rows)
                     _dispatch("logs", rows)
                 return LogRecordExportResult.SUCCESS
         except Exception:

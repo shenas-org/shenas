@@ -52,7 +52,7 @@ def client() -> Iterator[TestClient]:
     pipe = _TestPipe()
 
     with (
-        patch("shenas_plugins.core.store.cursor", _fake_cursor),
+        patch("app.db.cursor", _fake_cursor),
         patch("app.api.config._load_plugin", return_value=_TestPipe),
         patch("app.api.config._load_plugins", side_effect=lambda k, **_kw: [_TestPipe] if k == "pipe" else []),
         patch("app.db.get_plugin_state", return_value=None),

@@ -9,7 +9,6 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, ClassVar
 
-from app.db import cursor
 from shenas_schemas.core.introspect import table_metadata
 
 
@@ -27,6 +26,12 @@ class DataclassStore:
     def _ensured(self) -> set[str]:
         return self._ensured_by_schema[self.schema]
 
+    @staticmethod
+    def _cursor():
+        from app.db import cursor
+
+        return cursor()
+
     def ensure_table(self, cls: type) -> None:
         table = cls.__table__
         if table in self._ensured:
@@ -34,7 +39,7 @@ class DataclassStore:
 
         from shenas_schemas.core.ddl import ensure_schema
 
-        with cursor() as cur:
+        with self._cursor() as cur:
             ensure_schema(cur, [cls], schema=self.schema)
 
         self._ensured.add(table)
@@ -44,7 +49,7 @@ class DataclassStore:
         table = cls.__table__
         cols = [f.name for f in dataclasses.fields(cls)]
         col_list = ", ".join(cols)
-        with cursor() as cur:
+        with self._cursor() as cur:
             row = cur.execute(f"SELECT {col_list} FROM {self.schema}.{table} LIMIT 1").fetchone()
         if row is None:
             return None
@@ -78,14 +83,14 @@ class DataclassStore:
         placeholders = ", ".join(["?"] * len(cols))
         col_names = ", ".join(cols)
         values = [merged.get(c) for c in cols]
-        with cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(f"DELETE FROM {self.schema}.{table}")
             cur.execute(f"INSERT INTO {self.schema}.{table} ({col_names}) VALUES ({placeholders})", values)
 
     def delete(self, cls: type) -> None:
         self.ensure_table(cls)
         table = cls.__table__
-        with cursor() as cur:
+        with self._cursor() as cur:
             cur.execute(f"DELETE FROM {self.schema}.{table}")
 
     def metadata(self, cls: type) -> dict[str, Any]:
