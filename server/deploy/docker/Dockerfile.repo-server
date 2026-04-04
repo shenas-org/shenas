@@ -7,7 +7,6 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Copy only what repo-server needs
 COPY server/repository/ ./repo-server/
-COPY packages/ ./packages/
 
 # Install dependencies (no .git in Docker context, so fake the version)
 ARG VERSION=0.0.0
