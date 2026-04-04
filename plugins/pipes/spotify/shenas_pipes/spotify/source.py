@@ -6,6 +6,9 @@ from typing import TYPE_CHECKING, Any
 
 import dlt
 
+from shenas_pipes.spotify.tables import RecentlyPlayed, SavedTrack, TopArtist, TopTrack
+from shenas_schemas.core.dlt import dataclass_to_dlt_columns
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -17,7 +20,11 @@ def _artists_str(artists: list[dict[str, Any]]) -> str:
     return ", ".join(a.get("name", "") for a in artists if a.get("name"))
 
 
-@dlt.resource(write_disposition="merge", primary_key="played_at")
+@dlt.resource(
+    write_disposition="merge",
+    primary_key=list(RecentlyPlayed.__pk__),
+    columns=dataclass_to_dlt_columns(RecentlyPlayed),
+)
 def recently_played(
     client: spotipy.Spotify,
     cursor: dlt.sources.incremental[str] = dlt.sources.incremental("played_at", initial_value=None),
@@ -53,7 +60,7 @@ def recently_played(
         }
 
 
-@dlt.resource(write_disposition="replace")
+@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(TopTrack))
 def top_tracks(client: spotipy.Spotify, time_range: str = "medium_term") -> Iterator[dict[str, Any]]:
     """Yield the user's top tracks for a time range."""
     offset = 0
@@ -79,7 +86,7 @@ def top_tracks(client: spotipy.Spotify, time_range: str = "medium_term") -> Iter
         offset += 50
 
 
-@dlt.resource(write_disposition="replace")
+@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(TopArtist))
 def top_artists(client: spotipy.Spotify, time_range: str = "medium_term") -> Iterator[dict[str, Any]]:
     """Yield the user's top artists for a time range."""
     offset = 0
@@ -103,7 +110,7 @@ def top_artists(client: spotipy.Spotify, time_range: str = "medium_term") -> Ite
         offset += 50
 
 
-@dlt.resource(write_disposition="replace")
+@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(SavedTrack))
 def saved_tracks(client: spotipy.Spotify) -> Iterator[dict[str, Any]]:
     """Yield the user's saved/liked tracks."""
     offset = 0

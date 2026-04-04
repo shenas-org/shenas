@@ -7,12 +7,14 @@ from typing import TYPE_CHECKING, Any
 import dlt
 
 from shenas_pipes.core.utils import resolve_start_date
+from shenas_pipes.gcalendar.tables import Calendar, Event
+from shenas_schemas.core.dlt import dataclass_to_dlt_columns
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
-@dlt.resource(write_disposition="merge", primary_key="id")
+@dlt.resource(write_disposition="merge", primary_key=list(Event.__pk__), columns=dataclass_to_dlt_columns(Event))
 def events(
     service: Any,
     start_date: str = "30 days ago",
@@ -67,7 +69,7 @@ def events(
             break
 
 
-@dlt.resource(write_disposition="replace")
+@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(Calendar))
 def calendars(service: Any) -> Iterator[dict[str, Any]]:
     """Yield all calendars the user has access to."""
     page_token: str | None = None

@@ -9,6 +9,9 @@ from typing import TYPE_CHECKING, Any
 import dlt
 import yaml
 
+from shenas_pipes.obsidian.tables import DailyNote
+from shenas_schemas.core.dlt import dataclass_to_dlt_columns
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -30,7 +33,11 @@ def _date_from_filename(path: Path) -> str | None:
     return match.group(1) if match else None
 
 
-@dlt.resource(write_disposition="merge", primary_key="date")
+@dlt.resource(
+    write_disposition="merge",
+    primary_key=list(DailyNote.__pk__),
+    columns=dataclass_to_dlt_columns(DailyNote),
+)
 def daily_notes(notes_dir: str) -> Iterator[dict[str, Any]]:
     """Yield one row per daily note with frontmatter fields as columns."""
     notes_path = Path(notes_dir)
