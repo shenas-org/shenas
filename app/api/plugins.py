@@ -275,47 +275,19 @@ def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
 
 @router.get("/{kind}/{name}/info")
 def plugin_info(kind: str, name: str) -> dict[str, Any]:
-    """Get full info for an installed plugin: description and state."""
+    """Get full info for an installed plugin."""
     from app.api.pipes import _load_pipe, _load_plugin
 
     _validate_kind(kind)
-    state = get_plugin_state(kind, name)
-
-    # Get version
-    version = None
-    try:
-        from importlib.metadata import version as get_version
-
-        version = get_version(f"{_prefix(kind)}{name}")
-    except Exception:
-        pass
-
-    # Get metadata from plugin class
     if kind == "pipe":
         try:
-            pipe = _load_pipe(name)
-            display = pipe.display_name
-            desc = pipe.description
+            return _load_pipe(name).info()
         except Exception:
-            display = ""
-            desc = ""
-    else:
-        cls = _load_plugin(kind, name)
-        display = cls.display_name if cls else ""
-        desc = cls.description if cls else ""
-
-    return {
-        "name": name,
-        "display_name": display,
-        "kind": kind,
-        "version": version,
-        "description": desc,
-        "enabled": state["enabled"] if state else True,
-        "added_at": state["added_at"] if state else None,
-        "updated_at": state["updated_at"] if state else None,
-        "status_changed_at": state["status_changed_at"] if state else None,
-        "synced_at": state["synced_at"] if state else None,
-    }
+            pass
+    cls = _load_plugin(kind, name)
+    if cls:
+        return cls().info()
+    return {"name": name, "kind": kind}
 
 
 @router.get("/{kind}")
