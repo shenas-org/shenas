@@ -8,7 +8,7 @@ projects:
   - 'plugins/pipes/*'
   - 'plugins/schemas/*'
   - 'plugins/components/*'
-  - 'plugins/ui/*'
+  - 'plugins/uis/*'
   - 'app/vendor'
 
 vcs:

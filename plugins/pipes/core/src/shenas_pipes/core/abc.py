@@ -39,6 +39,18 @@ class Plugin(abc.ABC):
     description: ClassVar[str] = ""
     internal: ClassVar[bool] = False
 
+    @property
+    def commands(self) -> list[str]:
+        return []
+
+    def info(self) -> dict[str, Any]:
+        """Plugin metadata for API responses."""
+        return {
+            "name": self.name,
+            "display_name": self.display_name,
+            "description": self.description,
+        }
+
 
 # ---------------------------------------------------------------------------
 # Pipe
@@ -107,11 +119,41 @@ class Pipe(Plugin):
         return self.Auth is not PipeAuth
 
     @property
+    def is_authenticated(self) -> bool | None:
+        """Whether stored credentials exist. None if auth not required."""
+        if not self.has_auth:
+            return True
+        try:
+            row = self._auth_store.get(self.Auth)
+            return bool(row and any(v for k, v in row.items() if k != "id"))
+        except Exception:
+            return None
+
+    @property
+    def sync_frequency(self) -> int | None:
+        """Sync frequency in minutes from config, or None."""
+        if self.Config is PipeConfig:
+            return None
+        try:
+            row = self._config_store.get(self.Config)
+            return row.get("sync_frequency") if row else None
+        except Exception:
+            return None
+
+    @property
     def commands(self) -> list[str]:
         cmds = ["sync"]
         if self.has_auth:
             cmds.append("auth")
         return cmds
+
+    def info(self) -> dict[str, Any]:
+        return {
+            **super().info(),
+            "has_auth": self.is_authenticated,
+            "sync_frequency": self.sync_frequency,
+            "commands": self.commands,
+        }
 
     # -- Sync lifecycle -------------------------------------------------------
 

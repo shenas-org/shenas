@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import duckdb
@@ -18,9 +19,21 @@ client = TestClient(app)
 # Mock plugin state DB functions for all tests in this module
 @pytest.fixture(autouse=True)
 def _mock_plugin_state():
+    from shenas_pipes.core.abc import Pipe
+
+    class _FakePipe(Pipe):
+        name = "test"
+        display_name = "Test"
+        is_authenticated = True  # type: ignore[assignment]
+        sync_frequency = None  # type: ignore[assignment]
+
+        def resources(self, client: Any) -> list[Any]:
+            return []
+
+    fake_pipe = _FakePipe()
     with (
         patch("app.api.plugins.get_plugin_state", return_value=None),
-        patch("app.api.plugins._pipe_status", return_value=(True, None)),
+        patch("app.api.pipes._load_pipe", return_value=fake_pipe),
         patch("app.db.upsert_plugin_state"),
         patch("app.db.remove_plugin_state"),
         patch("app.db.is_plugin_enabled", return_value=True),

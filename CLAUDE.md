@@ -132,7 +132,7 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - `plugins/components/data-table/` — Lit data table with sorting/filtering/pagination (built as wheel)
 - `plugins/themes/default/` — default light theme (CSS custom properties)
 - `plugins/themes/dark/` — dark theme
-- `plugins/ui/default/` — default UI shell (Lit SPA with tabs, command palette, data flow graph)
+- `plugins/uis/default/` — default UI shell (Lit SPA with tabs, command palette, data flow graph)
 
 ## Git workflow
 
