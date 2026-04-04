@@ -20,8 +20,8 @@ class Event:
     summary: Annotated[str | None, Field(db_type="VARCHAR", description="Event title")] = None
     description: Annotated[str | None, Field(db_type="TEXT", description="Event description")] = None
     location: Annotated[str | None, Field(db_type="VARCHAR", description="Event location")] = None
-    start_date: Annotated[str | None, Field(db_type="VARCHAR", description="Start date or datetime")] = None
-    end_date: Annotated[str | None, Field(db_type="VARCHAR", description="End date or datetime")] = None
+    start_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="Start datetime")] = None
+    end_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="End datetime")] = None
     all_day: Annotated[bool, Field(db_type="BOOLEAN", description="Whether this is an all-day event")] = False
     status: Annotated[str | None, Field(db_type="VARCHAR", description="Event status")] = None
     creator_email: Annotated[str | None, Field(db_type="VARCHAR", description="Creator email")] = None
