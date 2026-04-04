@@ -241,7 +241,17 @@ var Q=Object.defineProperty;var Y=(l,e,t)=>e in l?Q(l,e,{enumerable:!0,configura
   a:hover {
     text-decoration: underline;
   }
-`;class N extends g{constructor(){super(),this.loading=!1,this.empty=!1,this.loadingText="Loading...",this.emptyText="No data",this.displayName=""}updated(e){e.has("displayName")&&this.displayName&&this.dispatchEvent(new CustomEvent("page-title",{bubbles:!0,composed:!0,detail:{title:this.displayName}}))}render(){return this.loading?n`<p class="loading">${this.loadingText}</p>`:this.empty?n`<p class="empty">${this.emptyText}</p>`:n`<slot></slot>`}}d(N,"properties",{loading:{type:Boolean,reflect:!0},empty:{type:Boolean,reflect:!0},loadingText:{type:String,attribute:"loading-text"},emptyText:{type:String,attribute:"empty-text"},displayName:{type:String,attribute:"display-name"}}),d(N,"styles",[C]);customElements.define("shenas-page",N);class I extends g{constructor(){super(),this.enabled=!1,this.toggleable=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return n`<div class="track" @click=${this._onClick}><div class="knob"></div></div>`}_onClick(){this.toggleable&&this.dispatchEvent(new CustomEvent("toggle",{bubbles:!0,composed:!0}))}}d(I,"properties",{enabled:{type:Boolean,reflect:!0},toggleable:{type:Boolean,reflect:!0}}),d(I,"styles",p`
+`;class N extends g{constructor(){super(),this.loading=!1,this.empty=!1,this.loadingText="Loading...",this.emptyText="No data",this.displayName=""}updated(e){e.has("displayName")&&this.displayName&&this.dispatchEvent(new CustomEvent("page-title",{bubbles:!0,composed:!0,detail:{title:this.displayName}}))}render(){return this.loading?n`<p class="loading">${this.loadingText}</p>`:this.empty?n`<p class="empty">${this.emptyText}</p>`:n`<slot></slot>`}}d(N,"properties",{loading:{type:Boolean,reflect:!0},empty:{type:Boolean,reflect:!0},loadingText:{type:String,attribute:"loading-text"},emptyText:{type:String,attribute:"empty-text"},displayName:{type:String,attribute:"display-name"}}),d(N,"styles",[C,p`
+      :host([loading]), :host([empty]) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      .loading, .empty {
+        color: var(--shenas-text-muted, #888);
+      }
+    `]);customElements.define("shenas-page",N);class I extends g{constructor(){super(),this.enabled=!1,this.toggleable=!1}updated(){this.title=this.enabled?"Enabled":"Disabled"}render(){return n`<div class="track" @click=${this._onClick}><div class="knob"></div></div>`}_onClick(){this.toggleable&&this.dispatchEvent(new CustomEvent("toggle",{bubbles:!0,composed:!0}))}}d(I,"properties",{enabled:{type:Boolean,reflect:!0},toggleable:{type:Boolean,reflect:!0}}),d(I,"styles",p`
     :host {
       display: inline-block;
       vertical-align: middle;

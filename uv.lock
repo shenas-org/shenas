@@ -2747,6 +2747,7 @@ dependencies = [
     { name = "garminconnect" },
     { name = "pendulum" },
     { name = "shenas-pipe-core" },
+    { name = "shenas-schema-events" },
     { name = "shenas-schema-fitness" },
 ]
 
@@ -2756,6 +2757,7 @@ requires-dist = [
     { name = "garminconnect", specifier = ">=0.2.40" },
     { name = "pendulum", specifier = ">=3.0.0" },
     { name = "shenas-pipe-core", editable = "plugins/pipes/core" },
+    { name = "shenas-schema-events", editable = "plugins/schemas/events" },
     { name = "shenas-schema-fitness", editable = "plugins/schemas/fitness" },
 ]
 
@@ -2766,6 +2768,7 @@ dependencies = [
     { name = "dlt", extra = ["duckdb"] },
     { name = "pendulum" },
     { name = "shenas-pipe-core" },
+    { name = "shenas-schema-events" },
 ]
 
 [package.metadata]
@@ -2773,6 +2776,7 @@ requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "pendulum", specifier = ">=3.0.0" },
     { name = "shenas-pipe-core", editable = "plugins/pipes/core" },
+    { name = "shenas-schema-events", editable = "plugins/schemas/events" },
 ]
 
 [[package]]
@@ -2845,6 +2849,7 @@ source = { editable = "plugins/pipes/spotify" }
 dependencies = [
     { name = "dlt", extra = ["duckdb"] },
     { name = "shenas-pipe-core" },
+    { name = "shenas-schema-events" },
     { name = "spotipy" },
 ]
 
@@ -2852,6 +2857,7 @@ dependencies = [
 requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "shenas-pipe-core", editable = "plugins/pipes/core" },
+    { name = "shenas-schema-events", editable = "plugins/schemas/events" },
     { name = "spotipy", specifier = ">=2.24.0" },
 ]
 
