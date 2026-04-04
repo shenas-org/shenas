@@ -217,6 +217,28 @@ def run_transforms(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
     return count
 
 
+def run_transforms_by_target(con: duckdb.DuckDBPyConnection, target_table: str) -> int:
+    """Run all enabled transforms that target a specific table."""
+    all_transforms = list_transforms()
+    matching = [t for t in all_transforms if t["target_duckdb_table"] == target_table and t["enabled"]]
+    log.info("Running transforms targeting %s (%d total)", target_table, len(matching))
+    count = 0
+    for t in matching:
+        target = f'"{t["target_duckdb_schema"]}"."{t["target_duckdb_table"]}"'
+        try:
+            con.execute(f"DELETE FROM {target} WHERE source = ?", [t["source_plugin"]])
+            from app.db import cursor
+
+            with cursor() as cur:
+                cur.execute(f"SELECT * FROM ({t['sql']}) _t LIMIT 0")
+                col_names = ", ".join(f'"{d[0]}"' for d in cur.description)
+            con.execute(f"INSERT INTO {target} ({col_names}) {t['sql']}")
+            count += 1
+        except Exception:
+            log.exception("Transform #%d failed (%s -> %s)", t["id"], t["source_plugin"], target)
+    return count
+
+
 def test_transform(transform_id: int, limit: int = 10) -> list[dict[str, Any]]:  # noqa: PT028
     """Dry-run a transform's SQL and return preview rows."""
     t = get_transform(transform_id)

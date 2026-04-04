@@ -574,6 +574,35 @@ class ShenasApp extends LitElement {
         label: "Seed Default Transforms",
         action: () => apiFetch(this.apiBase, `/transforms/seed`, { method: "POST" }),
       });
+      // Per-pipe transform commands
+      for (const k of PLUGIN_KINDS) {
+        if (k.id !== "pipe") continue;
+        const pipes = (await this._fetch(`/plugins/${k.id}`)) || [];
+        for (const p of pipes) {
+          if (p.enabled !== false) {
+            commands.push({
+              id: `transform:pipe:${p.name}`,
+              category: "Transform",
+              label: `Run Transforms: ${p.display_name || p.name}`,
+              action: () => apiFetch(this.apiBase, `/transforms/run/pipe/${p.name}`, { method: "POST" }),
+            });
+          }
+        }
+      }
+      // Per-schema transform commands
+      const schemas = (await this._fetch(`/plugins/schema`)) || [];
+      for (const s of schemas) {
+        const tables = (await this._fetch(`/db/schema-plugins`)) || {};
+        const schemaTables = tables[s.name] || [];
+        for (const table of schemaTables) {
+          commands.push({
+            id: `transform:schema:${table}`,
+            category: "Transform",
+            label: `Run Transforms -> ${s.display_name || s.name}: ${table}`,
+            action: () => apiFetch(this.apiBase, `/transforms/run/schema/${table}`, { method: "POST" }),
+          });
+        }
+      }
     } catch { /* */ }
     this._pluginDisplayNames = names;
     // System actions (also triggerable from Ctrl+P)
