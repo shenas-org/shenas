@@ -37,7 +37,7 @@ shenasrepoctl vendor garmin        # vendor a pipe and its deps
 
 - **dlt** — data ingestion/pipeline framework (`@dlt.source`, `@dlt.resource`, incremental cursors)
 - **DuckDB** — local destination at `./data/shenas.duckdb` (also available via MCP server `duckdb`)
-- **uv** — package manager (do not use pip directly); workspace with 5 members (cli, app, repository, pipes/core, schemas/core)
+- **uv** — package manager (do not use pip directly); workspace with glob-based members (app, shenasctl, scheduler, server/repository, plugins/*)
 - **moon** — monorepo task runner; config in `.moon/`, per-project `moon.yml`
 - **typer** — CLI framework; **rich** — terminal formatting
 - **FastAPI** — repository server + app server
@@ -51,17 +51,17 @@ shenasrepoctl vendor garmin        # vendor a pipe and its deps
 
 ### Workspace packages
 
-The monorepo is a uv workspace with 7 members, each a separate Python package:
+The monorepo is a uv workspace with glob-based members, each a separate Python package:
 
-- **`shenas-cli`** (`cli/`) — lightweight CLI client (httpx + typer + cryptography), no server deps
+- **`shenas-cli`** (`shenasctl/`) — lightweight CLI client (httpx + typer + cryptography), no server deps
 - **`shenas-app`** (`app/`) — FastAPI UI server, depends on shenas-cli
 - **`shenas-scheduler`** (`scheduler/`) — background sync daemon sidecar, depends on shenas-cli
 - **`shenas-repository`** (`server/repository/`) — PEP 503 package server + Ed25519 signing
-- **`shenas-fl-server`** (`server/fl/`) — federated learning coordinator (Flower + FastAPI), separate venv due to dependency conflicts
+- **`shenas-plugin-core`** (`plugins/core/`) — shared plugin utilities
 - **`shenas-pipe-core`** (`plugins/pipes/core/`) — shared pipe utilities
 - **`shenas-schema-core`** (`plugins/schemas/core/`) — shared schema utilities
 
-Each has its own `pyproject.toml` with hatchling build, `VERSION` file, and `moon.yml` for task definitions. Cross-package imports (e.g. `cli` importing `repository.signing`, `app` importing `cli.db`) resolve via workspace editable installs with `dev-mode-dirs = [".."]` pointing to the repo root.
+Pipes, schemas, components, UIs, and themes under `plugins/` are auto-discovered via glob patterns. Each has its own `pyproject.toml` with hatchling build, `VERSION` file, and `moon.yml` for task definitions. Cross-package imports resolve via workspace editable installs with `dev-mode-dirs = [".."]` pointing to the repo root.
 
 ### Plugin discovery via entry points
 
@@ -110,14 +110,19 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - `app/` — FastAPI UI server (shenas-app); discovers plugins via entry points, serves Arrow IPC
 - `app/telemetry/` — OpenTelemetry exporters, DuckDB spans/logs, real-time SSE dispatcher
 - `app/fl/` — Flower FL client, PyTorch training, inference engine, model plugin registry
+- `app/desktop/` — Tauri v2 desktop app with bundled PyInstaller sidecars
 - `app/mobile/` — Tauri v2 mobile app (Rust core: axum + DuckDB, no Python)
 - `app/vendor/` — shared frontend deps (Lit, Arrow, uPlot, Cytoscape) built with Rollup
+- `shenasctl/` — lightweight CLI client (shenas-cli); httpx + typer + cryptography
 - `scheduler/` — background sync daemon sidecar (shenas-scheduler); polls server for due pipes
 - `server/fl/` — federated learning coordinator (Flower server + REST API); runs in its own venv
 - `server/repository/` — PEP 503 Simple Repository API server + Ed25519 signing
 - `scripts/` — build helpers (version bumping, pre-commit hook)
+- `plugins/core/` — shared plugin utilities (shenas-plugin-core)
 - `plugins/pipes/core/` — shared pipe utilities (shenas-pipe-core)
 - `plugins/pipes/garmin/` — Garmin Connect dlt connector
+- `plugins/pipes/gcalendar/` — Google Calendar dlt connector
+- `plugins/pipes/gtakeout/` — Google Takeout import
 - `plugins/pipes/lunchmoney/` — Lunch Money dlt connector
 - `plugins/pipes/obsidian/` — Obsidian daily notes (frontmatter extraction)
 - `plugins/pipes/gmail/` — Gmail (OAuth2, embedded client credentials)
@@ -126,6 +131,7 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - `plugins/schemas/core/` — shared schema utilities (shenas-schema-core)
 - `plugins/schemas/fitness/` — canonical fitness metrics (HRV, sleep, vitals, body)
 - `plugins/schemas/finance/` — canonical finance metrics (transactions, spending, budgets)
+- `plugins/schemas/events/` — unified event timeline
 - `plugins/schemas/outcomes/` — canonical outcome metrics (mood, stress, productivity, exercise)
 - `plugins/schemas/habits/` — canonical habits metrics (daily habits)
 - `plugins/components/fitness-dashboard/` — Lit + uPlot fitness charts (built as wheel)

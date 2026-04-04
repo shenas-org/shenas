@@ -15,6 +15,24 @@ resource "google_dns_record_set" "repo" {
   rrdatas      = [google_compute_global_address.ingress_ip.address]
 }
 
+# shenas.net -> GKE ingress IP
+resource "google_dns_record_set" "root" {
+  name         = "${var.domain}."
+  managed_zone = google_dns_managed_zone.shenas_net.name
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [google_compute_global_address.ingress_ip.address]
+}
+
+# www.shenas.net -> shenas.net (CNAME)
+resource "google_dns_record_set" "www" {
+  name         = "www.${var.domain}."
+  managed_zone = google_dns_managed_zone.shenas_net.name
+  type         = "CNAME"
+  ttl          = 300
+  rrdatas      = ["${var.domain}."]
+}
+
 # fl.shenas.net -> GKE ingress IP
 resource "google_dns_record_set" "fl" {
   name         = "fl.${var.domain}."

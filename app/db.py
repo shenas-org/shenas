@@ -163,12 +163,21 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:  # noqa: ARG0
 
 
 def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
-    """Create system tables if they don't exist."""
+    """Create system tables and canonical schema tables if they don't exist."""
     from shenas_schemas.core.ddl import ensure_schema
 
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
     ensure_schema(con, _SYSTEM_TABLES, schema="shenas_system")
     _seed_default_hotkeys(con)
+    _ensure_canonical_schemas(con)
+
+
+def _ensure_canonical_schemas(con: duckdb.DuckDBPyConnection) -> None:
+    """Ensure all installed schema plugins have their tables created."""
+    from app.api.pipes import _load_schemas
+
+    for schema_cls in _load_schemas():
+        schema_cls.ensure(con)
 
 
 def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
