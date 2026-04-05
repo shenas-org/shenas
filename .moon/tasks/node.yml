@@ -28,11 +28,6 @@ tasks:
       pkg=$(echo $name | tr '-' '_')
       uv build --out-dir $MOON_WORKSPACE_ROOT/packages/
       cd $MOON_WORKSPACE_ROOT
-      if [ -f .shenas/shenas.key ] && command -v shenasrepoctl >/dev/null 2>&1; then
-        for whl in packages/shenas_*${pkg}-*.whl; do
-          [ -f "$whl.sig" ] || shenasrepoctl sign "$whl"
-        done
-      fi
     inputs:
       - '@group(sources)'
       - '@group(configs)'
