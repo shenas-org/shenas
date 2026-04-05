@@ -32,13 +32,17 @@ fn wait_for_server(url: &str, timeout: Duration) -> bool {
     false
 }
 
+// Desktop sidecars use different ports than dev (7280) to avoid conflicts
+const DESKTOP_PORT: u16 = 7281;
+const DESKTOP_URL: &str = "http://localhost:7281";
+
 fn is_server_running() -> bool {
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(2))
         .build()
         .unwrap();
     client
-        .get("http://localhost:7280/api/health")
+        .get(format!("{DESKTOP_URL}/api/health"))
         .send()
         .map(|r| r.status().is_success())
         .unwrap_or(false)
@@ -61,14 +65,14 @@ fn main() {
                     .shell()
                     .sidecar("shenas")
                     .expect("Failed to create shenas sidecar")
-                    .args(["--no-tls"])
+                    .args(["--no-tls", "--port", &DESKTOP_PORT.to_string()])
                     .spawn()
                     .expect("Failed to start shenas server sidecar");
 
                 let state = ServerProcess(Mutex::new(Some(child)));
 
                 if !wait_for_server(
-                    "http://localhost:7280/api/health",
+                    &format!("{DESKTOP_URL}/api/health"),
                     Duration::from_secs(30),
                 ) {
                     eprintln!("Server failed to start within 30 seconds");
@@ -88,6 +92,7 @@ fn main() {
                     .shell()
                     .sidecar("shenas-scheduler")
                     .expect("Failed to create shenas-scheduler sidecar")
+                    .args(["--server-url", DESKTOP_URL])
                     .spawn()
                     .expect("Failed to start shenas-scheduler sidecar");
                 DaemonProcess(Mutex::new(Some(child)))
@@ -99,7 +104,7 @@ fn main() {
             let window = WebviewWindowBuilder::new(
                 app,
                 "main",
-                WebviewUrl::External("http://localhost:7280".parse().unwrap()),
+                WebviewUrl::External(DESKTOP_URL.parse().unwrap()),
             )
             .title("shenas")
             .inner_size(1200.0, 800.0)
