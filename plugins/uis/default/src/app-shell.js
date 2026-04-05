@@ -19,6 +19,7 @@ class ShenasApp extends LitElement {
     _paletteCommands: { state: true },
     _navPaletteOpen: { state: true },
     _settingsOpen: { state: true },
+    _remoteUser: { state: true },
     _navCommands: { state: true },
     _tabs: { state: true },
     _activeTabId: { state: true },
@@ -73,6 +74,8 @@ class ShenasApp extends LitElement {
         overflow-y: auto;
         padding: 1.5rem 1rem;
         border-right: 1px solid var(--shenas-border, #e0e0e0);
+        display: flex;
+        flex-direction: column;
       }
       .panel-middle {
         flex: 1;
@@ -294,6 +297,23 @@ class ShenasApp extends LitElement {
         text-transform: uppercase;
         letter-spacing: 0.05em;
         color: var(--shenas-text-faint, #aaa);
+      }
+      .sidebar-footer {
+        margin-top: auto;
+        padding: 0.8rem;
+        border-top: 1px solid var(--shenas-border, #e0e0e0);
+      }
+      .auth-link {
+        display: block;
+        padding: 0.5rem 0.8rem;
+        font-size: 0.85rem;
+        color: var(--shenas-text-secondary, #666);
+        text-decoration: none;
+        border-radius: 4px;
+      }
+      .auth-link:hover {
+        background: var(--shenas-bg-hover, #f5f5f5);
+        color: var(--shenas-text, #222);
       }
       .component-host {
         height: calc(100vh - 4rem);
@@ -844,6 +864,12 @@ class ShenasApp extends LitElement {
       console.error("Failed to fetch data:", e);
     }
     await this._registerGlobalCommands();
+    // Check remote auth state
+    try {
+      const r = await fetch(`${this.apiBase}/auth/me`);
+      const d = await r.json();
+      this._remoteUser = d.user || null;
+    } catch { this._remoteUser = null; }
     this._loading = false;
   }
 
@@ -920,6 +946,11 @@ class ShenasApp extends LitElement {
               </div>
             ` : ""}
           </nav>
+          <div class="sidebar-footer">
+            <a class="auth-link" href="/api/auth/login" id="auth-link">
+              ${this._remoteUser ? this._remoteUser.name || this._remoteUser.email : "Sign in"}
+            </a>
+          </div>
         </div>
         <div class="divider" @mousedown=${this._startDrag("left")}></div>
         <div class="panel-middle">
