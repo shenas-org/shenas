@@ -32,10 +32,10 @@ tasks:
     script: |
       cd $MOON_PROJECT_SOURCE && uv build --out-dir $MOON_WORKSPACE_ROOT/packages/
       cd $MOON_WORKSPACE_ROOT
-      if [ -f .shenas/shenas.key ]; then
+      if [ -f .shenas/shenas.key ] && command -v shenasrepoctl >/dev/null 2>&1; then
         pkg=$(echo $MOON_PROJECT_SOURCE | sed 's|.*/||; s|-|_|g')
         for whl in packages/shenas_*${pkg}-*.whl; do
-          [ -f "$whl.sig" ] || uv run --no-sync shenasrepoctl sign "$whl"
+          [ -f "$whl.sig" ] || shenasrepoctl sign "$whl"
         done
       fi
     inputs:
