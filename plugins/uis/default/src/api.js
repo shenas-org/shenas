@@ -69,6 +69,19 @@ export async function gqlFull(apiBase, query, variables = {}) {
 }
 
 /**
+ * Query DuckDB via Arrow IPC and return rows as an array of plain objects.
+ * Uses the REST /api/query endpoint (binary Arrow stream, not GraphQL).
+ */
+export async function arrowQuery(apiBase, sql) {
+  const { tableFromIPC } = await import("/vendor/apache-arrow.js");
+  const resp = await fetch(`${apiBase}/query?sql=${encodeURIComponent(sql)}`);
+  if (!resp.ok) return null;
+  const buf = await resp.arrayBuffer();
+  const table = tableFromIPC(new Uint8Array(buf));
+  return table.toArray().map((row) => row.toJSON());
+}
+
+/**
  * Render a message banner. Pass a { type, text } object or null.
  */
 export function renderMessage(message) {

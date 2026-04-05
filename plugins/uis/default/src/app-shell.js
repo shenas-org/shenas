@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { Router } from "@lit-labs/router";
-import { gql, gqlFull } from "./api.js";
+import { arrowQuery, gql, gqlFull } from "./api.js";
 import { PLUGIN_KINDS, matchesHotkey } from "./constants.js";
 import { linkStyles, utilityStyles } from "./shared-styles.js";
 
@@ -1003,8 +1003,7 @@ class ShenasApp extends LitElement {
     this._inspectTable = key;
     this._inspectRows = null;
     try {
-      const data = await gql(this.apiBase, `query($s: String!, $t: String!) { tablePreview(schema: $s, table: $t, limit: 50) }`, { s: schema, t: table });
-      this._inspectRows = data?.tablePreview || [];
+      this._inspectRows = await arrowQuery(this.apiBase, `SELECT * FROM "${schema}"."${table}" ORDER BY 1 DESC LIMIT 50`) || [];
     } catch {
       this._inspectRows = [];
     }

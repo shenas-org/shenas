@@ -1,5 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { gql, gqlFull, registerCommands, renderMessage } from "./api.js";
+import { arrowQuery, gql, gqlFull, registerCommands, renderMessage } from "./api.js";
 import { buttonStyles, linkStyles, messageStyles, tabStyles } from "./shared-styles.js";
 
 class PluginDetail extends LitElement {
@@ -320,8 +320,7 @@ class PluginDetail extends LitElement {
     if (!tableName) { this._previewRows = null; return; }
     this._previewLoading = true;
     const dbSchema = this.kind === "schema" ? "metrics" : this.name;
-    const data = await gql(this.apiBase, `query($s: String!, $t: String!) { tablePreview(schema: $s, table: $t, limit: 100) }`, { s: dbSchema, t: tableName });
-    this._previewRows = data?.tablePreview;
+    this._previewRows = await arrowQuery(this.apiBase, `SELECT * FROM "${dbSchema}"."${tableName}" ORDER BY 1 DESC LIMIT 100`);
     this._previewLoading = false;
   }
 
