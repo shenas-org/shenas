@@ -18,6 +18,7 @@ class ShenasApp extends LitElement {
     _paletteOpen: { state: true },
     _paletteCommands: { state: true },
     _navPaletteOpen: { state: true },
+    _settingsOpen: { state: true },
     _navCommands: { state: true },
     _tabs: { state: true },
     _activeTabId: { state: true },
@@ -213,12 +214,9 @@ class ShenasApp extends LitElement {
         margin-bottom: 1.5rem;
       }
       .header img {
-        width: 64px;
-        height: 64px;
-      }
-      .header h1 {
-        margin: 0;
-        font-size: 1.2rem;
+        width: 120px;
+        height: 120px;
+        border-radius: 12px;
       }
       .nav {
         display: flex;
@@ -245,6 +243,57 @@ class ShenasApp extends LitElement {
         background: var(--shenas-bg-selected, #f0f4ff);
         color: var(--shenas-text, #222);
         font-weight: 600;
+      }
+      .settings-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 0.8rem;
+        font-size: 0.9rem;
+        color: var(--shenas-text-secondary, #666);
+        text-decoration: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .settings-toggle:hover {
+        background: var(--shenas-bg-hover, #f5f5f5);
+        color: var(--shenas-text, #222);
+      }
+      .chevron {
+        transition: transform 0.15s;
+        font-size: 1.1rem;
+      }
+      .chevron.open {
+        transform: rotate(90deg);
+      }
+      .settings-sub {
+        padding-left: 0.5rem;
+      }
+      .nav-sub-item {
+        display: block;
+        padding: 0.35rem 0.8rem;
+        font-size: 0.82rem;
+        color: var(--shenas-text-secondary, #666);
+        text-decoration: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .nav-sub-item:hover {
+        background: var(--shenas-bg-hover, #f5f5f5);
+        color: var(--shenas-text, #222);
+      }
+      .nav-sub-item[aria-selected="true"] {
+        background: var(--shenas-bg-selected, #f0f4ff);
+        color: var(--shenas-text, #222);
+        font-weight: 600;
+      }
+      .sub-heading {
+        display: block;
+        padding: 0.4rem 0.8rem 0.2rem;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--shenas-text-faint, #aaa);
       }
       .component-host {
         height: calc(100vh - 4rem);
@@ -799,8 +848,13 @@ class ShenasApp extends LitElement {
   }
 
   _activeTab() {
-    const path = window.location.pathname.replace(/^\/+/, "") || "";
-    return path.split("/")[0] || (this._components.length > 0 ? this._components[0].name : "settings");
+    const active = this._tabs.find((t) => t.id === this._activeTabId);
+    return active?.path?.replace(/^\/+/, "")?.split("/")[0] || (this._components.length > 0 ? this._components[0].name : "settings");
+  }
+
+  _activePath() {
+    const active = this._tabs.find((t) => t.id === this._activeTabId);
+    return active?.path || window.location.pathname;
   }
 
   _startDrag(side) {
@@ -838,18 +892,33 @@ class ShenasApp extends LitElement {
     }
 
     const active = this._activeTab();
+    const activePath = this._activePath();
+    // Auto-expand settings on first navigation to a settings route
+    if (activePath.startsWith("/settings") && this._settingsOpen === undefined) this._settingsOpen = true;
 
     return html`
       <div class="layout">
         <div class="panel-left" style="width: ${this._leftWidth}px">
           <div class="header">
-            <img src="/static/images/shenas.png" alt="shenas" />
-            <h1>shenas</h1>
+            <img src="/static/images/shenas.svg" alt="shenas" />
           </div>
           <nav class="nav">
             ${this._components.map((c) => this._navItem(c.name, c.display_name || c.name, active))}
             ${this._navItem("logs", "Logs", active)}
-            ${this._navItem("settings", "Settings", active)}
+            <a class="nav-link settings-toggle" @click=${() => { this._settingsOpen = !this._settingsOpen; }}>
+              Settings
+              <span class="chevron ${this._settingsOpen ? "open" : ""}">&rsaquo;</span>
+            </a>
+            ${this._settingsOpen ? html`
+              <div class="settings-sub">
+                ${this._settingsNavItem("data-flow", "Data Flow", activePath)}
+                ${this._settingsNavItem("hotkeys", "Hotkeys", activePath)}
+                <span class="sub-heading">Plugins</span>
+                ${PLUGIN_KINDS.map(({ id, label }) => html`
+                  ${this._settingsNavItem(id, `${label} (${(this._allPlugins[id] || []).length})`, activePath)}
+                `)}
+              </div>
+            ` : ""}
           </nav>
         </div>
         <div class="divider" @mousedown=${this._startDrag("left")}></div>
@@ -873,7 +942,7 @@ class ShenasApp extends LitElement {
               </div>`
             : html`
               <div class="empty-state">
-                <img src="/static/images/shenas.png" alt="shenas" />
+                <img src="/static/images/shenas.svg" alt="shenas" />
                 <p>Open a page from the sidebar</p>
               </div>`}
         </div>
@@ -922,6 +991,17 @@ class ShenasApp extends LitElement {
     return html`
       <a class="nav-item" href="/${id}" aria-selected=${active === id}
         @click=${(e) => { e.preventDefault(); (e.ctrlKey || e.metaKey) ? this._openTab(`/${id}`, label) : this._navigateTo(`/${id}`, label); }}>
+        ${label}
+      </a>
+    `;
+  }
+
+  _settingsNavItem(id, label, activePath) {
+    const path = `/settings/${id}`;
+    const isActive = activePath === path || activePath.startsWith(path + "/");
+    return html`
+      <a class="nav-sub-item" href="${path}" aria-selected=${isActive}
+        @click=${(e) => { e.preventDefault(); (e.ctrlKey || e.metaKey) ? this._openTab(path, label) : this._navigateTo(path, label); }}>
         ${label}
       </a>
     `;

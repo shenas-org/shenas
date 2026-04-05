@@ -21,7 +21,7 @@ export class FeatureCard extends LitElement {
     }
 
     .card:hover {
-      border-color: var(--color-accent, #6c5ce7);
+      border-color: var(--color-accent, #728f67);
       transform: translateY(-2px);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     }
@@ -38,8 +38,8 @@ export class FeatureCard extends LitElement {
       font-family: var(--font-mono, monospace);
       margin-bottom: 1.25rem;
       background: var(--color-accent-glow, rgba(108, 92, 231, 0.15));
-      color: var(--color-accent-light, #a29bfe);
-      border: 1px solid color-mix(in srgb, var(--color-accent-light, #a29bfe) 20%, transparent);
+      color: var(--color-accent-light, #a3bd97);
+      border: 1px solid color-mix(in srgb, var(--color-accent-light, #a3bd97) 20%, transparent);
     }
 
     h3 {
