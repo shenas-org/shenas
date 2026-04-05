@@ -19,13 +19,6 @@ from app.graphql.types import (
 )
 
 
-def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
-    """Convert non-JSON-serializable values (datetime, date) to strings."""
-    import datetime
-
-    return {k: v.isoformat() if isinstance(v, (datetime.datetime, datetime.date)) else v for k, v in row.items()}
-
-
 def _transform_to_gql(t: dict[str, Any]) -> TransformType:
     return TransformType(
         id=t["id"],
@@ -115,12 +108,6 @@ class Query:
 
         return schema_plugin_ownership()
 
-    @strawberry.field
-    def table_preview(self, schema: str, table: str, limit: int = 50) -> JSON:
-        from app.api.db import table_preview
-
-        return [_serialize_row(r) for r in table_preview(schema, table, limit)]
-
     # -- Plugins --
 
     @strawberry.field
@@ -175,83 +162,6 @@ class Query:
         if t:
             return ThemeInfo(name=t.name, css=f"/themes/{t.name}/{t.css}")
         return ThemeInfo(name=None, css=None)
-
-    # -- Telemetry --
-
-    @strawberry.field
-    def logs(
-        self,
-        limit: int = 100,
-        severity: str | None = None,
-        search: str | None = None,
-        pipe: str | None = None,
-    ) -> JSON:
-        from app.db import connect
-
-        limit = max(1, min(limit, 1000))
-        con = connect(read_only=True)
-        cur = con.cursor()
-        try:
-            cur.execute("USE db")
-            conditions: list[str] = []
-            params: list[Any] = []
-            if severity:
-                conditions.append("severity = ?")
-                params.append(severity)
-            if search:
-                conditions.append("body LIKE ?")
-                params.append(f"%{search}%")
-            if pipe:
-                conditions.append("(body LIKE ? OR attributes LIKE ?)")
-                params.extend([f"%{pipe}%", f"%{pipe}%"])
-            where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
-            rows = cur.execute(
-                f"SELECT timestamp, trace_id, span_id, severity, body, attributes, service_name "
-                f"FROM telemetry.logs{where} ORDER BY timestamp DESC LIMIT {limit}",
-                params,
-            ).fetchall()
-            cols = [d[0] for d in cur.description]
-            return [_serialize_row(dict(zip(cols, r, strict=False))) for r in rows]
-        except Exception:
-            return []
-        finally:
-            cur.close()
-
-    @strawberry.field
-    def spans(
-        self,
-        limit: int = 100,
-        search: str | None = None,
-        pipe: str | None = None,
-    ) -> JSON:
-        from app.db import connect
-
-        limit = max(1, min(limit, 1000))
-        con = connect(read_only=True)
-        cur = con.cursor()
-        try:
-            cur.execute("USE db")
-            conditions: list[str] = []
-            params: list[Any] = []
-            if search:
-                conditions.append("name LIKE ?")
-                params.append(f"%{search}%")
-            if pipe:
-                conditions.append("(name LIKE ? OR attributes LIKE ?)")
-                params.extend([f"%{pipe}%", f"%{pipe}%"])
-            where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
-            rows = cur.execute(
-                f"SELECT trace_id, span_id, parent_span_id, name, kind, service_name, "
-                f"status_code, start_time, end_time, duration_ms, attributes "
-                f"FROM telemetry.spans{where} ORDER BY start_time DESC LIMIT {limit}",
-                params,
-            ).fetchall()
-            cols = [d[0] for d in cur.description]
-            return [_serialize_row(dict(zip(cols, r, strict=False))) for r in rows]
-        except Exception:
-            return []
-        finally:
-            cur.close()
 
     # -- App-level --
 
