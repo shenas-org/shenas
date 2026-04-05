@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "Gmail dlt connector for shenas"
 requires-python = ">=3.11"
 dependencies = [
-    "shenas-pipe-core",
+    "shenas-pipe-core[google]",
 ]
 
 [build-system]
