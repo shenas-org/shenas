@@ -425,12 +425,11 @@ class LogsPage extends LitElement {
 
   _formatTime(ts) {
     if (!ts) return "-";
-    // OpenTelemetry stores nanosecond Unix timestamps; Arrow returns them as numbers
-    const num = typeof ts === "bigint" ? Number(ts / 1000000n) : typeof ts === "number" && ts > 1e12 ? ts / 1e6 : null;
-    const d = num ? new Date(num) : new Date(String(ts).endsWith("Z") ? ts : ts + "Z");
+    // Arrow returns DuckDB TIMESTAMP as milliseconds (possibly with sub-ms fraction)
+    const d = typeof ts === "number" ? new Date(ts) : new Date(String(ts).endsWith("Z") ? ts : ts + "Z");
     if (isNaN(d)) return String(ts);
     const pad = (n, len = 2) => String(n).padStart(len, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 }
 
