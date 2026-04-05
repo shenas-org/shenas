@@ -1,0 +1,16 @@
+[project]
+name = "shenas-web-api"
+version = "0.1.0"
+description = "Auth and API service for shenas.net"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "httpx>=0.28",
+    "authlib>=1.4",
+    "psycopg[binary]>=3.2",
+    "itsdangerous>=2.2",
+]
+
+[project.scripts]
+shenas-web-api = "shenas_web_api.main:cli"
