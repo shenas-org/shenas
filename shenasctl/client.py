@@ -1,4 +1,4 @@
-"""HTTP client for the shenas REST API."""
+"""HTTP client for the shenas GraphQL + REST API."""
 
 from __future__ import annotations
 
@@ -40,19 +40,17 @@ class ShenasClient:
     def close(self) -> None:
         self._client.close()
 
-    def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+    def _graphql(self, query: str, variables: dict[str, Any] | None = None) -> Any:
+        """Execute a GraphQL query/mutation and return the data dict."""
         try:
-            resp = self._client.request(method, path, **kwargs)
+            resp = self._client.post("/graphql", json={"query": query, "variables": variables or {}})
         except (httpx.ConnectError, httpx.ConnectTimeout):
             raise _connect_error(self.base_url)
-        if resp.status_code >= 400:
-            try:
-                body = resp.json()
-                detail = body.get("detail") or body.get("error", resp.text)
-            except Exception:
-                detail = resp.text
+        body = resp.json()
+        if body.get("errors"):
+            detail = "; ".join(e.get("message", str(e)) for e in body["errors"])
             raise ShenasServerError(resp.status_code, detail)
-        return resp.json()
+        return body.get("data")
 
     def _stream_sse(self, method: str, path: str, **kwargs: Any) -> Iterator[dict[str, Any]]:
         """Stream Server-Sent Events, yielding parsed data dicts."""
@@ -84,69 +82,127 @@ class ShenasClient:
         except (httpx.ConnectError, httpx.ConnectTimeout):
             return False
 
-    # --- Pipes ---
+    # --- Auth ---
 
     def pipe_auth_fields(self, name: str) -> dict[str, Any]:
-        return self._request("GET", f"/api/auth/{name}/fields")
+        data = self._graphql(
+            "query($pipe: String!) { authFields(pipe: $pipe) { fields { name prompt hide } instructions stored } }",
+            {"pipe": name},
+        )
+        return data["authFields"]
 
     def pipe_auth(self, name: str, credentials: dict[str, str]) -> dict[str, Any]:
-        return self._request("POST", f"/api/auth/{name}", json={"credentials": credentials})
+        data = self._graphql(
+            "mutation($pipe: String!, $creds: JSON!) {"
+            " authenticate(pipe: $pipe, credentials: $creds)"
+            " { ok message error needsMfa oauthUrl } }",
+            {"pipe": name, "creds": credentials},
+        )
+        return data["authenticate"]
 
     # --- Config ---
 
     def config_list(self, kind: str | None = None, name: str | None = None) -> list[dict[str, Any]]:
-        params: dict[str, str] = {}
-        if kind:
-            params["kind"] = kind
-        if name:
-            params["name"] = name
-        return self._request("GET", "/api/config", params=params)
+        data = self._graphql(
+            "query($kind: String, $name: String) { config(kind: $kind, name: $name)"
+            " { kind name entries { key label value description } } }",
+            {"kind": kind, "name": name},
+        )
+        return data["config"]
 
     def config_get(self, kind: str, name: str, key: str) -> dict[str, str]:
-        return self._request("GET", f"/api/config/{kind}/{name}/{key}")
+        data = self._graphql(
+            "query($kind: String!, $name: String!, $key: String!) { configValue(kind: $kind, name: $name, key: $key) }",
+            {"kind": kind, "name": name, "key": key},
+        )
+        return {"key": key, "value": data["configValue"]}
 
     def config_set(self, kind: str, name: str, key: str, value: str) -> dict[str, Any]:
-        return self._request("PUT", f"/api/config/{kind}/{name}", json={"key": key, "value": value})
+        data = self._graphql(
+            "mutation($kind: String!, $name: String!, $key: String!, $value: String!)"
+            " { setConfig(kind: $kind, name: $name, key: $key, value: $value) { ok } }",
+            {"kind": kind, "name": name, "key": key, "value": value},
+        )
+        return data["setConfig"]
 
     def config_delete(self, kind: str, name: str, key: str | None = None) -> dict[str, Any]:
         if key:
-            return self._request("DELETE", f"/api/config/{kind}/{name}/{key}")
-        return self._request("DELETE", f"/api/config/{kind}/{name}")
+            data = self._graphql(
+                "mutation($kind: String!, $name: String!, $key: String!)"
+                " { deleteConfigKey(kind: $kind, name: $name, key: $key) { ok } }",
+                {"kind": kind, "name": name, "key": key},
+            )
+            return data["deleteConfigKey"]
+        data = self._graphql(
+            "mutation($kind: String!, $name: String!) { deleteConfig(kind: $kind, name: $name) { ok } }",
+            {"kind": kind, "name": name},
+        )
+        return data["deleteConfig"]
 
     # --- DB ---
 
     def db_status(self) -> dict[str, Any]:
-        return self._request("GET", "/api/db/status")
+        data = self._graphql(
+            "{ dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } } }"
+        )
+        return data["dbStatus"]
 
     def db_keygen(self) -> dict[str, Any]:
-        return self._request("POST", "/api/db/keygen")
+        data = self._graphql("mutation { generateDbKey { ok } }")
+        return data["generateDbKey"]
 
     # --- Plugins ---
 
     def plugins_list(self, kind: str) -> list[dict[str, str]]:
-        return self._request("GET", f"/api/plugins/{kind}")
+        data = self._graphql(
+            "query($kind: String!) { plugins(kind: $kind) { name displayName"
+            " package version signature description commands enabled hasAuth"
+            " syncFrequency addedAt updatedAt statusChangedAt syncedAt } }",
+            {"kind": kind},
+        )
+        return data["plugins"]
 
     def plugins_add(
         self, kind: str, names: list[str], index_url: str | None = None, skip_verify: bool = False
     ) -> dict[str, Any]:
-        body: dict[str, object] = {"names": names, "skip_verify": skip_verify}
-        if index_url:
-            body["index_url"] = index_url
-        return self._request("POST", f"/api/plugins/{kind}", json=body)
+        data = self._graphql(
+            "mutation($kind: String!, $names: [String!]!, $indexUrl: String,"
+            " $skipVerify: Boolean) { installPlugins(kind: $kind, names: $names,"
+            " indexUrl: $indexUrl, skipVerify: $skipVerify)"
+            " { results { name ok message } } }",
+            {"kind": kind, "names": names, "indexUrl": index_url, "skipVerify": skip_verify},
+        )
+        return data["installPlugins"]
 
     def plugins_remove(self, kind: str, name: str) -> dict[str, Any]:
-        return self._request("DELETE", f"/api/plugins/{kind}/{name}")
+        data = self._graphql(
+            "mutation($kind: String!, $name: String!) { removePlugin(kind: $kind, name: $name) { ok message } }",
+            {"kind": kind, "name": name},
+        )
+        return data["removePlugin"]
 
     def plugins_info(self, kind: str, name: str) -> dict[str, Any]:
-        return self._request("GET", f"/api/plugins/{kind}/{name}/info")
+        data = self._graphql(
+            "query($kind: String!, $name: String!) { pluginInfo(kind: $kind, name: $name) }",
+            {"kind": kind, "name": name},
+        )
+        return data["pluginInfo"]
 
     def plugins_enable(self, kind: str, name: str) -> dict[str, Any]:
-        return self._request("POST", f"/api/plugins/{kind}/{name}/enable")
+        data = self._graphql(
+            "mutation($kind: String!, $name: String!) { enablePlugin(kind: $kind, name: $name) { ok message } }",
+            {"kind": kind, "name": name},
+        )
+        return data["enablePlugin"]
 
     def plugins_disable(self, kind: str, name: str) -> dict[str, Any]:
-        return self._request("POST", f"/api/plugins/{kind}/{name}/disable")
+        data = self._graphql(
+            "mutation($kind: String!, $name: String!) { disablePlugin(kind: $kind, name: $name) { ok message } }",
+            {"kind": kind, "name": name},
+        )
+        return data["disablePlugin"]
 
-    # --- Sync ---
+    # --- Sync (SSE -- stays REST) ---
 
     def sync_all(self) -> Iterator[dict[str, Any]]:
         return self._stream_sse("POST", "/api/sync")
@@ -166,4 +222,5 @@ class ShenasClient:
     # --- Schedule ---
 
     def get_sync_schedule(self) -> list[dict[str, Any]]:
-        return self._request("GET", "/api/sync/schedule")
+        data = self._graphql("{ syncSchedule { name syncFrequency syncedAt isDue } }")
+        return data["syncSchedule"]

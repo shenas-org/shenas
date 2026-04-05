@@ -29,12 +29,19 @@ class SchedulerClient:
 
     def get_sync_schedule(self) -> list[dict[str, Any]]:
         try:
-            resp = self._client.get("/api/sync/schedule")
+            resp = self._client.post(
+                "/graphql",
+                json={"query": "{ syncSchedule { name syncFrequency syncedAt isDue } }"},
+            )
         except (httpx.ConnectError, httpx.ConnectTimeout):
             raise ShenasServerError(0, f"Cannot reach server at {self.base_url}")
         if resp.status_code >= 400:
             raise ShenasServerError(resp.status_code, resp.text)
-        return resp.json()
+        body = resp.json()
+        if body.get("errors"):
+            detail = "; ".join(e.get("message", str(e)) for e in body["errors"])
+            raise ShenasServerError(resp.status_code, detail)
+        return body["data"]["syncSchedule"]
 
     def sync_pipe(self, name: str) -> Iterator[dict[str, Any]]:
         try:
