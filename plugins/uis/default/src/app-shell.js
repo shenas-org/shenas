@@ -955,6 +955,8 @@ class ShenasApp extends LitElement {
       kind="${kind}"
       name="${name}"
       active-tab="${tab}"
+      .dbStatus=${this._dbStatus}
+      .schemaPlugins=${this._schemaPlugins}
     ></shenas-plugin-detail>`;
   }
 
@@ -982,6 +984,8 @@ class ShenasApp extends LitElement {
       api-base="${this.apiBase}"
       active-kind="${kind || 'data-flow'}"
       .allActions=${this._getAllActions()}
+      .allPlugins=${this._allPlugins}
+      .schemaPlugins=${this._schemaPlugins}
       .onNavigate=${(k) => {
         this._navigateTo(`/settings/${k}`);
       }}

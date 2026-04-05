@@ -8,6 +8,8 @@ class PluginDetail extends LitElement {
     kind: { type: String },
     name: { type: String },
     activeTab: { type: String, attribute: "active-tab" },
+    dbStatus: { type: Object },
+    schemaPlugins: { type: Object },
     _info: { state: true },
     _loading: { state: true },
     _message: { state: true },
@@ -165,16 +167,16 @@ class PluginDetail extends LitElement {
     if (!this.kind || !this.name) return;
     this._loading = true;
     this._message = null;
-    const infoData = await gql(this.apiBase, `query($kind: String!, $name: String!) { pluginInfo(kind: $kind, name: $name) }`, { kind: this.kind, name: this.name });
-    this._info = infoData?.pluginInfo;
-    const needsDb = this.kind === "pipe" || this.kind === "schema";
     const needsSchema = this.kind === "schema";
-    const extra = needsDb || needsSchema
-      ? await gql(this.apiBase, `{ ${needsDb ? "dbStatus { schemas { name tables { name rows cols earliest latest } } }" : ""} ${needsSchema ? "schemaPlugins" : ""} ${needsSchema ? "transforms { id sourceDuckdbTable targetDuckdbTable sourcePlugin enabled }" : ""} }`)
-      : null;
-    const db = extra?.dbStatus;
-    const ownership = extra?.schemaPlugins;
-    const allTransforms = extra?.transforms?.map(t => ({ ...t, source_duckdb_table: t.sourceDuckdbTable, target_duckdb_table: t.targetDuckdbTable, source_plugin: t.sourcePlugin }));
+    const fields = [
+      `pluginInfo(kind: $kind, name: $name)`,
+      needsSchema ? `transforms { id sourceDuckdbTable targetDuckdbTable sourcePlugin enabled }` : "",
+    ].filter(Boolean).join(" ");
+    const data = await gql(this.apiBase, `query($kind: String!, $name: String!) { ${fields} }`, { kind: this.kind, name: this.name });
+    this._info = data?.pluginInfo;
+    const db = this.dbStatus;
+    const ownership = this.schemaPlugins;
+    const allTransforms = data?.transforms?.map(t => ({ ...t, source_duckdb_table: t.sourceDuckdbTable, target_duckdb_table: t.targetDuckdbTable, source_plugin: t.sourcePlugin }));
     const ownedTables = ownership ? (ownership[this.name] || []) : [];
     if (db) {
       if (this.kind === "pipe") {
