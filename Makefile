@@ -1,4 +1,4 @@
-.PHONY: install repo-server setup-hooks coverage clean logos dev-website dev-postgres release-desktop release-repo-server release-fl-server release-shenas-net setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
+.PHONY: install repo-server setup-hooks coverage clean logos dev-website dev-postgres k8s-secrets-shenas-net release-desktop release-repo-server release-fl-server release-shenas-net setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
 
 # Set up Android SDK, NDK, and Rust targets for mobile development
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
@@ -59,6 +59,21 @@ dev-postgres:
 	}
 	cd server/shenas.net && DATABASE_URL=postgres://postgres@localhost:5432/shenas_net npx @better-auth/cli migrate -y
 	@echo "PostgreSQL ready. Run 'make dev-website' to start."
+
+# Create/update K8s secret for shenas.net auth (production)
+k8s-secrets-shenas-net:
+	@read -p "GOOGLE_CLIENT_ID: " GID; \
+	read -p "GOOGLE_CLIENT_SECRET: " GSEC; \
+	read -p "DATABASE_URL: " DBURL; \
+	kubectl create secret generic shenas-net-auth \
+		--namespace shenas \
+		--from-literal=BETTER_AUTH_SECRET=$$(openssl rand -base64 32) \
+		--from-literal=BETTER_AUTH_URL=https://shenas.net \
+		--from-literal=DATABASE_URL=$$DBURL \
+		--from-literal=GOOGLE_CLIENT_ID=$$GID \
+		--from-literal=GOOGLE_CLIENT_SECRET=$$GSEC \
+		--dry-run=client -o yaml | kubectl apply -f -
+	@echo "Secret shenas-net-auth created/updated in namespace shenas"
 
 clean:
 	moon run :clean
