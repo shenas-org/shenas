@@ -5,6 +5,11 @@ export default defineConfig({
     environment: "happy-dom",
     setupFiles: ["src/__tests__/setup.js"],
   },
+  resolve: {
+    alias: {
+      "/vendor/apache-arrow.js": new URL("src/__tests__/mock-arrow.js", import.meta.url).pathname,
+    },
+  },
   build: {
     outDir: "shenas_ui/default/static",
     emptyOutDir: false,
