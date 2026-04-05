@@ -19,6 +19,13 @@ from app.graphql.types import (
 )
 
 
+def _serialize_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Convert non-JSON-serializable values (datetime, date) to strings."""
+    import datetime
+
+    return {k: v.isoformat() if isinstance(v, (datetime.datetime, datetime.date)) else v for k, v in row.items()}
+
+
 def _transform_to_gql(t: dict[str, Any]) -> TransformType:
     return TransformType(
         id=t["id"],
@@ -112,7 +119,7 @@ class Query:
     def table_preview(self, schema: str, table: str, limit: int = 50) -> JSON:
         from app.api.db import table_preview
 
-        return table_preview(schema, table, limit)
+        return [_serialize_row(r) for r in table_preview(schema, table, limit)]
 
     # -- Plugins --
 
@@ -204,7 +211,7 @@ class Query:
                 params,
             ).fetchall()
             cols = [d[0] for d in cur.description]
-            return [dict(zip(cols, r, strict=False)) for r in rows]
+            return [_serialize_row(dict(zip(cols, r, strict=False))) for r in rows]
         except Exception:
             return []
         finally:
@@ -240,7 +247,7 @@ class Query:
                 params,
             ).fetchall()
             cols = [d[0] for d in cur.description]
-            return [dict(zip(cols, r, strict=False)) for r in rows]
+            return [_serialize_row(dict(zip(cols, r, strict=False))) for r in rows]
         except Exception:
             return []
         finally:
