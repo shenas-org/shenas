@@ -127,12 +127,7 @@ class TransformsPage extends LitElement {
     this._loading = true;
     const params = this.source ? `?source=${this.source}` : "";
     const data = await gql(this.apiBase, `query($source: String) { transforms(source: $source) { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin description sql isDefault enabled } }`, { source: this.source || null });
-    this._transforms = (data?.transforms || []).map(t => ({
-      id: t.id, source_duckdb_schema: t.sourceDuckdbSchema, source_duckdb_table: t.sourceDuckdbTable,
-      target_duckdb_schema: t.targetDuckdbSchema, target_duckdb_table: t.targetDuckdbTable,
-      source_plugin: t.sourcePlugin, description: t.description, sql: t.sql,
-      is_default: t.isDefault, enabled: t.enabled,
-    }));
+    this._transforms = data?.transforms || [];
     this._loading = false;
     this._registerCommands();
   }
@@ -140,7 +135,7 @@ class TransformsPage extends LitElement {
   _registerCommands() {
     const commands = [];
     for (const t of this._transforms) {
-      const desc = t.description || `${t.source_duckdb_table} -> ${t.target_duckdb_table}`;
+      const desc = t.description || `${t.sourceDuckdbTable} -> ${t.targetDuckdbTable}`;
       commands.push({
         id: `transform:toggle:${t.id}`,
         category: "Transform",
@@ -148,7 +143,7 @@ class TransformsPage extends LitElement {
         description: desc,
         action: () => this._toggle(t),
       });
-      if (!t.is_default) {
+      if (!t.isDefault) {
         commands.push({
           id: `transform:delete:${t.id}`,
           category: "Transform",
@@ -280,18 +275,18 @@ class TransformsPage extends LitElement {
         @add=${this._startCreate}
         .columns=${[
           { key: "id", label: "ID", class: "muted" },
-          { label: "Source", class: "mono", render: (t) => html`${t.source_duckdb_schema}.${t.source_duckdb_table} <button style=${_inspectBtnStyle} title="Inspect table" @click=${() => this._inspectTable(t.source_duckdb_schema, t.source_duckdb_table)}>&#9655;</button>` },
-          { label: "Target", class: "mono", render: (t) => html`${t.target_duckdb_schema}.${t.target_duckdb_table} <button style=${_inspectBtnStyle} title="Inspect table" @click=${() => this._inspectTable(t.target_duckdb_schema, t.target_duckdb_table)}>&#9655;</button>` },
-          { label: "Description", render: (t) => html`${t.description || ""}${t.is_default ? html`<span style="font-size:0.75rem;color:var(--shenas-text-muted, #888);background:var(--shenas-border-light, #f0f0f0);padding:1px 5px;border-radius:3px;margin-left:4px">default</span>` : ""}` },
+          { label: "Source", class: "mono", render: (t) => html`${t.sourceDuckdbSchema}.${t.sourceDuckdbTable} <button style=${_inspectBtnStyle} title="Inspect table" @click=${() => this._inspectTable(t.sourceDuckdbSchema, t.sourceDuckdbTable)}>&#9655;</button>` },
+          { label: "Target", class: "mono", render: (t) => html`${t.targetDuckdbSchema}.${t.targetDuckdbTable} <button style=${_inspectBtnStyle} title="Inspect table" @click=${() => this._inspectTable(t.targetDuckdbSchema, t.targetDuckdbTable)}>&#9655;</button>` },
+          { label: "Description", render: (t) => html`${t.description || ""}${t.isDefault ? html`<span style="font-size:0.75rem;color:var(--shenas-text-muted, #888);background:var(--shenas-border-light, #f0f0f0);padding:1px 5px;border-radius:3px;margin-left:4px">default</span>` : ""}` },
           { label: "Status", render: (t) => html`<status-toggle ?enabled=${t.enabled} toggleable @toggle=${() => this._toggle(t)}></status-toggle>` },
         ]}
         .rows=${this._transforms}
         .rowClass=${(t) => t.enabled ? "" : "disabled-row"}
         .actions=${(t) => html`
-          ${!t.is_default
+          ${!t.isDefault
             ? html`<button @click=${() => this._startEdit(t)}>Edit</button>`
             : html`<button @click=${() => this._startEdit(t)}>View</button>`}
-          ${!t.is_default
+          ${!t.isDefault
             ? html`<button class="danger" @click=${() => this._delete(t)}>Delete</button>`
             : ""}
         `}
@@ -354,12 +349,12 @@ class TransformsPage extends LitElement {
   _renderEditor() {
     const t = this._transforms.find((x) => x.id === this._editing);
     if (!t) return "";
-    const readonly = t.is_default;
+    const readonly = t.isDefault;
     return html`
       <div class="edit-panel">
         <h3>
-          ${readonly ? "View" : "Edit"}: ${t.source_duckdb_schema}.${t.source_duckdb_table} ->
-          ${t.target_duckdb_schema}.${t.target_duckdb_table}
+          ${readonly ? "View" : "Edit"}: ${t.sourceDuckdbSchema}.${t.sourceDuckdbTable} ->
+          ${t.targetDuckdbSchema}.${t.targetDuckdbTable}
         </h3>
         <textarea
           .value=${this._editSql}

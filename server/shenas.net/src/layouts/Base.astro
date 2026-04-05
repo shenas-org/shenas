@@ -32,30 +32,22 @@ const { title, description } = Astro.props;
   }
 
   :root {
-    --color-bg: #0f110e;
-    --color-bg-elevated: #171a15;
-    --color-bg-card: #1e221c;
-    --color-surface: #262b24;
-    --color-border: #333a30;
-    --color-text: #e8e6e0;
-    --color-text-muted: #9a9688;
+    --color-bg: #faf8f5;
+    --color-bg-elevated: #f3f0eb;
+    --color-bg-card: #fff;
+    --color-surface: #edeae4;
+    --color-border: #d8d4cc;
+    --color-text: #2c2c28;
+    --color-text-muted: #8a8780;
     --color-accent: #728f67;
-    --color-accent-light: #a3bd97;
-    --color-accent-glow: rgba(114, 143, 103, 0.18);
+    --color-accent-light: #628261;
+    --color-accent-glow: rgba(114, 143, 103, 0.12);
     --color-green: #628261;
-    --color-green-glow: rgba(98, 130, 97, 0.15);
-    --color-warm: #e1d7c6;
-    --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+    --color-green-glow: rgba(98, 130, 97, 0.10);
+    --color-warm: #5a5850;
+    --font-sans: Arial, Helvetica, sans-serif;
     --font-mono: "JetBrains Mono", "Fira Code", monospace;
     --max-width: 1120px;
-  }
-
-  @font-face {
-    font-family: "Inter";
-    font-style: normal;
-    font-weight: 100 900;
-    font-display: swap;
-    src: url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
   }
 
   html {
@@ -72,7 +64,7 @@ const { title, description } = Astro.props;
   }
 
   a {
-    color: var(--color-warm);
+    color: var(--color-accent);
     text-decoration: none;
   }
 

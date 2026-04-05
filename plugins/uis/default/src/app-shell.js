@@ -557,14 +557,14 @@ class ShenasApp extends LitElement {
 
     // Use cached plugin data for detail page navigation
     const allPlugins = PLUGIN_KINDS.flatMap((k) =>
-      (this._allPlugins[k.id] || []).map((p) => ({ ...p, display_name: p.displayName, kind: k.id, kindLabel: k.label })),
+      (this._allPlugins[k.id] || []).map((p) => ({ ...p, kind: k.id, kindLabel: k.label })),
     );
 
     for (const p of allPlugins) {
       commands.push({
         id: `nav:${p.kind}:${p.name}`,
         category: p.kindLabel,
-        label: p.display_name || p.name,
+        label: p.displayName || p.name,
         path: `/settings/${p.kind}/${p.name}`,
       });
     }

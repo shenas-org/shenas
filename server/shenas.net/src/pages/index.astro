@@ -3,7 +3,7 @@ import Base from "../layouts/Base.astro";
 ---
 
 <Base
-  title="shenas -- we track everything so you can stop thinking about everything"
+  title="shenas -- helping you track everything, so you can stop thinking about everything"
   description="Local-first edge intelligence that turns your health, finance, and lifestyle data into fulfillment -- without it ever leaving your device."
 >
   <!-- Nav -->
@@ -26,9 +26,9 @@ import Base from "../layouts/Base.astro";
   <header class="hero">
     <div class="hero-glow"></div>
     <div class="container">
-      <div class="badge">Open source / local-first / edge intelligence</div>
+      <img src="/logo.svg" alt="shenas" class="hero-logo" />
       <h1>
-        We track everything<br />
+        Helping you track everything,<br />
         so you can stop<br />
         <span class="gradient-text">thinking about everything.</span>
       </h1>
@@ -49,7 +49,7 @@ import Base from "../layouts/Base.astro";
   <section id="pipeline" class="section">
     <div class="container">
       <div class="section-header">
-        <h2>From raw data to real fulfillment</h2>
+        <h2>From your data to real fulfillment</h2>
         <p>
           Pipes sync data from your services, transforms normalize it into
           canonical schemas, and local-first AI finds patterns -- all without
@@ -259,7 +259,7 @@ shenas`}
     left: 0;
     right: 0;
     z-index: 100;
-    background: rgba(10, 10, 15, 0.8);
+    background: rgba(250, 248, 245, 0.85);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--color-border);
   }
@@ -336,6 +336,14 @@ shenas`}
     max-width: var(--max-width);
     margin: 0 auto;
     position: relative;
+  }
+
+  .hero-logo {
+    width: 160px;
+    height: 160px;
+    border-radius: 24px;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
   }
 
   .badge {

@@ -170,13 +170,13 @@ class PluginDetail extends LitElement {
     const needsSchema = this.kind === "schema";
     const fields = [
       `pluginInfo(kind: $kind, name: $name)`,
-      needsSchema ? `transforms { id sourceDuckdbTable targetDuckdbTable sourcePlugin enabled }` : "",
+      needsSchema ? `transforms { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin description enabled }` : "",
     ].filter(Boolean).join(" ");
     const data = await gql(this.apiBase, `query($kind: String!, $name: String!) { ${fields} }`, { kind: this.kind, name: this.name });
     this._info = data?.pluginInfo;
     const db = this.dbStatus;
     const ownership = this.schemaPlugins;
-    const allTransforms = data?.transforms?.map(t => ({ ...t, source_duckdb_table: t.sourceDuckdbTable, target_duckdb_table: t.targetDuckdbTable, source_plugin: t.sourcePlugin }));
+    const allTransforms = data?.transforms;
     const ownedTables = ownership ? (ownership[this.name] || []) : [];
     if (db) {
       if (this.kind === "pipe") {
@@ -191,7 +191,7 @@ class PluginDetail extends LitElement {
     }
     if (allTransforms) {
       this._schemaTransforms = allTransforms.filter(
-        (t) => ownedTables.includes(t.target_duckdb_table),
+        (t) => ownedTables.includes(t.targetDuckdbTable),
       );
     }
     this._loading = false;
@@ -461,8 +461,8 @@ class PluginDetail extends LitElement {
           <shenas-data-list
             .columns=${[
               { key: "id", label: "ID", class: "muted" },
-              { label: "Source", class: "mono", render: (t) => `${t.source_duckdb_schema}.${t.source_duckdb_table}` },
-              { label: "Target", class: "mono", render: (t) => `${t.target_duckdb_schema}.${t.target_duckdb_table}` },
+              { label: "Source", class: "mono", render: (t) => `${t.sourceDuckdbSchema}.${t.sourceDuckdbTable}` },
+              { label: "Target", class: "mono", render: (t) => `${t.targetDuckdbSchema}.${t.targetDuckdbTable}` },
               { label: "Description", render: (t) => t.description || "" },
               { label: "Status", render: (t) => html`<status-toggle ?enabled=${t.enabled}></status-toggle>` },
             ]}

@@ -117,7 +117,7 @@ class PipelineOverview extends LitElement {
       const id = `pipe:${p.name}`;
       nodeIds.add(id);
       elements.push({
-        data: { id, label: p.display_name || p.name, kind: "pipe", enabled: p.enabled !== false ? "yes" : "no" },
+        data: { id, label: p.displayName || p.name, kind: "pipe", enabled: p.enabled !== false ? "yes" : "no" },
       });
     }
 
@@ -126,7 +126,7 @@ class PipelineOverview extends LitElement {
       const id = `schema:${s.name}`;
       nodeIds.add(id);
       elements.push({
-        data: { id, label: s.display_name || s.name, kind: "schema", enabled: s.enabled !== false ? "yes" : "no" },
+        data: { id, label: s.displayName || s.name, kind: "schema", enabled: s.enabled !== false ? "yes" : "no" },
       });
     }
 
@@ -135,17 +135,17 @@ class PipelineOverview extends LitElement {
       const id = `component:${c.name}`;
       nodeIds.add(id);
       elements.push({
-        data: { id, label: c.display_name || c.name, kind: "component", enabled: c.enabled !== false ? "yes" : "no" },
+        data: { id, label: c.displayName || c.name, kind: "component", enabled: c.enabled !== false ? "yes" : "no" },
       });
     }
 
     // Transform edges (pipe -> schema via data)
     for (const t of transforms) {
-      const sourceId = `pipe:${t.source_plugin}`;
-      const ownerPlugin = tableToPlugin[t.target_duckdb_table];
+      const sourceId = `pipe:${t.sourcePlugin}`;
+      const ownerPlugin = tableToPlugin[t.targetDuckdbTable];
       const targetId = ownerPlugin ? `schema:${ownerPlugin}` : null;
       if (!targetId || !nodeIds.has(sourceId) || !nodeIds.has(targetId)) continue;
-      const desc = t.description || `${t.source_duckdb_table} -> ${t.target_duckdb_table}`;
+      const desc = t.description || `${t.sourceDuckdbTable} -> ${t.targetDuckdbTable}`;
       const label = desc.length > 30 ? desc.slice(0, 28) + "..." : desc;
       elements.push({
         data: {
@@ -154,7 +154,7 @@ class PipelineOverview extends LitElement {
           target: targetId,
           label,
           enabled: t.enabled ? "yes" : "no",
-          sourcePlugin: t.source_plugin,
+          sourcePlugin: t.sourcePlugin,
           edgeType: "transform",
         },
       });
