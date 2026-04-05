@@ -22,7 +22,7 @@ uv run shenasctl --help
 
 ```bash
 make setup-hooks    # install pre-commit hook (ruff + ty)
-make install        # install shenas + shenasrepoctl to ~/.local/bin/
+make install        # install shenas + shenasctl to ~/.local/bin/
 ```
 
 ## Data pipeline
@@ -68,22 +68,13 @@ shenas
 
 ## Package distribution
 
-All pipes, schemas, and components are distributed as Ed25519-signed Python wheels via a PEP 503 repository server.
+All pipes, schemas, and components are distributed as Ed25519-signed Python wheels. Signing happens in CI via GitHub Actions.
 
 ```bash
-# Generate signing keys
-shenasrepoctl keygen
-
-# Build and sign packages
+# Build packages
 moon run :build
 
-# Vendor transitive dependencies
-shenasrepoctl vendor garmin
-
-# Start the repository server
-make repository
-
-# Install from the repository (in another terminal)
+# Install a pipe
 shenasctl pipe add garmin
 ```
 
