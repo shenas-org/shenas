@@ -56,9 +56,12 @@ dev-api:
 
 # Create/update K8s secret for web-api (production)
 k8s-secrets-web-api:
-	@read -p "GOOGLE_CLIENT_ID: " GID; \
+	@DB_IP=$$(cd server/deploy/tofu && tofu output -raw database_ip 2>/dev/null); \
+	DB_PASS=$$(grep db_password server/deploy/tofu/terraform.tfvars 2>/dev/null | sed 's/.*= *"//;s/".*//'); \
+	DBURL="postgres://shenas:$$DB_PASS@$$DB_IP:5432/shenas_net"; \
+	read -p "GOOGLE_CLIENT_ID: " GID; \
 	read -p "GOOGLE_CLIENT_SECRET: " GSEC; \
-	read -p "DATABASE_URL: " DBURL; \
+	echo "DATABASE_URL=$$DBURL"; \
 	kubectl create secret generic web-api-secrets \
 		--namespace shenas \
 		--from-literal=SESSION_SECRET=$$(openssl rand -hex 32) \
