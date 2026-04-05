@@ -25,18 +25,20 @@ coverage:
 # Regenerate all PNG logos from the source SVG (requires rsvg-convert)
 logos:
 	@SVG=app/static/images/shenas.svg; \
+	MARK=app/static/images/shenas-mark.svg; \
 	rsvg-convert -w 192 -h 192 $$SVG -o app/static/images/shenas.png; \
 	rsvg-convert -w 192 -h 192 $$SVG -o app/static/images/shenas-192.png; \
+	rsvg-convert -w 192 -h 192 $$MARK -o app/static/images/shenas-mark-192.png; \
 	for s in 32 128 256 512; do \
-		rsvg-convert -w $$s -h $$s $$SVG -o app/desktop/src-tauri/icons/$${s}x$${s}.png; \
-		rsvg-convert -w $$s -h $$s $$SVG -o app/mobile/src-tauri/icons/$${s}x$${s}.png; \
+		rsvg-convert -w $$s -h $$s $$MARK -o app/desktop/src-tauri/icons/$${s}x$${s}.png; \
+		rsvg-convert -w $$s -h $$s $$MARK -o app/mobile/src-tauri/icons/$${s}x$${s}.png; \
 	done; \
-	rsvg-convert -w 512 -h 512 $$SVG -o app/desktop/src-tauri/icons/icon.png; \
-	rsvg-convert -w 512 -h 512 $$SVG -o app/mobile/src-tauri/icons/icon.png; \
+	rsvg-convert -w 512 -h 512 $$MARK -o app/desktop/src-tauri/icons/icon.png; \
+	rsvg-convert -w 512 -h 512 $$MARK -o app/mobile/src-tauri/icons/icon.png; \
 	rsvg-convert -w 512 -h 512 $$SVG -o server/shenas.net/public/logo.png; \
 	rsvg-convert -w 192 -h 192 $$SVG -o server/shenas.net/public/logo-192.png; \
-	cp $$SVG server/shenas.net/public/favicon.svg; \
-	echo "Regenerated all logos from $$SVG"
+	cp $$MARK server/shenas.net/public/favicon.svg; \
+	echo "Regenerated all logos from $$SVG and $$MARK"
 
 clean:
 	moon run :clean
