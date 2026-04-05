@@ -22,8 +22,3 @@ variable "cluster_name" {
   description = "GKE cluster name"
   default     = "shenas"
 }
-
-variable "db_password" {
-  description = "Cloud SQL password for the shenas user"
-  sensitive   = true
-}

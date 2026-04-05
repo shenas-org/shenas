@@ -1,4 +1,4 @@
-.PHONY: install repo-server setup-hooks coverage clean logos dev-website dev-postgres k8s-secrets-shenas-net release-desktop release-repo-server release-fl-server release-shenas-net setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
+.PHONY: install repo-server setup-hooks coverage clean logos dev-website dev-postgres dev-api k8s-secrets-web-api release-desktop release-repo-server release-fl-server release-shenas-net setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
 
 # Set up Android SDK, NDK, and Rust targets for mobile development
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
@@ -41,39 +41,33 @@ logos:
 	echo "Regenerated all logos from $$SVG and $$MARK"
 
 dev-website:
-	@if [ ! -f server/shenas.net/.env ]; then \
-		echo "BETTER_AUTH_SECRET=$$(openssl rand -base64 32)" > server/shenas.net/.env; \
-		echo "BETTER_AUTH_URL=http://localhost:4321" >> server/shenas.net/.env; \
-		echo "DATABASE_URL=postgres://postgres@localhost:5432/shenas_net" >> server/shenas.net/.env; \
-		echo "Created server/shenas.net/.env -- add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET"; \
-	fi
 	cd server/shenas.net && npm install --silent && npm run dev
 
-# Create the shenas_net database and run auth migrations
+# Create the shenas_net database for the web API
 dev-postgres:
 	@createdb -U postgres shenas_net 2>/dev/null && echo "Created database shenas_net" || echo "Database shenas_net already exists"
-	@grep -q "DATABASE_URL" server/shenas.net/.env 2>/dev/null || { \
-		echo "BETTER_AUTH_SECRET=$$(openssl rand -base64 32)" > server/shenas.net/.env; \
-		echo "BETTER_AUTH_URL=http://localhost:4321" >> server/shenas.net/.env; \
-		echo "DATABASE_URL=postgres://postgres@localhost:5432/shenas_net" >> server/shenas.net/.env; \
-	}
-	cd server/shenas.net && DATABASE_URL=postgres://postgres@localhost:5432/shenas_net npx @better-auth/cli migrate -y
-	@echo "PostgreSQL ready. Run 'make dev-website' to start."
+	@echo "DATABASE_URL=postgres://postgres@localhost:5432/shenas_net"
 
-# Create/update K8s secret for shenas.net auth (production)
-k8s-secrets-shenas-net:
+# Start the web API dev server (auth + future vault endpoints)
+dev-api:
+	cd server/api && DATABASE_URL=postgres://postgres@localhost:5432/shenas_net \
+		uvicorn shenas_web_api.main:app --reload --port 8000
+
+# Create/update K8s secret for web-api (production)
+k8s-secrets-web-api:
 	@read -p "GOOGLE_CLIENT_ID: " GID; \
 	read -p "GOOGLE_CLIENT_SECRET: " GSEC; \
 	read -p "DATABASE_URL: " DBURL; \
-	kubectl create secret generic shenas-net-auth \
+	kubectl create secret generic web-api-secrets \
 		--namespace shenas \
-		--from-literal=BETTER_AUTH_SECRET=$$(openssl rand -base64 32) \
-		--from-literal=BETTER_AUTH_URL=https://shenas.net \
+		--from-literal=SESSION_SECRET=$$(openssl rand -hex 32) \
+		--from-literal=BASE_URL=https://shenas.net \
+		--from-literal=FRONTEND_URL=https://shenas.net \
 		--from-literal=DATABASE_URL=$$DBURL \
 		--from-literal=GOOGLE_CLIENT_ID=$$GID \
 		--from-literal=GOOGLE_CLIENT_SECRET=$$GSEC \
 		--dry-run=client -o yaml | kubectl apply -f -
-	@echo "Secret shenas-net-auth created/updated in namespace shenas"
+	@echo "Secret web-api-secrets created/updated in namespace shenas"
 
 clean:
 	moon run :clean

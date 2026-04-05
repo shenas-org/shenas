@@ -12,6 +12,13 @@ spec:
     - host: shenas.net
       http:
         paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: web-api
+                port:
+                  number: 80
           - path: /
             pathType: Prefix
             backend:
