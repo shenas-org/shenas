@@ -1,4 +1,5 @@
-import pendulum
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from shenas_pipes.core.utils import resolve_start_date
@@ -10,12 +11,12 @@ class TestResolveStartDate:
 
     def test_days_ago(self) -> None:
         result = resolve_start_date("90 days ago")
-        expected = pendulum.now().subtract(days=90).to_date_string()
+        expected = (datetime.now(UTC).date() - timedelta(days=90)).isoformat()
         assert result == expected
 
     def test_single_day_ago(self) -> None:
         result = resolve_start_date("1 day ago")
-        expected = pendulum.now().subtract(days=1).to_date_string()
+        expected = (datetime.now(UTC).date() - timedelta(days=1)).isoformat()
         assert result == expected
 
     def test_invalid_format(self) -> None:
