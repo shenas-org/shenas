@@ -787,7 +787,7 @@ var ee=Object.defineProperty;var te=(l,e,t)=>e in l?ee(l,e,{enumerable:!0,config
           `)}
         </div>
       </div>
-    `}_formatTime(e){if(!e)return"-";const t=typeof e=="bigint"?Number(e/1000000n):typeof e=="number"&&e>1e12?e/1e6:null,s=t?new Date(t):new Date(String(e).endsWith("Z")?e:e+"Z");if(isNaN(s))return String(e);const a=(i,r=2)=>String(i).padStart(r,"0");return`${s.getFullYear()}-${a(s.getMonth()+1)}-${a(s.getDate())} ${a(s.getHours())}:${a(s.getMinutes())}:${a(s.getSeconds())}.${a(s.getMilliseconds(),3)}`}}c(M,"properties",{apiBase:{type:String,attribute:"api-base"},pipe:{type:String},_activeTab:{state:!0},_logs:{state:!0},_spans:{state:!0},_loading:{state:!0},_search:{state:!0},_severity:{state:!0},_expanded:{state:!0},_live:{state:!0}}),c(M,"styles",[x,I,g`
+    `}_formatTime(e){if(!e)return"-";const t=typeof e=="number"?new Date(e):new Date(String(e).endsWith("Z")?e:e+"Z");if(isNaN(t))return String(e);const s=(a,i=2)=>String(a).padStart(i,"0");return`${t.getFullYear()}-${s(t.getMonth()+1)}-${s(t.getDate())} ${s(t.getHours())}:${s(t.getMinutes())}:${s(t.getSeconds())}`}}c(M,"properties",{apiBase:{type:String,attribute:"api-base"},pipe:{type:String},_activeTab:{state:!0},_logs:{state:!0},_spans:{state:!0},_loading:{state:!0},_search:{state:!0},_severity:{state:!0},_expanded:{state:!0},_live:{state:!0}}),c(M,"styles",[x,I,g`
       :host {
         display: flex;
         flex-direction: column;
