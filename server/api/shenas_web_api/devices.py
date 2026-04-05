@@ -80,8 +80,10 @@ async def update_endpoints(device_id: str, body: EndpointUpdate, request: Reques
         conn.execute("DELETE FROM device_endpoints WHERE device_id = %(did)s", {"did": device_id})
         for ep in body.endpoints:
             conn.execute(
-                """INSERT INTO device_endpoints (device_id, endpoint_type, address, priority)
-                   VALUES (%(did)s, %(type)s, %(addr)s, %(pri)s)""",
+                """INSERT INTO device_endpoints (device_id, endpoint_type, address, priority, updated_at)
+                   VALUES (%(did)s, %(type)s, %(addr)s, %(pri)s, now())
+                   ON CONFLICT (device_id, endpoint_type, address)
+                   DO UPDATE SET priority = EXCLUDED.priority, updated_at = now()""",
                 {"did": device_id, "type": ep["type"], "addr": ep["address"], "pri": ep.get("priority", 0)},
             )
         conn.execute("UPDATE devices SET last_seen = now() WHERE id = %(did)s", {"did": device_id})
