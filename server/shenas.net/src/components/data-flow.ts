@@ -61,7 +61,7 @@ export class DataFlow extends LitElement {
     }
 
     .stage:hover .icon-box {
-      border-color: var(--color-accent, #6c5ce7);
+      border-color: var(--color-accent, #728f67);
       box-shadow: 0 0 20px var(--color-accent-glow, rgba(108, 92, 231, 0.15));
     }
 

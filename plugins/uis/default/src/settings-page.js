@@ -278,78 +278,11 @@ class SettingsPage extends LitElement {
     return html`
       <shenas-page ?loading=${this._loading} loading-text="Loading plugins..." display-name="${this._displayName()}">
         ${renderMessage(this._actionMessage)}
-        <div class="layout">
-        <button class="burger" @click=${() => { this._menuOpen = true; }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          ${this._displayName()}
-        </button>
-        <div class="menu-overlay ${this._menuOpen ? "open" : ""}" @click=${() => { this._menuOpen = false; }}></div>
-        ${this._menuOpen ? html`
-          <div class="menu-panel">
-            <button class="menu-close" @click=${() => { this._menuOpen = false; }}>x</button>
-            <a href="/settings/data-flow" aria-selected=${this.activeKind === "data-flow"}
-              @click=${(e) => { e.preventDefault(); this._switchKind("data-flow"); }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-              Data Flow
-            </a>
-            <a href="/settings/hotkeys" aria-selected=${this.activeKind === "hotkeys"}
-              @click=${(e) => { e.preventDefault(); this._switchKind("hotkeys"); }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6" y2="8"/><line x1="10" y1="8" x2="10" y2="8"/><line x1="14" y1="8" x2="14" y2="8"/><line x1="18" y1="8" x2="18" y2="8"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/></svg>
-              Hotkeys
-            </a>
-            <div class="sidebar-section">Plugins</div>
-            ${PLUGIN_KINDS.map(({ id, label }) => html`
-              <a href="/settings/${id}" aria-selected=${this.activeKind === id}
-                @click=${(e) => { e.preventDefault(); this._switchKind(id); }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.5 2H3.5C2.67 2 2 2.67 2 3.5v17C2 21.33 2.67 22 3.5 22h17c.83 0 1.5-.67 1.5-1.5v-17C22 2.67 21.33 2 20.5 2zM8 19H5v-3h3v3zm0-5H5v-3h3v3zm0-5H5V6h3v3z"/></svg>
-                ${label} (${(this._plugins[id] || []).length})
-              </a>
-            `)}
-          </div>
-        ` : ""}
-        <nav class="sidebar">
-          <ul>
-            <li>
-              <a href="/settings/data-flow" aria-selected=${this.activeKind === "data-flow"}
-                @click=${(e) => { e.preventDefault(); this._switchKind("data-flow"); }}>
-                Data Flow
-              </a>
-            </li>
-            <li>
-              <a href="/settings/hotkeys" aria-selected=${this.activeKind === "hotkeys"}
-                @click=${(e) => { e.preventDefault(); this._switchKind("hotkeys"); }}>
-                Hotkeys
-              </a>
-            </li>
-          </ul>
-          <div class="sidebar-section">Plugins</div>
-          <ul>
-            ${PLUGIN_KINDS.map(
-              ({ id, label }) => html`
-                <li>
-                  <a
-                    href="/settings/${id}"
-                    aria-selected=${this.activeKind === id}
-                    @click=${(e) => { e.preventDefault(); this._switchKind(id); }}
-                  >
-                    ${label}
-                    <span style="color:var(--shenas-text-faint, #aaa); font-weight:normal">
-                      (${(this._plugins[id] || []).length})
-                    </span>
-                  </a>
-                </li>
-              `,
-            )}
-          </ul>
-        </nav>
-        <div class="content">
-          ${this.activeKind === "data-flow"
-            ? html`<shenas-pipeline-overview api-base="${this.apiBase}" .allPlugins=${this.allPlugins} .schemaPlugins=${this.schemaPlugins}></shenas-pipeline-overview>`
-            : this.activeKind === "hotkeys"
-              ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
-              : this._renderKind(this.activeKind)}
-        </div>
-      </div>
+        ${this.activeKind === "data-flow"
+          ? html`<shenas-pipeline-overview api-base="${this.apiBase}" .allPlugins=${this.allPlugins} .schemaPlugins=${this.schemaPlugins}></shenas-pipeline-overview>`
+          : this.activeKind === "hotkeys"
+            ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
+            : this._renderKind(this.activeKind)}
       </shenas-page>
     `;
   }

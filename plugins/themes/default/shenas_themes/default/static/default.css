@@ -1,26 +1,26 @@
 :root {
-  --shenas-bg: #fff;
-  --shenas-bg-secondary: #fafafa;
-  --shenas-bg-hover: #f5f5f5;
-  --shenas-bg-selected: #f0f4ff;
-  --shenas-text: #222;
-  --shenas-text-secondary: #666;
-  --shenas-text-muted: #888;
-  --shenas-text-faint: #aaa;
-  --shenas-border: #e0e0e0;
-  --shenas-border-light: #f0f0f0;
-  --shenas-border-input: #ddd;
-  --shenas-primary: #0066cc;
-  --shenas-success: #2e7d32;
-  --shenas-success-bg: #e8f5e9;
-  --shenas-error: #c62828;
-  --shenas-error-bg: #fce4ec;
-  --shenas-danger: #c00;
-  --shenas-danger-border: #e8c0c0;
-  --shenas-danger-bg: #fef0f0;
-  --shenas-node-pipe: #4a90d9;
-  --shenas-node-schema: #66bb6a;
-  --shenas-node-component: #ffa726;
+  --shenas-bg: #faf8f5;
+  --shenas-bg-secondary: #f3f0eb;
+  --shenas-bg-hover: #edeae4;
+  --shenas-bg-selected: #e6efe3;
+  --shenas-text: #2c2c28;
+  --shenas-text-secondary: #5a5850;
+  --shenas-text-muted: #8a8780;
+  --shenas-text-faint: #b0ada6;
+  --shenas-border: #d8d4cc;
+  --shenas-border-light: #e8e4dc;
+  --shenas-border-input: #ccc8c0;
+  --shenas-primary: #728f67;
+  --shenas-success: #628261;
+  --shenas-success-bg: #e6efe3;
+  --shenas-error: #a0522d;
+  --shenas-error-bg: #fdf0e8;
+  --shenas-danger: #a0522d;
+  --shenas-danger-border: #dbc4b0;
+  --shenas-danger-bg: #fdf6f0;
+  --shenas-node-pipe: #728f67;
+  --shenas-node-schema: #8faa60;
+  --shenas-node-component: #c4a35a;
 }
 
 body {
