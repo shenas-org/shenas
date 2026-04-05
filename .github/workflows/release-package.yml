@@ -6,6 +6,7 @@ on:
       - 'pipe-*/v*'
       - 'schema-*/v*'
       - 'component-*/v*'
+      - 'plugin-core/v*'
 
 permissions:
   contents: read
@@ -53,6 +54,7 @@ jobs:
             pipe-*)      NAME="${PREFIX#pipe-}"; DIR="plugins/pipes/$NAME"; SIGN=true ;;
             schema-*)    NAME="${PREFIX#schema-}"; DIR="plugins/schemas/$NAME"; SIGN=true ;;
             component-*) NAME="${PREFIX#component-}"; DIR="plugins/components/$NAME"; SIGN=true ;;
+            plugin-core) DIR="plugins/core"; SIGN=true ;;
             *)           echo "Unknown tag prefix: $PREFIX"; exit 1 ;;
           esac
 
