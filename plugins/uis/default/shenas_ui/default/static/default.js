@@ -977,7 +977,6 @@ var ee=Object.defineProperty;var te=(l,e,t)=>e in l?ee(l,e,{enumerable:!0,config
         <div class="panel-left" style="width: ${this._leftWidth}px">
           <div class="header">
             <img src="/static/images/shenas.svg" alt="shenas" />
-            <h1>shenas</h1>
           </div>
           <nav class="nav">
             ${this._components.map(i=>this._navItem(i.name,i.display_name||i.name,t))}
@@ -1274,12 +1273,9 @@ var ee=Object.defineProperty;var te=(l,e,t)=>e in l?ee(l,e,{enumerable:!0,config
         margin-bottom: 1.5rem;
       }
       .header img {
-        width: 64px;
-        height: 64px;
-      }
-      .header h1 {
-        margin: 0;
-        font-size: 1.2rem;
+        width: 120px;
+        height: 120px;
+        border-radius: 12px;
       }
       .nav {
         display: flex;
