@@ -52,8 +52,13 @@ dev-website:
 # Create the shenas_net database and run auth migrations
 dev-postgres:
 	@createdb -U postgres shenas_net 2>/dev/null && echo "Created database shenas_net" || echo "Database shenas_net already exists"
-	cd server/shenas.net && npx @better-auth/cli migrate --y
-	@echo "DATABASE_URL=postgres://postgres@localhost:5432/shenas_net"
+	@grep -q "DATABASE_URL" server/shenas.net/.env 2>/dev/null || { \
+		echo "BETTER_AUTH_SECRET=$$(openssl rand -base64 32)" > server/shenas.net/.env; \
+		echo "BETTER_AUTH_URL=http://localhost:4321" >> server/shenas.net/.env; \
+		echo "DATABASE_URL=postgres://postgres@localhost:5432/shenas_net" >> server/shenas.net/.env; \
+	}
+	cd server/shenas.net && DATABASE_URL=postgres://postgres@localhost:5432/shenas_net npx @better-auth/cli migrate -y
+	@echo "PostgreSQL ready. Run 'make dev-website' to start."
 
 clean:
 	moon run :clean
