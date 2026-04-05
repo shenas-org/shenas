@@ -1,0 +1,25 @@
+[project]
+name = "shenas-component-gantt-chart"
+dynamic = ["version"]
+description = "Gantt chart timeline visualization for shenas events"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-component-core",
+    "shenas-schema-events",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.components"]
+gantt-chart = "shenas_components.gantt_chart:GanttChartComponent"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "component-gantt-chart/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "component-gantt-chart/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_components"]
