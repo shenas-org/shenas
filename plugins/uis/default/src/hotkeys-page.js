@@ -1,5 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { apiFetch } from "./api.js";
+import { gql, gqlFull } from "./api.js";
 import { buttonStyles, messageStyles, utilityStyles } from "./shared-styles.js";
 import { formatHotkey } from "./constants.js";
 
@@ -134,15 +134,16 @@ class HotkeysPage extends LitElement {
 
   async _loadBindings() {
     this._loading = true;
-    this._bindings = (await apiFetch(this.apiBase, "/hotkeys")) || {};
+    const data = await gql(this.apiBase, `{ hotkeys }`);
+    this._bindings = data?.hotkeys || {};
     this._loading = false;
   }
 
   async _saveBinding(actionId, binding) {
     if (binding) {
-      await apiFetch(this.apiBase, `/hotkeys/${actionId}`, { method: "PUT", json: { binding } });
+      await gqlFull(this.apiBase, `mutation($id: String!, $b: String!) { setHotkey(actionId: $id, binding: $b) { ok } }`, { id: actionId, b: binding });
     } else {
-      await apiFetch(this.apiBase, `/hotkeys/${actionId}`, { method: "DELETE" });
+      await gqlFull(this.apiBase, `mutation($id: String!) { deleteHotkey(actionId: $id) { ok } }`, { id: actionId });
     }
     this.dispatchEvent(new CustomEvent("hotkeys-changed", { bubbles: true, composed: true }));
   }
@@ -190,7 +191,7 @@ class HotkeysPage extends LitElement {
   }
 
   async _resetDefaults() {
-    await apiFetch(this.apiBase, "/hotkeys/reset", { method: "POST" });
+    await gqlFull(this.apiBase, `mutation { resetHotkeys { ok } }`);
     await this._loadBindings();
     this.dispatchEvent(new CustomEvent("hotkeys-changed", { bubbles: true, composed: true }));
   }

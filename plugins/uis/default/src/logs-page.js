@@ -1,4 +1,5 @@
 import { LitElement, html, css } from "lit";
+import { arrowQuery } from "./api.js";
 import { buttonStyles, utilityStyles } from "./shared-styles.js";
 
 class LogsPage extends LitElement {
@@ -250,16 +251,33 @@ class LogsPage extends LitElement {
     this._live = false;
   }
 
+  _logsSql(extra = "") {
+    const conds = [];
+    if (this._severity) conds.push(`severity = '${this._severity}'`);
+    if (this._search) conds.push(`body LIKE '%${this._search}%'`);
+    if (this.pipe) conds.push(`(body LIKE '%${this.pipe}%' OR attributes LIKE '%${this.pipe}%')`);
+    if (extra) conds.push(extra);
+    const where = conds.length ? ` WHERE ${conds.join(" AND ")}` : "";
+    return `SELECT timestamp, trace_id, span_id, severity, body, attributes, service_name FROM telemetry.logs${where} ORDER BY timestamp DESC LIMIT 100`;
+  }
+
+  _spansSql() {
+    const conds = [];
+    if (this._search) conds.push(`name LIKE '%${this._search}%'`);
+    if (this.pipe) conds.push(`(name LIKE '%${this.pipe}%' OR attributes LIKE '%${this.pipe}%')`);
+    const where = conds.length ? ` WHERE ${conds.join(" AND ")}` : "";
+    return `SELECT trace_id, span_id, parent_span_id, name, kind, service_name, status_code, start_time, end_time, duration_ms, attributes FROM telemetry.spans${where} ORDER BY start_time DESC LIMIT 100`;
+  }
+
   async _fetchBoth() {
     this._loading = true;
-    const pipeQs = this.pipe ? `?pipe=${encodeURIComponent(this.pipe)}` : "";
     try {
-      const [logsResp, spansResp] = await Promise.all([
-        fetch(`${this.apiBase}/logs${pipeQs}`),
-        fetch(`${this.apiBase}/spans${pipeQs}`),
+      const [logs, spans] = await Promise.all([
+        arrowQuery(this.apiBase, this._logsSql()),
+        arrowQuery(this.apiBase, this._spansSql()),
       ]);
-      if (logsResp.ok) this._logs = await logsResp.json();
-      if (spansResp.ok) this._spans = await spansResp.json();
+      if (logs) this._logs = logs;
+      if (spans) this._spans = spans;
     } catch { /* */ }
     this._loading = false;
   }
@@ -267,18 +285,11 @@ class LogsPage extends LitElement {
   async _fetch() {
     this._loading = true;
     this._expanded = null;
-    const params = new URLSearchParams();
-    if (this._search) params.set("search", this._search);
-    if (this._activeTab === "logs" && this._severity) params.set("severity", this._severity);
-    if (this.pipe) params.set("pipe", this.pipe);
-    const qs = params.toString() ? `?${params}` : "";
     try {
-      const endpoint = this._activeTab === "logs" ? "logs" : "spans";
-      const resp = await fetch(`${this.apiBase}/${endpoint}${qs}`);
-      if (resp.ok) {
-        const data = await resp.json();
-        if (this._activeTab === "logs") this._logs = data;
-        else this._spans = data;
+      if (this._activeTab === "logs") {
+        this._logs = await arrowQuery(this.apiBase, this._logsSql()) || [];
+      } else {
+        this._spans = await arrowQuery(this.apiBase, this._spansSql()) || [];
       }
     } catch { /* */ }
     this._loading = false;
@@ -305,10 +316,10 @@ class LogsPage extends LitElement {
     return html`
       <div class="tabs">
         <button class="tab ${this._activeTab === "logs" ? "active" : ""}" @click=${() => this._switchTab("logs")}>
-          Logs <span class="count">(${this._logs.length})</span>
+          Logs
         </button>
         <button class="tab ${this._activeTab === "spans" ? "active" : ""}" @click=${() => this._switchTab("spans")}>
-          Spans <span class="count">(${this._spans.length})</span>
+          Spans
         </button>
       </div>
       <div class="toolbar">
@@ -414,10 +425,11 @@ class LogsPage extends LitElement {
 
   _formatTime(ts) {
     if (!ts) return "-";
-    const d = new Date(String(ts).endsWith("Z") ? ts : ts + "Z");
-    if (isNaN(d)) return String(ts).replace("T", " ").slice(0, 23);
+    // Arrow returns DuckDB TIMESTAMP as milliseconds (possibly with sub-ms fraction)
+    const d = typeof ts === "number" ? new Date(ts) : new Date(String(ts).endsWith("Z") ? ts : ts + "Z");
+    if (isNaN(d)) return String(ts);
     const pad = (n, len = 2) => String(n).padStart(len, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 }
 
