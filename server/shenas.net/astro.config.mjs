@@ -6,5 +6,10 @@ export default defineConfig({
     esbuild: {
       target: "es2022",
     },
+    server: {
+      proxy: {
+        "/api": "http://localhost:8000",
+      },
+    },
   },
 });

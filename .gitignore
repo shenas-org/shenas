@@ -19,6 +19,7 @@ shenas.egg-info/
 .shenas-fl/
 server/deploy/tofu/.terraform/
 server/deploy/tofu/*.tfstate*
+server/deploy/tofu/*.tfvars
 server/deploy/tofu/.terraform.lock.hcl
 app/desktop/src-tauri/binaries/
 app/desktop/src-tauri/target/

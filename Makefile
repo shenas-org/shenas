@@ -1,4 +1,4 @@
-.PHONY: install repo-server setup-hooks coverage clean logos dev-website release-desktop release-repo-server release-fl-server release-shenas-net setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
+.PHONY: install repo-server setup-hooks coverage clean logos dev-website dev-postgres dev-api k8s-secrets-web-api release-desktop release-repo-server release-fl-server release-shenas-net release-web-api setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
 
 # Set up Android SDK, NDK, and Rust targets for mobile development
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
@@ -42,6 +42,33 @@ logos:
 
 dev-website:
 	cd server/shenas.net && npm install --silent && npm run dev
+
+# Create the shenas_net database for the web API
+dev-postgres:
+	@createdb -U postgres shenas_net 2>/dev/null && echo "Created database shenas_net" || echo "Database shenas_net already exists"
+	@echo "DATABASE_URL=postgres://postgres@localhost:5432/shenas_net"
+
+# Start the web API dev server (auth + future vault endpoints)
+dev-api:
+	cd server/api && uv pip install -e . --quiet && \
+		DATABASE_URL=postgres://postgres@localhost:5432/shenas_net \
+		uv run uvicorn shenas_web_api.main:app --reload --port 8000
+
+# Create/update K8s secret for web-api (production)
+k8s-secrets-web-api:
+	@read -p "GOOGLE_CLIENT_ID: " GID; \
+	read -p "GOOGLE_CLIENT_SECRET: " GSEC; \
+	read -p "DATABASE_URL: " DBURL; \
+	kubectl create secret generic web-api-secrets \
+		--namespace shenas \
+		--from-literal=SESSION_SECRET=$$(openssl rand -hex 32) \
+		--from-literal=BASE_URL=https://shenas.net \
+		--from-literal=FRONTEND_URL=https://shenas.net \
+		--from-literal=DATABASE_URL=$$DBURL \
+		--from-literal=GOOGLE_CLIENT_ID=$$GID \
+		--from-literal=GOOGLE_CLIENT_SECRET=$$GSEC \
+		--dry-run=client -o yaml | kubectl apply -f -
+	@echo "Secret web-api-secrets created/updated in namespace shenas"
 
 clean:
 	moon run :clean
@@ -174,6 +201,22 @@ release-shenas-net:
 	echo "$$TAG ($$BUMP bump from $$PREV, $$COMMIT_COUNT commits)"; \
 	echo ""; \
 	git log "$$PREV"..HEAD --pretty=format:"  %s" -- server/shenas.net/ | head -20; \
+	echo ""; echo ""; \
+	read -p "Create tag $$TAG and push? [y/N] " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		git tag "$$TAG" && git push origin "$$TAG"; \
+		echo "Tagged and pushed $$TAG"; \
+	else \
+		echo "Aborted"; \
+	fi
+
+release-web-api:
+	@output=$$(bash scripts/bump-tag.sh web-api server/api/); \
+	if [ -z "$$output" ]; then echo "No web-api changes to release."; exit 0; fi; \
+	eval "$$output"; \
+	echo "$$TAG ($$BUMP bump from $$PREV, $$COMMIT_COUNT commits)"; \
+	echo ""; \
+	git log "$$PREV"..HEAD --pretty=format:"  %s" -- server/api/ | head -20; \
 	echo ""; echo ""; \
 	read -p "Create tag $$TAG and push? [y/N] " confirm; \
 	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
