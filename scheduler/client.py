@@ -30,7 +30,7 @@ class SchedulerClient:
     def get_sync_schedule(self) -> list[dict[str, Any]]:
         try:
             resp = self._client.post(
-                "/graphql",
+                "/api/graphql",
                 json={"query": "{ syncSchedule { name syncFrequency syncedAt isDue } }"},
             )
         except (httpx.ConnectError, httpx.ConnectTimeout):
