@@ -179,9 +179,36 @@ class Query:
         search: str | None = None,
         pipe: str | None = None,
     ) -> JSON:
-        from app.server import get_logs
+        from app.db import connect
 
-        return get_logs(limit=limit, severity=severity, search=search, pipe=pipe)
+        limit = max(1, min(limit, 1000))
+        con = connect(read_only=True)
+        cur = con.cursor()
+        try:
+            cur.execute("USE db")
+            conditions: list[str] = []
+            params: list[Any] = []
+            if severity:
+                conditions.append("severity = ?")
+                params.append(severity)
+            if search:
+                conditions.append("body LIKE ?")
+                params.append(f"%{search}%")
+            if pipe:
+                conditions.append("(body LIKE ? OR attributes LIKE ?)")
+                params.extend([f"%{pipe}%", f"%{pipe}%"])
+            where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+            rows = cur.execute(
+                f"SELECT timestamp, trace_id, span_id, severity, body, attributes, service_name "
+                f"FROM telemetry.logs{where} ORDER BY timestamp DESC LIMIT {limit}",
+                params,
+            ).fetchall()
+            cols = [d[0] for d in cur.description]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+        except Exception:
+            return []
+        finally:
+            cur.close()
 
     @strawberry.field
     def spans(
@@ -190,9 +217,34 @@ class Query:
         search: str | None = None,
         pipe: str | None = None,
     ) -> JSON:
-        from app.server import get_spans
+        from app.db import connect
 
-        return get_spans(limit=limit, search=search, pipe=pipe)
+        limit = max(1, min(limit, 1000))
+        con = connect(read_only=True)
+        cur = con.cursor()
+        try:
+            cur.execute("USE db")
+            conditions: list[str] = []
+            params: list[Any] = []
+            if search:
+                conditions.append("name LIKE ?")
+                params.append(f"%{search}%")
+            if pipe:
+                conditions.append("(name LIKE ? OR attributes LIKE ?)")
+                params.extend([f"%{pipe}%", f"%{pipe}%"])
+            where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+            rows = cur.execute(
+                f"SELECT trace_id, span_id, parent_span_id, name, kind, service_name, "
+                f"status_code, start_time, end_time, duration_ms, attributes "
+                f"FROM telemetry.spans{where} ORDER BY start_time DESC LIMIT {limit}",
+                params,
+            ).fetchall()
+            cols = [d[0] for d in cur.description]
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+        except Exception:
+            return []
+        finally:
+            cur.close()
 
     # -- App-level --
 
@@ -227,9 +279,38 @@ class Query:
 
     @strawberry.field
     def dependencies(self) -> JSON:
-        from app.server import plugin_dependencies
+        from importlib.metadata import distributions
 
-        return plugin_dependencies()
+        prefixes = {
+            "shenas-pipe-": "pipe",
+            "shenas-schema-": "schema",
+            "shenas-component-": "component",
+            "shenas-ui-": "ui",
+            "shenas-theme-": "theme",
+        }
+        result: dict[str, list[str]] = {}
+        for dist in distributions():
+            pkg_name = dist.metadata["Name"]
+            if pkg_name.endswith("-core"):
+                continue
+            kind = None
+            plugin_name = ""
+            for prefix, k in prefixes.items():
+                if pkg_name.startswith(prefix):
+                    kind = k
+                    plugin_name = pkg_name.removeprefix(prefix)
+                    break
+            if not kind:
+                continue
+            deps = []
+            for req in dist.requires or []:
+                req_name = req.split(";")[0].split("[")[0].split(">")[0].split("<")[0].split("=")[0].split("!")[0].strip()
+                for dep_prefix, dep_kind in prefixes.items():
+                    if req_name.startswith(dep_prefix) and not req_name.endswith("-core"):
+                        deps.append(f"{dep_kind}:{req_name.removeprefix(dep_prefix)}")
+            if deps:
+                result[f"{kind}:{plugin_name}"] = deps
+        return result
 
     # -- Models --
 

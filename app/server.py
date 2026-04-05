@@ -6,9 +6,9 @@ import asyncio as _asyncio
 import os as _os
 import pathlib as _pathlib
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -146,130 +146,8 @@ _FALLBACK_HTML = """\
 
 
 # ---------------------------------------------------------------------------
-# API endpoints (non-router, app-level)
+# SSE streaming endpoints (stay as REST -- not suitable for GraphQL)
 # ---------------------------------------------------------------------------
-
-
-@app.get("/api/theme")
-def active_theme() -> dict[str, str | None]:
-    """Return the active theme name and CSS URL."""
-    theme = _get_active_theme()
-    if theme:
-        return {"name": theme.name, "css": f"/themes/{theme.name}/{theme.css}"}
-    return {"name": app.state.default_theme, "css": None}
-
-
-@app.get("/api/dependencies")
-def plugin_dependencies() -> dict[str, list[str]]:
-    """Return cross-plugin dependencies from Python package metadata."""
-    from importlib.metadata import distributions
-
-    prefixes = {
-        "shenas-pipe-": "pipe",
-        "shenas-schema-": "schema",
-        "shenas-component-": "component",
-        "shenas-ui-": "ui",
-        "shenas-theme-": "theme",
-    }
-    result: dict[str, list[str]] = {}
-    for dist in distributions():
-        pkg_name = dist.metadata["Name"]
-        if pkg_name.endswith("-core"):
-            continue
-        kind = None
-        for prefix, k in prefixes.items():
-            if pkg_name.startswith(prefix):
-                kind = k
-                plugin_name = pkg_name.removeprefix(prefix)
-                break
-        if not kind:
-            continue
-        deps = []
-        for req in dist.requires or []:
-            req_name = req.split(";")[0].split("[")[0].split(">")[0].split("<")[0].split("=")[0].split("!")[0].strip()
-            for dep_prefix, dep_kind in prefixes.items():
-                if req_name.startswith(dep_prefix) and not req_name.endswith("-core"):
-                    deps.append(f"{dep_kind}:{req_name.removeprefix(dep_prefix)}")
-        if deps:
-            result[f"{kind}:{plugin_name}"] = deps
-    return result
-
-
-@app.get("/api/logs")
-def get_logs(
-    limit: int = 100,
-    severity: str | None = None,
-    search: str | None = None,
-    pipe: str | None = None,
-) -> list[dict[str, Any]]:
-    """Query telemetry logs."""
-    from app.db import connect
-
-    limit = max(1, min(limit, 1000))
-    con = connect(read_only=True)
-    cur = con.cursor()
-    try:
-        cur.execute("USE db")
-        conditions = []
-        params: list[Any] = []
-        if severity:
-            conditions.append("severity = ?")
-            params.append(severity)
-        if search:
-            conditions.append("body LIKE ?")
-            params.append(f"%{search}%")
-        if pipe:
-            conditions.append("(body LIKE ? OR attributes LIKE ?)")
-            params.extend([f"%{pipe}%", f"%{pipe}%"])
-        where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
-        rows = cur.execute(
-            f"SELECT timestamp, trace_id, span_id, severity, body, attributes, service_name "
-            f"FROM telemetry.logs{where} ORDER BY timestamp DESC LIMIT {limit}",
-            params,
-        ).fetchall()
-        cols = [d[0] for d in cur.description]
-        return [dict(zip(cols, r, strict=False)) for r in rows]
-    except Exception:
-        return []
-    finally:
-        cur.close()
-
-
-@app.get("/api/spans")
-def get_spans(
-    limit: int = 100,
-    search: str | None = None,
-    pipe: str | None = None,
-) -> list[dict[str, Any]]:
-    """Query telemetry spans."""
-    from app.db import connect
-
-    limit = max(1, min(limit, 1000))
-    con = connect(read_only=True)
-    cur = con.cursor()
-    try:
-        cur.execute("USE db")
-        conditions = []
-        params: list[Any] = []
-        if search:
-            conditions.append("name LIKE ?")
-            params.append(f"%{search}%")
-        if pipe:
-            conditions.append("(name LIKE ? OR attributes LIKE ?)")
-            params.extend([f"%{pipe}%", f"%{pipe}%"])
-        where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
-        rows = cur.execute(
-            f"SELECT trace_id, span_id, parent_span_id, name, kind, service_name, "
-            f"status_code, start_time, end_time, duration_ms, attributes "
-            f"FROM telemetry.spans{where} ORDER BY start_time DESC LIMIT {limit}",
-            params,
-        ).fetchall()
-        cols = [d[0] for d in cur.description]
-        return [dict(zip(cols, r, strict=False)) for r in rows]
-    except Exception:
-        return []
-    finally:
-        cur.close()
 
 
 @app.get("/api/stream/logs")
@@ -320,71 +198,9 @@ async def stream_spans() -> StreamingResponse:
     return StreamingResponse(_generate(), media_type="text/event-stream")
 
 
-@app.get("/api/hotkeys")
-def get_hotkeys_endpoint() -> dict[str, str]:
-    from app.db import get_hotkeys
-
-    return get_hotkeys()
-
-
-@app.put("/api/hotkeys/{action_id}")
-def set_hotkey(action_id: str, body: dict[str, str]) -> dict[str, bool]:
-    from app.db import set_hotkey
-
-    binding = body.get("binding", "")
-    set_hotkey(action_id, binding)
-    return {"ok": True}
-
-
-@app.delete("/api/hotkeys/{action_id}")
-def delete_hotkey(action_id: str) -> dict[str, bool]:
-    from app.db import set_hotkey
-
-    set_hotkey(action_id, "")
-    return {"ok": True}
-
-
-@app.post("/api/hotkeys/reset")
-def reset_hotkeys() -> dict[str, bool]:
-    from app.db import reset_hotkeys
-
-    reset_hotkeys()
-    return {"ok": True}
-
-
-@app.get("/api/workspace")
-def get_workspace_endpoint() -> dict[str, Any]:
-    from app.db import get_workspace
-
-    return get_workspace()
-
-
-@app.put("/api/workspace")
-async def save_workspace_state(_request: Request) -> dict[str, bool]:
-    from app.db import save_workspace
-
-    body = await _request.json()
-    save_workspace(body)
-    return {"ok": True}
-
-
-@app.get("/api/components")
-def list_component_metadata() -> list[dict[str, str]]:
-    """Return component metadata needed by the UI shell."""
-    from app.api.pipes import _load_components
-    from app.db import is_plugin_enabled
-
-    return [
-        {
-            "name": c.name,
-            "display_name": c.display_name,
-            "tag": c.tag,
-            "js": f"/components/{c.name}/{c.entrypoint}",
-            "description": c.description,
-        }
-        for c in _load_components(include_internal=False)
-        if is_plugin_enabled("component", c.name)
-    ]
+# ---------------------------------------------------------------------------
+# HTML routes
+# ---------------------------------------------------------------------------
 
 
 @app.get("/", response_class=HTMLResponse)

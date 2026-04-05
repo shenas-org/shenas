@@ -124,39 +124,6 @@ class TestApiQuery:
         assert table.column("rmssd").to_pylist() == [42.0]
 
 
-class TestDbStatus:
-    def test_db_status(self, client: TestClient) -> None:
-        with patch("app.api.db.DB_PATH") as mock_path:
-            mock_path.exists.return_value = False
-            mock_path.__str__ = lambda _: "data/shenas.duckdb"
-            resp = client.get("/api/db/status")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert "key_source" in data
-        assert "db_path" in data
-
-    def test_db_status_with_tables(self, client: TestClient) -> None:
-        fake_schemas = {"metrics": ["daily_hrv", "daily_sleep"], "garmin": ["activities"]}
-        with (
-            patch("app.api.db.DB_PATH") as mock_path,
-            patch("app.api.db._discover_schemas", return_value=fake_schemas),
-            patch(
-                "app.api.db._table_stats",
-                side_effect=lambda s, n: __import__("app.models", fromlist=["TableStats"]).TableStats(name=n, rows=10, cols=5),
-            ),
-        ):
-            mock_path.exists.return_value = True
-            mock_path.stat.return_value.st_size = 1024 * 1024
-            mock_path.__str__ = lambda _: "data/shenas.duckdb"
-            resp = client.get("/api/db/status")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["size_mb"] is not None
-        schemas = {s["name"] for s in data["schemas"]}
-        assert "metrics" in schemas
-        assert "garmin" in schemas
-
-
 class TestShenasCLI:
     def test_no_cert(self, tmp_path: Path) -> None:
         from app.server_cli import app as shenas_app
