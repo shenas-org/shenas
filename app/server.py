@@ -25,7 +25,20 @@ async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:
     from app.telemetry.dispatcher import set_loop
 
     set_loop(_asyncio.get_running_loop())
+
+    # Start mesh daemon in background (device sync)
+    mesh_task = None
+    try:
+        from app.mesh.daemon import run_mesh_daemon
+
+        mesh_task = _asyncio.create_task(run_mesh_daemon())
+    except Exception:
+        pass  # mesh not configured yet
+
     yield
+
+    if mesh_task:
+        mesh_task.cancel()
 
 
 app = FastAPI(lifespan=_lifespan, docs_url=None, redoc_url=None, openapi_url=None)
