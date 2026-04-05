@@ -238,7 +238,18 @@ def install_plugin(
 
     simple_url = f"{index_url}/simple/"
     result = subprocess.run(
-        ["uv", "pip", "install", pkg_name, "--extra-index-url", simple_url, "--python", _python_executable()],
+        [
+            "uv",
+            "pip",
+            "install",
+            pkg_name,
+            "--index-url",
+            simple_url,
+            "--extra-index-url",
+            "https://pypi.org/simple/",
+            "--python",
+            _python_executable(),
+        ],
         capture_output=True,
         text=True,
     )
