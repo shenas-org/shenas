@@ -5,8 +5,18 @@ from __future__ import annotations
 import asyncio as _asyncio
 import os as _os
 import pathlib as _pathlib
+import sys as _sys
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
+
+# In PyInstaller bundles, add the plugin venv's site-packages to sys.path
+# so importlib.metadata.entry_points() discovers installed plugins.
+# Must happen before any plugin imports.
+if getattr(_sys, "_MEIPASS", None):
+    _plugin_site = _pathlib.Path.home() / ".shenas" / "plugins" / "lib"
+    for _p in _plugin_site.glob("python*/site-packages"):
+        if str(_p) not in _sys.path:
+            _sys.path.insert(0, str(_p))
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
