@@ -1,5 +1,5 @@
 # Cloud SQL PostgreSQL for shenas.net auth (Better Auth sessions/users)
-resource "google_sql_database_instance" "shenas_web" {
+resource "google_sql_database_instance" "shenas_net" {
   name             = "shenas-web"
   database_version = "POSTGRES_16"
   region           = var.region
@@ -22,13 +22,13 @@ resource "google_sql_database_instance" "shenas_web" {
   depends_on          = [google_project_service.apis["sqladmin.googleapis.com"]]
 }
 
-resource "google_sql_database" "shenas_web" {
-  name     = "shenas_web"
-  instance = google_sql_database_instance.shenas_web.name
+resource "google_sql_database" "shenas_net" {
+  name     = "shenas_net"
+  instance = google_sql_database_instance.shenas_net.name
 }
 
-resource "google_sql_user" "shenas_web" {
+resource "google_sql_user" "shenas_net" {
   name     = "shenas"
-  instance = google_sql_database_instance.shenas_web.name
+  instance = google_sql_database_instance.shenas_net.name
   password = var.db_password
 }
