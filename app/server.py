@@ -41,6 +41,9 @@ app.state.default_theme = _os.environ.get("SHENAS_DEFAULT_THEME", "default")
 # Register API routes
 app.include_router(api_router)
 
+# GraphQL endpoint
+app.include_router(__import__("app.graphql", fromlist=["graphql_app"]).graphql_app, prefix="/graphql")
+
 
 # ---------------------------------------------------------------------------
 # Static plugin mounting
