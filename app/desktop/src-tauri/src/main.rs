@@ -6,6 +6,8 @@ use std::thread;
 use std::time::Duration;
 
 use tauri::Manager;
+use tauri::WebviewUrl;
+use tauri::WebviewWindowBuilder;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandChild;
 
@@ -94,10 +96,26 @@ fn main() {
             app.manage(server_state);
             app.manage(daemon_state);
 
-            let window = app.get_webview_window("main").unwrap();
-            window
-                .navigate("http://localhost:7280".parse().unwrap())
-                .unwrap();
+            let window = WebviewWindowBuilder::new(
+                app,
+                "main",
+                WebviewUrl::External("http://localhost:7280".parse().unwrap()),
+            )
+            .title("shenas")
+            .inner_size(1200.0, 800.0)
+            .resizable(true)
+            .initialization_script(
+                // Prevent WebKitGTK from consuming browser shortcuts (Ctrl+P, Ctrl+W, etc.)
+                // so they reach the app's hotkey handler instead.
+                r#"document.addEventListener('keydown', function(e) {
+                    if ((e.ctrlKey || e.metaKey) && ['p','o','w','t','l','g','u','f','h'].includes(e.key.toLowerCase())) {
+                        e.preventDefault();
+                    }
+                }, true);"#,
+            )
+            .build()?;
+
+            window.show().unwrap();
             Ok(())
         })
         .on_window_event(|window, event| {
