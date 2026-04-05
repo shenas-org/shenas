@@ -1,3 +1,7 @@
 id: plugin-core
 language: 'python'
 tags: ['core']
+
+workspace:
+  inheritedTasks:
+    exclude: ['test']

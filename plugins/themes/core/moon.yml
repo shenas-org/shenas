@@ -1,3 +1,7 @@
 id: themes-core
 language: 'python'
 tags: ['theme', 'core']
+
+workspace:
+  inheritedTasks:
+    exclude: ['test']
