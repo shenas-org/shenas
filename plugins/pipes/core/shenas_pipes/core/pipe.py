@@ -225,6 +225,20 @@ class Pipe(Plugin):
         res = self.resources(client)
         run_sync(self.name, self.name, res, full_refresh, self._auto_transform)
         self._mark_synced()
+        self._log_sync_event(full_refresh)
+
+    def _log_sync_event(self, full_refresh: bool) -> None:
+        """Append a sync event to the mesh sync log."""
+        try:
+            from app.mesh.sync_log import append_event
+
+            append_event(
+                table_schema=self.name,
+                table_name="*",
+                operation="full_refresh" if full_refresh else "sync",
+            )
+        except Exception:
+            pass  # mesh not initialized yet
 
     def _auto_transform(self) -> None:
         """Run transforms if this pipe has a transforms.json."""
