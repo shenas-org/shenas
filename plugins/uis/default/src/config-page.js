@@ -1,5 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
+import { gql, gqlFull, renderMessage } from "./api.js";
 import { buttonStyles, formStyles, messageStyles } from "./shared-styles.js";
 
 class ConfigPage extends LitElement {
@@ -98,8 +98,9 @@ class ConfigPage extends LitElement {
   async _fetchConfig() {
     if (!this.kind || !this.name) return;
     this._loading = true;
-    const items = await apiFetch(this.apiBase, `/config?kind=${this.kind}&name=${this.name}`);
-    this._config = items && items.length > 0 ? items[0] : null;
+    const data = await gql(this.apiBase, `query($kind: String, $name: String) { config(kind: $kind, name: $name) { kind name entries { key label value description } } }`, { kind: this.kind, name: this.name });
+    const items = data?.config || [];
+    this._config = items.length > 0 ? items[0] : null;
     this._loading = false;
   }
 
@@ -153,10 +154,7 @@ class ConfigPage extends LitElement {
       this._message = { type: "error", text: "Enter a positive number" };
       return;
     }
-    const { ok, data } = await apiFetchFull(this.apiBase, `/config/${this.kind}/${this.name}`, {
-      method: "PUT",
-      json: { key, value },
-    });
+    const { ok, data } = await gqlFull(this.apiBase, `mutation($kind: String!, $name: String!, $key: String!, $value: String!) { setConfig(kind: $kind, name: $name, key: $key, value: $value) { ok } }`, { kind: this.kind, name: this.name, key, value });
     if (ok) {
       this._message = { type: "success", text: `Updated ${key}` };
       this._editing = null;

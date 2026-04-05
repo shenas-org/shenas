@@ -1,5 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
+import { gql, gqlFull, renderMessage } from "./api.js";
 import { PLUGIN_KINDS } from "./constants.js";
 import { buttonStyles, formStyles, linkStyles, messageStyles } from "./shared-styles.js";
 
@@ -9,6 +9,8 @@ class SettingsPage extends LitElement {
     activeKind: { type: String, attribute: "active-kind" },
     onNavigate: { type: Function },
     allActions: { type: Array },
+    allPlugins: { type: Object },
+    schemaPlugins: { type: Object },
     _plugins: { state: true },
     _loading: { state: true },
     _actionMessage: { state: true },
@@ -187,11 +189,17 @@ class SettingsPage extends LitElement {
   }
 
   async _fetchAll() {
+    if (this.allPlugins && Object.keys(this.allPlugins).length > 0) {
+      this._plugins = this.allPlugins;
+      this._loading = false;
+      return;
+    }
     this._loading = true;
     const result = {};
     await Promise.all(
       PLUGIN_KINDS.map(async ({ id }) => {
-        result[id] = (await apiFetch(this.apiBase, `/plugins/${id}`)) || [];
+        const data = await gql(this.apiBase, `query($kind: String!) { plugins(kind: $kind) { name displayName package version enabled description } }`, { kind: id });
+        result[id] = data?.plugins || [];
       }),
     );
     this._plugins = result;
@@ -202,9 +210,13 @@ class SettingsPage extends LitElement {
 
   async _togglePlugin(kind, name, currentlyEnabled) {
     const action = currentlyEnabled ? "disable" : "enable";
-    const { data } = await apiFetchFull(this.apiBase, `/plugins/${kind}/${name}/${action}`, { method: "POST" });
-    if (!data?.ok) {
-      this._actionMessage = { type: "error", text: data?.message || `${action} failed` };
+    const mutation = action === "enable"
+      ? `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok message } }`
+      : `mutation($k: String!, $n: String!) { disablePlugin(kind: $k, name: $n) { ok message } }`;
+    const { data } = await gqlFull(this.apiBase, mutation, { k: kind, n: name });
+    const result = action === "enable" ? data?.enablePlugin : data?.disablePlugin;
+    if (!result?.ok) {
+      this._actionMessage = { type: "error", text: result?.message || `${action} failed` };
     }
     if (kind === "theme") {
       await this._applyActiveTheme();
@@ -213,9 +225,9 @@ class SettingsPage extends LitElement {
   }
 
   async _applyActiveTheme() {
-    const data = await apiFetch(this.apiBase, `/theme`);
-    if (!data) return;
-    const { css } = data;
+    const data = await gql(this.apiBase, `{ theme { css } }`);
+    if (!data?.theme) return;
+    const { css } = data.theme;
     let link = document.querySelector('link[data-shenas-theme]');
     if (css) {
       if (!link) {
@@ -235,11 +247,8 @@ class SettingsPage extends LitElement {
     const name = input?.value?.trim();
     if (!name) return;
     this._actionMessage = null;
-    const { data } = await apiFetchFull(this.apiBase, `/plugins/${kind}`, {
-      method: "POST",
-      json: { names: [name], skip_verify: true },
-    });
-    const result = data?.results?.[0];
+    const { data } = await gqlFull(this.apiBase, `mutation($kind: String!, $names: [String!]!) { installPlugins(kind: $kind, names: $names, skipVerify: true) { results { name ok message } } }`, { kind, names: [name] });
+    const result = data?.installPlugins?.results?.[0];
     if (result?.ok) {
       this._actionMessage = { type: "success", text: result.message };
       this._installing = false;
@@ -335,7 +344,7 @@ class SettingsPage extends LitElement {
         </nav>
         <div class="content">
           ${this.activeKind === "data-flow"
-            ? html`<shenas-pipeline-overview api-base="${this.apiBase}"></shenas-pipeline-overview>`
+            ? html`<shenas-pipeline-overview api-base="${this.apiBase}" .allPlugins=${this.allPlugins} .schemaPlugins=${this.schemaPlugins}></shenas-pipeline-overview>`
             : this.activeKind === "hotkeys"
               ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
               : this._renderKind(this.activeKind)}

@@ -36,6 +36,52 @@ export async function apiFetchFull(apiBase, path, options = {}) {
 }
 
 /**
+ * GraphQL fetch wrapper. Posts a query to /graphql and returns the data object,
+ * or null on error. Keeps apiFetch for Arrow IPC and SSE endpoints.
+ */
+export async function gql(apiBase, query, variables = {}) {
+  const resp = await fetch(`${apiBase}/graphql`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!resp.ok) return null;
+  const json = await resp.json();
+  if (json.errors) {
+    console.warn("GraphQL errors:", json.errors);
+    return null;
+  }
+  return json.data;
+}
+
+/**
+ * Like gql() but returns { ok, data, errors } for mutation result checking.
+ */
+export async function gqlFull(apiBase, query, variables = {}) {
+  const resp = await fetch(`${apiBase}/graphql`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!resp.ok) return { ok: false, data: null, errors: [{ message: `HTTP ${resp.status}` }] };
+  const json = await resp.json();
+  return { ok: !json.errors, data: json.data, errors: json.errors || [] };
+}
+
+/**
+ * Query DuckDB via Arrow IPC and return rows as an array of plain objects.
+ * Uses the REST /api/query endpoint (binary Arrow stream, not GraphQL).
+ */
+export async function arrowQuery(apiBase, sql) {
+  const { tableFromIPC } = await import("/vendor/apache-arrow.js");
+  const resp = await fetch(`${apiBase}/query?sql=${encodeURIComponent(sql)}`);
+  if (!resp.ok) return null;
+  const buf = await resp.arrayBuffer();
+  const table = tableFromIPC(new Uint8Array(buf));
+  return table.toArray().map((row) => row.toJSON());
+}
+
+/**
  * Render a message banner. Pass a { type, text } object or null.
  */
 export function renderMessage(message) {
