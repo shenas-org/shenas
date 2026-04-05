@@ -48,6 +48,11 @@ def init_telemetry(service_name: str) -> None:
     handler = LoggingHandler(logger_provider=_logger_provider)
     shenas_logger = logging.getLogger("shenas")
     shenas_logger.addHandler(handler)
+
+    # Also log to stdout for visibility in terminal/container logs
+    console = logging.StreamHandler()
+    console.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s", datefmt="%H:%M:%S"))
+    shenas_logger.addHandler(console)
     shenas_logger.setLevel(logging.DEBUG)
 
     atexit.register(shutdown_telemetry)
