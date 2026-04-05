@@ -52,7 +52,7 @@ dev-postgres:
 dev-api:
 	cd server/api && uv pip install -e . --quiet && \
 		DATABASE_URL=postgres://postgres@localhost:5432/shenas_net \
-		uvicorn shenas_web_api.main:app --reload --port 8000
+		uv run uvicorn shenas_web_api.main:app --reload --port 8000
 
 # Create/update K8s secret for web-api (production)
 k8s-secrets-web-api:
