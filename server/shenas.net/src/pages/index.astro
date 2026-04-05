@@ -83,25 +83,25 @@ import Base from "../layouts/Base.astro";
           third-party sync. Back it up, move it, delete it -- it is a single
           file you own completely.
         </shenas-feature-card>
-        <shenas-feature-card icon="PK" heading="Signed plugin ecosystem">
-          Pipes, schemas, and components are Ed25519-signed Python wheels
-          served from a PEP 503 repository. Every install is verified before
-          it touches your system.
+        <shenas-feature-card icon="OK" heading="Verified and trusted">
+          Every extension is cryptographically signed before it reaches your
+          system. You always know exactly what's running and where it came
+          from. Trust by design, not by promise.
         </shenas-feature-card>
-        <shenas-feature-card icon="dlt" heading="Set it and forget it">
-          Built on dlt with incremental cursors. After the initial sync, data
-          flows automatically on schedule. We track everything so you don't
-          have to think about it.
+        <shenas-feature-card icon="ZZ" heading="Set it and forget it">
+          After the initial setup, data flows automatically on your schedule.
+          No manual exports, no spreadsheets, no remembering to sync.
+          We track everything so you don't have to think about it.
         </shenas-feature-card>
-        <shenas-feature-card icon="TX" heading="One truth from many sources">
-          Raw data from every service is transformed into shared metric schemas.
-          Garmin HRV and Oura HRV land in the same table. Sleep from your watch
-          meets mood from your journal. The picture completes itself.
+        <shenas-feature-card icon="EQ" heading="One truth from many sources">
+          Sleep from your watch meets mood from your journal meets spending
+          from your bank. Every source feeds into a unified picture so you
+          can see connections you'd never spot alone.
         </shenas-feature-card>
-        <shenas-feature-card icon="WC" heading="Pluggable and personal">
-          The frontend is built with Lit web components distributed as wheels.
-          Swap dashboards, add visualizations, build your own -- your view of
-          your life should look exactly like you want it to.
+        <shenas-feature-card icon="YU" heading="Made for you, by you">
+          Swap dashboards, add views, shape the experience. Your view of
+          your life should look exactly like you want it to -- not like
+          someone else's template.
         </shenas-feature-card>
       </div>
     </div>
@@ -163,8 +163,8 @@ import Base from "../layouts/Base.astro";
   <section id="start" class="section">
     <div class="container">
       <div class="section-header">
-        <h2>Up and running in three commands</h2>
-        <p>Requires Python 3.12+ and <a href="https://docs.astral.sh/uv/">uv</a>.</p>
+        <h2>Start in minutes</h2>
+        <p>Three steps from zero to your first insight. Requires Python 3.12+ and <a href="https://docs.astral.sh/uv/">uv</a>.</p>
       </div>
       <div class="code-grid">
         <div class="code-step">
@@ -200,36 +200,36 @@ shenas`}
   <section class="section section-alt">
     <div class="container">
       <div class="section-header">
-        <h2>Architecture</h2>
+        <h2>How it all fits together</h2>
         <p>
-          A uv monorepo with glob-based workspace members. Every piece is a
-          separate package with its own version, build, and test suite.
+          Modular by design. Each piece handles one job well, and together
+          they create a system that works quietly in the background.
         </p>
       </div>
       <div class="arch-grid">
         <div class="arch-card">
-          <h3>shenasctl</h3>
-          <p>Lightweight CLI client. httpx + typer + cryptography. No server dependencies.</p>
+          <h3>Command line</h3>
+          <p>A lightweight tool to connect sources, manage plugins, and control everything from the terminal.</p>
         </div>
         <div class="arch-card">
-          <h3>shenas-app</h3>
-          <p>FastAPI UI server. Discovers plugins via entry points, serves Arrow IPC queries.</p>
+          <h3>Local server</h3>
+          <p>Runs on your machine. Serves the dashboard, handles queries, discovers your plugins automatically.</p>
         </div>
         <div class="arch-card">
-          <h3>shenas-scheduler</h3>
-          <p>Background sync daemon. Polls for due pipes and runs them on schedule.</p>
+          <h3>Background sync</h3>
+          <p>A daemon that checks your sources on schedule and syncs new data without you lifting a finger.</p>
         </div>
         <div class="arch-card">
-          <h3>shenas-repository</h3>
-          <p>PEP 503 package server with Ed25519 signing. Your own private PyPI for plugins.</p>
+          <h3>Plugin repository</h3>
+          <p>Your own signed package server. Install trusted extensions with a single command.</p>
         </div>
         <div class="arch-card">
-          <h3>Federated learning</h3>
-          <p>Flower-based FL coordinator and client. PyTorch training with model plugin registry.</p>
+          <h3>Edge intelligence</h3>
+          <p>Collaborative AI that learns across devices without sharing raw data. The wisdom travels, the data stays.</p>
         </div>
         <div class="arch-card">
           <h3>Desktop + Mobile</h3>
-          <p>Tauri v2 apps. Desktop bundles PyInstaller sidecars, mobile runs Rust-native with axum + DuckDB.</p>
+          <p>Native apps for Linux, macOS, Windows, and Android. Your data and your dashboard, wherever you are.</p>
         </div>
       </div>
     </div>
@@ -358,7 +358,7 @@ shenas`}
   }
 
   .gradient-text {
-    background: linear-gradient(135deg, var(--color-accent-light), var(--color-green));
+    background: linear-gradient(135deg, var(--color-warm), var(--color-accent-light));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -396,7 +396,7 @@ shenas`}
   }
 
   .btn-primary:hover {
-    background: #5a4bd4;
+    background: #628261;
     text-decoration: none;
     transform: translateY(-1px);
     box-shadow: 0 4px 16px var(--color-accent-glow);

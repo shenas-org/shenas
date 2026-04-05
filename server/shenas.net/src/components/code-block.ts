@@ -47,7 +47,7 @@ export class CodeBlock extends LitElement {
     }
 
     .copy-btn:hover {
-      border-color: var(--color-accent, #6c5ce7);
+      border-color: var(--color-accent, #728f67);
       color: var(--color-text, #e8e8ef);
     }
 
