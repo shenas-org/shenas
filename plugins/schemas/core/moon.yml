@@ -5,6 +5,3 @@ language: 'python'
 stack: 'data'
 tags: ['schema', 'core']
 
-workspace:
-  inheritedTasks:
-    exclude: ['test', 'build']
