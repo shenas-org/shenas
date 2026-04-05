@@ -170,13 +170,20 @@ class PluginDetail extends LitElement {
     const needsSchema = this.kind === "schema";
     const fields = [
       `pluginInfo(kind: $kind, name: $name)`,
-      needsSchema ? `transforms { id sourceDuckdbTable targetDuckdbTable sourcePlugin enabled }` : "",
+      needsSchema ? `transforms { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin description enabled }` : "",
     ].filter(Boolean).join(" ");
     const data = await gql(this.apiBase, `query($kind: String!, $name: String!) { ${fields} }`, { kind: this.kind, name: this.name });
     this._info = data?.pluginInfo;
     const db = this.dbStatus;
     const ownership = this.schemaPlugins;
-    const allTransforms = data?.transforms?.map(t => ({ ...t, source_duckdb_table: t.sourceDuckdbTable, target_duckdb_table: t.targetDuckdbTable, source_plugin: t.sourcePlugin }));
+    const allTransforms = data?.transforms?.map(t => ({
+      ...t,
+      source_duckdb_schema: t.sourceDuckdbSchema,
+      source_duckdb_table: t.sourceDuckdbTable,
+      target_duckdb_schema: t.targetDuckdbSchema,
+      target_duckdb_table: t.targetDuckdbTable,
+      source_plugin: t.sourcePlugin,
+    }));
     const ownedTables = ownership ? (ownership[this.name] || []) : [];
     if (db) {
       if (this.kind === "pipe") {
