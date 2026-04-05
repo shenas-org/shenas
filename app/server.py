@@ -213,15 +213,15 @@ def remote_login() -> RedirectResponse:
 def remote_callback(token: str | None = None) -> HTMLResponse:
     """Receive the token from shenas.net after OAuth and store it."""
     if token:
-        from app.db import connect
+        from app.db import cursor
 
-        con = connect()
-        con.execute("CREATE TABLE IF NOT EXISTS db.shenas_system.remote_auth (key TEXT PRIMARY KEY, value TEXT)")
-        con.execute(
-            "INSERT INTO db.shenas_system.remote_auth (key, value) VALUES ('token', ?) "
-            "ON CONFLICT (key) DO UPDATE SET value = ?",
-            [token, token],
-        )
+        with cursor() as cur:
+            cur.execute("CREATE TABLE IF NOT EXISTS shenas_system.remote_auth (key TEXT PRIMARY KEY, value TEXT)")
+            cur.execute(
+                "INSERT INTO shenas_system.remote_auth (key, value) VALUES ('token', ?) "
+                "ON CONFLICT (key) DO UPDATE SET value = ?",
+                [token, token],
+            )
     return HTMLResponse(
         content="""
         <html><body style="font-family:system-ui;text-align:center;padding:4rem">
@@ -239,10 +239,10 @@ def remote_me() -> dict:
     import httpx
 
     try:
-        from app.db import connect
+        from app.db import cursor
 
-        con = connect()
-        row = con.execute("SELECT value FROM db.shenas_system.remote_auth WHERE key = 'token'").fetchone()
+        with cursor() as cur:
+            row = cur.execute("SELECT value FROM shenas_system.remote_auth WHERE key = 'token'").fetchone()
         if not row:
             return {"user": None}
         resp = httpx.get(

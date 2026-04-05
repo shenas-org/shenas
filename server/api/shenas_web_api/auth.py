@@ -71,7 +71,7 @@ async def callback(request: Request) -> RedirectResponse:
         signed,
         max_age=SESSION_MAX_AGE,
         httponly=True,
-        secure=True,
+        secure=BASE_URL.startswith("https"),
         samesite="lax",
         path="/",
     )
