@@ -1,3 +1,7 @@
 id: uis-core
 language: 'python'
 tags: ['ui', 'core']
+
+workspace:
+  inheritedTasks:
+    exclude: ['test']
