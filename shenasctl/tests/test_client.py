@@ -31,45 +31,38 @@ class TestConnectionHandling:
         client.close()
 
 
-class TestRequestErrorHandling:
+class TestGraphQLErrorHandling:
     def test_connect_error_raises_friendly_message(self) -> None:
         client = ShenasClient(base_url="https://localhost:19999")
         with pytest.raises(ShenasServerError) as exc_info:
-            client._request("GET", "/api/health")
+            client._graphql("{ hotkeys }")
         assert exc_info.value.status_code == 0
         assert "Cannot reach shenas server" in exc_info.value.detail
         client.close()
 
-    def test_server_error_json_body(self) -> None:
+    def test_graphql_errors_raise(self) -> None:
         mock_resp = MagicMock()
-        mock_resp.status_code = 404
-        mock_resp.json.return_value = {"detail": "Not found"}
-        mock_resp.text = "Not found"
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"errors": [{"message": "Field not found"}]}
 
         client = ShenasClient()
         with (
-            patch.object(client._client, "request", return_value=mock_resp),
+            patch.object(client._client, "post", return_value=mock_resp),
             pytest.raises(ShenasServerError) as exc_info,
         ):
-            client._request("GET", "/api/missing")
-        assert exc_info.value.status_code == 404
-        assert exc_info.value.detail == "Not found"
+            client._graphql("{ nonexistent }")
+        assert "Field not found" in exc_info.value.detail
         client.close()
 
-    def test_server_error_plain_text(self) -> None:
+    def test_graphql_returns_data(self) -> None:
         mock_resp = MagicMock()
-        mock_resp.status_code = 500
-        mock_resp.json.side_effect = ValueError("not json")
-        mock_resp.text = "Internal Server Error"
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"data": {"hotkeys": {"cmd": "Ctrl+P"}}}
 
         client = ShenasClient()
-        with (
-            patch.object(client._client, "request", return_value=mock_resp),
-            pytest.raises(ShenasServerError) as exc_info,
-        ):
-            client._request("GET", "/api/broken")
-        assert exc_info.value.status_code == 500
-        assert exc_info.value.detail == "Internal Server Error"
+        with patch.object(client._client, "post", return_value=mock_resp):
+            result = client._graphql("{ hotkeys }")
+        assert result == {"hotkeys": {"cmd": "Ctrl+P"}}
         client.close()
 
 
