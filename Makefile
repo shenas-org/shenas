@@ -44,15 +44,16 @@ dev-website:
 	@if [ ! -f server/shenas.net/.env ]; then \
 		echo "BETTER_AUTH_SECRET=$$(openssl rand -base64 32)" > server/shenas.net/.env; \
 		echo "BETTER_AUTH_URL=http://localhost:4321" >> server/shenas.net/.env; \
-		echo "DATABASE_URL=postgres://$(USER)@localhost:5432/shenas_net" >> server/shenas.net/.env; \
+		echo "DATABASE_URL=postgres://postgres@localhost:5432/shenas_net" >> server/shenas.net/.env; \
 		echo "Created server/shenas.net/.env -- add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET"; \
 	fi
 	cd server/shenas.net && npm install --silent && npm run dev
 
-# Create the shenas_net database on the local PostgreSQL server
+# Create the shenas_net database and run auth migrations
 dev-postgres:
-	@createdb shenas_net 2>/dev/null && echo "Created database shenas_net" || echo "Database shenas_net already exists"
-	@echo "DATABASE_URL=postgres://$(USER)@localhost:5432/shenas_net"
+	@createdb -U postgres shenas_net 2>/dev/null && echo "Created database shenas_net" || echo "Database shenas_net already exists"
+	cd server/shenas.net && npx @better-auth/cli migrate --y
+	@echo "DATABASE_URL=postgres://postgres@localhost:5432/shenas_net"
 
 clean:
 	moon run :clean
