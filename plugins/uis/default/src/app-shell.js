@@ -442,7 +442,6 @@ class ShenasApp extends LitElement {
         this._registeredCommands.set(componentId, commands);
       }
     });
-    this._loadHotkeys();
     this._keyHandler = (e) => {
       for (const [actionId, binding] of Object.entries(this._hotkeys)) {
         if (binding && matchesHotkey(e, binding)) {
@@ -507,17 +506,10 @@ class ShenasApp extends LitElement {
       commands.push({ id: `nav:settings:${k.id}`, category: "Settings", label: k.label, path: `/settings/${k.id}` });
     }
 
-    // Fetch all plugin kinds for detail page navigation
-    let allPlugins = [];
-    try {
-      const results = await Promise.all(
-        PLUGIN_KINDS.map(async (k) => {
-          const data = await gql(this.apiBase, `query($kind: String!) { plugins(kind: $kind) { name displayName enabled } }`, { kind: k.id });
-          return (data?.plugins || []).map((p) => ({ ...p, display_name: p.displayName, kind: k.id, kindLabel: k.label }));
-        }),
-      );
-      allPlugins = results.flat();
-    } catch { /* use empty */ }
+    // Use cached plugin data for detail page navigation
+    const allPlugins = PLUGIN_KINDS.flatMap((k) =>
+      (this._allPlugins[k.id] || []).map((p) => ({ ...p, display_name: p.displayName, kind: k.id, kindLabel: k.label })),
+    );
 
     for (const p of allPlugins) {
       commands.push({
@@ -537,9 +529,12 @@ class ShenasApp extends LitElement {
     const commands = [];
     const names = {};
     try {
+      // Fetch schema plugin ownership for transform commands (only data not in _allPlugins)
+      const extra = await gql(this.apiBase, `{ schemaPlugins }`);
+      const schemaOwnership = extra?.schemaPlugins || {};
+
       for (const k of PLUGIN_KINDS) {
-        const data = await gql(this.apiBase, `query($kind: String!) { plugins(kind: $kind) { name displayName enabled } }`, { kind: k.id });
-        const plugins = data?.plugins || [];
+        const plugins = this._allPlugins[k.id] || [];
         for (const p of plugins) {
           const name = p.displayName || p.name;
           names[`${k.id}:${p.name}`] = name;
@@ -553,7 +548,7 @@ class ShenasApp extends LitElement {
                 ? `mutation($k: String!, $n: String!) { disablePlugin(kind: $k, name: $n) { ok } }`
                 : `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok } }`;
               await gqlFull(this.apiBase, mutation, { k: k.id, n: p.name });
-              await this._registerGlobalCommands();
+              await this._fetchData();
             },
           });
           if (k.id === "pipe" && enabled) {
@@ -562,6 +557,12 @@ class ShenasApp extends LitElement {
               category: "Pipe",
               label: `Sync ${name}`,
               action: () => fetch(`${this.apiBase}/sync/${p.name}`, { method: "POST" }),
+            });
+            commands.push({
+              id: `transform:pipe:${p.name}`,
+              category: "Transform",
+              label: `Run Transforms: ${name}`,
+              action: () => gqlFull(this.apiBase, `mutation($pipe: String!) { runPipeTransforms(pipe: $pipe) }`, { pipe: p.name }),
             });
           }
         }
@@ -578,25 +579,9 @@ class ShenasApp extends LitElement {
         label: "Seed Default Transforms",
         action: () => gqlFull(this.apiBase, `mutation { seedTransforms }`),
       });
-      // Per-pipe transform commands
-      for (const k of PLUGIN_KINDS) {
-        if (k.id !== "pipe") continue;
-        const pipeData = await gql(this.apiBase, `query($kind: String!) { plugins(kind: $kind) { name displayName enabled } }`, { kind: k.id });
-        for (const p of pipeData?.plugins || []) {
-          if (p.enabled !== false) {
-            commands.push({
-              id: `transform:pipe:${p.name}`,
-              category: "Transform",
-              label: `Run Transforms: ${p.displayName || p.name}`,
-              action: () => gqlFull(this.apiBase, `mutation($pipe: String!) { runPipeTransforms(pipe: $pipe) }`, { pipe: p.name }),
-            });
-          }
-        }
-      }
       // Per-schema transform commands
-      const schemaData = await gql(this.apiBase, `{ schemas: plugins(kind: "schema") { name displayName } schemaPlugins }`);
-      for (const s of schemaData?.schemas || []) {
-        const schemaTables = schemaData?.schemaPlugins?.[s.name] || [];
+      for (const s of this._allPlugins.schema || []) {
+        const schemaTables = schemaOwnership[s.name] || [];
         for (const table of schemaTables) {
           commands.push({
             id: `transform:schema:${table}`,
@@ -762,18 +747,56 @@ class ShenasApp extends LitElement {
     this._components = data?.components || [];
   }
 
+  // Cached plugin data from the single init query, shared by commands + navigation
+  _allPlugins = {};
+
   async _fetchData() {
     this._loading = true;
     try {
-      const data = await gql(this.apiBase, `{ components dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } } }`);
+      const data = await gql(this.apiBase, `{
+        components
+        hotkeys
+        workspace
+        dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } }
+        pipes: plugins(kind: "pipe") { name displayName enabled }
+        schemas: plugins(kind: "schema") { name displayName enabled }
+        componentPlugins: plugins(kind: "component") { name displayName enabled }
+        uis: plugins(kind: "ui") { name displayName enabled }
+        themes: plugins(kind: "theme") { name displayName enabled }
+        schemaPlugins
+      }`);
       this._components = data?.components || [];
       this._dbStatus = data?.dbStatus;
+      this._hotkeys = data?.hotkeys || {};
+      this._allPlugins = {
+        pipe: data?.pipes || [],
+        schema: data?.schemas || [],
+        component: data?.componentPlugins || [],
+        ui: data?.uis || [],
+        theme: data?.themes || [],
+      };
+      // Restore workspace
+      const ws = data?.workspace;
+      if (ws?.tabs?.length > 0) {
+        this._tabs = ws.tabs;
+        this._activeTabId = ws.activeTabId || ws.tabs[0].id;
+        this._nextTabId = ws.nextTabId || (Math.max(...ws.tabs.map((t) => t.id)) + 1);
+        const urlPath = window.location.pathname;
+        if (urlPath && urlPath !== "/" && !this._tabs.some((t) => t.path === urlPath)) {
+          this._openTab(urlPath);
+        } else {
+          const active = this._tabs.find((t) => t.id === this._activeTabId);
+          if (active) this._router.goto(active.path);
+        }
+      } else {
+        const path = window.location.pathname;
+        if (path && path !== "/") this._openTab(path);
+      }
     } catch (e) {
       console.error("Failed to fetch data:", e);
     }
     await this._registerGlobalCommands();
     this._loading = false;
-    await this._loadWorkspace();
   }
 
   _activeTab() {
