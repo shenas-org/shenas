@@ -1,4 +1,4 @@
-.PHONY: install repo-server setup-hooks coverage clean logos dev-website release-desktop release-repo-server release-fl-server release-shenas-net setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
+.PHONY: install repo-server setup-hooks coverage clean logos dev-website dev-postgres release-desktop release-repo-server release-fl-server release-shenas-net setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
 
 # Set up Android SDK, NDK, and Rust targets for mobile development
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
@@ -42,6 +42,22 @@ logos:
 
 dev-website:
 	cd server/shenas.net && npm install --silent && npm run dev
+
+# Start a local PostgreSQL container for shenas.net development
+dev-postgres:
+	@if docker ps -a --format '{{.Names}}' | grep -q '^shenas-postgres$$'; then \
+		docker start shenas-postgres; \
+	else \
+		docker run -d --name shenas-postgres \
+			-e POSTGRES_USER=shenas \
+			-e POSTGRES_PASSWORD=shenas \
+			-e POSTGRES_DB=shenas_net \
+			-p 5432:5432 \
+			-v shenas-pgdata:/var/lib/postgresql/data \
+			postgres:16-alpine; \
+	fi
+	@echo "PostgreSQL running on localhost:5432"
+	@echo "DATABASE_URL=postgres://shenas:shenas@localhost:5432/shenas_net"
 
 clean:
 	moon run :clean
