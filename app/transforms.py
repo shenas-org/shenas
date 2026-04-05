@@ -9,12 +9,11 @@ canonical schemas and require full SQL expressiveness.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
+
+import duckdb
 
 from app.db import connect
-
-if TYPE_CHECKING:
-    import duckdb
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -189,14 +188,26 @@ def seed_defaults(source_plugin: str, defaults: list[dict[str, str]]) -> None:
         )
 
 
+def _get_device_id() -> str:
+    """Get the local device ID for tagging transform output."""
+    try:
+        from app.mesh.sync_log import _get_device_id
+
+        return _get_device_id()
+    except Exception:
+        return "local"
+
+
 def run_transforms(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
     """Run all enabled transforms for a source plugin.
 
     Uses the caller's connection for DELETE/INSERT (the pipe's sync connection)
     and a separate cursor for reading transform definitions from the system table.
+    Adds source_device column to track which device produced the data.
     """
     transforms = list_transforms(source_plugin)
     log.info("Running transforms for %s (%d total)", source_plugin, len(transforms))
+    device_id = _get_device_id()
     count = 0
     for t in transforms:
         if not t["enabled"]:
@@ -204,17 +215,29 @@ def run_transforms(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
         target = f'"{t["target_duckdb_schema"]}"."{t["target_duckdb_table"]}"'
         try:
             con.execute(f"DELETE FROM {target} WHERE source = ?", [t["source_plugin"]])
-            # Extract column names from the SELECT to build INSERT INTO ... (cols) SELECT
             from app.db import cursor
 
             with cursor() as cur:
                 cur.execute(f"SELECT * FROM ({t['sql']}) _t LIMIT 0")
-                col_names = ", ".join(f'"{d[0]}"' for d in cur.description)
-            con.execute(f"INSERT INTO {target} ({col_names}) {t['sql']}")
+                cols = [d[0] for d in cur.description]
+            col_names = ", ".join(f'"{c}"' for c in cols)
+            # Add source_device if the target table has it
+            _ensure_source_device_column(con, target)
+            col_names_with_device = col_names + ', "source_device"'
+            sql_with_device = f"SELECT *, '{device_id}' as source_device FROM ({t['sql']}) _t"
+            con.execute(f"INSERT INTO {target} ({col_names_with_device}) {sql_with_device}")
             count += 1
         except Exception:
             log.exception("Transform #%d failed (%s -> %s)", t["id"], t["source_plugin"], target)
     return count
+
+
+def _ensure_source_device_column(con: duckdb.DuckDBPyConnection, target: str) -> None:
+    """Add source_device column to a table if it doesn't exist."""
+    import contextlib
+
+    with contextlib.suppress(duckdb.Error):
+        con.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
 
 
 def run_transforms_by_target(con: duckdb.DuckDBPyConnection, target_table: str) -> int:
@@ -222,6 +245,7 @@ def run_transforms_by_target(con: duckdb.DuckDBPyConnection, target_table: str) 
     all_transforms = list_transforms()
     matching = [t for t in all_transforms if t["target_duckdb_table"] == target_table and t["enabled"]]
     log.info("Running transforms targeting %s (%d total)", target_table, len(matching))
+    device_id = _get_device_id()
     count = 0
     for t in matching:
         target = f'"{t["target_duckdb_schema"]}"."{t["target_duckdb_table"]}"'
@@ -231,8 +255,12 @@ def run_transforms_by_target(con: duckdb.DuckDBPyConnection, target_table: str) 
 
             with cursor() as cur:
                 cur.execute(f"SELECT * FROM ({t['sql']}) _t LIMIT 0")
-                col_names = ", ".join(f'"{d[0]}"' for d in cur.description)
-            con.execute(f"INSERT INTO {target} ({col_names}) {t['sql']}")
+                cols = [d[0] for d in cur.description]
+            col_names = ", ".join(f'"{c}"' for c in cols)
+            _ensure_source_device_column(con, target)
+            col_names_with_device = col_names + ', "source_device"'
+            sql_with_device = f"SELECT *, '{device_id}' as source_device FROM ({t['sql']}) _t"
+            con.execute(f"INSERT INTO {target} ({col_names_with_device}) {sql_with_device}")
             count += 1
         except Exception:
             log.exception("Transform #%d failed (%s -> %s)", t["id"], t["source_plugin"], target)
