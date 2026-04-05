@@ -947,7 +947,7 @@ class ShenasApp extends LitElement {
             ` : ""}
           </nav>
           <div class="sidebar-footer">
-            <a class="auth-link" href="/api/auth/login" id="auth-link">
+            <a class="auth-link" href="/api/auth/login" @click=${(e) => { e.preventDefault(); window.location.href = "/api/auth/login"; }}
               ${this._remoteUser ? this._remoteUser.name || this._remoteUser.email : "Sign in"}
             </a>
           </div>
