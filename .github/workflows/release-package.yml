@@ -8,7 +8,8 @@ on:
       - 'component-*/v*'
 
 permissions:
-  contents: write
+  contents: read
+  id-token: write
 
 jobs:
   build:
@@ -24,6 +25,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
 
       - uses: astral-sh/setup-uv@v5
         with:
@@ -45,9 +53,6 @@ jobs:
             pipe-*)      NAME="${PREFIX#pipe-}"; DIR="plugins/pipes/$NAME"; SIGN=true ;;
             schema-*)    NAME="${PREFIX#schema-}"; DIR="plugins/schemas/$NAME"; SIGN=true ;;
             component-*) NAME="${PREFIX#component-}"; DIR="plugins/components/$NAME"; SIGN=true ;;
-            cli)         NAME="cli"; DIR="cli" ;;
-            app)         NAME="app"; DIR="app" ;;
-            repo-server)  NAME="repo-server"; DIR="repo-server" ;;
             *)           echo "Unknown tag prefix: $PREFIX"; exit 1 ;;
           esac
 
@@ -94,13 +99,5 @@ jobs:
               print(f'Signed {whl.name}')
           "
 
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: "${{ steps.parse.outputs.prefix }} v${{ steps.parse.outputs.version }}"
-          files: |
-            dist/*.whl
-            dist/*.whl.sig
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload to GCS
+        run: gsutil -m cp dist/*.whl dist/*.whl.sig gs://shenas-packages/
