@@ -36,6 +36,39 @@ export async function apiFetchFull(apiBase, path, options = {}) {
 }
 
 /**
+ * GraphQL fetch wrapper. Posts a query to /graphql and returns the data object,
+ * or null on error. Keeps apiFetch for Arrow IPC and SSE endpoints.
+ */
+export async function gql(apiBase, query, variables = {}) {
+  const resp = await fetch(`${apiBase}/graphql`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!resp.ok) return null;
+  const json = await resp.json();
+  if (json.errors) {
+    console.warn("GraphQL errors:", json.errors);
+    return null;
+  }
+  return json.data;
+}
+
+/**
+ * Like gql() but returns { ok, data, errors } for mutation result checking.
+ */
+export async function gqlFull(apiBase, query, variables = {}) {
+  const resp = await fetch(`${apiBase}/graphql`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!resp.ok) return { ok: false, data: null, errors: [{ message: `HTTP ${resp.status}` }] };
+  const json = await resp.json();
+  return { ok: !json.errors, data: json.data, errors: json.errors || [] };
+}
+
+/**
  * Render a message banner. Pass a { type, text } object or null.
  */
 export function renderMessage(message) {

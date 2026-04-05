@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
 import cytoscape, { dagre } from "cytoscape";
-import { apiFetch } from "./api.js";
+import { gql } from "./api.js";
 import { utilityStyles } from "./shared-styles.js";
 
 let _dagreRegistered = false;
@@ -85,15 +85,15 @@ class PipelineOverview extends LitElement {
   async _fetchData() {
     this._loading = true;
     try {
-      const [pipes, schemas, transforms, ownership, components, deps] = await Promise.all([
-        apiFetch(this.apiBase, `/plugins/pipe`),
-        apiFetch(this.apiBase, `/plugins/schema`),
-        apiFetch(this.apiBase, `/transforms`),
-        apiFetch(this.apiBase, `/db/schema-plugins`),
-        apiFetch(this.apiBase, `/plugins/component`),
-        apiFetch(this.apiBase, `/dependencies`),
-      ]);
-      this._buildElements(pipes || [], schemas || [], transforms || [], ownership || {}, components || [], deps || {});
+      const data = await gql(this.apiBase, `{
+        pipes: plugins(kind: "pipe") { name displayName enabled }
+        schemas: plugins(kind: "schema") { name displayName enabled }
+        transforms { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin enabled }
+        schemaPlugins
+        components: plugins(kind: "component") { name displayName enabled }
+        dependencies
+      }`);
+      this._buildElements(data?.pipes || [], data?.schemas || [], data?.transforms || [], data?.schemaPlugins || {}, data?.components || [], data?.dependencies || {});
     } catch (e) {
       console.error("Failed to fetch overview data:", e);
     }

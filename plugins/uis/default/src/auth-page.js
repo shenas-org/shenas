@@ -1,5 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { apiFetch, apiFetchFull, renderMessage } from "./api.js";
+import { gql, gqlFull, renderMessage } from "./api.js";
 import { buttonStyles, formStyles, messageStyles } from "./shared-styles.js";
 
 class AuthPage extends LitElement {
@@ -78,11 +78,11 @@ class AuthPage extends LitElement {
     this._loading = true;
     this._needsMfa = false;
     this._oauthUrl = null;
-    const data = await apiFetch(this.apiBase, `/auth/${this.pipeName}/fields`);
-    if (data) {
-      this._fields = data.fields || [];
-      this._instructions = data.instructions || "";
-      this._stored = data.stored || [];
+    const data = await gql(this.apiBase, `query($pipe: String!) { authFields(pipe: $pipe) { fields { name prompt hide } instructions stored } }`, { pipe: this.pipeName });
+    if (data?.authFields) {
+      this._fields = data.authFields.fields || [];
+      this._instructions = data.authFields.instructions || "";
+      this._stored = data.authFields.stored || [];
     }
     this._loading = false;
   }
@@ -105,25 +105,23 @@ class AuthPage extends LitElement {
       }
     }
 
-    const { data } = await apiFetchFull(this.apiBase, `/auth/${this.pipeName}`, {
-      method: "POST",
-      json: { credentials },
-    });
+    const { data } = await gqlFull(this.apiBase, `mutation($pipe: String!, $creds: JSON!) { authenticate(pipe: $pipe, credentials: $creds) { ok message error needsMfa oauthUrl } }`, { pipe: this.pipeName, creds: credentials });
     this._submitting = false;
+    const auth = data?.authenticate;
 
-    if (data.ok) {
-      this._message = { type: "success", text: data.message };
+    if (auth?.ok) {
+      this._message = { type: "success", text: auth.message };
       this._needsMfa = false;
       this._oauthUrl = null;
       this._fetchFields();
-    } else if (data.needs_mfa) {
+    } else if (auth?.needsMfa) {
       this._needsMfa = true;
       this._message = { type: "success", text: "MFA code required" };
-    } else if (data.oauth_url) {
-      this._oauthUrl = data.oauth_url;
-      this._message = { type: "success", text: data.message };
+    } else if (auth?.oauthUrl) {
+      this._oauthUrl = auth.oauthUrl;
+      this._message = { type: "success", text: auth.message };
     } else {
-      this._message = { type: "error", text: data.error || "Authentication failed" };
+      this._message = { type: "error", text: auth?.error || "Authentication failed" };
       this._needsMfa = false;
       this._oauthUrl = null;
     }
