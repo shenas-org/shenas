@@ -1,4 +1,4 @@
-.PHONY: install repo-server setup-hooks coverage clean logos release-desktop release-repo-server release-fl-server release-shenas-net setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
+.PHONY: install repo-server setup-hooks coverage clean logos dev-website release-desktop release-repo-server release-fl-server release-shenas-net setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
 
 # Set up Android SDK, NDK, and Rust targets for mobile development
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
@@ -39,6 +39,9 @@ logos:
 	rsvg-convert -w 192 -h 192 $$SVG -o server/shenas.net/public/logo-192.png; \
 	cp $$MARK server/shenas.net/public/favicon.svg; \
 	echo "Regenerated all logos from $$SVG and $$MARK"
+
+dev-website:
+	cd server/shenas.net && npm install --silent && npm run dev
 
 clean:
 	moon run :clean
