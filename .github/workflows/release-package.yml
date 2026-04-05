@@ -70,6 +70,8 @@ jobs:
 
       - name: Build wheel
         run: cd "${{ steps.parse.outputs.dir }}" && uv build --out-dir "$GITHUB_WORKSPACE/dist"
+        env:
+          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ steps.parse.outputs.version }}
 
       - name: Setup signing key
         if: steps.parse.outputs.sign == 'true'
