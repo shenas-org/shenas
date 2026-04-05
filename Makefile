@@ -42,9 +42,12 @@ logos:
 dev-website:
 	cd server/shenas.net && npm install --silent && npm run dev
 
-# Build and run the desktop app (Tauri + sidecars)
+# Build sidecars + Tauri desktop app and run
 dev-desktop:
-	cd app/desktop/src-tauri && cargo build --release
+	uv run python build/pyinstaller_build.py --onefile
+	cp dist/pyinstaller/shenas-x86_64-unknown-linux-gnu app/desktop/src-tauri/binaries/
+	cp dist/pyinstaller/shenas-scheduler-x86_64-unknown-linux-gnu app/desktop/src-tauri/binaries/
+	cp dist/pyinstaller/shenasctl-x86_64-unknown-linux-gnu app/desktop/src-tauri/binaries/
 	cd app/desktop/src-tauri && cargo run --release
 
 # Create the shenas_net database for the web API
