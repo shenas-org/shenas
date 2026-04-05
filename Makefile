@@ -229,6 +229,14 @@ release-web-api:
 		echo "Aborted"; \
 	fi
 
+# Upload built packages to GCS for the repo server
+publish-packages:
+	@if [ ! -d packages ] || [ -z "$$(ls packages/*.whl 2>/dev/null)" ]; then \
+		echo "No packages found in packages/. Build with: moon run :build"; exit 1; \
+	fi
+	gsutil -m cp packages/*.whl packages/*.sig gs://shenas-packages/
+	@echo "Uploaded $$(ls packages/*.whl | wc -l) packages to gs://shenas-packages/"
+
 # Infrastructure (OpenTofu)
 infra-init:
 	cd server/deploy/tofu && tofu init
