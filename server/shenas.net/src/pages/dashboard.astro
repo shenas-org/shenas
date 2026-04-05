@@ -1,0 +1,88 @@
+---
+import Base from "../layouts/Base.astro";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/login");
+}
+
+const user = Astro.locals.user;
+---
+
+<Base title="Dashboard -- shenas" description="Your shenas dashboard.">
+  <div class="dashboard">
+    <div class="dashboard-header">
+      <div>
+        <h1>Welcome, {user.name}</h1>
+        <p class="email">{user.email}</p>
+      </div>
+      <button id="logout-btn" class="btn-logout">Sign out</button>
+    </div>
+    <div class="dashboard-content">
+      <p>Your dashboard is coming soon.</p>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .dashboard {
+    max-width: 800px;
+    margin: 6rem auto 2rem;
+    padding: 0 1.5rem;
+  }
+
+  .dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .email {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+  }
+
+  .btn-logout {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: none;
+    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  .btn-logout:hover {
+    border-color: var(--color-accent);
+    color: var(--color-text);
+  }
+
+  .dashboard-content {
+    color: var(--color-text-muted);
+  }
+</style>
+
+<script>
+  import { createAuthClient } from "better-auth/client";
+
+  const authClient = createAuthClient();
+
+  document.getElementById("logout-btn")?.addEventListener("click", async () => {
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          window.location.href = "/";
+        },
+      },
+    });
+  });
+</script>
