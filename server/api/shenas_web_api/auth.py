@@ -6,7 +6,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 from authlib.integrations.starlette_client import OAuth
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 from itsdangerous import URLSafeTimedSerializer
 
@@ -92,8 +92,8 @@ async def me(request: Request) -> dict:
     return {"user": user}
 
 
-@router.post("/logout")
-async def logout(request: Request) -> dict:
+@router.get("/logout")
+async def logout(request: Request) -> RedirectResponse:
     cookie = request.cookies.get(SESSION_COOKIE)
     if cookie:
         try:
@@ -102,7 +102,7 @@ async def logout(request: Request) -> dict:
                 conn.execute("DELETE FROM sessions WHERE token = %(t)s", {"t": token})
         except Exception:
             pass
-    response = Response(content='{"ok": true}', media_type="application/json")
+    response = RedirectResponse(url=FRONTEND_URL, status_code=302)
     response.delete_cookie(SESSION_COOKIE, path="/")
     return response
 
