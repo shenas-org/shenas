@@ -4,15 +4,18 @@ dynamic = ["version"]
 description = "Shared utilities for shenas pipes"
 requires-python = ">=3.11"
 dependencies = [
-    "duckdb>=1.2.0",
-    "google-api-python-client>=2.0.0",
-    "google-auth-oauthlib>=1.0.0",
     "opentelemetry-api>=1.25.0",
-    "keyring>=25.0.0",
-    "pendulum>=3.0.0",
-    "rich>=14.0.0",
     "shenas-plugin-core",
     "shenas-schema-core",
+]
+
+[project.optional-dependencies]
+google = [
+    "google-api-python-client>=2.0.0",
+    "google-auth-oauthlib>=1.0.0",
+]
+cli = [
+    "rich>=14.0.0",
     "typer>=0.24.0",
 ]
 
