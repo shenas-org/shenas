@@ -1,4 +1,4 @@
-.PHONY: install setup-hooks coverage clean logos dev-website dev-postgres dev-api k8s-secrets-web-api release-desktop release-fl-server release-shenas-net release-web-api setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
+.PHONY: install setup-hooks coverage clean logos dev-desktop dev-website dev-postgres dev-api k8s-secrets-web-api release-desktop release-fl-server release-shenas-net release-web-api setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
 
 # Set up Android SDK, NDK, and Rust targets for mobile development
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
@@ -41,6 +41,11 @@ logos:
 
 dev-website:
 	cd server/shenas.net && npm install --silent && npm run dev
+
+# Build and run the desktop app (Tauri + sidecars)
+dev-desktop:
+	cd app/desktop/src-tauri && cargo build --release
+	cd app/desktop/src-tauri && cargo run --release
 
 # Create the shenas_net database for the web API
 dev-postgres:
