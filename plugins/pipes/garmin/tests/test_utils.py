@@ -1,4 +1,5 @@
-import pendulum
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from shenas_pipes.core.utils import date_range, is_empty_response, resolve_start_date
@@ -10,17 +11,17 @@ class TestResolveStartDate:
 
     def test_days_ago(self) -> None:
         result = resolve_start_date("7 days ago")
-        expected = pendulum.now().subtract(days=7).to_date_string()
+        expected = (datetime.now(UTC).date() - timedelta(days=7)).isoformat()
         assert result == expected
 
     def test_single_day_ago(self) -> None:
         result = resolve_start_date("1 day ago")
-        expected = pendulum.now().subtract(days=1).to_date_string()
+        expected = (datetime.now(UTC).date() - timedelta(days=1)).isoformat()
         assert result == expected
 
     def test_with_whitespace(self) -> None:
         result = resolve_start_date("  30 days ago  ")
-        expected = pendulum.now().subtract(days=30).to_date_string()
+        expected = (datetime.now(UTC).date() - timedelta(days=30)).isoformat()
         assert result == expected
 
     def test_invalid_format(self) -> None:
@@ -42,9 +43,10 @@ class TestDateRange:
         assert dates == ["2026-03-10", "2026-03-11", "2026-03-12", "2026-03-13"]
 
     def test_no_end_uses_today(self) -> None:
-        dates = list(date_range(pendulum.now().to_date_string()))
+        today = datetime.now(UTC).date().isoformat()
+        dates = list(date_range(today))
         assert len(dates) == 1
-        assert dates[0] == pendulum.now().to_date_string()
+        assert dates[0] == today
 
 
 class TestIsEmptyResponse:
