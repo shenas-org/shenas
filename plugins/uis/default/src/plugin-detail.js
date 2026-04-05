@@ -390,8 +390,10 @@ class PluginDetail extends LitElement {
       <div class="tabs">
         <a class="tab" href="${basePath}" aria-selected=${this.activeTab === "details"}
           @click=${(e) => { e.preventDefault(); this._switchTab("details"); }}>Details</a>
-        <a class="tab" href="${basePath}/config" aria-selected=${this.activeTab === "config"}
-          @click=${(e) => { e.preventDefault(); this._switchTab("config"); }}>Config</a>
+        ${this._info?.has_config ? html`
+          <a class="tab" href="${basePath}/config" aria-selected=${this.activeTab === "config"}
+            @click=${(e) => { e.preventDefault(); this._switchTab("config"); }}>Config</a>
+        ` : ""}
         ${this.kind === "pipe" ? html`
           <a class="tab" href="${basePath}/auth" aria-selected=${this.activeTab === "auth"}
             @click=${(e) => { e.preventDefault(); this._switchTab("auth"); }}>Auth</a>
