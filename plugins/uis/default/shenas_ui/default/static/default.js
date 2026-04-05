@@ -997,7 +997,7 @@ var ee=Object.defineProperty;var te=(l,e,t)=>e in l?ee(l,e,{enumerable:!0,config
             `:""}
           </nav>
           <div class="sidebar-footer">
-            <a class="auth-link" href="/api/auth/login" id="auth-link">
+            <a class="auth-link" href="/api/auth/login" @click=${i=>{i.preventDefault(),window.location.href="/api/auth/login"}}
               ${this._remoteUser?this._remoteUser.name||this._remoteUser.email:"Sign in"}
             </a>
           </div>
