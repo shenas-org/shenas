@@ -15,6 +15,8 @@ class SettingsPage extends LitElement {
     _loading: { state: true },
     _actionMessage: { state: true },
     _installing: { state: true },
+    _availablePlugins: { state: true },
+    _selectedPlugin: { state: true },
     _menuOpen: { state: true },
   };
 
@@ -242,9 +244,18 @@ class SettingsPage extends LitElement {
     }
   }
 
+  async _startInstall(kind) {
+    this._installing = true;
+    this._selectedPlugin = "";
+    this._availablePlugins = null;
+    const data = await gql(this.apiBase, `query($kind: String!) { availablePlugins(kind: $kind) }`, { kind });
+    const available = data?.availablePlugins || [];
+    const installed = new Set((this._plugins[kind] || []).map((p) => p.name));
+    this._availablePlugins = available.filter((n) => !installed.has(n));
+  }
+
   async _install(kind) {
-    const input = this.shadowRoot.querySelector(`#install-${kind}`);
-    const name = input?.value?.trim();
+    const name = this._selectedPlugin;
     if (!name) return;
     this._actionMessage = null;
     const { data } = await gqlFull(this.apiBase, `mutation($kind: String!, $names: [String!]!) { installPlugins(kind: $kind, names: $names, skipVerify: true) { results { name ok message } } }`, { kind, names: [name] });
@@ -312,23 +323,28 @@ class SettingsPage extends LitElement {
         .rows=${plugins}
         .rowClass=${(p) => p.enabled === false ? "disabled-row" : ""}
         ?show-add=${!this._installing}
-        @add=${() => { this._installing = true; }}
+        @add=${() => this._startInstall(kind)}
         empty-text="No ${label.toLowerCase()} installed"
       ></shenas-data-list>
       ${this._installing
         ? html`<shenas-form-panel
-            title="Install new plugin"
+            title="Install ${label.slice(0, -1)}"
             submit-label="Install"
             @submit=${() => this._install(kind)}
             @cancel=${() => { this._installing = false; }}
           >
             <div class="field">
-              <input
-                id="install-${kind}"
-                type="text"
-                placeholder="Plugin name"
-                @keydown=${(e) => e.key === "Enter" && this._install(kind)}
-              />
+              ${this._availablePlugins === null
+                ? html`<span style="color:var(--shenas-text-muted)">Loading available plugins...</span>`
+                : this._availablePlugins.length === 0
+                  ? html`<span style="color:var(--shenas-text-muted)">No new ${label.toLowerCase()} available</span>`
+                  : html`<select
+                      @change=${(e) => { this._selectedPlugin = e.target.value; }}
+                      style="width:100%;padding:0.5rem;border:1px solid var(--shenas-border-input,#ddd);border-radius:6px;font-size:0.9rem"
+                    >
+                      <option value="">Select a ${label.slice(0, -1).toLowerCase()}...</option>
+                      ${this._availablePlugins.map((n) => html`<option value=${n}>${n}</option>`)}
+                    </select>`}
             </div>
           </shenas-form-panel>`
         : ""}
