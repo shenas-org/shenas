@@ -50,7 +50,8 @@ dev-postgres:
 
 # Start the web API dev server (auth + future vault endpoints)
 dev-api:
-	cd server/api && DATABASE_URL=postgres://postgres@localhost:5432/shenas_net \
+	cd server/api && uv pip install -e . --quiet && \
+		DATABASE_URL=postgres://postgres@localhost:5432/shenas_net \
 		uvicorn shenas_web_api.main:app --reload --port 8000
 
 # Create/update K8s secret for web-api (production)
