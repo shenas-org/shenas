@@ -1,5 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { buttonStyles, tableStyles, utilityStyles } from "./shared-styles.js";
+import { buttonStyles, linkStyles, tableStyles, utilityStyles } from "./shared-styles.js";
 
 /**
  * Generic data list table.
@@ -30,6 +30,7 @@ class DataList extends LitElement {
   static styles = [
     tableStyles,
     buttonStyles,
+    linkStyles,
     utilityStyles,
     css`
       :host {

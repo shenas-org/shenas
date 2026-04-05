@@ -29,3 +29,11 @@ body {
   background: var(--shenas-bg);
   color: var(--shenas-text);
 }
+
+a {
+  color: var(--shenas-primary);
+}
+
+a:hover {
+  color: var(--shenas-success);
+}
