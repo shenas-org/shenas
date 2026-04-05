@@ -896,8 +896,8 @@ class ShenasApp extends LitElement {
 
     const active = this._activeTab();
     const activePath = this._activePath();
-    // Auto-expand settings when navigating to a settings route
-    if (activePath.startsWith("/settings") && !this._settingsOpen) this._settingsOpen = true;
+    // Auto-expand settings on first navigation to a settings route
+    if (activePath.startsWith("/settings") && this._settingsOpen === undefined) this._settingsOpen = true;
 
     return html`
       <div class="layout">
