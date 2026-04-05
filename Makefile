@@ -1,4 +1,4 @@
-.PHONY: install repo-server setup-hooks coverage clean release-desktop release-repo-server release-fl-server release-shenas-net setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
+.PHONY: install repo-server setup-hooks coverage clean logos release-desktop release-repo-server release-fl-server release-shenas-net setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
 
 # Set up Android SDK, NDK, and Rust targets for mobile development
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
@@ -21,6 +21,22 @@ coverage:
 	uv run --no-sync pytest --cov=repo_server --cov=app \
 		--cov=shenas_pipes --cov=shenas_schemas \
 		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
+
+# Regenerate all PNG logos from the source SVG (requires rsvg-convert)
+logos:
+	@SVG=app/static/images/shenas.svg; \
+	rsvg-convert -w 192 -h 192 $$SVG -o app/static/images/shenas.png; \
+	rsvg-convert -w 192 -h 192 $$SVG -o app/static/images/shenas-192.png; \
+	for s in 32 128 256 512; do \
+		rsvg-convert -w $$s -h $$s $$SVG -o app/desktop/src-tauri/icons/$${s}x$${s}.png; \
+		rsvg-convert -w $$s -h $$s $$SVG -o app/mobile/src-tauri/icons/$${s}x$${s}.png; \
+	done; \
+	rsvg-convert -w 512 -h 512 $$SVG -o app/desktop/src-tauri/icons/icon.png; \
+	rsvg-convert -w 512 -h 512 $$SVG -o app/mobile/src-tauri/icons/icon.png; \
+	rsvg-convert -w 512 -h 512 $$SVG -o server/shenas.net/public/logo.png; \
+	rsvg-convert -w 192 -h 192 $$SVG -o server/shenas.net/public/logo-192.png; \
+	cp $$SVG server/shenas.net/public/favicon.svg; \
+	echo "Regenerated all logos from $$SVG"
 
 clean:
 	moon run :clean

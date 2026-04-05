@@ -903,7 +903,7 @@ class ShenasApp extends LitElement {
       <div class="layout">
         <div class="panel-left" style="width: ${this._leftWidth}px">
           <div class="header">
-            <img src="/static/images/shenas.png" alt="shenas" />
+            <img src="/static/images/shenas.svg" alt="shenas" />
             <h1>shenas</h1>
           </div>
           <nav class="nav">
@@ -946,7 +946,7 @@ class ShenasApp extends LitElement {
               </div>`
             : html`
               <div class="empty-state">
-                <img src="/static/images/shenas.png" alt="shenas" />
+                <img src="/static/images/shenas.svg" alt="shenas" />
                 <p>Open a page from the sidebar</p>
               </div>`}
         </div>

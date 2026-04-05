@@ -4,8 +4,8 @@
   "description": "Health and finance metrics aggregation platform",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0066cc",
+  "background_color": "#E1D7C6",
+  "theme_color": "#728F67",
   "icons": [
     {
       "src": "/static/images/shenas-192.png",
