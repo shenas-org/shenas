@@ -21,6 +21,9 @@ spec:
           ports:
             - containerPort: 8000
               name: http
+          env:
+            - name: GCS_PACKAGES_BUCKET
+              value: shenas-packages
           envFrom:
             - secretRef:
                 name: web-api-secrets
