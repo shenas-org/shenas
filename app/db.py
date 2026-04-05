@@ -23,7 +23,17 @@ from shenas_schemas.core.field import Field
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-DB_PATH = Path("data") / "shenas.duckdb"
+
+def _resolve_db_path() -> Path:
+    """Resolve database path. Uses ~/.shenas/data/ in PyInstaller bundles."""
+    import sys
+
+    if getattr(sys, "_MEIPASS", None):
+        return Path.home() / ".shenas" / "data" / "shenas.duckdb"
+    return Path("data") / "shenas.duckdb"
+
+
+DB_PATH = _resolve_db_path()
 
 
 # -- System table dataclasses (DDL generated from these) ----------------------
