@@ -3,8 +3,8 @@ import Base from "../layouts/Base.astro";
 ---
 
 <Base
-  title="shenas -- your data, your models, your insights"
-  description="A federated quantified-self platform where ML and AI coaches you without you ever giving up your data."
+  title="shenas -- we track everything so you can stop thinking about everything"
+  description="Local-first edge intelligence that turns your health, finance, and lifestyle data into fulfillment -- without it ever leaving your device."
 >
   <!-- Nav -->
   <nav>
@@ -26,16 +26,17 @@ import Base from "../layouts/Base.astro";
   <header class="hero">
     <div class="hero-glow"></div>
     <div class="container">
-      <div class="badge">Open source / self-hosted / federated</div>
+      <div class="badge">Open source / local-first / edge intelligence</div>
       <h1>
-        Your data. Your models.<br />
-        <span class="gradient-text">Your insights.</span>
+        We track everything<br />
+        so you can stop<br />
+        <span class="gradient-text">thinking about everything.</span>
       </h1>
       <p class="hero-sub">
-        A federated quantified-self platform where ML and AI coaches you
-        without you ever giving up your data. Health, finance, and lifestyle
-        metrics -- collected, normalized, trained on locally, and visualized
-        entirely on your machine.
+        Google and Meta use your data to predict what you'll buy.
+        We use your data to predict what will make you happy.
+        The brain lives on your device, not our server.
+        Your data stays home -- only the wisdom travels.
       </p>
       <div class="hero-actions">
         <a href="#start" class="btn btn-primary">Get started</a>
@@ -48,11 +49,12 @@ import Base from "../layouts/Base.astro";
   <section id="pipeline" class="section">
     <div class="container">
       <div class="section-header">
-        <h2>From raw API to actionable insight</h2>
+        <h2>From raw data to real fulfillment</h2>
         <p>
           Pipes sync data from your services, transforms normalize it into
-          canonical schemas, and federated ML finds patterns -- all without
-          a single byte leaving your device.
+          canonical schemas, and local-first AI finds patterns -- all without
+          a single byte leaving your device. Like a coach who gives you the
+          perfect plan without ever needing to see you undressed.
         </p>
       </div>
       <shenas-data-flow></shenas-data-flow>
@@ -63,42 +65,43 @@ import Base from "../layouts/Base.astro";
   <section id="features" class="section">
     <div class="container">
       <div class="section-header">
-        <h2>Built for privacy-first self-knowledge</h2>
+        <h2>Edge intelligence for the rest of your life</h2>
         <p>
-          Every design decision starts with the same question: how do we
-          keep your data yours?
+          Not productivity. Fulfillment. Every feature is designed to help
+          you understand yourself better -- not optimize yourself into a
+          spreadsheet.
         </p>
       </div>
       <div class="features-grid">
-        <shenas-feature-card icon="FL" heading="Federated learning">
-          Train ML models across devices without centralizing data. Only
-          gradients are shared -- your raw health and finance records never
-          leave your machine.
+        <shenas-feature-card icon="AI" heading="Local-first AI">
+          The brain lives on your device. Federated learning trains models
+          across devices without centralizing data -- only gradients travel,
+          your raw records never leave your machine.
         </shenas-feature-card>
-        <shenas-feature-card icon="DB" heading="Local-first storage">
+        <shenas-feature-card icon="DB" heading="Your data stays home">
           All data lives in a local DuckDB database. No cloud accounts, no
           third-party sync. Back it up, move it, delete it -- it is a single
-          file you control.
+          file you own completely.
         </shenas-feature-card>
         <shenas-feature-card icon="PK" heading="Signed plugin ecosystem">
           Pipes, schemas, and components are Ed25519-signed Python wheels
           served from a PEP 503 repository. Every install is verified before
           it touches your system.
         </shenas-feature-card>
-        <shenas-feature-card icon="dlt" heading="Incremental sync">
-          Built on dlt with incremental cursors. After the initial load, only
-          new data is fetched -- minimal API calls, minimal bandwidth, minimal
-          wait.
+        <shenas-feature-card icon="dlt" heading="Set it and forget it">
+          Built on dlt with incremental cursors. After the initial sync, data
+          flows automatically on schedule. We track everything so you don't
+          have to think about it.
         </shenas-feature-card>
-        <shenas-feature-card icon="TX" heading="Canonical schemas">
-          Raw data from every source is transformed into shared metric schemas.
-          Garmin HRV and Oura HRV land in the same table with the same columns.
-          Compare across sources without writing glue code.
+        <shenas-feature-card icon="TX" heading="One truth from many sources">
+          Raw data from every service is transformed into shared metric schemas.
+          Garmin HRV and Oura HRV land in the same table. Sleep from your watch
+          meets mood from your journal. The picture completes itself.
         </shenas-feature-card>
-        <shenas-feature-card icon="WC" heading="Pluggable web components">
+        <shenas-feature-card icon="WC" heading="Pluggable and personal">
           The frontend is built with Lit web components distributed as wheels.
-          Swap dashboards, add visualizations, build your own -- the UI is
-          as composable as the data layer.
+          Swap dashboards, add visualizations, build your own -- your view of
+          your life should look exactly like you want it to.
         </shenas-feature-card>
       </div>
     </div>
@@ -110,8 +113,9 @@ import Base from "../layouts/Base.astro";
       <div class="section-header">
         <h2>Connect what matters to you</h2>
         <p>
-          Installable pipes for the services you already use. Each one is a
-          standalone package you add when you need it.
+          Your health tracker, your bank, your journal, your calendar -- they
+          all know a piece of you. Shenas brings the pieces together on your
+          device so you can see the whole picture.
         </p>
       </div>
       <div class="sources-grid">
@@ -242,7 +246,7 @@ shenas`}
         <a href="https://github.com/afuncke/shenas">GitHub</a>
         <a href="https://github.com/afuncke/shenas/issues">Issues</a>
       </div>
-      <p class="footer-copy">Your data never leaves your device.</p>
+      <p class="footer-copy">Your data stays home. Only the wisdom travels.</p>
     </div>
   </footer>
 </Base>
