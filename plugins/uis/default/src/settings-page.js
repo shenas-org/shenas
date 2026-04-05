@@ -301,13 +301,11 @@ class SettingsPage extends LitElement {
       <h3>${label}</h3>
       <shenas-data-list
         .columns=${[
-          { label: "Name", render: (p) => html`<a href="/settings/${kind}/${p.name}">${p.display_name || p.name}</a>` },
-          { key: "version", label: "Version", class: "mono" },
+          { label: "Name", render: (p) => html`<a href="/settings/${kind}/${p.name}">${p.displayName || p.name}</a>` },
           ...(kind === "pipe" ? [
-            { label: "Sync Freq.", class: "mono", render: (p) => p.sync_frequency ? this._formatFreq(p.sync_frequency) : "" },
-            { label: "Last Synced", class: "mono", render: (p) => p.synced_at ? p.synced_at.slice(0, 16).replace("T", " ") : "never" },
+            { label: "Last Synced", class: "mono", render: (p) => p.syncedAt ? p.syncedAt.slice(0, 16).replace("T", " ") : "never" },
           ] : []),
-          { label: "Status", render: (p) => kind === "pipe" && p.has_auth === false
+          { label: "Status", render: (p) => kind === "pipe" && p.hasAuth === false
             ? html`<span style="color:var(--shenas-error,#c62828);font-size:0.8rem">Needs Auth</span>`
             : html`<status-toggle ?enabled=${p.enabled !== false} toggleable @toggle=${() => this._togglePlugin(kind, p.name, p.enabled !== false)}></status-toggle>` },
         ]}
