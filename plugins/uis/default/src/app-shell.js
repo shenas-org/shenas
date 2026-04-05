@@ -214,12 +214,9 @@ class ShenasApp extends LitElement {
         margin-bottom: 1.5rem;
       }
       .header img {
-        width: 64px;
-        height: 64px;
-      }
-      .header h1 {
-        margin: 0;
-        font-size: 1.2rem;
+        width: 120px;
+        height: 120px;
+        border-radius: 12px;
       }
       .nav {
         display: flex;
@@ -904,7 +901,6 @@ class ShenasApp extends LitElement {
         <div class="panel-left" style="width: ${this._leftWidth}px">
           <div class="header">
             <img src="/static/images/shenas.svg" alt="shenas" />
-            <h1>shenas</h1>
           </div>
           <nav class="nav">
             ${this._components.map((c) => this._navItem(c.name, c.display_name || c.name, active))}
