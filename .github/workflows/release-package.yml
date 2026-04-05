@@ -6,7 +6,6 @@ on:
       - 'pipe-*/v*'
       - 'schema-*/v*'
       - 'component-*/v*'
-      - 'server/repository/v*'
 
 permissions:
   contents: write
@@ -82,9 +81,16 @@ jobs:
       - name: Sign wheel
         if: steps.parse.outputs.sign == 'true'
         run: |
-          for whl in dist/*.whl; do
-            uv run --no-sync shenasrepoctl sign "$whl"
-          done
+          python -c "
+          import base64, sys
+          from pathlib import Path
+          from cryptography.hazmat.primitives.serialization import load_pem_private_key
+          key = load_pem_private_key(Path('.shenas/shenas.key').read_bytes(), password=None)
+          for whl in Path('dist').glob('*.whl'):
+              sig = base64.b64encode(key.sign(whl.read_bytes())).decode()
+              whl.with_suffix(whl.suffix + '.sig').write_text(sig)
+              print(f'Signed {whl.name}')
+          "
 
       - name: Create release
         uses: softprops/action-gh-release@v2

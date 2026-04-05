@@ -16,8 +16,7 @@ uv run pytest                       # run tests
 uv run cz commit                    # conventional commit
 uv add <package>                    # add a dependency
 uv sync                             # install dependencies
-make install                        # install shenas + shenasrepoctl to ~/.local/bin/
-make repository                     # start PEP 503 package server on :7290
+make install                        # install shenas + shenasctl to ~/.local/bin/
 make setup-hooks                    # install git pre-commit hook
 make release-desktop                # tag a desktop release (version from commits)
 moon run app:test                   # run tests for a single project
@@ -25,22 +24,20 @@ moon run :lint                      # run lint across all projects
 moon run :test                      # run tests across all projects
 moon run :coverage                  # run tests with coverage report
 moon run :pyinstaller               # build standalone binaries (onedir) to dist/
-moon run :build                     # build + sign all distributable wheels
-moon run pipe-garmin:build           # build + sign a single pipe
+moon run :build                     # build all distributable wheels
+moon run pipe-garmin:build           # build a single pipe
 moon run desktop:sidecars           # build PyInstaller sidecars for Tauri
 moon run desktop:tauri              # build desktop app (builds sidecars first)
-shenasrepoctl sign-all packages/   # sign all unsigned wheels
-shenasrepoctl vendor garmin        # vendor a pipe and its deps
 ```
 
 ## Stack
 
 - **dlt** — data ingestion/pipeline framework (`@dlt.source`, `@dlt.resource`, incremental cursors)
 - **DuckDB** — local destination at `./data/shenas.duckdb` (also available via MCP server `duckdb`)
-- **uv** — package manager (do not use pip directly); workspace with glob-based members (app, shenasctl, scheduler, server/repository, plugins/*)
+- **uv** — package manager (do not use pip directly); workspace with glob-based members (app, shenasctl, scheduler, server/api, plugins/*)
 - **moon** — monorepo task runner; config in `.moon/`, per-project `moon.yml`
 - **typer** — CLI framework; **rich** — terminal formatting
-- **FastAPI** — repository server + app server
+- **FastAPI** — app server + web API
 - **pyarrow** — Arrow IPC streaming for app queries
 - **cryptography** — Ed25519 package signing
 - **hatchling** — wheel builder for pipes, schemas, and components
@@ -56,7 +53,6 @@ The monorepo is a uv workspace with glob-based members, each a separate Python p
 - **`shenas-cli`** (`shenasctl/`) — lightweight CLI client (httpx + typer + cryptography), no server deps
 - **`shenas-app`** (`app/`) — FastAPI UI server, depends on shenas-cli
 - **`shenas-scheduler`** (`scheduler/`) — background sync daemon sidecar, depends on shenas-cli
-- **`shenas-repository`** (`server/repository/`) — PEP 503 package server + Ed25519 signing
 - **`shenas-plugin-core`** (`plugins/core/`) — shared plugin utilities
 - **`shenas-pipe-core`** (`plugins/pipes/core/`) — shared pipe utilities
 - **`shenas-schema-core`** (`plugins/schemas/core/`) — shared schema utilities
@@ -88,7 +84,7 @@ Each schema package (e.g. `plugins/schemas/fitness/`) contains only a `metrics.p
 
 ### Package distribution
 
-All artifacts (pipes, components, schemas) are Python wheels served from a PEP 503 server (`server/repository/`). Wheels are Ed25519-signed (`.whl.sig` files alongside wheels in `packages/`). `shenas pipe add <name>` verifies the signature before installing.
+All artifacts (pipes, components, schemas) are Python wheels distributed as GitHub releases. Wheels are Ed25519-signed in CI. `shenas pipe add <name>` verifies the signature before installing.
 
 ### Component packaging workaround
 
@@ -116,7 +112,6 @@ All artifacts (pipes, components, schemas) are Python wheels served from a PEP 5
 - `shenasctl/` — lightweight CLI client (shenas-cli); httpx + typer + cryptography
 - `scheduler/` — background sync daemon sidecar (shenas-scheduler); polls server for due pipes
 - `server/fl/` — federated learning coordinator (Flower server + REST API); runs in its own venv
-- `server/repository/` — PEP 503 Simple Repository API server + Ed25519 signing
 - `scripts/` — build helpers (version bumping, pre-commit hook)
 - `plugins/core/` — shared plugin utilities (shenas-plugin-core)
 - `plugins/pipes/core/` — shared pipe utilities (shenas-pipe-core)
