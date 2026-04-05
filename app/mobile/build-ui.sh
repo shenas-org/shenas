@@ -28,7 +28,7 @@ cp dist/*.js "$DIST/vendor/"
 
 # Build UI
 echo "  Building UI..."
-cd "$ROOT/plugins/ui/default"
+cd "$ROOT/plugins/uis/default"
 npm install --silent 2>/dev/null
 npm run build --silent 2>/dev/null
 cp shenas_ui/default/static/default.js "$DIST/ui/default/"

@@ -13,6 +13,7 @@ class FinanceSchema(Schema):
     display_name = "Finance Metrics"
     description = "Canonical finance metrics: transactions, spending, budgets"
     all_tables = ALL_TABLES
+    primary_table = "transactions"
 
 
 __all__ = [
