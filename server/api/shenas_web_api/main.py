@@ -12,6 +12,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from shenas_web_api.auth import router as auth_router
 from shenas_web_api.config import FRONTEND_URL, SESSION_SECRET
 from shenas_web_api.db import ensure_schema
+from shenas_web_api.devices import router as devices_router
+from shenas_web_api.relay import router as relay_router
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -34,7 +36,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 app.include_router(auth_router, prefix="/api")
+app.include_router(devices_router, prefix="/api")
+app.include_router(relay_router, prefix="/api")
 
 
 @app.get("/api/health")

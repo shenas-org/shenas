@@ -26,6 +26,33 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+
+CREATE TABLE IF NOT EXISTS devices (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    device_type TEXT NOT NULL,
+    public_key TEXT NOT NULL,
+    last_seen TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS device_endpoints (
+    device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    endpoint_type TEXT NOT NULL,
+    address TEXT NOT NULL,
+    priority INT DEFAULT 0,
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (device_id, endpoint_type, address)
+);
+
+CREATE TABLE IF NOT EXISTS sync_cursors (
+    device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    peer_device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    last_sync_at TIMESTAMPTZ,
+    last_event_id TEXT,
+    PRIMARY KEY (device_id, peer_device_id)
+);
 """
 
 
