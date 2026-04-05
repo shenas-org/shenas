@@ -126,6 +126,36 @@ class Query:
             return None
         return cls().get_info()
 
+    @strawberry.field
+    def available_plugins(self, kind: str) -> list[str]:
+        """List plugin names available on the repository server for a given kind."""
+        import re
+        from html.parser import HTMLParser
+        from urllib.request import urlopen
+
+        from app.api.plugins import DEFAULT_INDEX
+
+        prefix = f"shenas-{kind}-"
+        try:
+            with urlopen(f"{DEFAULT_INDEX}/simple/", timeout=5) as resp:
+                html = resp.read().decode()
+        except Exception:
+            return []
+
+        names: list[str] = []
+
+        class _Parser(HTMLParser):
+            def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+                if tag == "a":
+                    for attr_name, val in attrs:
+                        if attr_name == "href" and val:
+                            pkg = val.strip("/").split("/")[-1]
+                            if pkg.startswith(prefix) and pkg != f"{prefix}core":
+                                names.append(re.sub(r"[-_]+", "-", pkg.removeprefix(prefix)))
+
+        _Parser().feed(html)
+        return sorted(set(names))
+
     # -- Sync --
 
     @strawberry.field
