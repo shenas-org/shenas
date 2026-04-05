@@ -66,11 +66,24 @@ spec:
       storage: 256Mi
   storageClassName: standard-rwo
 ---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: fl-grpc-health
+  namespace: shenas
+spec:
+  healthCheck:
+    type: HTTP
+    port: 8081
+    requestPath: /api/fl/health
+---
 apiVersion: v1
 kind: Service
 metadata:
   name: fl-server-grpc
   namespace: shenas
+  annotations:
+    cloud.google.com/backend-config: '{"default": "fl-grpc-health"}'
 spec:
   selector:
     app: fl-server
