@@ -37,7 +37,11 @@ SESSION_MAX_AGE = 30 * 24 * 3600  # 30 days
 
 @router.get("/login")
 async def login(request: Request) -> RedirectResponse:
+    # If redirect_uri is provided, store it for after OAuth completes (device/app login)
     redirect_uri = f"{BASE_URL}/api/auth/callback"
+    app_redirect = request.query_params.get("redirect_uri", "")
+    if app_redirect:
+        request.session["app_redirect"] = app_redirect
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
@@ -51,6 +55,31 @@ async def callback(request: Request) -> RedirectResponse:
     picture = userinfo.get("picture", "")
     google_id = userinfo["sub"]
 
+    session_token = _create_session(email, name, picture, google_id)
+
+    # If an app requested this login, redirect to it with the token
+    app_redirect = request.session.pop("app_redirect", "")
+    if app_redirect:
+        sep = "&" if "?" in app_redirect else "?"
+        return RedirectResponse(url=f"{app_redirect}{sep}token={session_token}", status_code=302)
+
+    # Otherwise set a cookie for the website
+    signed = _signer.dumps(session_token)
+    response = RedirectResponse(url=FRONTEND_URL, status_code=302)
+    response.set_cookie(
+        SESSION_COOKIE,
+        signed,
+        max_age=SESSION_MAX_AGE,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+    )
+    return response
+
+
+def _create_session(email: str, name: str, picture: str, google_id: str) -> str:
+    """Create or update user and return a new session token."""
     with get_conn() as conn:
         conn.execute(
             """INSERT INTO users (email, name, picture, google_id)
@@ -69,19 +98,7 @@ async def callback(request: Request) -> RedirectResponse:
             "INSERT INTO sessions (user_id, token, expires_at) VALUES (%(uid)s, %(token)s, %(exp)s)",
             {"uid": user_id, "token": session_token, "exp": expires_at},
         )
-
-    signed = _signer.dumps(session_token)
-    response = RedirectResponse(url=FRONTEND_URL, status_code=302)
-    response.set_cookie(
-        SESSION_COOKIE,
-        signed,
-        max_age=SESSION_MAX_AGE,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        path="/",
-    )
-    return response
+    return session_token
 
 
 @router.get("/me")
@@ -108,14 +125,21 @@ async def logout(request: Request) -> RedirectResponse:
 
 
 async def get_current_user(request: Request) -> dict | None:
-    """Extract the current user from the session cookie."""
-    cookie = request.cookies.get(SESSION_COOKIE)
-    if not cookie:
-        return None
-    try:
-        token = _signer.loads(cookie, max_age=SESSION_MAX_AGE)
-    except Exception:
-        return None
+    """Extract the current user from session cookie or Bearer token."""
+    # Try Bearer token first (for app/CLI clients)
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+    else:
+        # Fall back to signed session cookie (for website)
+        cookie = request.cookies.get(SESSION_COOKIE)
+        if not cookie:
+            return None
+        try:
+            token = _signer.loads(cookie, max_age=SESSION_MAX_AGE)
+        except Exception:
+            return None
+
     with get_conn() as conn:
         row = conn.execute(
             """SELECT u.id, u.email, u.name, u.picture
