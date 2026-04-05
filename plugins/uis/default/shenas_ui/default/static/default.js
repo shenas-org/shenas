@@ -1702,7 +1702,7 @@ var ee=Object.defineProperty;var te=(l,e,t)=>e in l?ee(l,e,{enumerable:!0,config
         display-name="${((e=this._info)==null?void 0:e.display_name)||((t=this._info)==null?void 0:t.name)||this.name}">
         ${this._info?this._renderContent():""}
       </shenas-page>
-    `}_renderContent(){const e=this._info,t=e.enabled!==!1,s=`/settings/${this.kind}/${this.name}`;return n`
+    `}_renderContent(){var a;const e=this._info,t=e.enabled!==!1,s=`/settings/${this.kind}/${this.name}`;return n`
       <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
 
       <div class="title-row">
@@ -1719,17 +1719,19 @@ var ee=Object.defineProperty;var te=(l,e,t)=>e in l?ee(l,e,{enumerable:!0,config
 
       <div class="tabs">
         <a class="tab" href="${s}" aria-selected=${this.activeTab==="details"}
-          @click=${a=>{a.preventDefault(),this._switchTab("details")}}>Details</a>
-        <a class="tab" href="${s}/config" aria-selected=${this.activeTab==="config"}
-          @click=${a=>{a.preventDefault(),this._switchTab("config")}}>Config</a>
+          @click=${i=>{i.preventDefault(),this._switchTab("details")}}>Details</a>
+        ${(a=this._info)!=null&&a.has_config?n`
+          <a class="tab" href="${s}/config" aria-selected=${this.activeTab==="config"}
+            @click=${i=>{i.preventDefault(),this._switchTab("config")}}>Config</a>
+        `:""}
         ${this.kind==="pipe"?n`
           <a class="tab" href="${s}/auth" aria-selected=${this.activeTab==="auth"}
-            @click=${a=>{a.preventDefault(),this._switchTab("auth")}}>Auth</a>
+            @click=${i=>{i.preventDefault(),this._switchTab("auth")}}>Auth</a>
         `:""}
         <a class="tab" href="${s}/data" aria-selected=${this.activeTab==="data"}
-          @click=${a=>{a.preventDefault(),this._switchTab("data")}}>Data</a>
+          @click=${i=>{i.preventDefault(),this._switchTab("data")}}>Data</a>
         <a class="tab" href="${s}/logs" aria-selected=${this.activeTab==="logs"}
-          @click=${a=>{a.preventDefault(),this._switchTab("logs")}}>Logs</a>
+          @click=${i=>{i.preventDefault(),this._switchTab("logs")}}>Logs</a>
       </div>
 
       ${this.activeTab==="config"?n`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`:this.activeTab==="auth"?n`<shenas-auth api-base="${this.apiBase}" pipe-name="${this.name}"></shenas-auth>`:this.activeTab==="data"?this._renderData():this.activeTab==="logs"?n`<shenas-logs api-base="${this.apiBase}" pipe="${this.name}"></shenas-logs>`:this._renderDetails(e,t)}
