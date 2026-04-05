@@ -272,6 +272,10 @@ class SettingsPage extends LitElement {
     }
   }
 
+  _displayPluginName(name) {
+    return name.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  }
+
   _switchKind(kind) {
     this.activeKind = kind;
     this._menuOpen = false;
@@ -343,7 +347,7 @@ class SettingsPage extends LitElement {
                       style="width:100%;padding:0.5rem;border:1px solid var(--shenas-border-input,#ddd);border-radius:6px;font-size:0.9rem"
                     >
                       <option value="">Select a ${label.slice(0, -1).toLowerCase()}...</option>
-                      ${this._availablePlugins.map((n) => html`<option value=${n}>${n}</option>`)}
+                      ${this._availablePlugins.map((n) => html`<option value=${n}>${this._displayPluginName(n)}</option>`)}
                     </select>`}
             </div>
           </shenas-form-panel>`

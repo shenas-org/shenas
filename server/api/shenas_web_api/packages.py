@@ -10,7 +10,6 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-from datetime import timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -69,13 +68,11 @@ def _list_files() -> list[dict[str, str]]:
     return _list_gcs() if GCS_BUCKET else _list_local()
 
 
-def _gcs_signed_url(filename: str) -> str:
-    from google.cloud import storage
+def _gcs_public_url(filename: str) -> str:
+    """Public URL for a GCS object. Bucket must have public read access."""
+    from urllib.parse import quote
 
-    client = storage.Client()
-    bucket = client.bucket(GCS_BUCKET)
-    blob = bucket.blob(filename)
-    return blob.generate_signed_url(expiration=timedelta(minutes=15), method="GET")
+    return f"https://storage.googleapis.com/{GCS_BUCKET}/{quote(filename, safe='')}"
 
 
 @router.get("/simple/", response_class=HTMLResponse)
@@ -113,11 +110,7 @@ def simple_package(name: str) -> HTMLResponse:
 @router.get("/packages/{filename}")
 def download_package(filename: str) -> RedirectResponse:
     if GCS_BUCKET:
-        try:
-            url = _gcs_signed_url(filename)
-            return RedirectResponse(url=url, status_code=302)
-        except Exception as exc:
-            raise HTTPException(status_code=404, detail=str(exc))
+        return RedirectResponse(url=_gcs_public_url(filename), status_code=302)
     # Local fallback
     path = LOCAL_PACKAGES_DIR / filename
     if not path.exists() or not path.is_file():
