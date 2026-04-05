@@ -28,6 +28,11 @@ def test_con() -> duckdb.DuckDBPyConnection:
     con.execute("CREATE SCHEMA garmin")
     con.execute("CREATE TABLE garmin.activities (id INTEGER, start_time_local DATE)")
     con.execute("INSERT INTO garmin.activities VALUES (1, '2026-03-15')")
+    con.execute("CREATE SCHEMA shenas_system")
+    con.execute("CREATE TABLE shenas_system.hotkeys (action_id VARCHAR PRIMARY KEY, binding VARCHAR, updated_at TIMESTAMP)")
+    con.execute("INSERT INTO shenas_system.hotkeys VALUES ('command-palette', 'Ctrl+P', NULL)")
+    con.execute("CREATE TABLE shenas_system.workspace (id INTEGER PRIMARY KEY, state TEXT)")
+    con.execute("INSERT INTO shenas_system.workspace VALUES (1, '{}')")
     return con
 
 
@@ -44,6 +49,7 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
 
     with (
         patch("app.db.cursor", _fake_cursor),
+        patch("app.db.connect", return_value=test_con),
         patch("app.api.query.cursor", _fake_cursor),
         patch("app.api.db.cursor", _fake_cursor),
     ):
