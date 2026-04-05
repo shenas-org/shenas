@@ -216,8 +216,16 @@ publish-packages:
 	@if [ ! -d packages ] || [ -z "$$(ls packages/*.whl 2>/dev/null)" ]; then \
 		echo "No packages found in packages/. Build with: moon run :build"; exit 1; \
 	fi
-	gsutil -m cp packages/*.whl packages/*.sig gs://shenas-packages/
-	@echo "Uploaded $$(ls packages/*.whl | wc -l) packages to gs://shenas-packages/"
+	@python3 -c "\
+	from google.cloud import storage; \
+	import glob, os; \
+	client = storage.Client(); \
+	bucket = client.bucket('shenas-packages'); \
+	files = glob.glob('packages/*.whl') + glob.glob('packages/*.sig'); \
+	for f in files: \
+	    blob = bucket.blob(os.path.basename(f)); \
+	    blob.upload_from_filename(f); \
+	print(f'Uploaded {len(files)} files to gs://shenas-packages/')"
 
 # Infrastructure (OpenTofu)
 infra-init:

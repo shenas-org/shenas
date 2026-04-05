@@ -10,6 +10,7 @@ resource "google_project_iam_member" "deploy_roles" {
     "roles/artifactregistry.writer",
     "roles/container.developer",
     "roles/iam.serviceAccountUser",
+    "roles/iam.serviceAccountTokenCreator",
   ])
 
   project = var.project

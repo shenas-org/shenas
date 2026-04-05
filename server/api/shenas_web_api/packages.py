@@ -21,7 +21,7 @@ router = APIRouter()
 GCS_BUCKET = os.environ.get("GCS_PACKAGES_BUCKET", "")
 LOCAL_PACKAGES_DIR = Path(os.environ.get("LOCAL_PACKAGES_DIR", "packages"))
 
-DIST_EXTENSIONS = {".whl", ".tar.gz", ".zip"}
+DIST_EXTENSIONS = {".whl", ".tar.gz", ".zip", ".sig"}
 
 
 def _normalize(name: str) -> str:
@@ -70,8 +70,24 @@ def _list_files() -> list[dict[str, str]]:
 
 
 def _gcs_signed_url(filename: str) -> str:
+    import google.auth
     from google.cloud import storage
 
+    credentials, project = google.auth.default()
+    # Workload Identity doesn't have a private key; use IAM signBlob API
+    if hasattr(credentials, "service_account_email"):
+        from google.auth.transport import requests
+
+        credentials.refresh(requests.Request())
+        client = storage.Client(credentials=credentials, project=project)
+        bucket = client.bucket(GCS_BUCKET)
+        blob = bucket.blob(filename)
+        return blob.generate_signed_url(
+            expiration=timedelta(minutes=15),
+            method="GET",
+            credentials=credentials,
+        )
+    # Local dev with application default credentials
     client = storage.Client()
     bucket = client.bucket(GCS_BUCKET)
     blob = bucket.blob(filename)
@@ -112,13 +128,14 @@ def simple_package(name: str) -> HTMLResponse:
 
 @router.get("/packages/{filename}")
 def download_package(filename: str) -> RedirectResponse:
+    """Download any file from the bucket (wheels, sigs, tarballs)."""
     if GCS_BUCKET:
         try:
             url = _gcs_signed_url(filename)
             return RedirectResponse(url=url, status_code=302)
         except Exception as exc:
             raise HTTPException(status_code=404, detail=str(exc))
-    # Local fallback
+    # Local fallback -- serve any file in the packages dir
     path = LOCAL_PACKAGES_DIR / filename
     if not path.exists() or not path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
