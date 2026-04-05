@@ -1,5 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { apiFetch, apiFetchFull, registerCommands, renderMessage } from "./api.js";
+import { gql, gqlFull, registerCommands, renderMessage } from "./api.js";
 import { buttonStyles, linkStyles, messageStyles, tabStyles } from "./shared-styles.js";
 
 class PluginDetail extends LitElement {
@@ -165,17 +165,16 @@ class PluginDetail extends LitElement {
     if (!this.kind || !this.name) return;
     this._loading = true;
     this._message = null;
-    this._info = await apiFetch(this.apiBase, `/plugins/${this.kind}/${this.name}/info`);
+    const infoData = await gql(this.apiBase, `query($kind: String!, $name: String!) { pluginInfo(kind: $kind, name: $name) }`, { kind: this.kind, name: this.name });
+    this._info = infoData?.pluginInfo;
     const needsDb = this.kind === "pipe" || this.kind === "schema";
-    const [db, ownership, allTransforms] = await Promise.all([
-      needsDb ? apiFetch(this.apiBase, `/db/status`) : null,
-      this.kind === "schema"
-        ? apiFetch(this.apiBase, `/db/schema-plugins`)
-        : null,
-      this.kind === "schema"
-        ? apiFetch(this.apiBase, `/transforms`)
-        : null,
-    ]);
+    const needsSchema = this.kind === "schema";
+    const extra = needsDb || needsSchema
+      ? await gql(this.apiBase, `{ ${needsDb ? "dbStatus { schemas { name tables { name rows cols earliest latest } } }" : ""} ${needsSchema ? "schemaPlugins" : ""} ${needsSchema ? "transforms { id sourceDuckdbTable targetDuckdbTable sourcePlugin enabled }" : ""} }`)
+      : null;
+    const db = extra?.dbStatus;
+    const ownership = extra?.schemaPlugins;
+    const allTransforms = extra?.transforms?.map(t => ({ ...t, source_duckdb_table: t.sourceDuckdbTable, target_duckdb_table: t.targetDuckdbTable, source_plugin: t.sourcePlugin }));
     const ownedTables = ownership ? (ownership[this.name] || []) : [];
     if (db) {
       if (this.kind === "pipe") {
@@ -214,10 +213,14 @@ class PluginDetail extends LitElement {
 
   async _toggle() {
     const action = this._info?.enabled !== false ? "disable" : "enable";
-    const { data } = await apiFetchFull(this.apiBase, `/plugins/${this.kind}/${this.name}/${action}`, { method: "POST" });
+    const mutation = action === "enable"
+      ? `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok message } }`
+      : `mutation($k: String!, $n: String!) { disablePlugin(kind: $k, name: $n) { ok message } }`;
+    const { data } = await gqlFull(this.apiBase, mutation, { k: this.kind, n: this.name });
+    const result = action === "enable" ? data?.enablePlugin : data?.disablePlugin;
     this._message = {
-      type: data?.ok ? "success" : "error",
-      text: data?.message || `${action} failed`,
+      type: result?.ok ? "success" : "error",
+      text: result?.message || `${action} failed`,
     };
     await this._fetchInfo();
     this.dispatchEvent(new CustomEvent("plugin-state-changed", { bubbles: true, composed: true }));
@@ -263,12 +266,13 @@ class PluginDetail extends LitElement {
     this._transforming = true;
     this._message = null;
     try {
-      const { data } = await apiFetchFull(this.apiBase, `/transforms/run/schema/${this.name}`, { method: "POST" });
-      if (data?.count != null) {
-        this._message = { type: "success", text: `Ran ${data.count} transform(s)` };
+      const { data } = await gqlFull(this.apiBase, `mutation($s: String!) { runSchemaTransforms(schema: $s) }`, { s: this.name });
+      const tResult = data?.runSchemaTransforms;
+      if (tResult?.count != null) {
+        this._message = { type: "success", text: `Ran ${tResult.count} transform(s)` };
         await this._fetchInfo();
       } else {
-        this._message = { type: "error", text: data?.detail || "Transform failed" };
+        this._message = { type: "error", text: "Transform failed" };
       }
     } catch (e) {
       this._message = { type: "error", text: `Transform failed: ${e.message}` };
@@ -279,12 +283,13 @@ class PluginDetail extends LitElement {
   async _flush() {
     this._message = null;
     try {
-      const { data } = await apiFetchFull(this.apiBase, `/db/schema/${this.name}/flush`, { method: "DELETE" });
-      if (data?.rows_deleted != null) {
-        this._message = { type: "success", text: `Flushed ${data.rows_deleted} rows` };
+      const { data } = await gqlFull(this.apiBase, `mutation($s: String!) { flushSchema(schemaPlugin: $s) }`, { s: this.name });
+      const fResult = data?.flushSchema;
+      if (fResult?.rows_deleted != null) {
+        this._message = { type: "success", text: `Flushed ${fResult.rows_deleted} rows` };
         await this._fetchInfo();
       } else {
-        this._message = { type: "error", text: data?.detail || "Flush failed" };
+        this._message = { type: "error", text: "Flush failed" };
       }
     } catch (e) {
       this._message = { type: "error", text: `Flush failed: ${e.message}` };
@@ -292,12 +297,12 @@ class PluginDetail extends LitElement {
   }
 
   async _remove() {
-    const { data } = await apiFetchFull(this.apiBase, `/plugins/${this.kind}/${this.name}`, { method: "DELETE" });
-    if (data?.ok) {
+    const { data } = await gqlFull(this.apiBase, `mutation($k: String!, $n: String!) { removePlugin(kind: $k, name: $n) { ok message } }`, { k: this.kind, n: this.name });
+    if (data?.removePlugin?.ok) {
       window.history.pushState({}, "", `/settings/${this.kind}`);
       window.dispatchEvent(new PopStateEvent("popstate"));
     } else {
-      this._message = { type: "error", text: data.message || "Remove failed" };
+      this._message = { type: "error", text: data?.removePlugin?.message || "Remove failed" };
     }
   }
 
@@ -313,18 +318,18 @@ class PluginDetail extends LitElement {
     if (!tableName) { this._previewRows = null; return; }
     this._previewLoading = true;
     const dbSchema = this.kind === "schema" ? "metrics" : this.name;
-    this._previewRows = await apiFetch(this.apiBase, `/db/preview/${dbSchema}/${tableName}?limit=100`);
+    const data = await gql(this.apiBase, `query($s: String!, $t: String!) { tablePreview(schema: $s, table: $t, limit: 100) }`, { s: dbSchema, t: tableName });
+    this._previewRows = data?.tablePreview;
     this._previewLoading = false;
   }
 
   _renderData() {
     const tables = this._tables || [];
     if (tables.length === 0) return html`<p style="color:var(--shenas-text-muted,#888)">No tables synced yet.</p>`;
-    if (!this._selectedTable && this._info?.primary_table) {
-      const primary = this._info.primary_table;
-      if (tables.some((t) => t.name === primary)) {
-        this._fetchPreview(primary);
-      }
+    if (!this._selectedTable) {
+      const primary = this._info?.primary_table;
+      const target = primary && tables.some((t) => t.name === primary) ? primary : tables[0]?.name;
+      if (target) this._fetchPreview(target);
     }
     return html`
       <div class="data-toolbar">

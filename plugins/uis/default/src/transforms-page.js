@@ -1,5 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { apiFetch, apiFetchFull, registerCommands, renderMessage } from "./api.js";
+import { gql, gqlFull, registerCommands, renderMessage } from "./api.js";
 import { buttonStyles, formStyles, messageStyles, tableStyles } from "./shared-styles.js";
 
 const _inspectBtnStyle = "background:none;border:none;cursor:pointer;color:var(--shenas-text-faint, #aaa);font-size:0.7rem;padding:0 2px";
@@ -126,7 +126,13 @@ class TransformsPage extends LitElement {
   async _fetchAll() {
     this._loading = true;
     const params = this.source ? `?source=${this.source}` : "";
-    this._transforms = (await apiFetch(this.apiBase, `/transforms${params}`)) || [];
+    const data = await gql(this.apiBase, `query($source: String) { transforms(source: $source) { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin description sql isDefault enabled } }`, { source: this.source || null });
+    this._transforms = (data?.transforms || []).map(t => ({
+      id: t.id, source_duckdb_schema: t.sourceDuckdbSchema, source_duckdb_table: t.sourceDuckdbTable,
+      target_duckdb_schema: t.targetDuckdbSchema, target_duckdb_table: t.targetDuckdbTable,
+      source_plugin: t.sourcePlugin, description: t.description, sql: t.sql,
+      is_default: t.isDefault, enabled: t.enabled,
+    }));
     this._loading = false;
     this._registerCommands();
   }
@@ -165,21 +171,20 @@ class TransformsPage extends LitElement {
   }
 
   async _toggle(t) {
-    const action = t.enabled ? "disable" : "enable";
-    await apiFetch(this.apiBase, `/transforms/${t.id}/${action}`, { method: "POST" });
+    const mutation = t.enabled
+      ? `mutation($id: Int!) { disableTransform(transformId: $id) { id enabled } }`
+      : `mutation($id: Int!) { enableTransform(transformId: $id) { id enabled } }`;
+    await gqlFull(this.apiBase, mutation, { id: t.id });
     await this._fetchAll();
   }
 
   async _delete(t) {
-    const { ok, data } = await apiFetchFull(this.apiBase, `/transforms/${t.id}`, { method: "DELETE" });
-    if (ok && data?.ok) {
-      this._message = { type: "success", text: data.message };
+    const { ok, data } = await gqlFull(this.apiBase, `mutation($id: Int!) { deleteTransform(transformId: $id) { ok message } }`, { id: t.id });
+    if (ok && data?.deleteTransform?.ok) {
+      this._message = { type: "success", text: `Deleted transform #${t.id}` };
       await this._fetchAll();
     } else {
-      this._message = {
-        type: "error",
-        text: data?.detail || data?.message || "Delete failed",
-      };
+      this._message = { type: "error", text: "Delete failed" };
     }
   }
 
@@ -196,16 +201,13 @@ class TransformsPage extends LitElement {
   }
 
   async _saveEdit() {
-    const { ok, data } = await apiFetchFull(this.apiBase, `/transforms/${this._editing}`, {
-      method: "PUT",
-      json: { sql: this._editSql },
-    });
+    const { ok } = await gqlFull(this.apiBase, `mutation($id: Int!, $sql: String!) { updateTransform(transformId: $id, sql: $sql) { id } }`, { id: this._editing, sql: this._editSql });
     if (ok) {
       this._message = { type: "success", text: "Transform updated" };
       this._editing = null;
       await this._fetchAll();
     } else {
-      this._message = { type: "error", text: data?.detail || "Update failed" };
+      this._message = { type: "error", text: "Update failed" };
     }
   }
 
@@ -214,12 +216,9 @@ class TransformsPage extends LitElement {
     this._newForm = this._emptyForm();
     this._editing = null;
     this._previewRows = null;
-    const [tables, schemaTables] = await Promise.all([
-      apiFetch(this.apiBase, `/db/tables`),
-      apiFetch(this.apiBase, `/db/schema-tables`),
-    ]);
-    this._dbTables = tables || {};
-    this._schemaTables = schemaTables || {};
+    const data = await gql(this.apiBase, `{ dbTables schemaTables }`);
+    this._dbTables = data?.dbTables || {};
+    this._schemaTables = data?.schemaTables || {};
   }
 
   _cancelCreate() {
@@ -237,14 +236,13 @@ class TransformsPage extends LitElement {
       this._message = { type: "error", text: "Fill in all required fields" };
       return;
     }
-    const { ok, data } = await apiFetchFull(this.apiBase, `/transforms`, {
-      method: "POST",
-      json: {
-        source_duckdb_schema: this.source,
-        source_duckdb_table: f.source_duckdb_table,
-        target_duckdb_schema: "metrics",
-        target_duckdb_table: f.target_duckdb_table,
-        source_plugin: this.source,
+    const { ok, data } = await gqlFull(this.apiBase, `mutation($input: TransformCreateInput!) { createTransform(transformInput: $input) { id } }`, {
+      input: {
+        sourceDuckdbSchema: this.source,
+        sourceDuckdbTable: f.source_duckdb_table,
+        targetDuckdbSchema: "metrics",
+        targetDuckdbTable: f.target_duckdb_table,
+        sourcePlugin: this.source,
         description: f.description,
         sql: f.sql,
       },
@@ -260,9 +258,9 @@ class TransformsPage extends LitElement {
   }
 
   async _preview() {
-    const { ok, data } = await apiFetchFull(this.apiBase, `/transforms/${this._editing}/test?limit=5`, { method: "POST" });
+    const { ok, data } = await gqlFull(this.apiBase, `mutation($id: Int!) { testTransform(transformId: $id, limit: 5) }`, { id: this._editing });
     if (ok) {
-      this._previewRows = data;
+      this._previewRows = data?.testTransform;
     } else {
       this._message = {
         type: "error",

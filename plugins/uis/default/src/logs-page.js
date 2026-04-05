@@ -1,4 +1,5 @@
 import { LitElement, html, css } from "lit";
+import { gql } from "./api.js";
 import { buttonStyles, utilityStyles } from "./shared-styles.js";
 
 class LogsPage extends LitElement {
@@ -252,14 +253,10 @@ class LogsPage extends LitElement {
 
   async _fetchBoth() {
     this._loading = true;
-    const pipeQs = this.pipe ? `?pipe=${encodeURIComponent(this.pipe)}` : "";
     try {
-      const [logsResp, spansResp] = await Promise.all([
-        fetch(`${this.apiBase}/logs${pipeQs}`),
-        fetch(`${this.apiBase}/spans${pipeQs}`),
-      ]);
-      if (logsResp.ok) this._logs = await logsResp.json();
-      if (spansResp.ok) this._spans = await spansResp.json();
+      const data = await gql(this.apiBase, `query($pipe: String) { logs(pipe: $pipe) spans(pipe: $pipe) }`, { pipe: this.pipe || null });
+      if (data?.logs) this._logs = data.logs;
+      if (data?.spans) this._spans = data.spans;
     } catch { /* */ }
     this._loading = false;
   }
@@ -267,18 +264,13 @@ class LogsPage extends LitElement {
   async _fetch() {
     this._loading = true;
     this._expanded = null;
-    const params = new URLSearchParams();
-    if (this._search) params.set("search", this._search);
-    if (this._activeTab === "logs" && this._severity) params.set("severity", this._severity);
-    if (this.pipe) params.set("pipe", this.pipe);
-    const qs = params.toString() ? `?${params}` : "";
     try {
-      const endpoint = this._activeTab === "logs" ? "logs" : "spans";
-      const resp = await fetch(`${this.apiBase}/${endpoint}${qs}`);
-      if (resp.ok) {
-        const data = await resp.json();
-        if (this._activeTab === "logs") this._logs = data;
-        else this._spans = data;
+      if (this._activeTab === "logs") {
+        const data = await gql(this.apiBase, `query($search: String, $severity: String, $pipe: String) { logs(search: $search, severity: $severity, pipe: $pipe) }`, { search: this._search || null, severity: this._severity || null, pipe: this.pipe || null });
+        if (data?.logs) this._logs = data.logs;
+      } else {
+        const data = await gql(this.apiBase, `query($search: String, $pipe: String) { spans(search: $search, pipe: $pipe) }`, { search: this._search || null, pipe: this.pipe || null });
+        if (data?.spans) this._spans = data.spans;
       }
     } catch { /* */ }
     this._loading = false;
