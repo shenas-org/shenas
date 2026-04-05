@@ -1,5 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { gql } from "./api.js";
+import { arrowQuery } from "./api.js";
 import { buttonStyles, utilityStyles } from "./shared-styles.js";
 
 class LogsPage extends LitElement {
@@ -251,12 +251,33 @@ class LogsPage extends LitElement {
     this._live = false;
   }
 
+  _logsSql(extra = "") {
+    const conds = [];
+    if (this._severity) conds.push(`severity = '${this._severity}'`);
+    if (this._search) conds.push(`body LIKE '%${this._search}%'`);
+    if (this.pipe) conds.push(`(body LIKE '%${this.pipe}%' OR attributes LIKE '%${this.pipe}%')`);
+    if (extra) conds.push(extra);
+    const where = conds.length ? ` WHERE ${conds.join(" AND ")}` : "";
+    return `SELECT timestamp, trace_id, span_id, severity, body, attributes, service_name FROM telemetry.logs${where} ORDER BY timestamp DESC LIMIT 100`;
+  }
+
+  _spansSql() {
+    const conds = [];
+    if (this._search) conds.push(`name LIKE '%${this._search}%'`);
+    if (this.pipe) conds.push(`(name LIKE '%${this.pipe}%' OR attributes LIKE '%${this.pipe}%')`);
+    const where = conds.length ? ` WHERE ${conds.join(" AND ")}` : "";
+    return `SELECT trace_id, span_id, parent_span_id, name, kind, service_name, status_code, start_time, end_time, duration_ms, attributes FROM telemetry.spans${where} ORDER BY start_time DESC LIMIT 100`;
+  }
+
   async _fetchBoth() {
     this._loading = true;
     try {
-      const data = await gql(this.apiBase, `query($pipe: String) { logs(pipe: $pipe) spans(pipe: $pipe) }`, { pipe: this.pipe || null });
-      if (data?.logs) this._logs = data.logs;
-      if (data?.spans) this._spans = data.spans;
+      const [logs, spans] = await Promise.all([
+        arrowQuery(this.apiBase, this._logsSql()),
+        arrowQuery(this.apiBase, this._spansSql()),
+      ]);
+      if (logs) this._logs = logs;
+      if (spans) this._spans = spans;
     } catch { /* */ }
     this._loading = false;
   }
@@ -266,11 +287,9 @@ class LogsPage extends LitElement {
     this._expanded = null;
     try {
       if (this._activeTab === "logs") {
-        const data = await gql(this.apiBase, `query($search: String, $severity: String, $pipe: String) { logs(search: $search, severity: $severity, pipe: $pipe) }`, { search: this._search || null, severity: this._severity || null, pipe: this.pipe || null });
-        if (data?.logs) this._logs = data.logs;
+        this._logs = await arrowQuery(this.apiBase, this._logsSql()) || [];
       } else {
-        const data = await gql(this.apiBase, `query($search: String, $pipe: String) { spans(search: $search, pipe: $pipe) }`, { search: this._search || null, pipe: this.pipe || null });
-        if (data?.spans) this._spans = data.spans;
+        this._spans = await arrowQuery(this.apiBase, this._spansSql()) || [];
       }
     } catch { /* */ }
     this._loading = false;
