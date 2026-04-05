@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
@@ -193,6 +193,67 @@ async def stream_spans() -> StreamingResponse:
             unsubscribe(q)
 
     return StreamingResponse(_generate(), media_type="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+# Remote auth (shenas.net login from the local app)
+# ---------------------------------------------------------------------------
+
+SHENAS_NET_URL = _os.environ.get("SHENAS_NET_URL", "https://shenas.net")
+
+
+@app.get("/api/auth/login")
+def remote_login() -> RedirectResponse:
+    """Redirect to shenas.net OAuth, which will redirect back with a token."""
+    callback = "https://localhost:7280/api/auth/callback"
+    return RedirectResponse(url=f"{SHENAS_NET_URL}/api/auth/login?redirect_uri={callback}")
+
+
+@app.get("/api/auth/callback")
+def remote_callback(token: str | None = None) -> HTMLResponse:
+    """Receive the token from shenas.net after OAuth and store it."""
+    if token:
+        from app.db import connect
+
+        con = connect()
+        con.execute("CREATE TABLE IF NOT EXISTS db.shenas_system.remote_auth (key TEXT PRIMARY KEY, value TEXT)")
+        con.execute(
+            "INSERT INTO db.shenas_system.remote_auth (key, value) VALUES ('token', ?) "
+            "ON CONFLICT (key) DO UPDATE SET value = ?",
+            [token, token],
+        )
+    return HTMLResponse(
+        content="""
+        <html><body style="font-family:system-ui;text-align:center;padding:4rem">
+        <h2>Signed in</h2>
+        <p>You can close this tab and return to shenas.</p>
+        <script>setTimeout(() => window.close(), 2000)</script>
+        </body></html>
+    """
+    )
+
+
+@app.get("/api/auth/me")
+def remote_me() -> dict:
+    """Check if locally stored remote token is valid."""
+    import httpx
+
+    try:
+        from app.db import connect
+
+        con = connect()
+        row = con.execute("SELECT value FROM db.shenas_system.remote_auth WHERE key = 'token'").fetchone()
+        if not row:
+            return {"user": None}
+        resp = httpx.get(
+            f"{SHENAS_NET_URL}/api/auth/me",
+            headers={"Authorization": f"Bearer {row[0]}"},
+            verify=False,
+            timeout=5,
+        )
+        return resp.json()
+    except Exception:
+        return {"user": None}
 
 
 # ---------------------------------------------------------------------------
