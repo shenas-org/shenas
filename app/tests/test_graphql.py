@@ -52,7 +52,7 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
 
 def _gql(client: TestClient, query: str, variables: dict | None = None) -> dict:
     """Execute a GraphQL query and return the parsed response."""
-    resp = client.post("/graphql", json={"query": query, "variables": variables or {}})
+    resp = client.post("/api/graphql", json={"query": query, "variables": variables or {}})
     assert resp.status_code == 200
     return resp.json()
 

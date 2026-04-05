@@ -43,7 +43,7 @@ class ShenasClient:
     def _graphql(self, query: str, variables: dict[str, Any] | None = None) -> Any:
         """Execute a GraphQL query/mutation and return the data dict."""
         try:
-            resp = self._client.post("/graphql", json={"query": query, "variables": variables or {}})
+            resp = self._client.post("/api/graphql", json={"query": query, "variables": variables or {}})
         except (httpx.ConnectError, httpx.ConnectTimeout):
             raise _connect_error(self.base_url)
         body = resp.json()

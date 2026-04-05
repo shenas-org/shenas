@@ -38,11 +38,8 @@ _telemetry.init_telemetry("shenas-server")
 app.state.ui_name = _os.environ.get("SHENAS_UI", "default")
 app.state.default_theme = _os.environ.get("SHENAS_DEFAULT_THEME", "default")
 
-# Register API routes
+# Register API routes (includes GraphQL at /api/graphql)
 app.include_router(api_router)
-
-# GraphQL endpoint
-app.include_router(__import__("app.graphql", fromlist=["graphql_app"]).graphql_app, prefix="/graphql")
 
 
 # ---------------------------------------------------------------------------
