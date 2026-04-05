@@ -7,6 +7,7 @@ class HabitsSchema(Schema):
     display_name = "Daily Habits"
     description = "Daily habit tracking: boolean per-habit columns"
     all_tables = ALL_TABLES
+    primary_table = "daily_habits"
 
 
 __all__ = [

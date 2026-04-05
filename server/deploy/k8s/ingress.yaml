@@ -6,8 +6,8 @@ metadata:
   annotations:
     networking.gke.io/managed-certificates: "shenas-cert"
     kubernetes.io/ingress.global-static-ip-name: "shenas-ip"
+    kubernetes.io/ingress.class: "gce"
 spec:
-  ingressClassName: gce
   rules:
     - host: shenas.net
       http:

@@ -8,6 +8,7 @@ class EventsSchema(Schema):
     display_name = "Events"
     description = "Unified event timeline: calendar, music, workouts, and more"
     all_tables = ALL_TABLES
+    primary_table = "events"
 
 
 ensure_schema = EventsSchema.ensure
