@@ -27,22 +27,35 @@ PUBLIC_KEY_PATH = Path(".shenas") / "shenas.pub"
 VALID_KINDS = {"pipe", "schema", "component", "ui", "theme"}
 
 
-def _python_executable() -> str:
-    """Return the Python interpreter path for the active environment."""
-    import shutil
+PLUGIN_VENV = Path.home() / ".shenas" / "plugins"
+
+
+def _is_frozen() -> bool:
     import sys
 
-    # PyInstaller sets _MEIPASS; sys.executable points to the bundle, not Python
-    if getattr(sys, "_MEIPASS", None):
-        python = shutil.which("python3") or shutil.which("python")
-        if python:
-            return python
+    return getattr(sys, "_MEIPASS", None) is not None
+
+
+def _ensure_plugin_venv() -> Path:
+    """Create a persistent venv for plugins if it doesn't exist."""
+    python = PLUGIN_VENV / "bin" / "python3"
+    if not python.exists():
+        logging.getLogger("shenas.plugins").info("Creating plugin venv at %s", PLUGIN_VENV)
+        subprocess.run(["uv", "venv", str(PLUGIN_VENV), "--python", "3.11"], check=True)
+    return python
+
+
+def _python_executable() -> str:
+    """Return the Python interpreter path for plugin operations."""
+    import sys
+
+    # PyInstaller: use persistent plugin venv
+    if _is_frozen():
+        return str(_ensure_plugin_venv())
 
     # Prefer the venv Python over the base interpreter
     venv = sys.prefix
     if venv != sys.base_prefix:
-        from pathlib import Path
-
         venv_python = Path(venv) / "bin" / "python3"
         if venv_python.exists():
             return str(venv_python)
