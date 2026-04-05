@@ -9,6 +9,8 @@ class SettingsPage extends LitElement {
     activeKind: { type: String, attribute: "active-kind" },
     onNavigate: { type: Function },
     allActions: { type: Array },
+    allPlugins: { type: Object },
+    schemaPlugins: { type: Object },
     _plugins: { state: true },
     _loading: { state: true },
     _actionMessage: { state: true },
@@ -187,6 +189,11 @@ class SettingsPage extends LitElement {
   }
 
   async _fetchAll() {
+    if (this.allPlugins && Object.keys(this.allPlugins).length > 0) {
+      this._plugins = this.allPlugins;
+      this._loading = false;
+      return;
+    }
     this._loading = true;
     const result = {};
     await Promise.all(
@@ -337,7 +344,7 @@ class SettingsPage extends LitElement {
         </nav>
         <div class="content">
           ${this.activeKind === "data-flow"
-            ? html`<shenas-pipeline-overview api-base="${this.apiBase}"></shenas-pipeline-overview>`
+            ? html`<shenas-pipeline-overview api-base="${this.apiBase}" .allPlugins=${this.allPlugins} .schemaPlugins=${this.schemaPlugins}></shenas-pipeline-overview>`
             : this.activeKind === "hotkeys"
               ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
               : this._renderKind(this.activeKind)}

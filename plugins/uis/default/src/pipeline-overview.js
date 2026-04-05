@@ -8,6 +8,8 @@ let _dagreRegistered = false;
 class PipelineOverview extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
+    allPlugins: { type: Object },
+    schemaPlugins: { type: Object },
     _loading: { state: true },
     _empty: { state: true },
   };
@@ -85,15 +87,13 @@ class PipelineOverview extends LitElement {
   async _fetchData() {
     this._loading = true;
     try {
+      // Only fetch transforms + dependencies (plugins and schemaPlugins come from parent)
       const data = await gql(this.apiBase, `{
-        pipes: plugins(kind: "pipe") { name displayName enabled }
-        schemas: plugins(kind: "schema") { name displayName enabled }
         transforms { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin enabled }
-        schemaPlugins
-        components: plugins(kind: "component") { name displayName enabled }
         dependencies
       }`);
-      this._buildElements(data?.pipes || [], data?.schemas || [], data?.transforms || [], data?.schemaPlugins || {}, data?.components || [], data?.dependencies || {});
+      const ap = this.allPlugins || {};
+      this._buildElements(ap.pipe || [], ap.schema || [], data?.transforms || [], this.schemaPlugins || {}, ap.component || [], data?.dependencies || {});
     } catch (e) {
       console.error("Failed to fetch overview data:", e);
     }
