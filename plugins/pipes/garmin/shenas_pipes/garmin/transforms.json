@@ -37,6 +37,6 @@
     "target_duckdb_schema": "metrics",
     "target_duckdb_table": "events",
     "description": "Map Garmin activities to unified events timeline",
-    "sql": "SELECT 'garmin' as source, activity_id::VARCHAR as source_id, \"startTimeLocal\"::TIMESTAMP as start_at, NULL::TIMESTAMP as end_at, duration / 60.0 as duration_min, \"activityName\" as title, NULL as description, NULL as location, \"activityType\" as category, false as all_day, json_object('calories', calories, 'avg_hr', \"averageHR\", 'max_hr', \"maxHR\", 'distance_m', distance) as metadata FROM garmin.activities WHERE \"startTimeLocal\" IS NOT NULL"
+    "sql": "SELECT 'garmin' as source, activity_id::VARCHAR as source_id, start_time_local::TIMESTAMP as start_at, start_time_local::TIMESTAMP + (duration * INTERVAL '1 second') as end_at, duration / 60.0 as duration_min, activity_name as title, NULL as description, NULL as location, activity_type__type_key as category, false as all_day, json_object('calories', calories, 'avg_hr', average_hr, 'max_hr', max_hr, 'distance_m', distance) as metadata FROM garmin.activities WHERE start_time_local IS NOT NULL"
   }
 ]

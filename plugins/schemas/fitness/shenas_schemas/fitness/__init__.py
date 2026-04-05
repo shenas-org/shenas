@@ -7,6 +7,7 @@ class FitnessSchema(Schema):
     display_name = "Fitness Metrics"
     description = "Canonical fitness metrics: HRV, sleep, vitals, body composition"
     all_tables = ALL_TABLES
+    primary_table = "daily_hrv"
 
 
 __all__ = [

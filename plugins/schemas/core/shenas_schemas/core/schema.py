@@ -12,11 +12,17 @@ class Schema(Plugin):
 
     _kind = "schema"
     all_tables: ClassVar[list[type]]
+    primary_table: ClassVar[str] = ""
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         if hasattr(cls, "all_tables"):
             cls.tables = [t.__table__ for t in cls.all_tables]
+
+    def get_info(self) -> dict[str, Any]:
+        info = super().get_info()
+        info["primary_table"] = self.primary_table
+        return info
 
     @classmethod
     def ensure(cls, con: Any) -> None:

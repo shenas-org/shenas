@@ -31,6 +31,9 @@ WORK_DIR = ROOT / "build" / "_pyinstaller_work"
 
 _IMPORTS_SHARED = [
     "shenasctl.client",
+    "jaraco.text",
+    "jaraco.functools",
+    "jaraco.context",
 ]
 
 _IMPORTS_SERVER = [
@@ -116,9 +119,7 @@ _EXCLUDES_GLOBAL = [
     "pytest",
     "_pytest",
     "py",
-    "setuptools",
     "pip",
-    "wheel",
     "distutils",
     "tkinter",
     "unittest",
@@ -236,6 +237,9 @@ def _collect_explicit_datas(target_name: str) -> list[tuple[str, str]]:
     static_dir = ROOT / "app" / "static"
     if static_dir.is_dir():
         datas.append((str(static_dir), "app/static"))
+    vendor_dir = ROOT / "app" / "vendor" / "dist"
+    if vendor_dir.is_dir():
+        datas.append((str(vendor_dir), "app/vendor/dist"))
     return datas
 
 

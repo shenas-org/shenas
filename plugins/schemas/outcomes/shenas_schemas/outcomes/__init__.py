@@ -7,6 +7,7 @@ class OutcomesSchema(Schema):
     display_name = "Daily Outcomes"
     description = "Daily self-reported outcomes: mood, stress, productivity, health"
     all_tables = ALL_TABLES
+    primary_table = "daily_outcomes"
 
 
 __all__ = [

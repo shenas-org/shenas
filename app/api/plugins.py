@@ -27,6 +27,19 @@ PUBLIC_KEY_PATH = Path(".shenas") / "shenas.pub"
 VALID_KINDS = {"pipe", "schema", "component", "ui", "theme"}
 
 
+def _python_executable() -> str:
+    """Return the Python interpreter path, handling PyInstaller bundles."""
+    import shutil
+    import sys
+
+    # PyInstaller sets _MEIPASS; sys.executable points to the bundle, not Python
+    if getattr(sys, "_MEIPASS", None):
+        python = shutil.which("python3") or shutil.which("python")
+        if python:
+            return python
+    return sys.executable
+
+
 def _prefix(kind: str) -> str:
     return f"shenas-{kind}-"
 
@@ -88,11 +101,9 @@ def check_signature(pkg_name: str, version: str) -> str:
 
 
 def list_plugins_data(kind: str) -> list[PluginInfo]:
-    import sys
-
     prefix = _prefix(kind)
     result = subprocess.run(
-        ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
+        ["uv", "pip", "list", "--format", "json", "--python", _python_executable()], capture_output=True, text=True
     )
     if result.returncode != 0:
         raise HTTPException(status_code=500, detail="Failed to list plugins")
@@ -202,11 +213,9 @@ def install_plugin(
         if error:
             return InstallResult(name=name, ok=False, message=error)
 
-    import sys
-
     simple_url = f"{index_url}/simple/"
     result = subprocess.run(
-        ["uv", "pip", "install", pkg_name, "--index-url", simple_url, "--python", sys.executable],
+        ["uv", "pip", "install", pkg_name, "--index-url", simple_url, "--python", _python_executable()],
         capture_output=True,
         text=True,
     )
@@ -220,8 +229,6 @@ def install_plugin(
 
 
 def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
-    import sys
-
     from app.api.pipes import _load_plugin
 
     cls = _load_plugin(kind, name)
@@ -229,7 +236,9 @@ def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
         return RemoveResponse(ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
 
     pkg_name = f"{_prefix(kind)}{name}"
-    result = subprocess.run(["uv", "pip", "uninstall", pkg_name, "--python", sys.executable], capture_output=True, text=True)
+    result = subprocess.run(
+        ["uv", "pip", "uninstall", pkg_name, "--python", _python_executable()], capture_output=True, text=True
+    )
 
     if result.returncode == 0:
         from app.db import remove_plugin_state
