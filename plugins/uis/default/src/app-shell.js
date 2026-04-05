@@ -529,9 +529,7 @@ class ShenasApp extends LitElement {
     const commands = [];
     const names = {};
     try {
-      // Fetch schema plugin ownership for transform commands (only data not in _allPlugins)
-      const extra = await gql(this.apiBase, `{ schemaPlugins }`);
-      const schemaOwnership = extra?.schemaPlugins || {};
+      const schemaOwnership = this._schemaPlugins || {};
 
       for (const k of PLUGIN_KINDS) {
         const plugins = this._allPlugins[k.id] || [];
@@ -775,6 +773,7 @@ class ShenasApp extends LitElement {
         ui: data?.uis || [],
         theme: data?.themes || [],
       };
+      this._schemaPlugins = data?.schemaPlugins || {};
       // Restore workspace
       const ws = data?.workspace;
       if (ws?.tabs?.length > 0) {
