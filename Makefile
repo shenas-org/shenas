@@ -1,4 +1,4 @@
-.PHONY: install repo-server setup-hooks coverage clean logos dev-website dev-postgres dev-api k8s-secrets-web-api release-desktop release-repo-server release-fl-server release-shenas-net setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
+.PHONY: install repo-server setup-hooks coverage clean logos dev-website dev-postgres dev-api k8s-secrets-web-api release-desktop release-repo-server release-fl-server release-shenas-net release-web-api setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
 
 # Set up Android SDK, NDK, and Rust targets for mobile development
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
@@ -201,6 +201,22 @@ release-shenas-net:
 	echo "$$TAG ($$BUMP bump from $$PREV, $$COMMIT_COUNT commits)"; \
 	echo ""; \
 	git log "$$PREV"..HEAD --pretty=format:"  %s" -- server/shenas.net/ | head -20; \
+	echo ""; echo ""; \
+	read -p "Create tag $$TAG and push? [y/N] " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		git tag "$$TAG" && git push origin "$$TAG"; \
+		echo "Tagged and pushed $$TAG"; \
+	else \
+		echo "Aborted"; \
+	fi
+
+release-web-api:
+	@output=$$(bash scripts/bump-tag.sh web-api server/api/); \
+	if [ -z "$$output" ]; then echo "No web-api changes to release."; exit 0; fi; \
+	eval "$$output"; \
+	echo "$$TAG ($$BUMP bump from $$PREV, $$COMMIT_COUNT commits)"; \
+	echo ""; \
+	git log "$$PREV"..HEAD --pretty=format:"  %s" -- server/api/ | head -20; \
 	echo ""; echo ""; \
 	read -p "Create tag $$TAG and push? [y/N] " confirm; \
 	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
