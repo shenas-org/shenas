@@ -976,7 +976,7 @@ var ee=Object.defineProperty;var te=(l,e,t)=>e in l?ee(l,e,{enumerable:!0,config
       <div class="layout">
         <div class="panel-left" style="width: ${this._leftWidth}px">
           <div class="header">
-            <img src="/static/images/shenas.png" alt="shenas" />
+            <img src="/static/images/shenas.svg" alt="shenas" />
             <h1>shenas</h1>
           </div>
           <nav class="nav">
@@ -1017,7 +1017,7 @@ var ee=Object.defineProperty;var te=(l,e,t)=>e in l?ee(l,e,{enumerable:!0,config
                 </div>
               </div>`:n`
               <div class="empty-state">
-                <img src="/static/images/shenas.png" alt="shenas" />
+                <img src="/static/images/shenas.svg" alt="shenas" />
                 <p>Open a page from the sidebar</p>
               </div>`}
         </div>
