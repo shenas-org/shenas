@@ -23,7 +23,7 @@ export class FeatureCard extends LitElement {
     .card:hover {
       border-color: var(--color-accent, #728f67);
       transform: translateY(-2px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
     }
 
     .icon {
