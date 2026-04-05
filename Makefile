@@ -44,26 +44,15 @@ dev-website:
 	@if [ ! -f server/shenas.net/.env ]; then \
 		echo "BETTER_AUTH_SECRET=$$(openssl rand -base64 32)" > server/shenas.net/.env; \
 		echo "BETTER_AUTH_URL=http://localhost:4321" >> server/shenas.net/.env; \
-		echo "DATABASE_URL=postgres://shenas:shenas@localhost:5432/shenas_net" >> server/shenas.net/.env; \
+		echo "DATABASE_URL=postgres://$(USER)@localhost:5432/shenas_net" >> server/shenas.net/.env; \
 		echo "Created server/shenas.net/.env -- add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET"; \
 	fi
 	cd server/shenas.net && npm install --silent && npm run dev
 
-# Start a local PostgreSQL container for shenas.net development
+# Create the shenas_net database on the local PostgreSQL server
 dev-postgres:
-	@if docker ps -a --format '{{.Names}}' | grep -q '^shenas-postgres$$'; then \
-		docker start shenas-postgres; \
-	else \
-		docker run -d --name shenas-postgres \
-			-e POSTGRES_USER=shenas \
-			-e POSTGRES_PASSWORD=shenas \
-			-e POSTGRES_DB=shenas_net \
-			-p 5432:5432 \
-			-v shenas-pgdata:/var/lib/postgresql/data \
-			postgres:16-alpine; \
-	fi
-	@echo "PostgreSQL running on localhost:5432"
-	@echo "DATABASE_URL=postgres://shenas:shenas@localhost:5432/shenas_net"
+	@createdb shenas_net 2>/dev/null && echo "Created database shenas_net" || echo "Database shenas_net already exists"
+	@echo "DATABASE_URL=postgres://$(USER)@localhost:5432/shenas_net"
 
 clean:
 	moon run :clean
