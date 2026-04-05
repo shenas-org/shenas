@@ -41,6 +41,12 @@ logos:
 	echo "Regenerated all logos from $$SVG and $$MARK"
 
 dev-website:
+	@if [ ! -f server/shenas.net/.env ]; then \
+		echo "BETTER_AUTH_SECRET=$$(openssl rand -base64 32)" > server/shenas.net/.env; \
+		echo "BETTER_AUTH_URL=http://localhost:4321" >> server/shenas.net/.env; \
+		echo "DATABASE_URL=postgres://shenas:shenas@localhost:5432/shenas_net" >> server/shenas.net/.env; \
+		echo "Created server/shenas.net/.env -- add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET"; \
+	fi
 	cd server/shenas.net && npm install --silent && npm run dev
 
 # Start a local PostgreSQL container for shenas.net development
