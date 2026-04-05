@@ -805,7 +805,7 @@ class ShenasApp extends LitElement {
         hotkeys
         workspace
         dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } }
-        pipes: plugins(kind: "pipe") { name displayName enabled }
+        pipes: plugins(kind: "pipe") { name displayName enabled syncedAt hasAuth }
         schemas: plugins(kind: "schema") { name displayName enabled }
         componentPlugins: plugins(kind: "component") { name displayName enabled }
         uis: plugins(kind: "ui") { name displayName enabled }
