@@ -28,7 +28,7 @@ VALID_KINDS = {"pipe", "schema", "component", "ui", "theme"}
 
 
 def _python_executable() -> str:
-    """Return the Python interpreter path, handling PyInstaller bundles."""
+    """Return the Python interpreter path for the active environment."""
     import shutil
     import sys
 
@@ -37,6 +37,16 @@ def _python_executable() -> str:
         python = shutil.which("python3") or shutil.which("python")
         if python:
             return python
+
+    # Prefer the venv Python over the base interpreter
+    venv = sys.prefix
+    if venv != sys.base_prefix:
+        from pathlib import Path
+
+        venv_python = Path(venv) / "bin" / "python3"
+        if venv_python.exists():
+            return str(venv_python)
+
     return sys.executable
 
 
