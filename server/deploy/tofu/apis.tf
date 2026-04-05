@@ -8,6 +8,7 @@ resource "google_project_service" "apis" {
     "dns.googleapis.com",
     "sqladmin.googleapis.com",
     "servicenetworking.googleapis.com",
+    "storage.googleapis.com",
   ])
 
   service            = each.value
