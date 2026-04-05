@@ -2,17 +2,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install uv for fast dependency resolution
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy only what repo-server needs
 COPY server/repository/ ./repo-server/
 
-# Install dependencies (no .git in Docker context, so fake the version)
 ARG VERSION=0.0.0
-RUN cd repo-server && SETUPTOOLS_SCM_PRETEND_VERSION=$VERSION uv pip install --system --no-cache .
+RUN cd repo-server && SETUPTOOLS_SCM_PRETEND_VERSION=$VERSION uv pip install --system --no-cache . && \
+    pip install --no-cache google-cloud-storage
+
+COPY server/deploy/scripts/sync-packages.sh /app/sync-packages.sh
+RUN chmod +x /app/sync-packages.sh
 
 EXPOSE 7290
 
-# Serve packages from /app/packages
-CMD ["python", "-m", "repository.main", "/app/packages", "--host", "0.0.0.0", "--port", "7290"]
+CMD ["/bin/sh", "-c", "/app/sync-packages.sh && python -m repository.main /app/packages --host 0.0.0.0 --port 7290"]

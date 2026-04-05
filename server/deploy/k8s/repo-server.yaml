@@ -21,6 +21,9 @@ spec:
           ports:
             - containerPort: 7290
               name: http
+          env:
+            - name: GCS_PACKAGES_BUCKET
+              value: shenas-packages
           resources:
             requests:
               cpu: 50m
