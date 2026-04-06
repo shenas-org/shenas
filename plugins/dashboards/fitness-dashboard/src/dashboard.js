@@ -108,8 +108,6 @@ export class ShenasDashboard extends LitElement {
     if (this._error) return html`<div class="error">${this._error}</div>`;
 
     return html`
-      <h1>shenas</h1>
-      <div class="subtitle">canonical metrics</div>
       <div class="grid">
         <chart-panel
           title="HRV (RMSSD)"
