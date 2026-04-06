@@ -644,7 +644,7 @@ shenas`}
       .then((data) => {
         if (data.user) {
           link.textContent = data.user.name || data.user.email;
-          link.href = "/api/auth/logout";
+          link.href = "/devices";
           link.title = `Signed in as ${data.user.email}`;
         }
       })

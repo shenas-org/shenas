@@ -1,7 +1,7 @@
 import { LitElement, html, css } from "lit";
 import { Router } from "@lit-labs/router";
 import { arrowQuery, gql, gqlFull } from "./api.js";
-import { PLUGIN_KINDS, matchesHotkey } from "./constants.js";
+import { PLUGIN_KINDS, matchesHotkey, sortActions } from "./constants.js";
 import { linkStyles, utilityStyles } from "./shared-styles.js";
 
 class ShenasApp extends LitElement {
@@ -698,7 +698,7 @@ class ShenasApp extends LitElement {
     for (const cmds of this._registeredCommands.values()) {
       commands.push(...cmds);
     }
-    this._paletteCommands = commands;
+    this._paletteCommands = sortActions(commands, this._hotkeys);
   }
 
   _executePaletteCommand(e) {
@@ -1138,12 +1138,7 @@ class ShenasApp extends LitElement {
         }
       }
     }
-    actions.sort((a, b) => {
-      if (a.category === "System" && b.category !== "System") return -1;
-      if (a.category !== "System" && b.category === "System") return 1;
-      return 0;
-    });
-    return actions;
+    return sortActions(actions, this._hotkeys);
   }
 
   _getJobPanel() {

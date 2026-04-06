@@ -26,6 +26,22 @@ export function matchesHotkey(e, hotkeyStr) {
   return ctrl === hk.ctrl && e.shiftKey === hk.shift && e.altKey === hk.alt && e.key.toLowerCase() === hk.key;
 }
 
+/**
+ * Sort actions: bound (has hotkey) first, then by category, then by label.
+ * Pass hotkeys as a {actionId: binding} map, or null to skip bound-first.
+ */
+export function sortActions(actions, hotkeys = null) {
+  return [...actions].sort((a, b) => {
+    if (hotkeys) {
+      const aHas = hotkeys[a.id] ? 0 : 1;
+      const bHas = hotkeys[b.id] ? 0 : 1;
+      if (aHas !== bHas) return aHas - bHas;
+    }
+    if (a.category !== b.category) return a.category.localeCompare(b.category);
+    return a.label.localeCompare(b.label);
+  });
+}
+
 export const PLUGIN_KINDS = [
   { id: "pipe", label: "Pipes" },
   { id: "schema", label: "Schemas" },
