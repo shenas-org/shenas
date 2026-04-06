@@ -111,6 +111,10 @@ class Pipe(Plugin):
             return None
 
     @property
+    def has_data(self) -> bool:
+        return True  # Pipes sync data into DuckDB
+
+    @property
     def has_config(self) -> bool:
         return True  # All pipes have config (at minimum sync_frequency, lookback_period)
 
@@ -176,7 +180,7 @@ class Pipe(Plugin):
     def get_info(self) -> dict[str, Any]:
         return {
             **super().get_info(),
-            "has_auth": self.is_authenticated,
+            "is_authenticated": self.is_authenticated,
             "sync_frequency": self.sync_frequency,
             "primary_table": self.primary_table,
             "commands": self.commands,

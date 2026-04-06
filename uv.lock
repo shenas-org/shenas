@@ -42,6 +42,7 @@ members = [
     "shenas-theme-default",
     "shenas-ui-core",
     "shenas-ui-default",
+    "shenas-ui-focus",
     "shenas-workspace",
 ]
 overrides = [
@@ -3078,6 +3079,16 @@ dependencies = [
 requires-dist = [{ name = "shenas-ui-core", editable = "plugins/uis/core" }]
 
 [[package]]
+name = "shenas-ui-focus"
+source = { editable = "plugins/uis/focus" }
+dependencies = [
+    { name = "shenas-ui-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "shenas-ui-core", editable = "plugins/uis/core" }]
+
+[[package]]
 name = "shenas-workspace"
 version = "0.0.0"
 source = { virtual = "." }
@@ -3114,6 +3125,7 @@ dev = [
     { name = "shenas-theme-dark" },
     { name = "shenas-theme-default" },
     { name = "shenas-ui-default" },
+    { name = "shenas-ui-focus" },
     { name = "ty" },
 ]
 fl = [
@@ -3154,6 +3166,7 @@ dev = [
     { name = "shenas-theme-dark", editable = "plugins/themes/dark" },
     { name = "shenas-theme-default", editable = "plugins/themes/default" },
     { name = "shenas-ui-default", editable = "plugins/uis/default" },
+    { name = "shenas-ui-focus", editable = "plugins/uis/focus" },
     { name = "ty", specifier = ">=0.0.26" },
 ]
 fl = [

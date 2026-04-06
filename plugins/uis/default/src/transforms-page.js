@@ -265,8 +265,9 @@ class TransformsPage extends LitElement {
   }
 
   render() {
+    if (this._loading) return html``;
     return html`
-      <shenas-page ?loading=${this._loading} loading-text="Loading transforms...">
+      <div>
       ${renderMessage(this._message)}
       ${this._editing ? this._renderEditor() : ""}
       ${this._creating ? this._renderCreateForm() : ""}
@@ -292,7 +293,7 @@ class TransformsPage extends LitElement {
         `}
         empty-text="No transforms"
       ></shenas-data-list>
-      </shenas-page>
+      </div>
     `;
   }
 

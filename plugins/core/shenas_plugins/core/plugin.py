@@ -34,6 +34,14 @@ class Plugin(abc.ABC):
     def has_config(self) -> bool:
         return False
 
+    @property
+    def has_data(self) -> bool:
+        return False
+
+    @property
+    def has_auth(self) -> bool:
+        return False
+
     def get_config_entries(self) -> list[dict[str, str | None]]:
         return []
 
@@ -75,6 +83,9 @@ class Plugin(abc.ABC):
             "kind": self._kind,
             "version": self.version,
             "description": self.description,
+            "has_config": self.has_config,
+            "has_data": self.has_data,
+            "has_auth": self.has_auth,
             "enabled": state["enabled"] if state else True,
             "added_at": state["added_at"] if state else None,
             "updated_at": state["updated_at"] if state else None,

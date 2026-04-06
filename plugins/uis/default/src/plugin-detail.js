@@ -10,8 +10,10 @@ class PluginDetail extends LitElement {
     activeTab: { type: String, attribute: "active-tab" },
     dbStatus: { type: Object },
     schemaPlugins: { type: Object },
+    initialInfo: { type: Object },
     _info: { state: true },
     _loading: { state: true },
+    _showLoading: { state: true },
     _message: { state: true },
     _tables: { state: true },
     _syncing: { state: true },
@@ -148,6 +150,8 @@ class PluginDetail extends LitElement {
     this.activeTab = "details";
     this._info = null;
     this._loading = true;
+    this._showLoading = false;
+    this._loadingTimer = null;
     this._message = null;
     this._tables = [];
     this._syncing = false;
@@ -159,7 +163,20 @@ class PluginDetail extends LitElement {
 
   willUpdate(changed) {
     if (changed.has("kind") || changed.has("name")) {
+      if (this.initialInfo && !this._info) {
+        this._info = this.initialInfo;
+        this._loading = false;
+        this._showLoading = false;
+      }
       this._fetchInfo();
+    }
+    if (changed.has("_loading")) {
+      clearTimeout(this._loadingTimer);
+      if (this._loading) {
+        this._loadingTimer = setTimeout(() => { this._showLoading = true; }, 200);
+      } else {
+        this._showLoading = false;
+      }
     }
   }
 
@@ -351,6 +368,7 @@ class PluginDetail extends LitElement {
       }
 
       if (ok) {
+        this.dispatchEvent(new CustomEvent("plugins-changed", { bubbles: true, composed: true, detail: null }));
         window.history.pushState({}, "", `/settings/${this.kind}`);
         window.dispatchEvent(new PopStateEvent("popstate"));
       } else {
@@ -423,7 +441,7 @@ class PluginDetail extends LitElement {
 
   render() {
     return html`
-      <shenas-page ?loading=${this._loading} ?empty=${!this._info} empty-text="Plugin not found."
+      <shenas-page ?loading=${this._showLoading} ?empty=${!this._loading && !this._info} empty-text="Plugin not found."
         display-name="${this._info?.display_name || this._info?.name || this.name}">
         ${this._info ? this._renderContent() : ""}
       </shenas-page>
@@ -437,7 +455,7 @@ class PluginDetail extends LitElement {
     const basePath = `/settings/${this.kind}/${this.name}`;
 
     return html`
-      <a class="back" href="/settings/${this.kind}">&larr; Back to ${this.kind}s</a>
+      <a class="back" href="/settings/${this.kind}" @click=${(e) => { e.preventDefault(); window.history.pushState({}, "", `/settings/${this.kind}`); window.dispatchEvent(new PopStateEvent("popstate")); }}>&larr; Back to ${this.kind}s</a>
 
       <div class="title-row">
         <h2>${info.display_name || info.name} <span class="kind-badge">${info.kind}</span>${info.version ? html` <span class="version">${info.version}</span>` : ""}</h2>
@@ -464,12 +482,14 @@ class PluginDetail extends LitElement {
           <a class="tab" href="${basePath}/config" aria-selected=${this.activeTab === "config"}
             @click=${(e) => { e.preventDefault(); this._switchTab("config"); }}>Config</a>
         ` : ""}
-        ${this.kind === "pipe" ? html`
+        ${this._info?.has_auth ? html`
           <a class="tab" href="${basePath}/auth" aria-selected=${this.activeTab === "auth"}
             @click=${(e) => { e.preventDefault(); this._switchTab("auth"); }}>Auth</a>
         ` : ""}
-        <a class="tab" href="${basePath}/data" aria-selected=${this.activeTab === "data"}
-          @click=${(e) => { e.preventDefault(); this._switchTab("data"); }}>Data</a>
+        ${this._info?.has_data !== false ? html`
+          <a class="tab" href="${basePath}/data" aria-selected=${this.activeTab === "data"}
+            @click=${(e) => { e.preventDefault(); this._switchTab("data"); }}>Data</a>
+        ` : ""}
         <a class="tab" href="${basePath}/logs" aria-selected=${this.activeTab === "logs"}
           @click=${(e) => { e.preventDefault(); this._switchTab("logs"); }}>Logs</a>
       </div>

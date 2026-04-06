@@ -30,7 +30,8 @@ class PipelineOverview extends LitElement {
       }
       .legend {
         display: flex;
-        gap: 1.5rem;
+        flex-wrap: wrap;
+        gap: 0.8rem;
         margin-top: 0.8rem;
         font-size: 0.8rem;
         color: var(--shenas-text-secondary, #666);

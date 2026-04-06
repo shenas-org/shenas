@@ -24,6 +24,8 @@ class ShenasApp extends LitElement {
     _tabs: { state: true },
     _activeTabId: { state: true },
     _allPlugins: { state: true },
+    _rightOpen: { state: true },
+    _mobileDrawerOpen: { state: true },
   };
 
   _router = new Router(this, [
@@ -427,6 +429,33 @@ class ShenasApp extends LitElement {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .right-toggle {
+        width: 14px;
+        flex-shrink: 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        color: var(--shenas-text-faint, #aaa);
+        font-size: 0.7rem;
+        padding: 0;
+      }
+      .right-toggle:hover {
+        background: var(--shenas-bg-hover, #f5f5f5);
+        color: var(--shenas-text-secondary, #666);
+      }
+      .panel-right.collapsed {
+        display: none;
+      }
+      .drawer-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.3);
+        z-index: 200;
+      }
       /* Bottom nav for mobile */
       .bottom-nav {
         display: none;
@@ -465,8 +494,28 @@ class ShenasApp extends LitElement {
         }
         .panel-right {
           display: none;
+          position: fixed;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          width: 260px;
+          z-index: 201;
+          background: var(--shenas-bg, #fff);
+          box-shadow: -2px 0 8px rgba(0,0,0,0.15);
+          transform: translateX(100%);
+          transition: transform 0.2s ease;
+        }
+        .panel-right.mobile-open {
+          display: block;
+          transform: translateX(0);
+        }
+        .drawer-overlay.visible {
+          display: block;
         }
         .divider {
+          display: none;
+        }
+        .right-toggle {
           display: none;
         }
         .panel-middle {
@@ -508,6 +557,8 @@ class ShenasApp extends LitElement {
     this._tabs = [];
     this._activeTabId = null;
     this._allPlugins = {};
+    this._rightOpen = true;
+    this._mobileDrawerOpen = false;
   }
 
   connectedCallback() {
@@ -550,6 +601,27 @@ class ShenasApp extends LitElement {
     };
     document.addEventListener("keydown", this._keyHandler);
     this.addEventListener("hotkeys-changed", () => this._loadHotkeys());
+    this.addEventListener("plugins-changed", (e) => { if (e.detail) this._allPlugins = e.detail; else this._allPlugins = {}; });
+    // Touch swipe handlers for mobile drawer
+    let _touchStartX = 0;
+    let _touchStartY = 0;
+    this.addEventListener("touchstart", (e) => {
+      _touchStartX = e.touches[0].clientX;
+      _touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    this.addEventListener("touchend", (e) => {
+      const dx = e.changedTouches[0].clientX - _touchStartX;
+      const dy = e.changedTouches[0].clientY - _touchStartY;
+      if (Math.abs(dy) > Math.abs(dx)) return;
+      // Swipe left from right edge to open
+      if (dx < -50 && _touchStartX > window.innerWidth - 40) {
+        this._mobileDrawerOpen = true;
+      }
+      // Swipe right to close
+      if (dx > 50 && this._mobileDrawerOpen) {
+        this._mobileDrawerOpen = false;
+      }
+    }, { passive: true });
   }
 
   disconnectedCallback() {
@@ -778,6 +850,7 @@ class ShenasApp extends LitElement {
         tabs: this._tabs,
         activeTabId: this._activeTabId,
         nextTabId: this._nextTabId,
+        rightPanelOpen: this._rightOpen,
       };
       gqlFull(this.apiBase, `mutation($data: JSON!) { saveWorkspace(data: $data) { ok } }`, { data: state }).catch(() => {});
     }, 300);
@@ -899,6 +972,7 @@ class ShenasApp extends LitElement {
       }
       // Restore workspace
       const ws = data?.workspace;
+      if (ws?.rightPanelOpen !== undefined) this._rightOpen = ws.rightPanelOpen;
       if (ws?.tabs?.length > 0) {
         this._tabs = ws.tabs;
         this._activeTabId = ws.activeTabId || ws.tabs[0].id;
@@ -917,14 +991,12 @@ class ShenasApp extends LitElement {
     } catch (e) {
       console.error("Failed to fetch data:", e);
     }
-    await this._registerGlobalCommands();
-    // Check remote auth state
-    try {
-      const r = await fetch(`${this.apiBase}/auth/me`);
-      const d = await r.json();
-      this._remoteUser = d.user || null;
-    } catch { this._remoteUser = null; }
     this._loading = false;
+    this._registerGlobalCommands();
+    fetch(`${this.apiBase}/auth/me`)
+        .then((r) => r.json())
+        .then((d) => { this._remoteUser = d.user || null; })
+        .catch(() => { this._remoteUser = null; });
   }
 
   _activeTab() {
@@ -968,7 +1040,7 @@ class ShenasApp extends LitElement {
 
   render() {
     if (this._loading) {
-      return html`<shenas-page loading></shenas-page>`;
+      return html`<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--shenas-text-muted,#888);background:var(--shenas-bg,#f5f1eb)">Loading...</div>`;
     }
 
     const active = this._activeTab();
@@ -1033,8 +1105,10 @@ class ShenasApp extends LitElement {
               </div>`}
           <shenas-job-panel></shenas-job-panel>
         </div>
+        <button class="right-toggle" @click=${() => { this._rightOpen = !this._rightOpen; this._saveWorkspace(); }} title="${this._rightOpen ? "Collapse" : "Expand"} panel">${this._rightOpen ? "\u203a" : "\u2039"}</button>
         <div class="divider" @mousedown=${this._startDrag("right")}></div>
-        <div class="panel-right" style="width: ${this._rightWidth}px">
+        <div class="drawer-overlay ${this._mobileDrawerOpen ? "visible" : ""}" @click=${() => { this._mobileDrawerOpen = false; }}></div>
+        <div class="panel-right ${this._rightOpen ? "" : "collapsed"} ${this._mobileDrawerOpen ? "mobile-open" : ""}" style="width: ${this._rightWidth}px">
           ${this._inspectTable ? this._renderInspect() : this._renderDbStats()}
         </div>
         <div class="bottom-nav">
@@ -1117,6 +1191,7 @@ class ShenasApp extends LitElement {
   }
 
   _renderPluginDetail(kind, name, tab = "details") {
+    const cached = (this._allPlugins[kind] || []).find((p) => p.name === name);
     return html`<shenas-plugin-detail
       api-base="${this.apiBase}"
       kind="${kind}"
@@ -1124,6 +1199,7 @@ class ShenasApp extends LitElement {
       active-tab="${tab}"
       .dbStatus=${this._dbStatus}
       .schemaPlugins=${this._schemaPlugins}
+      .initialInfo=${cached || null}
     ></shenas-plugin-detail>`;
   }
 

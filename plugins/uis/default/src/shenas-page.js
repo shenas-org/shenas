@@ -31,7 +31,7 @@ class ShenasPage extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 100vh;
+        min-height: 100%;
       }
       .loading, .empty {
         color: var(--shenas-text-muted, #888);
