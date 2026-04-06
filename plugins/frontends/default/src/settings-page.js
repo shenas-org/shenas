@@ -199,7 +199,7 @@ class SettingsPage extends LitElement {
   async _fetchAll() {
     this._loading = true;
     const data = await gql(this.apiBase, `{
-      sources: plugins(kind: "source") { name displayName package version enabled description syncedAt hasAuth }
+      sources: plugins(kind: "source") { name displayName package version enabled description syncedAt hasAuth isAuthenticated }
       datasets: plugins(kind: "dataset") { name displayName package version enabled description }
       dashboardPlugins: plugins(kind: "dashboard") { name displayName package version enabled description }
       frontends: plugins(kind: "frontend") { name displayName package version enabled description }
@@ -404,7 +404,7 @@ class SettingsPage extends LitElement {
           ...(kind === "source" ? [
             { label: "Last Synced", class: "mono", render: (p) => p.syncedAt ? p.syncedAt.slice(0, 16).replace("T", " ") : "never" },
           ] : []),
-          { label: "Status", render: (p) => kind === "source" && p.hasAuth === false
+          { label: "Status", render: (p) => p.hasAuth && p.isAuthenticated === false
             ? html`<span style="color:var(--shenas-error,#c62828);font-size:0.8rem">Needs Auth</span>`
             : html`<status-toggle ?enabled=${p.enabled !== false} toggleable @toggle=${() => this._togglePlugin(kind, p.name, p.enabled !== false)}></status-toggle>` },
         ]}
