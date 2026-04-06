@@ -268,11 +268,19 @@ class PluginDetail extends LitElement {
   async _sync() {
     this._syncing = true;
     this._message = null;
+    const displayName = this._info?.display_name || this.name;
+    const jobId = `sync-${this.name}-${Date.now()}`;
+    this.dispatchEvent(new CustomEvent("job-start", {
+      bubbles: true, composed: true,
+      detail: { id: jobId, label: `Syncing ${displayName}` },
+    }));
     try {
       const resp = await fetch(`${this.apiBase}/sync/${this.name}`, { method: "POST" });
       if (!resp.ok) {
         const data = await resp.json().catch(() => ({}));
-        this._message = { type: "error", text: data.detail || `Sync failed (${resp.status})` };
+        const errMsg = data.detail || `Sync failed (${resp.status})`;
+        this._message = { type: "error", text: errMsg };
+        this.dispatchEvent(new CustomEvent("job-finish", { bubbles: true, composed: true, detail: { id: jobId, ok: false, message: errMsg } }));
         this._syncing = false;
         return;
       }
@@ -287,16 +295,25 @@ class PluginDetail extends LitElement {
         const text = decoder.decode(value, { stream: true });
         for (const line of text.split("\n")) {
           if (line.startsWith("event: ")) lastEvent = line.slice(7).trim();
-          if (line.startsWith("data: ")) lastData = line.slice(6);
+          if (line.startsWith("data: ")) {
+            lastData = line.slice(6);
+            try {
+              const d = JSON.parse(lastData);
+              const logText = d.message || d.source || lastData;
+              this.dispatchEvent(new CustomEvent("job-log", { bubbles: true, composed: true, detail: { id: jobId, text: logText } }));
+            } catch { /* skip */ }
+          }
         }
         if (lastEvent === "error") hadError = true;
       }
       let msg = "Sync complete";
       try { msg = JSON.parse(lastData).message || msg; } catch { /* use default */ }
       this._message = { type: hadError ? "error" : "success", text: msg };
+      this.dispatchEvent(new CustomEvent("job-finish", { bubbles: true, composed: true, detail: { id: jobId, ok: !hadError, message: msg } }));
       if (!hadError) await this._fetchInfo();
     } catch (e) {
       this._message = { type: "error", text: `Sync failed: ${e.message}` };
+      this.dispatchEvent(new CustomEvent("job-finish", { bubbles: true, composed: true, detail: { id: jobId, ok: false, message: e.message } }));
     }
     this._syncing = false;
   }
