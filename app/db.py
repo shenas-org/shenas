@@ -373,14 +373,6 @@ def remove_plugin_state(kind: str, name: str) -> None:
     con.execute("DELETE FROM shenas_system.plugins WHERE kind = ? AND name = ?", [kind, name])
 
 
-def is_plugin_enabled(kind: str, name: str) -> bool:
-    """Check if a plugin is enabled. Returns True if not tracked (default enabled)."""
-    state = get_plugin_state(kind, name)
-    if state is None:
-        return True
-    return state["enabled"]
-
-
 def get_workspace() -> dict[str, Any]:
     """Get the workspace state. Returns empty dict if not set."""
     import json

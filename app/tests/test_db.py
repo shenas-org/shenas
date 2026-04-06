@@ -64,25 +64,6 @@ class TestPluginState:
         remove_plugin_state("source", "nonexistent")
 
 
-class TestIsPluginEnabled:
-    def test_returns_true_when_not_tracked(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import is_plugin_enabled
-
-        assert is_plugin_enabled("source", "unknown") is True
-
-    def test_returns_true_when_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import is_plugin_enabled, upsert_plugin_state
-
-        upsert_plugin_state("source", "garmin", enabled=True)
-        assert is_plugin_enabled("source", "garmin") is True
-
-    def test_returns_false_when_disabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import is_plugin_enabled, upsert_plugin_state
-
-        upsert_plugin_state("source", "garmin", enabled=False)
-        assert is_plugin_enabled("source", "garmin") is False
-
-
 class TestGetAllPluginStates:
     def test_empty_when_no_plugins(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import get_all_plugin_states

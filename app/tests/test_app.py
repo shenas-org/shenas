@@ -248,15 +248,19 @@ class TestServeUiHtml:
         assert "plain" in resp.text
 
     def test_uses_db_enabled_ui(self, client: TestClient, tmp_path: Path) -> None:
-        """When DB has an enabled Frontend, that one is used instead of env default."""
+        """When a Frontend reports enabled, that one is used instead of env default."""
         html_file = tmp_path / "custom.html"
         html_file.write_text("<html><body>custom ui</body></html>")
         default_ui = self._make_fake_ui(tmp_path, "default")
         custom_ui = self._make_fake_ui(tmp_path, "custom")
-        states = [{"name": "custom", "enabled": True}]
+
+        def _fake_enabled(self):
+            return self.name == "custom"
+
         with (
             patch("app.api.sources._load_frontends", return_value=[default_ui, custom_ui]),
-            patch("app.db.get_all_plugin_states", return_value=states),
+            patch.object(custom_ui, "enabled_by_default", False),
+            patch("shenas_plugins.core.plugin.Plugin.enabled", new_callable=lambda: property(_fake_enabled)),
             patch("app.server._get_active_theme", return_value=None),
         ):
             resp = client.get("/")

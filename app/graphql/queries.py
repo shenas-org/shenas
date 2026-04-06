@@ -219,7 +219,6 @@ class Query:
     @strawberry.field
     def dashboards(self) -> JSON:
         from app.api.sources import _load_dashboards
-        from app.db import is_plugin_enabled
 
         return [
             {
@@ -230,7 +229,7 @@ class Query:
                 "description": c.description,
             }
             for c in _load_dashboards(include_internal=False)
-            if is_plugin_enabled("dashboard", c.name)
+            if c().enabled
         ]
 
     @strawberry.field
