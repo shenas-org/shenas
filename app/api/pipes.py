@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from importlib.metadata import entry_points
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from shenas_components.core import Component
-from shenas_pipes.core.pipe import Pipe
 from shenas_plugins.core import Plugin, StaticPlugin
+
+if TYPE_CHECKING:
+    from shenas_pipes.core.pipe import Pipe
 from shenas_schemas.core.schema import Schema
 from shenas_themes.core import Theme
 from shenas_ui.core import UI
@@ -84,10 +86,12 @@ def _load_pipe(name: str) -> Pipe:
     # Fallback: scan dist-info on disk (entry_points cache may be stale)
     fresh_cls = _load_plugin_fresh("pipe", name)
     if fresh_cls:
-        fresh_pipe = fresh_cls()
-        if isinstance(fresh_pipe, Pipe):
-            _pipe_cache[name] = fresh_pipe
-            return fresh_pipe
+        from shenas_pipes.core.pipe import Pipe as PipeCls
+
+        inst = fresh_cls()
+        if isinstance(inst, PipeCls):
+            _pipe_cache[name] = inst
+            return inst
     msg = f"Pipe not found: {name}"
     raise ValueError(msg)
 
