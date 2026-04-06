@@ -10,5 +10,6 @@ import "./hotkeys-page.js";
 import "./logs-page.js";
 import "./app-shell.js";
 import "./settings-page.js";
+import "./job-panel.js";
 import "./plugin-detail.js";
 import "./transforms-page.js";
