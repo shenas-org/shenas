@@ -17,6 +17,28 @@ T = TypeVar("T", bound=Plugin)
 _pipe_cache: dict[str, Pipe] = {}
 
 
+def _clear_caches() -> None:
+    """Clear plugin caches so newly installed/removed plugins are picked up."""
+    import importlib
+    import importlib.metadata
+    import sys
+
+    _pipe_cache.clear()
+
+    # Clear the FastPath lru_cache used by importlib.metadata to discover
+    # .dist-info directories -- without this, entry_points() returns stale data.
+    fast_path = getattr(importlib.metadata, "FastPath", None)
+    if fast_path and hasattr(fast_path.__new__, "cache_clear"):
+        fast_path.__new__.cache_clear()
+
+    # Remove cached directory listings for site-packages so PathFinder rescans.
+    stale = [p for p in sys.path_importer_cache if "site-packages" in p]
+    for p in stale:
+        del sys.path_importer_cache[p]
+
+    importlib.invalidate_caches()
+
+
 def _group(kind: str) -> str:
     """Entry point group for a plugin kind. Convention: shenas.{kind}s, except ui."""
     return "shenas.ui" if kind == "ui" else f"shenas.{kind}s"
@@ -61,6 +83,35 @@ def _load_pipe(name: str) -> Pipe:
             return pipe
     msg = f"Pipe not found: {name}"
     raise ValueError(msg)
+
+
+def _load_plugin_fresh(kind: str, name: str) -> type[Plugin] | None:
+    """Load a plugin by scanning dist-info on disk (bypasses all metadata caches)."""
+    import importlib
+    import sys
+    from importlib.metadata import PathDistribution
+    from pathlib import Path
+
+    group = _group(kind)
+    for path_str in sys.path:
+        if "site-packages" not in path_str:
+            continue
+        site = Path(path_str)
+        if not site.is_dir():
+            continue
+        for dist_info in site.glob("*.dist-info"):
+            dist = PathDistribution(dist_info)
+            for ep in dist.entry_points:
+                if ep.group == group and ep.name == name:
+                    try:
+                        mod_name, attr = ep.value.rsplit(":", 1)
+                        mod = importlib.import_module(mod_name)
+                        obj = getattr(mod, attr)
+                        if isinstance(obj, type) and issubclass(obj, Plugin):
+                            return obj
+                    except Exception:
+                        pass
+    return None
 
 
 def _load_themes(*, include_internal: bool = True) -> list[type[Theme]]:

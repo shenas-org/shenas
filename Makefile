@@ -1,4 +1,4 @@
-.PHONY: install setup-hooks coverage clean logos dev-desktop dev-website dev-postgres dev-api k8s-secrets-web-api release-desktop release-fl-server release-shenas-net release-web-api setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
+.PHONY: install dev setup-hooks coverage clean logos dev-desktop dev-website dev-postgres dev-api k8s-secrets-web-api release-desktop release-fl-server release-shenas-net release-web-api setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
 
 # Set up Android SDK, NDK, and Rust targets for mobile development
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
@@ -9,6 +9,12 @@ install:
 	uv tool install --editable app/ --force
 	@echo "Installed shenas and shenasctl to ~/.local/bin/"
 	@echo "Run 'shenasctl --install-completion' for tab completion"
+
+dev:
+	@trap 'kill 0' EXIT; \
+	uv run shenas --reload & \
+	cd plugins/uis/default && npx vite & \
+	wait
 
 # Install git pre-commit hook
 setup-hooks:
