@@ -9,7 +9,6 @@ from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawb
 
 from app.graphql.types import (
     AuthFieldsType,
-    ConfigItemType,
     DBStatusType,
     PluginInfoType,
     ScheduleInfoType,
@@ -66,19 +65,15 @@ class Query:
     # -- Config --
 
     @strawberry.field
-    def config(self, kind: str | None = None, name: str | None = None) -> list[ConfigItemType]:
-        from app.api.config import list_configs
-
-        items = list_configs(kind=kind, name=name)
-        return [ConfigItemType.from_pydantic(c) for c in items]
-
-    @strawberry.field
     def config_value(self, kind: str, name: str, key: str) -> str | None:
-        from app.api.config import get_config_value
+        from app.api.sources import _load_plugin
 
         try:
-            result = get_config_value(kind, name, key)
-            return result.value
+            cls = _load_plugin(kind, name)
+            if not cls:
+                return None
+            val = cls().get_config_value(key)
+            return str(val) if val is not None else None
         except Exception:
             return None
 
@@ -121,10 +116,45 @@ class Query:
 
     @strawberry.field
     def plugins(self, kind: str) -> list[PluginInfoType]:
-        from app.api.plugins import list_plugins_data
+        from app.models import ConfigEntry, PluginInfo
+        from shenas_plugins.core.plugin import Plugin
 
-        items = list_plugins_data(kind)
-        return [PluginInfoType.from_pydantic(p) for p in items]
+        items = []
+        for pi in Plugin.list_installed(kind):
+            config_entries = [
+                ConfigEntry(
+                    key=str(e["key"]),
+                    label=str(e.get("label") or ""),
+                    value=e.get("value"),
+                    description=str(e.get("description") or ""),
+                )
+                for e in pi.get("config_entries", [])
+            ]
+            items.append(
+                PluginInfoType.from_pydantic(
+                    PluginInfo(
+                        name=pi.get("name", ""),
+                        display_name=pi.get("display_name", ""),
+                        package=pi.get("package", ""),
+                        version=pi.get("version", ""),
+                        signature=pi.get("signature", ""),
+                        description=pi.get("description", ""),
+                        commands=pi.get("commands", []),
+                        enabled=pi.get("enabled", True),
+                        has_config=pi.get("has_config", False),
+                        has_data=pi.get("has_data", False),
+                        has_auth=pi.get("has_auth", False),
+                        is_authenticated=pi.get("is_authenticated"),
+                        sync_frequency=pi.get("sync_frequency"),
+                        config_entries=config_entries,
+                        added_at=pi.get("added_at"),
+                        updated_at=pi.get("updated_at"),
+                        status_changed_at=pi.get("status_changed_at"),
+                        synced_at=pi.get("synced_at"),
+                    )
+                )
+            )
+        return items
 
     @strawberry.field
     def plugin_info(self, kind: str, name: str) -> JSON:
@@ -142,7 +172,7 @@ class Query:
         from html.parser import HTMLParser
         from urllib.request import urlopen
 
-        from app.api.plugins import DEFAULT_INDEX
+        from shenas_plugins.core.plugin import DEFAULT_INDEX
 
         prefix = f"shenas-{kind}-"
         try:
@@ -169,26 +199,44 @@ class Query:
 
     @strawberry.field
     def sync_schedule(self) -> list[ScheduleInfoType]:
-        from app.db import get_all_sync_schedules
-
-        rows = get_all_sync_schedules()
+        from app.api.sources import _load_plugins
         from app.models import ScheduleInfo
+        from shenas_sources.core.source import Source
 
-        return [ScheduleInfoType.from_pydantic(ScheduleInfo(**row)) for row in rows]
+        result = []
+        for cls in _load_plugins("source", base=Source, include_internal=False):
+            src = cls()
+            freq = src.sync_frequency
+            if freq is None:
+                continue
+            if not src.enabled:
+                continue
+            s = src.state
+            result.append(
+                ScheduleInfoType.from_pydantic(
+                    ScheduleInfo(
+                        name=src.name,
+                        sync_frequency=freq,
+                        synced_at=s["synced_at"] if s else None,
+                        is_due=src.is_due_for_sync,
+                    )
+                )
+            )
+        return sorted(result, key=lambda x: x.name)
 
     # -- Transforms --
 
     @strawberry.field
     def transforms(self, source: str | None = None) -> list[TransformType]:
-        from app.transforms import list_transforms
+        from app.transforms import Transform
 
-        return [_transform_to_gql(t) for t in list_transforms(source)]
+        return [_transform_to_gql(t) for t in Transform.all(source)]
 
     @strawberry.field
     def transform(self, transform_id: int) -> TransformType | None:
-        from app.transforms import get_transform
+        from app.transforms import Transform
 
-        t = get_transform(transform_id)
+        t = Transform.find(transform_id)
         return _transform_to_gql(t) if t else None
 
     # -- Theme --
@@ -206,15 +254,15 @@ class Query:
 
     @strawberry.field
     def hotkeys(self) -> JSON:
-        from app.db import get_hotkeys
+        from app.hotkeys import Hotkey
 
-        return get_hotkeys()
+        return Hotkey.get_all()
 
     @strawberry.field
     def workspace(self) -> JSON:
-        from app.db import get_workspace
+        from app.workspace import Workspace
 
-        return get_workspace()
+        return Workspace.get()
 
     @strawberry.field
     def dashboards(self) -> JSON:
@@ -272,18 +320,29 @@ class Query:
 
     @strawberry.field
     def models(self) -> JSON:
-        from app.api.models import list_models
+        from shenas_models.core import Model
 
-        return list_models()
+        from app.api.sources import _load_plugins
+
+        return sorted(
+            [cls().get_info() for cls in _load_plugins("model", base=Model, include_internal=False)],
+            key=lambda x: x["name"],
+        )
 
     @strawberry.field
     def model_status(self, name: str) -> JSON:
-        from app.api.models import model_status
+        from app.api.sources import _load_plugin
 
-        return model_status(name)
+        cls = _load_plugin("model", name)
+        if not cls:
+            return {"name": name, "available": False, "round": None}
+        return cls().training_status
 
     @strawberry.field
     def model_predict(self, name: str) -> JSON:
-        from app.api.models import predict
+        from app.api.sources import _load_plugin
 
-        return predict(name)
+        cls = _load_plugin("model", name)
+        if not cls:
+            return None
+        return cls().predict()

@@ -91,7 +91,7 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.1.0",
     "ruff>=0.15.8",
-    "ty>=0.0.26",
+    "ty==0.0.27",
     "pyinstaller>=6.19.0",
 ]
 fl = [

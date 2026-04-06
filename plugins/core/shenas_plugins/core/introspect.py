@@ -6,7 +6,7 @@ import dataclasses
 import types
 from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
-from shenas_datasets.core.field import Field
+from shenas_plugins.core.field import Field
 
 
 def _extract_field_meta(hint: type) -> dict[str, Any]:

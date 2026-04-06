@@ -66,12 +66,6 @@ class ConfigEntry(BaseModel):
     description: str = ""
 
 
-class ConfigItem(BaseModel):
-    kind: str
-    name: str
-    entries: list[ConfigEntry] = []
-
-
 class ConfigSetRequest(BaseModel):
     key: str
     value: str
@@ -122,6 +116,7 @@ class PluginInfo(BaseModel):
     has_auth: bool = False
     is_authenticated: bool | None = None
     sync_frequency: int | None = None
+    config_entries: list[ConfigEntry] = []
     added_at: str | None = None
     updated_at: str | None = None
     status_changed_at: str | None = None

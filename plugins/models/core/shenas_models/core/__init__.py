@@ -2,9 +2,23 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, ClassVar
 
 from shenas_plugins.core.plugin import Plugin
+
+logger = logging.getLogger(__name__)
+
+_engine = None
+
+
+def _get_engine():
+    global _engine
+    if _engine is None:
+        from app.fl.inference import InferenceEngine
+
+        _engine = InferenceEngine()
+    return _engine
 
 
 class Model(Plugin):
@@ -36,3 +50,18 @@ class Model(Plugin):
             }
         )
         return info
+
+    @property
+    def training_status(self) -> dict[str, Any]:
+        """Check if trained weights are available via FL server."""
+        try:
+            for m in _get_engine().list_available():
+                if m["name"] == self.name:
+                    return {"name": self.name, "available": True, "round": m["round"]}
+        except Exception:
+            pass
+        return {"name": self.name, "available": False, "round": None}
+
+    def predict(self) -> dict | None:
+        """Run prediction using the latest global model on local data."""
+        return _get_engine().predict(self.name)

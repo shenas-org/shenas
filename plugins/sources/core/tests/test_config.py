@@ -6,7 +6,7 @@ from unittest.mock import patch
 import duckdb
 import pytest
 
-from shenas_datasets.core.field import Field
+from shenas_plugins.core.field import Field
 from shenas_plugins.core.store import DataclassStore
 
 _config = DataclassStore("config")

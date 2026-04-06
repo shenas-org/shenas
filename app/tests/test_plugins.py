@@ -15,17 +15,16 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.api.plugins import (
-    VALID_KINDS,
-    _prefix,
     _sse,
     _validate_kind,
-    check_signature,
-    install_plugin,
-    list_plugins_data,
-    uninstall_plugin,
 )
 from app.server import app
 from app.tests.conftest import parse_sse
+from shenas_plugins.core.plugin import (
+    VALID_KINDS,
+    Plugin,
+    _check_signature,
+)
 
 client = TestClient(app)
 
@@ -40,9 +39,13 @@ class _FakePluginCls:
 
     internal = False
     enabled_by_default = True
+    has_config = True
 
     def __init__(self) -> None:
         pass
+
+    def get_config_entries(self) -> list:
+        return []
 
     def get_info(self) -> dict:
         return {
@@ -65,22 +68,6 @@ class _FakePluginCls:
 
 class _InternalPluginCls(_FakePluginCls):
     internal = True
-
-
-# ---------------------------------------------------------------------------
-# _prefix
-# ---------------------------------------------------------------------------
-
-
-class TestPrefix:
-    def test_pipe(self) -> None:
-        assert _prefix("source") == "shenas-source-"
-
-    def test_schema(self) -> None:
-        assert _prefix("dataset") == "shenas-dataset-"
-
-    def test_component(self) -> None:
-        assert _prefix("dashboard") == "shenas-dashboard-"
 
 
 # ---------------------------------------------------------------------------
@@ -128,23 +115,23 @@ class TestSse:
 
 
 # ---------------------------------------------------------------------------
-# check_signature
+# _check_signature
 # ---------------------------------------------------------------------------
 
 
 class TestCheckSignature:
     def test_no_key_file(self, tmp_path: Path) -> None:
-        with patch("app.api.plugins.PUBLIC_KEY_PATH", tmp_path / "missing.pub"):
-            assert check_signature("shenas-source-test", "1.0.0") == "no key"
+        with patch("shenas_plugins.core.plugin.PUBLIC_KEY_PATH", tmp_path / "missing.pub"):
+            assert _check_signature("shenas-source-test", "1.0.0") == "no key"
 
     def test_no_packages_dir(self, tmp_path: Path) -> None:
         key_path = tmp_path / "shenas.pub"
         key_path.write_text("placeholder")
         with (
-            patch("app.api.plugins.PUBLIC_KEY_PATH", key_path),
-            patch("app.api.plugins.PACKAGES_DIR", tmp_path / "nonexistent"),
+            patch("shenas_plugins.core.plugin.PUBLIC_KEY_PATH", key_path),
+            patch("shenas_plugins.core.plugin.PACKAGES_DIR", tmp_path / "nonexistent"),
         ):
-            assert check_signature("shenas-source-test", "1.0.0") == "unsigned"
+            assert _check_signature("shenas-source-test", "1.0.0") == "unsigned"
 
     def test_no_matching_wheel(self, tmp_path: Path) -> None:
         key_path = tmp_path / "shenas.pub"
@@ -152,10 +139,10 @@ class TestCheckSignature:
         packages = tmp_path / "packages"
         packages.mkdir()
         with (
-            patch("app.api.plugins.PUBLIC_KEY_PATH", key_path),
-            patch("app.api.plugins.PACKAGES_DIR", packages),
+            patch("shenas_plugins.core.plugin.PUBLIC_KEY_PATH", key_path),
+            patch("shenas_plugins.core.plugin.PACKAGES_DIR", packages),
         ):
-            assert check_signature("shenas-source-test", "1.0.0") == "unsigned"
+            assert _check_signature("shenas-source-test", "1.0.0") == "unsigned"
 
     def test_no_sig_file(self, tmp_path: Path) -> None:
         key_path = tmp_path / "shenas.pub"
@@ -164,10 +151,10 @@ class TestCheckSignature:
         packages.mkdir()
         (packages / "shenas_source_test-1.0.0-py3-none-any.whl").write_bytes(b"wheeldata")
         with (
-            patch("app.api.plugins.PUBLIC_KEY_PATH", key_path),
-            patch("app.api.plugins.PACKAGES_DIR", packages),
+            patch("shenas_plugins.core.plugin.PUBLIC_KEY_PATH", key_path),
+            patch("shenas_plugins.core.plugin.PACKAGES_DIR", packages),
         ):
-            assert check_signature("shenas-source-test", "1.0.0") == "unsigned"
+            assert _check_signature("shenas-source-test", "1.0.0") == "unsigned"
 
     def test_valid_signature(self, tmp_path: Path) -> None:
         import base64
@@ -193,10 +180,10 @@ class TestCheckSignature:
         sig_path.write_text(sig)
 
         with (
-            patch("app.api.plugins.PUBLIC_KEY_PATH", key_path),
-            patch("app.api.plugins.PACKAGES_DIR", packages),
+            patch("shenas_plugins.core.plugin.PUBLIC_KEY_PATH", key_path),
+            patch("shenas_plugins.core.plugin.PACKAGES_DIR", packages),
         ):
-            assert check_signature("shenas-source-test", "1.0.0") == "valid"
+            assert _check_signature("shenas-source-test", "1.0.0") == "valid"
 
     def test_invalid_signature(self, tmp_path: Path) -> None:
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -218,14 +205,14 @@ class TestCheckSignature:
         sig_path.write_text("bm90YXNpZw==")  # base64("notasig")
 
         with (
-            patch("app.api.plugins.PUBLIC_KEY_PATH", key_path),
-            patch("app.api.plugins.PACKAGES_DIR", packages),
+            patch("shenas_plugins.core.plugin.PUBLIC_KEY_PATH", key_path),
+            patch("shenas_plugins.core.plugin.PACKAGES_DIR", packages),
         ):
-            assert check_signature("shenas-source-test", "1.0.0") == "invalid"
+            assert _check_signature("shenas-source-test", "1.0.0") == "invalid"
 
 
 # ---------------------------------------------------------------------------
-# list_plugins_data
+# Plugin.list_installed
 # ---------------------------------------------------------------------------
 
 
@@ -233,10 +220,10 @@ class TestListPluginsData:
     def test_empty_list(self) -> None:
         proc = subprocess.CompletedProcess(args=[], returncode=0, stdout="[]", stderr="")
         with (
-            patch("app.api.plugins.subprocess.run", return_value=proc),
-            patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
+            patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
         ):
-            result = list_plugins_data("source")
+            result = Plugin.list_installed("source")
         assert result == []
 
     def test_filters_by_prefix(self) -> None:
@@ -248,15 +235,15 @@ class TestListPluginsData:
         proc = subprocess.CompletedProcess(args=[], returncode=0, stdout=json.dumps(installed), stderr="")
         fake_cls = _FakePluginCls
         with (
-            patch("app.api.plugins.subprocess.run", return_value=proc),
-            patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
+            patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._load_plugin", return_value=fake_cls),
             patch("app.api.sources._load_plugin_fresh", return_value=fake_cls),
-            patch("app.api.plugins.check_signature", return_value="unsigned"),
+            patch("shenas_plugins.core.plugin._check_signature", return_value="unsigned"),
         ):
-            result = list_plugins_data("source")
+            result = Plugin.list_installed("source")
         assert len(result) == 1
-        assert result[0].name == "garmin"
+        assert result[0]["name"] == "garmin"
 
     def test_skips_core(self) -> None:
         installed = [
@@ -266,14 +253,14 @@ class TestListPluginsData:
         proc = subprocess.CompletedProcess(args=[], returncode=0, stdout=json.dumps(installed), stderr="")
         fake_cls = _FakePluginCls
         with (
-            patch("app.api.plugins.subprocess.run", return_value=proc),
-            patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
+            patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._load_plugin", return_value=fake_cls),
             patch("app.api.sources._load_plugin_fresh", return_value=fake_cls),
-            patch("app.api.plugins.check_signature", return_value="unsigned"),
+            patch("shenas_plugins.core.plugin._check_signature", return_value="unsigned"),
         ):
-            result = list_plugins_data("source")
-        names = [r.name for r in result]
+            result = Plugin.list_installed("source")
+        names = [r["name"] for r in result]
         assert "core" not in names
         assert "garmin" in names
 
@@ -281,40 +268,38 @@ class TestListPluginsData:
         installed = [{"name": "shenas-source-internal", "version": "1.0.0"}]
         proc = subprocess.CompletedProcess(args=[], returncode=0, stdout=json.dumps(installed), stderr="")
         with (
-            patch("app.api.plugins.subprocess.run", return_value=proc),
-            patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
+            patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._load_plugin", return_value=_InternalPluginCls),
             patch("app.api.sources._load_plugin_fresh", return_value=_InternalPluginCls),
-            patch("app.api.plugins.check_signature", return_value="unsigned"),
+            patch("shenas_plugins.core.plugin._check_signature", return_value="unsigned"),
         ):
-            result = list_plugins_data("source")
+            result = Plugin.list_installed("source")
         assert len(result) == 0
 
     def test_no_plugin_cls_fallback(self) -> None:
         installed = [{"name": "shenas-source-mystery", "version": "1.0.0"}]
         proc = subprocess.CompletedProcess(args=[], returncode=0, stdout=json.dumps(installed), stderr="")
         with (
-            patch("app.api.plugins.subprocess.run", return_value=proc),
-            patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
+            patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._load_plugin", return_value=None),
             patch("app.api.sources._load_plugin_fresh", return_value=None),
-            patch("app.api.plugins.check_signature", return_value="unsigned"),
+            patch("shenas_plugins.core.plugin._check_signature", return_value="unsigned"),
         ):
-            result = list_plugins_data("source")
+            result = Plugin.list_installed("source")
         assert len(result) == 1
-        assert result[0].name == "mystery"
-        assert result[0].display_name == "Mystery"
-        assert result[0].enabled is True
+        assert result[0]["name"] == "mystery"
+        assert result[0]["display_name"] == "Mystery"
+        assert result[0]["enabled"] is True
 
     def test_subprocess_failure(self) -> None:
         proc = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="error")
         with (
-            patch("app.api.plugins.subprocess.run", return_value=proc),
-            patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
+            patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
         ):
-            with pytest.raises(HTTPException) as exc_info:
-                list_plugins_data("source")
-            assert exc_info.value.status_code == 500
+            assert Plugin.list_installed("source") == []
 
     def test_uses_plugin_state_when_available(self) -> None:
         installed = [{"name": "shenas-source-garmin", "version": "1.0.0"}]
@@ -327,19 +312,19 @@ class TestListPluginsData:
                 return info
 
         with (
-            patch("app.api.plugins.subprocess.run", return_value=proc),
-            patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
+            patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._load_plugin", return_value=_StatefulPlugin),
             patch("app.api.sources._load_plugin_fresh", return_value=_StatefulPlugin),
-            patch("app.api.plugins.check_signature", return_value="unsigned"),
+            patch("shenas_plugins.core.plugin._check_signature", return_value="unsigned"),
         ):
-            result = list_plugins_data("source")
-        assert result[0].enabled is False
-        assert result[0].added_at == "2026-01-01"
+            result = Plugin.list_installed("source")
+        assert result[0]["enabled"] is False
+        assert result[0]["added_at"] == "2026-01-01"
 
 
 # ---------------------------------------------------------------------------
-# install_plugin
+# Plugin.install
 # ---------------------------------------------------------------------------
 
 
@@ -347,66 +332,64 @@ class TestInstallPlugin:
     def test_install_success(self) -> None:
         proc = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
         with (
-            patch("app.api.plugins.subprocess.run", return_value=proc),
-            patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
+            patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._load_plugin", return_value=None),
+            patch("app.api.sources._load_plugin_fresh", return_value=None),
             patch("app.api.sources._clear_caches"),
-            patch("app.db.upsert_plugin_state") as mock_upsert,
         ):
-            result = install_plugin("garmin", "source", skip_verify=True)
-        assert result.ok is True
-        assert result.name == "garmin"
-        assert "Garmin" in result.message
-        mock_upsert.assert_called_once_with("source", "garmin", enabled=True)
+            ok, message = Plugin.install("source", "garmin", skip_verify=True)
+        assert ok is True
+        assert "Garmin" in message
 
     def test_install_failure(self) -> None:
         proc = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="Resolution failed")
         with (
-            patch("app.api.plugins.subprocess.run", return_value=proc),
-            patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
+            patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._load_plugin", return_value=None),
         ):
-            result = install_plugin("nonexistent", "source", skip_verify=True)
-        assert result.ok is False
-        assert "Resolution failed" in result.message
+            ok, message = Plugin.install("source", "nonexistent", skip_verify=True)
+        assert ok is False
+        assert "Resolution failed" in message
 
     def test_install_internal_blocked(self) -> None:
         with patch("app.api.sources._load_plugin", return_value=_InternalPluginCls):
-            result = install_plugin("internal", "source", skip_verify=True)
-        assert result.ok is False
-        assert "internal plugin" in result.message
+            ok, message = Plugin.install("source", "internal", skip_verify=True)
+        assert ok is False
+        assert "internal plugin" in message
 
     def test_install_core_blocked(self) -> None:
         with patch("app.api.sources._load_plugin", return_value=None):
-            result = install_plugin("core", "source", skip_verify=True)
-        assert result.ok is False
-        assert "internal plugin" in result.message
+            ok, message = Plugin.install("source", "core", skip_verify=True)
+        assert ok is False
+        assert "internal plugin" in message
 
     def test_install_verify_no_key(self, tmp_path: Path) -> None:
         with (
-            patch("app.api.plugins.PUBLIC_KEY_PATH", tmp_path / "missing.pub"),
+            patch("shenas_plugins.core.plugin.PUBLIC_KEY_PATH", tmp_path / "missing.pub"),
             patch("app.api.sources._load_plugin", return_value=None),
         ):
-            result = install_plugin("garmin", "source", public_key_path=tmp_path / "missing.pub")
-        assert result.ok is False
-        assert "Public key not found" in result.message
+            ok, message = Plugin.install("source", "garmin")
+        assert ok is False
+        assert "Public key not found" in message
 
     def test_install_verify_fails(self, tmp_path: Path) -> None:
         key_path = tmp_path / "shenas.pub"
         key_path.write_text("placeholder")
         with (
-            patch("app.api.plugins.PUBLIC_KEY_PATH", key_path),
+            patch("shenas_plugins.core.plugin.PUBLIC_KEY_PATH", key_path),
             patch("app.api.sources._load_plugin", return_value=None),
-            patch("app.api.plugins._load_public_key", return_value=MagicMock()),
-            patch("app.api.plugins._verify_from_index", return_value="No signature found"),
+            patch("shenas_plugins.core.plugin._load_public_key", return_value=MagicMock()),
+            patch("shenas_plugins.core.plugin._verify_from_index", return_value="No signature found"),
         ):
-            result = install_plugin("garmin", "source", public_key_path=key_path)
-        assert result.ok is False
-        assert "No signature found" in result.message
+            ok, message = Plugin.install("source", "garmin")
+        assert ok is False
+        assert "No signature found" in message
 
 
 # ---------------------------------------------------------------------------
-# uninstall_plugin
+# Plugin.uninstall
 # ---------------------------------------------------------------------------
 
 
@@ -414,141 +397,37 @@ class TestUninstallPlugin:
     def test_uninstall_success(self) -> None:
         proc = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
         with (
-            patch("app.api.plugins.subprocess.run", return_value=proc),
-            patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
+            patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._load_plugin", return_value=None),
             patch("app.api.sources._clear_caches"),
-            patch("app.db.remove_plugin_state") as mock_remove,
         ):
-            result = uninstall_plugin("garmin", "source")
-        assert result.ok is True
-        assert "Garmin" in result.message
-        mock_remove.assert_called_once_with("source", "garmin")
+            ok, message = Plugin.uninstall("source", "garmin")
+        assert ok is True
+        assert "Garmin" in message
 
     def test_uninstall_failure(self) -> None:
         proc = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="Not installed")
         with (
-            patch("app.api.plugins.subprocess.run", return_value=proc),
-            patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
+            patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._load_plugin", return_value=None),
         ):
-            result = uninstall_plugin("nonexistent", "source")
-        assert result.ok is False
-        assert "Not installed" in result.message
+            ok, message = Plugin.uninstall("source", "nonexistent")
+        assert ok is False
+        assert "Not installed" in message
 
     def test_uninstall_internal_blocked(self) -> None:
         with patch("app.api.sources._load_plugin", return_value=_InternalPluginCls):
-            result = uninstall_plugin("internal", "source")
-        assert result.ok is False
-        assert "internal plugin" in result.message
+            ok, message = Plugin.uninstall("source", "internal")
+        assert ok is False
+        assert "internal plugin" in message
 
     def test_uninstall_core_blocked(self) -> None:
         with patch("app.api.sources._load_plugin", return_value=None):
-            result = uninstall_plugin("core", "source")
-        assert result.ok is False
-        assert "internal plugin" in result.message
-
-
-# ---------------------------------------------------------------------------
-# REST endpoints
-# ---------------------------------------------------------------------------
-
-
-class TestListPluginsEndpoint:
-    def test_valid_kind(self) -> None:
-        with patch("app.api.plugins.list_plugins_data", return_value=[]):
-            resp = client.get("/api/plugins/source")
-        assert resp.status_code == 200
-        assert resp.json() == []
-
-    def test_invalid_kind(self) -> None:
-        resp = client.get("/api/plugins/bogus")
-        assert resp.status_code == 400
-
-
-class TestAddPluginsEndpoint:
-    def test_add_single(self) -> None:
-        from app.models import InstallResult
-
-        mock_result = InstallResult(name="garmin", ok=True, message="Added Garmin Source")
-        with patch("app.api.plugins.install_plugin", return_value=mock_result) as mock_install:
-            resp = client.post("/api/plugins/source", json={"names": ["garmin"], "skip_verify": True})
-        assert resp.status_code == 200
-        data = resp.json()
-        assert len(data["results"]) == 1
-        assert data["results"][0]["ok"] is True
-        mock_install.assert_called_once()
-
-    def test_add_invalid_kind(self) -> None:
-        resp = client.post("/api/plugins/bogus", json={"names": ["test"]})
-        assert resp.status_code == 400
-
-
-class TestRemovePluginEndpoint:
-    def test_remove(self) -> None:
-        from app.models import RemoveResponse
-
-        mock_resp = RemoveResponse(ok=True, message="Removed Garmin Source")
-        with patch("app.api.plugins.uninstall_plugin", return_value=mock_resp):
-            resp = client.delete("/api/plugins/source/garmin")
-        assert resp.status_code == 200
-        assert resp.json()["ok"] is True
-
-    def test_remove_invalid_kind(self) -> None:
-        resp = client.delete("/api/plugins/bogus/garmin")
-        assert resp.status_code == 400
-
-
-class TestEnablePluginEndpoint:
-    def test_enable(self) -> None:
-        with patch("app.api.sources._load_plugin", return_value=_FakePluginCls):
-            resp = client.post("/api/plugins/source/garmin/enable")
-        assert resp.status_code == 200
-        assert resp.json()["ok"] is True
-
-    def test_enable_not_found(self) -> None:
-        with patch("app.api.sources._load_plugin", return_value=None):
-            resp = client.post("/api/plugins/source/garmin/enable")
-        assert resp.status_code == 404
-
-    def test_enable_invalid_kind(self) -> None:
-        resp = client.post("/api/plugins/bogus/garmin/enable")
-        assert resp.status_code == 400
-
-
-class TestDisablePluginEndpoint:
-    def test_disable(self) -> None:
-        with patch("app.api.sources._load_plugin", return_value=_FakePluginCls):
-            resp = client.post("/api/plugins/source/garmin/disable")
-        assert resp.status_code == 200
-        assert resp.json()["ok"] is True
-
-    def test_disable_not_found(self) -> None:
-        with patch("app.api.sources._load_plugin", return_value=None):
-            resp = client.post("/api/plugins/source/garmin/disable")
-        assert resp.status_code == 404
-
-    def test_disable_invalid_kind(self) -> None:
-        resp = client.post("/api/plugins/bogus/garmin/disable")
-        assert resp.status_code == 400
-
-
-class TestPluginInfoEndpoint:
-    def test_info(self) -> None:
-        with patch("app.api.sources._load_plugin", return_value=_FakePluginCls):
-            resp = client.get("/api/plugins/source/garmin/info")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["display_name"] == "Fake Plugin"
-
-    def test_info_not_found(self) -> None:
-        with patch("app.api.sources._load_plugin", return_value=None):
-            resp = client.get("/api/plugins/source/garmin/info")
-        assert resp.status_code == 404
-
-    def test_info_invalid_kind(self) -> None:
-        resp = client.get("/api/plugins/bogus/garmin/info")
-        assert resp.status_code == 400
+            ok, message = Plugin.uninstall("source", "core")
+        assert ok is False
+        assert "internal plugin" in message
 
 
 # ---------------------------------------------------------------------------
@@ -574,10 +453,10 @@ class TestInstallStream:
         proc = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="Installed ok\n")
         with (
             patch("app.api.sources._load_plugin", return_value=None),
+            patch("app.api.sources._load_plugin_fresh", return_value=None),
             patch("app.api.plugins._run_subprocess", return_value=proc),
             patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._clear_caches"),
-            patch("app.db.upsert_plugin_state"),
         ):
             resp = client.post(
                 "/api/plugins/source/install-stream",
@@ -630,7 +509,6 @@ class TestRemoveStream:
             patch("app.api.plugins._run_subprocess", return_value=proc),
             patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._clear_caches"),
-            patch("app.db.remove_plugin_state"),
         ):
             resp = client.post("/api/plugins/source/garmin/remove-stream")
         assert resp.status_code == 200
