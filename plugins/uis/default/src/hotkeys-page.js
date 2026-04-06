@@ -1,7 +1,7 @@
 import { LitElement, html, css } from "lit";
 import { gql, gqlFull } from "./api.js";
 import { buttonStyles, messageStyles, utilityStyles } from "./shared-styles.js";
-import { formatHotkey } from "./constants.js";
+import { formatHotkey, sortActions } from "./constants.js";
 
 class HotkeysPage extends LitElement {
   static properties = {
@@ -212,8 +212,10 @@ class HotkeysPage extends LitElement {
     }
 
     const q = this._filter.toLowerCase();
-    const filtered = this.actions.filter((a) =>
-      !q || a.label.toLowerCase().includes(q) || a.category.toLowerCase().includes(q),
+    const filtered = sortActions(
+      this.actions.filter((a) =>
+        !q || a.label.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)),
+      this._bindings,
     );
 
     return html`

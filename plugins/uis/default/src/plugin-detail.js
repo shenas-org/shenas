@@ -225,6 +225,22 @@ class PluginDetail extends LitElement {
       text: result?.message || `${action} failed`,
     };
     await this._fetchInfo();
+    if (this.kind === "theme") {
+      const themeData = await gql(this.apiBase, `{ theme { css } }`);
+      const css = themeData?.theme?.css;
+      let link = document.querySelector("link[data-shenas-theme]");
+      if (css) {
+        if (!link) {
+          link = document.createElement("link");
+          link.rel = "stylesheet";
+          link.setAttribute("data-shenas-theme", "");
+          document.head.appendChild(link);
+        }
+        link.href = css;
+      } else if (link) {
+        link.remove();
+      }
+    }
     this.dispatchEvent(new CustomEvent("plugin-state-changed", { bubbles: true, composed: true }));
   }
 

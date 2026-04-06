@@ -1,0 +1,245 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+  title="Devices -- shenas"
+  description="Manage your registered devices"
+>
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">
+        <img src="/favicon.svg" alt="shenas" width="28" height="28" />
+        <span>shenas</span>
+      </a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/devices" class="active">Devices</a>
+        <a href="/api/auth/logout" class="nav-gh" id="auth-link">Sign out</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h1>Your Devices</h1>
+    <p class="subtitle" id="status">Loading...</p>
+
+    <div id="devices-list" class="devices-grid"></div>
+
+    <div id="not-signed-in" class="notice" style="display:none">
+      <p>Sign in to view your devices.</p>
+      <a href="/api/auth/login" class="btn">Sign in with Google</a>
+    </div>
+  </main>
+</Base>
+
+<style>
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(30, 32, 28, 0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .nav-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.8rem 2rem;
+  }
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    color: var(--cream);
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+  .nav-links {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+  }
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover,
+  .nav-links a.active {
+    color: var(--cream);
+  }
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+  }
+  h1 {
+    font-size: 2rem;
+    color: var(--cream);
+    margin-bottom: 0.5rem;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin-bottom: 2rem;
+  }
+  .devices-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .device-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .device-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: rgba(114, 143, 103, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+  .device-info {
+    flex: 1;
+  }
+  .device-name {
+    color: var(--cream);
+    font-weight: 600;
+    font-size: 1rem;
+  }
+  .device-meta {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 0.2rem;
+  }
+  .device-actions {
+    flex-shrink: 0;
+  }
+  .btn-remove {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--muted);
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-remove:hover {
+    border-color: #c62828;
+    color: #c62828;
+  }
+  .notice {
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted);
+  }
+  .btn {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.6rem 1.5rem;
+    background: var(--green);
+    color: var(--dark);
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+</style>
+
+<script>
+  const list = document.getElementById("devices-list")!;
+  const status = document.getElementById("status")!;
+  const notSignedIn = document.getElementById("not-signed-in")!;
+
+  const deviceIcons: Record<string, string> = {
+    desktop: "\u{1F5A5}",
+    laptop: "\u{1F4BB}",
+    mobile: "\u{1F4F1}",
+    tablet: "\u{1F4F1}",
+    server: "\u{2601}",
+  };
+
+  function timeAgo(dateStr: string): string {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }
+
+  async function removeDevice(id: string) {
+    await fetch(`/api/devices/${id}`, { method: "DELETE", credentials: "include" });
+    loadDevices();
+  }
+
+  async function loadDevices() {
+    try {
+      const authResp = await fetch("/api/auth/me", { credentials: "include" });
+      const authData = await authResp.json();
+      if (!authData.user) {
+        status.style.display = "none";
+        list.style.display = "none";
+        notSignedIn.style.display = "block";
+        return;
+      }
+
+      const resp = await fetch("/api/devices", { credentials: "include" });
+      const devices: Array<{
+        id: string;
+        name: string;
+        device_type: string;
+        last_seen: string;
+        created_at: string;
+      }> = await resp.json();
+
+      status.textContent = `${devices.length} device${devices.length !== 1 ? "s" : ""} registered`;
+
+      if (devices.length === 0) {
+        list.innerHTML = '<div class="empty">No devices registered yet. Install shenas on a device to get started.</div>';
+        return;
+      }
+
+      list.innerHTML = devices.map((d) => `
+        <div class="device-card">
+          <div class="device-icon">${deviceIcons[d.device_type] || "\u{1F4BB}"}</div>
+          <div class="device-info">
+            <div class="device-name">${d.name}</div>
+            <div class="device-meta">${d.device_type} &middot; last seen ${timeAgo(d.last_seen)} &middot; added ${timeAgo(d.created_at)}</div>
+          </div>
+          <div class="device-actions">
+            <button class="btn-remove" onclick="window.__removeDevice('${d.id}')">Remove</button>
+          </div>
+        </div>
+      `).join("");
+    } catch {
+      status.textContent = "Failed to load devices";
+    }
+  }
+
+  (window as any).__removeDevice = removeDevice;
+  loadDevices();
+</script>
