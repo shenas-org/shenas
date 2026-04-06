@@ -66,6 +66,12 @@ def _run_pipe_sync(
     log.info("Sync started: %s", pipe.name)
     yield _sse_event("progress", {"source": pipe.name, "message": "starting sync"})
 
+    if pipe.has_auth and not pipe.is_authenticated:
+        msg = "Not authenticated. Configure credentials in the Auth tab."
+        log.warning("Sync skipped: %s -- %s", pipe.name, msg)
+        yield _sse_event("error", {"source": pipe.name, "message": msg})
+        return
+
     try:
         pipe.sync(full_refresh=full_refresh)
         log.info("Sync complete: %s", pipe.name)
