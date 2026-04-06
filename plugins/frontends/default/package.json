@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cp default.html shenas_ui/default/static/default.html",
+    "build": "vite build && cp default.html shenas_frontends/default/static/default.html",
     "test": "vitest run",
     "preview": "vite preview"
   },
