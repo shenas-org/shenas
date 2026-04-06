@@ -1,0 +1,27 @@
+[project]
+name = "shenas-source-obsidian"
+dynamic = ["version"]
+description = "Obsidian daily notes dlt connector for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "pyyaml>=6.0.0",
+    "shenas-source-core",
+    "shenas-dataset-outcomes",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.sources"]
+obsidian = "shenas_sources.obsidian.pipe:ObsidianSource"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-obsidian/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-obsidian/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]

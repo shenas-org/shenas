@@ -9,7 +9,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, ClassVar
 
-from shenas_schemas.core.introspect import table_metadata
+from shenas_datasets.core.introspect import table_metadata
 
 
 class DataclassStore:
@@ -37,7 +37,7 @@ class DataclassStore:
         if table in self._ensured:
             return
 
-        from shenas_schemas.core.ddl import ensure_schema
+        from shenas_datasets.core.ddl import ensure_schema
 
         with self._cursor() as cur:
             ensure_schema(cur, [cls], schema=self.schema)

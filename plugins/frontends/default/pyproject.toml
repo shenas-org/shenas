@@ -1,0 +1,24 @@
+[project]
+name = "shenas-frontend-default"
+dynamic = ["version"]
+description = "Default shenas UI shell -- app layout, navigation, and plugin host"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-frontend-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.frontends"]
+default = "shenas_frontends.default:DefaultUI"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "frontend-default/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "frontend-default/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_frontends"]

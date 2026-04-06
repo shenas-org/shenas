@@ -2,14 +2,24 @@ from __future__ import annotations
 
 import typer
 
-from shenasctl.commands import component, config_cmd, db_cmd, pipe, schema_cmd, service, theme_cmd, transform_cmd, ui_cmd
+from shenasctl.commands import (
+    config_cmd,
+    dashboard,
+    dataset_cmd,
+    db_cmd,
+    frontend_cmd,
+    service,
+    source,
+    theme_cmd,
+    transform_cmd,
+)
 
 app = typer.Typer(name="shenasctl", invoke_without_command=True)
-app.add_typer(pipe.app, name="pipe")
-app.add_typer(component.app, name="component")
-app.add_typer(ui_cmd.app, name="ui")
+app.add_typer(source.app, name="source")
+app.add_typer(dashboard.app, name="dashboard")
+app.add_typer(frontend_cmd.app, name="frontend")
 app.add_typer(theme_cmd.app, name="theme")
-app.add_typer(schema_cmd.app, name="schema")
+app.add_typer(dataset_cmd.app, name="dataset")
 app.add_typer(config_cmd.app, name="config")
 app.add_typer(db_cmd.app, name="db")
 app.add_typer(transform_cmd.app, name="transform")

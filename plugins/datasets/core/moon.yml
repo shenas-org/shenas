@@ -1,0 +1,10 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'dataset-core'
+
+language: 'python'
+stack: 'data'
+tags: ['dataset', 'core']
+
+workspace:
+  inheritedTasks:
+    exclude: ['test']

@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter
 
-from app.api.pipes import _load_pipe
+from app.api.sources import _load_source
 from app.models import AuthField, AuthFieldsResponse, AuthRequest, AuthResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -18,7 +18,7 @@ log = logging.getLogger(f"shenas.{__name__}")
 def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
     """Start or continue a pipe's auth flow."""
     body = body or AuthRequest()
-    pipe = _load_pipe(pipe_name)
+    pipe = _load_source(pipe_name)
     result = pipe.handle_auth(body.credentials)
     if result.get("ok"):
         log.info("Auth success: %s", pipe_name)
@@ -31,7 +31,7 @@ def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
 def auth_fields(pipe_name: str) -> AuthFieldsResponse:
     """Get credential fields, instructions, and stored credential status."""
     try:
-        pipe = _load_pipe(pipe_name)
+        pipe = _load_source(pipe_name)
     except Exception:
         return AuthFieldsResponse()
 

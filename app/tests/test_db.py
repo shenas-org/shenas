@@ -14,15 +14,15 @@ class TestPluginState:
     def test_get_plugin_state_returns_none_when_not_tracked(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import get_plugin_state
 
-        assert get_plugin_state("pipe", "nonexistent") is None
+        assert get_plugin_state("source", "nonexistent") is None
 
     def test_upsert_creates_new_plugin(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import get_plugin_state, upsert_plugin_state
 
-        upsert_plugin_state("pipe", "garmin", enabled=True)
-        state = get_plugin_state("pipe", "garmin")
+        upsert_plugin_state("source", "garmin", enabled=True)
+        state = get_plugin_state("source", "garmin")
         assert state is not None
-        assert state["kind"] == "pipe"
+        assert state["kind"] == "source"
         assert state["name"] == "garmin"
         assert state["enabled"] is True
         assert state["added_at"] is not None
@@ -30,21 +30,21 @@ class TestPluginState:
     def test_upsert_updates_existing_same_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import get_plugin_state, upsert_plugin_state
 
-        upsert_plugin_state("pipe", "garmin", enabled=True)
-        first = get_plugin_state("pipe", "garmin")
+        upsert_plugin_state("source", "garmin", enabled=True)
+        first = get_plugin_state("source", "garmin")
         assert first is not None
         # update again with same enabled -- should just touch updated_at
-        upsert_plugin_state("pipe", "garmin", enabled=True)
-        second = get_plugin_state("pipe", "garmin")
+        upsert_plugin_state("source", "garmin", enabled=True)
+        second = get_plugin_state("source", "garmin")
         assert second is not None
         assert second["enabled"] is True
 
     def test_upsert_toggles_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import get_plugin_state, upsert_plugin_state
 
-        upsert_plugin_state("pipe", "garmin", enabled=True)
-        upsert_plugin_state("pipe", "garmin", enabled=False)
-        state = get_plugin_state("pipe", "garmin")
+        upsert_plugin_state("source", "garmin", enabled=True)
+        upsert_plugin_state("source", "garmin", enabled=False)
+        state = get_plugin_state("source", "garmin")
         assert state is not None
         assert state["enabled"] is False
         assert state["status_changed_at"] is not None
@@ -52,35 +52,35 @@ class TestPluginState:
     def test_remove_plugin_state(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import get_plugin_state, remove_plugin_state, upsert_plugin_state
 
-        upsert_plugin_state("pipe", "garmin", enabled=True)
-        assert get_plugin_state("pipe", "garmin") is not None
-        remove_plugin_state("pipe", "garmin")
-        assert get_plugin_state("pipe", "garmin") is None
+        upsert_plugin_state("source", "garmin", enabled=True)
+        assert get_plugin_state("source", "garmin") is not None
+        remove_plugin_state("source", "garmin")
+        assert get_plugin_state("source", "garmin") is None
 
     def test_remove_nonexistent_is_noop(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import remove_plugin_state
 
         # should not raise
-        remove_plugin_state("pipe", "nonexistent")
+        remove_plugin_state("source", "nonexistent")
 
 
 class TestIsPluginEnabled:
     def test_returns_true_when_not_tracked(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import is_plugin_enabled
 
-        assert is_plugin_enabled("pipe", "unknown") is True
+        assert is_plugin_enabled("source", "unknown") is True
 
     def test_returns_true_when_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import is_plugin_enabled, upsert_plugin_state
 
-        upsert_plugin_state("pipe", "garmin", enabled=True)
-        assert is_plugin_enabled("pipe", "garmin") is True
+        upsert_plugin_state("source", "garmin", enabled=True)
+        assert is_plugin_enabled("source", "garmin") is True
 
     def test_returns_false_when_disabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import is_plugin_enabled, upsert_plugin_state
 
-        upsert_plugin_state("pipe", "garmin", enabled=False)
-        assert is_plugin_enabled("pipe", "garmin") is False
+        upsert_plugin_state("source", "garmin", enabled=False)
+        assert is_plugin_enabled("source", "garmin") is False
 
 
 class TestGetAllPluginStates:
@@ -92,8 +92,8 @@ class TestGetAllPluginStates:
     def test_returns_all_plugins(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import get_all_plugin_states, upsert_plugin_state
 
-        upsert_plugin_state("pipe", "garmin", enabled=True)
-        upsert_plugin_state("schema", "fitness", enabled=True)
+        upsert_plugin_state("source", "garmin", enabled=True)
+        upsert_plugin_state("dataset", "fitness", enabled=True)
         states = get_all_plugin_states()
         assert len(states) == 2
         names = {s["name"] for s in states}
@@ -102,9 +102,9 @@ class TestGetAllPluginStates:
     def test_filter_by_kind(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import get_all_plugin_states, upsert_plugin_state
 
-        upsert_plugin_state("pipe", "garmin", enabled=True)
-        upsert_plugin_state("schema", "fitness", enabled=True)
-        pipes = get_all_plugin_states(kind="pipe")
+        upsert_plugin_state("source", "garmin", enabled=True)
+        upsert_plugin_state("dataset", "fitness", enabled=True)
+        pipes = get_all_plugin_states(kind="source")
         assert len(pipes) == 1
         assert pipes[0]["name"] == "garmin"
 
@@ -321,16 +321,16 @@ class TestUpdateSyncedAt:
     def test_update_synced_at_existing(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import get_plugin_state, update_synced_at, upsert_plugin_state
 
-        upsert_plugin_state("pipe", "garmin", enabled=True)
-        update_synced_at("pipe", "garmin")
-        state = get_plugin_state("pipe", "garmin")
+        upsert_plugin_state("source", "garmin", enabled=True)
+        update_synced_at("source", "garmin")
+        state = get_plugin_state("source", "garmin")
         assert state is not None
         assert state["synced_at"] is not None
 
     def test_update_synced_at_creates_missing(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.db import get_plugin_state, update_synced_at
 
-        update_synced_at("pipe", "new-pipe")
-        state = get_plugin_state("pipe", "new-pipe")
+        update_synced_at("source", "new-pipe")
+        state = get_plugin_state("source", "new-pipe")
         assert state is not None
         assert state["synced_at"] is not None

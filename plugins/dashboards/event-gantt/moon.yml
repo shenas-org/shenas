@@ -1,0 +1,9 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'dashboard-event-gantt'
+
+language: 'typescript'
+stack: 'frontend'
+tags: ['dashboard']
+
+dependsOn:
+  - 'vendor'

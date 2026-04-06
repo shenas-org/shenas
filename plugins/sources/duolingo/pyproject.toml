@@ -1,0 +1,29 @@
+[project]
+name = "shenas-source-duolingo"
+dynamic = ["version"]
+description = "Duolingo dlt connector for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "httpx>=0.28.0",
+    "pendulum>=3.0.0",
+    "shenas-source-core",
+    "shenas-dataset-outcomes",
+    "shenas-dataset-habits",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.sources"]
+duolingo = "shenas_sources.duolingo.pipe:DuolingoSource"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-duolingo/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-duolingo/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]
