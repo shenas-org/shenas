@@ -25,7 +25,7 @@ router = APIRouter(prefix="/sync", tags=["sync"])
 
 log = logging.getLogger(f"shenas.{__name__}")
 
-PIPE_PREFIX = "shenas-source-"
+SOURCE_PREFIX = "shenas-source-"
 
 
 def _sse_event(event: str, data: dict[str, str]) -> str:
@@ -46,11 +46,11 @@ def _installed_source_names() -> list[str]:
 
     names = []
     for p in packages:
-        if not p["name"].startswith(PIPE_PREFIX):
+        if not p["name"].startswith(SOURCE_PREFIX):
             continue
-        name = p["name"].removeprefix(PIPE_PREFIX)
-        cls = _load_plugin("pipe", name)
-        if cls and not cls.internal and name != "core" and is_plugin_enabled("pipe", name):
+        name = p["name"].removeprefix(SOURCE_PREFIX)
+        cls = _load_plugin("source", name)
+        if cls and not cls.internal and name != "core" and is_plugin_enabled("source", name):
             names.append(name)
     return names
 
