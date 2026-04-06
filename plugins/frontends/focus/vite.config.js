@@ -27,7 +27,7 @@ export default defineConfig({
       "/vendor": { target: pythonServer, secure: false },
       "/static": { target: pythonServer, secure: false },
       "/themes": { target: pythonServer, secure: false },
-      "/components": { target: pythonServer, secure: false },
+      "/dashboards": { target: pythonServer, secure: false },
     },
     fs: {
       allow: [repoRoot],

@@ -20,23 +20,23 @@ function discoverPlugins(base, urlPrefix) {
 }
 
 /** Auto-discover UI plugin source entry points. */
-function discoverUIs() {
+function discoverFrontends() {
   const aliases = {};
-  const uisBase = resolve(repoRoot, "plugins/uis");
-  if (!existsSync(uisBase)) return aliases;
-  for (const name of readdirSync(uisBase)) {
-    const dir = resolve(uisBase, name);
+  const frontendsBase = resolve(repoRoot, "plugins/frontends");
+  if (!existsSync(frontendsBase)) return aliases;
+  for (const name of readdirSync(frontendsBase)) {
+    const dir = resolve(frontendsBase, name);
     if (name === "core") continue;
     if (existsSync(resolve(dir, "src/index.js"))) {
-      aliases[`/ui/${name}/${name}.js`] = resolve(dir, "src/index.js");
+      aliases[`/frontend/${name}/${name}.js`] = resolve(dir, "src/index.js");
     }
   }
   return aliases;
 }
 
 const devAliases = {
-  ...discoverUIs(),
-  ...discoverPlugins("plugins/components", "components"),
+  ...discoverFrontends(),
+  ...discoverPlugins("plugins/dashboards", "dashboards"),
 };
 
 const pythonServer = "http://127.0.0.1:7280";

@@ -226,11 +226,11 @@ class Query:
                 "name": c.name,
                 "display_name": c.display_name,
                 "tag": c.tag,
-                "js": f"/components/{c.name}/{c.entrypoint}",
+                "js": f"/dashboards/{c.name}/{c.entrypoint}",
                 "description": c.description,
             }
             for c in _load_dashboards(include_internal=False)
-            if is_plugin_enabled("component", c.name)
+            if is_plugin_enabled("dashboard", c.name)
         ]
 
     @strawberry.field
