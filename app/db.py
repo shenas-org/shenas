@@ -447,8 +447,8 @@ def set_hotkey(action_id: str, binding: str) -> None:
     """Set a single hotkey binding (upsert)."""
     con = connect()
     con.execute(
-        "INSERT INTO shenas_system.hotkeys (action_id, binding, updated_at) VALUES (?, ?, current_timestamp) "
-        "ON CONFLICT (action_id) DO UPDATE SET binding = ?, updated_at = current_timestamp",
+        "INSERT INTO shenas_system.hotkeys (action_id, binding, updated_at) VALUES (?, ?, now()) "
+        "ON CONFLICT (action_id) DO UPDATE SET binding = ?, updated_at = now()",
         [action_id, binding, binding],
     )
 

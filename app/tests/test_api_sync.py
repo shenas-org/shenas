@@ -118,3 +118,153 @@ class TestSyncPipe:
         events = parse_sse(resp.text)
         errors = [e for e in events if e["_event"] == "error"]
         assert any("Connection refused" in e["message"] for e in errors)
+
+    def test_sync_pipe_lock_conflict(self) -> None:
+        pipe = _FakePipe(pipe_name="garmin")
+        pipe.acquire_sync_lock = lambda: False  # type: ignore[assignment]
+        with (
+            patch("app.api.sync._installed_pipe_names", return_value=["garmin"]),
+            patch("app.api.sync._load_pipe", return_value=pipe),
+        ):
+            resp = client.post("/api/sync/garmin")
+        assert resp.status_code == 409
+        assert "already in progress" in resp.json()["detail"]
+
+
+class TestSseEvent:
+    def test_formats_correctly(self) -> None:
+        import json
+
+        from app.api.sync import _sse_event
+
+        result = _sse_event("progress", {"pipe": "garmin", "message": "starting"})
+        assert result.startswith("event: progress\n")
+        assert "data:" in result
+        data = json.loads(result.split("data: ")[1].strip())
+        assert data == {"pipe": "garmin", "message": "starting"}
+
+
+class TestInstalledPipeNames:
+    def test_returns_enabled_pipes(self) -> None:
+        import json
+        import subprocess
+
+        from app.api.sync import _installed_pipe_names
+
+        uv_output = json.dumps(
+            [
+                {"name": "shenas-pipe-garmin", "version": "0.1.0"},
+                {"name": "shenas-pipe-core", "version": "0.1.0"},
+                {"name": "unrelated-package", "version": "1.0"},
+            ]
+        )
+        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout=uv_output, stderr="")
+
+        class _FakeCls:
+            internal = False
+
+        with (
+            patch("app.api.sync.subprocess.run", return_value=mock_result),
+            patch("app.api.pipes._load_plugin", return_value=_FakeCls),
+            patch("app.db.is_plugin_enabled", return_value=True),
+        ):
+            names = _installed_pipe_names()
+        # garmin is included, core is excluded (name == "core")
+        assert "garmin" in names
+        assert "core" not in names
+        assert "unrelated-package" not in names
+
+    def test_returns_empty_on_uv_failure(self) -> None:
+        import subprocess
+
+        from app.api.sync import _installed_pipe_names
+
+        mock_result = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="error")
+        with patch("app.api.sync.subprocess.run", return_value=mock_result):
+            names = _installed_pipe_names()
+        assert names == []
+
+    def test_excludes_disabled_pipes(self) -> None:
+        import json
+        import subprocess
+
+        from app.api.sync import _installed_pipe_names
+
+        uv_output = json.dumps([{"name": "shenas-pipe-garmin", "version": "0.1.0"}])
+        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout=uv_output, stderr="")
+
+        class _FakeCls:
+            internal = False
+
+        with (
+            patch("app.api.sync.subprocess.run", return_value=mock_result),
+            patch("app.api.pipes._load_plugin", return_value=_FakeCls),
+            patch("app.db.is_plugin_enabled", return_value=False),
+        ):
+            names = _installed_pipe_names()
+        assert names == []
+
+    def test_excludes_internal_pipes(self) -> None:
+        import json
+        import subprocess
+
+        from app.api.sync import _installed_pipe_names
+
+        uv_output = json.dumps([{"name": "shenas-pipe-garmin", "version": "0.1.0"}])
+        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout=uv_output, stderr="")
+
+        class _FakeCls:
+            internal = True
+
+        with (
+            patch("app.api.sync.subprocess.run", return_value=mock_result),
+            patch("app.api.pipes._load_plugin", return_value=_FakeCls),
+            patch("app.db.is_plugin_enabled", return_value=True),
+        ):
+            names = _installed_pipe_names()
+        assert names == []
+
+    def test_skips_pipe_when_load_returns_none(self) -> None:
+        import json
+        import subprocess
+
+        from app.api.sync import _installed_pipe_names
+
+        uv_output = json.dumps([{"name": "shenas-pipe-broken", "version": "0.1.0"}])
+        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout=uv_output, stderr="")
+
+        with (
+            patch("app.api.sync.subprocess.run", return_value=mock_result),
+            patch("app.api.pipes._load_plugin", return_value=None),
+        ):
+            names = _installed_pipe_names()
+        assert names == []
+
+
+class TestSyncAllLockSkip:
+    def test_sync_all_skips_locked_pipe(self) -> None:
+        pipe = _FakePipe(pipe_name="locked")
+        pipe.acquire_sync_lock = lambda: False  # type: ignore[assignment]
+        with (
+            patch("app.api.sync._installed_pipe_names", return_value=["locked"]),
+            patch("app.api.sync._load_pipe", return_value=pipe),
+        ):
+            resp = client.post("/api/sync")
+
+        events = parse_sse(resp.text)
+        progress = [e for e in events if e["_event"] == "progress"]
+        assert any("skipping" in e.get("message", "") for e in progress)
+        # Should still report overall completion
+        complete = [e for e in events if e["_event"] == "complete"]
+        assert any("all syncs complete" in e.get("message", "") for e in complete)
+
+    def test_sync_all_reports_load_error(self) -> None:
+        with (
+            patch("app.api.sync._installed_pipe_names", return_value=["broken"]),
+            patch("app.api.sync._load_pipe", side_effect=ValueError("Pipe not found: broken")),
+        ):
+            resp = client.post("/api/sync")
+
+        events = parse_sse(resp.text)
+        errors = [e for e in events if e["_event"] == "error"]
+        assert any("broken" in e.get("pipe", "") for e in errors)
