@@ -127,9 +127,18 @@ def _get_active_theme() -> type[Theme] | None:
 def _serve_ui_html() -> HTMLResponse:
     """Read and serve the active UI plugin's HTML from disk, or a fallback."""
     from app.api.pipes import _load_uis
+    from app.db import get_all_plugin_states
 
     uis = _load_uis()
+    # Check database for enabled UI, fall back to CLI/env setting
     ui_name = app.state.ui_name
+    try:
+        for state in get_all_plugin_states("ui"):
+            if state["enabled"]:
+                ui_name = state["name"]
+                break
+    except Exception:
+        pass
     ui = next((u for u in uis if u.name == ui_name), None)
     if ui:
         html_file = ui.static_dir / ui.html
