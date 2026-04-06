@@ -357,9 +357,26 @@ class PluginDetail extends LitElement {
     this._selectedTable = tableName;
     if (!tableName) { this._previewRows = null; return; }
     this._previewLoading = true;
-    const dbSchema = this.kind === "schema" ? "metrics" : this.name;
-    this._previewRows = await arrowQuery(this.apiBase, `SELECT * FROM "${dbSchema}"."${tableName}" ORDER BY 1 DESC LIMIT 100`);
+    this._previewRows = null;
+    try {
+      const dbSchema = this.kind === "schema" ? "metrics" : this.name;
+      this._previewRows = await arrowQuery(this.apiBase, `SELECT * FROM "${dbSchema}"."${tableName}" ORDER BY 1 DESC LIMIT 100`);
+    } catch (e) {
+      console.error("Preview query failed:", e);
+      this._previewRows = null;
+    }
     this._previewLoading = false;
+  }
+
+  _renderPreviewTable() {
+    const cols = Object.keys(this._previewRows[0]).filter((c) => !c.startsWith("_dlt"));
+    return html`
+      <table class="data-table">
+        <thead><tr>${cols.map((col) => html`<th>${col}</th>`)}</tr></thead>
+        <tbody>${this._previewRows.map((row) => html`
+          <tr>${cols.map((col) => html`<td title="${row[col] ?? ""}">${row[col] ?? ""}</td>`)}</tr>
+        `)}</tbody>
+      </table>`;
   }
 
   _renderData() {
@@ -368,7 +385,11 @@ class PluginDetail extends LitElement {
     if (!this._selectedTable) {
       const primary = this._info?.primary_table;
       const target = primary && tables.some((t) => t.name === primary) ? primary : tables[0]?.name;
-      if (target) this._fetchPreview(target);
+      if (target) {
+        // Defer to avoid state changes during render
+        requestAnimationFrame(() => this._fetchPreview(target));
+        return html`<p style="color:var(--shenas-text-muted,#888)">Loading...</p>`;
+      }
     }
     return html`
       <div class="data-toolbar">
@@ -378,14 +399,9 @@ class PluginDetail extends LitElement {
         </select>
         ${this._previewLoading ? html`<span style="color:var(--shenas-text-muted,#888)">Loading...</span>` : ""}
       </div>
-      ${this._previewRows && this._previewRows.length > 0 ? html`
-        <table class="data-table">
-          <thead><tr>${Object.keys(this._previewRows[0]).map((col) => html`<th>${col}</th>`)}</tr></thead>
-          <tbody>${this._previewRows.map((row) => html`
-            <tr>${Object.values(row).map((val) => html`<td title="${val ?? ""}">${val ?? ""}</td>`)}</tr>
-          `)}</tbody>
-        </table>
-      ` : this._selectedTable && !this._previewLoading ? html`<p style="color:var(--shenas-text-muted,#888)">Table is empty.</p>` : ""}
+      ${this._previewRows && this._previewRows.length > 0
+        ? this._renderPreviewTable()
+        : this._selectedTable && !this._previewLoading ? html`<p style="color:var(--shenas-text-muted,#888)">Table is empty.</p>` : ""}
     `;
   }
 

@@ -171,7 +171,7 @@ class JobPanel extends LitElement {
             ${finished > 0
               ? html`<button class="dismiss" @click=${(e) => { e.stopPropagation(); this._dismissAll(); }}>Clear</button>`
               : ""}
-            <span class="chevron ${this._collapsed ? "" : "up"}">&#9660;</span>
+            <span class="chevron ${this._collapsed ? "" : "up"}">\u25BC</span>
           </span>
         </div>
         ${this._collapsed ? "" : html`
@@ -181,12 +181,12 @@ class JobPanel extends LitElement {
                 <div class="job-label">
                   <span class="status">
                     ${job.status === "running"
-                      ? html`<span class="spinning">&#9696;</span>`
-                      : job.status === "done" ? "&#10003;" : "&#10007;"}
+                      ? html`<span class="spinning">\u25E0</span>`
+                      : job.status === "done" ? "\u2713" : "\u2717"}
                   </span>
                   ${job.label}
                   ${job.status !== "running"
-                    ? html`<button class="dismiss" @click=${() => this._dismiss(job.id)}>&#10005;</button>`
+                    ? html`<button class="dismiss" @click=${() => this._dismiss(job.id)}>\u2715</button>`
                     : ""}
                 </div>
                 ${job.lines.map((line) => html`
