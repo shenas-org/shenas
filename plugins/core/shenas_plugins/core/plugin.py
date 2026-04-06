@@ -58,25 +58,46 @@ class Plugin(abc.ABC):
     def commands(self) -> list[str]:
         return []
 
-    def enable(self) -> str:
-        """Enable this plugin."""
+    # -- State management --
+
+    @property
+    def state(self) -> dict[str, Any] | None:
+        """Load plugin state from the database. Returns None if not tracked."""
+        from app.db import get_plugin_state
+
+        return get_plugin_state(self._kind, self.name)
+
+    @property
+    def enabled(self) -> bool:
+        """Whether this plugin is enabled."""
+        s = self.state
+        return s["enabled"] if s else self.enabled_by_default
+
+    def save_state(self, *, enabled: bool) -> None:
+        """Create or update this plugin's state in the database."""
         from app.db import upsert_plugin_state
 
-        upsert_plugin_state(self._kind, self.name, enabled=True)
+        upsert_plugin_state(self._kind, self.name, enabled=enabled)
+
+    def remove_state(self) -> None:
+        """Remove this plugin's state from the database."""
+        from app.db import remove_plugin_state
+
+        remove_plugin_state(self._kind, self.name)
+
+    def enable(self) -> str:
+        """Enable this plugin."""
+        self.save_state(enabled=True)
         return f"Enabled {self._kind} {self.name}"
 
     def disable(self) -> str:
         """Disable this plugin."""
-        from app.db import upsert_plugin_state
-
-        upsert_plugin_state(self._kind, self.name, enabled=False)
+        self.save_state(enabled=False)
         return f"Disabled {self._kind} {self.name}"
 
     def get_info(self) -> dict[str, Any]:
         """Full plugin metadata for API responses."""
-        from app.db import get_plugin_state
-
-        state = get_plugin_state(self._kind, self.name)
+        s = self.state
         return {
             "name": self.name,
             "display_name": self.display_name,
@@ -86,11 +107,11 @@ class Plugin(abc.ABC):
             "has_config": self.has_config,
             "has_data": self.has_data,
             "has_auth": self.has_auth,
-            "enabled": state["enabled"] if state else True,
-            "added_at": state["added_at"] if state else None,
-            "updated_at": state["updated_at"] if state else None,
-            "status_changed_at": state["status_changed_at"] if state else None,
-            "synced_at": state["synced_at"] if state else None,
+            "enabled": s["enabled"] if s else self.enabled_by_default,
+            "added_at": s["added_at"] if s else None,
+            "updated_at": s["updated_at"] if s else None,
+            "status_changed_at": s["status_changed_at"] if s else None,
+            "synced_at": s["synced_at"] if s else None,
         }
 
 
@@ -101,20 +122,24 @@ class _SelectOneMixin:
 
     def enable(self) -> str:
         """Select this plugin, deselecting all others of the same kind."""
-        from app.db import get_all_plugin_states, upsert_plugin_state
+        from app.db import get_all_plugin_states
 
-        for state in get_all_plugin_states(self._kind):
-            if state["name"] != self.name and state["enabled"]:
-                upsert_plugin_state(self._kind, state["name"], enabled=False)
-        upsert_plugin_state(self._kind, self.name, enabled=True)
+        for s in get_all_plugin_states(self._kind):
+            if s["name"] != self.name and s["enabled"]:
+                self.__class__._upsert(self._kind, s["name"], enabled=False)
+        self.save_state(enabled=True)
         return f"Selected {self._kind} {self.name}"
 
     def disable(self) -> str:
         """Deselect this plugin, falling back to 'default'."""
-        from app.db import upsert_plugin_state
-
         if self.name == "default":
             return f"Cannot deselect the default {self._kind}"
-        upsert_plugin_state(self._kind, self.name, enabled=False)
-        upsert_plugin_state(self._kind, "default", enabled=True)
+        self.save_state(enabled=False)
+        self.__class__._upsert(self._kind, "default", enabled=True)
         return f"Switched {self._kind} to default"
+
+    @staticmethod
+    def _upsert(kind: str, name: str, *, enabled: bool) -> None:
+        from app.db import upsert_plugin_state
+
+        upsert_plugin_state(kind, name, enabled=enabled)
