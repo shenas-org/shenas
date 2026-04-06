@@ -317,10 +317,22 @@ class ShenasApp extends LitElement {
         color: var(--shenas-text, #222);
       }
       .device-name {
-        display: block;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
         padding: 0.2rem 0.8rem;
         font-size: 0.7rem;
         color: var(--shenas-text-faint, #aaa);
+      }
+      .device-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--shenas-text-faint, #ccc);
+        flex-shrink: 0;
+      }
+      .device-dot.connected {
+        background: var(--shenas-success, #2e7d32);
       }
       .component-host {
         height: calc(100vh - 4rem);
@@ -988,7 +1000,7 @@ class ShenasApp extends LitElement {
             <a class="auth-link" href="/api/auth/login" @click=${(e) => { e.preventDefault(); window.location.href = "/api/auth/login"; }}>
               ${this._remoteUser ? this._remoteUser.name || this._remoteUser.email : "Sign in"}
             </a>
-            ${this._deviceName ? html`<span class="device-name">${this._deviceName}</span>` : ""}
+            ${this._deviceName ? html`<span class="device-name"><span class="device-dot ${this._remoteUser ? "connected" : ""}"></span>${this._deviceName}</span>` : ""}
           </div>
         </div>
         <div class="divider" @mousedown=${this._startDrag("left")}></div>
