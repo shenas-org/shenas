@@ -163,7 +163,7 @@ _FALLBACK_HTML = """\
       <li><a href="/api/health">GET /api/health</a></li>
       <li><a href="/api/tables">GET /api/tables</a></li>
       <li><a href="/api/db/status">GET /api/db/status</a></li>
-      <li>GET /api/plugins/{{kind}}</li>
+      <li><a href="/api/graphql">POST /api/graphql</a></li>
     </ul>
   </body>
 </html>"""

@@ -134,15 +134,23 @@ class TestGetActiveTheme:
         ns = {"name": name, "display_name": name.title(), "static_dir": Path("/fake"), "css": css, "html": ""}
         return type(f"Theme_{name}", (Theme,), ns)
 
-    def test_returns_enabled_theme_from_db(self, client: TestClient) -> None:
+    def test_returns_enabled_theme_from_db(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         from app.server import _get_active_theme
 
         dark = self._make_theme("dark")
         light = self._make_theme("light")
-        states = [{"name": "dark", "enabled": True}, {"name": "light", "enabled": False}]
+
+        # Set up plugin state in the test DB
+        test_con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
+        from app.db import _ensure_system_tables
+
+        _ensure_system_tables(test_con)
+        test_con.execute("INSERT INTO shenas_system.plugins (kind, name, enabled) VALUES ('theme', 'dark', true)")
+        test_con.execute("INSERT INTO shenas_system.plugins (kind, name, enabled) VALUES ('theme', 'light', false)")
+
         with (
             patch("app.api.sources._load_themes", return_value=[dark, light]),
-            patch("app.db.get_all_plugin_states", return_value=states),
+            patch("app.db.connect", return_value=test_con),
         ):
             result = _get_active_theme()
         assert result is dark
@@ -152,10 +160,9 @@ class TestGetActiveTheme:
 
         default = self._make_theme("default")
         other = self._make_theme("other")
-        states = [{"name": "default", "enabled": False}, {"name": "other", "enabled": False}]
         with (
             patch("app.api.sources._load_themes", return_value=[default, other]),
-            patch("app.db.get_all_plugin_states", return_value=states),
+            patch("app.db.connect", side_effect=Exception("no DB")),
         ):
             result = _get_active_theme()
         assert result is default
@@ -165,10 +172,9 @@ class TestGetActiveTheme:
 
         custom = self._make_theme("custom")
         app.state.default_theme = "nonexistent"
-        states = []
         with (
             patch("app.api.sources._load_themes", return_value=[custom]),
-            patch("app.db.get_all_plugin_states", return_value=states),
+            patch("app.db.connect", side_effect=Exception("no DB")),
         ):
             result = _get_active_theme()
         assert result is custom
@@ -177,10 +183,7 @@ class TestGetActiveTheme:
     def test_returns_none_when_no_themes(self, client: TestClient) -> None:
         from app.server import _get_active_theme
 
-        with (
-            patch("app.api.sources._load_themes", return_value=[]),
-            patch("app.db.get_all_plugin_states", return_value=[]),
-        ):
+        with patch("app.api.sources._load_themes", return_value=[]):
             result = _get_active_theme()
         assert result is None
 
@@ -190,7 +193,7 @@ class TestGetActiveTheme:
         default = self._make_theme("default")
         with (
             patch("app.api.sources._load_themes", return_value=[default]),
-            patch("app.db.get_all_plugin_states", side_effect=Exception("DB down")),
+            patch("app.db.connect", side_effect=Exception("DB down")),
         ):
             result = _get_active_theme()
         assert result is default

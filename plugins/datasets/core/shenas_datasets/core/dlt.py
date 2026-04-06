@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, get_type_hints
 
-from shenas_datasets.core.ddl import _duckdb_type, _get_field_obj
+from shenas_plugins.core.ddl import _duckdb_type, _get_field_obj
 
 # Map DuckDB types to dlt's type system
 _DLT_TYPE_MAP: dict[str, str] = {

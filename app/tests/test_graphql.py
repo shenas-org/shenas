@@ -70,6 +70,8 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
         patch("app.db.connect", return_value=test_con),
         patch("app.api.query.cursor", _fake_cursor),
         patch("app.api.db.cursor", _fake_cursor),
+        patch("app.workspace.cursor", _fake_cursor),
+        patch("app.hotkeys.cursor", _fake_cursor),
     ):
         yield TestClient(app)
 
@@ -227,17 +229,18 @@ class TestGraphQLQueries:
         assert result["data"]["transform"] is None
 
     def test_plugins(self, client: TestClient) -> None:
-        from app.models import PluginInfo
-
-        mock_info = PluginInfo(
-            name="garmin",
-            display_name="Garmin",
-            package="shenas-source-garmin",
-            version="1.0.0",
-            signature="valid",
-            enabled=True,
-        )
-        with patch("app.api.plugins.list_plugins_data", return_value=[mock_info]):
+        mock_data = [
+            {
+                "name": "garmin",
+                "display_name": "Garmin",
+                "package": "shenas-source-garmin",
+                "version": "1.0.0",
+                "signature": "valid",
+                "enabled": True,
+                "config_entries": [],
+            }
+        ]
+        with patch("shenas_plugins.core.plugin.Plugin.list_installed", return_value=mock_data):
             result = _gql(client, '{ plugins(kind: "source") { name displayName enabled version } }')
         assert "errors" not in result
         plugins = result["data"]["plugins"]
@@ -310,15 +313,31 @@ class TestGraphQLQueries:
         assert result["data"]["dashboards"] == []
 
     def test_sync_schedule_empty(self, client: TestClient) -> None:
-        with patch("app.db.get_all_sync_schedules", return_value=[]):
+        with patch("app.api.sources._load_plugins", return_value=[]):
             result = _gql(client, "{ syncSchedule { name syncFrequency isDue } }")
         assert "errors" not in result
         assert result["data"]["syncSchedule"] == []
 
     def test_sync_schedule_with_data(self, client: TestClient) -> None:
-        with patch(
-            "app.db.get_all_sync_schedules",
-            return_value=[{"name": "garmin", "synced_at": "2026-03-15 10:00:00", "sync_frequency": 60, "is_due": True}],
+        from shenas_sources.core.source import Source
+
+        class FakeSource(Source):
+            name = "garmin"
+            display_name = "Garmin"
+
+            def resources(self, client):
+                return []
+
+        with (
+            patch("app.api.sources._load_plugins", return_value=[FakeSource]),
+            patch.object(FakeSource, "sync_frequency", new_callable=lambda: property(lambda self: 60)),
+            patch.object(FakeSource, "enabled", new_callable=lambda: property(lambda self: True)),
+            patch.object(
+                FakeSource,
+                "state",
+                new_callable=lambda: property(lambda self: {"synced_at": "2026-03-15 10:00:00", "enabled": True}),
+            ),
+            patch.object(FakeSource, "is_due_for_sync", new_callable=lambda: property(lambda self: True)),
         ):
             result = _gql(client, "{ syncSchedule { name syncFrequency isDue } }")
         assert "errors" not in result
@@ -336,7 +355,7 @@ class TestGraphQLQueries:
 
 class TestGraphQLMutations:
     def test_set_hotkey(self, client: TestClient) -> None:
-        with patch("app.db.set_hotkey"):
+        with patch("app.hotkeys.Hotkey.set"):
             result = _gql(
                 client,
                 'mutation { setHotkey(actionId: "test-action", binding: "Ctrl+X") { ok } }',
@@ -345,23 +364,22 @@ class TestGraphQLMutations:
         assert result["data"]["setHotkey"]["ok"] is True
 
     def test_delete_hotkey(self, client: TestClient) -> None:
-        with patch("app.db.set_hotkey") as mock_set:
+        with patch("app.hotkeys.Hotkey.delete"):
             result = _gql(
                 client,
                 'mutation { deleteHotkey(actionId: "command-palette") { ok } }',
             )
         assert "errors" not in result
         assert result["data"]["deleteHotkey"]["ok"] is True
-        mock_set.assert_called_once_with("command-palette", "")
 
     def test_reset_hotkeys(self, client: TestClient) -> None:
-        with patch("app.db.reset_hotkeys"):
+        with patch("app.hotkeys.Hotkey.reset"):
             result = _gql(client, "mutation { resetHotkeys { ok } }")
         assert "errors" not in result
         assert result["data"]["resetHotkeys"]["ok"] is True
 
     def test_save_workspace(self, client: TestClient) -> None:
-        with patch("app.db.save_workspace"):
+        with patch("app.workspace.Workspace.save"):
             result = _gql(
                 client,
                 'mutation { saveWorkspace(data: {key: "value"}) { ok } }',
@@ -370,7 +388,7 @@ class TestGraphQLMutations:
         assert result["data"]["saveWorkspace"]["ok"] is True
 
     def test_save_workspace_with_nested_data(self, client: TestClient) -> None:
-        with patch("app.db.save_workspace") as mock_save:
+        with patch("app.workspace.Workspace.save") as mock_save:
             result = _gql(
                 client,
                 'mutation { saveWorkspace(data: {tabs: ["a", "b"], active: 0}) { ok } }',
@@ -499,9 +517,11 @@ class TestGraphQLMutations:
         assert result["data"]["disableTransform"] is None
 
     def test_enable_plugin(self, client: TestClient) -> None:
-        from app.models import OkResponse
+        class FakePlugin:
+            def enable(self):
+                return "enabled"
 
-        with patch("app.api.plugins.enable_plugin", return_value=OkResponse(ok=True, message="enabled")):
+        with patch("app.api.sources._load_plugin", return_value=FakePlugin):
             result = _gql(
                 client,
                 'mutation { enablePlugin(kind: "source", name: "garmin") { ok } }',
@@ -510,9 +530,11 @@ class TestGraphQLMutations:
         assert result["data"]["enablePlugin"]["ok"] is True
 
     def test_disable_plugin(self, client: TestClient) -> None:
-        from app.models import OkResponse
+        class FakePlugin:
+            def disable(self):
+                return "disabled"
 
-        with patch("app.api.plugins.disable_plugin", return_value=OkResponse(ok=True, message="disabled")):
+        with patch("app.api.sources._load_plugin", return_value=FakePlugin):
             result = _gql(
                 client,
                 'mutation { disablePlugin(kind: "source", name: "garmin") { ok } }',
@@ -551,35 +573,18 @@ class TestGraphQLMutations:
         assert "errors" not in result
         assert result["data"]["testTransform"] == []
 
-    def test_config_query(self, client: TestClient) -> None:
-        from app.models import ConfigEntry, ConfigItem
-
-        mock_items = [
-            ConfigItem(
-                kind="source",
-                name="garmin",
-                entries=[ConfigEntry(key="start_date", label="Start Date", value="2024-01-01", description="")],
-            )
-        ]
-        with patch("app.api.config.list_configs", return_value=mock_items):
-            result = _gql(client, '{ config(kind: "source") { kind name entries { key value } } }')
-        assert "errors" not in result
-        configs = result["data"]["config"]
-        assert len(configs) == 1
-        assert configs[0]["name"] == "garmin"
-        assert configs[0]["entries"][0]["key"] == "start_date"
-
     def test_config_value_query(self, client: TestClient) -> None:
-        from app.models import ConfigValueResponse
+        class FakePlugin:
+            def get_config_value(self, key):
+                return "2024-01-01" if key == "start_date" else None
 
-        mock_resp = ConfigValueResponse(key="start_date", value="2024-01-01")
-        with patch("app.api.config.get_config_value", return_value=mock_resp):
+        with patch("app.api.sources._load_plugin", return_value=FakePlugin):
             result = _gql(client, '{ configValue(kind: "source", name: "garmin", key: "start_date") }')
         assert "errors" not in result
         assert result["data"]["configValue"] == "2024-01-01"
 
     def test_config_value_query_not_found(self, client: TestClient) -> None:
-        with patch("app.api.config.get_config_value", side_effect=Exception("Not set")):
+        with patch("app.api.sources._load_plugin", return_value=None):
             result = _gql(client, '{ configValue(kind: "source", name: "garmin", key: "missing") }')
         assert "errors" not in result
         assert result["data"]["configValue"] is None

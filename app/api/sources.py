@@ -41,15 +41,15 @@ def _clear_caches() -> None:
     importlib.invalidate_caches()
 
 
-def _group(kind: str) -> str:
-    """Entry point group for a plugin kind. Convention: shenas.{kind}s, except ui."""
-    return "shenas.frontends" if kind == "frontend" else f"shenas.{kind}s"
+def _ep_group(kind: str) -> str:
+    """Entry point group name for a plugin kind."""
+    return f"shenas.{kind}s"
 
 
 def _load_plugins(kind: str, *, base: type[T], include_internal: bool = True) -> list[type[T]]:
     """Load all plugin classes of a given kind."""
     result: list[type[T]] = []
-    for ep in entry_points(group=_group(kind)):
+    for ep in entry_points(group=_ep_group(kind)):
         try:
             obj = ep.load()
             if isinstance(obj, type) and issubclass(obj, base) and (include_internal or not obj.internal):
@@ -61,7 +61,7 @@ def _load_plugins(kind: str, *, base: type[T], include_internal: bool = True) ->
 
 def _load_plugin(kind: str, name: str) -> type[Plugin] | None:
     """Load a single plugin class by kind and name."""
-    for ep in entry_points(group=_group(kind)):
+    for ep in entry_points(group=_ep_group(kind)):
         if ep.name == name:
             try:
                 obj = ep.load()
@@ -77,18 +77,11 @@ def _load_source(name: str) -> Source:
     """Load and cache a Source instance by name."""
     if name in _source_cache:
         return _source_cache[name]
-    for ep in entry_points(group="shenas.sources"):
-        if ep.name == name:
-            cls = ep.load()
-            pipe = cls()
-            _source_cache[name] = pipe
-            return pipe
-    # Fallback: scan dist-info on disk (entry_points cache may be stale)
-    fresh_cls = _load_plugin_fresh("source", name)
-    if fresh_cls:
+    cls = _load_plugin("source", name) or _load_plugin_fresh("source", name)
+    if cls:
         from typing import cast
 
-        pipe = cast("Source", fresh_cls())
+        pipe = cast("Source", cls())
         _source_cache[name] = pipe
         return pipe
     msg = f"Source not found: {name}"
@@ -102,7 +95,7 @@ def _load_plugin_fresh(kind: str, name: str) -> type[Plugin] | None:
     from importlib.metadata import PathDistribution
     from pathlib import Path
 
-    group = _group(kind)
+    group = _ep_group(kind)
     for path_str in sys.path:
         if "site-packages" not in path_str:
             continue

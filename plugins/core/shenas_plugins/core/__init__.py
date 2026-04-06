@@ -1,5 +1,8 @@
 from shenas_plugins.core.base_auth import SourceAuth
 from shenas_plugins.core.base_config import SourceConfig
+from shenas_plugins.core.ddl import ensure_schema, generate_ddl
+from shenas_plugins.core.field import Field
+from shenas_plugins.core.introspect import schema_metadata, table_metadata
 from shenas_plugins.core.plugin import Plugin, _SelectOneMixin
 from shenas_plugins.core.static import StaticPlugin
 from shenas_plugins.core.store import DataclassStore
@@ -8,6 +11,7 @@ __all__ = [
     "Dashboard",
     "DataclassStore",
     "Dataset",
+    "Field",
     "Frontend",
     "Plugin",
     "Source",
@@ -16,6 +20,10 @@ __all__ = [
     "StaticPlugin",
     "Theme",
     "_SelectOneMixin",
+    "ensure_schema",
+    "generate_ddl",
+    "schema_metadata",
+    "table_metadata",
 ]
 
 # Lazy re-exports from per-kind core packages to avoid circular imports.

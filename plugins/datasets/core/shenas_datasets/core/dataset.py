@@ -27,7 +27,7 @@ class Dataset(Plugin):
 
     @classmethod
     def ensure(cls, con: Any) -> None:
-        from shenas_datasets.core.ddl import ensure_schema
+        from shenas_plugins.core.ddl import ensure_schema
 
         ensure_schema(con, all_tables=cls.all_tables)
 
@@ -41,6 +41,6 @@ class Dataset(Plugin):
 
     @classmethod
     def metadata(cls) -> list[dict[str, Any]]:
-        from shenas_datasets.core.introspect import schema_metadata
+        from shenas_plugins.core.introspect import schema_metadata
 
         return schema_metadata(all_tables=cls.all_tables)

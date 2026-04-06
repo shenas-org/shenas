@@ -7,7 +7,7 @@ so individual pipes only define their credential fields and __table__.
 from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
-from shenas_datasets.core.field import Field
+from shenas_plugins.core.field import Field
 
 
 @dataclass

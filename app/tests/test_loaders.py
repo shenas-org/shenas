@@ -11,7 +11,7 @@ import pytest
 
 from app.api.sources import (
     _clear_caches,
-    _group,
+    _ep_group,
     _load_plugin,
     _load_plugin_fresh,
     _load_plugins,
@@ -54,25 +54,25 @@ def _make_entry_point(name: str, obj: object, *, raises: bool = False) -> MagicM
 
 
 # ---------------------------------------------------------------------------
-# _group
+# _ep_group
 # ---------------------------------------------------------------------------
 
 
 class TestGroup:
     def test_pipe(self) -> None:
-        assert _group("source") == "shenas.sources"
+        assert _ep_group("source") == "shenas.sources"
 
     def test_theme(self) -> None:
-        assert _group("theme") == "shenas.themes"
+        assert _ep_group("theme") == "shenas.themes"
 
     def test_component(self) -> None:
-        assert _group("dashboard") == "shenas.dashboards"
+        assert _ep_group("dashboard") == "shenas.dashboards"
 
     def test_schema(self) -> None:
-        assert _group("dataset") == "shenas.datasets"
+        assert _ep_group("dataset") == "shenas.datasets"
 
     def test_ui_special_case(self) -> None:
-        assert _group("frontend") == "shenas.frontends"
+        assert _ep_group("frontend") == "shenas.frontends"
 
 
 # ---------------------------------------------------------------------------
@@ -181,18 +181,14 @@ class TestLoadSource:
 
     def test_returns_cached(self) -> None:
         sentinel = _FakeSource()
-        _source_cache["testpipe"] = sentinel
+        _source_cache["testpipe"] = sentinel  # type: ignore[assignment]
         result = _load_source("testpipe")
         assert result is sentinel
 
-    def test_loads_from_entry_points(self) -> None:
-        ep = MagicMock()
-        ep.name = "mypipe"
+    def test_loads_via_load_plugin(self) -> None:
         instance = _FakeSource()
-        ep.load.return_value = lambda: instance  # cls() returns instance
-        # Make cls() work: ep.load returns a callable that returns instance
-        ep.load.return_value = MagicMock(return_value=instance)
-        with patch("app.api.sources.entry_points", return_value=[ep]):
+        cls_mock = MagicMock(return_value=instance)
+        with patch("app.api.sources._load_plugin", return_value=cls_mock):
             result = _load_source("mypipe")
         assert result is instance
         assert _source_cache["mypipe"] is instance
@@ -228,7 +224,7 @@ class TestClearCaches:
         _source_cache.clear()
 
     def test_clears_source_cache(self) -> None:
-        _source_cache["x"] = "dummy"
+        _source_cache["x"] = "dummy"  # type: ignore[assignment]
         _clear_caches()
         assert _source_cache == {}
 

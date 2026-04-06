@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Don't ask about doing 'cat', 'find', 'diff' or similar. Do not use emojis in code, docs, or commit messages.
 
+When refactoring, unless told specifically so, don't bother with backward compatability.
+
 ## Commands
 
 ```bash
@@ -34,7 +36,7 @@ moon run desktop:tauri              # build desktop app (builds sidecars first)
 
 - **dlt** — data ingestion/pipeline framework (`@dlt.source`, `@dlt.resource`, incremental cursors)
 - **DuckDB** — local destination at `./data/shenas.duckdb` (also available via MCP server `duckdb`)
-- **uv** — package manager (do not use pip directly); workspace with glob-based members (app, shenasctl, scheduler, server/api, plugins/*)
+- **uv** — package manager (do not use pip directly); workspace with glob-based members (app, shenasctl, scheduler, server/api, plugins/\*)
 - **moon** — monorepo task runner; config in `.moon/`, per-project `moon.yml`
 - **typer** — CLI framework; **rich** — terminal formatting
 - **FastAPI** — app server + web API
