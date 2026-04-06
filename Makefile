@@ -13,7 +13,7 @@ install:
 dev:
 	@trap 'kill 0' EXIT; \
 	uv run shenas --reload --no-tls & \
-	cd plugins/uis/default && npx vite & \
+	cd plugins/frontends/default && npx vite & \
 	wait
 
 # Install git pre-commit hook
