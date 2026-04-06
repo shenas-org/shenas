@@ -1,6 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { gql, gqlFull, renderMessage } from "./api.js";
-import { buttonStyles, formStyles, messageStyles } from "./shared-styles.js";
+import { gql, gqlFull, renderMessage, buttonStyles, formStyles, messageStyles } from "shenas-frontends";
 
 class AuthPage extends LitElement {
   static properties = {

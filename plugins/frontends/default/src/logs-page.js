@@ -1,6 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { arrowQuery } from "./api.js";
-import { buttonStyles, utilityStyles } from "./shared-styles.js";
+import { arrowQuery, buttonStyles, utilityStyles } from "shenas-frontends";
 
 class LogsPage extends LitElement {
   static properties = {

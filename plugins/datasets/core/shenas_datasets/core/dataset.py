@@ -32,6 +32,14 @@ class Dataset(Plugin):
         ensure_schema(con, all_tables=cls.all_tables)
 
     @classmethod
+    def ensure_all(cls, con: Any) -> None:
+        """Ensure all installed dataset plugins have their tables created."""
+        from app.api.sources import _load_datasets
+
+        for dataset_cls in _load_datasets():
+            dataset_cls.ensure(con)
+
+    @classmethod
     def metadata(cls) -> list[dict[str, Any]]:
         from shenas_datasets.core.introspect import schema_metadata
 

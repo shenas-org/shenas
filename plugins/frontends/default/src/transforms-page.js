@@ -1,6 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { gql, gqlFull, registerCommands, renderMessage } from "./api.js";
-import { buttonStyles, formStyles, messageStyles, tableStyles } from "./shared-styles.js";
+import { gql, gqlFull, registerCommands, renderMessage, buttonStyles, formStyles, messageStyles, tableStyles } from "shenas-frontends";
 
 const _inspectBtnStyle = "background:none;border:none;cursor:pointer;color:var(--shenas-text-faint, #aaa);font-size:0.7rem;padding:0 2px";
 

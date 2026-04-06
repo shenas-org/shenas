@@ -1,8 +1,4 @@
-import "./command-palette.js";
-import "./shenas-page.js";
-import "./status-toggle.js";
-import "./data-list.js";
-import "./form-panel.js";
+import "shenas-frontends";
 import "./pipeline-overview.js";
 import "./auth-page.js";
 import "./config-page.js";
@@ -10,6 +6,5 @@ import "./hotkeys-page.js";
 import "./logs-page.js";
 import "./app-shell.js";
 import "./settings-page.js";
-import "./job-panel.js";
 import "./plugin-detail.js";
 import "./transforms-page.js";

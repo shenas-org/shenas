@@ -41,13 +41,19 @@ const devAliases = {
 
 const pythonServer = "http://127.0.0.1:7280";
 
-export default defineConfig({
+const shenasFrontendsSource = resolve(repoRoot, "app/vendor/src/shenas-frontends.js");
+
+export default defineConfig(({ command }) => ({
   test: {
     environment: "happy-dom",
     setupFiles: ["src/__tests__/setup.js"],
     alias: {
       "/vendor/apache-arrow.js": new URL("src/__tests__/mock-arrow.js", import.meta.url).pathname,
+      "shenas-frontends": new URL("../../../app/vendor/src/shenas-frontends.js", import.meta.url).pathname,
     },
+  },
+  resolve: {
+    alias: command === "serve" ? { "shenas-frontends": shenasFrontendsSource } : {},
   },
   build: {
     outDir: "shenas_frontends/default/static",
@@ -55,7 +61,7 @@ export default defineConfig({
     cssCodeSplit: false,
     rollupOptions: {
       input: "src/index.js",
-      external: ["lit", /^lit\//, /^@lit-labs\//, "cytoscape", /^\/vendor\//],
+      external: ["lit", /^lit\//, /^@lit-labs\//, "cytoscape", "shenas-frontends", /^\/vendor\//],
       output: {
         entryFileNames: "default.js",
         assetFileNames: "default.[ext]",
@@ -77,7 +83,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ["lit", "cytoscape", "apache-arrow", "uplot"],
+    exclude: ["lit", "cytoscape", "apache-arrow", "uplot", "shenas-frontends"],
   },
   plugins: [
     {
@@ -126,4 +132,4 @@ export default defineConfig({
       },
     },
   ],
-});
+}));
