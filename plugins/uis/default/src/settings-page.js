@@ -199,6 +199,7 @@ class SettingsPage extends LitElement {
       componentPlugins: plugins(kind: "component") { name displayName package version enabled description }
       uis: plugins(kind: "ui") { name displayName package version enabled description }
       themes: plugins(kind: "theme") { name displayName package version enabled description }
+      models: plugins(kind: "model") { name displayName package version enabled description }
     }`);
     const result = {
       pipe: data?.pipes || [],
@@ -206,6 +207,7 @@ class SettingsPage extends LitElement {
       component: data?.componentPlugins || [],
       ui: data?.uis || [],
       theme: data?.themes || [],
+      model: data?.models || [],
     };
     this._plugins = result;
     this._loading = false;

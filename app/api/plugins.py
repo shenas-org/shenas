@@ -28,7 +28,7 @@ DEFAULT_INDEX = "https://repo.shenas.net"
 PACKAGES_DIR = Path(__file__).resolve().parent.parent.parent / "packages"
 PUBLIC_KEY_PATH = Path(".shenas") / "shenas.pub"
 
-VALID_KINDS = {"pipe", "schema", "component", "ui", "theme"}
+VALID_KINDS = {"pipe", "schema", "component", "ui", "theme", "model"}
 
 
 PLUGIN_VENV = Path.home() / ".shenas" / "plugins"

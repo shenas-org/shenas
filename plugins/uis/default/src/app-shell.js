@@ -844,6 +844,7 @@ class ShenasApp extends LitElement {
       componentPlugins: plugins(kind: "component") { name displayName enabled }
       uis: plugins(kind: "ui") { name displayName enabled }
       themes: plugins(kind: "theme") { name displayName enabled }
+      models: plugins(kind: "model") { name displayName enabled }
     }`);
     if (data) {
       this._allPlugins = {
@@ -852,6 +853,7 @@ class ShenasApp extends LitElement {
         component: data.componentPlugins || [],
         ui: data.uis || [],
         theme: data.themes || [],
+        model: data.models || [],
       };
     }
   }
@@ -869,6 +871,7 @@ class ShenasApp extends LitElement {
         componentPlugins: plugins(kind: "component") { name displayName enabled }
         uis: plugins(kind: "ui") { name displayName enabled }
         themes: plugins(kind: "theme") { name displayName enabled }
+        models: plugins(kind: "model") { name displayName enabled }
         theme { css }
         deviceName
         schemaPlugins
@@ -883,6 +886,7 @@ class ShenasApp extends LitElement {
         component: data?.componentPlugins || [],
         ui: data?.uis || [],
         theme: data?.themes || [],
+        model: data?.models || [],
       };
       this._schemaPlugins = data?.schemaPlugins || {};
       // Apply theme if not already injected by the server

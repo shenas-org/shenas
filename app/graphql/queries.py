@@ -128,11 +128,11 @@ class Query:
 
     @strawberry.field
     def plugin_info(self, kind: str, name: str) -> JSON:
-        from app.api.pipes import _load_plugin
+        from app.api.pipes import _load_plugin, _load_plugin_fresh
 
-        cls = _load_plugin(kind, name)
+        cls = _load_plugin(kind, name) or _load_plugin_fresh(kind, name)
         if not cls:
-            return None
+            return {"name": name, "kind": kind, "display_name": name.replace("-", " ").title()}
         return cls().get_info()
 
     @strawberry.field

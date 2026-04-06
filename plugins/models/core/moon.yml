@@ -1,0 +1,9 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'model-core'
+
+language: 'python'
+stack: 'data'
+tags: ['model', 'core']
+
+dependsOn:
+  - 'plugin-core'
