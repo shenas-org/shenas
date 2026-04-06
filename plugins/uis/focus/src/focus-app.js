@@ -172,7 +172,7 @@ class FocusApp extends LitElement {
         variables: { k: "ui", n: name },
       }),
     });
-    window.location.reload();
+    window.location.replace(window.location.pathname + '?_switch=' + Date.now());
   }
 
   _onKeydown(e) {
