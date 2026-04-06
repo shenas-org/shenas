@@ -23,7 +23,7 @@ def _resolve_plugin(kind: str, name: str) -> Plugin:
 
 @router.get("")
 def list_configs(kind: str | None = None, name: str | None = None) -> list[ConfigItem]:
-    kinds = [kind] if kind else ["pipe"]
+    kinds = [kind] if kind else ["source"]
     result = []
     for k in kinds:
         for plugin_cls in _load_plugins(k, base=Plugin):
