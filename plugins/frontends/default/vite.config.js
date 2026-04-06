@@ -36,7 +36,6 @@ function discoverFrontends() {
 
 const devAliases = {
   ...discoverFrontends(),
-  ...discoverPlugins("plugins/dashboards", "dashboards"),
 };
 
 const pythonServer = "http://127.0.0.1:7280";
@@ -103,8 +102,17 @@ export default defineConfig({
         const names = Object.keys(devAliases);
         server.config.logger.info(`  Serving ${names.length} plugins: ${names.join(", ")}`);
         server.middlewares.use((req, res, next) => {
-          // Serve active UI HTML from Python server (respects DB-enabled UI)
           const path = req.url.split("?")[0];
+          // Proxy dashboard JS directly (skip Vite module transform)
+          if (path.startsWith("/dashboards/") && path.endsWith(".js")) {
+            const proxyReq = http.get(`${pythonServer}${path}`, (proxyRes) => {
+              res.setHeader("Content-Type", "application/javascript");
+              proxyRes.pipe(res);
+            });
+            proxyReq.on("error", () => next());
+            return;
+          }
+          // Serve active UI HTML from Python server (respects DB-enabled UI)
           if (path === "/" || path === "/index.html") {
             const proxyReq = http.get(`${pythonServer}/`, (proxyRes) => {
               let body = "";

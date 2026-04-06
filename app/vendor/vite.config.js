@@ -14,7 +14,12 @@ export default defineConfig({
         cytoscape: "src/cytoscape.js",
         "shenas-frontends": "src/shenas-frontends.js",
       },
-      external: ["lit", /^lit\//, /^\/vendor\//],
+      external(id, importer) {
+        // Only externalize lit for shenas-frontends (not for lit.js itself)
+        if (/^\/vendor\//.test(id)) return true;
+        if ((id === "lit" || /^lit\//.test(id)) && importer?.includes("shenas-frontends")) return true;
+        return false;
+      },
       output: {
         entryFileNames: "[name].js",
         chunkFileNames: "chunks/[name]-[hash].js",
