@@ -16,8 +16,8 @@ members = [
     "shenas-cli",
     "shenas-component-core",
     "shenas-component-data-table",
+    "shenas-component-event-gantt",
     "shenas-component-fitness-dashboard",
-    "shenas-component-gantt-chart",
     "shenas-pipe-core",
     "shenas-pipe-duolingo",
     "shenas-pipe-garmin",
@@ -2704,6 +2704,20 @@ dependencies = [
 requires-dist = [{ name = "shenas-component-core", editable = "plugins/components/core" }]
 
 [[package]]
+name = "shenas-component-event-gantt"
+source = { editable = "plugins/components/event-gantt" }
+dependencies = [
+    { name = "shenas-component-core" },
+    { name = "shenas-schema-events" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "shenas-component-core", editable = "plugins/components/core" },
+    { name = "shenas-schema-events", editable = "plugins/schemas/events" },
+]
+
+[[package]]
 name = "shenas-component-fitness-dashboard"
 source = { editable = "plugins/components/fitness-dashboard" }
 dependencies = [
@@ -2718,48 +2732,35 @@ requires-dist = [
 ]
 
 [[package]]
-name = "shenas-component-gantt-chart"
-source = { editable = "plugins/components/gantt-chart" }
-dependencies = [
-    { name = "shenas-component-core" },
-    { name = "shenas-schema-events" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "shenas-component-core", editable = "plugins/components/core" },
-    { name = "shenas-schema-events", editable = "plugins/schemas/events" },
-]
-
-[[package]]
 name = "shenas-pipe-core"
 source = { editable = "plugins/pipes/core" }
 dependencies = [
-    { name = "duckdb" },
-    { name = "google-api-python-client" },
-    { name = "google-auth-oauthlib" },
-    { name = "keyring" },
     { name = "opentelemetry-api" },
-    { name = "pendulum" },
-    { name = "rich" },
     { name = "shenas-plugin-core" },
     { name = "shenas-schema-core" },
+]
+
+[package.optional-dependencies]
+cli = [
+    { name = "rich" },
     { name = "typer" },
+]
+google = [
+    { name = "google-api-python-client" },
+    { name = "google-auth-oauthlib" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "duckdb", specifier = ">=1.2.0" },
-    { name = "google-api-python-client", specifier = ">=2.0.0" },
-    { name = "google-auth-oauthlib", specifier = ">=1.0.0" },
-    { name = "keyring", specifier = ">=25.0.0" },
+    { name = "google-api-python-client", marker = "extra == 'google'", specifier = ">=2.0.0" },
+    { name = "google-auth-oauthlib", marker = "extra == 'google'", specifier = ">=1.0.0" },
     { name = "opentelemetry-api", specifier = ">=1.25.0" },
-    { name = "pendulum", specifier = ">=3.0.0" },
-    { name = "rich", specifier = ">=14.0.0" },
+    { name = "rich", marker = "extra == 'cli'", specifier = ">=14.0.0" },
     { name = "shenas-plugin-core", editable = "plugins/core" },
     { name = "shenas-schema-core", editable = "plugins/schemas/core" },
-    { name = "typer", specifier = ">=0.24.0" },
+    { name = "typer", marker = "extra == 'cli'", specifier = ">=0.24.0" },
 ]
+provides-extras = ["cli", "google"]
 
 [[package]]
 name = "shenas-pipe-duolingo"
@@ -2811,7 +2812,7 @@ source = { editable = "plugins/pipes/gcalendar" }
 dependencies = [
     { name = "dlt", extra = ["duckdb"] },
     { name = "pendulum" },
-    { name = "shenas-pipe-core" },
+    { name = "shenas-pipe-core", extra = ["google"] },
     { name = "shenas-schema-events" },
 ]
 
@@ -2819,7 +2820,7 @@ dependencies = [
 requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "pendulum", specifier = ">=3.0.0" },
-    { name = "shenas-pipe-core", editable = "plugins/pipes/core" },
+    { name = "shenas-pipe-core", extras = ["google"], editable = "plugins/pipes/core" },
     { name = "shenas-schema-events", editable = "plugins/schemas/events" },
 ]
 
@@ -2827,11 +2828,11 @@ requires-dist = [
 name = "shenas-pipe-gmail"
 source = { editable = "plugins/pipes/gmail" }
 dependencies = [
-    { name = "shenas-pipe-core" },
+    { name = "shenas-pipe-core", extra = ["google"] },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-pipe-core", editable = "plugins/pipes/core" }]
+requires-dist = [{ name = "shenas-pipe-core", extras = ["google"], editable = "plugins/pipes/core" }]
 
 [[package]]
 name = "shenas-pipe-gtakeout"
@@ -2839,14 +2840,14 @@ source = { editable = "plugins/pipes/gtakeout" }
 dependencies = [
     { name = "dlt", extra = ["duckdb"] },
     { name = "ijson" },
-    { name = "shenas-pipe-core" },
+    { name = "shenas-pipe-core", extra = ["google"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "ijson", specifier = ">=3.0" },
-    { name = "shenas-pipe-core", editable = "plugins/pipes/core" },
+    { name = "shenas-pipe-core", extras = ["google"], editable = "plugins/pipes/core" },
 ]
 
 [[package]]
