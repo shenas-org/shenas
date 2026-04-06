@@ -8,6 +8,7 @@ class SettingsPage extends LitElement {
     apiBase: { type: String, attribute: "api-base" },
     activeKind: { type: String, attribute: "active-kind" },
     onNavigate: { type: Function },
+    onPluginsChanged: { type: Function },
     allActions: { type: Array },
     allPlugins: { type: Object },
     schemaPlugins: { type: Object },
@@ -191,21 +192,24 @@ class SettingsPage extends LitElement {
   }
 
   async _fetchAll() {
-    if (this.allPlugins && Object.keys(this.allPlugins).length > 0) {
-      this._plugins = this.allPlugins;
-      this._loading = false;
-      return;
-    }
     this._loading = true;
-    const result = {};
-    await Promise.all(
-      PLUGIN_KINDS.map(async ({ id }) => {
-        const data = await gql(this.apiBase, `query($kind: String!) { plugins(kind: $kind) { name displayName package version enabled description } }`, { kind: id });
-        result[id] = data?.plugins || [];
-      }),
-    );
+    const data = await gql(this.apiBase, `{
+      pipes: plugins(kind: "pipe") { name displayName package version enabled description syncedAt hasAuth }
+      schemas: plugins(kind: "schema") { name displayName package version enabled description }
+      componentPlugins: plugins(kind: "component") { name displayName package version enabled description }
+      uis: plugins(kind: "ui") { name displayName package version enabled description }
+      themes: plugins(kind: "theme") { name displayName package version enabled description }
+    }`);
+    const result = {
+      pipe: data?.pipes || [],
+      schema: data?.schemas || [],
+      component: data?.componentPlugins || [],
+      ui: data?.uis || [],
+      theme: data?.themes || [],
+    };
     this._plugins = result;
     this._loading = false;
+    if (this.onPluginsChanged) this.onPluginsChanged(result);
   }
 
 
@@ -223,7 +227,7 @@ class SettingsPage extends LitElement {
     if (kind === "theme") {
       await this._applyActiveTheme();
     }
-    await this._fetchAll();
+    await this._fetchAll({ force: true });
   }
 
   async _applyActiveTheme() {
@@ -263,11 +267,11 @@ class SettingsPage extends LitElement {
     if (result?.ok) {
       this._actionMessage = { type: "success", text: result.message };
       this._installing = false;
-      await this._fetchAll();
+      await this._fetchAll({ force: true });
     } else {
       this._actionMessage = {
         type: "error",
-        text: result?.message || "Install failed",
+        text: result?.message || "Add failed",
       };
     }
   }
@@ -328,12 +332,12 @@ class SettingsPage extends LitElement {
         .rowClass=${(p) => p.enabled === false ? "disabled-row" : ""}
         ?show-add=${!this._installing}
         @add=${() => this._startInstall(kind)}
-        empty-text="No ${label.toLowerCase()} installed"
+        empty-text="No ${label.toLowerCase()} added"
       ></shenas-data-list>
       ${this._installing
         ? html`<shenas-form-panel
-            title="Install ${label.slice(0, -1)}"
-            submit-label="Install"
+            title="Add ${label.slice(0, -1)}"
+            submit-label="Add"
             @submit=${() => this._install(kind)}
             @cancel=${() => { this._installing = false; }}
           >

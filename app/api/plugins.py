@@ -134,27 +134,33 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
     installed = json.loads(result.stdout)
     matched = [p for p in installed if p["name"].startswith(prefix)]
 
-    from app.api.pipes import _load_plugin
+    from app.api.pipes import _load_plugin, _load_plugin_fresh
 
     items = []
     for p in sorted(matched, key=lambda x: x["name"]):
         short_name = p["name"].removeprefix(prefix)
-        plugin_cls = _load_plugin(kind, short_name)
-        if not plugin_cls or plugin_cls.internal or short_name == "core":
+        if short_name == "core":
             continue
-        plugin = plugin_cls()
-        pi = plugin.get_info()
+        plugin_cls = _load_plugin(kind, short_name) or _load_plugin_fresh(kind, short_name)
+        if plugin_cls and plugin_cls.internal:
+            continue
+        if plugin_cls:
+            plugin = plugin_cls()
+            pi = plugin.get_info()
+        else:
+            pi = {}
         state = get_plugin_state(kind, short_name)
+        display = pi.get("display_name", "") or short_name.replace("-", " ").title()
         items.append(
             PluginInfo(
                 name=short_name,
-                display_name=pi.get("display_name", ""),
+                display_name=display,
                 package=p["name"],
                 version=p["version"],
                 signature=check_signature(p["name"], p["version"]),
                 description=pi.get("description", ""),
                 commands=pi.get("commands", []),
-                enabled=state["enabled"] if state else plugin_cls.enabled_by_default,
+                enabled=state["enabled"] if state else (plugin_cls.enabled_by_default if plugin_cls else True),
                 has_auth=pi.get("has_auth"),
                 sync_frequency=pi.get("sync_frequency"),
                 added_at=state["added_at"] if state else None,
@@ -255,11 +261,15 @@ def install_plugin(
     )
 
     if result.returncode == 0:
+        from app.api.pipes import _clear_caches
         from app.db import upsert_plugin_state
 
         upsert_plugin_state(kind, name, enabled=True)
-        return InstallResult(name=name, ok=True, message=f"Installed {pkg_name}")
-    return InstallResult(name=name, ok=False, message=result.stderr.strip() or f"Failed to install {pkg_name}")
+        _clear_caches()
+        display = name.replace("-", " ").title()
+        kind_label = kind.title()
+        return InstallResult(name=name, ok=True, message=f"Added {display} {kind_label}")
+    return InstallResult(name=name, ok=False, message=result.stderr.strip() or f"Failed to add {pkg_name}")
 
 
 def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
@@ -275,10 +285,14 @@ def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
     )
 
     if result.returncode == 0:
+        from app.api.pipes import _clear_caches
         from app.db import remove_plugin_state
 
         remove_plugin_state(kind, name)
-        return RemoveResponse(ok=True, message=f"Uninstalled {pkg_name}")
+        _clear_caches()
+        display = name.replace("-", " ").title()
+        kind_label = kind.title()
+        return RemoveResponse(ok=True, message=f"Removed {display} {kind_label}")
     return RemoveResponse(ok=False, message=result.stderr.strip() or f"Failed to uninstall {pkg_name}")
 
 

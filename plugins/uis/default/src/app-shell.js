@@ -23,6 +23,7 @@ class ShenasApp extends LitElement {
     _navCommands: { state: true },
     _tabs: { state: true },
     _activeTabId: { state: true },
+    _allPlugins: { state: true },
   };
 
   _router = new Router(this, [
@@ -488,6 +489,7 @@ class ShenasApp extends LitElement {
     this._registeredCommands = new Map();
     this._tabs = [];
     this._activeTabId = null;
+    this._allPlugins = {};
   }
 
   connectedCallback() {
@@ -814,8 +816,24 @@ class ShenasApp extends LitElement {
     this._components = data?.components || [];
   }
 
-  // Cached plugin data from the single init query, shared by commands + navigation
-  _allPlugins = {};
+  async _refreshPlugins() {
+    const data = await gql(this.apiBase, `{
+      pipes: plugins(kind: "pipe") { name displayName enabled syncedAt hasAuth }
+      schemas: plugins(kind: "schema") { name displayName enabled }
+      componentPlugins: plugins(kind: "component") { name displayName enabled }
+      uis: plugins(kind: "ui") { name displayName enabled }
+      themes: plugins(kind: "theme") { name displayName enabled }
+    }`);
+    if (data) {
+      this._allPlugins = {
+        pipe: data.pipes || [],
+        schema: data.schemas || [],
+        component: data.componentPlugins || [],
+        ui: data.uis || [],
+        theme: data.themes || [],
+      };
+    }
+  }
 
   async _fetchData() {
     this._loading = true;
@@ -830,6 +848,7 @@ class ShenasApp extends LitElement {
         componentPlugins: plugins(kind: "component") { name displayName enabled }
         uis: plugins(kind: "ui") { name displayName enabled }
         themes: plugins(kind: "theme") { name displayName enabled }
+        theme { css }
         schemaPlugins
       }`);
       this._components = data?.components || [];
@@ -843,6 +862,14 @@ class ShenasApp extends LitElement {
         theme: data?.themes || [],
       };
       this._schemaPlugins = data?.schemaPlugins || {};
+      // Apply theme if not already injected by the server
+      if (data?.theme?.css && !document.querySelector("link[data-shenas-theme]")) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.setAttribute("data-shenas-theme", "");
+        link.href = data.theme.css;
+        document.head.appendChild(link);
+      }
       // Restore workspace
       const ws = data?.workspace;
       if (ws?.tabs?.length > 0) {
@@ -1100,6 +1127,7 @@ class ShenasApp extends LitElement {
       .onNavigate=${(k) => {
         this._navigateTo(`/settings/${k}`);
       }}
+      .onPluginsChanged=${(data) => { this._allPlugins = data; }}
     ></shenas-settings>`;
   }
 
