@@ -3,12 +3,8 @@ import { resolve } from "path";
 
 const repoRoot = resolve(import.meta.dirname, "../../..");
 const pythonServer = "http://127.0.0.1:7280";
-const shenasFrontendsSource = resolve(repoRoot, "app/vendor/src/shenas-frontends.js");
 
-export default defineConfig(({ command }) => ({
-  resolve: {
-    alias: command === "serve" ? { "shenas-frontends": shenasFrontendsSource } : {},
-  },
+export default defineConfig({
   build: {
     outDir: "shenas_frontends/focus/static",
     emptyOutDir: false,
@@ -47,10 +43,11 @@ export default defineConfig(({ command }) => ({
       apply: "serve",
       resolveId(source) {
         const vendorMap = {
+          "shenas-frontends": "/vendor/shenas-frontends.js",
           "/vendor/apache-arrow.js": "/vendor/apache-arrow.js",
         };
         if (vendorMap[source]) return { id: vendorMap[source], external: true };
       },
     },
   ],
-}));
+});

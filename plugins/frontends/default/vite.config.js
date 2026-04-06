@@ -41,9 +41,8 @@ const devAliases = {
 
 const pythonServer = "http://127.0.0.1:7280";
 
-const shenasFrontendsSource = resolve(repoRoot, "app/vendor/src/shenas-frontends.js");
 
-export default defineConfig(({ command }) => ({
+export default defineConfig({
   test: {
     environment: "happy-dom",
     setupFiles: ["src/__tests__/setup.js"],
@@ -51,9 +50,6 @@ export default defineConfig(({ command }) => ({
       "/vendor/apache-arrow.js": new URL("src/__tests__/mock-arrow.js", import.meta.url).pathname,
       "shenas-frontends": new URL("../../../app/vendor/src/shenas-frontends.js", import.meta.url).pathname,
     },
-  },
-  resolve: {
-    alias: command === "serve" ? { "shenas-frontends": shenasFrontendsSource } : {},
   },
   build: {
     outDir: "shenas_frontends/default/static",
@@ -95,6 +91,7 @@ export default defineConfig(({ command }) => ({
           cytoscape: "/vendor/cytoscape.js",
           "apache-arrow": "/vendor/apache-arrow.js",
           uplot: "/vendor/uplot.js",
+          "shenas-frontends": "/vendor/shenas-frontends.js",
           "/vendor/apache-arrow.js": "/vendor/apache-arrow.js",
         };
         if (vendorMap[source]) return { id: vendorMap[source], external: true };
@@ -132,4 +129,4 @@ export default defineConfig(({ command }) => ({
       },
     },
   ],
-}));
+});
