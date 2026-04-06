@@ -1,0 +1,9 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'component-event-gantt'
+
+language: 'typescript'
+stack: 'frontend'
+tags: ['component']
+
+dependsOn:
+  - 'vendor'
