@@ -189,7 +189,7 @@ class Mutation:
 
         con = connect()
         count = run_transforms(con, pipe)
-        return {"pipe": pipe, "count": count}
+        return {"source": pipe, "count": count}
 
     @strawberry.mutation
     def run_schema_transforms(self, schema: str) -> JSON:

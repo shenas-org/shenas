@@ -144,7 +144,7 @@ def run_pipe_transforms(pipe_name: str) -> dict[str, Any]:
 
     con = connect()
     count = run_transforms(con, pipe_name)
-    return {"pipe": pipe_name, "count": count}
+    return {"source": pipe_name, "count": count}
 
 
 @router.post("/run/schema/{schema_name}")
