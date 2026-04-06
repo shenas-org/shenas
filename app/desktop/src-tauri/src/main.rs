@@ -109,6 +109,7 @@ fn main() {
             .title("shenas")
             .inner_size(1200.0, 800.0)
             .resizable(true)
+            .decorations(false)
             .initialization_script(
                 // Prevent WebKitGTK from consuming browser shortcuts (Ctrl+P, Ctrl+W, etc.)
                 // so they reach the app's hotkey handler instead.
