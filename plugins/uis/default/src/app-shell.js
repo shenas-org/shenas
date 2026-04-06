@@ -710,9 +710,25 @@ class ShenasApp extends LitElement {
                 ? `mutation($k: String!, $n: String!) { disablePlugin(kind: $k, name: $n) { ok } }`
                 : `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok } }`;
               await gqlFull(this.apiBase, mutation, { k: k.id, n: p.name });
+              if (k.id === "ui" && !enabled) {
+                window.location.reload();
+                return;
+              }
               await this._fetchData();
             },
           });
+          if (k.id === "ui") {
+            commands.push({
+              id: `switch-ui:${p.name}`,
+              category: "Switch UI",
+              label: `${name}${enabled ? " (active)" : ""}`,
+              action: async () => {
+                if (enabled) return;
+                await gqlFull(this.apiBase, `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok } }`, { k: "ui", n: p.name });
+                window.location.reload();
+              },
+            });
+          }
           if (k.id === "pipe" && enabled) {
             commands.push({
               id: `sync:${p.name}`,
