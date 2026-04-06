@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { readdirSync, existsSync } from "fs";
+import http from "http";
 import { resolve } from "path";
 
 const repoRoot = resolve(import.meta.dirname, "../../..");
@@ -18,8 +19,23 @@ function discoverPlugins(base, urlPrefix) {
   return aliases;
 }
 
+/** Auto-discover UI plugin source entry points. */
+function discoverUIs() {
+  const aliases = {};
+  const uisBase = resolve(repoRoot, "plugins/uis");
+  if (!existsSync(uisBase)) return aliases;
+  for (const name of readdirSync(uisBase)) {
+    const dir = resolve(uisBase, name);
+    if (name === "core") continue;
+    if (existsSync(resolve(dir, "src/index.js"))) {
+      aliases[`/ui/${name}/${name}.js`] = resolve(dir, "src/index.js");
+    }
+  }
+  return aliases;
+}
+
 const devAliases = {
-  "/ui/default/default.js": resolve(import.meta.dirname, "src/index.js"),
+  ...discoverUIs(),
   ...discoverPlugins("plugins/components", "components"),
 };
 
@@ -83,8 +99,23 @@ export default defineConfig({
       configureServer(server) {
         const names = Object.keys(devAliases);
         server.config.logger.info(`  Serving ${names.length} plugins: ${names.join(", ")}`);
-        // Runs before Vite's internal middlewares (SPA fallback etc.)
-        server.middlewares.use((req, _res, next) => {
+        server.middlewares.use((req, res, next) => {
+          // Serve active UI HTML from Python server (respects DB-enabled UI)
+          if (req.url === "/" || req.url === "/index.html") {
+            const proxyReq = http.get(`${pythonServer}/`, (proxyRes) => {
+              let body = "";
+              proxyRes.on("data", (chunk) => { body += chunk; });
+              proxyRes.on("end", () => {
+                // Inject Vite client for HMR
+                body = body.replace("</head>", '  <script type="module" src="/@vite/client"></script>\n  </head>');
+                res.setHeader("Content-Type", "text/html");
+                res.end(body);
+              });
+            });
+            proxyReq.on("error", () => next());
+            return;
+          }
+          // Rewrite plugin JS URLs to source files
           const alias = devAliases[req.url];
           if (alias) {
             req.url = "/@fs/" + resolve(alias);
