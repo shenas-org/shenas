@@ -241,6 +241,7 @@ class Query:
             "shenas-pipe-": "pipe",
             "shenas-schema-": "schema",
             "shenas-component-": "component",
+            "shenas-model-": "model",
             "shenas-ui-": "ui",
             "shenas-theme-": "theme",
         }

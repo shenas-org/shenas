@@ -49,6 +49,7 @@ class PipelineOverview extends LitElement {
       .legend-dot.pipe { background: var(--shenas-node-pipe, #4a90d9); }
       .legend-dot.schema { background: var(--shenas-node-schema, #66bb6a); }
       .legend-dot.component { background: var(--shenas-node-component, #ffa726); }
+      .legend-dot.model { background: var(--shenas-node-model, #ab47bc); }
       .legend-line {
         width: 20px;
         height: 2px;
@@ -94,14 +95,14 @@ class PipelineOverview extends LitElement {
         dependencies
       }`);
       const ap = this.allPlugins || {};
-      this._buildElements(ap.pipe || [], ap.schema || [], data?.transforms || [], this.schemaPlugins || {}, ap.component || [], data?.dependencies || {});
+      this._buildElements(ap.pipe || [], ap.schema || [], data?.transforms || [], this.schemaPlugins || {}, ap.component || [], data?.dependencies || {}, ap.model || []);
     } catch (e) {
       console.error("Failed to fetch overview data:", e);
     }
     this._loading = false;
   }
 
-  _buildElements(pipes, schemas, transforms, ownership, components, deps) {
+  _buildElements(pipes, schemas, transforms, ownership, components, deps, models = []) {
     const elements = [];
     const nodeIds = new Set();
 
@@ -140,6 +141,15 @@ class PipelineOverview extends LitElement {
       });
     }
 
+    // Model nodes
+    for (const m of models) {
+      const id = `model:${m.name}`;
+      nodeIds.add(id);
+      elements.push({
+        data: { id, label: m.displayName || m.name, kind: "model", enabled: m.enabled !== false ? "yes" : "no" },
+      });
+    }
+
     // Transform edges (pipe -> schema via data)
     for (const t of transforms) {
       const sourceId = `pipe:${t.sourcePlugin}`;
@@ -175,8 +185,8 @@ class PipelineOverview extends LitElement {
       for (const depTarget of targets) {
         const sourceKind = depSource.split(":")[0];
         let edgeSource, edgeTarget;
-        if (sourceKind === "component") {
-          // Component depends on schema -> show as schema -> component
+        if (sourceKind === "component" || sourceKind === "model") {
+          // Component/model depends on schema -> show as schema -> component/model
           edgeSource = depTarget;
           edgeTarget = depSource;
         } else {
@@ -249,6 +259,10 @@ class PipelineOverview extends LitElement {
           style: { "background-color": "#ffa726", "cursor": "pointer" },
         },
         {
+          selector: 'node[kind="model"]',
+          style: { "background-color": "#ab47bc", "cursor": "pointer" },
+        },
+        {
           selector: 'node[enabled="no"]',
           style: { opacity: 0.4, "border-width": 2, "border-color": "#999", "border-style": "dashed" },
         },
@@ -311,6 +325,7 @@ class PipelineOverview extends LitElement {
       if (data.kind === "pipe") path = `/settings/pipe/${name}`;
       else if (data.kind === "schema") path = `/settings/schema/${name}`;
       else if (data.kind === "component") path = `/settings/component/${name}`;
+      else if (data.kind === "model") path = `/settings/model/${name}`;
       else return;
       this.dispatchEvent(new CustomEvent("navigate", { bubbles: true, composed: true, detail: { path } }));
     });
@@ -354,6 +369,7 @@ class PipelineOverview extends LitElement {
           <span class="legend-item"><span class="legend-dot pipe"></span> Pipe</span>
           <span class="legend-item"><span class="legend-dot schema"></span> Schema</span>
           <span class="legend-item"><span class="legend-dot component"></span> Component</span>
+          <span class="legend-item"><span class="legend-dot model"></span> Model</span>
           <span class="legend-item"><span class="legend-line enabled"></span> Transform</span>
           <span class="legend-item"><span class="legend-line disabled"></span> Disabled</span>
           <span class="legend-item"><span class="legend-line" style="border-top:2px dotted var(--shenas-text-faint, #aaa);height:0;background:none"></span> Dependency</span>
