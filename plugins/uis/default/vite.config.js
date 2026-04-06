@@ -101,7 +101,8 @@ export default defineConfig({
         server.config.logger.info(`  Serving ${names.length} plugins: ${names.join(", ")}`);
         server.middlewares.use((req, res, next) => {
           // Serve active UI HTML from Python server (respects DB-enabled UI)
-          if (req.url === "/" || req.url === "/index.html") {
+          const path = req.url.split("?")[0];
+          if (path === "/" || path === "/index.html") {
             const proxyReq = http.get(`${pythonServer}/`, (proxyRes) => {
               let body = "";
               proxyRes.on("data", (chunk) => { body += chunk; });

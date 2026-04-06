@@ -711,7 +711,7 @@ class ShenasApp extends LitElement {
                 : `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok } }`;
               await gqlFull(this.apiBase, mutation, { k: k.id, n: p.name });
               if (k.id === "ui" && !enabled) {
-                window.location.reload();
+                window.location.replace(window.location.pathname + '?_switch=' + Date.now());
                 return;
               }
               await this._fetchData();
@@ -725,7 +725,7 @@ class ShenasApp extends LitElement {
               action: async () => {
                 if (enabled) return;
                 await gqlFull(this.apiBase, `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok } }`, { k: "ui", n: p.name });
-                window.location.reload();
+                window.location.replace(window.location.pathname + '?_switch=' + Date.now());
               },
             });
           }
