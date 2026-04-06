@@ -8,6 +8,8 @@ class FocusApp extends LitElement {
     _loading: { state: true },
     _loadedScripts: { state: true },
     _hotkeys: { state: true },
+    _paletteOpen: { state: true },
+    _paletteCommands: { state: true },
   };
 
   static styles = css`
@@ -92,6 +94,8 @@ class FocusApp extends LitElement {
     this._loadedScripts = new Set();
     this._hotkeys = {};
     this._elementCache = new Map();
+    this._paletteOpen = false;
+    this._paletteCommands = [];
   }
 
   connectedCallback() {
@@ -131,9 +135,28 @@ class FocusApp extends LitElement {
       console.error("Failed to fetch data:", e);
     }
     this._loading = false;
+    this._buildCommands();
+  }
+
+  _buildCommands() {
+    const cmds = this._components.map((c, i) => ({
+      id: `nav:${c.name}`,
+      category: "Navigate",
+      label: c.display_name || c.name,
+      action: () => { this._activeIndex = i; },
+    }));
+    cmds.push(
+      { id: "command-palette", category: "System", label: "Command Palette", action: () => { this._paletteOpen = true; } },
+    );
+    this._paletteCommands = cmds;
   }
 
   _onKeydown(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
+      e.preventDefault();
+      this._paletteOpen = !this._paletteOpen;
+      return;
+    }
     // Navigate between components with hotkeys
     if (e.ctrlKey || e.metaKey) {
       const num = parseInt(e.key);
@@ -217,6 +240,12 @@ class FocusApp extends LitElement {
           </button>
         `)}
       </nav>
+      <shenas-command-palette
+        ?open=${this._paletteOpen}
+        .commands=${this._paletteCommands}
+        @execute=${(e) => { const cmd = e.detail; if (cmd.action) cmd.action(); this._paletteOpen = false; }}
+        @close=${() => { this._paletteOpen = false; }}
+      ></shenas-command-palette>
     `;
   }
 }
