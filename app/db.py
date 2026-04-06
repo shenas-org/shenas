@@ -178,8 +178,24 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
 
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
     ensure_schema(con, _SYSTEM_TABLES, schema="shenas_system")
+    _migrate_plugin_kinds(con)
     _seed_default_hotkeys(con)
     _ensure_canonical_schemas(con)
+
+
+def _migrate_plugin_kinds(con: duckdb.DuckDBPyConnection) -> None:
+    """Migrate old plugin kind names to new ones."""
+    renames = [
+        ("pipe", "source"),
+        ("schema", "dataset"),
+        ("component", "dashboard"),
+        ("ui", "frontend"),
+    ]
+    for old, new in renames:
+        con.execute(
+            "UPDATE shenas_system.plugins SET kind = ? WHERE kind = ?",
+            [new, old],
+        )
 
 
 def _ensure_canonical_schemas(con: duckdb.DuckDBPyConnection) -> None:
