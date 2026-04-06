@@ -23,6 +23,7 @@ members = [
     "plugins/pipes/*",
     "plugins/schemas/*",
     "plugins/components/*",
+    "plugins/models/*",
     "plugins/uis/*",
     "plugins/themes/*",
 ]
@@ -51,6 +52,9 @@ shenas-schema-habits = { workspace = true }
 shenas-component-core = { workspace = true }
 shenas-component-fitness-dashboard = { workspace = true }
 shenas-component-data-table = { workspace = true }
+shenas-component-event-gantt = { workspace = true }
+shenas-model-core = { workspace = true }
+shenas-model-sleep-forecast = { workspace = true }
 shenas-ui-core = { workspace = true }
 shenas-ui-default = { workspace = true }
 shenas-theme-core = { workspace = true }
@@ -79,6 +83,7 @@ dev = [
     "shenas-ui-default",
     "shenas-theme-default",
     "shenas-theme-dark",
+    "shenas-model-core",
     "commitizen>=4.13.9",
     "httpx>=0.28.1",
     "pytest>=9.0.2",
@@ -90,6 +95,7 @@ dev = [
 fl = [
     "flwr>=1.15",
     "torch>=2.0",
+    "shenas-model-sleep-forecast",
 ]
 
 [tool.pytest.ini_options]

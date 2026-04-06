@@ -18,6 +18,8 @@ members = [
     "shenas-component-data-table",
     "shenas-component-event-gantt",
     "shenas-component-fitness-dashboard",
+    "shenas-model-core",
+    "shenas-model-sleep-forecast",
     "shenas-pipe-core",
     "shenas-pipe-duolingo",
     "shenas-pipe-garmin",
@@ -2732,6 +2734,33 @@ requires-dist = [
 ]
 
 [[package]]
+name = "shenas-model-core"
+source = { editable = "plugins/models/core" }
+dependencies = [
+    { name = "shenas-plugin-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "shenas-plugin-core", editable = "plugins/core" }]
+
+[[package]]
+name = "shenas-model-sleep-forecast"
+version = "0.1.0"
+source = { editable = "plugins/models/sleep-forecast" }
+dependencies = [
+    { name = "numpy" },
+    { name = "shenas-model-core" },
+    { name = "torch" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "shenas-model-core", editable = "plugins/models/core" },
+    { name = "torch", specifier = ">=2.0" },
+]
+
+[[package]]
 name = "shenas-pipe-core"
 source = { editable = "plugins/pipes/core" }
 dependencies = [
@@ -3068,6 +3097,7 @@ dev = [
     { name = "shenas-cli" },
     { name = "shenas-component-data-table" },
     { name = "shenas-component-fitness-dashboard" },
+    { name = "shenas-model-core" },
     { name = "shenas-pipe-duolingo" },
     { name = "shenas-pipe-garmin" },
     { name = "shenas-pipe-gcalendar" },
@@ -3088,6 +3118,7 @@ dev = [
 ]
 fl = [
     { name = "flwr" },
+    { name = "shenas-model-sleep-forecast" },
     { name = "torch" },
 ]
 
@@ -3106,6 +3137,7 @@ dev = [
     { name = "shenas-cli", editable = "shenasctl" },
     { name = "shenas-component-data-table", editable = "plugins/components/data-table" },
     { name = "shenas-component-fitness-dashboard", editable = "plugins/components/fitness-dashboard" },
+    { name = "shenas-model-core", editable = "plugins/models/core" },
     { name = "shenas-pipe-duolingo", editable = "plugins/pipes/duolingo" },
     { name = "shenas-pipe-garmin", editable = "plugins/pipes/garmin" },
     { name = "shenas-pipe-gcalendar", editable = "plugins/pipes/gcalendar" },
@@ -3126,6 +3158,7 @@ dev = [
 ]
 fl = [
     { name = "flwr", specifier = ">=1.15" },
+    { name = "shenas-model-sleep-forecast", editable = "plugins/models/sleep-forecast" },
     { name = "torch", specifier = ">=2.0" },
 ]
 

@@ -1,0 +1,21 @@
+[project]
+name = "shenas-model-core"
+dynamic = ["version"]
+description = "Shared model plugin utilities"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-plugin-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "model-core/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "model-core/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_models"]

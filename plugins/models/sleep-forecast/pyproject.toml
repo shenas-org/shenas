@@ -4,12 +4,13 @@ version = "0.1.0"
 description = "Predict tomorrow's sleep score from HRV, activity, and vitals"
 requires-python = ">=3.11"
 dependencies = [
+    "shenas-model-core",
     "torch>=2.0",
     "numpy>=1.26",
 ]
 
 [project.entry-points."shenas.models"]
-sleep-forecast = "shenas_models.sleep_forecast"
+sleep-forecast = "shenas_models.sleep_forecast:SleepForecast"
 
 [build-system]
 requires = ["hatchling"]
