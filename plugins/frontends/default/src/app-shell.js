@@ -928,19 +928,19 @@ class ShenasApp extends LitElement {
 
   async _refreshPlugins() {
     const data = await gql(this.apiBase, `{
-      pipes: plugins(kind: "source") { name displayName enabled syncedAt hasAuth }
-      schemas: plugins(kind: "dataset") { name displayName enabled }
-      componentPlugins: plugins(kind: "dashboard") { name displayName enabled }
-      uis: plugins(kind: "frontend") { name displayName enabled }
+      sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth }
+      datasets: plugins(kind: "dataset") { name displayName enabled }
+      dashboards: plugins(kind: "dashboard") { name displayName enabled }
+      frontends: plugins(kind: "frontend") { name displayName enabled }
       themes: plugins(kind: "theme") { name displayName enabled }
       models: plugins(kind: "model") { name displayName enabled }
     }`);
     if (data) {
       this._allPlugins = {
-        pipe: data.pipes || [],
-        schema: data.schemas || [],
-        dashboard: data.componentPlugins || [],
-        ui: data.uis || [],
+        source: data.sources || [],
+        dataset: data.datasets || [],
+        dashboard: data.dashboards || [],
+        frontend: data.frontends || [],
         theme: data.themes || [],
         model: data.models || [],
       };
@@ -955,10 +955,10 @@ class ShenasApp extends LitElement {
         hotkeys
         workspace
         dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } }
-        pipes: plugins(kind: "source") { name displayName enabled syncedAt hasAuth }
-        schemas: plugins(kind: "dataset") { name displayName enabled }
-        componentPlugins: plugins(kind: "dashboard") { name displayName enabled }
-        uis: plugins(kind: "frontend") { name displayName enabled }
+        sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth }
+        datasets: plugins(kind: "dataset") { name displayName enabled }
+        dashboards: plugins(kind: "dashboard") { name displayName enabled }
+        frontends: plugins(kind: "frontend") { name displayName enabled }
         themes: plugins(kind: "theme") { name displayName enabled }
         models: plugins(kind: "model") { name displayName enabled }
         theme { css }
@@ -970,10 +970,10 @@ class ShenasApp extends LitElement {
       this._deviceName = data?.deviceName || "";
       this._hotkeys = data?.hotkeys || {};
       this._allPlugins = {
-        pipe: data?.pipes || [],
-        schema: data?.schemas || [],
-        dashboard: data?.componentPlugins || [],
-        ui: data?.uis || [],
+        source: data?.sources || [],
+        dataset: data?.datasets || [],
+        dashboard: data?.dashboards || [],
+        frontend: data?.frontends || [],
         theme: data?.themes || [],
         model: data?.models || [],
       };

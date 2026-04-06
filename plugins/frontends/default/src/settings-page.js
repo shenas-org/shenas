@@ -199,18 +199,18 @@ class SettingsPage extends LitElement {
   async _fetchAll() {
     this._loading = true;
     const data = await gql(this.apiBase, `{
-      pipes: plugins(kind: "source") { name displayName package version enabled description syncedAt hasAuth }
-      schemas: plugins(kind: "dataset") { name displayName package version enabled description }
-      componentPlugins: plugins(kind: "dashboard") { name displayName package version enabled description }
-      uis: plugins(kind: "frontend") { name displayName package version enabled description }
+      sources: plugins(kind: "source") { name displayName package version enabled description syncedAt hasAuth }
+      datasets: plugins(kind: "dataset") { name displayName package version enabled description }
+      dashboards: plugins(kind: "dashboard") { name displayName package version enabled description }
+      frontends: plugins(kind: "frontend") { name displayName package version enabled description }
       themes: plugins(kind: "theme") { name displayName package version enabled description }
       models: plugins(kind: "model") { name displayName package version enabled description }
     }`);
     const result = {
-      pipe: data?.pipes || [],
-      schema: data?.schemas || [],
-      dashboard: data?.componentPlugins || [],
-      ui: data?.uis || [],
+      source: data?.sources || [],
+      dataset: data?.datasets || [],
+      dashboard: data?.dashboards || [],
+      frontend: data?.frontends || [],
       theme: data?.themes || [],
       model: data?.models || [],
     };
