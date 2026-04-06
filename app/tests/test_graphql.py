@@ -280,7 +280,7 @@ class TestGraphQLQueries:
         assert "errors" not in result
         assert result["data"]["deviceName"] == ""
 
-    def test_components(self, client: TestClient) -> None:
+    def test_dashboards(self, client: TestClient) -> None:
         mock_component = MagicMock()
         mock_component.name = "fitness-dashboard"
         mock_component.display_name = "Fitness Dashboard"
@@ -291,14 +291,14 @@ class TestGraphQLQueries:
             patch("app.api.sources._load_dashboards", return_value=[mock_component]),
             patch("app.db.is_plugin_enabled", return_value=True),
         ):
-            result = _gql(client, "{ components }")
+            result = _gql(client, "{ dashboards }")
         assert "errors" not in result
-        components = result["data"]["components"]
-        assert len(components) == 1
-        assert components[0]["name"] == "fitness-dashboard"
-        assert components[0]["js"] == "/dashboards/fitness-dashboard/index.js"
+        dashboards = result["data"]["dashboards"]
+        assert len(dashboards) == 1
+        assert dashboards[0]["name"] == "fitness-dashboard"
+        assert dashboards[0]["js"] == "/dashboards/fitness-dashboard/index.js"
 
-    def test_components_disabled_excluded(self, client: TestClient) -> None:
+    def test_dashboards_disabled_excluded(self, client: TestClient) -> None:
         mock_component = MagicMock()
         mock_component.name = "fitness-dashboard"
         mock_component.display_name = "Fitness Dashboard"
@@ -309,9 +309,9 @@ class TestGraphQLQueries:
             patch("app.api.sources._load_dashboards", return_value=[mock_component]),
             patch("app.db.is_plugin_enabled", return_value=False),
         ):
-            result = _gql(client, "{ components }")
+            result = _gql(client, "{ dashboards }")
         assert "errors" not in result
-        assert result["data"]["components"] == []
+        assert result["data"]["dashboards"] == []
 
     def test_sync_schedule_empty(self, client: TestClient) -> None:
         with patch("app.db.get_all_sync_schedules", return_value=[]):
