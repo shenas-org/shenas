@@ -77,7 +77,6 @@ async def update_endpoints(device_id: str, body: EndpointUpdate, request: Reques
         ).fetchone()
         if not device:
             raise HTTPException(status_code=404, detail="Device not found")
-        conn.execute("DELETE FROM device_endpoints WHERE device_id = %(did)s", {"did": device_id})
         for ep in body.endpoints:
             conn.execute(
                 """INSERT INTO device_endpoints (device_id, endpoint_type, address, priority, updated_at)
@@ -86,6 +85,21 @@ async def update_endpoints(device_id: str, body: EndpointUpdate, request: Reques
                    DO UPDATE SET priority = EXCLUDED.priority, updated_at = now()""",
                 {"did": device_id, "type": ep["type"], "addr": ep["address"], "pri": ep.get("priority", 0)},
             )
+        # Remove stale endpoints not in the current update
+        if body.endpoints:
+            keep_types = [ep["type"] for ep in body.endpoints]
+            keep_addrs = [ep["address"] for ep in body.endpoints]
+            conn.execute(
+                """DELETE FROM device_endpoints
+                   WHERE device_id = %(did)s
+                     AND NOT EXISTS (
+                       SELECT 1 FROM unnest(%(types)s::text[], %(addrs)s::text[]) AS k(t, a)
+                       WHERE k.t = endpoint_type AND k.a = address
+                     )""",
+                {"did": device_id, "types": keep_types, "addrs": keep_addrs},
+            )
+        else:
+            conn.execute("DELETE FROM device_endpoints WHERE device_id = %(did)s", {"did": device_id})
         conn.execute("UPDATE devices SET last_seen = now() WHERE id = %(did)s", {"did": device_id})
     return {"ok": True}
 

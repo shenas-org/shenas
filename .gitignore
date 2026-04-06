@@ -13,7 +13,8 @@ htmlcov/
 .coverage
 .cache
 build/_pyinstaller_work/
-shenas.egg-info/
+*.egg-info/
+server/api/uv.lock
 .moon/cache/
 .moon/docker/
 .shenas-fl/
