@@ -7,7 +7,7 @@ export async function query(apiBase, sql) {
     throw new Error(text);
   }
   const buf = await res.arrayBuffer();
-  return tableFromIPC(buf);
+  return await tableFromIPC(buf);
 }
 
 export function arrowToRows(table) {
