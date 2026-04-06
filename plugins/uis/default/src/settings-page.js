@@ -234,8 +234,8 @@ class SettingsPage extends LitElement {
     if (kind === "theme") {
       await this._applyActiveTheme();
     }
-    if (kind === "ui" && action === "enable") {
-      window.location.reload();
+    if (kind === "ui") {
+      window.location.replace(window.location.pathname + '?_switch=' + Date.now());
       return;
     }
     await this._fetchAll({ force: true });

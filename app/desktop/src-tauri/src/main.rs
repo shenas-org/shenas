@@ -43,24 +43,14 @@ fn find_running_server() -> Option<String> {
         .build()
         .unwrap();
 
-    // 1. Vite dev server (highest priority during development)
+    // 1. Vite dev server (make dev)
     if client
-        .get("http://127.0.0.1:5173/api/health")
+        .get("http://localhost:5173/api/health")
         .send()
         .map(|r| r.status().is_success())
         .unwrap_or(false)
     {
-        return Some("http://127.0.0.1:5173".to_string());
-    }
-
-    // 2. Dev server (make dev)
-    if client
-        .get("http://127.0.0.1:7280/api/health")
-        .send()
-        .map(|r| r.status().is_success())
-        .unwrap_or(false)
-    {
-        return Some("http://127.0.0.1:7280".to_string());
+        return Some("http://localhost:5173".to_string());
     }
 
     // 3. Sidecar server
