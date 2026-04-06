@@ -7,7 +7,11 @@ import contextlib
 import dataclasses
 import logging
 import threading
-from typing import Any, ClassVar
+from datetime import UTC
+from typing import TYPE_CHECKING, Any, ClassVar
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 from shenas_plugins.core.base_auth import SourceAuth
 from shenas_plugins.core.base_config import SourceConfig
@@ -68,7 +72,7 @@ class Source(Plugin):
         """
         if self.Auth is SourceAuth:
             return []
-        from shenas_datasets.core.introspect import table_metadata
+        from shenas_plugins.core.introspect import table_metadata
 
         meta = table_metadata(self.Auth)
         fields: list[dict[str, str | bool]] = []
@@ -111,6 +115,27 @@ class Source(Plugin):
             return None
 
     @property
+    def is_due_for_sync(self) -> bool:
+        """Whether this source's sync frequency has elapsed since last sync."""
+        freq = self.sync_frequency
+        if freq is None:
+            return False
+        s = self.state
+        if not s or not s.get("enabled"):
+            return False
+        synced_at = s.get("synced_at")
+        if not synced_at:
+            return True
+        from datetime import datetime
+
+        last = datetime.fromisoformat(synced_at)
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=UTC)
+        from datetime import timedelta
+
+        return datetime.now(UTC) - last >= timedelta(minutes=freq)
+
+    @property
     def has_data(self) -> bool:
         return True  # Pipes sync data into DuckDB
 
@@ -129,7 +154,7 @@ class Source(Plugin):
         """Return config entries for UI display (key, label, value, description)."""
         if not self.has_config:
             return []
-        from shenas_datasets.core.introspect import table_metadata
+        from shenas_plugins.core.introspect import table_metadata
 
         row = self._config_store.get(self.Config)
         meta = table_metadata(self.Config)
@@ -155,7 +180,7 @@ class Source(Plugin):
         if not self.has_config:
             return
         if value is not None:
-            from shenas_datasets.core.introspect import table_metadata
+            from shenas_plugins.core.introspect import table_metadata
 
             meta = table_metadata(self.Config)
             for col in meta["columns"]:
@@ -215,9 +240,7 @@ class Source(Plugin):
     def _mark_synced(self) -> None:
         """Update the synced_at timestamp in the plugin state table."""
         try:
-            from app.db import update_synced_at
-
-            update_synced_at("pipe", self.name)
+            self.mark_synced()
         except Exception:
             logger.exception("Failed to update synced_at for %s", self.name)
 
@@ -230,6 +253,25 @@ class Source(Plugin):
         run_sync(self.name, self.name, res, full_refresh, self._auto_transform)
         self._mark_synced()
         self._log_sync_event(full_refresh)
+
+    def run_sync_stream(self, *, full_refresh: bool = False) -> Iterator[tuple[str, str]]:
+        """Run sync yielding (event, message) tuples for progress reporting."""
+        logger.info("Sync started: %s", self.name)
+        yield ("progress", "starting sync")
+
+        if self.has_auth and not self.is_authenticated:
+            msg = "Not authenticated. Configure credentials in the Auth tab."
+            logger.warning("Sync skipped: %s -- %s", self.name, msg)
+            yield ("error", msg)
+            return
+
+        try:
+            self.sync(full_refresh=full_refresh)
+            logger.info("Sync complete: %s", self.name)
+            yield ("complete", "done")
+        except Exception as exc:
+            logger.exception("Sync failed: %s", self.name)
+            yield ("error", str(exc))
 
     def _log_sync_event(self, full_refresh: bool) -> None:
         """Append a sync event to the mesh sync log."""
@@ -252,11 +294,11 @@ class Source(Plugin):
         defaults = load_transform_defaults(self.name)
         if not defaults:
             return
-        from app.transforms import run_transforms, seed_defaults
+        from app.transforms import Transform
 
         con = connect()
-        seed_defaults(self.name, defaults)
-        count = run_transforms(con, self.name)
+        Transform.seed_defaults(self.name, defaults)
+        count = Transform.run_for_source(con, self.name)
         logger.info("Transforms done: %s (%d)", self.name, count)
 
     # -- Auth flow ------------------------------------------------------------
@@ -279,7 +321,7 @@ class Source(Plugin):
         if not self.has_auth:
             return []
         try:
-            from shenas_datasets.core.introspect import table_metadata
+            from shenas_plugins.core.introspect import table_metadata
 
             row = self._auth_store.get(self.Auth)
             meta = table_metadata(self.Auth)
@@ -341,7 +383,7 @@ class Source(Plugin):
 
 def _get_field_meta(f: dataclasses.Field) -> dict[str, Any]:  # type: ignore[type-arg]
     """Extract Field metadata from an Annotated dataclass field."""
-    from shenas_datasets.core.field import Field
+    from shenas_plugins.core.field import Field
 
     hints = getattr(f.type, "__metadata__", ()) if hasattr(f.type, "__metadata__") else ()
     # Unwrap Optional[Annotated[...]]

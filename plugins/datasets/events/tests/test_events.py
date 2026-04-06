@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import duckdb
 
-from shenas_datasets.core.ddl import generate_ddl
 from shenas_datasets.events import EventsSchema
 from shenas_datasets.events.metrics import ALL_TABLES, Event
+from shenas_plugins.core.ddl import generate_ddl
 
 
 class TestSchema:

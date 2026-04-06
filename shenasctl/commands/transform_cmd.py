@@ -10,6 +10,11 @@ console = Console()
 
 app = typer.Typer(help="Transform commands.", invoke_without_command=True)
 
+_TRANSFORM_FIELDS = (
+    "id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable "
+    "sourcePlugin description sql isDefault enabled addedAt updatedAt"
+)
+
 
 @app.callback()
 def _default(ctx: typer.Context) -> None:
@@ -22,11 +27,11 @@ def _default(ctx: typer.Context) -> None:
 def seed_cmd() -> None:
     """Seed default transforms for all installed pipes."""
     try:
-        result = ShenasClient()._request("POST", "/api/transforms/seed")
+        data = ShenasClient()._graphql("mutation { seedTransforms }")
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
-    seeded = result.get("seeded", [])
+    seeded = data.get("seedTransforms") or []
     if seeded:
         console.print(f"[green]Seeded defaults for: {', '.join(seeded)}[/green]")
     else:
@@ -39,13 +44,14 @@ def list_cmd(
 ) -> None:
     """List all transforms."""
     try:
-        client = ShenasClient()
-        params = f"?source={source}" if source else ""
-        transforms = client._request("GET", f"/api/transforms{params}")
+        variables = {"source": source} if source else {}
+        query = f"query($source: String) {{ transforms(source: $source) {{ {_TRANSFORM_FIELDS} }} }}"
+        data = ShenasClient()._graphql(query, variables)
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
 
+    transforms = data.get("transforms", [])
     if not transforms:
         console.print("[dim]No transforms configured[/dim]")
         return
@@ -58,10 +64,10 @@ def list_cmd(
     table.add_column("Status")
 
     for t in transforms:
-        source_label = f"{t['source_duckdb_schema']}.{t['source_duckdb_table']}"
-        target_label = f"{t['target_duckdb_schema']}.{t['target_duckdb_table']}"
+        source_label = f"{t['sourceDuckdbSchema']}.{t['sourceDuckdbTable']}"
+        target_label = f"{t['targetDuckdbSchema']}.{t['targetDuckdbTable']}"
         status = "[green]enabled[/green]" if t.get("enabled", True) else "[yellow]disabled[/yellow]"
-        default = " [dim](default)[/dim]" if t.get("is_default") else ""
+        default = " [dim](default)[/dim]" if t.get("isDefault") else ""
         table.add_row(
             str(t["id"]),
             source_label,
@@ -78,9 +84,15 @@ def show_cmd(
 ) -> None:
     """Show a transform's details and SQL."""
     try:
-        t = ShenasClient()._request("GET", f"/api/transforms/{transform_id}")
+        query = f"query($id: Int!) {{ transform(transformId: $id) {{ {_TRANSFORM_FIELDS} }} }}"
+        data = ShenasClient()._graphql(query, {"id": transform_id})
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")
+        raise typer.Exit(code=1)
+
+    t = data.get("transform")
+    if not t:
+        console.print(f"[red]Transform #{transform_id} not found[/red]")
         raise typer.Exit(code=1)
 
     console.print(f"\n[bold]Transform #{t['id']}[/bold]")
@@ -90,15 +102,15 @@ def show_cmd(
     table = Table(show_header=False, show_lines=False, box=None, padding=(0, 2))
     table.add_column(style="dim")
     table.add_column()
-    table.add_row("Source", f"{t['source_duckdb_schema']}.{t['source_duckdb_table']}")
-    table.add_row("Target", f"{t['target_duckdb_schema']}.{t['target_duckdb_table']}")
-    table.add_row("Plugin", t["source_plugin"])
+    table.add_row("Source", f"{t['sourceDuckdbSchema']}.{t['sourceDuckdbTable']}")
+    table.add_row("Target", f"{t['targetDuckdbSchema']}.{t['targetDuckdbTable']}")
+    table.add_row("Plugin", t["sourcePlugin"])
     table.add_row("Status", "[green]enabled[/green]" if t.get("enabled", True) else "[yellow]disabled[/yellow]")
-    table.add_row("Default", "yes" if t.get("is_default") else "no")
-    if t.get("added_at"):
-        table.add_row("Added", t["added_at"][:19])
-    if t.get("updated_at"):
-        table.add_row("Updated", t["updated_at"][:19])
+    table.add_row("Default", "yes" if t.get("isDefault") else "no")
+    if t.get("addedAt"):
+        table.add_row("Added", t["addedAt"][:19])
+    if t.get("updatedAt"):
+        table.add_row("Updated", t["updatedAt"][:19])
     console.print(table)
     console.print(f"\n[bold]SQL:[/bold]\n{t['sql']}\n")
 
@@ -110,11 +122,15 @@ def test_cmd(
 ) -> None:
     """Preview a transform's output without writing to the target table."""
     try:
-        rows = ShenasClient()._request("POST", f"/api/transforms/{transform_id}/test?limit={limit}")
+        data = ShenasClient()._graphql(
+            "mutation($id: Int!, $limit: Int) { testTransform(transformId: $id, limit: $limit) }",
+            {"id": transform_id, "limit": limit},
+        )
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
 
+    rows = data.get("testTransform") or []
     if not rows:
         console.print("[dim]No rows returned[/dim]")
         return
@@ -133,7 +149,10 @@ def enable_cmd(
 ) -> None:
     """Enable a transform."""
     try:
-        ShenasClient()._request("POST", f"/api/transforms/{transform_id}/enable")
+        ShenasClient()._graphql(
+            f"mutation($id: Int!) {{ enableTransform(transformId: $id) {{ {_TRANSFORM_FIELDS} }} }}",
+            {"id": transform_id},
+        )
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
@@ -146,7 +165,10 @@ def disable_cmd(
 ) -> None:
     """Disable a transform."""
     try:
-        ShenasClient()._request("POST", f"/api/transforms/{transform_id}/disable")
+        ShenasClient()._graphql(
+            f"mutation($id: Int!) {{ disableTransform(transformId: $id) {{ {_TRANSFORM_FIELDS} }} }}",
+            {"id": transform_id},
+        )
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
@@ -165,12 +187,18 @@ def edit_cmd(
     from pathlib import Path
 
     try:
-        t = ShenasClient()._request("GET", f"/api/transforms/{transform_id}")
+        query = f"query($id: Int!) {{ transform(transformId: $id) {{ {_TRANSFORM_FIELDS} }} }}"
+        data = ShenasClient()._graphql(query, {"id": transform_id})
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
 
-    if t.get("is_default"):
+    t = data.get("transform")
+    if not t:
+        console.print(f"[red]Transform #{transform_id} not found[/red]")
+        raise typer.Exit(code=1)
+
+    if t.get("isDefault"):
         console.print("[red]Default transforms cannot be edited[/red]")
         raise typer.Exit(code=1)
 
@@ -192,7 +220,10 @@ def edit_cmd(
         return
 
     try:
-        ShenasClient()._request("PUT", f"/api/transforms/{transform_id}", json={"sql": new_sql})
+        ShenasClient()._graphql(
+            "mutation($id: Int!, $sql: String!) { updateTransform(transformId: $id, sql: $sql) { id } }",
+            {"id": transform_id, "sql": new_sql},
+        )
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
@@ -205,7 +236,10 @@ def delete_cmd(
 ) -> None:
     """Delete a user-created transform. Default transforms cannot be deleted."""
     try:
-        ShenasClient()._request("DELETE", f"/api/transforms/{transform_id}")
+        ShenasClient()._graphql(
+            "mutation($id: Int!) { deleteTransform(transformId: $id) { ok } }",
+            {"id": transform_id},
+        )
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)

@@ -40,9 +40,13 @@ class _FakePluginCls:
 
     internal = False
     enabled_by_default = True
+    has_config = True
 
     def __init__(self) -> None:
         pass
+
+    def get_config_entries(self) -> list:
+        return []
 
     def get_info(self) -> dict:
         return {
@@ -350,14 +354,13 @@ class TestInstallPlugin:
             patch("app.api.plugins.subprocess.run", return_value=proc),
             patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._load_plugin", return_value=None),
+            patch("app.api.sources._load_plugin_fresh", return_value=None),
             patch("app.api.sources._clear_caches"),
-            patch("app.db.upsert_plugin_state") as mock_upsert,
         ):
             result = install_plugin("garmin", "source", skip_verify=True)
         assert result.ok is True
         assert result.name == "garmin"
         assert "Garmin" in result.message
-        mock_upsert.assert_called_once_with("source", "garmin", enabled=True)
 
     def test_install_failure(self) -> None:
         proc = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="Resolution failed")
@@ -418,12 +421,10 @@ class TestUninstallPlugin:
             patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._load_plugin", return_value=None),
             patch("app.api.sources._clear_caches"),
-            patch("app.db.remove_plugin_state") as mock_remove,
         ):
             result = uninstall_plugin("garmin", "source")
         assert result.ok is True
         assert "Garmin" in result.message
-        mock_remove.assert_called_once_with("source", "garmin")
 
     def test_uninstall_failure(self) -> None:
         proc = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="Not installed")
@@ -450,108 +451,6 @@ class TestUninstallPlugin:
 
 
 # ---------------------------------------------------------------------------
-# REST endpoints
-# ---------------------------------------------------------------------------
-
-
-class TestListPluginsEndpoint:
-    def test_valid_kind(self) -> None:
-        with patch("app.api.plugins.list_plugins_data", return_value=[]):
-            resp = client.get("/api/plugins/source")
-        assert resp.status_code == 200
-        assert resp.json() == []
-
-    def test_invalid_kind(self) -> None:
-        resp = client.get("/api/plugins/bogus")
-        assert resp.status_code == 400
-
-
-class TestAddPluginsEndpoint:
-    def test_add_single(self) -> None:
-        from app.models import InstallResult
-
-        mock_result = InstallResult(name="garmin", ok=True, message="Added Garmin Source")
-        with patch("app.api.plugins.install_plugin", return_value=mock_result) as mock_install:
-            resp = client.post("/api/plugins/source", json={"names": ["garmin"], "skip_verify": True})
-        assert resp.status_code == 200
-        data = resp.json()
-        assert len(data["results"]) == 1
-        assert data["results"][0]["ok"] is True
-        mock_install.assert_called_once()
-
-    def test_add_invalid_kind(self) -> None:
-        resp = client.post("/api/plugins/bogus", json={"names": ["test"]})
-        assert resp.status_code == 400
-
-
-class TestRemovePluginEndpoint:
-    def test_remove(self) -> None:
-        from app.models import RemoveResponse
-
-        mock_resp = RemoveResponse(ok=True, message="Removed Garmin Source")
-        with patch("app.api.plugins.uninstall_plugin", return_value=mock_resp):
-            resp = client.delete("/api/plugins/source/garmin")
-        assert resp.status_code == 200
-        assert resp.json()["ok"] is True
-
-    def test_remove_invalid_kind(self) -> None:
-        resp = client.delete("/api/plugins/bogus/garmin")
-        assert resp.status_code == 400
-
-
-class TestEnablePluginEndpoint:
-    def test_enable(self) -> None:
-        with patch("app.api.sources._load_plugin", return_value=_FakePluginCls):
-            resp = client.post("/api/plugins/source/garmin/enable")
-        assert resp.status_code == 200
-        assert resp.json()["ok"] is True
-
-    def test_enable_not_found(self) -> None:
-        with patch("app.api.sources._load_plugin", return_value=None):
-            resp = client.post("/api/plugins/source/garmin/enable")
-        assert resp.status_code == 404
-
-    def test_enable_invalid_kind(self) -> None:
-        resp = client.post("/api/plugins/bogus/garmin/enable")
-        assert resp.status_code == 400
-
-
-class TestDisablePluginEndpoint:
-    def test_disable(self) -> None:
-        with patch("app.api.sources._load_plugin", return_value=_FakePluginCls):
-            resp = client.post("/api/plugins/source/garmin/disable")
-        assert resp.status_code == 200
-        assert resp.json()["ok"] is True
-
-    def test_disable_not_found(self) -> None:
-        with patch("app.api.sources._load_plugin", return_value=None):
-            resp = client.post("/api/plugins/source/garmin/disable")
-        assert resp.status_code == 404
-
-    def test_disable_invalid_kind(self) -> None:
-        resp = client.post("/api/plugins/bogus/garmin/disable")
-        assert resp.status_code == 400
-
-
-class TestPluginInfoEndpoint:
-    def test_info(self) -> None:
-        with patch("app.api.sources._load_plugin", return_value=_FakePluginCls):
-            resp = client.get("/api/plugins/source/garmin/info")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["display_name"] == "Fake Plugin"
-
-    def test_info_not_found(self) -> None:
-        with patch("app.api.sources._load_plugin", return_value=None):
-            resp = client.get("/api/plugins/source/garmin/info")
-        assert resp.status_code == 404
-
-    def test_info_invalid_kind(self) -> None:
-        resp = client.get("/api/plugins/bogus/garmin/info")
-        assert resp.status_code == 400
-
-
-# ---------------------------------------------------------------------------
 # Streaming endpoints
 # ---------------------------------------------------------------------------
 
@@ -574,10 +473,10 @@ class TestInstallStream:
         proc = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="Installed ok\n")
         with (
             patch("app.api.sources._load_plugin", return_value=None),
+            patch("app.api.sources._load_plugin_fresh", return_value=None),
             patch("app.api.plugins._run_subprocess", return_value=proc),
             patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._clear_caches"),
-            patch("app.db.upsert_plugin_state"),
         ):
             resp = client.post(
                 "/api/plugins/source/install-stream",
@@ -630,7 +529,6 @@ class TestRemoveStream:
             patch("app.api.plugins._run_subprocess", return_value=proc),
             patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._clear_caches"),
-            patch("app.db.remove_plugin_state"),
         ):
             resp = client.post("/api/plugins/source/garmin/remove-stream")
         assert resp.status_code == 200

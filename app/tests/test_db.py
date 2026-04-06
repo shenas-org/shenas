@@ -9,164 +9,209 @@ import pytest
 if TYPE_CHECKING:
     import duckdb
 
+from shenas_plugins.core import Plugin
+
+
+class _FakePlugin(Plugin):
+    """Minimal plugin for testing state management."""
+
+    name = "garmin"
+    display_name = "Garmin"
+
+    @property
+    def _kind(self) -> str:
+        return "source"
+
+
+def _query_state(kind: str, name: str) -> dict | None:
+    """Helper: look up a single plugin state via direct DB query."""
+    from app.db import cursor
+
+    with cursor() as cur:
+        row = cur.execute(
+            "SELECT kind, name, enabled, added_at, updated_at, status_changed_at, synced_at "
+            "FROM shenas_system.plugins WHERE kind = ? AND name = ?",
+            [kind, name],
+        ).fetchone()
+    if not row:
+        return None
+    return {
+        "kind": row[0],
+        "name": row[1],
+        "enabled": row[2],
+        "added_at": str(row[3]) if row[3] else None,
+        "updated_at": str(row[4]) if row[4] else None,
+        "status_changed_at": str(row[5]) if row[5] else None,
+        "synced_at": str(row[6]) if row[6] else None,
+    }
+
+
+def _count_states() -> int:
+    """Helper: count total plugin state rows."""
+    from app.db import cursor
+
+    with cursor() as cur:
+        return cur.execute("SELECT count(*) FROM shenas_system.plugins").fetchone()[0]
+
 
 class TestPluginState:
-    def test_get_plugin_state_returns_none_when_not_tracked(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_plugin_state
+    def test_no_state_when_not_tracked(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        assert _FakePlugin().state is None
 
-        assert get_plugin_state("source", "nonexistent") is None
-
-    def test_upsert_creates_new_plugin(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_plugin_state, upsert_plugin_state
-
-        upsert_plugin_state("source", "garmin", enabled=True)
-        state = get_plugin_state("source", "garmin")
+    def test_save_state_creates_new_plugin(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        p = _FakePlugin()
+        p.save_state(enabled=True)
+        state = p.state
         assert state is not None
         assert state["kind"] == "source"
         assert state["name"] == "garmin"
         assert state["enabled"] is True
         assert state["added_at"] is not None
 
-    def test_upsert_updates_existing_same_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_plugin_state, upsert_plugin_state
-
-        upsert_plugin_state("source", "garmin", enabled=True)
-        first = get_plugin_state("source", "garmin")
+    def test_save_state_updates_existing_same_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        p = _FakePlugin()
+        p.save_state(enabled=True)
+        first = p.state
         assert first is not None
         # update again with same enabled -- should just touch updated_at
-        upsert_plugin_state("source", "garmin", enabled=True)
-        second = get_plugin_state("source", "garmin")
+        p.save_state(enabled=True)
+        second = p.state
         assert second is not None
         assert second["enabled"] is True
 
-    def test_upsert_toggles_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_plugin_state, upsert_plugin_state
-
-        upsert_plugin_state("source", "garmin", enabled=True)
-        upsert_plugin_state("source", "garmin", enabled=False)
-        state = get_plugin_state("source", "garmin")
+    def test_save_state_toggles_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        p = _FakePlugin()
+        p.save_state(enabled=True)
+        p.save_state(enabled=False)
+        state = p.state
         assert state is not None
         assert state["enabled"] is False
         assert state["status_changed_at"] is not None
 
-    def test_remove_plugin_state(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_plugin_state, remove_plugin_state, upsert_plugin_state
+    def test_remove_state(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        p = _FakePlugin()
+        p.save_state(enabled=True)
+        assert p.state is not None
+        p.remove_state()
+        assert p.state is None
 
-        upsert_plugin_state("source", "garmin", enabled=True)
-        assert get_plugin_state("source", "garmin") is not None
-        remove_plugin_state("source", "garmin")
-        assert get_plugin_state("source", "garmin") is None
-
-    def test_remove_nonexistent_is_noop(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import remove_plugin_state
-
+    def test_remove_state_nonexistent_is_noop(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         # should not raise
-        remove_plugin_state("source", "nonexistent")
+        _FakePlugin().remove_state()
 
+    def test_enabled_property_from_db(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        p = _FakePlugin()
+        p.save_state(enabled=False)
+        assert p.enabled is False
+        p.save_state(enabled=True)
+        assert p.enabled is True
 
-class TestGetAllPluginStates:
-    def test_empty_when_no_plugins(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_all_plugin_states
+    def test_enabled_property_default_when_no_state(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        assert _FakePlugin().enabled is True  # enabled_by_default = True
 
-        assert get_all_plugin_states() == []
+    def test_mark_synced(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        p = _FakePlugin()
+        p.save_state(enabled=True)
+        p.mark_synced()
+        state = p.state
+        assert state is not None
+        assert state["synced_at"] is not None
 
-    def test_returns_all_plugins(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_all_plugin_states, upsert_plugin_state
+    def test_mark_synced_creates_missing_state(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        p = _FakePlugin()
+        p.mark_synced()
+        state = p.state
+        assert state is not None
+        assert state["synced_at"] is not None
 
-        upsert_plugin_state("source", "garmin", enabled=True)
-        upsert_plugin_state("dataset", "fitness", enabled=True)
-        states = get_all_plugin_states()
-        assert len(states) == 2
-        names = {s["name"] for s in states}
-        assert names == {"garmin", "fitness"}
+    def test_multiple_kinds(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        class _DatasetPlugin(Plugin):
+            name = "fitness"
+            display_name = "Fitness"
 
-    def test_filter_by_kind(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_all_plugin_states, upsert_plugin_state
+            @property
+            def _kind(self) -> str:
+                return "dataset"
 
-        upsert_plugin_state("source", "garmin", enabled=True)
-        upsert_plugin_state("dataset", "fitness", enabled=True)
-        pipes = get_all_plugin_states(kind="source")
-        assert len(pipes) == 1
-        assert pipes[0]["name"] == "garmin"
+        _FakePlugin().save_state(enabled=True)
+        _DatasetPlugin().save_state(enabled=True)
+        assert _count_states() == 2
+        assert _query_state("source", "garmin") is not None
+        assert _query_state("dataset", "fitness") is not None
 
 
 class TestWorkspace:
-    def test_get_workspace_empty_by_default(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_workspace
+    def test_get_empty_by_default(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.workspace import Workspace
 
-        assert get_workspace() == {}
+        assert Workspace.get() == {}
 
-    def test_save_and_get_workspace(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_workspace, save_workspace
+    def test_save_and_get(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.workspace import Workspace
 
         state = {"tabs": ["dashboard", "settings"], "active": 0}
-        save_workspace(state)
-        result = get_workspace()
-        assert result == state
+        Workspace.save(state)
+        assert Workspace.get() == state
 
-    def test_save_workspace_overwrites(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_workspace, save_workspace
+    def test_save_overwrites(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.workspace import Workspace
 
-        save_workspace({"first": True})
-        save_workspace({"second": True})
-        result = get_workspace()
-        assert result == {"second": True}
+        Workspace.save({"first": True})
+        Workspace.save({"second": True})
+        assert Workspace.get() == {"second": True}
 
 
 class TestHotkeys:
     def test_default_hotkeys_seeded(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_hotkeys
+        from app.hotkeys import Hotkeys
 
-        hotkeys = get_hotkeys()
+        hotkeys = Hotkeys.get_all()
         assert "command-palette" in hotkeys
         assert hotkeys["command-palette"] == "Ctrl+P"
         assert "close-tab" in hotkeys
 
-    def test_set_hotkey_new(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_hotkeys, set_hotkey
+    def test_set_new(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.hotkeys import Hotkeys
 
-        set_hotkey("custom-action", "Ctrl+Shift+X")
-        hotkeys = get_hotkeys()
-        assert hotkeys["custom-action"] == "Ctrl+Shift+X"
+        Hotkeys.set("custom-action", "Ctrl+Shift+X")
+        assert Hotkeys.get_all()["custom-action"] == "Ctrl+Shift+X"
 
-    def test_set_hotkey_overwrite(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_hotkeys, set_hotkey
+    def test_set_overwrite(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.hotkeys import Hotkeys
 
-        set_hotkey("command-palette", "Ctrl+Shift+P")
-        hotkeys = get_hotkeys()
-        assert hotkeys["command-palette"] == "Ctrl+Shift+P"
+        Hotkeys.set("command-palette", "Ctrl+Shift+P")
+        assert Hotkeys.get_all()["command-palette"] == "Ctrl+Shift+P"
 
-    def test_delete_hotkey(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import delete_hotkey, get_hotkeys
+    def test_delete(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.hotkeys import Hotkeys
 
-        delete_hotkey("command-palette")
-        hotkeys = get_hotkeys()
-        assert "command-palette" not in hotkeys
+        Hotkeys.delete("command-palette")
+        assert "command-palette" not in Hotkeys.get_all()
 
-    def test_reset_hotkeys(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_hotkeys, reset_hotkeys, set_hotkey
+    def test_reset(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.hotkeys import Hotkeys
 
-        set_hotkey("command-palette", "Ctrl+Shift+P")
-        set_hotkey("custom-action", "Ctrl+X")
-        reset_hotkeys()
-        hotkeys = get_hotkeys()
+        Hotkeys.set("command-palette", "Ctrl+Shift+P")
+        Hotkeys.set("custom-action", "Ctrl+X")
+        Hotkeys.reset()
+        hotkeys = Hotkeys.get_all()
         assert hotkeys["command-palette"] == "Ctrl+P"
         assert "custom-action" not in hotkeys
 
 
 @pytest.mark.skipif(True, reason="Transform tests need per-test DB isolation (sequence state)")
 class TestTransformCRUD:
-    """Test transforms via the app.transforms module, which uses app.db.connect."""
+    """Test transforms via the Transform class."""
 
-    def test_list_transforms_empty(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.transforms import list_transforms
+    def test_list_empty(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.transforms import Transform
 
-        assert list_transforms() == []
+        assert Transform.all() == []
 
-    def test_create_and_get_transform(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.transforms import create_transform, get_transform
+    def test_create_and_get(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.transforms import Transform
 
-        t = create_transform(
+        t = Transform.create(
             source_duckdb_schema="garmin",
             source_duckdb_table="activities",
             target_duckdb_schema="metrics",
@@ -181,19 +226,19 @@ class TestTransformCRUD:
         assert t["enabled"] is True
         assert t["is_default"] is False
 
-        fetched = get_transform(t["id"])
+        fetched = Transform.find(t["id"])
         assert fetched is not None
         assert fetched["sql"] == "SELECT 1 AS id"
 
-    def test_get_transform_nonexistent(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.transforms import get_transform
+    def test_get_nonexistent(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.transforms import Transform
 
-        assert get_transform(9999) is None
+        assert Transform.find(9999) is None
 
-    def test_list_transforms_filtered(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.transforms import create_transform, list_transforms
+    def test_list_filtered(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.transforms import Transform
 
-        create_transform(
+        Transform.create(
             source_duckdb_schema="garmin",
             source_duckdb_table="activities",
             target_duckdb_schema="metrics",
@@ -201,7 +246,7 @@ class TestTransformCRUD:
             source_plugin="garmin",
             sql="SELECT 1",
         )
-        create_transform(
+        Transform.create(
             source_duckdb_schema="lunchmoney",
             source_duckdb_table="transactions",
             target_duckdb_schema="metrics",
@@ -209,17 +254,15 @@ class TestTransformCRUD:
             source_plugin="lunchmoney",
             sql="SELECT 2",
         )
-        all_transforms = list_transforms()
-        assert len(all_transforms) == 2
-
-        garmin_only = list_transforms("garmin")
+        assert len(Transform.all()) == 2
+        garmin_only = Transform.all("garmin")
         assert len(garmin_only) == 1
         assert garmin_only[0]["source_plugin"] == "garmin"
 
-    def test_update_transform(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.transforms import create_transform, update_transform
+    def test_update(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.transforms import Transform
 
-        t = create_transform(
+        t = Transform.create(
             source_duckdb_schema="garmin",
             source_duckdb_table="activities",
             target_duckdb_schema="metrics",
@@ -227,22 +270,15 @@ class TestTransformCRUD:
             source_plugin="garmin",
             sql="SELECT 1",
         )
-        updated = update_transform(t["id"], "SELECT 2 AS new_col")
+        updated = t.update("SELECT 2 AS new_col")
         assert updated is not None
         assert updated["sql"] == "SELECT 2 AS new_col"
         assert updated["updated_at"] is not None
 
-    def test_update_nonexistent_transform(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.transforms import update_transform
+    def test_delete(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.transforms import Transform
 
-        # updating a non-existent ID returns None (no row matched)
-        result = update_transform(9999, "SELECT 1")
-        assert result is None
-
-    def test_delete_transform(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.transforms import create_transform, delete_transform, get_transform
-
-        t = create_transform(
+        t = Transform.create(
             source_duckdb_schema="garmin",
             source_duckdb_table="activities",
             target_duckdb_schema="metrics",
@@ -250,13 +286,13 @@ class TestTransformCRUD:
             source_plugin="garmin",
             sql="SELECT 1",
         )
-        assert delete_transform(t["id"]) is True
-        assert get_transform(t["id"]) is None
+        assert t.delete() is True
+        assert Transform.find(t["id"]) is None
 
-    def test_delete_default_transform_blocked(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.transforms import create_transform, delete_transform
+    def test_delete_default_blocked(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.transforms import Transform
 
-        t = create_transform(
+        t = Transform.create(
             source_duckdb_schema="garmin",
             source_duckdb_table="activities",
             target_duckdb_schema="metrics",
@@ -265,17 +301,12 @@ class TestTransformCRUD:
             sql="SELECT 1",
             is_default=True,
         )
-        assert delete_transform(t["id"]) is False
+        assert t.delete() is False
 
-    def test_delete_nonexistent_transform(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.transforms import delete_transform
+    def test_set_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        from app.transforms import Transform
 
-        assert delete_transform(9999) is False
-
-    def test_set_transform_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.transforms import create_transform, set_transform_enabled
-
-        t = create_transform(
+        t = Transform.create(
             source_duckdb_schema="garmin",
             source_duckdb_table="activities",
             target_duckdb_schema="metrics",
@@ -283,35 +314,11 @@ class TestTransformCRUD:
             source_plugin="garmin",
             sql="SELECT 1",
         )
-        disabled = set_transform_enabled(t["id"], enabled=False)
+        disabled = t.set_enabled(False)
         assert disabled is not None
         assert disabled["enabled"] is False
         assert disabled["status_changed_at"] is not None
 
-        enabled = set_transform_enabled(t["id"], enabled=True)
+        enabled = disabled.set_enabled(True)
         assert enabled is not None
         assert enabled["enabled"] is True
-
-    def test_set_transform_enabled_nonexistent(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.transforms import set_transform_enabled
-
-        assert set_transform_enabled(9999, enabled=True) is None
-
-
-class TestUpdateSyncedAt:
-    def test_update_synced_at_existing(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_plugin_state, update_synced_at, upsert_plugin_state
-
-        upsert_plugin_state("source", "garmin", enabled=True)
-        update_synced_at("source", "garmin")
-        state = get_plugin_state("source", "garmin")
-        assert state is not None
-        assert state["synced_at"] is not None
-
-    def test_update_synced_at_creates_missing(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.db import get_plugin_state, update_synced_at
-
-        update_synced_at("source", "new-pipe")
-        state = get_plugin_state("source", "new-pipe")
-        assert state is not None
-        assert state["synced_at"] is not None

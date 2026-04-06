@@ -8,9 +8,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any
 
-from shenas_datasets.core.field import Field
 from shenas_plugins.core.base_auth import SourceAuth
 from shenas_plugins.core.base_config import SourceConfig
+from shenas_plugins.core.field import Field
 from shenas_sources.core.source import Source
 
 

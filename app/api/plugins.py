@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.models import InstallRequest, InstallResponse, InstallResult, OkResponse, PluginInfo, RemoveResponse
+from app.models import ConfigEntry, InstallRequest, InstallResult, PluginInfo, RemoveResponse
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
 
@@ -150,8 +150,22 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
         if plugin_cls:
             plugin = plugin_cls()
             pi = plugin.get_info()
+            config_entries = (
+                [
+                    ConfigEntry(
+                        key=str(e["key"]),
+                        label=str(e.get("label") or ""),
+                        value=e.get("value"),
+                        description=str(e.get("description") or ""),
+                    )
+                    for e in plugin.get_config_entries()
+                ]
+                if plugin.has_config
+                else []
+            )
         else:
             pi = {}
+            config_entries = []
         display = pi.get("display_name", "") or short_name.replace("-", " ").title()
         items.append(
             PluginInfo(
@@ -168,6 +182,7 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
                 has_auth=pi.get("has_auth", False),
                 is_authenticated=pi.get("is_authenticated"),
                 sync_frequency=pi.get("sync_frequency"),
+                config_entries=config_entries,
                 added_at=pi.get("added_at"),
                 updated_at=pi.get("updated_at"),
                 status_changed_at=pi.get("status_changed_at"),
@@ -266,11 +281,14 @@ def install_plugin(
     )
 
     if result.returncode == 0:
-        from app.api.sources import _clear_caches
-        from app.db import upsert_plugin_state
+        from app.api.sources import _clear_caches, _load_plugin, _load_plugin_fresh
 
-        upsert_plugin_state(kind, name, enabled=True)
         _clear_caches()
+        cls = _load_plugin(kind, name) or _load_plugin_fresh(kind, name)
+        if cls:
+            cls().save_state(enabled=True)
+        else:
+            log.warning("Could not load plugin %s/%s after install to save state", kind, name)
         display = name.replace("-", " ").title()
         kind_label = kind.title()
         return InstallResult(name=name, ok=True, message=f"Added {display} {kind_label}")
@@ -284,6 +302,12 @@ def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
     if (cls and cls.internal) or name == "core":
         return RemoveResponse(ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
 
+    # Remove state before uninstall -- plugin won't be loadable after
+    if cls:
+        cls().remove_state()
+    else:
+        log.warning("Could not load plugin %s/%s before uninstall to remove state", kind, name)
+
     pkg_name = f"{_prefix(kind)}{name}"
     result = subprocess.run(
         ["uv", "pip", "uninstall", pkg_name, "--python", _python_executable()], capture_output=True, text=True
@@ -291,76 +315,12 @@ def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
 
     if result.returncode == 0:
         from app.api.sources import _clear_caches
-        from app.db import remove_plugin_state
 
-        remove_plugin_state(kind, name)
         _clear_caches()
         display = name.replace("-", " ").title()
         kind_label = kind.title()
         return RemoveResponse(ok=True, message=f"Removed {display} {kind_label}")
     return RemoveResponse(ok=False, message=result.stderr.strip() or f"Failed to uninstall {pkg_name}")
-
-
-@router.get("/{kind}/{name}/info")
-def plugin_info(kind: str, name: str) -> dict[str, Any]:
-    """Get full info for an installed plugin."""
-    from app.api.sources import _load_plugin
-
-    _validate_kind(kind)
-    cls = _load_plugin(kind, name)
-    if not cls:
-        raise HTTPException(status_code=404, detail=f"Plugin not found: {kind}/{name}")
-    return cls().get_info()
-
-
-@router.get("/{kind}")
-def list_plugins(kind: str) -> list[PluginInfo]:
-    _validate_kind(kind)
-    return list_plugins_data(kind)
-
-
-@router.post("/{kind}")
-def add_plugins(kind: str, body: InstallRequest) -> InstallResponse:
-    _validate_kind(kind)
-    results = [
-        install_plugin(name, kind, index_url=body.index_url or DEFAULT_INDEX, skip_verify=body.skip_verify)
-        for name in body.names
-    ]
-    return InstallResponse(results=results)
-
-
-@router.delete("/{kind}/{name}")
-def remove_plugin(kind: str, name: str) -> RemoveResponse:
-    _validate_kind(kind)
-    return uninstall_plugin(name, kind)
-
-
-@router.post("/{kind}/{name}/enable")
-def enable_plugin(kind: str, name: str) -> OkResponse:
-    """Enable a plugin."""
-    from app.api.sources import _load_plugin
-
-    _validate_kind(kind)
-    cls = _load_plugin(kind, name)
-    if not cls:
-        raise HTTPException(status_code=404, detail=f"Plugin not found: {kind}/{name}")
-    msg = cls().enable()
-    log.info("Plugin enabled: %s %s", kind, name)
-    return OkResponse(ok=True, message=msg)
-
-
-@router.post("/{kind}/{name}/disable")
-def disable_plugin(kind: str, name: str) -> OkResponse:
-    """Disable a plugin."""
-    from app.api.sources import _load_plugin
-
-    _validate_kind(kind)
-    cls = _load_plugin(kind, name)
-    if not cls:
-        raise HTTPException(status_code=404, detail=f"Plugin not found: {kind}/{name}")
-    msg = cls().disable()
-    log.info("Plugin disabled: %s %s", kind, name)
-    return OkResponse(ok=True, message=msg)
 
 
 # ---------------------------------------------------------------------------
@@ -380,7 +340,7 @@ def _run_subprocess(cmd: list[str]) -> subprocess.CompletedProcess[str]:
 
 async def _install_stream(name: str, kind: str, skip_verify: bool = False) -> AsyncIterator[str]:
     """Yield SSE events while installing a plugin."""
-    from app.api.sources import _clear_caches, _load_plugin
+    from app.api.sources import _clear_caches, _load_plugin, _load_plugin_fresh
 
     cls = _load_plugin(kind, name)
     if (cls and cls.internal) or name == "core":
@@ -429,10 +389,12 @@ async def _install_stream(name: str, kind: str, skip_verify: bool = False) -> As
             yield _sse("log", text=line.strip())
 
     if result.returncode == 0:
-        from app.db import upsert_plugin_state
-
-        upsert_plugin_state(kind, name, enabled=True)
         _clear_caches()
+        cls = _load_plugin(kind, name) or _load_plugin_fresh(kind, name)
+        if cls:
+            cls().save_state(enabled=True)
+        else:
+            log.warning("Could not load plugin %s/%s after install to save state", kind, name)
         yield _sse("done", ok=True, message=f"Added {display} {kind_label}")
     else:
         yield _sse("done", ok=False, message=result.stderr.strip() or f"Failed to add {pkg_name}")
@@ -446,6 +408,12 @@ async def _remove_stream(name: str, kind: str) -> AsyncIterator[str]:
     if (cls and cls.internal) or name == "core":
         yield _sse("done", ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
         return
+
+    # Remove state before uninstall -- plugin won't be loadable after
+    if cls:
+        cls().remove_state()
+    else:
+        log.warning("Could not load plugin %s/%s before uninstall to remove state", kind, name)
 
     pkg_name = f"{_prefix(kind)}{name}"
     display = name.replace("-", " ").title()
@@ -464,9 +432,6 @@ async def _remove_stream(name: str, kind: str) -> AsyncIterator[str]:
             yield _sse("log", text=line.strip())
 
     if result.returncode == 0:
-        from app.db import remove_plugin_state
-
-        remove_plugin_state(kind, name)
         _clear_caches()
         yield _sse("done", ok=True, message=f"Removed {display} {kind_label}")
     else:

@@ -10,7 +10,6 @@ from app.models import (
     AuthFieldsResponse,
     AuthResponse,
     ConfigEntry,
-    ConfigItem,
     DBStatusResponse,
     InstallResponse,
     InstallResult,
@@ -47,11 +46,6 @@ class AuthResponseType:
 
 @strawberry.experimental.pydantic.type(model=ConfigEntry, all_fields=True)
 class ConfigEntryType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=ConfigItem, all_fields=True)
-class ConfigItemType:
     pass
 
 
@@ -147,7 +141,6 @@ __all__ = [
     "AuthFieldsType",
     "AuthResponseType",
     "ConfigEntryType",
-    "ConfigItemType",
     "DBStatusType",
     "InstallResponseType",
     "InstallResultType",

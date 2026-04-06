@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
-from shenas_datasets.core.field import Field
+from shenas_plugins.core.field import Field
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", category="time")]
 Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier")]

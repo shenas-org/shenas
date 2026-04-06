@@ -4,9 +4,11 @@ import dataclasses
 import types
 from typing import TYPE_CHECKING, Annotated, get_args, get_origin, get_type_hints
 
-from shenas_datasets.core.field import Field
+from shenas_plugins.core.field import Field
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     import duckdb
 
 _TYPE_MAP: dict[type, str] = {
@@ -65,7 +67,7 @@ def _get_field_obj(hint: type) -> Field | None:
     return None
 
 
-def ensure_schema(con: duckdb.DuckDBPyConnection, all_tables: list[type], *, schema: str = "metrics") -> None:
+def ensure_schema(con: duckdb.DuckDBPyConnection, all_tables: Sequence[type], *, schema: str = "metrics") -> None:
     """Create the schema and all tables from the given dataclass list.
 
     Also adds any missing columns to existing tables (schema migration).

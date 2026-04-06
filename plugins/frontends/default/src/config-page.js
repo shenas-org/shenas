@@ -97,9 +97,10 @@ class ConfigPage extends LitElement {
   async _fetchConfig() {
     if (!this.kind || !this.name) return;
     this._loading = true;
-    const data = await gql(this.apiBase, `query($kind: String, $name: String) { config(kind: $kind, name: $name) { kind name entries { key label value description } } }`, { kind: this.kind, name: this.name });
-    const items = data?.config || [];
-    this._config = items.length > 0 ? items[0] : null;
+    const data = await gql(this.apiBase, `query($kind: String!) { plugins(kind: $kind) { name hasConfig configEntries { key label value description } } }`, { kind: this.kind });
+    const plugins = data?.plugins || [];
+    const match = plugins.find((p) => p.name === this.name && p.hasConfig);
+    this._config = match ? { kind: this.kind, name: match.name, entries: match.configEntries } : null;
     this._loading = false;
   }
 

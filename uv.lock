@@ -2864,12 +2864,6 @@ requires-dist = [
 [[package]]
 name = "shenas-plugin-core"
 source = { editable = "plugins/core" }
-dependencies = [
-    { name = "shenas-dataset-core" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "shenas-dataset-core", editable = "plugins/datasets/core" }]
 
 [[package]]
 name = "shenas-scheduler"

@@ -102,13 +102,19 @@ class ShenasClient:
 
     # --- Config ---
 
-    def config_list(self, kind: str | None = None, name: str | None = None) -> list[dict[str, Any]]:
+    def config_list(self, kind: str, name: str | None = None) -> list[dict[str, Any]]:
         data = self._graphql(
-            "query($kind: String, $name: String) { config(kind: $kind, name: $name)"
-            " { kind name entries { key label value description } } }",
-            {"kind": kind, "name": name},
+            "query($kind: String!) { plugins(kind: $kind) { name hasConfig configEntries { key label value description } } }",
+            {"kind": kind},
         )
-        return data["config"]
+        result = []
+        for p in data["plugins"]:
+            if not p["hasConfig"]:
+                continue
+            if name and p["name"] != name:
+                continue
+            result.append({"kind": kind, "name": p["name"], "entries": p["configEntries"]})
+        return result
 
     def config_get(self, kind: str, name: str, key: str) -> dict[str, str]:
         data = self._graphql(
