@@ -1,4 +1,4 @@
-"""Auth API endpoints -- thin wrappers around Pipe ABC auth methods."""
+"""Auth API endpoints -- thin wrappers around Source ABC auth methods."""
 
 from __future__ import annotations
 
@@ -14,34 +14,35 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 log = logging.getLogger(f"shenas.{__name__}")
 
 
-@router.post("/{pipe_name}")
-def auth_pipe(pipe_name: str, body: AuthRequest | None = None) -> AuthResponse:
-    """Start or continue a pipe's auth flow."""
+@router.post("/{source_name}")
+def auth_source(source_name: str, body: AuthRequest | None = None) -> AuthResponse:
+    """Start or continue a source's auth flow."""
     body = body or AuthRequest()
-    pipe = _load_source(pipe_name)
-    result = pipe.handle_auth(body.credentials)
+    source = _load_source(source_name)
+    result = source.handle_auth(body.credentials)
     if result.get("ok"):
-        log.info("Auth success: %s", pipe_name)
+        log.info("Auth success: %s", source_name)
     else:
-        log.warning("Auth issue: %s - %s", pipe_name, result.get("error") or result.get("message"))
+        log.warning("Auth issue: %s - %s", source_name, result.get("error") or result.get("message"))
     return AuthResponse(**result)
 
 
-@router.get("/{pipe_name}/fields")
-def auth_fields(pipe_name: str) -> AuthFieldsResponse:
+@router.get("/{source_name}/fields")
+def auth_fields(source_name: str) -> AuthFieldsResponse:
     """Get credential fields, instructions, and stored credential status."""
     try:
-        pipe = _load_source(pipe_name)
+        source = _load_source(source_name)
     except Exception:
         return AuthFieldsResponse()
 
-    if not pipe.has_auth:
+    if not source.has_auth:
         return AuthFieldsResponse()
 
     return AuthFieldsResponse(
         fields=[
-            AuthField(name=str(f["name"]), prompt=str(f["prompt"]), hide=bool(f.get("hide", False))) for f in pipe.auth_fields
+            AuthField(name=str(f["name"]), prompt=str(f["prompt"]), hide=bool(f.get("hide", False)))
+            for f in source.auth_fields
         ],
-        instructions=pipe.auth_instructions,
-        stored=pipe.stored_credentials,
+        instructions=source.auth_instructions,
+        stored=source.stored_credentials,
     )
