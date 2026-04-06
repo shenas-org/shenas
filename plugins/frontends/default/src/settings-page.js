@@ -201,7 +201,7 @@ class SettingsPage extends LitElement {
     const data = await gql(this.apiBase, `{
       sources: plugins(kind: "source") { name displayName package version enabled description syncedAt hasAuth }
       datasets: plugins(kind: "dataset") { name displayName package version enabled description }
-      dashboards: plugins(kind: "dashboard") { name displayName package version enabled description }
+      dashboardPlugins: plugins(kind: "dashboard") { name displayName package version enabled description }
       frontends: plugins(kind: "frontend") { name displayName package version enabled description }
       themes: plugins(kind: "theme") { name displayName package version enabled description }
       models: plugins(kind: "model") { name displayName package version enabled description }
@@ -209,7 +209,7 @@ class SettingsPage extends LitElement {
     const result = {
       source: data?.sources || [],
       dataset: data?.datasets || [],
-      dashboard: data?.dashboards || [],
+      dashboard: data?.dashboardPlugins || [],
       frontend: data?.frontends || [],
       theme: data?.themes || [],
       model: data?.models || [],
@@ -238,6 +238,7 @@ class SettingsPage extends LitElement {
       window.location.replace(window.location.pathname + '?_switch=' + Date.now());
       return;
     }
+    this.dispatchEvent(new CustomEvent("plugin-state-changed", { bubbles: true, composed: true }));
     await this._fetchAll({ force: true });
   }
 
@@ -366,7 +367,7 @@ class SettingsPage extends LitElement {
       ${this._menuOpen ? html`
         <div class="menu-overlay" @click=${() => { this._menuOpen = false; }}></div>
         <div class="menu-panel">
-          <a href="/settings/flow" aria-selected=${this.activeKind === "flow"} @click=${(e) => { e.preventDefault(); this._switchKind("flow"); }}>Data Flow</a>
+          <a href="/settings/flow" aria-selected=${this.activeKind === "flow"} @click=${(e) => { e.preventDefault(); this._switchKind("flow"); }}>Flow</a>
           <a href="/settings/hotkeys" aria-selected=${this.activeKind === "hotkeys"} @click=${(e) => { e.preventDefault(); this._switchKind("hotkeys"); }}>Hotkeys</a>
           <span class="sidebar-section">Plugins</span>
           ${PLUGIN_KINDS.map(({ id, label }) => html`

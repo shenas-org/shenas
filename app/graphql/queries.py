@@ -217,7 +217,7 @@ class Query:
         return get_workspace()
 
     @strawberry.field
-    def components(self) -> JSON:
+    def dashboards(self) -> JSON:
         from app.api.sources import _load_dashboards
         from app.db import is_plugin_enabled
 
