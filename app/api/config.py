@@ -5,7 +5,13 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from app.api.sources import _load_plugin, _load_plugins
-from app.models import ConfigEntry, ConfigItem, ConfigSetRequest, ConfigValueResponse, OkResponse
+from app.models import (
+    ConfigEntry,
+    ConfigItem,
+    ConfigSetRequest,
+    ConfigValueResponse,
+    OkResponse,
+)
 from shenas_plugins.core import Plugin
 
 router = APIRouter(prefix="/config", tags=["config"])
@@ -23,26 +29,24 @@ def _resolve_plugin(kind: str, name: str) -> Plugin:
 
 @router.get("")
 def list_configs(kind: str | None = None, name: str | None = None) -> list[ConfigItem]:
-    kinds = [kind] if kind else ["source"]
     result = []
-    for k in kinds:
-        for plugin_cls in _load_plugins(k, base=Plugin):
-            plugin = plugin_cls()
-            if not plugin.has_config:
-                continue
-            if name and name != plugin.name:
-                continue
-            entries = [
-                ConfigEntry(
-                    key=str(e["key"]),
-                    label=str(e.get("label") or ""),
-                    value=e.get("value"),
-                    description=str(e.get("description") or ""),
-                )
-                for e in plugin.get_config_entries()
-            ]
-            if entries:
-                result.append(ConfigItem(kind=k, name=plugin.name, entries=entries))
+    for plugin_cls in _load_plugins(kind or "source", base=Plugin):
+        plugin = plugin_cls()
+        if not plugin.has_config:
+            continue
+        if name and name != plugin.name:
+            continue
+        entries = [
+            ConfigEntry(
+                key=str(e["key"]),
+                label=str(e.get("label") or ""),
+                value=e.get("value"),
+                description=str(e.get("description") or ""),
+            )
+            for e in plugin.get_config_entries()
+        ]
+        if entries:
+            result.append(ConfigItem(kind=plugin._kind, name=plugin.name, entries=entries))
     return result
 
 

@@ -180,7 +180,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     ensure_schema(con, _SYSTEM_TABLES, schema="shenas_system")
     _migrate_plugin_kinds(con)
     _seed_default_hotkeys(con)
-    _ensure_canonical_schemas(con)
+    _ensure_canonical_datasets(con)
 
 
 def _migrate_plugin_kinds(con: duckdb.DuckDBPyConnection) -> None:
@@ -198,12 +198,12 @@ def _migrate_plugin_kinds(con: duckdb.DuckDBPyConnection) -> None:
         )
 
 
-def _ensure_canonical_schemas(con: duckdb.DuckDBPyConnection) -> None:
-    """Ensure all installed schema plugins have their tables created."""
+def _ensure_canonical_datasets(con: duckdb.DuckDBPyConnection) -> None:
+    """Ensure all installed dataset plugins have their tables created."""
     from app.api.sources import _load_datasets
 
-    for schema_cls in _load_datasets():
-        schema_cls.ensure(con)
+    for dataset_cls in _load_datasets():
+        dataset_cls.ensure(con)
 
 
 def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
