@@ -80,7 +80,14 @@ export class ChartPanel extends LitElement {
       cursor: { show: true, drag: { x: true, y: false } },
       scales: { x: { time: true } },
       axes: [
-        { stroke: "#888", grid: { stroke: "#eee" } },
+        {
+          stroke: "#888",
+          grid: { stroke: "#eee" },
+          values: (u, vals) => vals.map((v) => {
+            const d = new Date(v * 1000);
+            return `${d.getMonth() + 1}/${d.getDate()}`;
+          }),
+        },
         ...(this.axes.length
           ? this.axes
           : [{ stroke: "#888", grid: { stroke: "#f4f4f4" } }]),
