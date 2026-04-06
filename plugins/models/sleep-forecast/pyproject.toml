@@ -5,6 +5,7 @@ description = "Predict tomorrow's sleep score from HRV, activity, and vitals"
 requires-python = ">=3.11"
 dependencies = [
     "shenas-model-core",
+    "shenas-schema-fitness",
     "torch>=2.0",
     "numpy>=1.26",
 ]
