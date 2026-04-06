@@ -281,16 +281,14 @@ class TestGraphQLQueries:
         assert result["data"]["deviceName"] == ""
 
     def test_dashboards(self, client: TestClient) -> None:
-        mock_component = MagicMock()
-        mock_component.name = "fitness-dashboard"
-        mock_component.display_name = "Fitness Dashboard"
-        mock_component.tag = "fitness-dashboard"
-        mock_component.entrypoint = "index.js"
-        mock_component.description = "Charts"
-        with (
-            patch("app.api.sources._load_dashboards", return_value=[mock_component]),
-            patch("app.db.is_plugin_enabled", return_value=True),
-        ):
+        mock_cls = MagicMock()
+        mock_cls.name = "fitness-dashboard"
+        mock_cls.display_name = "Fitness Dashboard"
+        mock_cls.tag = "fitness-dashboard"
+        mock_cls.entrypoint = "index.js"
+        mock_cls.description = "Charts"
+        mock_cls.return_value.enabled = True
+        with patch("app.api.sources._load_dashboards", return_value=[mock_cls]):
             result = _gql(client, "{ dashboards }")
         assert "errors" not in result
         dashboards = result["data"]["dashboards"]
@@ -299,16 +297,14 @@ class TestGraphQLQueries:
         assert dashboards[0]["js"] == "/dashboards/fitness-dashboard/index.js"
 
     def test_dashboards_disabled_excluded(self, client: TestClient) -> None:
-        mock_component = MagicMock()
-        mock_component.name = "fitness-dashboard"
-        mock_component.display_name = "Fitness Dashboard"
-        mock_component.tag = "fitness-dashboard"
-        mock_component.entrypoint = "index.js"
-        mock_component.description = "Charts"
-        with (
-            patch("app.api.sources._load_dashboards", return_value=[mock_component]),
-            patch("app.db.is_plugin_enabled", return_value=False),
-        ):
+        mock_cls = MagicMock()
+        mock_cls.name = "fitness-dashboard"
+        mock_cls.display_name = "Fitness Dashboard"
+        mock_cls.tag = "fitness-dashboard"
+        mock_cls.entrypoint = "index.js"
+        mock_cls.description = "Charts"
+        mock_cls.return_value.enabled = False
+        with patch("app.api.sources._load_dashboards", return_value=[mock_cls]):
             result = _gql(client, "{ dashboards }")
         assert "errors" not in result
         assert result["data"]["dashboards"] == []
