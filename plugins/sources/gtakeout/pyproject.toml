@@ -1,0 +1,26 @@
+[project]
+name = "shenas-source-gtakeout"
+dynamic = ["version"]
+description = "Google Takeout data connector for shenas (reads exports from Google Drive)"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "ijson>=3.0",
+    "shenas-source-core[google]",
+]
+
+[project.entry-points."shenas.sources"]
+gtakeout = "shenas_sources.gtakeout.pipe:GTakeoutPipe"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-gtakeout/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-gtakeout/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]

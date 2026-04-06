@@ -33,7 +33,7 @@ class TestTick:
             {"name": "garmin", "sync_frequency": 60, "synced_at": None, "is_due": True},
             {"name": "lunchmoney", "sync_frequency": 120, "synced_at": None, "is_due": True},
         ]
-        client.sync_pipe.return_value = iter([{"_event": "complete", "pipe": "test", "message": "done"}])
+        client.sync_pipe.return_value = iter([{"_event": "complete", "source": "test", "message": "done"}])
         daemon = _make_daemon(client)
 
         daemon._tick()
@@ -48,7 +48,7 @@ class TestTick:
             {"name": "garmin", "sync_frequency": 60, "synced_at": "2026-03-30 15:00:00", "is_due": False},
             {"name": "lunchmoney", "sync_frequency": 120, "synced_at": None, "is_due": True},
         ]
-        client.sync_pipe.return_value = iter([{"_event": "complete", "pipe": "lunchmoney", "message": "done"}])
+        client.sync_pipe.return_value = iter([{"_event": "complete", "source": "lunchmoney", "message": "done"}])
         daemon = _make_daemon(client)
 
         daemon._tick()
@@ -73,13 +73,13 @@ class TestTick:
             daemon.run()
 
 
-class TestSyncPipe:
+class TestSyncSource:
     def test_consumes_sse_events(self) -> None:
         client = MagicMock()
         client.sync_pipe.return_value = iter(
             [
-                {"_event": "progress", "pipe": "garmin", "message": "starting sync"},
-                {"_event": "complete", "pipe": "garmin", "message": "done"},
+                {"_event": "progress", "source": "garmin", "message": "starting sync"},
+                {"_event": "complete", "source": "garmin", "message": "done"},
             ]
         )
         daemon = _make_daemon(client)

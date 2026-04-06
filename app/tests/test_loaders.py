@@ -1,4 +1,4 @@
-"""Tests for app.api.pipes -- plugin loader functions."""
+"""Tests for app.api.sources -- plugin loader functions."""
 
 from __future__ import annotations
 
@@ -9,14 +9,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.api.pipes import (
+from app.api.sources import (
     _clear_caches,
     _group,
-    _load_pipe,
     _load_plugin,
     _load_plugin_fresh,
     _load_plugins,
-    _pipe_cache,
+    _load_source,
+    _source_cache,
 )
 from shenas_plugins.core import Plugin
 
@@ -60,19 +60,19 @@ def _make_entry_point(name: str, obj: object, *, raises: bool = False) -> MagicM
 
 class TestGroup:
     def test_pipe(self) -> None:
-        assert _group("pipe") == "shenas.pipes"
+        assert _group("source") == "shenas.sources"
 
     def test_theme(self) -> None:
         assert _group("theme") == "shenas.themes"
 
     def test_component(self) -> None:
-        assert _group("component") == "shenas.components"
+        assert _group("dashboard") == "shenas.dashboards"
 
     def test_schema(self) -> None:
-        assert _group("schema") == "shenas.schemas"
+        assert _group("dataset") == "shenas.datasets"
 
     def test_ui_special_case(self) -> None:
-        assert _group("ui") == "shenas.ui"
+        assert _group("frontend") == "shenas.frontends"
 
 
 # ---------------------------------------------------------------------------
@@ -83,8 +83,8 @@ class TestGroup:
 class TestLoadPlugins:
     def test_loads_all(self) -> None:
         eps = [_make_entry_point("a", _FakePlugin), _make_entry_point("b", _FakePlugin)]
-        with patch("app.api.pipes.entry_points", return_value=eps):
-            result = _load_plugins("pipe", base=Plugin)
+        with patch("app.api.sources.entry_points", return_value=eps):
+            result = _load_plugins("source", base=Plugin)
         assert result == [_FakePlugin, _FakePlugin]
 
     def test_excludes_internal_when_requested(self) -> None:
@@ -92,8 +92,8 @@ class TestLoadPlugins:
             _make_entry_point("a", _FakePlugin),
             _make_entry_point("b", _InternalPlugin),
         ]
-        with patch("app.api.pipes.entry_points", return_value=eps):
-            result = _load_plugins("pipe", base=Plugin, include_internal=False)
+        with patch("app.api.sources.entry_points", return_value=eps):
+            result = _load_plugins("source", base=Plugin, include_internal=False)
         assert result == [_FakePlugin]
 
     def test_includes_internal_by_default(self) -> None:
@@ -101,28 +101,28 @@ class TestLoadPlugins:
             _make_entry_point("a", _FakePlugin),
             _make_entry_point("b", _InternalPlugin),
         ]
-        with patch("app.api.pipes.entry_points", return_value=eps):
-            result = _load_plugins("pipe", base=Plugin)
+        with patch("app.api.sources.entry_points", return_value=eps):
+            result = _load_plugins("source", base=Plugin)
         assert len(result) == 2
 
     def test_skips_non_subclass(self) -> None:
         """Non-Plugin objects are silently skipped."""
         eps = [_make_entry_point("bad", str)]
-        with patch("app.api.pipes.entry_points", return_value=eps):
-            result = _load_plugins("pipe", base=Plugin)
+        with patch("app.api.sources.entry_points", return_value=eps):
+            result = _load_plugins("source", base=Plugin)
         assert result == []
 
     def test_skips_on_import_error(self) -> None:
         eps = [_make_entry_point("broken", None, raises=True)]
-        with patch("app.api.pipes.entry_points", return_value=eps):
-            result = _load_plugins("pipe", base=Plugin)
+        with patch("app.api.sources.entry_points", return_value=eps):
+            result = _load_plugins("source", base=Plugin)
         assert result == []
 
     def test_skips_non_class_objects(self) -> None:
         """Instances (not types) are skipped because isinstance(obj, type) is False."""
         eps = [_make_entry_point("instance", _FakePlugin())]
-        with patch("app.api.pipes.entry_points", return_value=eps):
-            result = _load_plugins("pipe", base=Plugin)
+        with patch("app.api.sources.entry_points", return_value=eps):
+            result = _load_plugins("source", base=Plugin)
         assert result == []
 
 
@@ -137,85 +137,85 @@ class TestLoadPlugin:
             _make_entry_point("alpha", _FakePlugin),
             _make_entry_point("beta", _InternalPlugin),
         ]
-        with patch("app.api.pipes.entry_points", return_value=eps):
-            result = _load_plugin("pipe", "alpha")
+        with patch("app.api.sources.entry_points", return_value=eps):
+            result = _load_plugin("source", "alpha")
         assert result is _FakePlugin
 
     def test_returns_none_for_missing(self) -> None:
         eps = [_make_entry_point("alpha", _FakePlugin)]
-        with patch("app.api.pipes.entry_points", return_value=eps):
-            result = _load_plugin("pipe", "nope")
+        with patch("app.api.sources.entry_points", return_value=eps):
+            result = _load_plugin("source", "nope")
         assert result is None
 
     def test_returns_none_on_import_error(self) -> None:
         eps = [_make_entry_point("broken", None, raises=True)]
-        with patch("app.api.pipes.entry_points", return_value=eps):
-            result = _load_plugin("pipe", "broken")
+        with patch("app.api.sources.entry_points", return_value=eps):
+            result = _load_plugin("source", "broken")
         assert result is None
 
     def test_returns_none_for_non_plugin(self) -> None:
         """Entry point loads a non-Plugin class -> returns None and breaks."""
         eps = [_make_entry_point("bad", str)]
-        with patch("app.api.pipes.entry_points", return_value=eps):
-            result = _load_plugin("pipe", "bad")
+        with patch("app.api.sources.entry_points", return_value=eps):
+            result = _load_plugin("source", "bad")
         assert result is None
 
 
 # ---------------------------------------------------------------------------
-# _load_pipe
+# _load_source
 # ---------------------------------------------------------------------------
 
 
-class _FakePipe:
-    """Minimal fake that avoids inheriting from the real Pipe (which needs DB)."""
+class _FakeSource:
+    """Minimal fake that avoids inheriting from the real Source (which needs DB)."""
 
     name = "testpipe"
 
 
-class TestLoadPipe:
+class TestLoadSource:
     def setup_method(self) -> None:
-        _pipe_cache.clear()
+        _source_cache.clear()
 
     def teardown_method(self) -> None:
-        _pipe_cache.clear()
+        _source_cache.clear()
 
     def test_returns_cached(self) -> None:
-        sentinel = _FakePipe()
-        _pipe_cache["testpipe"] = sentinel
-        result = _load_pipe("testpipe")
+        sentinel = _FakeSource()
+        _source_cache["testpipe"] = sentinel
+        result = _load_source("testpipe")
         assert result is sentinel
 
     def test_loads_from_entry_points(self) -> None:
         ep = MagicMock()
         ep.name = "mypipe"
-        instance = _FakePipe()
+        instance = _FakeSource()
         ep.load.return_value = lambda: instance  # cls() returns instance
         # Make cls() work: ep.load returns a callable that returns instance
         ep.load.return_value = MagicMock(return_value=instance)
-        with patch("app.api.pipes.entry_points", return_value=[ep]):
-            result = _load_pipe("mypipe")
+        with patch("app.api.sources.entry_points", return_value=[ep]):
+            result = _load_source("mypipe")
         assert result is instance
-        assert _pipe_cache["mypipe"] is instance
+        assert _source_cache["mypipe"] is instance
 
     def test_falls_back_to_fresh_scan(self) -> None:
         """When entry_points misses the pipe, _load_plugin_fresh is tried."""
-        instance = _FakePipe()
+        instance = _FakeSource()
         cls_mock = MagicMock(return_value=instance)
         with (
-            patch("app.api.pipes.entry_points", return_value=[]),
-            patch("app.api.pipes._load_plugin_fresh", return_value=cls_mock),
+            patch("app.api.sources.entry_points", return_value=[]),
+            patch("app.api.sources._load_plugin_fresh", return_value=cls_mock),
         ):
-            result = _load_pipe("testpipe")
+            result = _load_source("testpipe")
         assert result is instance
-        assert _pipe_cache["testpipe"] is instance
+        assert _source_cache["testpipe"] is instance
 
     def test_raises_when_not_found(self) -> None:
         with (
-            patch("app.api.pipes.entry_points", return_value=[]),
-            patch("app.api.pipes._load_plugin_fresh", return_value=None),
-            pytest.raises(ValueError, match="Pipe not found: nope"),
+            patch("app.api.sources.entry_points", return_value=[]),
+            patch("app.api.sources._load_plugin_fresh", return_value=None),
+            pytest.raises(ValueError, match="Source not found: nope"),
         ):
-            _load_pipe("nope")
+            _load_source("nope")
 
 
 # ---------------------------------------------------------------------------
@@ -225,12 +225,12 @@ class TestLoadPipe:
 
 class TestClearCaches:
     def setup_method(self) -> None:
-        _pipe_cache.clear()
+        _source_cache.clear()
 
-    def test_clears_pipe_cache(self) -> None:
-        _pipe_cache["x"] = "dummy"
+    def test_clears_source_cache(self) -> None:
+        _source_cache["x"] = "dummy"
         _clear_caches()
-        assert _pipe_cache == {}
+        assert _source_cache == {}
 
     def test_calls_invalidate_caches(self) -> None:
         with patch("importlib.invalidate_caches") as mock_inv:
@@ -277,12 +277,12 @@ class TestLoadPluginFresh:
 
         mod_name = "_test_fake_pipe_mod"
         mod = MagicMock()
-        mod.MyPipe = _FakePlugin  # a real Plugin subclass
+        mod.MySource = _FakePlugin  # a real Plugin subclass
 
         fake_ep = SimpleNamespace(
-            group="shenas.pipes",
+            group="shenas.sources",
             name="fakepipe",
-            value=f"{mod_name}:MyPipe",
+            value=f"{mod_name}:MySource",
         )
         fake_dist = MagicMock()
         fake_dist.entry_points = [fake_ep]
@@ -296,7 +296,7 @@ class TestLoadPluginFresh:
             patch.dict(sys.modules, {mod_name: mod}),
             patch("importlib.import_module", return_value=mod),
         ):
-            result = _load_plugin_fresh("pipe", "fakepipe")
+            result = _load_plugin_fresh("source", "fakepipe")
 
         assert result is _FakePlugin
 
@@ -304,19 +304,19 @@ class TestLoadPluginFresh:
         site_dir = str(tmp_path / "site-packages")
         (tmp_path / "site-packages").mkdir()
         with patch.object(sys, "path", [site_dir]):
-            result = _load_plugin_fresh("pipe", "nonexistent")
+            result = _load_plugin_fresh("source", "nonexistent")
         assert result is None
 
     def test_skips_non_site_packages(self) -> None:
         """Paths without 'site-packages' are ignored."""
         with patch.object(sys, "path", ["/usr/lib/python3"]):
-            result = _load_plugin_fresh("pipe", "any")
+            result = _load_plugin_fresh("source", "any")
         assert result is None
 
     def test_handles_import_error(self, tmp_path) -> None:
         """If the module import fails, returns None."""
         fake_ep = SimpleNamespace(
-            group="shenas.pipes",
+            group="shenas.sources",
             name="broken",
             value="no_such_mod:Cls",
         )
@@ -333,6 +333,6 @@ class TestLoadPluginFresh:
             patch("importlib.metadata.PathDistribution", return_value=fake_dist),
             patch("importlib.import_module", side_effect=ImportError("no module")),
         ):
-            result = _load_plugin_fresh("pipe", "broken")
+            result = _load_plugin_fresh("source", "broken")
 
         assert result is None

@@ -67,12 +67,12 @@ _IMPORTS_SERVER = [
     "app.telemetry.schema",
     "repository",
     # Internal/bundled plugin packages (user plugins installed separately)
-    "shenas_pipes",
-    "shenas_pipes.core",
-    "shenas_schemas",
-    "shenas_schemas.core",
-    "shenas_ui",
-    "shenas_ui.default",
+    "shenas_sources",
+    "shenas_sources.core",
+    "shenas_datasets",
+    "shenas_datasets.core",
+    "shenas_frontends",
+    "shenas_frontends.default",
     "shenas_themes",
     "shenas_themes.default",
     # Dependencies with dynamic imports
@@ -187,9 +187,9 @@ def _target_triple() -> str:
 _INTERNAL_PACKAGES = {
     "shenas-app",
     "shenas-scheduler",
-    "shenas-pipe-core",
-    "shenas-schema-core",
-    "shenas-ui-default",
+    "shenas-source-core",
+    "shenas-dataset-core",
+    "shenas-frontend-default",
     "shenas-theme-default",
     "dlt",
     "duckdb",
@@ -222,9 +222,9 @@ def _collect_package_datas(target_name: str) -> list[str]:
     if target_name == "shenas-scheduler":
         return []
     return [
-        "shenas_pipes.core",
-        "shenas_schemas.core",
-        "shenas_ui.default",
+        "shenas_sources.core",
+        "shenas_datasets.core",
+        "shenas_frontends.default",
         "shenas_themes.default",
     ]
 

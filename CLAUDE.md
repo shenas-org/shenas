@@ -8,7 +8,7 @@ Don't ask about doing 'cat', 'find', 'diff' or similar. Do not use emojis in cod
 
 ```bash
 uv run shenasctl                       # CLI entry point
-uv run shenasctl pipe garmin sync       # run pipe (must be installed first)
+uv run shenasctl source garmin sync       # run pipe (must be installed first)
 uv run ruff check .                 # lint
 uv run ruff format .                # format
 uv run ty check repository/ app/  # type check
@@ -25,7 +25,7 @@ moon run :test                      # run tests across all projects
 moon run :coverage                  # run tests with coverage report
 moon run :pyinstaller               # build standalone binaries (onedir) to dist/
 moon run :build                     # build all distributable wheels
-moon run pipe-garmin:build           # build a single pipe
+moon run source-garmin:build           # build a single pipe
 moon run desktop:sidecars           # build PyInstaller sidecars for Tauri
 moon run desktop:tauri              # build desktop app (builds sidecars first)
 ```
@@ -54,16 +54,16 @@ The monorepo is a uv workspace with glob-based members, each a separate Python p
 - **`shenas-app`** (`app/`) — FastAPI UI server, depends on shenas-cli
 - **`shenas-scheduler`** (`scheduler/`) — background sync daemon sidecar, depends on shenas-cli
 - **`shenas-plugin-core`** (`plugins/core/`) — shared plugin utilities
-- **`shenas-pipe-core`** (`plugins/pipes/core/`) — shared pipe utilities
-- **`shenas-schema-core`** (`plugins/schemas/core/`) — shared schema utilities
+- **`shenas-source-core`** (`plugins/sources/core/`) — shared pipe utilities
+- **`shenas-dataset-core`** (`plugins/datasets/core/`) — shared schema utilities
 
-Pipes, schemas, components, UIs, and themes under `plugins/` are auto-discovered via glob patterns. Each has its own `pyproject.toml` with hatchling build, `VERSION` file, and `moon.yml` for task definitions. Cross-package imports resolve via workspace editable installs with `dev-mode-dirs = [".."]` pointing to the repo root.
+Sources, datasets, dashboards, UIs, and themes under `plugins/` are auto-discovered via glob patterns. Each has its own `pyproject.toml` with hatchling build, `VERSION` file, and `moon.yml` for task definitions. Cross-package imports resolve via workspace editable installs with `dev-mode-dirs = [".."]` pointing to the repo root.
 
 ### Plugin discovery via entry points
 
-Pipes register `[project.entry-points."shenas.pipes"]`, schemas register `shenas.schemas`, and components register `shenas.components`. The CLI and UI server discover them at runtime via `importlib.metadata.entry_points()`. Nothing is hardcoded to specific pipes or components.
+Pipes register `[project.entry-points."shenas.sources"]`, schemas register `shenas.schemas`, and components register `shenas.components`. The CLI and UI server discover them at runtime via `importlib.metadata.entry_points()`. Nothing is hardcoded to specific pipes or components.
 
-All plugins are uv workspace members. `uv sync` installs everything for development. For production, users install plugins separately via `shenasctl pipe add`.
+All plugins are uv workspace members. `uv sync` installs everything for development. For production, users install plugins separately via `shenasctl source add`.
 
 ### Data flow: raw -> canonical
 
@@ -73,32 +73,32 @@ All plugins are uv workspace members. `uv sync` installs everything for developm
 
 ### Shared core packages
 
-- **`shenas-pipe-core`** (`plugins/pipes/core/`) — shared pipe utilities: `resolve_start_date`, `date_range`, `is_empty_response`, `create_pipe_app`, `run_sync`, `print_load_info`
-- **`shenas-schema-core`** (`plugins/schemas/core/`) — shared schema utilities: `Field` (metadata dataclass), `generate_ddl`, `ensure_schema`, `table_metadata`, `schema_metadata`, `MetricProvider` protocol
+- **`shenas-source-core`** (`plugins/sources/core/`) — shared pipe utilities: `resolve_start_date`, `date_range`, `is_empty_response`, `create_pipe_app`, `run_sync`, `print_load_info`
+- **`shenas-dataset-core`** (`plugins/datasets/core/`) — shared schema utilities: `Field` (metadata dataclass), `generate_ddl`, `ensure_schema`, `table_metadata`, `schema_metadata`, `MetricProvider` protocol
 
-Both are internal packages — hidden from `list`/`add`/`remove` commands. Pipes depend on `shenas-pipe-core`, schemas depend on `shenas-schema-core`.
+Both are internal packages — hidden from `list`/`add`/`remove` commands. Pipes depend on `shenas-source-core`, schemas depend on `shenas-dataset-core`.
 
 ### Canonical schema is dataclass-driven
 
-Each schema package (e.g. `plugins/schemas/fitness/`) contains only a `metrics.py` with dataclasses. Fields use `Annotated[type, Field(...)]` for structured metadata (description, unit, value_range, interpretation). DDL is generated from these by `shenas-schema-core` — no hand-written SQL.
+Each schema package (e.g. `plugins/datasets/fitness/`) contains only a `metrics.py` with dataclasses. Fields use `Annotated[type, Field(...)]` for structured metadata (description, unit, value_range, interpretation). DDL is generated from these by `shenas-dataset-core` — no hand-written SQL.
 
 ### Package distribution
 
-All artifacts (pipes, components, schemas) are Python wheels distributed as GitHub releases. Wheels are Ed25519-signed in CI. `shenas pipe add <name>` verifies the signature before installing.
+All artifacts (pipes, components, schemas) are Python wheels distributed as GitHub releases. Wheels are Ed25519-signed in CI. `shenas source add <name>` verifies the signature before installing.
 
 ### Component packaging workaround
 
-`plugins/components/*/pyproject.build.toml` is renamed to `pyproject.toml` only during build (by the Makefile), then removed. This prevents uv from auto-discovering components as workspace members.
+`plugins/dashboards/*/pyproject.build.toml` is renamed to `pyproject.toml` only during build (by the Makefile), then removed. This prevents uv from auto-discovering components as workspace members.
 
 ## Key conventions
 
-- **Naming**: `shenas-pipe-*`, `shenas-component-*`, `shenas-schema-*`
-- **Core packages**: `shenas-pipe-core`, `shenas-schema-core` (internal, not user-facing)
+- **Naming**: `shenas-source-*`, `shenas-dashboard-*`, `shenas-dataset-*`
+- **Core packages**: `shenas-source-core`, `shenas-dataset-core` (internal, not user-facing)
 - **Versioning**: Each package has a `VERSION` file read by hatchling. `scripts/bump-version.py` auto-increments patch on every build.
 - **Transforms are idempotent**: SQL transforms do DELETE WHERE source, then INSERT
-- **Plugin kinds**: pipe, schema, component, ui, theme (all in `plugins/`)
+- **Plugin kinds**: source, dataset, dashboard, frontend, theme (all in `plugins/`)
 - **Themes**: exclusive (only one enabled at a time), CSS custom properties pierce Shadow DOM
-- **Python namespaces**: `shenas_pipes.*`, `shenas_schemas.*`, `shenas_components.*` (not `pipes.*` — conflicts with stdlib)
+- **Python namespaces**: `shenas_sources.*`, `shenas_datasets.*`, `shenas_dashboards.*` (not `pipes.*` — conflicts with stdlib)
 - **DuckDB schemas**: raw data in source-specific schemas (`garmin.*`, `lunchmoney.*`), canonical in `metrics.*`
 
 ## Modules
@@ -114,26 +114,26 @@ All artifacts (pipes, components, schemas) are Python wheels distributed as GitH
 - `server/fl/` — federated learning coordinator (Flower server + REST API); runs in its own venv
 - `scripts/` — build helpers (version bumping, pre-commit hook)
 - `plugins/core/` — shared plugin utilities (shenas-plugin-core)
-- `plugins/pipes/core/` — shared pipe utilities (shenas-pipe-core)
-- `plugins/pipes/garmin/` — Garmin Connect dlt connector
-- `plugins/pipes/gcalendar/` — Google Calendar dlt connector
-- `plugins/pipes/gtakeout/` — Google Takeout import
-- `plugins/pipes/lunchmoney/` — Lunch Money dlt connector
-- `plugins/pipes/obsidian/` — Obsidian daily notes (frontmatter extraction)
-- `plugins/pipes/gmail/` — Gmail (OAuth2, embedded client credentials)
-- `plugins/pipes/duolingo/` — Duolingo (JWT browser auth)
-- `plugins/pipes/spotify/` — Spotify (PKCE OAuth + history import)
-- `plugins/schemas/core/` — shared schema utilities (shenas-schema-core)
-- `plugins/schemas/fitness/` — canonical fitness metrics (HRV, sleep, vitals, body)
-- `plugins/schemas/finance/` — canonical finance metrics (transactions, spending, budgets)
-- `plugins/schemas/events/` — unified event timeline
-- `plugins/schemas/outcomes/` — canonical outcome metrics (mood, stress, productivity, exercise)
-- `plugins/schemas/habits/` — canonical habits metrics (daily habits)
-- `plugins/components/fitness-dashboard/` — Lit + uPlot fitness charts (built as wheel)
-- `plugins/components/data-table/` — Lit data table with sorting/filtering/pagination (built as wheel)
+- `plugins/sources/core/` — shared pipe utilities (shenas-source-core)
+- `plugins/sources/garmin/` — Garmin Connect dlt connector
+- `plugins/sources/gcalendar/` — Google Calendar dlt connector
+- `plugins/sources/gtakeout/` — Google Takeout import
+- `plugins/sources/lunchmoney/` — Lunch Money dlt connector
+- `plugins/sources/obsidian/` — Obsidian daily notes (frontmatter extraction)
+- `plugins/sources/gmail/` — Gmail (OAuth2, embedded client credentials)
+- `plugins/sources/duolingo/` — Duolingo (JWT browser auth)
+- `plugins/sources/spotify/` — Spotify (PKCE OAuth + history import)
+- `plugins/datasets/core/` — shared schema utilities (shenas-dataset-core)
+- `plugins/datasets/fitness/` — canonical fitness metrics (HRV, sleep, vitals, body)
+- `plugins/datasets/finance/` — canonical finance metrics (transactions, spending, budgets)
+- `plugins/datasets/events/` — unified event timeline
+- `plugins/datasets/outcomes/` — canonical outcome metrics (mood, stress, productivity, exercise)
+- `plugins/datasets/habits/` — canonical habits metrics (daily habits)
+- `plugins/dashboards/fitness-dashboard/` — Lit + uPlot fitness charts (built as wheel)
+- `plugins/dashboards/data-table/` — Lit data table with sorting/filtering/pagination (built as wheel)
 - `plugins/themes/default/` — default light theme (CSS custom properties)
 - `plugins/themes/dark/` — dark theme
-- `plugins/uis/default/` — default UI shell (Lit SPA with tabs, command palette, data flow graph)
+- `plugins/frontends/default/` — default UI shell (Lit SPA with tabs, command palette, data flow graph)
 
 ## Git workflow
 

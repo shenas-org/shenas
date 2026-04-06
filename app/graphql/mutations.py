@@ -22,10 +22,10 @@ class Mutation:
 
     @strawberry.mutation
     def authenticate(self, pipe: str, credentials: JSON) -> AuthResponseType:
-        from app.api.pipes import _load_pipe
+        from app.api.sources import _load_source
         from app.models import AuthResponse
 
-        p = _load_pipe(pipe)
+        p = _load_source(pipe)
         result = p.handle_auth(credentials)
         return AuthResponseType.from_pydantic(AuthResponse(**result))
 
@@ -172,10 +172,10 @@ class Mutation:
         from importlib.metadata import entry_points
 
         from app.transforms import seed_defaults
-        from shenas_pipes.core.transform import load_transform_defaults
+        from shenas_sources.core.transform import load_transform_defaults
 
         seeded: list[str] = []
-        for ep in entry_points(group="shenas.pipes"):
+        for ep in entry_points(group="shenas.sources"):
             defaults = load_transform_defaults(ep.name)
             if defaults:
                 seed_defaults(ep.name, defaults)

@@ -1,0 +1,7 @@
+id: components-core
+language: 'python'
+tags: ['dashboard', 'core']
+
+workspace:
+  inheritedTasks:
+    exclude: ['test']

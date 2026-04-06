@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 import duckdb
 
-from shenas_schemas.core.field import Field
+from shenas_datasets.core.field import Field
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -174,7 +174,7 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:  # noqa: ARG0
 
 def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     """Create system tables and canonical schema tables if they don't exist."""
-    from shenas_schemas.core.ddl import ensure_schema
+    from shenas_datasets.core.ddl import ensure_schema
 
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
     ensure_schema(con, _SYSTEM_TABLES, schema="shenas_system")
@@ -184,9 +184,9 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
 
 def _ensure_canonical_schemas(con: duckdb.DuckDBPyConnection) -> None:
     """Ensure all installed schema plugins have their tables created."""
-    from app.api.pipes import _load_schemas
+    from app.api.sources import _load_datasets
 
-    for schema_cls in _load_schemas():
+    for schema_cls in _load_datasets():
         schema_cls.ensure(con)
 
 

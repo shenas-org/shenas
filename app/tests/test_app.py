@@ -51,9 +51,9 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
 class TestIndex:
     @staticmethod
     def _make_fake_ui(tmp_path: Path) -> type:
-        from shenas_ui.core import UI
+        from shenas_frontends.core import Frontend
 
-        class FakeUI(UI):
+        class FakeUI(Frontend):
             name = "default"
             display_name = "Default"
             static_dir = tmp_path
@@ -66,13 +66,13 @@ class TestIndex:
         html_file = tmp_path / "default.html"
         html_file.write_text("<html><body>test ui</body></html>")
         fake_ui = [self._make_fake_ui(tmp_path)]
-        with patch("app.api.pipes._load_uis", return_value=fake_ui):
+        with patch("app.api.sources._load_frontends", return_value=fake_ui):
             resp = client.get("/")
         assert resp.status_code == 200
         assert "test ui" in resp.text
 
     def test_fallback_when_no_ui(self, client: TestClient) -> None:
-        with patch("app.api.pipes._load_uis", return_value=[]):
+        with patch("app.api.sources._load_frontends", return_value=[]):
             resp = client.get("/")
         assert resp.status_code == 200
         assert "not installed" in resp.text
@@ -81,7 +81,7 @@ class TestIndex:
         html_file = tmp_path / "default.html"
         html_file.write_text("<html><body>spa shell</body></html>")
         fake_ui = [self._make_fake_ui(tmp_path)]
-        with patch("app.api.pipes._load_uis", return_value=fake_ui):
+        with patch("app.api.sources._load_frontends", return_value=fake_ui):
             resp = client.get("/some/deep/route")
         assert resp.status_code == 200
         assert "spa shell" in resp.text
@@ -141,7 +141,7 @@ class TestGetActiveTheme:
         light = self._make_theme("light")
         states = [{"name": "dark", "enabled": True}, {"name": "light", "enabled": False}]
         with (
-            patch("app.api.pipes._load_themes", return_value=[dark, light]),
+            patch("app.api.sources._load_themes", return_value=[dark, light]),
             patch("app.db.get_all_plugin_states", return_value=states),
         ):
             result = _get_active_theme()
@@ -154,7 +154,7 @@ class TestGetActiveTheme:
         other = self._make_theme("other")
         states = [{"name": "default", "enabled": False}, {"name": "other", "enabled": False}]
         with (
-            patch("app.api.pipes._load_themes", return_value=[default, other]),
+            patch("app.api.sources._load_themes", return_value=[default, other]),
             patch("app.db.get_all_plugin_states", return_value=states),
         ):
             result = _get_active_theme()
@@ -167,7 +167,7 @@ class TestGetActiveTheme:
         app.state.default_theme = "nonexistent"
         states = []
         with (
-            patch("app.api.pipes._load_themes", return_value=[custom]),
+            patch("app.api.sources._load_themes", return_value=[custom]),
             patch("app.db.get_all_plugin_states", return_value=states),
         ):
             result = _get_active_theme()
@@ -178,7 +178,7 @@ class TestGetActiveTheme:
         from app.server import _get_active_theme
 
         with (
-            patch("app.api.pipes._load_themes", return_value=[]),
+            patch("app.api.sources._load_themes", return_value=[]),
             patch("app.db.get_all_plugin_states", return_value=[]),
         ):
             result = _get_active_theme()
@@ -189,7 +189,7 @@ class TestGetActiveTheme:
 
         default = self._make_theme("default")
         with (
-            patch("app.api.pipes._load_themes", return_value=[default]),
+            patch("app.api.sources._load_themes", return_value=[default]),
             patch("app.db.get_all_plugin_states", side_effect=Exception("DB down")),
         ):
             result = _get_active_theme()
@@ -199,9 +199,9 @@ class TestGetActiveTheme:
 class TestServeUiHtml:
     @staticmethod
     def _make_fake_ui(tmp_path: Path, name: str = "default") -> type:
-        from shenas_ui.core import UI
+        from shenas_frontends.core import Frontend
 
-        class FakeUI(UI):
+        class FakeUI(Frontend):
             pass
 
         FakeUI.name = name
@@ -226,7 +226,7 @@ class TestServeUiHtml:
             html = ""
 
         with (
-            patch("app.api.pipes._load_uis", return_value=fake_ui),
+            patch("app.api.sources._load_frontends", return_value=fake_ui),
             patch("app.server._get_active_theme", return_value=FakeTheme),
         ):
             resp = client.get("/")
@@ -239,7 +239,7 @@ class TestServeUiHtml:
         html_file.write_text("<html><head></head><body>plain</body></html>")
         fake_ui = [self._make_fake_ui(tmp_path)]
         with (
-            patch("app.api.pipes._load_uis", return_value=fake_ui),
+            patch("app.api.sources._load_frontends", return_value=fake_ui),
             patch("app.server._get_active_theme", return_value=None),
         ):
             resp = client.get("/")
@@ -248,14 +248,14 @@ class TestServeUiHtml:
         assert "plain" in resp.text
 
     def test_uses_db_enabled_ui(self, client: TestClient, tmp_path: Path) -> None:
-        """When DB has an enabled UI, that one is used instead of env default."""
+        """When DB has an enabled Frontend, that one is used instead of env default."""
         html_file = tmp_path / "custom.html"
         html_file.write_text("<html><body>custom ui</body></html>")
         default_ui = self._make_fake_ui(tmp_path, "default")
         custom_ui = self._make_fake_ui(tmp_path, "custom")
         states = [{"name": "custom", "enabled": True}]
         with (
-            patch("app.api.pipes._load_uis", return_value=[default_ui, custom_ui]),
+            patch("app.api.sources._load_frontends", return_value=[default_ui, custom_ui]),
             patch("app.db.get_all_plugin_states", return_value=states),
             patch("app.server._get_active_theme", return_value=None),
         ):
@@ -264,10 +264,10 @@ class TestServeUiHtml:
         assert "custom ui" in resp.text
 
     def test_fallback_html_when_ui_html_missing(self, client: TestClient, tmp_path: Path) -> None:
-        """UI exists but its HTML file is missing -> fallback."""
+        """Frontend exists but its HTML file is missing -> fallback."""
         fake_ui = self._make_fake_ui(tmp_path, "broken")
         # Don't create the HTML file
-        with patch("app.api.pipes._load_uis", return_value=[fake_ui]):
+        with patch("app.api.sources._load_frontends", return_value=[fake_ui]):
             app.state.ui_name = "broken"
             resp = client.get("/")
             app.state.ui_name = "default"

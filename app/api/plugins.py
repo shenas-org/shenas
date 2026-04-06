@@ -28,7 +28,7 @@ DEFAULT_INDEX = "https://repo.shenas.net"
 PACKAGES_DIR = Path(__file__).resolve().parent.parent.parent / "packages"
 PUBLIC_KEY_PATH = Path(".shenas") / "shenas.pub"
 
-VALID_KINDS = {"pipe", "schema", "component", "ui", "theme", "model"}
+VALID_KINDS = {"source", "dataset", "dashboard", "frontend", "theme", "model"}
 
 
 PLUGIN_VENV = Path.home() / ".shenas" / "plugins"
@@ -138,7 +138,7 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
     installed = json.loads(result.stdout)
     matched = [p for p in installed if p["name"].startswith(prefix)]
 
-    from app.api.pipes import _load_plugin, _load_plugin_fresh
+    from app.api.sources import _load_plugin, _load_plugin_fresh
 
     items = []
     for p in sorted(matched, key=lambda x: x["name"]):
@@ -232,7 +232,7 @@ def install_plugin(
     public_key_path: Path = PUBLIC_KEY_PATH,
     skip_verify: bool = False,
 ) -> InstallResult:
-    from app.api.pipes import _load_plugin
+    from app.api.sources import _load_plugin
 
     cls = _load_plugin(kind, name)
     if (cls and cls.internal) or name == "core":
@@ -268,7 +268,7 @@ def install_plugin(
     )
 
     if result.returncode == 0:
-        from app.api.pipes import _clear_caches
+        from app.api.sources import _clear_caches
         from app.db import upsert_plugin_state
 
         upsert_plugin_state(kind, name, enabled=True)
@@ -280,7 +280,7 @@ def install_plugin(
 
 
 def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
-    from app.api.pipes import _load_plugin
+    from app.api.sources import _load_plugin
 
     cls = _load_plugin(kind, name)
     if (cls and cls.internal) or name == "core":
@@ -292,7 +292,7 @@ def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
     )
 
     if result.returncode == 0:
-        from app.api.pipes import _clear_caches
+        from app.api.sources import _clear_caches
         from app.db import remove_plugin_state
 
         remove_plugin_state(kind, name)
@@ -306,7 +306,7 @@ def uninstall_plugin(name: str, kind: str) -> RemoveResponse:
 @router.get("/{kind}/{name}/info")
 def plugin_info(kind: str, name: str) -> dict[str, Any]:
     """Get full info for an installed plugin."""
-    from app.api.pipes import _load_plugin
+    from app.api.sources import _load_plugin
 
     _validate_kind(kind)
     cls = _load_plugin(kind, name)
@@ -340,7 +340,7 @@ def remove_plugin(kind: str, name: str) -> RemoveResponse:
 @router.post("/{kind}/{name}/enable")
 def enable_plugin(kind: str, name: str) -> OkResponse:
     """Enable a plugin."""
-    from app.api.pipes import _load_plugin
+    from app.api.sources import _load_plugin
 
     _validate_kind(kind)
     cls = _load_plugin(kind, name)
@@ -354,7 +354,7 @@ def enable_plugin(kind: str, name: str) -> OkResponse:
 @router.post("/{kind}/{name}/disable")
 def disable_plugin(kind: str, name: str) -> OkResponse:
     """Disable a plugin."""
-    from app.api.pipes import _load_plugin
+    from app.api.sources import _load_plugin
 
     _validate_kind(kind)
     cls = _load_plugin(kind, name)
@@ -382,7 +382,7 @@ def _run_subprocess(cmd: list[str]) -> subprocess.CompletedProcess[str]:
 
 async def _install_stream(name: str, kind: str, skip_verify: bool = False) -> AsyncIterator[str]:
     """Yield SSE events while installing a plugin."""
-    from app.api.pipes import _clear_caches, _load_plugin
+    from app.api.sources import _clear_caches, _load_plugin
 
     cls = _load_plugin(kind, name)
     if (cls and cls.internal) or name == "core":
@@ -442,7 +442,7 @@ async def _install_stream(name: str, kind: str, skip_verify: bool = False) -> As
 
 async def _remove_stream(name: str, kind: str) -> AsyncIterator[str]:
     """Yield SSE events while removing a plugin."""
-    from app.api.pipes import _clear_caches, _load_plugin
+    from app.api.sources import _clear_caches, _load_plugin
 
     cls = _load_plugin(kind, name)
     if (cls and cls.internal) or name == "core":

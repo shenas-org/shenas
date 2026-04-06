@@ -1,0 +1,28 @@
+[project]
+name = "shenas-source-lunchmoney"
+dynamic = ["version"]
+description = "Lunch Money dlt connector for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "lunchable>=1.4.0",
+    "pendulum>=3.0.0",
+    "shenas-source-core",
+    "shenas-dataset-finance",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.sources"]
+lunchmoney = "shenas_sources.lunchmoney.pipe:LunchMoneyPipe"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-lunchmoney/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-lunchmoney/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]

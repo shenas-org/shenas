@@ -72,7 +72,7 @@ app.include_router(api_router)
 
 def _mount_static(kind: str, url_prefix: str) -> None:
     """Mount static dirs for all plugins of a given kind."""
-    from app.api.pipes import _load_static_plugins
+    from app.api.sources import _load_static_plugins
 
     for plugin in _load_static_plugins(kind):
         if plugin.static_dir.is_dir():
@@ -92,8 +92,8 @@ if _vendor_dir.is_dir():
     app.mount("/vendor", StaticFiles(directory=str(_vendor_dir)), name="vendor")
 
 # Plugin static dirs
-_mount_static("component", "components")
-_mount_static("ui", "ui")
+_mount_static("dashboard", "dashboards")
+_mount_static("frontend", "frontend")
 _mount_static("theme", "themes")
 
 
@@ -104,7 +104,7 @@ _mount_static("theme", "themes")
 
 def _get_active_theme() -> type[Theme] | None:
     """Find the one explicitly enabled theme. Falls back to --default-theme."""
-    from app.api.pipes import _load_themes
+    from app.api.sources import _load_themes
 
     themes = _load_themes()
     try:
@@ -126,14 +126,14 @@ def _get_active_theme() -> type[Theme] | None:
 
 def _serve_ui_html() -> HTMLResponse:
     """Read and serve the active UI plugin's HTML from disk, or a fallback."""
-    from app.api.pipes import _load_uis
+    from app.api.sources import _load_frontends
     from app.db import get_all_plugin_states
 
-    uis = _load_uis()
+    uis = _load_frontends()
     # Check database for enabled UI, fall back to CLI/env setting
     ui_name = app.state.ui_name
     try:
-        for state in get_all_plugin_states("ui"):
+        for state in get_all_plugin_states("frontend"):
             if state["enabled"]:
                 ui_name = state["name"]
                 break

@@ -102,9 +102,9 @@ def db_tables() -> dict[str, list[str]]:
 
 def _load_schema_plugins() -> dict[str, list[str]]:
     """Load schema plugin name -> table names from entry points."""
-    from app.api.pipes import _load_schemas
+    from app.api.sources import _load_datasets
 
-    return {s.name: sorted(s.tables) for s in _load_schemas()}
+    return {s.name: sorted(s.tables) for s in _load_datasets()}
 
 
 @router.get("/schema-tables")

@@ -1,0 +1,24 @@
+[project]
+name = "shenas-dataset-fitness"
+dynamic = ["version"]
+description = "Canonical fitness metrics schema for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-dataset-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.datasets"]
+fitness = "shenas_datasets.fitness:FitnessSchema"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "dataset-fitness/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "dataset-fitness/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_datasets"]

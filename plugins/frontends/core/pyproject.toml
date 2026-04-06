@@ -1,0 +1,21 @@
+[project]
+name = "shenas-frontend-core"
+dynamic = ["version"]
+description = "Core UI ABC for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-plugin-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "ui-core/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "ui-core/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_frontends"]

@@ -232,13 +232,13 @@ class TestGraphQLQueries:
         mock_info = PluginInfo(
             name="garmin",
             display_name="Garmin",
-            package="shenas-pipe-garmin",
+            package="shenas-source-garmin",
             version="1.0.0",
             signature="valid",
             enabled=True,
         )
         with patch("app.api.plugins.list_plugins_data", return_value=[mock_info]):
-            result = _gql(client, '{ plugins(kind: "pipe") { name displayName enabled version } }')
+            result = _gql(client, '{ plugins(kind: "source") { name displayName enabled version } }')
         assert "errors" not in result
         plugins = result["data"]["plugins"]
         assert len(plugins) == 1
@@ -249,24 +249,24 @@ class TestGraphQLQueries:
         mock_cls = MagicMock()
         mock_cls.return_value.get_info.return_value = {
             "name": "garmin",
-            "kind": "pipe",
+            "kind": "source",
             "display_name": "Garmin Connect",
         }
-        with patch("app.api.pipes._load_plugin", return_value=mock_cls):
-            result = _gql(client, '{ pluginInfo(kind: "pipe", name: "garmin") }')
+        with patch("app.api.sources._load_plugin", return_value=mock_cls):
+            result = _gql(client, '{ pluginInfo(kind: "source", name: "garmin") }')
         assert "errors" not in result
         assert result["data"]["pluginInfo"]["name"] == "garmin"
 
     def test_plugin_info_not_found(self, client: TestClient) -> None:
         with (
-            patch("app.api.pipes._load_plugin", return_value=None),
-            patch("app.api.pipes._load_plugin_fresh", return_value=None),
+            patch("app.api.sources._load_plugin", return_value=None),
+            patch("app.api.sources._load_plugin_fresh", return_value=None),
         ):
-            result = _gql(client, '{ pluginInfo(kind: "pipe", name: "nonexistent") }')
+            result = _gql(client, '{ pluginInfo(kind: "source", name: "nonexistent") }')
         assert "errors" not in result
         info = result["data"]["pluginInfo"]
         assert info["name"] == "nonexistent"
-        assert info["kind"] == "pipe"
+        assert info["kind"] == "source"
 
     def test_device_name(self, client: TestClient) -> None:
         with patch("app.mesh.identity.get_device_info", return_value={"device_name": "my-laptop"}):
@@ -288,7 +288,7 @@ class TestGraphQLQueries:
         mock_component.entrypoint = "index.js"
         mock_component.description = "Charts"
         with (
-            patch("app.api.pipes._load_components", return_value=[mock_component]),
+            patch("app.api.sources._load_dashboards", return_value=[mock_component]),
             patch("app.db.is_plugin_enabled", return_value=True),
         ):
             result = _gql(client, "{ components }")
@@ -306,7 +306,7 @@ class TestGraphQLQueries:
         mock_component.entrypoint = "index.js"
         mock_component.description = "Charts"
         with (
-            patch("app.api.pipes._load_components", return_value=[mock_component]),
+            patch("app.api.sources._load_dashboards", return_value=[mock_component]),
             patch("app.db.is_plugin_enabled", return_value=False),
         ):
             result = _gql(client, "{ components }")
@@ -508,7 +508,7 @@ class TestGraphQLMutations:
         with patch("app.api.plugins.enable_plugin", return_value=OkResponse(ok=True, message="enabled")):
             result = _gql(
                 client,
-                'mutation { enablePlugin(kind: "pipe", name: "garmin") { ok } }',
+                'mutation { enablePlugin(kind: "source", name: "garmin") { ok } }',
             )
         assert "errors" not in result
         assert result["data"]["enablePlugin"]["ok"] is True
@@ -519,7 +519,7 @@ class TestGraphQLMutations:
         with patch("app.api.plugins.disable_plugin", return_value=OkResponse(ok=True, message="disabled")):
             result = _gql(
                 client,
-                'mutation { disablePlugin(kind: "pipe", name: "garmin") { ok } }',
+                'mutation { disablePlugin(kind: "source", name: "garmin") { ok } }',
             )
         assert "errors" not in result
         assert result["data"]["disablePlugin"]["ok"] is True
@@ -560,13 +560,13 @@ class TestGraphQLMutations:
 
         mock_items = [
             ConfigItem(
-                kind="pipe",
+                kind="source",
                 name="garmin",
                 entries=[ConfigEntry(key="start_date", label="Start Date", value="2024-01-01", description="")],
             )
         ]
         with patch("app.api.config.list_configs", return_value=mock_items):
-            result = _gql(client, '{ config(kind: "pipe") { kind name entries { key value } } }')
+            result = _gql(client, '{ config(kind: "source") { kind name entries { key value } } }')
         assert "errors" not in result
         configs = result["data"]["config"]
         assert len(configs) == 1
@@ -578,12 +578,12 @@ class TestGraphQLMutations:
 
         mock_resp = ConfigValueResponse(key="start_date", value="2024-01-01")
         with patch("app.api.config.get_config_value", return_value=mock_resp):
-            result = _gql(client, '{ configValue(kind: "pipe", name: "garmin", key: "start_date") }')
+            result = _gql(client, '{ configValue(kind: "source", name: "garmin", key: "start_date") }')
         assert "errors" not in result
         assert result["data"]["configValue"] == "2024-01-01"
 
     def test_config_value_query_not_found(self, client: TestClient) -> None:
         with patch("app.api.config.get_config_value", side_effect=Exception("Not set")):
-            result = _gql(client, '{ configValue(kind: "pipe", name: "garmin", key: "missing") }')
+            result = _gql(client, '{ configValue(kind: "source", name: "garmin", key: "missing") }')
         assert "errors" not in result
         assert result["data"]["configValue"] is None

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from app.api.pipes import _load_plugin, _load_plugins
+from app.api.sources import _load_plugin, _load_plugins
 from app.models import ConfigEntry, ConfigItem, ConfigSetRequest, ConfigValueResponse, OkResponse
 from shenas_plugins.core import Plugin
 

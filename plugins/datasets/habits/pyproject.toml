@@ -1,0 +1,24 @@
+[project]
+name = "shenas-dataset-habits"
+dynamic = ["version"]
+description = "Canonical daily habits schema for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-dataset-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.datasets"]
+habits = "shenas_datasets.habits:HabitsSchema"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "dataset-habits/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "dataset-habits/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_datasets"]
