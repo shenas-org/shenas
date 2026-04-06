@@ -36,15 +36,20 @@
     </div>
     <script>
       async function waitForServer() {
-        const url = 'http://localhost:7280/api/health';
+        const urls = [
+          'http://127.0.0.1:7280',
+          'http://localhost:7281',
+        ];
         for (let i = 0; i < 150; i++) {
-          try {
-            const resp = await fetch(url);
-            if (resp.ok) {
-              window.location.href = 'http://localhost:7280';
-              return;
-            }
-          } catch {}
+          for (const base of urls) {
+            try {
+              const resp = await fetch(base + '/api/health');
+              if (resp.ok) {
+                window.location.href = base;
+                return;
+              }
+            } catch {}
+          }
           await new Promise(r => setTimeout(r, 200));
         }
         document.querySelector('.loading p').textContent = 'Server failed to start.';

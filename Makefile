@@ -12,7 +12,7 @@ install:
 
 dev:
 	@trap 'kill 0' EXIT; \
-	uv run shenas --reload & \
+	uv run shenas --reload --no-tls & \
 	cd plugins/uis/default && npx vite & \
 	wait
 
@@ -48,8 +48,11 @@ logos:
 dev-website:
 	cd server/shenas.net && npm install --silent && npm run dev
 
-# Build sidecars + Tauri desktop app and run
 dev-desktop:
+	cd app/desktop && npx tauri dev
+
+# Build sidecars + Tauri desktop app and run
+build-desktop:
 	uv run python build/pyinstaller_build.py --onefile
 	cp dist/pyinstaller/shenas-x86_64-unknown-linux-gnu app/desktop/src-tauri/binaries/
 	cp dist/pyinstaller/shenas-scheduler-x86_64-unknown-linux-gnu app/desktop/src-tauri/binaries/

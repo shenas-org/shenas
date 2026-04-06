@@ -7,7 +7,7 @@ packages/
 dist/
 node_modules/
 plugins/components/*/shenas_components/*/static/
-plugins/ui/*/shenas_ui/*/static/
+plugins/uis/*/shenas_ui/*/static/
 app/vendor/dist/
 htmlcov/
 .coverage

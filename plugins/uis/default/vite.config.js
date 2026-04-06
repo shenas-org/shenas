@@ -23,7 +23,7 @@ const devAliases = {
   ...discoverPlugins("plugins/components", "components"),
 };
 
-const pythonServer = "https://127.0.0.1:7280";
+const pythonServer = "http://127.0.0.1:7280";
 
 export default defineConfig({
   test: {

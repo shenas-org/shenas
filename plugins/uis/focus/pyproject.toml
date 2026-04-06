@@ -1,0 +1,24 @@
+[project]
+name = "shenas-ui-focus"
+dynamic = ["version"]
+description = "Single-component view with bottom navigation and hotkey support"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-ui-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.ui"]
+focus = "shenas_ui.focus:FocusUI"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "ui-focus/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "ui-focus/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_ui"]

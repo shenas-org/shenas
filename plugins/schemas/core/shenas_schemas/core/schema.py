@@ -11,6 +11,7 @@ class Schema(Plugin):
     """Canonical metrics schema."""
 
     _kind = "schema"
+    has_data = True
     all_tables: ClassVar[list[type]]
     primary_table: ClassVar[str] = ""
 

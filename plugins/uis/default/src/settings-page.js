@@ -188,7 +188,12 @@ class SettingsPage extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this._fetchAll();
+    if (this.allPlugins && Object.keys(this.allPlugins).length > 0) {
+      this._plugins = this.allPlugins;
+      this._loading = false;
+    } else {
+      this._fetchAll();
+    }
   }
 
   async _fetchAll() {

@@ -57,6 +57,7 @@ shenas-model-core = { workspace = true }
 shenas-model-sleep-forecast = { workspace = true }
 shenas-ui-core = { workspace = true }
 shenas-ui-default = { workspace = true }
+shenas-ui-focus = { workspace = true }
 shenas-theme-core = { workspace = true }
 shenas-theme-default = { workspace = true }
 shenas-theme-dark = { workspace = true }
@@ -81,6 +82,7 @@ dev = [
     "shenas-component-fitness-dashboard",
     "shenas-component-data-table",
     "shenas-ui-default",
+    "shenas-ui-focus",
     "shenas-theme-default",
     "shenas-theme-dark",
     "shenas-model-core",
