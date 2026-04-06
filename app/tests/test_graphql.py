@@ -296,7 +296,7 @@ class TestGraphQLQueries:
         components = result["data"]["components"]
         assert len(components) == 1
         assert components[0]["name"] == "fitness-dashboard"
-        assert components[0]["js"] == "/components/fitness-dashboard/index.js"
+        assert components[0]["js"] == "/dashboards/fitness-dashboard/index.js"
 
     def test_components_disabled_excluded(self, client: TestClient) -> None:
         mock_component = MagicMock()

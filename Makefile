@@ -11,7 +11,8 @@ install:
 	@echo "Run 'shenasctl --install-completion' for tab completion"
 
 dev:
-	@trap 'kill 0' EXIT; \
+	@uv sync --group fl --quiet 2>/dev/null; \
+	trap 'kill 0' EXIT; \
 	uv run shenas --reload --no-tls & \
 	cd plugins/frontends/default && npx vite & \
 	wait
