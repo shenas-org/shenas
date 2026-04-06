@@ -6,7 +6,7 @@ from importlib.metadata import entry_points
 from typing import TypeVar
 
 from shenas_components.core import Component
-from shenas_pipes.core.pipe import Pipe  # noqa: TC001
+from shenas_pipes.core.pipe import Pipe
 from shenas_plugins.core import Plugin, StaticPlugin
 from shenas_schemas.core.schema import Schema
 from shenas_themes.core import Theme
@@ -81,6 +81,13 @@ def _load_pipe(name: str) -> Pipe:
             pipe = cls()
             _pipe_cache[name] = pipe
             return pipe
+    # Fallback: scan dist-info on disk (entry_points cache may be stale)
+    fresh_cls = _load_plugin_fresh("pipe", name)
+    if fresh_cls:
+        fresh_pipe = fresh_cls()
+        if isinstance(fresh_pipe, Pipe):
+            _pipe_cache[name] = fresh_pipe
+            return fresh_pipe
     msg = f"Pipe not found: {name}"
     raise ValueError(msg)
 

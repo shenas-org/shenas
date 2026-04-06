@@ -36,22 +36,51 @@ fn wait_for_server(url: &str, timeout: Duration) -> bool {
 const DESKTOP_PORT: u16 = 7281;
 const DESKTOP_URL: &str = "http://localhost:7281";
 
-fn is_server_running() -> bool {
+fn find_running_server() -> Option<String> {
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(2))
+        .danger_accept_invalid_certs(true)
         .build()
         .unwrap();
-    client
-        .get(format!("{DESKTOP_URL}/api/health"))
+
+    // 1. Vite dev server (highest priority during development)
+    if client
+        .get("http://127.0.0.1:5173/api/health")
         .send()
         .map(|r| r.status().is_success())
         .unwrap_or(false)
+    {
+        return Some("http://127.0.0.1:5173".to_string());
+    }
+
+    // 2. Dev server (make dev)
+    if client
+        .get("http://127.0.0.1:7280/api/health")
+        .send()
+        .map(|r| r.status().is_success())
+        .unwrap_or(false)
+    {
+        return Some("http://127.0.0.1:7280".to_string());
+    }
+
+    // 3. Sidecar server
+    if client
+        .get("http://127.0.0.1:7281/api/health")
+        .send()
+        .map(|r| r.status().is_success())
+        .unwrap_or(false)
+    {
+        return Some("http://127.0.0.1:7281".to_string());
+    }
+
+    None
 }
 
 fn main() {
-    // If the server is already running (e.g. via autostart service),
-    // skip spawning sidecar processes.
-    let already_running = is_server_running();
+    // If a server is already running (Vite, dev, or sidecar),
+    // skip spawning sidecar processes and use the detected URL.
+    let detected_url = find_running_server();
+    let already_running = detected_url.is_some();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -101,10 +130,13 @@ fn main() {
             app.manage(server_state);
             app.manage(daemon_state);
 
+            let server_url = detected_url
+                .clone()
+                .unwrap_or_else(|| DESKTOP_URL.to_string());
             let window = WebviewWindowBuilder::new(
                 app,
                 "main",
-                WebviewUrl::External(DESKTOP_URL.parse().unwrap()),
+                WebviewUrl::External(server_url.parse().unwrap()),
             )
             .title("shenas")
             .inner_size(1200.0, 800.0)

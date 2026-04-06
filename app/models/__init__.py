@@ -117,7 +117,10 @@ class PluginInfo(BaseModel):
     description: str = ""
     commands: list[str] = []
     enabled: bool = True
-    has_auth: bool | None = None
+    has_config: bool = False
+    has_data: bool = False
+    has_auth: bool = False
+    is_authenticated: bool | None = None
     sync_frequency: int | None = None
     added_at: str | None = None
     updated_at: str | None = None
