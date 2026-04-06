@@ -1,7 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { gql, gqlFull } from "./api.js";
-import { buttonStyles, messageStyles, utilityStyles } from "./shared-styles.js";
-import { formatHotkey, sortActions } from "./constants.js";
+import { gql, gqlFull, buttonStyles, messageStyles, utilityStyles, formatHotkey, sortActions } from "shenas-frontends";
 
 class HotkeysPage extends LitElement {
   static properties = {

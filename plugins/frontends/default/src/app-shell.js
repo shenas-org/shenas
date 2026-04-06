@@ -1,8 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { Router } from "@lit-labs/router";
-import { arrowQuery, gql, gqlFull } from "./api.js";
-import { PLUGIN_KINDS, matchesHotkey, sortActions } from "./constants.js";
-import { linkStyles, utilityStyles } from "./shared-styles.js";
+import { arrowQuery, gql, gqlFull, PLUGIN_KINDS, matchesHotkey, sortActions, linkStyles, utilityStyles } from "shenas-frontends";
 
 class ShenasApp extends LitElement {
   static properties = {

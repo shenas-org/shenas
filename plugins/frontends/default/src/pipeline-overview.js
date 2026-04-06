@@ -1,7 +1,6 @@
 import { LitElement, html, css } from "lit";
 import cytoscape, { dagre } from "cytoscape";
-import { gql } from "./api.js";
-import { utilityStyles } from "./shared-styles.js";
+import { gql, utilityStyles } from "shenas-frontends";
 
 let _dagreRegistered = false;
 

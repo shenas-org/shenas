@@ -3,15 +3,19 @@ import { resolve } from "path";
 
 const repoRoot = resolve(import.meta.dirname, "../../..");
 const pythonServer = "http://127.0.0.1:7280";
+const shenasFrontendsSource = resolve(repoRoot, "app/vendor/src/shenas-frontends.js");
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  resolve: {
+    alias: command === "serve" ? { "shenas-frontends": shenasFrontendsSource } : {},
+  },
   build: {
     outDir: "shenas_frontends/focus/static",
     emptyOutDir: false,
     cssCodeSplit: false,
     rollupOptions: {
       input: "src/index.js",
-      external: ["lit", /^lit\//, /^\/vendor\//],
+      external: ["lit", /^lit\//, "shenas-frontends", /^\/vendor\//],
       output: {
         entryFileNames: "focus.js",
         assetFileNames: "focus.[ext]",
@@ -34,7 +38,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ["lit"],
+    exclude: ["lit", "shenas-frontends"],
   },
   plugins: [
     {
@@ -49,4 +53,4 @@ export default defineConfig({
       },
     },
   ],
-});
+}));

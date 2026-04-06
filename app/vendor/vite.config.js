@@ -12,7 +12,9 @@ export default defineConfig({
         "apache-arrow": "src/apache-arrow.js",
         uplot: "src/uplot.js",
         cytoscape: "src/cytoscape.js",
+        "shenas-frontends": "src/shenas-frontends.js",
       },
+      external: ["lit", /^lit\//, /^\/vendor\//],
       output: {
         entryFileNames: "[name].js",
         chunkFileNames: "chunks/[name]-[hash].js",
