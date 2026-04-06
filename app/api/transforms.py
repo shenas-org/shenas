@@ -60,10 +60,10 @@ def seed_all_defaults() -> dict[str, Any]:
     """Seed default transforms from all installed pipes."""
     from importlib.metadata import entry_points
 
-    from shenas_pipes.core.transform import load_transform_defaults
+    from shenas_sources.core.transform import load_transform_defaults
 
     seeded = []
-    for ep in entry_points(group="shenas.pipes"):
+    for ep in entry_points(group="shenas.sources"):
         defaults = load_transform_defaults(ep.name)
         if defaults:
             seed_defaults(ep.name, defaults)

@@ -61,14 +61,14 @@ class SyncDaemon:
         for item in due:
             if self._shutdown.is_set():
                 break
-            self._sync_pipe(item["name"])
+            self._sync_source(item["name"])
 
-    def _sync_pipe(self, name: str) -> None:
+    def _sync_source(self, name: str) -> None:
         from scheduler.client import ShenasServerError
 
         logger.info("Starting sync for %s", name)
         try:
-            for event in self.client.sync_pipe(name):
+            for event in self.client.sync_source(name):
                 event_type = event.get("_event", "message")
                 message = event.get("message", "")
                 if event_type == "error":

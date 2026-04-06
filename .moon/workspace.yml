@@ -5,10 +5,10 @@ projects:
   - 'app/desktop'
   - 'app/mobile'
   - 'repo-server'
-  - 'plugins/pipes/*'
-  - 'plugins/schemas/*'
-  - 'plugins/components/*'
-  - 'plugins/uis/*'
+  - 'plugins/sources/*'
+  - 'plugins/datasets/*'
+  - 'plugins/dashboards/*'
+  - 'plugins/frontends/*'
   - 'app/vendor'
 
 vcs:

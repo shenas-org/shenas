@@ -85,10 +85,10 @@ class TestSSEParsing:
     def test_parses_events(self) -> None:
         lines = [
             "event: progress",
-            'data: {"pipe": "garmin", "message": "starting"}',
+            'data: {"source": "garmin", "message": "starting"}',
             "",
             "event: complete",
-            'data: {"pipe": "garmin", "message": "done"}',
+            'data: {"source": "garmin", "message": "done"}',
         ]
 
         mock_resp = MagicMock()
@@ -103,7 +103,7 @@ class TestSSEParsing:
 
         assert len(events) == 2
         assert events[0]["_event"] == "progress"
-        assert events[0]["pipe"] == "garmin"
+        assert events[0]["source"] == "garmin"
         assert events[1]["_event"] == "complete"
         assert events[1]["message"] == "done"
         client.close()

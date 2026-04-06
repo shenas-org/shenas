@@ -1,0 +1,9 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'dataset-fitness'
+
+language: 'python'
+stack: 'data'
+tags: ['dataset']
+
+dependsOn:
+  - 'schema-core'

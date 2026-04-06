@@ -23,7 +23,7 @@ tasks:
   coverage:
     script: >
       uv run --no-sync pytest --cov=repo_server --cov=app
-      --cov=shenas_pipes --cov=shenas_schemas
+      --cov=shenas_sources --cov=shenas_datasets
       --cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
     inputs:
       - '**/*.py'

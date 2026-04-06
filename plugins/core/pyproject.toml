@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "Core plugin ABC definitions for shenas"
 requires-python = ">=3.11"
 dependencies = [
-    "shenas-schema-core",
+    "shenas-dataset-core",
 ]
 
 [build-system]

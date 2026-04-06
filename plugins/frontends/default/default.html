@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#728F67" />
+    <title>shenas</title>
+    <link rel="manifest" href="/static/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/static/images/shenas-mark.svg" />
+    <link rel="icon" type="image/png" href="/static/images/shenas-mark-192.png" />
+    <link rel="apple-touch-icon" href="/static/images/shenas-mark-192.png" />
+    <script type="importmap">
+    {
+      "imports": {
+        "lit": "/vendor/lit.js",
+        "apache-arrow": "/vendor/apache-arrow.js",
+        "uplot": "/vendor/uplot.js",
+        "@lit-labs/router": "/vendor/lit.js",
+        "cytoscape": "/vendor/cytoscape.js"
+      }
+    }
+    </script>
+  </head>
+  <body style="background:var(--shenas-bg,#f5f1eb)">
+    <shenas-app api-base="/api"></shenas-app>
+    <script type="module" src="/frontend/default/default.js"></script>
+    <script>
+      if ("serviceWorker" in navigator && location.hostname !== "127.0.0.1" && location.hostname !== "localhost") {
+        navigator.serviceWorker.register("/static/sw.js");
+      }
+    </script>
+  </body>
+</html>

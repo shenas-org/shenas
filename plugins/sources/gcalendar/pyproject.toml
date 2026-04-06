@@ -1,0 +1,27 @@
+[project]
+name = "shenas-source-gcalendar"
+dynamic = ["version"]
+description = "Google Calendar data connector for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "pendulum>=3.0.0",
+    "shenas-source-core[google]",
+    "shenas-dataset-events",
+]
+
+[project.entry-points."shenas.sources"]
+gcalendar = "shenas_sources.gcalendar.pipe:GCalendarSource"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-gcalendar/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-gcalendar/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]

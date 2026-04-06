@@ -3,9 +3,9 @@ name: Release Package
 on:
   push:
     tags:
-      - 'pipe-*/v*'
-      - 'schema-*/v*'
-      - 'component-*/v*'
+      - 'source-*/v*'
+      - 'dataset-*/v*'
+      - 'dashboard-*/v*'
       - 'plugin-core/v*'
 
 permissions:
@@ -51,9 +51,9 @@ jobs:
           # Map tag prefix to directory
           SIGN=false
           case "$PREFIX" in
-            pipe-*)      NAME="${PREFIX#pipe-}"; DIR="plugins/pipes/$NAME"; SIGN=true ;;
-            schema-*)    NAME="${PREFIX#schema-}"; DIR="plugins/schemas/$NAME"; SIGN=true ;;
-            component-*) NAME="${PREFIX#component-}"; DIR="plugins/components/$NAME"; SIGN=true ;;
+            source-*)      NAME="${PREFIX#pipe-}"; DIR="plugins/sources/$NAME"; SIGN=true ;;
+            dataset-*)    NAME="${PREFIX#schema-}"; DIR="plugins/datasets/$NAME"; SIGN=true ;;
+            dashboard-*) NAME="${PREFIX#component-}"; DIR="plugins/dashboards/$NAME"; SIGN=true ;;
             plugin-core) DIR="plugins/core"; SIGN=true ;;
             *)           echo "Unknown tag prefix: $PREFIX"; exit 1 ;;
           esac
@@ -73,7 +73,7 @@ jobs:
           NAME="${{ steps.parse.outputs.name }}"
           PKG=$(echo "$NAME" | tr '-' '_')
           cd "$DIR" && npm install && npm run build && cd -
-          cp "$DIR/$NAME.html" "$DIR/shenas_components/$PKG/static/$NAME.html"
+          cp "$DIR/$NAME.html" "$DIR/shenas_dashboards/$PKG/static/$NAME.html"
 
       - name: Build wheel
         run: cd "${{ steps.parse.outputs.dir }}" && uv build --out-dir "$GITHUB_WORKSPACE/dist"

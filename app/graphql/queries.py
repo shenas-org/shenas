@@ -128,7 +128,7 @@ class Query:
 
     @strawberry.field
     def plugin_info(self, kind: str, name: str) -> JSON:
-        from app.api.pipes import _load_plugin, _load_plugin_fresh
+        from app.api.sources import _load_plugin, _load_plugin_fresh
 
         cls = _load_plugin(kind, name) or _load_plugin_fresh(kind, name)
         if not cls:
@@ -218,7 +218,7 @@ class Query:
 
     @strawberry.field
     def components(self) -> JSON:
-        from app.api.pipes import _load_components
+        from app.api.sources import _load_dashboards
         from app.db import is_plugin_enabled
 
         return [
@@ -226,11 +226,11 @@ class Query:
                 "name": c.name,
                 "display_name": c.display_name,
                 "tag": c.tag,
-                "js": f"/components/{c.name}/{c.entrypoint}",
+                "js": f"/dashboards/{c.name}/{c.entrypoint}",
                 "description": c.description,
             }
-            for c in _load_components(include_internal=False)
-            if is_plugin_enabled("component", c.name)
+            for c in _load_dashboards(include_internal=False)
+            if is_plugin_enabled("dashboard", c.name)
         ]
 
     @strawberry.field
@@ -238,11 +238,11 @@ class Query:
         from importlib.metadata import distributions
 
         prefixes = {
-            "shenas-pipe-": "pipe",
-            "shenas-schema-": "schema",
-            "shenas-component-": "component",
+            "shenas-source-": "source",
+            "shenas-dataset-": "dataset",
+            "shenas-dashboard-": "dashboard",
             "shenas-model-": "model",
-            "shenas-ui-": "ui",
+            "shenas-frontend-": "frontend",
             "shenas-theme-": "theme",
         }
         result: dict[str, list[str]] = {}

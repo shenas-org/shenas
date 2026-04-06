@@ -1,0 +1,24 @@
+[project]
+name = "shenas-source-gmail"
+dynamic = ["version"]
+description = "Gmail dlt connector for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-source-core[google]",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.sources"]
+gmail = "shenas_sources.gmail.pipe:GmailSource"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-gmail/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-gmail/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]

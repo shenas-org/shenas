@@ -29,17 +29,17 @@ make install        # install shenas + shenasctl to ~/.local/bin/
 
 ```bash
 # Authenticate
-shenasctl pipe garmin auth
-shenasctl pipe lunchmoney auth
-shenasctl pipe gmail auth
-shenasctl pipe gcalendar auth
+shenasctl source garmin auth
+shenasctl source lunchmoney auth
+shenasctl source gmail auth
+shenasctl source gcalendar auth
 
 # Configure obsidian vault path
 shenasctl config set pipe obsidian vault_path /path/to/vault
 
 # Sync raw data into DuckDB (also runs transform automatically)
-shenasctl pipe sync          # sync all installed pipes
-shenasctl pipe garmin sync   # sync a single pipe
+shenasctl source sync          # sync all installed pipes
+shenasctl source garmin sync   # sync a single pipe
 
 # Check what's loaded
 shenasctl db status
@@ -48,18 +48,18 @@ shenasctl db status
 ## Package management
 
 ```bash
-shenasctl pipe list                # list installed pipes
-shenasctl pipe add garmin          # install from repository
-shenasctl pipe remove garmin       # uninstall
-shenasctl schema list              # list installed schemas
-shenasctl component list           # list installed components
+shenasctl source list                # list installed pipes
+shenasctl source add garmin          # install from repository
+shenasctl source remove garmin       # uninstall
+shenasctl dataset list              # list installed schemas
+shenasctl dashboard list           # list installed components
 ```
 
 ## Visualization
 
 ```bash
 # Install the dashboard component from the repository
-shenasctl component add fitness-dashboard
+shenasctl dashboard add fitness-dashboard
 
 # Start the UI
 shenas
@@ -75,7 +75,7 @@ All pipes, schemas, and components are distributed as Ed25519-signed Python whee
 moon run :build
 
 # Install a pipe
-shenasctl pipe add garmin
+shenasctl source add garmin
 ```
 
 ## Testing
@@ -99,7 +99,7 @@ scheduler/           background sync daemon sidecar
 server/repository/   PEP 503 package server + Ed25519 signing
 plugins/
   core/              shared plugin utilities (shenas-plugin-core)
-  pipes/core/        shared pipe utilities (shenas-pipe-core)
+  pipes/core/        shared pipe utilities (shenas-source-core)
   pipes/garmin/      Garmin Connect connector
   pipes/gcalendar/   Google Calendar connector
   pipes/gtakeout/    Google Takeout import
@@ -108,7 +108,7 @@ plugins/
   pipes/gmail/       Gmail (OAuth2)
   pipes/duolingo/    Duolingo (JWT browser auth)
   pipes/spotify/     Spotify (PKCE OAuth + history import)
-  schemas/core/      shared schema utilities (shenas-schema-core)
+  schemas/core/      shared schema utilities (shenas-dataset-core)
   schemas/fitness/   HRV, sleep, vitals, body metrics
   schemas/finance/   transactions, spending, budgets
   schemas/events/    unified event timeline
@@ -123,4 +123,4 @@ plugins/
 
 **Plugin system**: Pipes register via `shenas.pipes` entry points, schemas via `shenas.schemas`, components via `shenas.components`. The CLI and UI discover them at runtime via `importlib.metadata`.
 
-**Core packages**: `shenas-pipe-core` and `shenas-schema-core` provide shared utilities. They are internal dependencies, not user-facing.
+**Core packages**: `shenas-source-core` and `shenas-dataset-core` provide shared utilities. They are internal dependencies, not user-facing.

@@ -1,32 +1,30 @@
-from shenas_plugins.core.base_auth import PipeAuth
-from shenas_plugins.core.base_config import PipeConfig
+from shenas_plugins.core.base_auth import SourceAuth
+from shenas_plugins.core.base_config import SourceConfig
 from shenas_plugins.core.plugin import Plugin, _SelectOneMixin
 from shenas_plugins.core.static import StaticPlugin
 from shenas_plugins.core.store import DataclassStore
 
 __all__ = [
-    "UI",
-    "Component",
+    "Dashboard",
     "DataclassStore",
-    "Pipe",
-    "PipeAuth",
-    "PipeConfig",
+    "Dataset",
+    "Frontend",
     "Plugin",
-    "Schema",
+    "Source",
+    "SourceAuth",
+    "SourceConfig",
     "StaticPlugin",
     "Theme",
     "_SelectOneMixin",
 ]
 
 # Lazy re-exports from per-kind core packages to avoid circular imports.
-# These packages depend on shenas_plugins.core.plugin / .static, so importing
-# them eagerly at module level would create a cycle.
 _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
-    "Pipe": ("shenas_pipes.core.pipe", "Pipe"),
-    "Schema": ("shenas_schemas.core.schema", "Schema"),
+    "Source": ("shenas_sources.core.source", "Source"),
+    "Dataset": ("shenas_datasets.core.dataset", "Dataset"),
     "Theme": ("shenas_themes.core", "Theme"),
-    "UI": ("shenas_ui.core", "UI"),
-    "Component": ("shenas_components.core", "Component"),
+    "Frontend": ("shenas_frontends.core", "Frontend"),
+    "Dashboard": ("shenas_dashboards.core", "Dashboard"),
 }
 
 

@@ -1,0 +1,9 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'dashboard-fitness-dashboard'
+
+language: 'typescript'
+stack: 'frontend'
+tags: ['dashboard']
+
+dependsOn:
+  - 'vendor'
