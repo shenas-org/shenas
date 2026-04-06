@@ -84,14 +84,14 @@ class ShenasClient:
 
     # --- Auth ---
 
-    def pipe_auth_fields(self, name: str) -> dict[str, Any]:
+    def source_auth_fields(self, name: str) -> dict[str, Any]:
         data = self._graphql(
             "query($pipe: String!) { authFields(pipe: $pipe) { fields { name prompt hide } instructions stored } }",
             {"pipe": name},
         )
         return data["authFields"]
 
-    def pipe_auth(self, name: str, credentials: dict[str, str]) -> dict[str, Any]:
+    def source_auth(self, name: str, credentials: dict[str, str]) -> dict[str, Any]:
         data = self._graphql(
             "mutation($pipe: String!, $creds: JSON!) {"
             " authenticate(pipe: $pipe, credentials: $creds)"
@@ -207,7 +207,7 @@ class ShenasClient:
     def sync_all(self) -> Iterator[dict[str, Any]]:
         return self._stream_sse("POST", "/api/sync")
 
-    def sync_pipe(
+    def sync_source(
         self, name: str, start_date: str | None = None, full_refresh: bool = False, **extra: str | int | bool
     ) -> Iterator[dict[str, Any]]:
         body: dict[str, object] = {}

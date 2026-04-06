@@ -97,7 +97,7 @@ def _add_sync_command(pipe_app: typer.Typer, pipe_name: str) -> None:
         if list_only:
             extra["list_only"] = True
         try:
-            for event in ShenasClient().sync_pipe(pipe_name, start_date=start_date, full_refresh=full_refresh, **extra):
+            for event in ShenasClient().sync_source(pipe_name, start_date=start_date, full_refresh=full_refresh, **extra):
                 message = event.get("message", "")
                 event_type = event.get("_event", "message")
 
@@ -121,7 +121,7 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
 
         # Fetch the credential fields this pipe needs
         try:
-            auth_info = client.pipe_auth_fields(pipe_name)
+            auth_info = client.source_auth_fields(pipe_name)
         except ShenasServerError as exc:
             console.print(f"[red]{exc.detail}[/red]")
             raise typer.Exit(code=1)
@@ -142,7 +142,7 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
             console.print("[dim]No credentials needed, starting auth flow...[/dim]")
 
         try:
-            result = client.pipe_auth(pipe_name, credentials)
+            result = client.source_auth(pipe_name, credentials)
         except ShenasServerError as exc:
             console.print(f"[red]{exc.detail}[/red]")
             raise typer.Exit(code=1)
@@ -151,7 +151,7 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
         if result.get("needs_mfa"):
             mfa_code = typer.prompt("MFA code")
             try:
-                result = client.pipe_auth(pipe_name, {"mfa_code": mfa_code})
+                result = client.source_auth(pipe_name, {"mfa_code": mfa_code})
             except ShenasServerError as exc:
                 console.print(f"[red]{exc.detail}[/red]")
                 raise typer.Exit(code=1)
@@ -165,7 +165,7 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
             webbrowser.open(url)
             console.print("[dim]Waiting for authorization...[/dim]")
             try:
-                result = client.pipe_auth(pipe_name, {"auth_complete": "true"})
+                result = client.source_auth(pipe_name, {"auth_complete": "true"})
             except ShenasServerError as exc:
                 console.print(f"[red]{exc.detail}[/red]")
                 raise typer.Exit(code=1)

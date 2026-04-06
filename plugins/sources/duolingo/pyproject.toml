@@ -17,7 +17,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project.entry-points."shenas.sources"]
-duolingo = "shenas_sources.duolingo.pipe:DuolingoPipe"
+duolingo = "shenas_sources.duolingo.pipe:DuolingoSource"
 
 [tool.hatch.version]
 source = "vcs"

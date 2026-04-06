@@ -25,7 +25,7 @@ class TestTick:
         daemon._tick()
 
         client.get_sync_schedule.assert_called_once()
-        client.sync_pipe.assert_not_called()
+        client.sync_source.assert_not_called()
 
     def test_syncs_due_pipes(self) -> None:
         client = MagicMock()
@@ -33,14 +33,14 @@ class TestTick:
             {"name": "garmin", "sync_frequency": 60, "synced_at": None, "is_due": True},
             {"name": "lunchmoney", "sync_frequency": 120, "synced_at": None, "is_due": True},
         ]
-        client.sync_pipe.return_value = iter([{"_event": "complete", "source": "test", "message": "done"}])
+        client.sync_source.return_value = iter([{"_event": "complete", "source": "test", "message": "done"}])
         daemon = _make_daemon(client)
 
         daemon._tick()
 
-        assert client.sync_pipe.call_count == 2
-        client.sync_pipe.assert_any_call("garmin")
-        client.sync_pipe.assert_any_call("lunchmoney")
+        assert client.sync_source.call_count == 2
+        client.sync_source.assert_any_call("garmin")
+        client.sync_source.assert_any_call("lunchmoney")
 
     def test_skips_not_due(self) -> None:
         client = MagicMock()
@@ -48,12 +48,12 @@ class TestTick:
             {"name": "garmin", "sync_frequency": 60, "synced_at": "2026-03-30 15:00:00", "is_due": False},
             {"name": "lunchmoney", "sync_frequency": 120, "synced_at": None, "is_due": True},
         ]
-        client.sync_pipe.return_value = iter([{"_event": "complete", "source": "lunchmoney", "message": "done"}])
+        client.sync_source.return_value = iter([{"_event": "complete", "source": "lunchmoney", "message": "done"}])
         daemon = _make_daemon(client)
 
         daemon._tick()
 
-        client.sync_pipe.assert_called_once_with("lunchmoney")
+        client.sync_source.assert_called_once_with("lunchmoney")
 
     def test_server_unreachable(self) -> None:
         client = MagicMock()
@@ -61,7 +61,7 @@ class TestTick:
         daemon = _make_daemon(client)
 
         daemon._tick()
-        client.sync_pipe.assert_not_called()
+        client.sync_source.assert_not_called()
 
     def test_unexpected_error_caught_by_run_loop(self) -> None:
         client = MagicMock()
@@ -76,7 +76,7 @@ class TestTick:
 class TestSyncSource:
     def test_consumes_sse_events(self) -> None:
         client = MagicMock()
-        client.sync_pipe.return_value = iter(
+        client.sync_source.return_value = iter(
             [
                 {"_event": "progress", "source": "garmin", "message": "starting sync"},
                 {"_event": "complete", "source": "garmin", "message": "done"},
@@ -84,8 +84,8 @@ class TestSyncSource:
         )
         daemon = _make_daemon(client)
 
-        daemon._sync_pipe("garmin")
-        client.sync_pipe.assert_called_once_with("garmin")
+        daemon._sync_source("garmin")
+        client.sync_source.assert_called_once_with("garmin")
 
     @pytest.mark.parametrize(
         "exception",
@@ -98,10 +98,10 @@ class TestSyncSource:
     )
     def test_error_does_not_raise(self, exception: Exception) -> None:
         client = MagicMock()
-        client.sync_pipe.side_effect = exception
+        client.sync_source.side_effect = exception
         daemon = _make_daemon(client)
 
-        daemon._sync_pipe("garmin")
+        daemon._sync_source("garmin")
 
 
 class TestShutdown:
@@ -125,9 +125,9 @@ class TestShutdown:
             daemon._shutdown.set()
             return iter([{"_event": "complete", "message": "done"}])
 
-        client.sync_pipe.side_effect = set_shutdown_on_first_sync
+        client.sync_source.side_effect = set_shutdown_on_first_sync
         daemon = _make_daemon(client)
 
         daemon._tick()
 
-        assert client.sync_pipe.call_count == 1
+        assert client.sync_source.call_count == 1

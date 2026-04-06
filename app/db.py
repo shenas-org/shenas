@@ -300,7 +300,7 @@ def update_synced_at(kind: str, name: str) -> None:
 
 
 def _pipe_config_tables_with_frequency(cur: duckdb.DuckDBPyConnection) -> list[tuple[str, str]]:
-    """Return (qualified_table, pipe_name) pairs for config tables that have a sync_frequency column."""
+    """Return (qualified_table, source_name) pairs for config tables that have a sync_frequency column."""
     rows = cur.execute("""
         SELECT table_schema, table_name
         FROM information_schema.columns
@@ -324,19 +324,19 @@ def get_pipes_due_for_sync() -> list[dict[str, Any]]:
     union_parts = [
         # id = 1 is the single config row each pipe creates on first run; pipes with no
         # config row yet are silently excluded (they have no frequency to check anyway).
-        f"SELECT '{pipe_name}' AS pipe_name, sync_frequency FROM {tbl} WHERE id = 1 AND sync_frequency IS NOT NULL"
-        for tbl, pipe_name in tables
+        f"SELECT '{source_name}' AS source_name, sync_frequency FROM {tbl} WHERE id = 1 AND sync_frequency IS NOT NULL"
+        for tbl, source_name in tables
     ]
     union_sql = " UNION ALL ".join(union_parts)
 
     rows = cur.execute(f"""
-        SELECT cfg.pipe_name, p.synced_at, cfg.sync_frequency
+        SELECT cfg.source_name, p.synced_at, cfg.sync_frequency
         FROM ({union_sql}) cfg
-        JOIN shenas_system.plugins p ON p.kind = 'pipe' AND p.name = cfg.pipe_name
+        JOIN shenas_system.plugins p ON p.kind = 'source' AND p.name = cfg.source_name
         WHERE p.enabled = TRUE
           AND (p.synced_at IS NULL
                OR p.synced_at + (cfg.sync_frequency * INTERVAL '1 minute') <= current_timestamp)
-        ORDER BY cfg.pipe_name
+        ORDER BY cfg.source_name
     """).fetchall()
     cur.close()
     return [
@@ -362,20 +362,20 @@ def get_all_sync_schedules() -> list[dict[str, Any]]:
     union_parts = [
         # id = 1 is the single config row each pipe creates on first run; pipes with no
         # config row yet are silently excluded (they have no frequency to check anyway).
-        f"SELECT '{pipe_name}' AS pipe_name, sync_frequency FROM {tbl} WHERE id = 1 AND sync_frequency IS NOT NULL"
-        for tbl, pipe_name in tables
+        f"SELECT '{source_name}' AS source_name, sync_frequency FROM {tbl} WHERE id = 1 AND sync_frequency IS NOT NULL"
+        for tbl, source_name in tables
     ]
     union_sql = " UNION ALL ".join(union_parts)
 
     rows = cur.execute(f"""
-        SELECT cfg.pipe_name, p.synced_at, cfg.sync_frequency,
+        SELECT cfg.source_name, p.synced_at, cfg.sync_frequency,
                CASE WHEN p.synced_at IS NULL
                     OR p.synced_at + (cfg.sync_frequency * INTERVAL '1 minute') <= current_timestamp
                     THEN TRUE ELSE FALSE END AS is_due
         FROM ({union_sql}) cfg
-        JOIN shenas_system.plugins p ON p.kind = 'pipe' AND p.name = cfg.pipe_name
+        JOIN shenas_system.plugins p ON p.kind = 'source' AND p.name = cfg.source_name
         WHERE p.enabled = TRUE
-        ORDER BY cfg.pipe_name
+        ORDER BY cfg.source_name
     """).fetchall()
     cur.close()
     return [

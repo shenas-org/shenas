@@ -111,7 +111,7 @@ def sync_pipe(name: str, body: SyncRequest | None = None) -> StreamingResponse:
     body = body or SyncRequest()
 
     if name not in _installed_source_names():
-        raise HTTPException(status_code=404, detail=f"Pipe not found: {name}")
+        raise HTTPException(status_code=404, detail=f"Source not found: {name}")
 
     pipe = _load_source(name)
 

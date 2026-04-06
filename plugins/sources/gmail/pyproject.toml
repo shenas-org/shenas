@@ -12,7 +12,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project.entry-points."shenas.sources"]
-gmail = "shenas_sources.gmail.pipe:GmailPipe"
+gmail = "shenas_sources.gmail.pipe:GmailSource"
 
 [tool.hatch.version]
 source = "vcs"
