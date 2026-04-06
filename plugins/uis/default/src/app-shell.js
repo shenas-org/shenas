@@ -316,6 +316,24 @@ class ShenasApp extends LitElement {
         background: var(--shenas-bg-hover, #f5f5f5);
         color: var(--shenas-text, #222);
       }
+      .device-name {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.2rem 0.8rem;
+        font-size: 0.7rem;
+        color: var(--shenas-text-faint, #aaa);
+      }
+      .device-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--shenas-text-faint, #ccc);
+        flex-shrink: 0;
+      }
+      .device-dot.connected {
+        background: var(--shenas-success, #2e7d32);
+      }
       .component-host {
         height: calc(100vh - 4rem);
       }
@@ -496,6 +514,9 @@ class ShenasApp extends LitElement {
     super.connectedCallback();
     this._fetchData();
     this.addEventListener("plugin-state-changed", () => this._refreshComponents());
+    this.addEventListener("job-start", (e) => this._getJobPanel()?.addJob(e.detail.id, e.detail.label));
+    this.addEventListener("job-log", (e) => this._getJobPanel()?.appendLine(e.detail.id, e.detail.text));
+    this.addEventListener("job-finish", (e) => this._getJobPanel()?.finishJob(e.detail.id, e.detail.ok, e.detail.message));
     this.addEventListener("inspect-table", (e) => this._inspect(e.detail.schema, e.detail.table));
     this.addEventListener("page-title", (e) => {
       if (this._activeTabId != null) {
@@ -849,10 +870,12 @@ class ShenasApp extends LitElement {
         uis: plugins(kind: "ui") { name displayName enabled }
         themes: plugins(kind: "theme") { name displayName enabled }
         theme { css }
+        deviceName
         schemaPlugins
       }`);
       this._components = data?.components || [];
       this._dbStatus = data?.dbStatus;
+      this._deviceName = data?.deviceName || "";
       this._hotkeys = data?.hotkeys || {};
       this._allPlugins = {
         pipe: data?.pipes || [],
@@ -977,6 +1000,7 @@ class ShenasApp extends LitElement {
             <a class="auth-link" href="/api/auth/login" @click=${(e) => { e.preventDefault(); window.location.href = "/api/auth/login"; }}>
               ${this._remoteUser ? this._remoteUser.name || this._remoteUser.email : "Sign in"}
             </a>
+            ${this._deviceName ? html`<span class="device-name"><span class="device-dot ${this._remoteUser ? "connected" : ""}"></span>${this._deviceName}</span>` : ""}
           </div>
         </div>
         <div class="divider" @mousedown=${this._startDrag("left")}></div>
@@ -1003,6 +1027,7 @@ class ShenasApp extends LitElement {
                 <img src="/static/images/shenas.svg" alt="shenas" />
                 <p>Open a page from the sidebar</p>
               </div>`}
+          <shenas-job-panel></shenas-job-panel>
         </div>
         <div class="divider" @mousedown=${this._startDrag("right")}></div>
         <div class="panel-right" style="width: ${this._rightWidth}px">
@@ -1115,6 +1140,10 @@ class ShenasApp extends LitElement {
       return 0;
     });
     return actions;
+  }
+
+  _getJobPanel() {
+    return this.shadowRoot?.querySelector("shenas-job-panel");
   }
 
   _renderSettings(kind) {

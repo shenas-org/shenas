@@ -29,8 +29,6 @@ export default defineConfig({
   test: {
     environment: "happy-dom",
     setupFiles: ["src/__tests__/setup.js"],
-  },
-  resolve: {
     alias: {
       "/vendor/apache-arrow.js": new URL("src/__tests__/mock-arrow.js", import.meta.url).pathname,
     },
@@ -75,6 +73,7 @@ export default defineConfig({
           cytoscape: "/vendor/cytoscape.js",
           "apache-arrow": "/vendor/apache-arrow.js",
           uplot: "/vendor/uplot.js",
+          "/vendor/apache-arrow.js": "/vendor/apache-arrow.js",
         };
         if (vendorMap[source]) return { id: vendorMap[source], external: true };
       },
