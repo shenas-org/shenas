@@ -355,22 +355,22 @@ class SettingsPage extends LitElement {
 
   render() {
     return html`
+      <button class="burger" @click=${() => { this._menuOpen = !this._menuOpen; }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        ${this._displayName()}
+      </button>
+      ${this._menuOpen ? html`
+        <div class="menu-overlay" @click=${() => { this._menuOpen = false; }}></div>
+        <div class="menu-panel">
+          <a href="/settings/data-flow" aria-selected=${this.activeKind === "data-flow"} @click=${(e) => { e.preventDefault(); this._switchKind("data-flow"); }}>Data Flow</a>
+          <a href="/settings/hotkeys" aria-selected=${this.activeKind === "hotkeys"} @click=${(e) => { e.preventDefault(); this._switchKind("hotkeys"); }}>Hotkeys</a>
+          <span class="sidebar-section">Plugins</span>
+          ${PLUGIN_KINDS.map(({ id, label }) => html`
+            <a href="/settings/${id}" aria-selected=${this.activeKind === id} @click=${(e) => { e.preventDefault(); this._switchKind(id); }}>${label}</a>
+          `)}
+        </div>
+      ` : ""}
       <shenas-page ?loading=${this._loading} loading-text="Loading plugins..." display-name="${this._displayName()}">
-        <button class="burger" @click=${() => { this._menuOpen = !this._menuOpen; }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          ${this._displayName()}
-        </button>
-        ${this._menuOpen ? html`
-          <div class="menu-overlay" @click=${() => { this._menuOpen = false; }}></div>
-          <div class="menu-panel">
-            <a href="/settings/data-flow" aria-selected=${this.activeKind === "data-flow"} @click=${(e) => { e.preventDefault(); this._switchKind("data-flow"); }}>Data Flow</a>
-            <a href="/settings/hotkeys" aria-selected=${this.activeKind === "hotkeys"} @click=${(e) => { e.preventDefault(); this._switchKind("hotkeys"); }}>Hotkeys</a>
-            <span class="sidebar-section">Plugins</span>
-            ${PLUGIN_KINDS.map(({ id, label }) => html`
-              <a href="/settings/${id}" aria-selected=${this.activeKind === id} @click=${(e) => { e.preventDefault(); this._switchKind(id); }}>${label}</a>
-            `)}
-          </div>
-        ` : ""}
         ${renderMessage(this._actionMessage)}
         ${this.activeKind === "data-flow"
           ? html`<shenas-pipeline-overview api-base="${this.apiBase}" .allPlugins=${this.allPlugins} .schemaPlugins=${this.schemaPlugins}></shenas-pipeline-overview>`
