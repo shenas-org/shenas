@@ -258,6 +258,10 @@ class PluginDetail extends LitElement {
         link.remove();
       }
     }
+    if (this.kind === "ui" && action === "enable") {
+      window.location.reload();
+      return;
+    }
     this.dispatchEvent(new CustomEvent("plugin-state-changed", { bubbles: true, composed: true }));
   }
 
