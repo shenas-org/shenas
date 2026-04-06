@@ -124,6 +124,157 @@ class TestApiQuery:
         assert table.column("rmssd").to_pylist() == [42.0]
 
 
+class TestGetActiveTheme:
+    """Tests for app.server._get_active_theme."""
+
+    @staticmethod
+    def _make_theme(name: str, css: str = "style.css") -> type:
+        from shenas_themes.core import Theme
+
+        ns = {"name": name, "display_name": name.title(), "static_dir": Path("/fake"), "css": css, "html": ""}
+        return type(f"Theme_{name}", (Theme,), ns)
+
+    def test_returns_enabled_theme_from_db(self, client: TestClient) -> None:
+        from app.server import _get_active_theme
+
+        dark = self._make_theme("dark")
+        light = self._make_theme("light")
+        states = [{"name": "dark", "enabled": True}, {"name": "light", "enabled": False}]
+        with (
+            patch("app.api.pipes._load_themes", return_value=[dark, light]),
+            patch("app.db.get_all_plugin_states", return_value=states),
+        ):
+            result = _get_active_theme()
+        assert result is dark
+
+    def test_falls_back_to_default_theme(self, client: TestClient) -> None:
+        from app.server import _get_active_theme
+
+        default = self._make_theme("default")
+        other = self._make_theme("other")
+        states = [{"name": "default", "enabled": False}, {"name": "other", "enabled": False}]
+        with (
+            patch("app.api.pipes._load_themes", return_value=[default, other]),
+            patch("app.db.get_all_plugin_states", return_value=states),
+        ):
+            result = _get_active_theme()
+        assert result is default
+
+    def test_falls_back_to_first_theme_if_default_missing(self, client: TestClient) -> None:
+        from app.server import _get_active_theme
+
+        custom = self._make_theme("custom")
+        app.state.default_theme = "nonexistent"
+        states = []
+        with (
+            patch("app.api.pipes._load_themes", return_value=[custom]),
+            patch("app.db.get_all_plugin_states", return_value=states),
+        ):
+            result = _get_active_theme()
+        assert result is custom
+        app.state.default_theme = "default"
+
+    def test_returns_none_when_no_themes(self, client: TestClient) -> None:
+        from app.server import _get_active_theme
+
+        with (
+            patch("app.api.pipes._load_themes", return_value=[]),
+            patch("app.db.get_all_plugin_states", return_value=[]),
+        ):
+            result = _get_active_theme()
+        assert result is None
+
+    def test_falls_back_on_db_error(self, client: TestClient) -> None:
+        from app.server import _get_active_theme
+
+        default = self._make_theme("default")
+        with (
+            patch("app.api.pipes._load_themes", return_value=[default]),
+            patch("app.db.get_all_plugin_states", side_effect=Exception("DB down")),
+        ):
+            result = _get_active_theme()
+        assert result is default
+
+
+class TestServeUiHtml:
+    @staticmethod
+    def _make_fake_ui(tmp_path: Path, name: str = "default") -> type:
+        from shenas_ui.core import UI
+
+        class FakeUI(UI):
+            pass
+
+        FakeUI.name = name
+        FakeUI.display_name = name.title()
+        FakeUI.static_dir = tmp_path
+        FakeUI.html = f"{name}.html"
+        FakeUI.entrypoint = f"{name}.js"
+        return FakeUI
+
+    def test_injects_theme_css(self, client: TestClient, tmp_path: Path) -> None:
+        html_file = tmp_path / "default.html"
+        html_file.write_text("<html><head></head><body>themed</body></html>")
+        fake_ui = [self._make_fake_ui(tmp_path)]
+
+        from shenas_themes.core import Theme
+
+        class FakeTheme(Theme):
+            name = "dark"
+            display_name = "Dark"
+            static_dir = tmp_path
+            css = "dark.css"
+            html = ""
+
+        with (
+            patch("app.api.pipes._load_uis", return_value=fake_ui),
+            patch("app.server._get_active_theme", return_value=FakeTheme),
+        ):
+            resp = client.get("/")
+        assert resp.status_code == 200
+        assert '/themes/dark/dark.css"' in resp.text
+        assert "data-shenas-theme" in resp.text
+
+    def test_no_theme_injection_when_none(self, client: TestClient, tmp_path: Path) -> None:
+        html_file = tmp_path / "default.html"
+        html_file.write_text("<html><head></head><body>plain</body></html>")
+        fake_ui = [self._make_fake_ui(tmp_path)]
+        with (
+            patch("app.api.pipes._load_uis", return_value=fake_ui),
+            patch("app.server._get_active_theme", return_value=None),
+        ):
+            resp = client.get("/")
+        assert resp.status_code == 200
+        assert "data-shenas-theme" not in resp.text
+        assert "plain" in resp.text
+
+    def test_uses_db_enabled_ui(self, client: TestClient, tmp_path: Path) -> None:
+        """When DB has an enabled UI, that one is used instead of env default."""
+        html_file = tmp_path / "custom.html"
+        html_file.write_text("<html><body>custom ui</body></html>")
+        default_ui = self._make_fake_ui(tmp_path, "default")
+        custom_ui = self._make_fake_ui(tmp_path, "custom")
+        states = [{"name": "custom", "enabled": True}]
+        with (
+            patch("app.api.pipes._load_uis", return_value=[default_ui, custom_ui]),
+            patch("app.db.get_all_plugin_states", return_value=states),
+            patch("app.server._get_active_theme", return_value=None),
+        ):
+            resp = client.get("/")
+        assert resp.status_code == 200
+        assert "custom ui" in resp.text
+
+    def test_fallback_html_when_ui_html_missing(self, client: TestClient, tmp_path: Path) -> None:
+        """UI exists but its HTML file is missing -> fallback."""
+        fake_ui = self._make_fake_ui(tmp_path, "broken")
+        # Don't create the HTML file
+        with patch("app.api.pipes._load_uis", return_value=[fake_ui]):
+            app.state.ui_name = "broken"
+            resp = client.get("/")
+            app.state.ui_name = "default"
+        assert resp.status_code == 200
+        assert "not installed" in resp.text
+
+
 class TestShenasCLI:
     def test_no_cert(self, tmp_path: Path) -> None:
         from app.server_cli import app as shenas_app

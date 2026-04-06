@@ -19,6 +19,7 @@ def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
     con = duckdb.connect()
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
+    con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
     from app.db import _ensure_system_tables
 
     _ensure_system_tables(con)
