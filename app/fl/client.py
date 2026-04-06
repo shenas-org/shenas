@@ -47,14 +47,14 @@ class ShenasClient(NumPyClient):
             task = self._get_task()
             self.model = get_model(task["model"], n_features)
 
-    def get_parameters(self, _config: dict[str, Scalar]) -> NDArrays:
+    def get_parameters(self, config: dict[str, Scalar]) -> NDArrays:  # noqa: ARG002
         """Return current model weights."""
         task = self._get_task()
         n_features = len(task["features"])
         self._ensure_model(n_features)
         return get_weights(self.model)
 
-    def fit(self, parameters: NDArrays, _config: dict[str, Scalar]) -> tuple[NDArrays, int, dict[str, Scalar]]:
+    def fit(self, parameters: NDArrays, config: dict[str, Scalar]) -> tuple[NDArrays, int, dict[str, Scalar]]:  # noqa: ARG002
         """Train on local data and return updated weights."""
         task = self._get_task()
         data = self.fetcher.fetch(task["query"], task["features"], task["target"])
@@ -79,7 +79,7 @@ class ShenasClient(NumPyClient):
 
         return get_weights(self.model), len(X), metrics
 
-    def evaluate(self, parameters: NDArrays, _config: dict[str, Scalar]) -> tuple[float, int, dict[str, Scalar]]:
+    def evaluate(self, parameters: NDArrays, config: dict[str, Scalar]) -> tuple[float, int, dict[str, Scalar]]:  # noqa: ARG002
         """Evaluate model on local data."""
         task = self._get_task()
         data = self.fetcher.fetch(task["query"], task["features"], task["target"])
