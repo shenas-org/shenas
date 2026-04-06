@@ -316,6 +316,12 @@ class ShenasApp extends LitElement {
         background: var(--shenas-bg-hover, #f5f5f5);
         color: var(--shenas-text, #222);
       }
+      .device-name {
+        display: block;
+        padding: 0.2rem 0.8rem;
+        font-size: 0.7rem;
+        color: var(--shenas-text-faint, #aaa);
+      }
       .component-host {
         height: calc(100vh - 4rem);
       }
@@ -852,10 +858,12 @@ class ShenasApp extends LitElement {
         uis: plugins(kind: "ui") { name displayName enabled }
         themes: plugins(kind: "theme") { name displayName enabled }
         theme { css }
+        deviceName
         schemaPlugins
       }`);
       this._components = data?.components || [];
       this._dbStatus = data?.dbStatus;
+      this._deviceName = data?.deviceName || "";
       this._hotkeys = data?.hotkeys || {};
       this._allPlugins = {
         pipe: data?.pipes || [],
@@ -980,6 +988,7 @@ class ShenasApp extends LitElement {
             <a class="auth-link" href="/api/auth/login" @click=${(e) => { e.preventDefault(); window.location.href = "/api/auth/login"; }}>
               ${this._remoteUser ? this._remoteUser.name || this._remoteUser.email : "Sign in"}
             </a>
+            ${this._deviceName ? html`<span class="device-name">${this._deviceName}</span>` : ""}
           </div>
         </div>
         <div class="divider" @mousedown=${this._startDrag("left")}></div>

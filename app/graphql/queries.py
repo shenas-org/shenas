@@ -91,6 +91,15 @@ class Query:
         return DBStatusType.from_pydantic(db_status())
 
     @strawberry.field
+    def device_name(self) -> str:
+        try:
+            from app.mesh.identity import get_device_info
+
+            return get_device_info()["device_name"]
+        except Exception:
+            return ""
+
+    @strawberry.field
     def db_tables(self) -> JSON:
         from app.api.db import db_tables
 
