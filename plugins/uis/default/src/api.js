@@ -77,7 +77,7 @@ export async function arrowQuery(apiBase, sql) {
   const resp = await fetch(`${apiBase}/query?sql=${encodeURIComponent(sql)}`);
   if (!resp.ok) return null;
   const buf = await resp.arrayBuffer();
-  const table = tableFromIPC(new Uint8Array(buf));
+  const table = await tableFromIPC(new Uint8Array(buf));
   return table.toArray().map((row) => row.toJSON());
 }
 

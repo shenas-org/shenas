@@ -6,6 +6,7 @@ All other data operations are served via GraphQL at /api/graphql.
 
 from fastapi import APIRouter
 
+from app.api.plugins import router as plugins_router
 from app.api.query import router as query_router
 from app.api.sync import router as sync_router
 from app.graphql import graphql_app
@@ -13,4 +14,5 @@ from app.graphql import graphql_app
 api_router = APIRouter(prefix="/api")
 api_router.include_router(query_router)
 api_router.include_router(sync_router)
+api_router.include_router(plugins_router)
 api_router.include_router(graphql_app, prefix="/graphql")

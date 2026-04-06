@@ -7,11 +7,15 @@ import logging
 import subprocess
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.request import urlopen
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 from app.db import get_plugin_state
 from app.models import InstallRequest, InstallResponse, InstallResult, OkResponse, PluginInfo, RemoveResponse
@@ -356,3 +360,136 @@ def disable_plugin(kind: str, name: str) -> OkResponse:
     msg = cls().disable()
     log.info("Plugin disabled: %s %s", kind, name)
     return OkResponse(ok=True, message=msg)
+
+
+# ---------------------------------------------------------------------------
+# Streaming install / remove (SSE)
+# ---------------------------------------------------------------------------
+
+
+def _sse(event: str, **kwargs: Any) -> str:
+    """Format a single SSE data line."""
+    return f"data: {json.dumps({'event': event, **kwargs})}\n\n"
+
+
+def _run_subprocess(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run a subprocess synchronously (for use with asyncio.to_thread)."""
+    return subprocess.run(cmd, capture_output=True, text=True)
+
+
+async def _install_stream(name: str, kind: str, skip_verify: bool = False) -> AsyncIterator[str]:
+    """Yield SSE events while installing a plugin."""
+    from app.api.pipes import _clear_caches, _load_plugin
+
+    cls = _load_plugin(kind, name)
+    if (cls and cls.internal) or name == "core":
+        yield _sse("done", ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
+        return
+
+    prefix = _prefix(kind)
+    pkg_name = f"{prefix}{name}"
+    display = name.replace("-", " ").title()
+    kind_label = kind.title()
+
+    if not skip_verify:
+        yield _sse("log", text=f"Verifying signature for {pkg_name}...")
+        if not PUBLIC_KEY_PATH.exists():
+            yield _sse("done", ok=False, message=f"Public key not found at {PUBLIC_KEY_PATH}")
+            return
+        pub_key = _load_public_key(PUBLIC_KEY_PATH)
+        error = _verify_from_index(pkg_name, DEFAULT_INDEX, pub_key)
+        if error:
+            yield _sse("done", ok=False, message=error)
+            return
+        yield _sse("log", text="Signature verified")
+
+    import asyncio
+
+    yield _sse("log", text=f"Installing {pkg_name}...")
+    simple_url = f"{DEFAULT_INDEX}/simple/"
+    result = await asyncio.to_thread(
+        _run_subprocess,
+        [
+            "uv",
+            "pip",
+            "install",
+            pkg_name,
+            "--index-url",
+            simple_url,
+            "--extra-index-url",
+            "https://pypi.org/simple/",
+            "--python",
+            _python_executable(),
+        ],
+    )
+
+    for line in result.stderr.strip().splitlines():
+        if line.strip():
+            yield _sse("log", text=line.strip())
+
+    if result.returncode == 0:
+        from app.db import upsert_plugin_state
+
+        upsert_plugin_state(kind, name, enabled=True)
+        _clear_caches()
+        yield _sse("done", ok=True, message=f"Added {display} {kind_label}")
+    else:
+        yield _sse("done", ok=False, message=result.stderr.strip() or f"Failed to add {pkg_name}")
+
+
+async def _remove_stream(name: str, kind: str) -> AsyncIterator[str]:
+    """Yield SSE events while removing a plugin."""
+    from app.api.pipes import _clear_caches, _load_plugin
+
+    cls = _load_plugin(kind, name)
+    if (cls and cls.internal) or name == "core":
+        yield _sse("done", ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
+        return
+
+    pkg_name = f"{_prefix(kind)}{name}"
+    display = name.replace("-", " ").title()
+    kind_label = kind.title()
+
+    import asyncio
+
+    yield _sse("log", text=f"Removing {pkg_name}...")
+    result = await asyncio.to_thread(
+        _run_subprocess,
+        ["uv", "pip", "uninstall", pkg_name, "--python", _python_executable()],
+    )
+
+    for line in result.stderr.strip().splitlines():
+        if line.strip():
+            yield _sse("log", text=line.strip())
+
+    if result.returncode == 0:
+        from app.db import remove_plugin_state
+
+        remove_plugin_state(kind, name)
+        _clear_caches()
+        yield _sse("done", ok=True, message=f"Removed {display} {kind_label}")
+    else:
+        yield _sse("done", ok=False, message=result.stderr.strip() or f"Failed to remove {pkg_name}")
+
+
+@router.post("/{kind}/install-stream")
+async def install_stream(kind: str, body: InstallRequest) -> StreamingResponse:
+    """Stream install progress as SSE events."""
+    _validate_kind(kind)
+    name = body.names[0] if body.names else ""
+    if not name:
+        raise HTTPException(status_code=400, detail="No plugin name provided")
+    return StreamingResponse(
+        _install_stream(name, kind, skip_verify=body.skip_verify),
+        media_type="text/event-stream",
+    )
+
+
+@router.post("/{kind}/{name}/remove-stream")
+async def remove_stream(kind: str, name: str) -> StreamingResponse:
+    """Stream remove progress as SSE events."""
+    _validate_kind(kind)
+    return StreamingResponse(
+        _remove_stream(name, kind),
+        media_type="text/event-stream",
+    )

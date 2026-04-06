@@ -262,17 +262,70 @@ class SettingsPage extends LitElement {
     const name = this._selectedPlugin;
     if (!name) return;
     this._actionMessage = null;
-    const { data } = await gqlFull(this.apiBase, `mutation($kind: String!, $names: [String!]!) { installPlugins(kind: $kind, names: $names, skipVerify: true) { results { name ok message } } }`, { kind, names: [name] });
-    const result = data?.installPlugins?.results?.[0];
+    this._installing = false;
+    const displayName = this._displayPluginName(name);
+    const jobId = `install-${kind}-${name}-${Date.now()}`;
+
+    this.dispatchEvent(new CustomEvent("job-start", {
+      bubbles: true, composed: true,
+      detail: { id: jobId, label: `Adding ${displayName}` },
+    }));
+
+    const result = await this._streamJob(
+      jobId,
+      `${this.apiBase}/plugins/${kind}/install-stream`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ names: [name], skip_verify: true }) },
+    );
+
     if (result?.ok) {
       this._actionMessage = { type: "success", text: result.message };
-      this._installing = false;
-      await this._fetchAll({ force: true });
+      await this._fetchAll();
     } else {
-      this._actionMessage = {
-        type: "error",
-        text: result?.message || "Add failed",
-      };
+      this._actionMessage = { type: "error", text: result?.message || "Add failed" };
+    }
+  }
+
+  async _streamJob(jobId, url, fetchOptions) {
+    try {
+      const resp = await fetch(url, fetchOptions);
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalResult = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.event === "log") {
+              this.dispatchEvent(new CustomEvent("job-log", {
+                bubbles: true, composed: true,
+                detail: { id: jobId, text: evt.text },
+              }));
+            } else if (evt.event === "done") {
+              finalResult = { ok: evt.ok, message: evt.message };
+              this.dispatchEvent(new CustomEvent("job-finish", {
+                bubbles: true, composed: true,
+                detail: { id: jobId, ok: evt.ok, message: evt.message },
+              }));
+            }
+          } catch { /* skip malformed lines */ }
+        }
+      }
+      return finalResult;
+    } catch (err) {
+      this.dispatchEvent(new CustomEvent("job-finish", {
+        bubbles: true, composed: true,
+        detail: { id: jobId, ok: false, message: err.message },
+      }));
+      return { ok: false, message: err.message };
     }
   }
 
