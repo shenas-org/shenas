@@ -1,6 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { arrowQuery, gql, gqlFull, registerCommands, renderMessage } from "./api.js";
-import { buttonStyles, linkStyles, messageStyles, tabStyles } from "./shared-styles.js";
+import { arrowQuery, gql, gqlFull, registerCommands, renderMessage, buttonStyles, linkStyles, messageStyles, tabStyles } from "shenas-frontends";
 
 class PluginDetail extends LitElement {
   static properties = {

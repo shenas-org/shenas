@@ -1,7 +1,5 @@
 import { LitElement, html, css } from "lit";
-import { gql, gqlFull, renderMessage } from "./api.js";
-import { PLUGIN_KINDS } from "./constants.js";
-import { buttonStyles, formStyles, linkStyles, messageStyles } from "./shared-styles.js";
+import { gql, gqlFull, renderMessage, PLUGIN_KINDS, buttonStyles, formStyles, linkStyles, messageStyles } from "shenas-frontends";
 
 class SettingsPage extends LitElement {
   static properties = {

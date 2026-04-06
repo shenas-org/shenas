@@ -178,32 +178,10 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
 
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
     ensure_schema(con, _SYSTEM_TABLES, schema="shenas_system")
-    _migrate_plugin_kinds(con)
     _seed_default_hotkeys(con)
-    _ensure_canonical_datasets(con)
+    from shenas_datasets.core.dataset import Dataset
 
-
-def _migrate_plugin_kinds(con: duckdb.DuckDBPyConnection) -> None:
-    """Migrate old plugin kind names to new ones."""
-    renames = [
-        ("pipe", "source"),
-        ("schema", "dataset"),
-        ("component", "dashboard"),
-        ("ui", "frontend"),
-    ]
-    for old, new in renames:
-        con.execute(
-            "UPDATE shenas_system.plugins SET kind = ? WHERE kind = ?",
-            [new, old],
-        )
-
-
-def _ensure_canonical_datasets(con: duckdb.DuckDBPyConnection) -> None:
-    """Ensure all installed dataset plugins have their tables created."""
-    from app.api.sources import _load_datasets
-
-    for dataset_cls in _load_datasets():
-        dataset_cls.ensure(con)
+    Dataset.ensure_all(con)
 
 
 def get_plugin_state(kind: str, name: str) -> dict[str, Any] | None:
