@@ -928,7 +928,7 @@ class ShenasApp extends LitElement {
 
   async _refreshPlugins() {
     const data = await gql(this.apiBase, `{
-      sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth }
+      sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth isAuthenticated }
       datasets: plugins(kind: "dataset") { name displayName enabled }
       dashboardPlugins: plugins(kind: "dashboard") { name displayName enabled }
       frontends: plugins(kind: "frontend") { name displayName enabled }
@@ -955,7 +955,7 @@ class ShenasApp extends LitElement {
         hotkeys
         workspace
         dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } }
-        sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth }
+        sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth isAuthenticated }
         datasets: plugins(kind: "dataset") { name displayName enabled }
         dashboardPlugins: plugins(kind: "dashboard") { name displayName enabled }
         frontends: plugins(kind: "frontend") { name displayName enabled }
