@@ -3,7 +3,7 @@ import { LitElement, html, css } from "lit";
 class FocusApp extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
-    _components: { state: true },
+    _dashboards: { state: true },
     _activeIndex: { state: true },
     _loading: { state: true },
     _loadedScripts: { state: true },
@@ -89,7 +89,7 @@ class FocusApp extends LitElement {
   constructor() {
     super();
     this.apiBase = "/api";
-    this._components = [];
+    this._dashboards = [];
     this._activeIndex = 0;
     this._loading = true;
     this._loadedScripts = new Set();
@@ -118,11 +118,11 @@ class FocusApp extends LitElement {
       const resp = await fetch(`${this.apiBase}/graphql`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: `{ components hotkeys theme { css } uis: plugins(kind: "frontend") { name displayName enabled } }` }),
+        body: JSON.stringify({ query: `{ dashboards hotkeys theme { css } uis: plugins(kind: "frontend") { name displayName enabled } }` }),
       });
       const json = await resp.json();
       const data = json.data;
-      this._components = data?.components || [];
+      this._dashboards = data?.dashboards || [];
       this._hotkeys = data?.hotkeys || {};
       this._uis = data?.uis || [];
 
@@ -142,7 +142,7 @@ class FocusApp extends LitElement {
   }
 
   _buildCommands() {
-    const cmds = this._components.map((c, i) => ({
+    const cmds = this._dashboards.map((c, i) => ({
       id: `nav:${c.name}`,
       category: "Navigate",
       label: c.display_name || c.name,
@@ -184,7 +184,7 @@ class FocusApp extends LitElement {
     // Navigate between components with hotkeys
     if (e.ctrlKey || e.metaKey) {
       const num = parseInt(e.key);
-      if (num >= 1 && num <= this._components.length) {
+      if (num >= 1 && num <= this._dashboards.length) {
         e.preventDefault();
         this._activeIndex = num - 1;
         return;
@@ -206,7 +206,7 @@ class FocusApp extends LitElement {
         // Handle navigation hotkeys
         const navMatch = actionId.match(/^nav:(.+)$/);
         if (navMatch) {
-          const idx = this._components.findIndex((c) => c.name === navMatch[1]);
+          const idx = this._dashboards.findIndex((c) => c.name === navMatch[1]);
           if (idx >= 0) this._activeIndex = idx;
         }
         return;
@@ -232,13 +232,13 @@ class FocusApp extends LitElement {
       return html`<div class="loading">Loading...</div>`;
     }
 
-    if (this._components.length === 0) {
+    if (this._dashboards.length === 0) {
       return html`<div class="empty">
-        <p>No components installed.</p>
+        <p>No dashboards installed.</p>
       </div>`;
     }
 
-    const comp = this._components[this._activeIndex];
+    const comp = this._dashboards[this._activeIndex];
     if (comp && !this._loadedScripts.has(comp.js)) {
       this._loadedScripts = new Set([...this._loadedScripts, comp.js]);
       const script = document.createElement("script");
@@ -253,7 +253,7 @@ class FocusApp extends LitElement {
       </div>
       <shenas-job-panel></shenas-job-panel>
       <nav class="bottom-nav">
-        ${this._components.map((c, i) => html`
+        ${this._dashboards.map((c, i) => html`
           <button class="nav-item" aria-selected=${i === this._activeIndex}
             @click=${() => this._switchTo(i)}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

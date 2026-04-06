@@ -7,7 +7,7 @@ import { linkStyles, utilityStyles } from "./shared-styles.js";
 class ShenasApp extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
-    _components: { state: true },
+    _dashboards: { state: true },
     _loading: { state: true },
     _loadedScripts: { state: true },
     _leftWidth: { state: true },
@@ -540,7 +540,7 @@ class ShenasApp extends LitElement {
   constructor() {
     super();
     this.apiBase = "/api";
-    this._components = [];
+    this._dashboards = [];
     this._loading = true;
     this._loadedScripts = new Set();
     this._elementCache = new Map();
@@ -564,7 +564,7 @@ class ShenasApp extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._fetchData();
-    this.addEventListener("plugin-state-changed", () => this._refreshComponents());
+    this.addEventListener("plugin-state-changed", () => this._refreshDashboards());
     this.addEventListener("job-start", (e) => this._getJobPanel()?.addJob(e.detail.id, e.detail.label));
     this.addEventListener("job-log", (e) => this._getJobPanel()?.appendLine(e.detail.id, e.detail.text));
     this.addEventListener("job-finish", (e) => this._getJobPanel()?.finishJob(e.detail.id, e.detail.ok, e.detail.message));
@@ -660,7 +660,7 @@ class ShenasApp extends LitElement {
     const commands = [];
 
     // Components (top-level tabs)
-    for (const c of this._components) {
+    for (const c of this._dashboards) {
       commands.push({ id: `nav:${c.name}`, category: "Page", label: c.display_name || c.name, path: `/${c.name}` });
     }
 
@@ -917,20 +917,20 @@ class ShenasApp extends LitElement {
         return this._pluginDisplayNames[key] || parts[2];
       }
     }
-    const comp = this._components.find((c) => c.name === parts[0]);
+    const comp = this._dashboards.find((c) => c.name === parts[0]);
     return comp ? (comp.display_name || comp.name) : parts[0];
   }
 
-  async _refreshComponents() {
-    const data = await gql(this.apiBase, `{ components }`);
-    this._components = data?.components || [];
+  async _refreshDashboards() {
+    const data = await gql(this.apiBase, `{ dashboards }`);
+    this._dashboards = data?.dashboards || [];
   }
 
   async _refreshPlugins() {
     const data = await gql(this.apiBase, `{
       sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth }
       datasets: plugins(kind: "dataset") { name displayName enabled }
-      dashboards: plugins(kind: "dashboard") { name displayName enabled }
+      dashboardPlugins: plugins(kind: "dashboard") { name displayName enabled }
       frontends: plugins(kind: "frontend") { name displayName enabled }
       themes: plugins(kind: "theme") { name displayName enabled }
       models: plugins(kind: "model") { name displayName enabled }
@@ -939,7 +939,7 @@ class ShenasApp extends LitElement {
       this._allPlugins = {
         source: data.sources || [],
         dataset: data.datasets || [],
-        dashboard: data.dashboards || [],
+        dashboard: data.dashboardPlugins || [],
         frontend: data.frontends || [],
         theme: data.themes || [],
         model: data.models || [],
@@ -951,13 +951,13 @@ class ShenasApp extends LitElement {
     this._loading = true;
     try {
       const data = await gql(this.apiBase, `{
-        components
+        dashboards
         hotkeys
         workspace
         dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } }
         sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth }
         datasets: plugins(kind: "dataset") { name displayName enabled }
-        dashboards: plugins(kind: "dashboard") { name displayName enabled }
+        dashboardPlugins: plugins(kind: "dashboard") { name displayName enabled }
         frontends: plugins(kind: "frontend") { name displayName enabled }
         themes: plugins(kind: "theme") { name displayName enabled }
         models: plugins(kind: "model") { name displayName enabled }
@@ -965,14 +965,14 @@ class ShenasApp extends LitElement {
         deviceName
         schemaPlugins
       }`);
-      this._components = data?.components || [];
+      this._dashboards = data?.dashboards || [];
       this._dbStatus = data?.dbStatus;
       this._deviceName = data?.deviceName || "";
       this._hotkeys = data?.hotkeys || {};
       this._allPlugins = {
         source: data?.sources || [],
         dataset: data?.datasets || [],
-        dashboard: data?.dashboards || [],
+        dashboard: data?.dashboardPlugins || [],
         frontend: data?.frontends || [],
         theme: data?.themes || [],
         model: data?.models || [],
@@ -1017,7 +1017,7 @@ class ShenasApp extends LitElement {
 
   _activeTab() {
     const active = this._tabs.find((t) => t.id === this._activeTabId);
-    return active?.path?.replace(/^\/+/, "")?.split("/")[0] || (this._components.length > 0 ? this._components[0].name : "settings");
+    return active?.path?.replace(/^\/+/, "")?.split("/")[0] || (this._dashboards.length > 0 ? this._dashboards[0].name : "settings");
   }
 
   _activePath() {
@@ -1071,7 +1071,7 @@ class ShenasApp extends LitElement {
             <img src="/static/images/shenas.svg" alt="shenas" />
           </div>
           <nav class="nav">
-            ${this._components.map((c) => this._navItem(c.name, c.display_name || c.name, active))}
+            ${this._dashboards.map((c) => this._navItem(c.name, c.display_name || c.name, active))}
             ${this._navItem("logs", "Logs", active)}
             <a class="nav-link settings-toggle" @click=${() => { this._settingsOpen = !this._settingsOpen; }}>
               Settings
@@ -1129,7 +1129,7 @@ class ShenasApp extends LitElement {
         </div>
         <div class="bottom-nav">
           <nav>
-            ${this._components.map((c) => html`
+            ${this._dashboards.map((c) => html`
               <a class="nav-item" href="/${c.name}" @click=${(e) => { e.preventDefault(); this._navigateTo(`/${c.name}`); }}
                 aria-selected=${active?.path === `/${c.name}`}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
@@ -1185,14 +1185,14 @@ class ShenasApp extends LitElement {
   }
 
   _renderDynamicHome() {
-    if (this._components.length > 0) {
-      return this._renderDynamicTab(this._components[0].name);
+    if (this._dashboards.length > 0) {
+      return this._renderDynamicTab(this._dashboards[0].name);
     }
     return this._renderSettings("source");
   }
 
   _renderDynamicTab(tab) {
-    const comp = this._components.find((c) => c.name === tab);
+    const comp = this._dashboards.find((c) => c.name === tab);
     if (!comp) return html`<p class="empty">Unknown page: ${tab}</p>`;
     if (!this._loadedScripts.has(comp.js)) {
       this._loadedScripts = new Set([...this._loadedScripts, comp.js]);
