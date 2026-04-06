@@ -95,7 +95,7 @@ class PipelineOverview extends LitElement {
         dependencies
       }`);
       const ap = this.allPlugins || {};
-      this._buildElements(ap.pipe || [], ap.schema || [], data?.transforms || [], this.schemaPlugins || {}, ap.component || [], data?.dependencies || {}, ap.model || []);
+      this._buildElements(ap.source || [], ap.dataset || [], data?.transforms || [], this.schemaPlugins || {}, ap.dashboard || [], data?.dependencies || {}, ap.model || []);
     } catch (e) {
       console.error("Failed to fetch overview data:", e);
     }
