@@ -939,7 +939,7 @@ class ShenasApp extends LitElement {
       this._allPlugins = {
         pipe: data.pipes || [],
         schema: data.schemas || [],
-        component: data.componentPlugins || [],
+        dashboard: data.componentPlugins || [],
         ui: data.uis || [],
         theme: data.themes || [],
         model: data.models || [],
@@ -972,7 +972,7 @@ class ShenasApp extends LitElement {
       this._allPlugins = {
         pipe: data?.pipes || [],
         schema: data?.schemas || [],
-        component: data?.componentPlugins || [],
+        dashboard: data?.componentPlugins || [],
         ui: data?.uis || [],
         theme: data?.themes || [],
         model: data?.models || [],

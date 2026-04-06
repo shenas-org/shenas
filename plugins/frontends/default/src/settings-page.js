@@ -209,7 +209,7 @@ class SettingsPage extends LitElement {
     const result = {
       pipe: data?.pipes || [],
       schema: data?.schemas || [],
-      component: data?.componentPlugins || [],
+      dashboard: data?.componentPlugins || [],
       ui: data?.uis || [],
       theme: data?.themes || [],
       model: data?.models || [],
