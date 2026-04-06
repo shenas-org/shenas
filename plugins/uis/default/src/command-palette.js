@@ -113,18 +113,23 @@ class CommandPalette extends LitElement {
     this._selectedIndex = 0;
   }
 
-  updated(changed) {
+  willUpdate(changed) {
     if (changed.has("open") && this.open) {
       this._query = "";
       this._selectedIndex = 0;
       this._filter();
+    }
+    if (changed.has("commands")) {
+      this._filter();
+    }
+  }
+
+  updated(changed) {
+    if (changed.has("open") && this.open) {
       requestAnimationFrame(() => {
         const input = this.renderRoot.querySelector("input");
         if (input) input.focus();
       });
-    }
-    if (changed.has("commands")) {
-      this._filter();
     }
   }
 
