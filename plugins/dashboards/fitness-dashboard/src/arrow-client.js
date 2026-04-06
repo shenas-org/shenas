@@ -22,7 +22,10 @@ export function arrowToColumns(table) {
 export function arrowDatesToUnix(arr) {
   return Float64Array.from(arr, (v) => {
     if (v == null) return null;
-    const ms = typeof v === "number" ? v * 86400000 : new Date(v).getTime();
-    return ms / 1000;
+    // Arrow JS date32/date64 returns milliseconds since epoch
+    const n = typeof v === "bigint" ? Number(v) : Number(v);
+    if (Number.isNaN(n)) return null;
+    // If value > 1e9 it's already ms; if small it's days since epoch
+    return n > 1e9 ? n / 1000 : n * 86400;
   });
 }
