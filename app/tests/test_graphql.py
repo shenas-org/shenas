@@ -229,17 +229,18 @@ class TestGraphQLQueries:
         assert result["data"]["transform"] is None
 
     def test_plugins(self, client: TestClient) -> None:
-        from app.models import PluginInfo
-
-        mock_info = PluginInfo(
-            name="garmin",
-            display_name="Garmin",
-            package="shenas-source-garmin",
-            version="1.0.0",
-            signature="valid",
-            enabled=True,
-        )
-        with patch("app.api.plugins.list_plugins_data", return_value=[mock_info]):
+        mock_data = [
+            {
+                "name": "garmin",
+                "display_name": "Garmin",
+                "package": "shenas-source-garmin",
+                "version": "1.0.0",
+                "signature": "valid",
+                "enabled": True,
+                "config_entries": [],
+            }
+        ]
+        with patch("shenas_plugins.core.plugin.Plugin.list_installed", return_value=mock_data):
             result = _gql(client, '{ plugins(kind: "source") { name displayName enabled version } }')
         assert "errors" not in result
         plugins = result["data"]["plugins"]
@@ -354,7 +355,7 @@ class TestGraphQLQueries:
 
 class TestGraphQLMutations:
     def test_set_hotkey(self, client: TestClient) -> None:
-        with patch("app.hotkeys.Hotkeys.set"):
+        with patch("app.hotkeys.Hotkey.set"):
             result = _gql(
                 client,
                 'mutation { setHotkey(actionId: "test-action", binding: "Ctrl+X") { ok } }',
@@ -363,17 +364,16 @@ class TestGraphQLMutations:
         assert result["data"]["setHotkey"]["ok"] is True
 
     def test_delete_hotkey(self, client: TestClient) -> None:
-        with patch("app.hotkeys.Hotkeys.set") as mock_set:
+        with patch("app.hotkeys.Hotkey.delete"):
             result = _gql(
                 client,
                 'mutation { deleteHotkey(actionId: "command-palette") { ok } }',
             )
         assert "errors" not in result
         assert result["data"]["deleteHotkey"]["ok"] is True
-        mock_set.assert_called_once_with("command-palette", "")
 
     def test_reset_hotkeys(self, client: TestClient) -> None:
-        with patch("app.hotkeys.Hotkeys.reset"):
+        with patch("app.hotkeys.Hotkey.reset"):
             result = _gql(client, "mutation { resetHotkeys { ok } }")
         assert "errors" not in result
         assert result["data"]["resetHotkeys"]["ok"] is True

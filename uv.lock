@@ -2864,6 +2864,12 @@ requires-dist = [
 [[package]]
 name = "shenas-plugin-core"
 source = { editable = "plugins/core" }
+dependencies = [
+    { name = "cryptography" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cryptography", specifier = ">=45.0.0" }]
 
 [[package]]
 name = "shenas-scheduler"

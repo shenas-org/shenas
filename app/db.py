@@ -100,16 +100,16 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:  # noqa: ARG0
 
 def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     """Create system tables and canonical schema tables if they don't exist."""
-    from app.hotkeys import Hotkeys
+    from app.hotkeys import Hotkey
     from app.transforms import Transform
     from app.workspace import Workspace
     from shenas_plugins.core.ddl import ensure_schema
     from shenas_plugins.core.plugin import Plugin
 
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
-    tables = [Transform._Row, Plugin._Row, Workspace._Row, Hotkeys._Row]
+    tables = [Transform._Row, Plugin._Row, Workspace._Row, Hotkey._Row]
     ensure_schema(con, tables, schema="shenas_system")
-    Hotkeys.seed(con)
+    Hotkey.seed(con)
     from shenas_datasets.core.dataset import Dataset
 
     Dataset.ensure_all(con)

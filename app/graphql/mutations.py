@@ -92,18 +92,22 @@ class Mutation:
         index_url: str | None = None,
         skip_verify: bool = False,
     ) -> InstallResponseType:
-        from app.api.plugins import DEFAULT_INDEX, install_plugin
-        from app.models import InstallResponse
+        from app.models import InstallResponse, InstallResult
+        from shenas_plugins.core.plugin import DEFAULT_INDEX, Plugin
 
-        results = [install_plugin(n, kind, index_url=index_url or DEFAULT_INDEX, skip_verify=skip_verify) for n in names]
+        results = []
+        for n in names:
+            ok, message = Plugin.install(kind, n, index_url=index_url or DEFAULT_INDEX, skip_verify=skip_verify)
+            results.append(InstallResult(name=n, ok=ok, message=message))
         return InstallResponseType.from_pydantic(InstallResponse(results=results))
 
     @strawberry.mutation
     def remove_plugin(self, kind: str, name: str) -> RemoveResponseType:
-        from app.api.plugins import uninstall_plugin
+        from app.models import RemoveResponse
+        from shenas_plugins.core.plugin import Plugin
 
-        result = uninstall_plugin(name, kind)
-        return RemoveResponseType.from_pydantic(result)
+        ok, message = Plugin.uninstall(kind, name)
+        return RemoveResponseType.from_pydantic(RemoveResponse(ok=ok, message=message))
 
     @strawberry.mutation
     def enable_plugin(self, kind: str, name: str) -> OkType:
@@ -226,26 +230,26 @@ class Mutation:
 
     @strawberry.mutation
     def set_hotkey(self, action_id: str, binding: str) -> OkType:
-        from app.hotkeys import Hotkeys
+        from app.hotkeys import Hotkey
         from app.models import OkResponse
 
-        Hotkeys.set(action_id, binding)
+        Hotkey(action_id).set(binding)
         return OkType.from_pydantic(OkResponse(ok=True))
 
     @strawberry.mutation
     def delete_hotkey(self, action_id: str) -> OkType:
-        from app.hotkeys import Hotkeys
+        from app.hotkeys import Hotkey
         from app.models import OkResponse
 
-        Hotkeys.set(action_id, "")
+        Hotkey(action_id).delete()
         return OkType.from_pydantic(OkResponse(ok=True))
 
     @strawberry.mutation
     def reset_hotkeys(self) -> OkType:
-        from app.hotkeys import Hotkeys
+        from app.hotkeys import Hotkey
         from app.models import OkResponse
 
-        Hotkeys.reset()
+        Hotkey.reset()
         return OkType.from_pydantic(OkResponse(ok=True))
 
     # -- Workspace --

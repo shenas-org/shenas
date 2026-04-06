@@ -116,10 +116,45 @@ class Query:
 
     @strawberry.field
     def plugins(self, kind: str) -> list[PluginInfoType]:
-        from app.api.plugins import list_plugins_data
+        from app.models import ConfigEntry, PluginInfo
+        from shenas_plugins.core.plugin import Plugin
 
-        items = list_plugins_data(kind)
-        return [PluginInfoType.from_pydantic(p) for p in items]
+        items = []
+        for pi in Plugin.list_installed(kind):
+            config_entries = [
+                ConfigEntry(
+                    key=str(e["key"]),
+                    label=str(e.get("label") or ""),
+                    value=e.get("value"),
+                    description=str(e.get("description") or ""),
+                )
+                for e in pi.get("config_entries", [])
+            ]
+            items.append(
+                PluginInfoType.from_pydantic(
+                    PluginInfo(
+                        name=pi.get("name", ""),
+                        display_name=pi.get("display_name", ""),
+                        package=pi.get("package", ""),
+                        version=pi.get("version", ""),
+                        signature=pi.get("signature", ""),
+                        description=pi.get("description", ""),
+                        commands=pi.get("commands", []),
+                        enabled=pi.get("enabled", True),
+                        has_config=pi.get("has_config", False),
+                        has_data=pi.get("has_data", False),
+                        has_auth=pi.get("has_auth", False),
+                        is_authenticated=pi.get("is_authenticated"),
+                        sync_frequency=pi.get("sync_frequency"),
+                        config_entries=config_entries,
+                        added_at=pi.get("added_at"),
+                        updated_at=pi.get("updated_at"),
+                        status_changed_at=pi.get("status_changed_at"),
+                        synced_at=pi.get("synced_at"),
+                    )
+                )
+            )
+        return items
 
     @strawberry.field
     def plugin_info(self, kind: str, name: str) -> JSON:
@@ -137,7 +172,7 @@ class Query:
         from html.parser import HTMLParser
         from urllib.request import urlopen
 
-        from app.api.plugins import DEFAULT_INDEX
+        from shenas_plugins.core.plugin import DEFAULT_INDEX
 
         prefix = f"shenas-{kind}-"
         try:
@@ -219,9 +254,9 @@ class Query:
 
     @strawberry.field
     def hotkeys(self) -> JSON:
-        from app.hotkeys import Hotkeys
+        from app.hotkeys import Hotkey
 
-        return Hotkeys.get_all()
+        return Hotkey.get_all()
 
     @strawberry.field
     def workspace(self) -> JSON:

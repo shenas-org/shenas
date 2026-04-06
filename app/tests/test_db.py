@@ -163,38 +163,38 @@ class TestWorkspace:
 
 class TestHotkeys:
     def test_default_hotkeys_seeded(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.hotkeys import Hotkeys
+        from app.hotkeys import Hotkey
 
-        hotkeys = Hotkeys.get_all()
+        hotkeys = Hotkey.get_all()
         assert "command-palette" in hotkeys
         assert hotkeys["command-palette"] == "Ctrl+P"
         assert "close-tab" in hotkeys
 
     def test_set_new(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.hotkeys import Hotkeys
+        from app.hotkeys import Hotkey
 
-        Hotkeys.set("custom-action", "Ctrl+Shift+X")
-        assert Hotkeys.get_all()["custom-action"] == "Ctrl+Shift+X"
+        Hotkey("custom-action").set("Ctrl+Shift+X")
+        assert Hotkey.get_all()["custom-action"] == "Ctrl+Shift+X"
 
     def test_set_overwrite(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.hotkeys import Hotkeys
+        from app.hotkeys import Hotkey
 
-        Hotkeys.set("command-palette", "Ctrl+Shift+P")
-        assert Hotkeys.get_all()["command-palette"] == "Ctrl+Shift+P"
+        Hotkey("command-palette").set("Ctrl+Shift+P")
+        assert Hotkey.get_all()["command-palette"] == "Ctrl+Shift+P"
 
     def test_delete(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.hotkeys import Hotkeys
+        from app.hotkeys import Hotkey
 
-        Hotkeys.delete("command-palette")
-        assert "command-palette" not in Hotkeys.get_all()
+        Hotkey("command-palette").delete()
+        assert "command-palette" not in Hotkey.get_all()
 
     def test_reset(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        from app.hotkeys import Hotkeys
+        from app.hotkeys import Hotkey
 
-        Hotkeys.set("command-palette", "Ctrl+Shift+P")
-        Hotkeys.set("custom-action", "Ctrl+X")
-        Hotkeys.reset()
-        hotkeys = Hotkeys.get_all()
+        Hotkey("command-palette").set("Ctrl+Shift+P")
+        Hotkey("custom-action").set("Ctrl+X")
+        Hotkey.reset()
+        hotkeys = Hotkey.get_all()
         assert hotkeys["command-palette"] == "Ctrl+P"
         assert "custom-action" not in hotkeys
 
