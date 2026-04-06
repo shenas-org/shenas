@@ -163,10 +163,13 @@ class TestInstalledPipeNames:
         class _FakeCls:
             internal = False
 
+            @property
+            def enabled(self):
+                return True
+
         with (
             patch("app.api.sync.subprocess.run", return_value=mock_result),
             patch("app.api.sources._load_plugin", return_value=_FakeCls),
-            patch("app.db.is_plugin_enabled", return_value=True),
         ):
             names = _installed_source_names()
         # garmin is included, core is excluded (name == "core")
@@ -196,10 +199,13 @@ class TestInstalledPipeNames:
         class _FakeCls:
             internal = False
 
+            @property
+            def enabled(self):
+                return False
+
         with (
             patch("app.api.sync.subprocess.run", return_value=mock_result),
             patch("app.api.sources._load_plugin", return_value=_FakeCls),
-            patch("app.db.is_plugin_enabled", return_value=False),
         ):
             names = _installed_source_names()
         assert names == []
@@ -216,10 +222,13 @@ class TestInstalledPipeNames:
         class _FakeCls:
             internal = True
 
+            @property
+            def enabled(self):
+                return True
+
         with (
             patch("app.api.sync.subprocess.run", return_value=mock_result),
             patch("app.api.sources._load_plugin", return_value=_FakeCls),
-            patch("app.db.is_plugin_enabled", return_value=True),
         ):
             names = _installed_source_names()
         assert names == []

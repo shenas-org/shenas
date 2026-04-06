@@ -108,12 +108,8 @@ def _get_active_theme() -> type[Theme] | None:
 
     themes = _load_themes()
     try:
-        from app.db import get_all_plugin_states
-
-        states = {s["name"]: s for s in get_all_plugin_states("theme")}
         for t in themes:
-            state = states.get(t.name)
-            if state and state["enabled"]:
+            if t().enabled:
                 return t
     except Exception:
         pass
@@ -127,15 +123,14 @@ def _get_active_theme() -> type[Theme] | None:
 def _serve_ui_html() -> HTMLResponse:
     """Read and serve the active UI plugin's HTML from disk, or a fallback."""
     from app.api.sources import _load_frontends
-    from app.db import get_all_plugin_states
 
     uis = _load_frontends()
-    # Check database for enabled UI, fall back to CLI/env setting
+    # Check for enabled frontend, fall back to CLI/env setting
     ui_name = app.state.ui_name
     try:
-        for state in get_all_plugin_states("frontend"):
-            if state["enabled"]:
-                ui_name = state["name"]
+        for u in uis:
+            if u().enabled:
+                ui_name = u.name
                 break
     except Exception:
         pass

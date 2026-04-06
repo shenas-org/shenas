@@ -17,7 +17,6 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.db import get_plugin_state
 from app.models import InstallRequest, InstallResponse, InstallResult, OkResponse, PluginInfo, RemoveResponse
 
 router = APIRouter(prefix="/plugins", tags=["plugins"])
@@ -153,7 +152,6 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
             pi = plugin.get_info()
         else:
             pi = {}
-        state = get_plugin_state(kind, short_name)
         display = pi.get("display_name", "") or short_name.replace("-", " ").title()
         items.append(
             PluginInfo(
@@ -164,16 +162,16 @@ def list_plugins_data(kind: str) -> list[PluginInfo]:
                 signature=check_signature(p["name"], p["version"]),
                 description=pi.get("description", ""),
                 commands=pi.get("commands", []),
-                enabled=state["enabled"] if state else (plugin_cls.enabled_by_default if plugin_cls else True),
+                enabled=pi.get("enabled", True),
                 has_config=pi.get("has_config", False),
                 has_data=pi.get("has_data", False),
                 has_auth=pi.get("has_auth", False),
                 is_authenticated=pi.get("is_authenticated"),
                 sync_frequency=pi.get("sync_frequency"),
-                added_at=state["added_at"] if state else None,
-                updated_at=state["updated_at"] if state else None,
-                status_changed_at=state["status_changed_at"] if state else None,
-                synced_at=state["synced_at"] if state else None,
+                added_at=pi.get("added_at"),
+                updated_at=pi.get("updated_at"),
+                status_changed_at=pi.get("status_changed_at"),
+                synced_at=pi.get("synced_at"),
             )
         )
     return items

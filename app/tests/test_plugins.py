@@ -253,7 +253,6 @@ class TestListPluginsData:
             patch("app.api.sources._load_plugin", return_value=fake_cls),
             patch("app.api.sources._load_plugin_fresh", return_value=fake_cls),
             patch("app.api.plugins.check_signature", return_value="unsigned"),
-            patch("app.api.plugins.get_plugin_state", return_value=None),
         ):
             result = list_plugins_data("source")
         assert len(result) == 1
@@ -272,7 +271,6 @@ class TestListPluginsData:
             patch("app.api.sources._load_plugin", return_value=fake_cls),
             patch("app.api.sources._load_plugin_fresh", return_value=fake_cls),
             patch("app.api.plugins.check_signature", return_value="unsigned"),
-            patch("app.api.plugins.get_plugin_state", return_value=None),
         ):
             result = list_plugins_data("source")
         names = [r.name for r in result]
@@ -288,7 +286,6 @@ class TestListPluginsData:
             patch("app.api.sources._load_plugin", return_value=_InternalPluginCls),
             patch("app.api.sources._load_plugin_fresh", return_value=_InternalPluginCls),
             patch("app.api.plugins.check_signature", return_value="unsigned"),
-            patch("app.api.plugins.get_plugin_state", return_value=None),
         ):
             result = list_plugins_data("source")
         assert len(result) == 0
@@ -302,7 +299,6 @@ class TestListPluginsData:
             patch("app.api.sources._load_plugin", return_value=None),
             patch("app.api.sources._load_plugin_fresh", return_value=None),
             patch("app.api.plugins.check_signature", return_value="unsigned"),
-            patch("app.api.plugins.get_plugin_state", return_value=None),
         ):
             result = list_plugins_data("source")
         assert len(result) == 1
@@ -323,15 +319,19 @@ class TestListPluginsData:
     def test_uses_plugin_state_when_available(self) -> None:
         installed = [{"name": "shenas-source-garmin", "version": "1.0.0"}]
         proc = subprocess.CompletedProcess(args=[], returncode=0, stdout=json.dumps(installed), stderr="")
-        state = {"enabled": False, "added_at": "2026-01-01", "updated_at": None, "status_changed_at": None, "synced_at": None}
-        fake_cls = _FakePluginCls
+
+        class _StatefulPlugin(_FakePluginCls):
+            def get_info(self):
+                info = super().get_info()
+                info.update({"enabled": False, "added_at": "2026-01-01"})
+                return info
+
         with (
             patch("app.api.plugins.subprocess.run", return_value=proc),
             patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
-            patch("app.api.sources._load_plugin", return_value=fake_cls),
-            patch("app.api.sources._load_plugin_fresh", return_value=fake_cls),
+            patch("app.api.sources._load_plugin", return_value=_StatefulPlugin),
+            patch("app.api.sources._load_plugin_fresh", return_value=_StatefulPlugin),
             patch("app.api.plugins.check_signature", return_value="unsigned"),
-            patch("app.api.plugins.get_plugin_state", return_value=state),
         ):
             result = list_plugins_data("source")
         assert result[0].enabled is False
