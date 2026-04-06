@@ -3163,7 +3163,7 @@ dev = [
     { name = "shenas-source-spotify", editable = "plugins/sources/spotify" },
     { name = "shenas-theme-dark", editable = "plugins/themes/dark" },
     { name = "shenas-theme-default", editable = "plugins/themes/default" },
-    { name = "ty", specifier = ">=0.0.26" },
+    { name = "ty", specifier = "==0.0.27" },
 ]
 fl = [
     { name = "flwr", specifier = ">=1.15" },

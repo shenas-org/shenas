@@ -181,7 +181,7 @@ class TestLoadSource:
 
     def test_returns_cached(self) -> None:
         sentinel = _FakeSource()
-        _source_cache["testpipe"] = sentinel
+        _source_cache["testpipe"] = sentinel  # type: ignore[assignment]
         result = _load_source("testpipe")
         assert result is sentinel
 
@@ -224,7 +224,7 @@ class TestClearCaches:
         _source_cache.clear()
 
     def test_clears_source_cache(self) -> None:
-        _source_cache["x"] = "dummy"
+        _source_cache["x"] = "dummy"  # type: ignore[assignment]
         _clear_caches()
         assert _source_cache == {}
 

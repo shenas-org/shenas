@@ -51,7 +51,7 @@ def _count_states() -> int:
     from app.db import cursor
 
     with cursor() as cur:
-        return cur.execute("SELECT count(*) FROM shenas_system.plugins").fetchone()[0]
+        return cur.execute("SELECT count(*) FROM shenas_system.plugins").fetchone()[0]  # type: ignore[index]
 
 
 class TestPluginState:
