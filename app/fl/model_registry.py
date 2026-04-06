@@ -30,8 +30,23 @@ def discover_models() -> dict[str, dict[str, Any]]:
     models: dict[str, dict[str, Any]] = {}
     for ep in importlib.metadata.entry_points(group="shenas.models"):
         try:
-            mod = ep.load()
-            meta = getattr(mod, "MODEL", None)
+            obj = ep.load()
+            # Support both Model class (new) and MODULE.MODEL dict (legacy)
+            if isinstance(obj, type) and hasattr(obj, "model_cls"):
+                meta = {
+                    "name": obj.name,
+                    "description": obj.description,
+                    "model_cls": obj.model_cls,
+                    "features": obj.features,
+                    "target": obj.target,
+                    "query": obj.query,
+                    "epochs": obj.epochs,
+                    "batch_size": obj.batch_size,
+                    "learning_rate": obj.learning_rate,
+                }
+            else:
+                mod = obj
+                meta = getattr(mod, "MODEL", None)
             if isinstance(meta, dict) and "name" in meta:
                 models[meta["name"]] = meta
                 logger.debug("Discovered model plugin: %s", meta["name"])

@@ -6,11 +6,15 @@ Uses a two-layer neural network with ReLU activation.
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import torch
 from torch import nn
 
+from shenas_models.core import Model
 
-class SleepForecastModel(nn.Module):
+
+class SleepForecastNet(nn.Module):
     """Two-layer network: features -> 16 hidden -> 1 output."""
 
     def __init__(self, n_features: int) -> None:
@@ -25,13 +29,14 @@ class SleepForecastModel(nn.Module):
         return self.net(x).squeeze(-1)
 
 
-MODEL = {
-    "name": "sleep-forecast",
-    "description": "Predict tomorrow's sleep score from HRV, activity, and vitals",
-    "model_cls": SleepForecastModel,
-    "features": ["rmssd", "sdnn", "resting_hr", "steps", "active_kcal"],
-    "target": "score",
-    "query": """
+class SleepForecast(Model):
+    name = "sleep-forecast"
+    display_name = "Sleep Forecast"
+    description = "Predict tomorrow's sleep score from HRV, activity, and vitals"
+    model_cls = SleepForecastNet
+    features: ClassVar[list[str]] = ["rmssd", "sdnn", "resting_hr", "steps", "active_kcal"]
+    target = "score"
+    query = """
         SELECT
             s.score,
             h.rmssd, h.sdnn,
@@ -41,8 +46,4 @@ MODEL = {
         JOIN metrics.daily_vitals v ON s.date = v.date + INTERVAL 1 DAY AND v.source = h.source
         WHERE s.score IS NOT NULL
         ORDER BY s.date
-    """,
-    "epochs": 5,
-    "batch_size": 32,
-    "learning_rate": 0.001,
-}
+    """
