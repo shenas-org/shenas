@@ -10,6 +10,7 @@ class FocusApp extends LitElement {
     _hotkeys: { state: true },
     _paletteOpen: { state: true },
     _paletteCommands: { state: true },
+    _uis: { state: true },
   };
 
   static styles = css`
@@ -96,6 +97,7 @@ class FocusApp extends LitElement {
     this._elementCache = new Map();
     this._paletteOpen = false;
     this._paletteCommands = [];
+    this._uis = [];
   }
 
   connectedCallback() {
@@ -116,12 +118,13 @@ class FocusApp extends LitElement {
       const resp = await fetch(`${this.apiBase}/graphql`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: `{ components hotkeys theme { css } }` }),
+        body: JSON.stringify({ query: `{ components hotkeys theme { css } uis: plugins(kind: "ui") { name displayName enabled } }` }),
       });
       const json = await resp.json();
       const data = json.data;
       this._components = data?.components || [];
       this._hotkeys = data?.hotkeys || {};
+      this._uis = data?.uis || [];
 
       // Apply theme
       if (data?.theme?.css && !document.querySelector("link[data-shenas-theme]")) {
@@ -145,10 +148,31 @@ class FocusApp extends LitElement {
       label: c.display_name || c.name,
       action: () => { this._activeIndex = i; },
     }));
+    for (const ui of this._uis) {
+      const label = ui.displayName || ui.name;
+      cmds.push({
+        id: `ui:${ui.name}`,
+        category: "Switch UI",
+        label: `${label}${ui.enabled ? " (active)" : ""}`,
+        action: () => this._switchUI(ui.name),
+      });
+    }
     cmds.push(
       { id: "command-palette", category: "System", label: "Command Palette", action: () => { this._paletteOpen = true; } },
     );
     this._paletteCommands = cmds;
+  }
+
+  async _switchUI(name) {
+    await fetch(`${this.apiBase}/graphql`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok } }`,
+        variables: { k: "ui", n: name },
+      }),
+    });
+    window.location.reload();
   }
 
   _onKeydown(e) {
