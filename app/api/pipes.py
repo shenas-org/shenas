@@ -86,12 +86,11 @@ def _load_pipe(name: str) -> Pipe:
     # Fallback: scan dist-info on disk (entry_points cache may be stale)
     fresh_cls = _load_plugin_fresh("pipe", name)
     if fresh_cls:
-        from shenas_pipes.core.pipe import Pipe as PipeCls
+        from typing import cast
 
-        inst = fresh_cls()
-        if isinstance(inst, PipeCls):
-            _pipe_cache[name] = inst
-            return inst
+        pipe = cast("Pipe", fresh_cls())
+        _pipe_cache[name] = pipe
+        return pipe
     msg = f"Pipe not found: {name}"
     raise ValueError(msg)
 
