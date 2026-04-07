@@ -29,6 +29,11 @@ SOURCE_PREFIX = "shenas-source-"
 
 
 def _sse_event(event: str, data: dict[str, str]) -> str:
+    from app.jobs import get_job_id
+
+    jid = get_job_id()
+    if jid is not None and "job_id" not in data:
+        data = {**data, "job_id": jid}
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
@@ -62,37 +67,44 @@ def _sync_to_sse(source: Source, *, full_refresh: bool) -> Iterator[str]:
 
 @router.post("")
 def sync_all() -> StreamingResponse:
+    from app.jobs import bind_job_id, new_job_id
+
     def _stream() -> Iterator[str]:
-        failed = []
-        for name in _installed_source_names():
-            try:
-                source = _load_source(name)
-            except Exception as exc:
-                yield _sse_event("error", {"source": name, "message": str(exc)})
-                failed.append(name)
-                continue
+        # One job_id covers the whole sync-all run so every per-source event and
+        # every Python log emitted during it can be correlated.
+        with bind_job_id(new_job_id()):
+            failed = []
+            for name in _installed_source_names():
+                try:
+                    source = _load_source(name)
+                except Exception as exc:
+                    yield _sse_event("error", {"source": name, "message": str(exc)})
+                    failed.append(name)
+                    continue
 
-            if not source.acquire_sync_lock():
-                yield _sse_event("progress", {"source": name, "message": "skipping: sync already in progress"})
-                continue
-            try:
-                yield from _sync_to_sse(source, full_refresh=False)
-            except Exception as exc:
-                yield _sse_event("error", {"source": name, "message": str(exc)})
-                failed.append(name)
-            finally:
-                source.release_sync_lock()
+                if not source.acquire_sync_lock():
+                    yield _sse_event("progress", {"source": name, "message": "skipping: sync already in progress"})
+                    continue
+                try:
+                    yield from _sync_to_sse(source, full_refresh=False)
+                except Exception as exc:
+                    yield _sse_event("error", {"source": name, "message": str(exc)})
+                    failed.append(name)
+                finally:
+                    source.release_sync_lock()
 
-        if failed:
-            yield _sse_event("error", {"message": f"Failed: {', '.join(failed)}"})
-        else:
-            yield _sse_event("complete", {"message": "all syncs complete"})
+            if failed:
+                yield _sse_event("error", {"message": f"Failed: {', '.join(failed)}"})
+            else:
+                yield _sse_event("complete", {"message": "all syncs complete"})
 
     return StreamingResponse(_stream(), media_type="text/event-stream")
 
 
 @router.post("/{name}")
 def sync_source(name: str, body: SyncRequest | None = None) -> StreamingResponse:
+    from app.jobs import bind_job_id, new_job_id
+
     body = body or SyncRequest()
 
     if name not in _installed_source_names():
@@ -104,11 +116,15 @@ def sync_source(name: str, body: SyncRequest | None = None) -> StreamingResponse
         raise HTTPException(status_code=409, detail="Sync already in progress")
 
     def _stream() -> Iterator[str]:
-        try:
-            yield from _sync_to_sse(source, full_refresh=body.full_refresh)
-        except Exception as exc:
-            yield _sse_event("error", {"source": name, "message": str(exc)})
-        finally:
-            source.release_sync_lock()
+        # bind_job_id must be inside the generator body, not around the
+        # StreamingResponse(...) construction, because Starlette iterates the
+        # generator after the route function returns.
+        with bind_job_id(new_job_id()):
+            try:
+                yield from _sync_to_sse(source, full_refresh=body.full_refresh)
+            except Exception as exc:
+                yield _sse_event("error", {"source": name, "message": str(exc)})
+            finally:
+                source.release_sync_lock()
 
     return StreamingResponse(_stream(), media_type="text/event-stream")

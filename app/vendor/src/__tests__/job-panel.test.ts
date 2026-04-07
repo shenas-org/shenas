@@ -72,6 +72,19 @@ describe("shenas-job-panel", () => {
     expect(el.shadowRoot.querySelector(".line.success")).toBeTruthy();
   });
 
+  it("does not duplicate finish message when it equals the last log line", async () => {
+    const el = makeEl();
+    document.body.appendChild(el);
+    el.addJob("j1", "Job");
+    el.appendLine("j1", "Sync complete: garmin");
+    el.finishJob("j1", true, "Sync complete: garmin");
+    await el.updateComplete;
+    const lines = el.shadowRoot.querySelectorAll(".line");
+    // Only the single appended line should render -- the matching finish
+    // message must NOT add a second one.
+    expect(lines.length).toBe(1);
+  });
+
   it("finishJob with ok=false marks error", async () => {
     const el = makeEl();
     document.body.appendChild(el);

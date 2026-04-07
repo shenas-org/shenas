@@ -52,7 +52,7 @@ class TestSyncAll:
         progress = [e for e in events if e["_event"] == "progress"]
         complete = [e for e in events if e["_event"] == "complete"]
         assert any(e["source"] == "testpipe" for e in progress)
-        assert any(e["source"] == "testpipe" and e["message"] == "done" for e in complete)
+        assert any(e["source"] == "testpipe" and "Sync complete" in e["message"] for e in complete)
 
     def test_sync_all_reports_failure(self) -> None:
         def failing_sync(*, full_refresh: bool = False) -> None:
@@ -81,7 +81,7 @@ class TestSyncSource:
 
         assert resp.status_code == 200
         events = parse_sse(resp.text)
-        assert any(e.get("source") == "garmin" and e.get("message") == "done" for e in events)
+        assert any(e.get("source") == "garmin" and "Sync complete" in (e.get("message") or "") for e in events)
 
     def test_sync_pipe_not_found(self) -> None:
         with patch("app.api.sync._installed_source_names", return_value=[]):
@@ -141,7 +141,49 @@ class TestSseEvent:
         assert result.startswith("event: progress\n")
         assert "data:" in result
         data = json.loads(result.split("data: ")[1].strip())
+        # Outside any bind_job_id context the payload is unchanged.
         assert data == {"source": "garmin", "message": "starting"}
+
+    def test_injects_job_id_from_contextvar(self) -> None:
+        import json
+
+        from app.api.sync import _sse_event
+        from app.jobs import bind_job_id
+
+        with bind_job_id("test-job-1234"):
+            result = _sse_event("progress", {"source": "garmin", "message": "starting"})
+        data = json.loads(result.split("data: ")[1].strip())
+        assert data["job_id"] == "test-job-1234"
+        assert data["source"] == "garmin"
+
+    def test_does_not_clobber_explicit_job_id(self) -> None:
+        import json
+
+        from app.api.sync import _sse_event
+        from app.jobs import bind_job_id
+
+        with bind_job_id("from-context"):
+            result = _sse_event("progress", {"source": "garmin", "message": "x", "job_id": "explicit"})
+        data = json.loads(result.split("data: ")[1].strip())
+        assert data["job_id"] == "explicit"
+
+
+class TestSseStreamCarriesJobId:
+    def test_every_event_has_same_job_id(self) -> None:
+        pipe = _FakeSource(pipe_name="garmin")
+        with (
+            patch("app.api.sync._installed_source_names", return_value=["garmin"]),
+            patch("app.api.sync._load_source", return_value=pipe),
+        ):
+            resp = client.post("/api/sync/garmin")
+        assert resp.status_code == 200
+        events = parse_sse(resp.text)
+        ids = {e.get("job_id") for e in events if "job_id" in e}
+        # All events for one request share the same job_id and it's a 16-char hex.
+        assert len(ids) == 1
+        (jid,) = ids
+        assert isinstance(jid, str)
+        assert len(jid) == 16
 
 
 class TestInstalledPipeNames:

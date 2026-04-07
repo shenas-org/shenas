@@ -35,12 +35,13 @@ def print_load_info(load_info: Any) -> None:
             console.print(f"  [green]{job.job_file_info.table_name}[/green] -- {job.job_file_info.job_id()}")
 
 
-def run_sync(
+def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally inline
     pipeline_name: str,
     dataset_name: str,
     resources: list[Any],
     full_refresh: bool = False,
     transform_fn: Callable[[], None] | None = None,
+    on_progress: Callable[[str, str], None] | None = None,
 ) -> None:
     """Create a dlt pipeline, run it to memory, flush to encrypted DB, then transform.
 
@@ -49,7 +50,17 @@ def run_sync(
     2. Run the pipeline with the given resources
     3. Flush in-memory data to the encrypted database
     4. Optionally run a transform function
+
+    `on_progress`, if given, is called at each checkpoint with `(event, message)`
+    so callers like `Source.run_sync_stream` can surface fine-grained progress to
+    the frontend job panel without parsing logs. Events: `fetch_start`,
+    `fetch_done`, `flush`, `transform_start`.
     """
+
+    def _emit(evt: str, msg: str) -> None:
+        if on_progress is not None:
+            on_progress(evt, msg)
+
     logger.info("Sync started: %s (dataset=%s, full_refresh=%s)", pipeline_name, dataset_name, full_refresh)
     with tracer.start_as_current_span("pipe.sync", attributes={"pipe.name": pipeline_name, "pipe.dataset": dataset_name}):
         import threading
@@ -67,6 +78,7 @@ def run_sync(
             resource_name = getattr(resource, "name", None) or f"resource_{i}"
             with tracer.start_as_current_span("pipe.fetch", attributes={"resource": resource_name}):
                 logger.info("Fetching %s (%d/%d): %s", pipeline_name, i + 1, total, resource_name)
+                _emit("fetch_start", f"Fetching ({i + 1}/{total}): {resource_name}")
                 dest, mem_con = dlt_destination()
 
                 pipeline = dlt.pipeline(
@@ -119,6 +131,7 @@ def run_sync(
         if transform_fn:
             with tracer.start_as_current_span("pipe.transform"):
                 logger.info("Running transforms: %s", pipeline_name)
+                _emit("transform_start", "Running transforms")
                 transform_fn()
 
         logger.info("Sync complete: %s", pipeline_name)
