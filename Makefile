@@ -171,7 +171,12 @@ android-emulator:
 android-dev:
 	cd app/mobile && \
 	if [ ! -d src-tauri/gen/android ]; then npx tauri android init; fi && \
-	bash build-ui.sh && cd src-tauri && cargo clean && cd .. && npx tauri android dev
+	if [ ! -f mobile-dist/index.html ]; then bash build-frontend.sh; fi && \
+	npx tauri android dev
+
+# Force a clean rebuild of mobile frontend + Rust
+android-dev-clean:
+	cd app/mobile && bash build-frontend.sh && cd src-tauri && cargo clean && cd .. && npx tauri android dev
 
 # Tag a desktop release (version auto-computed from conventional commits)
 release-desktop:
