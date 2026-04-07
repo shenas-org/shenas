@@ -1,92 +1,33 @@
 ---
-import Base from "../layouts/Base.astro";
+import Dashboard from "../layouts/Dashboard.astro";
 ---
 
-<Base
-  title="Devices -- shenas"
-  description="Manage your registered devices"
->
-  <nav>
-    <div class="nav-inner">
-      <a href="/" class="nav-logo">
-        <img src="/favicon.svg" alt="shenas" width="28" height="28" />
-        <span>shenas</span>
-      </a>
-      <div class="nav-links">
-        <a href="/">Home</a>
-        <a href="/devices" class="active">Devices</a>
-        <a href="/api/auth/logout" class="nav-gh" id="auth-link">Sign out</a>
-      </div>
-    </div>
-  </nav>
-
-  <main class="container">
+<Dashboard title="Devices -- shenas" description="Manage your registered devices" active="devices">
+  <div class="header">
     <h1>Your Devices</h1>
     <p class="subtitle" id="status">Loading...</p>
+  </div>
 
-    <div id="devices-list" class="devices-grid"></div>
+  <div id="devices-list" class="devices-grid"></div>
 
-    <div id="not-signed-in" class="notice" style="display:none">
-      <p>Sign in to view your devices.</p>
-      <a href="/api/auth/login" class="btn">Sign in with Google</a>
-    </div>
-  </main>
-</Base>
+  <div id="not-signed-in" class="notice" style="display:none">
+    <p>Sign in to view your devices.</p>
+    <a href="/api/auth/login" class="btn">Sign in with Google</a>
+  </div>
+</Dashboard>
 
 <style>
-  nav {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: rgba(30, 32, 28, 0.95);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  }
-  .nav-inner {
-    max-width: 1100px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.8rem 2rem;
-  }
-  .nav-logo {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    text-decoration: none;
-    color: var(--cream);
-    font-weight: 600;
-    font-size: 1.1rem;
-  }
-  .nav-links {
-    display: flex;
-    gap: 1.5rem;
-    align-items: center;
-  }
-  .nav-links a {
-    color: var(--muted);
-    text-decoration: none;
-    font-size: 0.9rem;
-    transition: color 0.2s;
-  }
-  .nav-links a:hover,
-  .nav-links a.active {
-    color: var(--cream);
-  }
-  .container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 3rem 2rem;
+  .header {
+    margin-bottom: 2rem;
   }
   h1 {
-    font-size: 2rem;
-    color: var(--cream);
-    margin-bottom: 0.5rem;
+    font-size: 1.8rem;
+    color: var(--color-text);
+    margin-bottom: 0.25rem;
   }
   .subtitle {
-    color: var(--muted);
-    margin-bottom: 2rem;
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
   }
   .devices-grid {
     display: flex;
@@ -94,8 +35,8 @@ import Base from "../layouts/Base.astro";
     gap: 1rem;
   }
   .device-card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
     border-radius: 12px;
     padding: 1.2rem 1.5rem;
     display: flex;
@@ -106,7 +47,7 @@ import Base from "../layouts/Base.astro";
     width: 40px;
     height: 40px;
     border-radius: 10px;
-    background: rgba(114, 143, 103, 0.15);
+    background: var(--color-accent-glow);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -117,12 +58,12 @@ import Base from "../layouts/Base.astro";
     flex: 1;
   }
   .device-name {
-    color: var(--cream);
+    color: var(--color-text);
     font-weight: 600;
     font-size: 1rem;
   }
   .device-meta {
-    color: var(--muted);
+    color: var(--color-text-muted);
     font-size: 0.8rem;
     margin-top: 0.2rem;
   }
@@ -131,8 +72,8 @@ import Base from "../layouts/Base.astro";
   }
   .btn-remove {
     background: none;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: var(--muted);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
     padding: 0.3rem 0.8rem;
     border-radius: 6px;
     font-size: 0.75rem;
@@ -146,14 +87,14 @@ import Base from "../layouts/Base.astro";
   .notice {
     text-align: center;
     padding: 3rem;
-    color: var(--muted);
+    color: var(--color-text-muted);
   }
   .btn {
     display: inline-block;
     margin-top: 1rem;
     padding: 0.6rem 1.5rem;
-    background: var(--green);
-    color: var(--dark);
+    background: var(--color-accent);
+    color: white;
     border-radius: 8px;
     text-decoration: none;
     font-weight: 600;
@@ -162,7 +103,7 @@ import Base from "../layouts/Base.astro";
   .empty {
     text-align: center;
     padding: 2rem;
-    color: var(--muted);
+    color: var(--color-text-muted);
     font-size: 0.9rem;
   }
 </style>
@@ -223,7 +164,9 @@ import Base from "../layouts/Base.astro";
         return;
       }
 
-      list.innerHTML = devices.map((d) => `
+      list.innerHTML = devices
+        .map(
+          (d) => `
         <div class="device-card">
           <div class="device-icon">${deviceIcons[d.device_type] || "\u{1F4BB}"}</div>
           <div class="device-info">
@@ -234,7 +177,9 @@ import Base from "../layouts/Base.astro";
             <button class="btn-remove" onclick="window.__removeDevice('${d.id}')">Remove</button>
           </div>
         </div>
-      `).join("");
+      `,
+        )
+        .join("");
     } catch {
       status.textContent = "Failed to load devices";
     }
