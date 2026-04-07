@@ -1,14 +1,14 @@
-"""Tests for Google Calendar source resources."""
+"""Tests for Google Calendar source tables (Table ABC pattern)."""
 
 from unittest.mock import MagicMock
 
-from shenas_sources.gcalendar.resources import (
+from shenas_sources.gcalendar.tables import (
+    Calendars,
+    Colors,
+    EventAttendees,
+    Events,
     _attendee_rows,
     _event_row,
-    calendars,
-    colors,
-    event_attendees,
-    events,
     fetch_all_events,
 )
 
@@ -102,6 +102,7 @@ class TestAttendeeRows:
         assert len(rows) == 3
         assert rows[0]["email"] == "alice@example.com"
         assert rows[0]["response_status"] == "accepted"
+        assert rows[0]["attendee_name"] == "Alice"
         assert rows[1]["optional"] is True
         assert rows[2]["is_self"] is True
 
@@ -121,13 +122,12 @@ class TestFetchAllEvents:
         }
 
         raw = fetch_all_events(service, start_date="2026-03-01")
-        # 2 events per calendar x 2 calendars
         assert len(raw) == 4
         assert raw[0][0] == "cal1"
         assert raw[2][0] == "cal2"
 
 
-class TestEventsAndAttendeesResources:
+class TestEventsAndAttendeesExtract:
     def test_events_and_attendees_share_data(self) -> None:
         raw = [
             ("primary", _make_event(id="e1")),
@@ -142,8 +142,8 @@ class TestEventsAndAttendeesResources:
                 ),
             ),
         ]
-        event_rows = list(events(raw))
-        attendee_rows = list(event_attendees(raw))
+        event_rows = list(Events.extract(MagicMock(), raw_events=raw))
+        attendee_rows = list(EventAttendees.extract(MagicMock(), raw_events=raw))
         assert [r["id"] for r in event_rows] == ["e1", "e2"]
         assert len(attendee_rows) == 2
         assert {r["email"] for r in attendee_rows} == {"alice@example.com", "bob@example.com"}
@@ -164,7 +164,7 @@ class TestCalendars:
             ]
         }
 
-        result = list(calendars(service))
+        result = list(Calendars.extract(service))
         assert len(result) == 1
         assert result[0]["id"] == "primary"
         assert result[0]["primary"] is True
@@ -179,7 +179,7 @@ class TestColors:
                 "9": {"background": "#5484ed", "foreground": "#1d1d1d"},
             }
         }
-        rows = list(colors(service))
+        rows = list(Colors.extract(service))
         assert len(rows) == 2
         ids = {r["id"] for r in rows}
         assert ids == {"1", "9"}
@@ -189,4 +189,22 @@ class TestColors:
     def test_handles_failure(self) -> None:
         service = MagicMock()
         service.colors().get().execute.side_effect = RuntimeError("no scope")
-        assert list(colors(service)) == []
+        assert list(Colors.extract(service)) == []
+
+
+class TestKindsAndDispositions:
+    def test_events_is_interval(self) -> None:
+        assert Events.kind == "interval"
+        assert Events.time_start == "start_date"
+        assert Events.time_end == "end_date"
+
+    def test_event_attendees_is_m2m_scd2(self) -> None:
+        assert EventAttendees.kind == "m2m_relation"
+        assert EventAttendees.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
+
+    def test_calendars_is_dimension_scd2(self) -> None:
+        assert Calendars.kind == "dimension"
+        assert Calendars.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
+
+    def test_colors_is_dimension_scd2(self) -> None:
+        assert Colors.kind == "dimension"
