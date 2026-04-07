@@ -1,12 +1,14 @@
 from unittest.mock import MagicMock
 
-from shenas_sources.gmail.resources import (
+from shenas_sources.gmail.tables import (
+    Filters,
+    Labels,
+    Messages,
+    Profile,
+    SendAs,
+    Vacation,
     _get_header,
     _parse_message,
-    filters,
-    profile,
-    send_as,
-    vacation,
 )
 
 
@@ -89,7 +91,22 @@ class TestParseMessage:
         assert row["category"] is None
 
 
-class TestProfileResource:
+class TestLabelsExtract:
+    def test_yields_labels(self) -> None:
+        service = MagicMock()
+        service.users().labels().list().execute.return_value = {
+            "labels": [
+                {"id": "Label_1", "name": "Work", "type": "user"},
+                {"id": "INBOX", "name": "INBOX", "type": "system"},
+            ]
+        }
+        rows = list(Labels.extract(service))
+        assert len(rows) == 2
+        assert rows[0]["label_name"] == "Work"
+        assert rows[1]["type"] == "system"
+
+
+class TestProfileExtract:
     def test_yields_profile(self) -> None:
         service = MagicMock()
         service.users().getProfile().execute.return_value = {
@@ -98,13 +115,13 @@ class TestProfileResource:
             "threadsTotal": 6789,
             "historyId": "98765",
         }
-        rows = list(profile(service))
+        rows = list(Profile.extract(service))
         assert len(rows) == 1
         assert rows[0]["email_address"] == "me@example.com"
         assert rows[0]["messages_total"] == 12345
 
 
-class TestFiltersResource:
+class TestFiltersExtract:
     def test_yields_filters(self) -> None:
         service = MagicMock()
         service.users().settings().filters().list().execute.return_value = {
@@ -121,7 +138,7 @@ class TestFiltersResource:
                 },
             ]
         }
-        rows = list(filters(service))
+        rows = list(Filters.extract(service))
         assert len(rows) == 2
         assert rows[0]["from_criteria"] == "noreply@example.com"
         assert rows[0]["add_label_ids"] == "Label_1, Label_2"
@@ -132,10 +149,10 @@ class TestFiltersResource:
     def test_handles_failure(self) -> None:
         service = MagicMock()
         service.users().settings().filters().list().execute.side_effect = RuntimeError("scope")
-        assert list(filters(service)) == []
+        assert list(Filters.extract(service)) == []
 
 
-class TestVacationResource:
+class TestVacationExtract:
     def test_yields_vacation(self) -> None:
         service = MagicMock()
         service.users().settings().getVacation().execute.return_value = {
@@ -147,7 +164,7 @@ class TestVacationResource:
             "startTime": "1700000000000",
             "endTime": "1700604800000",
         }
-        rows = list(vacation(service))
+        rows = list(Vacation.extract(service))
         assert len(rows) == 1
         row = rows[0]
         assert row["enabled"] is True
@@ -157,7 +174,7 @@ class TestVacationResource:
         assert row["end_time"] == 1700604800000
 
 
-class TestSendAsResource:
+class TestSendAsExtract:
     def test_yields_identities(self) -> None:
         service = MagicMock()
         service.users().settings().sendAs().list().execute.return_value = {
@@ -172,10 +189,27 @@ class TestSendAsResource:
                 {"sendAsEmail": "alt@example.com", "displayName": "Alt", "treatAsAlias": True},
             ]
         }
-        rows = list(send_as(service))
+        rows = list(SendAs.extract(service))
         assert len(rows) == 2
         primary = next(r for r in rows if r["send_as_email"] == "me@example.com")
         assert primary["is_default"] is True
         assert primary["is_primary"] is True
+        assert primary["display_name_"] == "Me"
         alt = next(r for r in rows if r["send_as_email"] == "alt@example.com")
         assert alt["treat_as_alias"] is True
+
+
+class TestKindsAndDispositions:
+    def test_messages_is_event(self) -> None:
+        assert Messages.kind == "event"
+        assert Messages.time_at == "internal_date"
+        assert Messages.cursor_column == "internal_date"
+        assert Messages.write_disposition() == "merge"
+
+    def test_labels_is_dimension_scd2(self) -> None:
+        assert Labels.kind == "dimension"
+        assert Labels.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
+
+    def test_profile_is_snapshot_scd2(self) -> None:
+        assert Profile.kind == "snapshot"
+        assert Profile.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
