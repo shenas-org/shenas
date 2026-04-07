@@ -12,7 +12,7 @@ export default defineConfig({
         "apache-arrow": "src/apache-arrow.js",
         uplot: "src/uplot.js",
         cytoscape: "src/cytoscape.js",
-        "shenas-frontends": "src/shenas-frontends.js",
+        "shenas-frontends": "src/shenas-frontends.ts",
       },
       external(id, importer) {
         // Only externalize lit for shenas-frontends (not for lit.js itself)

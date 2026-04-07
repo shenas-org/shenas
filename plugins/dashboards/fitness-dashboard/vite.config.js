@@ -9,7 +9,7 @@ export default defineConfig({
     emptyOutDir: true,
     cssCodeSplit: false,
     rollupOptions: {
-      input: "src/index.js",
+      input: "src/index.ts",
       external: ["lit", /^lit\//, "apache-arrow", "uplot"],
       output: {
         entryFileNames: "fitness-dashboard.js",
