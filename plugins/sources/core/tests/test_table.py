@@ -6,7 +6,7 @@ from typing import Annotated, Any, ClassVar
 
 import pytest
 
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Field
 from shenas_sources.core.table import (
     AggregateTable,
     CounterTable,
@@ -27,7 +27,7 @@ class TestM2MTable:
             a_id: Annotated[int, Field(db_type="BIGINT", description="x")]
             b_id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
-        assert _Link.kind == "m2m_relation"
+        assert issubclass(_Link, M2MTable)
         assert _Link.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
 
     def test_requires_composite_pk(self) -> None:
@@ -83,7 +83,7 @@ class TestSubclassAutoDataclass:
         assert row.payload == "hi"
 
     def test_kind_inferred_from_base(self) -> None:
-        assert _Sample.kind == "event"
+        assert issubclass(_Sample, EventTable)
 
 
 class TestValidation:
@@ -141,7 +141,7 @@ class TestValidation:
             starts_at: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
             ends_at: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
 
-        assert _GoodInterval.kind == "interval"
+        assert issubclass(_GoodInterval, IntervalTable)
 
     def test_valid_counter_passes(self) -> None:
         class _GoodCounter(CounterTable):
@@ -152,7 +152,7 @@ class TestValidation:
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             distance_m: Annotated[float, Field(db_type="DOUBLE", description="cum")] = 0.0
 
-        assert _GoodCounter.kind == "counter"
+        assert issubclass(_GoodCounter, CounterTable)
 
 
 class TestWriteDisposition:
@@ -167,7 +167,7 @@ class TestWriteDisposition:
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
         assert _Dim.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
-        assert _Dim.kind == "dimension"
+        assert issubclass(_Dim, DimensionTable)
 
     def test_snapshot_is_scd2(self) -> None:
         class _Snap(SnapshotTable):
@@ -177,7 +177,7 @@ class TestWriteDisposition:
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
         assert _Snap.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
-        assert _Snap.kind == "snapshot"
+        assert issubclass(_Snap, SnapshotTable)
 
     def test_counter_is_append(self) -> None:
         class _Counter(CounterTable):
@@ -189,7 +189,7 @@ class TestWriteDisposition:
             distance_m: Annotated[float, Field(db_type="DOUBLE", description="cum")] = 0.0
 
         assert _Counter.write_disposition() == "append"
-        assert _Counter.kind == "counter"
+        assert issubclass(_Counter, CounterTable)
 
     def test_aggregate_is_merge(self) -> None:
         class _Agg(AggregateTable):
@@ -200,7 +200,7 @@ class TestWriteDisposition:
             date: Annotated[str, Field(db_type="DATE", description="x")]
 
         assert _Agg.write_disposition() == "merge"
-        assert _Agg.kind == "aggregate"
+        assert issubclass(_Agg, AggregateTable)
 
 
 class TestColumns:

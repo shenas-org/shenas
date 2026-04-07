@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock
 
+from shenas_sources.core.table import DimensionTable, IntervalTable, M2MTable
 from shenas_sources.gcalendar.tables import (
     Calendars,
     Colors,
@@ -195,17 +196,17 @@ class TestColors:
 
 class TestKindsAndDispositions:
     def test_events_is_interval(self) -> None:
-        assert Events.kind == "interval"
+        assert issubclass(Events, IntervalTable)
         assert Events.time_start == "start_date"
         assert Events.time_end == "end_date"
 
     def test_event_attendees_is_m2m_scd2(self) -> None:
-        assert EventAttendees.kind == "m2m_relation"
+        assert issubclass(EventAttendees, M2MTable)
         assert EventAttendees.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
 
     def test_calendars_is_dimension_scd2(self) -> None:
-        assert Calendars.kind == "dimension"
+        assert issubclass(Calendars, DimensionTable)
         assert Calendars.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
 
     def test_colors_is_dimension_scd2(self) -> None:
-        assert Colors.kind == "dimension"
+        assert issubclass(Colors, DimensionTable)

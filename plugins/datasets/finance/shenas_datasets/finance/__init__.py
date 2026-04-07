@@ -1,4 +1,4 @@
-from shenas_datasets.core import Dataset, MetricProvider
+from shenas_datasets.core import Dataset
 from shenas_datasets.finance.metrics import (
     ALL_TABLES,
     DailySpending,
@@ -6,7 +6,7 @@ from shenas_datasets.finance.metrics import (
     MonthlyOverview,
     Transaction,
 )
-from shenas_plugins.core import Field, generate_ddl
+from shenas_plugins.core import Field
 
 
 class FinanceSchema(Dataset):
@@ -22,9 +22,7 @@ __all__ = [
     "DailySpending",
     "Field",
     "FinanceSchema",
-    "MetricProvider",
     "MonthlyCategory",
     "MonthlyOverview",
     "Transaction",
-    "generate_ddl",
 ]

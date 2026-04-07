@@ -10,7 +10,7 @@ from typing import Annotated, Any
 from spotipy.cache_handler import CacheHandler
 
 from shenas_plugins.core.base_auth import SourceAuth
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Field
 from shenas_sources.core.source import Source
 
 REDIRECT_URI = "http://127.0.0.1:8090/callback"
@@ -74,7 +74,7 @@ class SpotifySource(Source):
         import spotipy
         from spotipy.oauth2 import SpotifyPKCE
 
-        row = self._auth_store.get(self.Auth)
+        row = self.Auth.read_row()
         if not row or not row.get("tokens"):
             msg = "No Spotify tokens found. Configure authentication in the Auth tab."
             raise RuntimeError(msg)
@@ -152,7 +152,7 @@ class SpotifySource(Source):
 
         auth_url = pkce.get_authorize_url()
         state: dict[str, Any] = {}
-        auth_store = self._auth_store
+        auth_cls = self.Auth
         auth_cls = self.Auth
 
         def _run_flow() -> None:
@@ -196,8 +196,7 @@ class SpotifySource(Source):
                 if not token_info:
                     state["error"] = "Token exchange failed -- no token received"
                     return
-                auth_store.set(
-                    auth_cls,
+                auth_cls.write_row(
                     tokens=json.dumps(
                         {
                             "access_token": token_info["access_token"],

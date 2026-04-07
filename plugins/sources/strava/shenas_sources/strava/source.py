@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, cast
 
 from shenas_plugins.core.base_auth import SourceAuth
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Field
 from shenas_sources.core.source import Source
 
 REDIRECT_URI = "http://127.0.0.1:8091/callback"
@@ -58,14 +58,14 @@ class StravaSource(Source):
         ]
 
     def _load_tokens(self) -> dict[str, Any]:
-        row = self._auth_store.get(self.Auth)
+        row = self.Auth.read_row()
         if not row or not row.get("tokens"):
             msg = "No Strava tokens found. Configure authentication in the Auth tab."
             raise RuntimeError(msg)
         return json.loads(row["tokens"])
 
     def _save_tokens(self, tokens: dict[str, Any]) -> None:
-        self._auth_store.set(self.Auth, tokens=json.dumps(tokens))
+        self.Auth.write_row(tokens=json.dumps(tokens))
 
     def build_client(self) -> Any:
         from stravalib.client import Client

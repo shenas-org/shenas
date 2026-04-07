@@ -1,6 +1,6 @@
-from shenas_datasets.core import Dataset, MetricProvider
+from shenas_datasets.core import Dataset
 from shenas_datasets.habits.metrics import ALL_TABLES, DailyHabits
-from shenas_plugins.core import Field, generate_ddl
+from shenas_plugins.core import Field
 
 
 class HabitsSchema(Dataset):
@@ -16,6 +16,4 @@ __all__ = [
     "DailyHabits",
     "Field",
     "HabitsSchema",
-    "MetricProvider",
-    "generate_ddl",
 ]

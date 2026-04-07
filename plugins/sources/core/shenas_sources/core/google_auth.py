@@ -68,10 +68,7 @@ class GoogleAuth:
         }
 
     def _get_stored_token(self) -> Credentials | None:
-        from shenas_plugins.core.store import TableStore
-
-        _auth = TableStore("auth")
-        row = _auth.get(self.auth_cls)
+        row = self.auth_cls.read_row()
         if row and row.get("token"):
             return Credentials.from_authorized_user_info(json.loads(row["token"]), self.scopes)
         return None
@@ -80,10 +77,7 @@ class GoogleAuth:
         self._store_token_str(creds.to_json())
 
     def _store_token_str(self, token_json: str) -> None:
-        from shenas_plugins.core.store import TableStore
-
-        _auth = TableStore("auth")
-        _auth.set(self.auth_cls, token=token_json)
+        self.auth_cls.write_row(token=token_json)
 
     def build_client(self, run_auth_flow: bool = False) -> Resource:
         """Build a Google API service from stored tokens or OAuth flow."""

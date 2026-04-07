@@ -27,9 +27,9 @@ class Dataset(Plugin):
 
     @classmethod
     def ensure(cls, con: Any) -> None:
-        from shenas_plugins.core.ddl import ensure_schema
+        from shenas_plugins.core.table import Table
 
-        ensure_schema(con, all_tables=cls.all_tables)
+        Table.ensure_schema(con, all_tables=cls.all_tables)
 
     @classmethod
     def ensure_all(cls, con: Any) -> None:

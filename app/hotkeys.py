@@ -5,8 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Annotated, ClassVar
 
 from app.db import cursor
-from shenas_plugins.core.field import Field
-from shenas_plugins.core.table import Table
+from shenas_plugins.core.table import Field, Table
 
 if TYPE_CHECKING:
     import duckdb
@@ -17,6 +16,7 @@ class Hotkey:
 
     class _Table(Table):
         table_name: ClassVar[str] = "hotkeys"
+        table_schema: ClassVar[str | None] = "shenas_system"
         table_display_name: ClassVar[str] = "Hotkeys"
         table_description: ClassVar[str | None] = "Per-action keyboard shortcut bindings."
         table_pk: ClassVar[tuple[str, ...]] = ("action_id",)

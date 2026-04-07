@@ -4,7 +4,6 @@ from shenas_datasets.habits import (
     ALL_TABLES,
     DailyHabits,
     HabitsSchema,
-    generate_ddl,
 )
 
 
@@ -22,7 +21,7 @@ class TestMetrics:
 
 class TestDDL:
     def test_generate_ddl(self) -> None:
-        ddl = generate_ddl(DailyHabits)
+        ddl = DailyHabits.to_ddl()
         assert "CREATE TABLE IF NOT EXISTS metrics.daily_habits" in ddl
         assert "duolingo BOOLEAN" in ddl
         assert "PRIMARY KEY (date, source)" in ddl
