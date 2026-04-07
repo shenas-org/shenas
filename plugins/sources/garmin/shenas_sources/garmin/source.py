@@ -106,13 +106,6 @@ class GarminSource(Source):
         self._save_tokens_from_client(client)
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.garmin.resources import activities, body_composition, daily_stats, hrv, sleep, spo2
+        from shenas_sources.garmin.tables import TABLES
 
-        return [
-            activities(client, "30 days ago"),
-            daily_stats(client, "30 days ago"),
-            sleep(client, "30 days ago"),
-            hrv(client, "30 days ago"),
-            spo2(client, "30 days ago"),
-            body_composition(client, "30 days ago"),
-        ]
+        return [t.to_resource(client, start_date="30 days ago") for t in TABLES]
