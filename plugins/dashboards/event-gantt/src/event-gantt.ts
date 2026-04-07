@@ -30,21 +30,21 @@ const CATEGORY_COLORS: Record<string, string> = {
   default: "#636e72",
 };
 
-function categoryColor(cat: string | undefined): string {
+export function categoryColor(cat: string | undefined): string {
   if (!cat) return CATEGORY_COLORS.default;
   const key = cat.toLowerCase();
   return CATEGORY_COLORS[key] || CATEGORY_COLORS.default;
 }
 
-function formatTime(date: Date): string {
+export function formatTime(date: Date): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function formatDate(date: Date): string {
+export function formatDate(date: Date): string {
   return date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
 }
 
-function dayKey(date: Date): string {
+export function dayKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
