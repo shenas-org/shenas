@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-TableKind = Literal["event", "interval", "snapshot", "aggregate", "counter", "dimension"]
+TableKind = Literal["event", "interval", "snapshot", "aggregate", "counter", "dimension", "m2m_relation"]
 """Semantic kind of a raw source table.
 
 The kind drives how the kind-aware loader (Table ABC in
@@ -48,6 +48,15 @@ row in every raw table is time-series-queryable.
   observations rather than just reading the latest cumulative value.
   Declares ``counter_columns`` to identify which columns are cumulative.
   Example: a piece of Strava gear with cumulative distance.
+
+- ``m2m_relation``: many-to-many bridge / link table joining two entities.
+  PK is the composite of the two foreign keys; rows typically have NO
+  additional value columns (denormalized attributes belong on the entity
+  dimensions, joined as needed). Loaded as **SCD2** so removals close the
+  row's ``_dlt_valid_to`` instead of the row staying alive forever.
+  Examples: ``lunchmoney.transaction_tags`` (transactions ↔ tags),
+  ``spotify.followed_artists`` (user → artists), ``strava.kudos``
+  (activities ← athletes), ``gcalendar.event_attendees``.
 """
 
 

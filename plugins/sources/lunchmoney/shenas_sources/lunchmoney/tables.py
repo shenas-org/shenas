@@ -17,6 +17,7 @@ from shenas_plugins.core.field import Field
 from shenas_sources.core.table import (
     DimensionTable,
     EventTable,
+    M2MTable,
     SnapshotTable,
 )
 
@@ -112,10 +113,15 @@ class Transactions(EventTable):
             yield tx.model_dump(mode="json")
 
 
-class TransactionTags(EventTable):
-    """Link table joining a transaction to a tag.
+class TransactionTags(M2MTable):
+    """Many-to-many bridge between ``transactions`` and ``tags``.
 
-    No native timestamp -- ``observed_at`` is auto-injected from sync time.
+    Composite PK is (transaction_id, tag_id) and no value columns -- the link
+    is the entire row. Loaded as SCD2 so when the user removes a tag from a
+    transaction, the loader closes the row's ``_dlt_valid_to`` instead of
+    leaving it alive forever (as the previous EventTable + merge-on-PK
+    classification did). Tag *name* is NOT denormalized here; join to the
+    ``tags`` dimension AS OF the desired timestamp to get historical names.
     """
 
     name: ClassVar[str] = "transaction_tags"
@@ -125,7 +131,6 @@ class TransactionTags(EventTable):
 
     transaction_id: Annotated[int, Field(db_type="INTEGER", description="Transaction ID")]
     tag_id: Annotated[int, Field(db_type="INTEGER", description="Tag ID")]
-    tag_name: Annotated[str | None, Field(db_type="VARCHAR", description="Tag name (denormalized)")] = None
 
     @classmethod
     def extract(
@@ -152,7 +157,6 @@ class TransactionTags(EventTable):
                 yield {
                     "transaction_id": int(tx.id),
                     "tag_id": int(tag_id),
-                    "tag_name": getattr(tag, "name", None),
                 }
 
 
@@ -305,8 +309,13 @@ class Budgets(SnapshotTable):
             yield budget.model_dump(mode="json")
 
 
-class RecurringItems(SnapshotTable):
-    """Recurring transaction templates."""
+class RecurringItems(DimensionTable):
+    """Recurring transaction templates. Joined by ``transactions.recurring_id``.
+
+    A dimension, not a snapshot, because when the user changes a recurring
+    amount (Netflix raises its price), historical transactions joined AS OF
+    their own date will still resolve the original amount via SCD2.
+    """
 
     name: ClassVar[str] = "recurring_items"
     display_name: ClassVar[str] = "Recurring Items"
