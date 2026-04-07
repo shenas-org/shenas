@@ -1,0 +1,28 @@
+[project]
+name = "shenas-source-strava"
+dynamic = ["version"]
+description = "Strava data connector for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "pendulum>=3.0.0",
+    "stravalib>=2.1",
+    "shenas-source-core",
+    "shenas-dataset-fitness",
+]
+
+[project.entry-points."shenas.sources"]
+strava = "shenas_sources.strava.source:StravaSource"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-strava/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-strava/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]
