@@ -49,9 +49,9 @@ class TestSyncAll:
             resp = client.post("/api/sync")
 
         events = parse_sse(resp.text)
-        progress = [e for e in events if e["_event"] == "progress"]
         complete = [e for e in events if e["_event"] == "complete"]
-        assert any(e["source"] == "testpipe" for e in progress)
+        # The fake source has no resources so it emits no per-resource progress;
+        # only the final complete event for the source is expected.
         assert any(e["source"] == "testpipe" and "Sync complete" in e["message"] for e in complete)
 
     def test_sync_all_reports_failure(self) -> None:

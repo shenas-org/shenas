@@ -277,7 +277,8 @@ class Source(Plugin):
         from app.jobs import bind_job_id, get_job_id
 
         logger.info("Sync started: %s", self.name)
-        yield ("progress", "starting sync")
+        # No "starting sync" yield -- the spinner already shows the job is
+        # running, and the next line is always "Fetching (1/N): ...".
 
         if self.has_auth and not self.is_authenticated:
             msg = "Not authenticated. Configure credentials in the Auth tab."
