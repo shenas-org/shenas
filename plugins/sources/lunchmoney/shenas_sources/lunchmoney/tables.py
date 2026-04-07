@@ -1,25 +1,65 @@
-"""Lunch Money raw table schemas.
+"""Lunch Money source tables.
 
-Most resources yield model_dump() dicts with many fields.
-These dataclasses define only the key fields -- dlt will handle
-extra fields automatically via its schema inference.
+Each table is a subclass of one of the kind base classes in
+``shenas_sources.core.table``. The class declares its schema fields, its
+metadata, and the extraction logic in one place. The kind base class
+determines the dlt write_disposition automatically.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Annotated, ClassVar
+from datetime import date as date_type
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
-from shenas_plugins.core.field import Field, TableKind
+import pendulum
+
+from shenas_plugins.core.field import Field
+from shenas_sources.core.table import (
+    DimensionTable,
+    EventTable,
+    SnapshotTable,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from lunchable import LunchMoney
 
 
-@dataclass
-class Transaction:
-    """Lunch Money transaction."""
+# ---------------------------------------------------------------------------
+# Shared transactions cache
+# ---------------------------------------------------------------------------
+# Both Transactions and TransactionTags pull from the same client.get_transactions
+# call. We cache the list at module level for the duration of one sync so the
+# tag link table doesn't trigger a second API call.
 
-    __table__: ClassVar[str] = "transactions"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "event"
+_TX_CACHE: dict[tuple[int, str, str], list[Any]] = {}
+
+
+def _fetch_transactions(client: LunchMoney, start: date_type, end: date_type) -> list[Any]:
+    key = (id(client), start.isoformat(), end.isoformat())
+    cached = _TX_CACHE.get(key)
+    if cached is not None:
+        return cached
+    rows = list(client.get_transactions(start_date=start, end_date=end))
+    _TX_CACHE[key] = rows
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Events
+# ---------------------------------------------------------------------------
+
+
+class Transactions(EventTable):
+    """A single Lunch Money transaction (one per outflow/inflow event)."""
+
+    name: ClassVar[str] = "transactions"
+    display_name: ClassVar[str] = "Transactions"
+    description: ClassVar[str | None] = "Per-transaction events synced from Lunch Money."
+    pk: ClassVar[tuple[str, ...]] = ("id",)
+    time_at: ClassVar[str] = "date"
+    cursor_column: ClassVar[str] = "date"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Transaction ID")]
     date: Annotated[str, Field(db_type="DATE", description="Transaction date")]
@@ -36,7 +76,10 @@ class Transaction:
     type: Annotated[str | None, Field(db_type="VARCHAR", description="Transaction type")] = None
     parent_id: Annotated[int | None, Field(db_type="INTEGER", description="Parent transaction ID (for splits)")] = None
     has_children: Annotated[bool, Field(db_type="BOOLEAN", description="Has split children")] = False
-    group_id: Annotated[int | None, Field(db_type="INTEGER", description="Transaction group ID (e.g. transfers)")] = None
+    group_id: Annotated[
+        int | None,
+        Field(db_type="INTEGER", description="Transaction group ID (e.g. transfers)"),
+    ] = None
     is_group: Annotated[bool, Field(db_type="BOOLEAN", description="Is itself a group transaction")] = False
     external_id: Annotated[str | None, Field(db_type="VARCHAR", description="External / Plaid ID")] = None
     is_income: Annotated[bool | None, Field(db_type="BOOLEAN", description="Whether this is income")] = None
@@ -46,94 +89,199 @@ class Transaction:
     created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp")] = None
     updated_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Last updated timestamp")] = None
 
+    @classmethod
+    def extract(
+        cls,
+        client: LunchMoney,
+        *,
+        start_date: str = "90 days ago",
+        cursor: Any = None,
+        **_: Any,
+    ) -> Iterator[dict[str, Any]]:
+        from shenas_sources.core.utils import resolve_start_date
 
-@dataclass
-class TransactionTag:
-    """Link table joining a transaction to a tag."""
+        last_value = getattr(cursor, "last_value", None) if cursor is not None else None
+        effective_start = (last_value or resolve_start_date(start_date))[:10]
+        end_date = pendulum.now().to_date_string()
+        rows = _fetch_transactions(
+            client,
+            date_type.fromisoformat(effective_start),
+            date_type.fromisoformat(end_date),
+        )
+        for tx in rows:
+            yield tx.model_dump(mode="json")
 
-    __table__: ClassVar[str] = "transaction_tags"
-    __pk__: ClassVar[tuple[str, ...]] = ("transaction_id", "tag_id")
-    __kind__: ClassVar[TableKind] = "event"
+
+class TransactionTags(EventTable):
+    """Link table joining a transaction to a tag.
+
+    No native timestamp -- ``observed_at`` is auto-injected from sync time.
+    """
+
+    name: ClassVar[str] = "transaction_tags"
+    display_name: ClassVar[str] = "Transaction Tags"
+    description: ClassVar[str | None] = "(transaction_id, tag_id) link rows from tagged transactions."
+    pk: ClassVar[tuple[str, ...]] = ("transaction_id", "tag_id")
 
     transaction_id: Annotated[int, Field(db_type="INTEGER", description="Transaction ID")]
     tag_id: Annotated[int, Field(db_type="INTEGER", description="Tag ID")]
     tag_name: Annotated[str | None, Field(db_type="VARCHAR", description="Tag name (denormalized)")] = None
 
+    @classmethod
+    def extract(
+        cls,
+        client: LunchMoney,
+        *,
+        start_date: str = "90 days ago",
+        **_: Any,
+    ) -> Iterator[dict[str, Any]]:
+        from shenas_sources.core.utils import resolve_start_date
 
-@dataclass
-class User:
-    """Lunch Money authenticated user / account info."""
-
-    __table__: ClassVar[str] = "user"
-    __pk__: ClassVar[tuple[str, ...]] = ("user_id",)
-    __kind__: ClassVar[TableKind] = "snapshot"
-
-    user_id: Annotated[int, Field(db_type="INTEGER", description="User ID")]
-    user_name: Annotated[str | None, Field(db_type="VARCHAR", description="User name")] = None
-    user_email: Annotated[str | None, Field(db_type="VARCHAR", description="User email")] = None
-    account_id: Annotated[int | None, Field(db_type="INTEGER", description="Account ID")] = None
-    budget_name: Annotated[str | None, Field(db_type="VARCHAR", description="Budget name")] = None
-    api_key_label: Annotated[str | None, Field(db_type="VARCHAR", description="API key label")] = None
-
-
-@dataclass
-class Crypto:
-    """Lunch Money crypto holding."""
-
-    __table__: ClassVar[str] = "crypto"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "snapshot"
-
-    id: Annotated[int, Field(db_type="INTEGER", description="Crypto holding ID")]
-    name: Annotated[str | None, Field(db_type="VARCHAR", description="Asset name")] = None
-    display_name: Annotated[str | None, Field(db_type="VARCHAR", description="Display name")] = None
-    currency: Annotated[str | None, Field(db_type="VARCHAR", description="Crypto symbol/currency")] = None
-    balance: Annotated[float | None, Field(db_type="DOUBLE", description="Current balance")] = None
-    balance_as_of: Annotated[str | None, Field(db_type="TIMESTAMP", description="Balance asof timestamp")] = None
-    institution_name: Annotated[str | None, Field(db_type="VARCHAR", description="Institution name")] = None
-    source: Annotated[str | None, Field(db_type="VARCHAR", description="Source: manual or synced")] = None
-    status: Annotated[str | None, Field(db_type="VARCHAR", description="Status")] = None
-    zabo_account_id: Annotated[str | None, Field(db_type="VARCHAR", description="Zabo account ID")] = None
-    created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp")] = None
+        effective_start = resolve_start_date(start_date)[:10]
+        end_date = pendulum.now().to_date_string()
+        rows = _fetch_transactions(
+            client,
+            date_type.fromisoformat(effective_start),
+            date_type.fromisoformat(end_date),
+        )
+        for tx in rows:
+            for tag in getattr(tx, "tags", None) or []:
+                tag_id = getattr(tag, "id", None)
+                if tag_id is None:
+                    continue
+                yield {
+                    "transaction_id": int(tx.id),
+                    "tag_id": int(tag_id),
+                    "tag_name": getattr(tag, "name", None),
+                }
 
 
-@dataclass
-class Category:
-    """Lunch Money category."""
+# ---------------------------------------------------------------------------
+# Dimensions (loaded as SCD2)
+# ---------------------------------------------------------------------------
 
-    __table__: ClassVar[str] = "categories"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "dimension"
+
+class Categories(DimensionTable):
+    """A spending/income category. Joined by transactions on ``category_id``."""
+
+    name: ClassVar[str] = "categories"
+    display_name: ClassVar[str] = "Categories"
+    description: ClassVar[str | None] = "Spending and income categories the user has defined."
+    pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[int, Field(db_type="INTEGER", description="Category ID")]
-    name: Annotated[str, Field(db_type="VARCHAR", description="Category name")]
+    category_name: Annotated[str, Field(db_type="VARCHAR", description="Category name")]
     is_income: Annotated[bool, Field(db_type="BOOLEAN", description="Whether this is an income category")] = False
     exclude_from_budget: Annotated[bool, Field(db_type="BOOLEAN", description="Excluded from budget")] = False
     exclude_from_totals: Annotated[bool, Field(db_type="BOOLEAN", description="Excluded from totals")] = False
     archived: Annotated[bool, Field(db_type="BOOLEAN", description="Whether archived")] = False
 
+    @classmethod
+    def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:
+        for cat in client.get_categories():
+            row = cat.model_dump(mode="json")
+            # The lunchable model uses `name`; rename to `category_name` so it
+            # doesn't collide with the Table class attribute.
+            if "name" in row:
+                row["category_name"] = row.pop("name")
+            yield row
 
-@dataclass
-class Tag:
-    """Lunch Money tag."""
 
-    __table__: ClassVar[str] = "tags"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "dimension"
+class Tags(DimensionTable):
+    """A user-defined tag. Joined by transaction_tags on ``tag_id``."""
+
+    name: ClassVar[str] = "tags"
+    display_name: ClassVar[str] = "Tags"
+    description: ClassVar[str | None] = "User-defined transaction tags."
+    pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[int, Field(db_type="INTEGER", description="Tag ID")]
-    name: Annotated[str, Field(db_type="VARCHAR", description="Tag name")]
-    description: Annotated[str | None, Field(db_type="VARCHAR", description="Tag description")] = None
+    tag_name: Annotated[str, Field(db_type="VARCHAR", description="Tag name")]
     archived: Annotated[bool, Field(db_type="BOOLEAN", description="Whether archived")] = False
 
+    @classmethod
+    def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:
+        for tag in client.get_tags():
+            row = tag.model_dump(mode="json")
+            if "name" in row:
+                row["tag_name"] = row.pop("name")
+            yield row
 
-@dataclass
-class Budget:
-    """Lunch Money budget entry."""
 
-    __table__: ClassVar[str] = "budgets"
-    __pk__: ClassVar[tuple[str, ...]] = ("category_name",)
-    __kind__: ClassVar[TableKind] = "snapshot"
+class Assets(DimensionTable):
+    """A manually-tracked asset. Joined by transactions on ``asset_id``.
+
+    NOTE: ``balance`` and ``balance_as_of`` are intentionally not in this
+    schema -- balance changes daily and would mint a new SCD2 version every
+    sync. A separate counter table for asset balances will land in a follow-up.
+    """
+
+    name: ClassVar[str] = "assets"
+    display_name: ClassVar[str] = "Assets"
+    description: ClassVar[str | None] = "Manually-tracked assets (cash accounts, brokerage, etc.)."
+    pk: ClassVar[tuple[str, ...]] = ("id",)
+
+    id: Annotated[int, Field(db_type="INTEGER", description="Asset ID")]
+    asset_name: Annotated[str, Field(db_type="VARCHAR", description="Asset name")]
+    type_name: Annotated[str, Field(db_type="VARCHAR", description="Asset type")]
+    currency: Annotated[str, Field(db_type="VARCHAR", description="Currency code")] = ""
+    institution_name: Annotated[str | None, Field(db_type="VARCHAR", description="Institution name")] = None
+    created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp")] = None
+
+    @classmethod
+    def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:
+        for asset in client.get_assets():
+            row = asset.model_dump(mode="json")
+            if "name" in row:
+                row["asset_name"] = row.pop("name")
+            # Drop balance fields -- see class docstring.
+            row.pop("balance", None)
+            row.pop("balance_as_of", None)
+            yield row
+
+
+class PlaidAccounts(DimensionTable):
+    """A connected Plaid account. Joined by transactions on ``plaid_account_id``.
+
+    NOTE: ``balance`` is intentionally not in this schema -- it changes daily.
+    """
+
+    name: ClassVar[str] = "plaid_accounts"
+    display_name: ClassVar[str] = "Plaid Accounts"
+    description: ClassVar[str | None] = "Connected bank/credit card accounts via Plaid."
+    pk: ClassVar[tuple[str, ...]] = ("id",)
+
+    id: Annotated[int, Field(db_type="INTEGER", description="Plaid account ID")]
+    account_name: Annotated[str, Field(db_type="VARCHAR", description="Account name")]
+    type: Annotated[str, Field(db_type="VARCHAR", description="Account type")] = ""
+    subtype: Annotated[str, Field(db_type="VARCHAR", description="Account subtype")] = ""
+    institution_name: Annotated[str, Field(db_type="VARCHAR", description="Institution name")] = ""
+    status: Annotated[str, Field(db_type="VARCHAR", description="Account status")] = ""
+    currency: Annotated[str, Field(db_type="VARCHAR", description="Currency code")] = ""
+    date_linked: Annotated[str, Field(db_type="DATE", description="Date linked")] = ""
+
+    @classmethod
+    def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:
+        for acct in client.get_plaid_accounts():
+            row = acct.model_dump(mode="json")
+            if "name" in row:
+                row["account_name"] = row.pop("name")
+            row.pop("balance", None)
+            yield row
+
+
+# ---------------------------------------------------------------------------
+# Snapshots (loaded as SCD2)
+# ---------------------------------------------------------------------------
+
+
+class Budgets(SnapshotTable):
+    """Per-category budget configuration."""
+
+    name: ClassVar[str] = "budgets"
+    display_name: ClassVar[str] = "Budgets"
+    description: ClassVar[str | None] = "Per-category budget configuration."
+    pk: ClassVar[tuple[str, ...]] = ("category_name",)
 
     category_name: Annotated[str, Field(db_type="VARCHAR", description="Budget category name")]
     category_id: Annotated[int | None, Field(db_type="INTEGER", description="Category ID")] = None
@@ -141,14 +289,29 @@ class Budget:
     exclude_from_budget: Annotated[bool, Field(db_type="BOOLEAN", description="Excluded from budget")] = False
     exclude_from_totals: Annotated[bool, Field(db_type="BOOLEAN", description="Excluded from totals")] = False
 
+    @classmethod
+    def extract(
+        cls,
+        client: LunchMoney,
+        *,
+        start_date: str = "90 days ago",
+        **_: Any,
+    ) -> Iterator[dict[str, Any]]:
+        from shenas_sources.core.utils import resolve_start_date
 
-@dataclass
-class RecurringItem:
-    """Lunch Money recurring item."""
+        start = date_type.fromisoformat(resolve_start_date(start_date)[:10])
+        end = pendulum.now().date()
+        for budget in client.get_budgets(start_date=start, end_date=end):
+            yield budget.model_dump(mode="json")
 
-    __table__: ClassVar[str] = "recurring_items"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "snapshot"
+
+class RecurringItems(SnapshotTable):
+    """Recurring transaction templates."""
+
+    name: ClassVar[str] = "recurring_items"
+    display_name: ClassVar[str] = "Recurring Items"
+    description: ClassVar[str | None] = "Recurring transaction templates (subscriptions, bills, etc.)."
+    pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[int, Field(db_type="INTEGER", description="Recurring item ID")]
     payee: Annotated[str, Field(db_type="VARCHAR", description="Payee name")]
@@ -159,38 +322,80 @@ class RecurringItem:
     source: Annotated[str, Field(db_type="VARCHAR", description="Source")] = ""
     created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp")] = None
 
+    @classmethod
+    def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:
+        for item in client.get_recurring_items():
+            yield item.model_dump(mode="json")
 
-@dataclass
-class Asset:
-    """Lunch Money asset."""
 
-    __table__: ClassVar[str] = "assets"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "dimension"
+class User(SnapshotTable):
+    """The authenticated Lunch Money user / account info."""
 
-    id: Annotated[int, Field(db_type="INTEGER", description="Asset ID")]
-    name: Annotated[str, Field(db_type="VARCHAR", description="Asset name")]
-    type_name: Annotated[str, Field(db_type="VARCHAR", description="Asset type")]
-    balance: Annotated[float, Field(db_type="DOUBLE", description="Current balance")] = 0.0
-    currency: Annotated[str, Field(db_type="VARCHAR", description="Currency code")] = ""
+    name: ClassVar[str] = "user"
+    display_name: ClassVar[str] = "User"
+    description: ClassVar[str | None] = "Authenticated user / account info."
+    pk: ClassVar[tuple[str, ...]] = ("user_id",)
+
+    user_id: Annotated[int, Field(db_type="INTEGER", description="User ID")]
+    user_name: Annotated[str | None, Field(db_type="VARCHAR", description="User name")] = None
+    user_email: Annotated[str | None, Field(db_type="VARCHAR", description="User email")] = None
+    account_id: Annotated[int | None, Field(db_type="INTEGER", description="Account ID")] = None
+    budget_name: Annotated[str | None, Field(db_type="VARCHAR", description="Budget name")] = None
+    api_key_label: Annotated[str | None, Field(db_type="VARCHAR", description="API key label")] = None
+
+    @classmethod
+    def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:
+        yield client.get_user().model_dump(mode="json")
+
+
+class Crypto(SnapshotTable):
+    """Crypto holdings.
+
+    NOTE: ``balance`` and ``balance_as_of`` are intentionally not in this
+    schema -- balance changes minute-to-minute and would mint a new SCD2
+    version every sync. A separate counter table for crypto balances will
+    land in a follow-up.
+    """
+
+    name: ClassVar[str] = "crypto"
+    display_name: ClassVar[str] = "Crypto"
+    description: ClassVar[str | None] = "Crypto holdings (manual + connected exchange accounts)."
+    pk: ClassVar[tuple[str, ...]] = ("id",)
+
+    id: Annotated[int, Field(db_type="INTEGER", description="Crypto holding ID")]
+    crypto_name: Annotated[str | None, Field(db_type="VARCHAR", description="Asset name")] = None
+    currency: Annotated[str | None, Field(db_type="VARCHAR", description="Crypto symbol/currency")] = None
     institution_name: Annotated[str | None, Field(db_type="VARCHAR", description="Institution name")] = None
+    source: Annotated[str | None, Field(db_type="VARCHAR", description="Source: manual or synced")] = None
+    status: Annotated[str | None, Field(db_type="VARCHAR", description="Status")] = None
+    zabo_account_id: Annotated[str | None, Field(db_type="VARCHAR", description="Zabo account ID")] = None
     created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp")] = None
 
+    @classmethod
+    def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:
+        try:
+            holdings = client.get_crypto()
+        except Exception:
+            return
+        for c in holdings:
+            row = c.model_dump(mode="json")
+            if "name" in row:
+                row["crypto_name"] = row.pop("name")
+            row.pop("balance", None)
+            row.pop("balance_as_of", None)
+            yield row
 
-@dataclass
-class PlaidAccount:
-    """Lunch Money Plaid account."""
 
-    __table__: ClassVar[str] = "plaid_accounts"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "dimension"
-
-    id: Annotated[int, Field(db_type="INTEGER", description="Plaid account ID")]
-    name: Annotated[str, Field(db_type="VARCHAR", description="Account name")]
-    type: Annotated[str, Field(db_type="VARCHAR", description="Account type")]
-    subtype: Annotated[str, Field(db_type="VARCHAR", description="Account subtype")]
-    institution_name: Annotated[str, Field(db_type="VARCHAR", description="Institution name")]
-    status: Annotated[str, Field(db_type="VARCHAR", description="Account status")]
-    balance: Annotated[float | None, Field(db_type="DOUBLE", description="Current balance")] = None
-    currency: Annotated[str, Field(db_type="VARCHAR", description="Currency code")] = ""
-    date_linked: Annotated[str, Field(db_type="DATE", description="Date linked")] = ""
+# Tables this source exposes, in sync order.
+TABLES: tuple[type, ...] = (
+    Transactions,
+    TransactionTags,
+    Categories,
+    Tags,
+    Budgets,
+    RecurringItems,
+    Assets,
+    PlaidAccounts,
+    User,
+    Crypto,
+)

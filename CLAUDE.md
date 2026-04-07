@@ -76,15 +76,27 @@ Sources register `[project.entry-points."shenas.sources"]`, datasets register `s
 
 All plugins are uv workspace members. `uv sync` installs everything for development. For production, users install plugins separately via `shenasctl source add`.
 
-### Raw table semantics: `__kind__`
+### Raw table semantics: kind base classes
 
-Every raw source-table dataclass declares a `__kind__: ClassVar[TableKind]` (defined in `shenas_plugins.core.field`):
+Every raw source table is a subclass of one of six kind base classes in `shenas_sources.core.table`. The kind is encoded in the inheritance chain (no magic strings) and determines the dlt write_disposition automatically:
 
-- **`event`** — discrete, immutable occurrence with its own native timestamp (activity, transaction, email). PK is the natural id; dlt strategy is merge on id.
-- **`snapshot`** — current self-state with no temporal axis and nothing else joins to it (profile, current zones, current top tracks). dlt strategy is replace.
-- **`dimension`** — reference / lookup data that other tables join against (calendars, labels, categories, tags, assets, plaid accounts, color palette). Same write semantics as snapshot (replace) but flagged separately so dashboards know which tables are joinable lookups vs leaf state.
-- **`aggregate`** — per-window summary that can be re-emitted as new data arrives (daily HRV, daily sleep, daily XP). dlt strategy is merge on `(window_key, ...)`.
-- **`counter`** — monotonically growing scalar where deltas matter (gear distance). dlt strategy is merge on entity id.
+- **`EventTable`** — discrete, immutable occurrence at a single point in time. Declares `time_at` (the timestamp column); if omitted, an `observed_at` column is auto-injected from sync time. PK is the natural id. dlt strategy is merge on id.
+- **`IntervalTable`** — discrete occurrence with both a start and an end timestamp. Declares `time_start` and `time_end` (both required). PK is the natural id. dlt strategy is merge on id. Examples: a calendar event, a workout, a sleep session.
+- **`SnapshotTable`** — current self-state with no temporal axis. Loaded as **SCD2** (hash-then-version) so every observed change becomes a new row with disjoint `_dlt_valid_from` / `_dlt_valid_to` ranges. Nothing else joins to it. dlt strategy is `merge` with `strategy="scd2"`.
+- **`DimensionTable`** — reference / lookup data that other tables join against. Same SCD2 loader as snapshot but flagged separately so dashboards know which tables are joinable lookups. Historical joins return the value that was true at the time, not the current value. dlt strategy is `merge` with `strategy="scd2"`.
+- **`AggregateTable`** — per-window summary that can be re-emitted as new data arrives. PK includes the window key (date/hour) and that same key is `time_at`. dlt strategy is merge on (window_key, ...).
+- **`CounterTable`** — monotonically growing scalar where deltas matter. Loaded as append-with-`observed_at` so consumers can compute deltas across observations. Declares `counter_columns`. dlt strategy is `append`.
+
+Each `Table` subclass owns its schema fields, metadata (`name`, `display_name`, `description`, `pk`, kind-specific attrs), and the extraction logic in one place via a `extract(client, **context)` classmethod. The class becomes a dlt resource via `cls.to_resource(client, **context)`. A `Source` then just enumerates its `Table` subclasses:
+
+```python
+class LunchMoneySource(Source):
+    def resources(self, client):
+        from shenas_sources.lunchmoney.tables import TABLES
+        return [t.to_resource(client, start_date="90 days ago") for t in TABLES]
+```
+
+The legacy `tables.py` + `resources.py` split is being phased out — **lunchmoney** is the first source on the new pattern. Other sources (garmin, gcalendar, gmail, duolingo, spotify, strava, gtakeout, obsidian) still use the legacy `@dlt.resource(...)` decorator pattern and migrate in follow-up PRs.
 
 ### Data flow: raw -> canonical
 
@@ -121,7 +133,7 @@ All artifacts (sources, dashboards, datasets, frontends, themes) are Python whee
 - **Themes**: exclusive (only one enabled at a time), CSS custom properties pierce Shadow DOM
 - **Python namespaces**: `shenas_sources.*`, `shenas_datasets.*`, `shenas_dashboards.*` (not `pipes.*` — conflicts with stdlib)
 - **DuckDB schemas**: raw data in source-specific schemas (`garmin.*`, `lunchmoney.*`, `strava.*`, ...), canonical in `metrics.*`
-- **Raw table semantics**: every table dataclass declares a `__kind__` ClassVar (`event` | `snapshot` | `dimension` | `aggregate` | `counter`) — see "Raw table semantics" above
+- **Raw table semantics**: every raw source table inherits from one of `EventTable` | `IntervalTable` | `SnapshotTable` | `DimensionTable` | `AggregateTable` | `CounterTable` (in `shenas_sources.core.table`). The kind base class drives the dlt write_disposition automatically — see "Raw table semantics" above
 
 ## Modules
 

@@ -3,35 +3,51 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-TableKind = Literal["event", "snapshot", "aggregate", "counter", "dimension"]
+TableKind = Literal["event", "interval", "snapshot", "aggregate", "counter", "dimension"]
 """Semantic kind of a raw source table.
 
-- ``event``: discrete, immutable occurrence with its own native timestamp.
-  Examples: a workout, a transaction, an email, a kudo, a comment, a play,
-  a calendar event. PK is the natural id; dlt strategy is merge on id.
+The kind drives how the kind-aware loader (Table ABC in
+``shenas_sources.core.table``) writes the table into DuckDB so that every
+row in every raw table is time-series-queryable.
 
-- ``snapshot``: current self-state with no temporal axis -- read as of now
-  and overwritten on every sync. Examples: the authenticated user profile,
-  the current top-tracks ranking, current zones, the current playlist
-  list. Nothing else joins to it -- it's leaf state. dlt strategy is
-  replace.
+- ``event``: discrete, immutable occurrence at a single point in time.
+  Declares ``time_at`` (the timestamp column). PK is the natural id.
+  dlt strategy is merge on id. Examples: a transaction, an email, a
+  kudo, a comment, a play. Tables without a native timestamp get an
+  ``observed_at`` column auto-injected from the sync time.
+
+- ``interval``: discrete occurrence with both a start and an end
+  timestamp. Declares ``time_start`` and ``time_end``. PK is the natural
+  id. dlt strategy is merge on id. Examples: a calendar event, a workout
+  with start + duration, a sleep session, a location visit.
+
+- ``snapshot``: current self-state with no native temporal axis. Loaded
+  as SCD2 (hash-then-version) so every observed change becomes a new row
+  with disjoint ``_dlt_valid_from`` / ``_dlt_valid_to`` ranges. Nothing
+  else joins to it -- it's leaf state. Examples: the authenticated user
+  profile, current top-tracks ranking, athlete stats, vacation
+  responder. dlt strategy is merge with strategy=scd2.
 
 - ``dimension``: reference / lookup data that other tables join against.
-  Same write semantics as ``snapshot`` (replace each sync) but flagged
-  separately so dashboards know which tables are *joinable lookups* and
-  which are leaf state. Examples: gcalendar.calendars (events join on
+  Same SCD2 loader as snapshot but flagged separately so dashboards know
+  which tables are *joinable lookups*. Historical joins return the value
+  that was true at the time, not the current value -- yesterday's
+  rename of "Coffee" -> "Coffee & Tea" no longer rewrites every
+  historical transaction. Examples: gcalendar.calendars (events join on
   calendar_id), gmail.labels, lunchmoney.categories / tags / assets /
-  plaid_accounts (transactions join on these), gcalendar.colors.
+  plaid_accounts, gcalendar.colors.
 
-- ``aggregate``: per-window summary that can be re-emitted with updates as
-  more data arrives. PK includes the window key (date/hour). Examples:
-  daily HRV, daily sleep, daily vitals, daily journal entries. dlt
-  strategy is merge on (window_key, ...).
+- ``aggregate``: per-window summary that can be re-emitted with updates
+  as more data arrives. PK includes the window key (date/hour) and that
+  same key is the ``time_at``. dlt strategy is merge on
+  (window_key, ...). Examples: daily HRV, daily sleep, daily vitals,
+  daily journal entries.
 
-- ``counter``: monotonically increasing scalar where deltas matter. PK is
-  the entity id; the counter field grows over time. Example: a piece of
-  Strava gear with cumulative distance. dlt strategy is merge on id; the
-  consumer can compute deltas across syncs.
+- ``counter``: monotonically growing scalar where deltas matter. Loaded
+  as append-with-``observed_at`` so consumers can compute deltas across
+  observations rather than just reading the latest cumulative value.
+  Declares ``counter_columns`` to identify which columns are cumulative.
+  Example: a piece of Strava gear with cumulative distance.
 """
 
 
