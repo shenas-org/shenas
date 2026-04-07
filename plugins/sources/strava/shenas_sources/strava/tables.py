@@ -53,6 +53,7 @@ class Lap:
 
     __table__: ClassVar[str] = "laps"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    __kind__: ClassVar[TableKind] = "event"
 
     id: Annotated[int, Field(db_type="BIGINT", description="Lap ID")]
     activity_id: Annotated[int, Field(db_type="BIGINT", description="Parent activity ID")]
@@ -77,6 +78,7 @@ class Kudos:
 
     __table__: ClassVar[str] = "kudos"
     __pk__: ClassVar[tuple[str, ...]] = ("activity_id", "athlete_id")
+    __kind__: ClassVar[TableKind] = "event"
 
     activity_id: Annotated[int, Field(db_type="BIGINT", description="Activity ID")]
     athlete_id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID")]
@@ -90,6 +92,7 @@ class Comment:
 
     __table__: ClassVar[str] = "comments"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    __kind__: ClassVar[TableKind] = "event"
 
     id: Annotated[int, Field(db_type="BIGINT", description="Comment ID")]
     activity_id: Annotated[int, Field(db_type="BIGINT", description="Activity ID")]
@@ -124,6 +127,7 @@ class AthleteStats:
 
     __table__: ClassVar[str] = "athlete_stats"
     __pk__: ClassVar[tuple[str, ...]] = ("athlete_id",)
+    __kind__: ClassVar[TableKind] = "snapshot"
 
     athlete_id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID")]
     biggest_ride_distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Biggest ride distance")] = None
@@ -166,6 +170,7 @@ class AthleteZones:
 
     __table__: ClassVar[str] = "athlete_zones"
     __pk__: ClassVar[tuple[str, ...]] = ("athlete_id",)
+    __kind__: ClassVar[TableKind] = "snapshot"
 
     athlete_id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID")]
     heart_rate_zones: Annotated[str | None, Field(db_type="TEXT", description="HR zones JSON")] = None
@@ -178,6 +183,7 @@ class Gear:
 
     __table__: ClassVar[str] = "gear"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    __kind__: ClassVar[TableKind] = "counter"
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Gear ID (e.g. 'b12345' or 'g6789')")]
     type: Annotated[str, Field(db_type="VARCHAR", description="'bike' or 'shoe'")]
