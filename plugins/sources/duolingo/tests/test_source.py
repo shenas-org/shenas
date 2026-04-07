@@ -3,13 +3,13 @@ from __future__ import annotations
 from datetime import date
 from unittest.mock import MagicMock
 
-from shenas_sources.duolingo.resources import (
-    achievements,
-    courses,
-    daily_xp,
-    friends,
-    league,
-    user_profile,
+from shenas_sources.duolingo.tables import (
+    Achievements,
+    Courses,
+    DailyXp,
+    Friends,
+    League,
+    UserProfile,
 )
 
 
@@ -21,7 +21,7 @@ class TestDailyXp:
             {"date": 1774742400, "gainedXp": 80, "numSessions": 2, "totalSessionTime": 600},
         ]
 
-        results = list(daily_xp(client, "2026-03-25"))
+        results = list(DailyXp.extract(client, start_date="2026-03-25"))
         assert len(results) == 2
         assert results[0]["date"] == date(2026, 3, 28)
         assert results[0]["xp_gained"] == 150
@@ -33,7 +33,7 @@ class TestDailyXp:
             {"date": 1774656000, "gainedXp": None, "numSessions": None, "totalSessionTime": None},
         ]
 
-        results = list(daily_xp(client, "2026-03-25"))
+        results = list(DailyXp.extract(client, start_date="2026-03-25"))
         assert len(results) == 1
         assert results[0]["xp_gained"] == 0
         assert results[0]["num_sessions"] == 0
@@ -45,7 +45,7 @@ class TestDailyXp:
             {"date": 1774656000, "gainedXp": 80},
         ]
 
-        results = list(daily_xp(client, "2026-03-25"))
+        results = list(DailyXp.extract(client, start_date="2026-03-25"))
         assert len(results) == 1
 
 
@@ -56,7 +56,7 @@ class TestCourses:
             {"language": "German", "language_code": "de", "from_language": "en", "xp": 5000, "crowns": 50, "level": 12},
         ]
 
-        results = list(courses(client))
+        results = list(Courses.extract(client))
         assert len(results) == 1
         assert results[0]["language"] == "German"
 
@@ -83,10 +83,11 @@ class TestUserProfile:
         client.get_following.return_value = [{"userId": 1}, {"userId": 2}]
         client.get_followers.return_value = [{"userId": 3}]
 
-        results = list(user_profile(client))
+        results = list(UserProfile.extract(client))
         assert len(results) == 1
         row = results[0]
         assert row["username"] == "testuser"
+        assert row["display_name_"] == "Test"
         assert row["streak"] == 42
         assert row["longest_streak"] == 120
         assert row["streak_start"] == "2026-02-15"
@@ -105,9 +106,9 @@ class TestAchievements:
             {"name": "SAGE", "tier": 1, "title": "Sage", "count": 5},
         ]
 
-        rows = list(achievements(client))
+        rows = list(Achievements.extract(client))
         assert len(rows) == 2
-        assert rows[0]["name"] == "WILDFIRE"
+        assert rows[0]["achievement_name"] == "WILDFIRE"
         assert rows[0]["tier"] == 3
         assert rows[0]["count"] == 100
         assert rows[0]["unlocked_at"] is not None
@@ -131,7 +132,7 @@ class TestLeague:
             }
         }
 
-        rows = list(league(client))
+        rows = list(League.extract(client))
         assert len(rows) == 1
         row = rows[0]
         assert row["cohort_id"] == "abc-123"
@@ -145,7 +146,7 @@ class TestLeague:
         client = MagicMock()
         client.user_id = 999
         client.get_league.return_value = None
-        assert list(league(client)) == []
+        assert list(League.extract(client)) == []
 
 
 class TestFriends:
@@ -156,13 +157,27 @@ class TestFriends:
             {"userId": 2, "username": "bob", "displayName": "Bob", "totalXp": 800, "streak": 10},
         ]
         client.get_followers.return_value = [
-            {"userId": 1, "username": "alice"},  # mutual
+            {"userId": 1, "username": "alice"},
         ]
 
-        rows = list(friends(client))
+        rows = list(Friends.extract(client))
         assert len(rows) == 2
         alice = next(r for r in rows if r["user_id"] == 1)
         bob = next(r for r in rows if r["user_id"] == 2)
         assert alice["is_follower"] is True
         assert bob["is_follower"] is False
-        assert alice["display_name"] == "Alice"
+        assert alice["display_name_"] == "Alice"
+
+
+class TestKindsAndDispositions:
+    def test_daily_xp_is_aggregate(self) -> None:
+        assert DailyXp.kind == "aggregate"
+        assert DailyXp.time_at == "date"
+
+    def test_achievements_is_event(self) -> None:
+        assert Achievements.kind == "event"
+        assert Achievements.time_at == "unlocked_at"
+
+    def test_friends_is_snapshot_scd2(self) -> None:
+        assert Friends.kind == "snapshot"
+        assert Friends.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
