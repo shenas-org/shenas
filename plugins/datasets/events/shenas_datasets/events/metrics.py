@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
+from shenas_datasets.core import MetricTable
 from shenas_plugins.core.field import Field
 
 # Shared type aliases
@@ -12,8 +12,7 @@ Timestamp = Annotated[str, Field(db_type="TIMESTAMP", description="Event start t
 Source = Annotated[str, Field(db_type="VARCHAR", description="Source plugin (e.g. gcalendar, spotify, garmin)")]
 
 
-@dataclass
-class Event:
+class Event(MetricTable):
     """A single event in the unified timeline.
 
     Events come from different sources: calendar appointments, music plays,
@@ -21,8 +20,10 @@ class Event:
     fields capture duration, location, category, and source-specific metadata.
     """
 
-    __table__: ClassVar[str] = "events"
-    __pk__: ClassVar[tuple[str, ...]] = ("source", "source_id")
+    table_name: ClassVar[str] = "events"
+    table_display_name: ClassVar[str] = "Events"
+    table_description: ClassVar[str | None] = "Unified timeline of events from all sources."
+    table_pk: ClassVar[tuple[str, ...]] = ("source", "source_id")
 
     source: Source
     source_id: Annotated[
@@ -34,7 +35,7 @@ class Event:
     )
     duration_min: Annotated[float | None, Field(db_type="DOUBLE", description="Duration in minutes", unit="min")] = None
     title: Annotated[str | None, Field(db_type="VARCHAR", description="Event title or name")] = None
-    description: Annotated[str | None, Field(db_type="TEXT", description="Event description or details")] = None
+    event_description: Annotated[str | None, Field(db_type="TEXT", description="Event description or details")] = None
     location: Annotated[str | None, Field(db_type="VARCHAR", description="Location name or address")] = None
     category: Annotated[
         str | None, Field(db_type="VARCHAR", description="Event category (e.g. meeting, workout, music, meal)")

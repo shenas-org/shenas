@@ -9,13 +9,13 @@ canonical schemas and require full SQL expressiveness.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
 import duckdb
 
 from app.db import cursor
 from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Table
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -47,10 +47,13 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
 class Transform:
     """Represents a SQL transform stored in shenas_system.transforms."""
 
-    @dataclass
-    class _Row:
-        __table__: ClassVar[str] = "transforms"
-        __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    class _Table(Table):
+        table_name: ClassVar[str] = "transforms"
+        table_display_name: ClassVar[str] = "Transforms"
+        table_description: ClassVar[str | None] = (
+            "User-supplied SQL transforms bridging source data to canonical metric tables."
+        )
+        table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
         id: Annotated[
             int,

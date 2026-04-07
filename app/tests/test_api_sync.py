@@ -18,7 +18,7 @@ class _FakeSource(Source):
     display_name = "Fake"
 
     def __init__(self, sync_fn=None, *, pipe_name: str = "fake") -> None:
-        # Skip real __init__ (DataclassStore) to avoid DB dependency
+        # Skip real __init__ (TableStore) to avoid DB dependency
         self._sync_fn = sync_fn
         self.name = pipe_name
 

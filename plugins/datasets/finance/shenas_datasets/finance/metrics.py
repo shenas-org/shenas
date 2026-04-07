@@ -1,18 +1,19 @@
-from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
+from shenas_datasets.core import MetricTable
 from shenas_plugins.core.field import Field
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", category="time")]
 Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier (e.g. lunchmoney)")]
 
 
-@dataclass
-class Transaction:
-    """Individual financial transaction — one row per (id, source)."""
+class Transaction(MetricTable):
+    """Individual financial transaction -- one row per (id, source)."""
 
-    __table__: ClassVar[str] = "transactions"
-    __pk__: ClassVar[tuple[str, ...]] = ("id", "source")
+    table_name: ClassVar[str] = "transactions"
+    table_display_name: ClassVar[str] = "Transactions"
+    table_description: ClassVar[str | None] = "Per-transaction financial events from spending sources."
+    table_pk: ClassVar[tuple[str, ...]] = ("id", "source")
 
     id: Annotated[
         str,
@@ -128,12 +129,13 @@ class Transaction:
     ) = None
 
 
-@dataclass
-class DailySpending:
-    """Aggregated daily spending — one row per (date, source)."""
+class DailySpending(MetricTable):
+    """Aggregated daily spending -- one row per (date, source)."""
 
-    __table__: ClassVar[str] = "daily_spending"
-    __pk__: ClassVar[tuple[str, ...]] = ("date", "source")
+    table_name: ClassVar[str] = "daily_spending"
+    table_display_name: ClassVar[str] = "Daily Spending"
+    table_description: ClassVar[str | None] = "Per-day rollup of transaction outflows / inflows."
+    table_pk: ClassVar[tuple[str, ...]] = ("date", "source")
 
     date: Date
     source: Source
@@ -180,12 +182,13 @@ class DailySpending:
     ) = None
 
 
-@dataclass
-class MonthlyCategory:
-    """Monthly spending by category — one row per (month, category, source)."""
+class MonthlyCategory(MetricTable):
+    """Monthly spending by category -- one row per (month, category, source)."""
 
-    __table__: ClassVar[str] = "monthly_category"
-    __pk__: ClassVar[tuple[str, ...]] = ("month", "category", "source")
+    table_name: ClassVar[str] = "monthly_category"
+    table_display_name: ClassVar[str] = "Monthly Spending by Category"
+    table_description: ClassVar[str | None] = "Per-month spend totals broken down by category."
+    table_pk: ClassVar[tuple[str, ...]] = ("month", "category", "source")
 
     month: Annotated[
         str,
@@ -246,12 +249,13 @@ class MonthlyCategory:
     ) = None
 
 
-@dataclass
-class MonthlyOverview:
-    """Monthly financial summary — one row per (month, source)."""
+class MonthlyOverview(MetricTable):
+    """Monthly financial summary -- one row per (month, source)."""
 
-    __table__: ClassVar[str] = "monthly_overview"
-    __pk__: ClassVar[tuple[str, ...]] = ("month", "source")
+    table_name: ClassVar[str] = "monthly_overview"
+    table_display_name: ClassVar[str] = "Monthly Overview"
+    table_description: ClassVar[str | None] = "Per-month income, spending, net, and savings rate summary."
+    table_pk: ClassVar[tuple[str, ...]] = ("month", "source")
 
     month: Annotated[
         str,

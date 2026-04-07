@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, ClassVar
 
 from app.db import cursor
 from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Table
 
 if TYPE_CHECKING:
     import duckdb
@@ -15,10 +15,11 @@ if TYPE_CHECKING:
 class Hotkey:
     """A single keyboard shortcut binding."""
 
-    @dataclass
-    class _Row:
-        __table__: ClassVar[str] = "hotkeys"
-        __pk__: ClassVar[tuple[str, ...]] = ("action_id",)
+    class _Table(Table):
+        table_name: ClassVar[str] = "hotkeys"
+        table_display_name: ClassVar[str] = "Hotkeys"
+        table_description: ClassVar[str | None] = "Per-action keyboard shortcut bindings."
+        table_pk: ClassVar[tuple[str, ...]] = ("action_id",)
 
         action_id: Annotated[str, Field(db_type="VARCHAR", description="Action identifier")] = ""
         binding: Annotated[str, Field(db_type="VARCHAR", description="Key binding", db_default="''")] = ""

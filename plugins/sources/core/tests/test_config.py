@@ -7,9 +7,9 @@ import duckdb
 import pytest
 
 from shenas_plugins.core.field import Field
-from shenas_plugins.core.store import DataclassStore
+from shenas_plugins.core.store import TableStore
 
-_config = DataclassStore("config")
+_config = TableStore("config")
 
 
 def get_config(cls):
@@ -34,8 +34,8 @@ def config_metadata(cls):
 
 @dataclass
 class SampleConfig:
-    __table__: ClassVar[str] = "test_pkg"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "test_pkg"
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[int, Field(db_type="INTEGER", description="Row ID")] = 1
     api_key: (
