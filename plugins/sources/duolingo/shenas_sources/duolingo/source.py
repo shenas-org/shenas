@@ -59,20 +59,6 @@ class DuolingoSource(Source):
         self._auth_store.set(self.Auth, jwt_token=jwt)
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.duolingo.resources import (
-            achievements,
-            courses,
-            daily_xp,
-            friends,
-            league,
-            user_profile,
-        )
+        from shenas_sources.duolingo.tables import TABLES, DailyXp
 
-        return [
-            daily_xp(client, "30 days ago"),
-            courses(client),
-            user_profile(client),
-            achievements(client),
-            league(client),
-            friends(client),
-        ]
+        return [t.to_resource(client, start_date="30 days ago") if t is DailyXp else t.to_resource(client) for t in TABLES]
