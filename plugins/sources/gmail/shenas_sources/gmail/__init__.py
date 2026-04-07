@@ -1,3 +1,3 @@
-from shenas_sources.gmail.resources import messages
+from shenas_sources.gmail.tables import Messages
 
-__all__ = ["messages"]
+__all__ = ["Messages"]

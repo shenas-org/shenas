@@ -63,7 +63,7 @@ class GmailSource(Source):
 
         from shenas_sources.core.cli import print_load_info
         from shenas_sources.core.db import DB_PATH, dlt_destination, flush_to_encrypted
-        from shenas_sources.gmail.resources import labels, message_pages
+        from shenas_sources.gmail.tables import Labels, message_pages
 
         tracer = trace.get_tracer("shenas.sources")
         service = self.build_client()
@@ -99,7 +99,7 @@ class GmailSource(Source):
             with tracer.start_as_current_span("pipe.fetch", attributes={"resource": "labels"}):
                 dest, mem_con = dlt_destination()
                 pipeline = dlt.pipeline(pipeline_name="gmail", destination=dest, dataset_name="gmail")
-                load_info = pipeline.run(labels(service))
+                load_info = pipeline.run(Labels.to_resource(service))
                 print_load_info(load_info)
 
             with tracer.start_as_current_span("pipe.flush", attributes={"resource": "labels"}):
@@ -108,13 +108,6 @@ class GmailSource(Source):
             logger.info("Sync complete: gmail (%d messages in %d pages)", total_msgs, page_num)
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.gmail.resources import filters, labels, messages, profile, send_as, vacation
+        from shenas_sources.gmail.tables import TABLES
 
-        return [
-            messages(client),
-            labels(client),
-            profile(client),
-            filters(client),
-            vacation(client),
-            send_as(client),
-        ]
+        return [t.to_resource(client) for t in TABLES]
