@@ -2,19 +2,19 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from shenas_sources.spotify.resources import (
-    audio_features,
-    followed_artists,
-    playlists,
-    recently_played,
+from shenas_sources.spotify.tables import (
+    AudioFeatures,
+    FollowedArtists,
+    Playlists,
+    RecentlyPlayed,
+    SavedAlbums,
+    SavedEpisodes,
+    SavedShows,
+    SavedTracks,
+    TopArtists,
+    TopTracks,
+    UserProfile,
     reset_track_id_cache,
-    saved_albums,
-    saved_episodes,
-    saved_shows,
-    saved_tracks,
-    top_artists,
-    top_tracks,
-    user_profile,
 )
 
 
@@ -40,7 +40,7 @@ class TestRecentlyPlayed:
             ],
         }
 
-        results = list(recently_played(client))
+        results = list(RecentlyPlayed.extract(client))
         assert len(results) == 1
         assert results[0]["track_name"] == "Test Song"
         assert results[0]["artists"] == "Artist A, Artist B"
@@ -50,8 +50,7 @@ class TestRecentlyPlayed:
         client = MagicMock()
         client.current_user_recently_played.return_value = {"items": []}
 
-        results = list(recently_played(client))
-        assert len(results) == 0
+        assert list(RecentlyPlayed.extract(client)) == []
 
 
 class TestTopTracks:
@@ -71,8 +70,7 @@ class TestTopTracks:
             ],
         }
 
-        results = list(top_tracks(client))
-        # 1 row per time range x 3 time ranges
+        results = list(TopTracks.extract(client))
         assert len(results) == 3
         ranges = {r["time_range"] for r in results}
         assert ranges == {"short_term", "medium_term", "long_term"}
@@ -94,7 +92,7 @@ class TestTopArtists:
             ],
         }
 
-        results = list(top_artists(client))
+        results = list(TopArtists.extract(client))
         assert len(results) == 3
         assert all(r["artist_name"] == "Fav Artist" for r in results)
         ranges = {r["time_range"] for r in results}
@@ -121,7 +119,7 @@ class TestSavedTracks:
             ],
         }
 
-        results = list(saved_tracks(client))
+        results = list(SavedTracks.extract(client))
         assert len(results) == 1
         assert results[0]["track_name"] == "Saved Song"
         assert results[0]["added_at"] == "2025-06-15T10:00:00Z"
@@ -131,7 +129,6 @@ class TestAudioFeatures:
     def test_drains_collected_track_ids(self) -> None:
         reset_track_id_cache()
         client = MagicMock()
-        # Populate cache by running recently_played first
         client.current_user_recently_played.return_value = {
             "items": [
                 {
@@ -140,7 +137,7 @@ class TestAudioFeatures:
                 }
             ]
         }
-        list(recently_played(client))
+        list(RecentlyPlayed.extract(client))
 
         client.audio_features.return_value = [
             {
@@ -161,7 +158,7 @@ class TestAudioFeatures:
             }
         ]
 
-        rows = list(audio_features(client))
+        rows = list(AudioFeatures.extract(client))
         assert len(rows) == 1
         assert rows[0]["track_id"] == "t1"
         assert rows[0]["valence"] == 0.6
@@ -173,9 +170,9 @@ class TestAudioFeatures:
         client.current_user_recently_played.return_value = {
             "items": [{"played_at": "2026-03-29T14:30:00.000Z", "track": {"id": "x", "name": "x", "artists": [], "album": {}}}]
         }
-        list(recently_played(client))
+        list(RecentlyPlayed.extract(client))
         client.audio_features.return_value = [None]
-        assert list(audio_features(client)) == []
+        assert list(AudioFeatures.extract(client)) == []
 
 
 class TestUserProfile:
@@ -190,10 +187,11 @@ class TestUserProfile:
             "followers": {"total": 12},
             "images": [{"url": "https://example.com/me.jpg"}],
         }
-        rows = list(user_profile(client))
+        rows = list(UserProfile.extract(client))
         assert len(rows) == 1
         assert rows[0]["product"] == "premium"
         assert rows[0]["image_url"] == "https://example.com/me.jpg"
+        assert rows[0]["display_name_"] == "Me"
 
 
 class TestFollowedArtists:
@@ -208,7 +206,7 @@ class TestFollowedArtists:
             },
             {"artists": {"items": [], "cursors": {}}},
         ]
-        rows = list(followed_artists(client))
+        rows = list(FollowedArtists.extract(client))
         assert len(rows) == 1
         assert rows[0]["artist_id"] == "a1"
 
@@ -232,7 +230,7 @@ class TestSavedAlbums:
                 }
             ]
         }
-        rows = list(saved_albums(client))
+        rows = list(SavedAlbums.extract(client))
         assert len(rows) == 1
         assert rows[0]["album_id"] == "alb1"
         assert rows[0]["artists"] == "Some Artist"
@@ -256,10 +254,11 @@ class TestPlaylists:
                 }
             ]
         }
-        rows = list(playlists(client))
+        rows = list(Playlists.extract(client))
         assert len(rows) == 1
         assert rows[0]["track_count"] == 42
         assert rows[0]["image_url"] == "https://example.com/cover.jpg"
+        assert rows[0]["playlist_name"] == "Vibes"
 
 
 class TestSavedShowsAndEpisodes:
@@ -280,9 +279,9 @@ class TestSavedShowsAndEpisodes:
                 }
             ]
         }
-        rows = list(saved_shows(client))
+        rows = list(SavedShows.extract(client))
         assert len(rows) == 1
-        assert rows[0]["name"] == "A Show"
+        assert rows[0]["show_name"] == "A Show"
 
     def test_saved_episodes(self) -> None:
         client = MagicMock()
@@ -302,11 +301,25 @@ class TestSavedShowsAndEpisodes:
                 }
             ]
         }
-        rows = list(saved_episodes(client))
+        rows = list(SavedEpisodes.extract(client))
         assert len(rows) == 1
         assert rows[0]["show_name"] == "A Show"
+        assert rows[0]["episode_name"] == "Episode One"
 
     def test_saved_shows_handles_failure(self) -> None:
         client = MagicMock()
         client.current_user_saved_shows.side_effect = RuntimeError("podcasts disabled")
-        assert list(saved_shows(client)) == []
+        assert list(SavedShows.extract(client)) == []
+
+
+class TestKindsAndDispositions:
+    def test_recently_played_is_event(self) -> None:
+        assert RecentlyPlayed.kind == "event"
+        assert RecentlyPlayed.time_at == "played_at"
+
+    def test_saved_tracks_is_snapshot_scd2(self) -> None:
+        assert SavedTracks.kind == "snapshot"
+        assert SavedTracks.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
+
+    def test_followed_artists_is_snapshot_scd2(self) -> None:
+        assert FollowedArtists.write_disposition() == {"disposition": "merge", "strategy": "scd2"}

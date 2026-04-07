@@ -218,37 +218,7 @@ class SpotifySource(Source):
         raise ValueError(f"OAUTH_URL:{auth_url}")
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.spotify.resources import (
-            audio_features,
-            followed_artists,
-            playlists,
-            recently_played,
-            reset_track_id_cache,
-            saved_albums,
-            saved_episodes,
-            saved_shows,
-            saved_tracks,
-            top_artists,
-            top_tracks,
-            user_profile,
-        )
+        from shenas_sources.spotify.tables import TABLES, reset_track_id_cache
 
-        # Wipe the per-sync track-id cache so audio_features only sees ids from
-        # this run.
         reset_track_id_cache()
-
-        # Order matters: track-yielding resources run BEFORE audio_features so
-        # the cache is populated by the time audio_features is iterated.
-        return [
-            recently_played(client),
-            top_tracks(client),
-            top_artists(client),
-            saved_tracks(client),
-            audio_features(client),
-            user_profile(client),
-            followed_artists(client),
-            saved_albums(client),
-            playlists(client),
-            saved_shows(client),
-            saved_episodes(client),
-        ]
+        return [t.to_resource(client) for t in TABLES]
