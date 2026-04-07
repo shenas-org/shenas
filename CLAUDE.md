@@ -97,7 +97,7 @@ class LunchMoneySource(Source):
         return [t.to_resource(client, start_date="90 days ago") for t in TABLES]
 ```
 
-The legacy `tables.py` + `resources.py` split is being phased out — **lunchmoney** is the first source on the new pattern. Other sources (garmin, gcalendar, gmail, duolingo, spotify, strava, gtakeout, obsidian) still use the legacy `@dlt.resource(...)` decorator pattern and migrate in follow-up PRs.
+The legacy `tables.py` + `resources.py` split is being phased out. Sources already on the new Table ABC pattern: **lunchmoney**, **strava**. Sources still on the legacy decorator pattern (migrate in follow-ups): garmin, gcalendar, gmail, duolingo, spotify, gtakeout, obsidian.
 
 ### Data flow: raw -> canonical
 

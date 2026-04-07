@@ -185,29 +185,12 @@ class StravaSource(Source):
         raise ValueError(msg)
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.strava.resources import (
-            activities,
-            athlete,
-            athlete_stats,
-            athlete_zones,
-            comments,
-            fetch_detailed_activities,
-            gear,
-            kudos,
-            laps,
-        )
+        from shenas_sources.strava.tables import TABLES, fetch_detailed_activities
 
-        # Fetch detailed activities once and share across activities/laps/kudos/comments
-        # so we don't call get_activity() / get_activity_kudos() / etc. more than necessary.
+        # Fetch detailed activities once and share via the `detailed` context
+        # kwarg with Activities / Laps / Kudos / Comments so we don't call
+        # get_activity() / get_activity_kudos() / etc. more than necessary.
+        # Tables that don't need it (Athlete, AthleteStats, AthleteZones, Gear)
+        # just ignore the extra kwarg.
         detailed = fetch_detailed_activities(client)
-
-        return [
-            activities(detailed),
-            laps(detailed),
-            kudos(client, detailed),
-            comments(client, detailed),
-            athlete(client),
-            athlete_stats(client),
-            athlete_zones(client),
-            gear(client),
-        ]
+        return [t.to_resource(client, detailed=detailed) for t in TABLES]
