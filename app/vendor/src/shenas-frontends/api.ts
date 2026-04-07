@@ -156,3 +156,21 @@ export function registerCommands(element: HTMLElement, componentId: string, comm
     }),
   );
 }
+
+/**
+ * Open an external URL. In Tauri (desktop) this delegates to the OS browser
+ * via the shell plugin's `open` command. In a regular web browser it opens
+ * a new tab. In both cases the current app/window stays put.
+ */
+export function openExternal(url: string): void {
+  const tauri = (
+    window as unknown as {
+      __TAURI_INTERNALS__?: { invoke: (cmd: string, args: unknown) => Promise<unknown> };
+    }
+  ).__TAURI_INTERNALS__;
+  if (tauri && typeof tauri.invoke === "function") {
+    tauri.invoke("plugin:shell|open", { path: url }).catch(() => window.open(url, "_blank", "noopener"));
+  } else {
+    window.open(url, "_blank", "noopener");
+  }
+}

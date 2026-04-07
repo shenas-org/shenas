@@ -12,6 +12,7 @@ export {
   arrowQuery,
   gql,
   gqlFull,
+  openExternal,
   registerCommands,
   renderMessage,
 } from "./shenas-frontends/api.ts";
