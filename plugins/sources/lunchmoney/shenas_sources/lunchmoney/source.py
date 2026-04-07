@@ -47,28 +47,11 @@ class LunchMoneySource(Source):
         self._auth_store.set(self.Auth, api_key=api_key)
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.lunchmoney.resources import (
-            assets,
-            budgets,
-            categories,
-            crypto,
-            plaid_accounts,
-            recurring_items,
-            tags,
-            transaction_tags,
-            transactions,
-            user,
-        )
+        from shenas_sources.lunchmoney.tables import TABLES
 
-        return [
-            transactions(client, "90 days ago"),
-            transaction_tags(client, "90 days ago"),
-            categories(client),
-            tags(client),
-            budgets(client, "90 days ago"),
-            recurring_items(client),
-            assets(client),
-            plaid_accounts(client),
-            user(client),
-            crypto(client),
-        ]
+        # Each Table subclass owns its schema, kind, and extract logic.
+        # The kind base class drives the dlt write_disposition (events ->
+        # merge, dimensions/snapshots -> SCD2, etc.) automatically. The
+        # `start_date` context kwarg is forwarded to extract() where it's
+        # consumed by the cursor-based / windowed tables that need it.
+        return [t.to_resource(client, start_date="90 days ago") for t in TABLES]
