@@ -76,9 +76,8 @@ class Source(Plugin):
         """
         if self.Auth is SourceAuth:
             return []
-        from shenas_plugins.core.introspect import table_metadata
 
-        meta = table_metadata(self.Auth)
+        meta = self.Auth.table_metadata()
         fields: list[dict[str, str | bool]] = []
         for col in meta["columns"]:
             if col["name"] == "id":
@@ -158,10 +157,9 @@ class Source(Plugin):
         """Return config entries for UI display (key, label, value, description)."""
         if not self.has_config:
             return []
-        from shenas_plugins.core.introspect import table_metadata
 
         row = self._config_store.get(self.Config)
-        meta = table_metadata(self.Config)
+        meta = self.Config.table_metadata()
         entries = []
         for col in meta["columns"]:
             if col["name"] == "id":
@@ -184,9 +182,7 @@ class Source(Plugin):
         if not self.has_config:
             return
         if value is not None:
-            from shenas_plugins.core.introspect import table_metadata
-
-            meta = table_metadata(self.Config)
+            meta = self.Config.table_metadata()
             for col in meta["columns"]:
                 if col["name"] == key:
                     db_type = col.get("db_type", "").upper()
@@ -392,10 +388,8 @@ class Source(Plugin):
         if not self.has_auth:
             return []
         try:
-            from shenas_plugins.core.introspect import table_metadata
-
             row = self._auth_store.get(self.Auth)
-            meta = table_metadata(self.Auth)
+            meta = self.Auth.table_metadata()
             return [
                 col["name"].replace("_", " ").title()
                 for col in meta["columns"]

@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from dataclasses import dataclass
 from typing import Annotated, ClassVar
 from unittest.mock import patch
 
@@ -8,6 +7,7 @@ import pytest
 
 from shenas_plugins.core.field import Field
 from shenas_plugins.core.store import TableStore
+from shenas_plugins.core.table import Table
 
 _config = TableStore("config")
 
@@ -29,11 +29,11 @@ def delete_config(cls):
 
 
 def config_metadata(cls):
-    return _config.metadata(cls)
+    return cls.table_metadata()
 
 
-@dataclass
-class SampleConfig:
+class SampleConfig(Table):
+    table_display_name: ClassVar[str] = "Sample Config"
     table_name: ClassVar[str] = "test_pkg"
     table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
