@@ -47,10 +47,10 @@ class TestRunSyncStreamProgress:
         source = _FakeSource(_sync_impl)
         events = list(source.run_sync_stream())
 
-        assert events[0] == ("progress", "starting sync")
+        # No "starting sync" preamble -- the first per-resource progress is the
+        # first thing yielded; the spinner already shows the job is running.
         assert events[-1] == ("complete", "Sync complete: fake")
-        # All per-resource progress events should be in between, in order.
-        progress_messages = [m for e, m in events[1:-1]]
+        progress_messages = [m for e, m in events[:-1]]
         assert "Fetching (1/2): r1" in progress_messages
         assert "Fetching (2/2): r2" in progress_messages
         assert progress_messages.index("Fetching (1/2): r1") < progress_messages.index("Fetching (2/2): r2")
@@ -76,8 +76,8 @@ class TestRunSyncStreamProgress:
 
         source = _FakeSource(_sync_impl)
         events = list(source.run_sync_stream())
-        assert events[0] == ("progress", "starting sync")
-        assert events[-1] == ("complete", "Sync complete: fake")
+        # The single yielded event is the "complete" -- no preamble.
+        assert events == [("complete", "Sync complete: fake")]
 
     def test_unauthenticated_short_circuits(self) -> None:
         def _sync_impl(_on_progress: Any) -> None:
@@ -91,9 +91,10 @@ class TestRunSyncStreamProgress:
 
         source = _UnauthSource(_sync_impl)
         events = list(source.run_sync_stream())
-        assert events[0] == ("progress", "starting sync")
-        assert events[1][0] == "error"
-        assert "Not authenticated" in events[1][1]
+        # The auth check short-circuits before any work, so we just see one
+        # error event with no preamble.
+        assert events[0][0] == "error"
+        assert "Not authenticated" in events[0][1]
 
     def test_complete_message_uses_display_name(self) -> None:
         class _NamedSource(_FakeSource):
