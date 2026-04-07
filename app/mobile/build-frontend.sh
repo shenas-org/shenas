@@ -13,10 +13,8 @@ set -e
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DIST="$ROOT/app/mobile/mobile-dist"
 
-echo "Building UI for mobile..."
+echo "Building frontend for mobile..."
 
-# Clean
-rm -rf "$DIST"
 mkdir -p "$DIST/vendor" "$DIST/frontend/default" "$DIST/static"
 
 # Build vendor libs
@@ -43,5 +41,4 @@ echo "  Copying static assets..."
 cp -r "$ROOT/app/static/images" "$DIST/static/" 2>/dev/null || true
 cp "$ROOT/app/static/"*.json "$DIST/static/" 2>/dev/null || true
 
-echo "UI built: $DIST"
-ls -lh "$DIST"
+echo "Frontend built: $DIST"

@@ -169,14 +169,15 @@ android-emulator:
 	$(ANDROID_SDK_ROOT)/emulator/emulator -avd shenas &
 
 android-dev:
-	cd app/mobile && \
-	if [ ! -d src-tauri/gen/android ]; then npx tauri android init; fi && \
-	if [ ! -f mobile-dist/index.html ]; then bash build-frontend.sh; fi && \
-	npx tauri android dev
+	@cd app/mobile && if [ ! -d src-tauri/gen/android ]; then npx tauri android init; fi
+	moon run mobile:build-frontend
+	cd app/mobile && npx tauri android dev
 
 # Force a clean rebuild of mobile frontend + Rust
 android-dev-clean:
-	cd app/mobile && bash build-frontend.sh && cd src-tauri && cargo clean && cd .. && npx tauri android dev
+	rm -rf app/mobile/mobile-dist
+	cd app/mobile/src-tauri && cargo clean
+	$(MAKE) android-dev
 
 # Tag a desktop release (version auto-computed from conventional commits)
 release-desktop:
