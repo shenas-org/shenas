@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.field import Field, TableKind
 
 
 @dataclass
@@ -14,6 +14,7 @@ class Event:
 
     __table__: ClassVar[str] = "events"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    __kind__: ClassVar[TableKind] = "event"
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Event ID")]
     calendar_id: Annotated[str | None, Field(db_type="VARCHAR", description="Calendar ID")] = None
@@ -42,6 +43,7 @@ class Calendar:
 
     __table__: ClassVar[str] = "calendars"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    __kind__: ClassVar[TableKind] = "snapshot"
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Calendar ID")]
     summary: Annotated[str | None, Field(db_type="VARCHAR", description="Calendar name")] = None

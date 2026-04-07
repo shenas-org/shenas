@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.field import Field, TableKind
 
 
 @dataclass
@@ -14,6 +14,7 @@ class RecentlyPlayed:
 
     __table__: ClassVar[str] = "recently_played"
     __pk__: ClassVar[tuple[str, ...]] = ("played_at",)
+    __kind__: ClassVar[TableKind] = "event"
 
     played_at: Annotated[str, Field(db_type="TIMESTAMP", description="When the track was played")]
     track_id: Annotated[str, Field(db_type="VARCHAR", description="Spotify track ID")]
@@ -33,6 +34,7 @@ class TopTrack:
 
     __table__: ClassVar[str] = "top_tracks"
     __pk__: ClassVar[tuple[str, ...]] = ("track_id", "time_range")
+    __kind__: ClassVar[TableKind] = "snapshot"
 
     track_id: Annotated[str, Field(db_type="VARCHAR", description="Spotify track ID")]
     time_range: Annotated[str, Field(db_type="VARCHAR", description="Time range (short, medium, long)")]
@@ -50,6 +52,7 @@ class TopArtist:
 
     __table__: ClassVar[str] = "top_artists"
     __pk__: ClassVar[tuple[str, ...]] = ("artist_id", "time_range")
+    __kind__: ClassVar[TableKind] = "snapshot"
 
     artist_id: Annotated[str, Field(db_type="VARCHAR", description="Spotify artist ID")]
     time_range: Annotated[str, Field(db_type="VARCHAR", description="Time range (short, medium, long)")]
@@ -66,6 +69,7 @@ class SavedTrack:
 
     __table__: ClassVar[str] = "saved_tracks"
     __pk__: ClassVar[tuple[str, ...]] = ("track_id",)
+    __kind__: ClassVar[TableKind] = "snapshot"
 
     track_id: Annotated[str, Field(db_type="VARCHAR", description="Spotify track ID")]
     added_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="When the track was saved")] = None

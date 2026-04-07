@@ -1,6 +1,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
+
+TableKind = Literal["event", "snapshot", "aggregate", "counter"]
+"""Semantic kind of a raw source table.
+
+- ``event``: discrete, immutable occurrence with its own native timestamp.
+  Examples: a workout, a transaction, an email, a kudo, a comment, a play,
+  a calendar event. PK is the natural id; dlt strategy is merge on id.
+
+- ``snapshot``: current state with no temporal axis -- read as of now and
+  overwritten on every sync. Examples: user profile, current categories,
+  current zones, current top tracks. dlt strategy is replace.
+
+- ``aggregate``: per-window summary that can be re-emitted with updates as
+  more data arrives. PK includes the window key (date/hour). Examples:
+  daily HRV, daily sleep, daily vitals, daily journal entries. dlt
+  strategy is merge on (window_key, ...).
+
+- ``counter``: monotonically increasing scalar where deltas matter. PK is
+  the entity id; the counter field grows over time. Example: a piece of
+  Strava gear with cumulative distance. dlt strategy is merge on id; the
+  consumer can compute deltas across syncs.
+"""
 
 
 @dataclass(frozen=True)
