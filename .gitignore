@@ -11,6 +11,8 @@ plugins/uis/*/shenas_ui/*/static/
 app/vendor/dist/
 htmlcov/
 .coverage
+coverage/
+coverage.json
 .cache
 build/_pyinstaller_work/
 *.egg-info/

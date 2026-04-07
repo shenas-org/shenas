@@ -54,7 +54,12 @@ export default defineConfig({
     setupFiles: ["src/__tests__/setup.ts"],
     alias: {
       "/vendor/apache-arrow.js": new URL("src/__tests__/mock-arrow.ts", import.meta.url).pathname,
-      "shenas-frontends": new URL("../../../app/vendor/src/shenas-frontends.js", import.meta.url).pathname,
+      "shenas-frontends": new URL("../../../app/vendor/src/shenas-frontends.ts", import.meta.url).pathname,
+    },
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.ts"],
+      exclude: ["src/__tests__/**", "src/index.ts", "src/*.d.ts"],
     },
   },
   build: {

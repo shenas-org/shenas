@@ -1,6 +1,14 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  test: {
+    environment: "happy-dom",
+    coverage: {
+      provider: "v8",
+      include: ["src/shenas-frontends/**/*.ts"],
+      exclude: ["src/__tests__/**", "src/shenas-frontends.ts"],
+    },
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,

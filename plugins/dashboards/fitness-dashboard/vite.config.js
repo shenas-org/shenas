@@ -3,6 +3,11 @@ import { defineConfig } from "vite";
 export default defineConfig({
   test: {
     environment: "happy-dom",
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.ts"],
+      exclude: ["src/__tests__/**", "src/index.ts"],
+    },
   },
   build: {
     outDir: "shenas_dashboards/fitness_dashboard/static",

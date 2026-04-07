@@ -30,6 +30,13 @@ moon run :build                     # build all distributable wheels
 moon run source-garmin:build           # build a single pipe
 moon run desktop:sidecars           # build PyInstaller sidecars for Tauri
 moon run desktop:tauri              # build desktop app (builds sidecars first)
+
+# JavaScript / TypeScript
+npm install                                                      # root: install eslint + typescript
+npx tsc --noEmit -p plugins/frontends/default/tsconfig.json      # type check one package
+npx eslint 'plugins/**/src/**/*.ts' 'app/vendor/src/**/*.ts'     # lint TS
+cd app/vendor && npm test                                        # vendor tests
+cd plugins/dashboards/data-table && npm run coverage             # coverage one package
 ```
 
 ## Stack

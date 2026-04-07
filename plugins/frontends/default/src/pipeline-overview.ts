@@ -1,9 +1,7 @@
 import { LitElement, html, css } from "lit";
-// eslint-disable-next-line import/no-duplicates
 import cytoscape from "cytoscape";
 // The vendor bundle re-exports cytoscape-dagre as `dagre` from "cytoscape".
 // @ts-expect-error dagre is provided by the vendor bundle, not the real cytoscape package
-// eslint-disable-next-line import/no-duplicates
 import { dagre } from "cytoscape";
 import { gql, utilityStyles } from "shenas-frontends";
 
@@ -280,7 +278,7 @@ class PipelineOverview extends LitElement {
     this._cy = cytoscape({
       container,
       elements: this._elements,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       style: ([
         {
           selector: "node",

@@ -1225,7 +1225,7 @@ class ShenasApp extends LitElement {
   _navItem(id: string, label: string, active: string) {
     return html`
       <a class="nav-item" href="/${id}" aria-selected=${active === id}
-        @click=${(e: MouseEvent) => { e.preventDefault(); (e.ctrlKey || e.metaKey) ? this._openTab(`/${id}`, label) : this._navigateTo(`/${id}`, label); }}>
+        @click=${(e: MouseEvent) => { e.preventDefault(); if (e.ctrlKey || e.metaKey) { this._openTab(`/${id}`, label); } else { this._navigateTo(`/${id}`, label); } }}>
         ${label}
       </a>
     `;
@@ -1236,7 +1236,7 @@ class ShenasApp extends LitElement {
     const isActive = activePath === path || activePath.startsWith(path + "/");
     return html`
       <a class="nav-sub-item" href="${path}" aria-selected=${isActive}
-        @click=${(e: MouseEvent) => { e.preventDefault(); (e.ctrlKey || e.metaKey) ? this._openTab(path, label) : this._navigateTo(path, label); }}>
+        @click=${(e: MouseEvent) => { e.preventDefault(); if (e.ctrlKey || e.metaKey) { this._openTab(path, label); } else { this._navigateTo(path, label); } }}>
         ${label}
       </a>
     `;
