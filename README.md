@@ -36,11 +36,11 @@ shenasctl source gmail auth
 shenasctl source gcalendar auth
 
 # Configure obsidian vault path
-shenasctl config set pipe obsidian vault_path /path/to/vault
+shenasctl config set source obsidian vault_path /path/to/vault
 
 # Sync raw data into DuckDB (also runs transform automatically)
-shenasctl source sync          # sync all installed pipes
-shenasctl source garmin sync   # sync a single pipe
+shenasctl source sync          # sync all installed sources
+shenasctl source garmin sync   # sync a single source
 
 # Check what's loaded
 shenasctl db status
@@ -49,11 +49,11 @@ shenasctl db status
 ## Package management
 
 ```bash
-shenasctl source list                # list installed pipes
+shenasctl source list                # list installed sources
 shenasctl source add garmin          # install from repository
 shenasctl source remove garmin       # uninstall
-shenasctl dataset list              # list installed schemas
-shenasctl dashboard list           # list installed components
+shenasctl dataset list               # list installed datasets
+shenasctl dashboard list             # list installed dashboards
 ```
 
 ## Visualization
@@ -69,13 +69,13 @@ shenas
 
 ## Package distribution
 
-All pipes, schemas, and components are distributed as Ed25519-signed Python wheels. Signing happens in CI via GitHub Actions.
+All sources, datasets, and dashboards are distributed as Ed25519-signed Python wheels. Signing happens in CI via GitHub Actions.
 
 ```bash
 # Build packages
 moon run :build
 
-# Install a pipe
+# Install a source
 shenasctl source add garmin
 ```
 
@@ -116,29 +116,32 @@ shenasctl/           lightweight CLI client (httpx + typer)
 scheduler/           background sync daemon sidecar
 server/repository/   PEP 503 package server + Ed25519 signing
 plugins/
-  core/              shared plugin utilities (shenas-plugin-core)
-  pipes/core/        shared pipe utilities (shenas-source-core)
-  pipes/garmin/      Garmin Connect connector
-  pipes/gcalendar/   Google Calendar connector
-  pipes/gtakeout/    Google Takeout import
-  pipes/lunchmoney/  Lunch Money connector
-  pipes/obsidian/    Obsidian daily notes (frontmatter)
-  pipes/gmail/       Gmail (OAuth2)
-  pipes/duolingo/    Duolingo (JWT browser auth)
-  pipes/spotify/     Spotify (PKCE OAuth + history import)
-  schemas/core/      shared schema utilities (shenas-dataset-core)
-  schemas/fitness/   HRV, sleep, vitals, body metrics
-  schemas/finance/   transactions, spending, budgets
-  schemas/events/    unified event timeline
-  schemas/outcomes/  mood, stress, productivity, exercise
-  schemas/habits/    daily habits
-  components/        Lit web components (built as wheels)
-  themes/            CSS custom properties (default + dark)
-  uis/default/       default UI shell (Lit SPA with tabs, command palette)
+  core/                shared plugin utilities (shenas-plugin-core)
+  sources/core/        shared source utilities (shenas-source-core)
+  sources/garmin/      Garmin Connect connector
+  sources/gcalendar/   Google Calendar (events, attendees, colors)
+  sources/gtakeout/    Google Takeout import
+  sources/lunchmoney/  Lunch Money (transactions, tags, user, crypto, ...)
+  sources/obsidian/    Obsidian daily notes (frontmatter)
+  sources/gmail/       Gmail (messages, labels, profile, filters, vacation, send_as)
+  sources/duolingo/    Duolingo (XP, streak, achievements, league, friends)
+  sources/spotify/     Spotify (recently played, top, library, audio features, podcasts)
+  sources/strava/      Strava (activities, laps, kudos, comments, gear, stats, zones)
+  datasets/core/       shared dataset utilities (shenas-dataset-core)
+  datasets/fitness/    HRV, sleep, vitals, body metrics
+  datasets/finance/    transactions, spending, budgets
+  datasets/events/     unified event timeline
+  datasets/outcomes/   mood, stress, productivity, exercise
+  datasets/habits/     daily habits
+  dashboards/          Lit web components (built as wheels)
+  themes/              CSS custom properties (default + dark)
+  frontends/default/   default frontend shell (Lit SPA with tabs, command palette)
 ```
 
 **Data flow**: Source API -> dlt -> raw DuckDB tables -> SQL transform -> canonical `metrics.*` tables -> Arrow IPC -> web component
 
-**Plugin system**: Pipes register via `shenas.pipes` entry points, schemas via `shenas.schemas`, components via `shenas.components`. The CLI and UI discover them at runtime via `importlib.metadata`.
+**Plugin system**: Sources register via `shenas.sources` entry points, datasets via `shenas.datasets`, dashboards via `shenas.dashboards`, frontends via `shenas.frontends`, themes via `shenas.themes`. The CLI and UI discover them at runtime via `importlib.metadata`.
+
+**Table kinds**: every raw source table declares a `__kind__` ClassVar (`event` | `snapshot` | `aggregate` | `counter`) so the temporal nature of each table is explicit and matches the dlt strategy in use.
 
 **Core packages**: `shenas-source-core` and `shenas-dataset-core` provide shared utilities. They are internal dependencies, not user-facing.
