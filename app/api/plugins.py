@@ -37,6 +37,11 @@ def _validate_kind(kind: str) -> None:
 
 
 def _sse(event: str, **kwargs: Any) -> str:
+    from app.jobs import get_job_id
+
+    jid = get_job_id()
+    if jid is not None and "job_id" not in kwargs:
+        kwargs["job_id"] = jid
     return f"data: {json.dumps({'event': event, **kwargs})}\n\n"
 
 
@@ -143,20 +148,30 @@ async def _remove_stream(name: str, kind: str) -> AsyncIterator[str]:
 
 @router.post("/{kind}/install-stream")
 async def install_stream(kind: str, body: InstallRequest) -> StreamingResponse:
+    from app.jobs import bind_job_id, new_job_id
+
     _validate_kind(kind)
     name = body.names[0] if body.names else ""
     if not name:
         raise HTTPException(status_code=400, detail="No plugin name provided")
-    return StreamingResponse(
-        _install_stream(name, kind, skip_verify=body.skip_verify),
-        media_type="text/event-stream",
-    )
+
+    async def _wrapped() -> AsyncIterator[str]:
+        with bind_job_id(new_job_id()):
+            async for chunk in _install_stream(name, kind, skip_verify=body.skip_verify):
+                yield chunk
+
+    return StreamingResponse(_wrapped(), media_type="text/event-stream")
 
 
 @router.post("/{kind}/{name}/remove-stream")
 async def remove_stream(kind: str, name: str) -> StreamingResponse:
+    from app.jobs import bind_job_id, new_job_id
+
     _validate_kind(kind)
-    return StreamingResponse(
-        _remove_stream(name, kind),
-        media_type="text/event-stream",
-    )
+
+    async def _wrapped() -> AsyncIterator[str]:
+        with bind_job_id(new_job_id()):
+            async for chunk in _remove_stream(name, kind):
+                yield chunk
+
+    return StreamingResponse(_wrapped(), media_type="text/event-stream")

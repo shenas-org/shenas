@@ -491,6 +491,27 @@ class TestInstallStream:
         resp = client.post("/api/plugins/bogus/install-stream", json={"names": ["test"]})
         assert resp.status_code == 400
 
+    def test_install_stream_carries_job_id(self) -> None:
+        proc = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="ok\n")
+        with (
+            patch("app.api.sources._load_plugin", return_value=None),
+            patch("app.api.sources._load_plugin_fresh", return_value=None),
+            patch("app.api.plugins._run_subprocess", return_value=proc),
+            patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("app.api.sources._clear_caches"),
+        ):
+            resp = client.post(
+                "/api/plugins/source/install-stream",
+                json={"names": ["garmin"], "skip_verify": True},
+            )
+        events = parse_sse(resp.text)
+        ids = {e["job_id"] for e in events if "job_id" in e}
+        # Every event in one request shares one 16-char job_id.
+        assert len(ids) == 1
+        (jid,) = ids
+        assert isinstance(jid, str)
+        assert len(jid) == 16
+
 
 class TestRemoveStream:
     def test_remove_stream_internal_blocked(self) -> None:

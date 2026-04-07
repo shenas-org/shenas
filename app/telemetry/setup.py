@@ -13,6 +13,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+from app.jobs import JobIdLogFilter
 from app.telemetry.exporters import DuckDBLogExporter, DuckDBSpanExporter
 from app.telemetry.processors import DispatchingLogProcessor, DispatchingSpanProcessor
 
@@ -47,6 +48,8 @@ def init_telemetry(service_name: str) -> None:
     _logger_provider.add_log_record_processor(DispatchingLogProcessor(BatchLogRecordProcessor(DuckDBLogExporter())))
     handler = LoggingHandler(logger_provider=_logger_provider)
     shenas_logger = logging.getLogger("shenas")
+    # Inject job_id from contextvar into every LogRecord so OTel exporters can persist it.
+    shenas_logger.addFilter(JobIdLogFilter())
     shenas_logger.addHandler(handler)
 
     # Also log to stdout for visibility in terminal/container logs
