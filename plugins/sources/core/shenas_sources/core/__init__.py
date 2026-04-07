@@ -7,6 +7,7 @@ from shenas_sources.core.table import (
     DimensionTable,
     EventTable,
     IntervalTable,
+    M2MTable,
     SnapshotTable,
     Table,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "DimensionTable",
     "EventTable",
     "IntervalTable",
+    "M2MTable",
     "SnapshotTable",
     "Table",
     "close",
