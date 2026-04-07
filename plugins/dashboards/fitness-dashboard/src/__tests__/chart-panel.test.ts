@@ -1,12 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // Mock uPlot -- the real uPlot requires a canvas context happy-dom does not provide
-const { uplotCtor } = vi.hoisted(() => ({
-  uplotCtor: vi.fn().mockImplementation(() => ({
-    destroy: vi.fn(),
-    setSize: vi.fn(),
-  })),
-}));
+const { uplotCtor } = vi.hoisted(() => {
+  const ctor = vi.fn(function (this: { destroy: () => void; setSize: () => void }) {
+    this.destroy = () => {};
+    this.setSize = () => {};
+  });
+  return { uplotCtor: ctor };
+});
 vi.mock("uplot", () => ({ default: uplotCtor }));
 vi.mock("uplot/dist/uPlot.min.css?inline", () => ({ default: "" }));
 
@@ -17,11 +18,7 @@ type AnyEl = HTMLElement & Record<string, any>;
 describe("chart-panel", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
-    uplotCtor.mockReset();
-    uplotCtor.mockImplementation(() => ({
-      destroy: () => {},
-      setSize: () => {},
-    }));
+    uplotCtor.mockClear();
   });
 
   afterEach(() => {
