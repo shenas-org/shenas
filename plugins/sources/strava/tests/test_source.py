@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+from shenas_sources.core.table import CounterTable, EventTable, IntervalTable, M2MTable, SnapshotTable
 from shenas_sources.strava.tables import (
     Activities,
     Athlete,
@@ -160,7 +161,7 @@ class TestKudosM2M:
             assert set(row.keys()) == {"activity_id", "athlete_id"}
 
     def test_kind_is_m2m_relation_with_scd2(self) -> None:
-        assert Kudos.kind == "m2m_relation"
+        assert issubclass(Kudos, M2MTable)
         assert Kudos.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
 
 
@@ -271,7 +272,7 @@ class TestGearCounter:
         assert bike["distance_m"] == 8000.0
 
     def test_kind_is_counter_with_append(self) -> None:
-        assert Gear.kind == "counter"
+        assert issubclass(Gear, CounterTable)
         assert Gear.write_disposition() == "append"
 
     def test_observed_at_auto_injected(self) -> None:
@@ -282,20 +283,20 @@ class TestGearCounter:
 
 class TestKindsAndDispositions:
     def test_activities_is_interval(self) -> None:
-        assert Activities.kind == "interval"
+        assert issubclass(Activities, IntervalTable)
         assert Activities.write_disposition() == "merge"
         assert Activities.time_start == "start_date"
         assert Activities.time_end == "end_date"
 
     def test_laps_is_interval(self) -> None:
-        assert Laps.kind == "interval"
+        assert issubclass(Laps, IntervalTable)
         assert Laps.time_start == "start_date"
         assert Laps.time_end == "end_date"
 
     def test_comments_is_event(self) -> None:
-        assert Comments.kind == "event"
+        assert issubclass(Comments, EventTable)
         assert Comments.time_at == "created_at"
 
     def test_athlete_is_snapshot_scd2(self) -> None:
-        assert Athlete.kind == "snapshot"
+        assert issubclass(Athlete, SnapshotTable)
         assert Athlete.write_disposition() == {"disposition": "merge", "strategy": "scd2"}

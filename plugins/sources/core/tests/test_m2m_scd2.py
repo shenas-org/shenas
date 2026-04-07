@@ -16,7 +16,7 @@ import dlt
 import duckdb
 import pytest
 
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Field
 from shenas_sources.core.table import M2MTable
 
 

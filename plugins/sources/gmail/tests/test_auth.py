@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -7,10 +8,17 @@ from shenas_sources.gmail.source import GmailSource
 
 @pytest.fixture
 def pipe() -> GmailSource:
-    p = GmailSource.__new__(GmailSource)
-    p._auth_store = MagicMock()
-    p._config_store = MagicMock()
-    return p
+    return GmailSource.__new__(GmailSource)
+
+
+@pytest.fixture
+def auth_mock():
+    with (
+        patch.object(GmailSource.Auth, "read_row") as read,
+        patch.object(GmailSource.Auth, "write_row") as write,
+        patch.object(GmailSource.Auth, "clear_rows") as clear,
+    ):
+        yield SimpleNamespace(read=read, write=write, clear=clear)
 
 
 class TestBuildClient:

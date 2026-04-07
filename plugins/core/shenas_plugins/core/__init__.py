@@ -1,10 +1,8 @@
 from shenas_plugins.core.base_auth import SourceAuth
 from shenas_plugins.core.base_config import SourceConfig
-from shenas_plugins.core.ddl import ensure_schema, generate_ddl
-from shenas_plugins.core.field import Field
 from shenas_plugins.core.plugin import Plugin, _SelectOneMixin
 from shenas_plugins.core.static import StaticPlugin
-from shenas_plugins.core.store import TableStore
+from shenas_plugins.core.table import Field, Table
 
 __all__ = [
     "Dashboard",
@@ -16,11 +14,10 @@ __all__ = [
     "SourceAuth",
     "SourceConfig",
     "StaticPlugin",
-    "TableStore",
+    "Table",
     "Theme",
     "_SelectOneMixin",
     "ensure_schema",
-    "generate_ddl",
 ]
 
 # Lazy re-exports from per-kind core packages to avoid circular imports.

@@ -12,8 +12,7 @@ from pathlib import Path
 from typing import Annotated, Any, ClassVar
 from urllib.request import urlopen
 
-from shenas_plugins.core.field import Field
-from shenas_plugins.core.table import Table
+from shenas_plugins.core.table import Field, Table
 
 log = logging.getLogger("shenas.plugins")
 
@@ -147,6 +146,7 @@ class Plugin(abc.ABC):
 
     class _Table(Table):
         table_name: ClassVar[str] = "plugins"
+        table_schema: ClassVar[str | None] = "shenas_system"
         table_display_name: ClassVar[str] = "Installed Plugins"
         table_description: ClassVar[str | None] = "Per-plugin install / enable / sync state."
         table_pk: ClassVar[tuple[str, ...]] = ("kind", "name")

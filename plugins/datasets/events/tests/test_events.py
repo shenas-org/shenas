@@ -6,7 +6,6 @@ import duckdb
 
 from shenas_datasets.events import EventsSchema
 from shenas_datasets.events.metrics import ALL_TABLES, Event
-from shenas_plugins.core.ddl import generate_ddl
 
 
 class TestSchema:
@@ -25,7 +24,7 @@ class TestSchema:
         assert EventsSchema.tables == ["events"]
 
     def test_generate_ddl(self) -> None:
-        ddl = generate_ddl(Event)
+        ddl = Event.to_ddl()
         assert "CREATE TABLE" in ddl
         assert "source" in ddl
         assert "start_at" in ddl

@@ -52,7 +52,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from shenas_plugins.core.field import TableKind  # noqa: TC001  -- needed at runtime by get_type_hints walking the MRO
 from shenas_plugins.core.table import Table
 
 if TYPE_CHECKING:
@@ -88,22 +87,11 @@ class SourceTable(Table):
 
     _abstract: ClassVar[bool] = True
 
-    # Set by each kind base class.
-    kind: ClassVar[TableKind]
-
     # Optional incremental-cursor column (only meaningful for non-SCD2 kinds).
     # When set, ``to_resource`` wires a ``dlt.sources.incremental(cursor_column)``
     # parameter into the generated resource and passes the cursor object to
     # ``extract`` as a ``cursor`` kwarg.
     cursor_column: ClassVar[str | None] = None
-
-    @classmethod
-    def _validate(cls) -> None:
-        """Extend the common validation with the source-side requirement of ``kind``."""
-        super()._validate()
-        if not getattr(cls, "kind", None):
-            msg = f"{cls.__name__}: missing required class attribute `kind`"
-            raise TypeError(msg)
 
     # ------------------------------------------------------------------
     # dlt translation -- kind base classes override write_disposition()
@@ -123,19 +111,17 @@ class SourceTable(Table):
         import dataclasses
         from typing import get_type_hints
 
-        from shenas_plugins.core.ddl import _duckdb_type, _get_field_obj
-
         hints = get_type_hints(cls, include_extras=True)
         columns: dict[str, dict[str, Any]] = {}
         for f in dataclasses.fields(cls):
             if f.name.startswith("_"):
                 continue
             hint = hints[f.name]
-            db_type = _duckdb_type(hint).lower()
+            db_type = cls._duckdb_type(hint).lower()
             dlt_type = _DLT_TYPE_MAP.get(db_type, "text")
             col: dict[str, Any] = {"name": f.name, "data_type": dlt_type}
 
-            meta = _get_field_obj(hint)
+            meta = cls._get_field_obj(hint)
             if meta and meta.description:
                 col["description"] = meta.description
 
@@ -227,7 +213,6 @@ class EventTable(SourceTable):
     """
 
     _abstract: ClassVar[bool] = True
-    kind: ClassVar[TableKind] = "event"
     time_at: ClassVar[str | None] = None
 
     @classmethod
@@ -246,7 +231,6 @@ class IntervalTable(SourceTable):
     """
 
     _abstract: ClassVar[bool] = True
-    kind: ClassVar[TableKind] = "interval"
     time_start: ClassVar[str]
     time_end: ClassVar[str]
 
@@ -269,7 +253,6 @@ class AggregateTable(SourceTable):
     """
 
     _abstract: ClassVar[bool] = True
-    kind: ClassVar[TableKind] = "aggregate"
     time_at: ClassVar[str | None] = None
 
     @classmethod
@@ -285,7 +268,6 @@ class DimensionTable(SourceTable):
     """
 
     _abstract: ClassVar[bool] = True
-    kind: ClassVar[TableKind] = "dimension"
     scd_columns: ClassVar[tuple[str, ...] | None] = None
 
     @classmethod
@@ -301,7 +283,6 @@ class SnapshotTable(SourceTable):
     """
 
     _abstract: ClassVar[bool] = True
-    kind: ClassVar[TableKind] = "snapshot"
     scd_columns: ClassVar[tuple[str, ...] | None] = None
 
     @classmethod
@@ -316,7 +297,6 @@ class CounterTable(SourceTable):
     """
 
     _abstract: ClassVar[bool] = True
-    kind: ClassVar[TableKind] = "counter"
     counter_columns: ClassVar[tuple[str, ...]]
 
     @classmethod
@@ -352,7 +332,6 @@ class M2MTable(SourceTable):
     """
 
     _abstract: ClassVar[bool] = True
-    kind: ClassVar[TableKind] = "m2m_relation"
 
     @classmethod
     def write_disposition(cls) -> dict[str, str] | str:

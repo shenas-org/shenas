@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from shenas_sources.core.table import DimensionTable, EventTable, M2MTable, SnapshotTable
 from shenas_sources.lunchmoney import tables as t
 
 
@@ -160,19 +161,19 @@ class TestCategoriesExtract:
 
 class TestKindsAndDispositions:
     def test_transactions_is_event_merge(self) -> None:
-        assert t.Transactions.kind == "event"
+        assert issubclass(t.Transactions, EventTable)
         assert t.Transactions.write_disposition() == "merge"
 
     def test_categories_is_dimension_scd2(self) -> None:
-        assert t.Categories.kind == "dimension"
+        assert issubclass(t.Categories, DimensionTable)
         assert t.Categories.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
 
     def test_user_is_snapshot_scd2(self) -> None:
-        assert t.User.kind == "snapshot"
+        assert issubclass(t.User, SnapshotTable)
         assert t.User.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
 
     def test_transaction_tags_is_m2m_relation_scd2(self) -> None:
-        assert t.TransactionTags.kind == "m2m_relation"
+        assert issubclass(t.TransactionTags, M2MTable)
         assert t.TransactionTags.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
 
     def test_transaction_tags_no_observed_at(self) -> None:

@@ -83,7 +83,7 @@ Every plugin-defined DuckDB-persisted dataclass inherits from a slim common `Tab
 Three layers:
 
 - **`Table`** (in `shenas-plugin-core`) — slim common base: `table_name`, `table_display_name`, `table_pk`, `table_description`. Auto-`@dataclass`.
-- **`SourceTable(Table)`** (in `shenas-source-core`) — adds `kind`, `cursor_column`, `extract()`, `to_resource()`, `write_disposition()`, `to_dlt_columns()`, observed_at injection. The 7 kind base classes (`EventTable`, `IntervalTable`, `SnapshotTable`, `DimensionTable`, `AggregateTable`, `CounterTable`, `M2MTable`) inherit from `SourceTable`.
+- **`SourceTable(Table)`** (in `shenas-source-core`) — adds `cursor_column`, `extract()`, `to_resource()`, `write_disposition()`, `to_dlt_columns()`, observed_at injection. The 7 kind base classes (`EventTable`, `IntervalTable`, `SnapshotTable`, `DimensionTable`, `AggregateTable`, `CounterTable`, `M2MTable`) inherit from `SourceTable`. The kind is encoded in the inheritance chain — there's no `kind` ClassVar; check kinds via `issubclass(MyTable, IntervalTable)`.
 - **`MetricTable(Table)`** (in `shenas-dataset-core`) — adds `to_ddl(schema="metrics")`. Used by every dataset plugin's metric tables. Future home of per-table `transform(cls, con)` classmethods (Source -> Metric and Metric -> Metric).
 
 Other persisted dataclasses also inherit from `Table` directly: `Plugin._Table` (the installed-plugins registry), `Transform._Table` (user-supplied SQL transforms), `Workspace._Table`, `Hotkey._Table`, and `SourceConfig` / `SourceAuth` (per-pipe credential / config storage). `SourceConfig` and `SourceAuth` defer validation via their own `__init_subclass__` because `table_name` is set lazily by `Source.__init_subclass__`; they call `cls._finalize()` after assigning `table_name` to apply the auto-`@dataclass` and run validation.
@@ -135,7 +135,7 @@ Example: `SELECT * FROM gcalendar.calendars_as_of('2026-01-15')` returns the cal
 ### Shared core packages
 
 - **`shenas-source-core`** (`plugins/sources/core/`) — shared source utilities: `resolve_start_date`, `date_range`, `is_empty_response`, `create_pipe_app`, `run_sync`, `print_load_info`
-- **`shenas-dataset-core`** (`plugins/datasets/core/`) — shared dataset utilities: `Field` (metadata dataclass), `generate_ddl`, `ensure_schema`, `table_metadata`, `schema_metadata`, `MetricProvider` protocol
+- **`shenas-dataset-core`** (`plugins/datasets/core/`) — shared dataset utilities: `MetricTable` (the dataset-side `Table` subclass) and the `Dataset` plugin ABC
 
 Both are internal packages — hidden from `list`/`add`/`remove` commands. Sources depend on `shenas-source-core`, datasets depend on `shenas-dataset-core`.
 

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from shenas_plugins.core.base_auth import SourceAuth
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Field
 from shenas_sources.core.source import Source
 
 logger = logging.getLogger(__name__)

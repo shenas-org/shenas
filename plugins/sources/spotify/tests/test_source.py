@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+from shenas_sources.core.table import EventTable, SnapshotTable
 from shenas_sources.spotify.tables import (
     AudioFeatures,
     FollowedArtists,
@@ -314,11 +315,11 @@ class TestSavedShowsAndEpisodes:
 
 class TestKindsAndDispositions:
     def test_recently_played_is_event(self) -> None:
-        assert RecentlyPlayed.kind == "event"
+        assert issubclass(RecentlyPlayed, EventTable)
         assert RecentlyPlayed.time_at == "played_at"
 
     def test_saved_tracks_is_snapshot_scd2(self) -> None:
-        assert SavedTracks.kind == "snapshot"
+        assert issubclass(SavedTracks, SnapshotTable)
         assert SavedTracks.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
 
     def test_followed_artists_is_snapshot_scd2(self) -> None:

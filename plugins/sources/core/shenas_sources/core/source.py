@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 from shenas_plugins.core.base_auth import SourceAuth
 from shenas_plugins.core.base_config import SourceConfig
 from shenas_plugins.core.plugin import Plugin
-from shenas_plugins.core.store import TableStore
 
 logger = logging.getLogger("shenas.sources")
 
@@ -41,10 +40,6 @@ class Source(Plugin):
     _sync_locks: ClassVar[dict[str, threading.Lock]] = {}
     _sync_locks_guard: ClassVar[threading.Lock] = threading.Lock()
 
-    # Populated by __init__
-    _config_store: TableStore
-    _auth_store: TableStore
-
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         if not hasattr(cls, "name"):
@@ -61,10 +56,6 @@ class Source(Plugin):
             if not hasattr(cls.Auth, "table_name"):
                 cls.Auth.table_name = f"pipe_{cls.name}"
             cls.Auth._finalize()
-
-    def __init__(self) -> None:
-        self._config_store = TableStore("config")
-        self._auth_store = TableStore("auth")
 
     # -- Auth field derivation ------------------------------------------------
 
@@ -101,7 +92,7 @@ class Source(Plugin):
         if not self.has_auth:
             return True
         try:
-            row = self._auth_store.get(self.Auth)
+            row = self.Auth.read_row()
             return bool(row and any(v for k, v in row.items() if k != "id"))
         except Exception:
             return None
@@ -112,7 +103,7 @@ class Source(Plugin):
         if self.Config is SourceConfig:
             return None
         try:
-            row = self._config_store.get(self.Config)
+            row = self.Config.read_row()
             return row.get("sync_frequency") if row else None
         except Exception:
             return None
@@ -158,7 +149,7 @@ class Source(Plugin):
         if not self.has_config:
             return []
 
-        row = self._config_store.get(self.Config)
+        row = self.Config.read_row()
         meta = self.Config.table_metadata()
         entries = []
         for col in meta["columns"]:
@@ -191,16 +182,16 @@ class Source(Plugin):
                     elif db_type in ("FLOAT", "DOUBLE", "REAL"):
                         value = float(value)  # type: ignore[assignment]
                     break
-        self._config_store.set(self.Config, **{key: value})
+        self.Config.write_row(**{key: value})
 
     def get_config_value(self, key: str) -> Any | None:
         """Get a single config value."""
-        return self._config_store.get_value(self.Config, key) if self.has_config else None
+        return self.Config.read_value(key) if self.has_config else None
 
     def delete_config(self) -> None:
         """Delete all config."""
         if self.has_config:
-            self._config_store.delete(self.Config)
+            self.Config.clear_rows()
 
     def get_info(self) -> dict[str, Any]:
         return {
@@ -388,7 +379,7 @@ class Source(Plugin):
         if not self.has_auth:
             return []
         try:
-            row = self._auth_store.get(self.Auth)
+            row = self.Auth.read_row()
             meta = self.Auth.table_metadata()
             return [
                 col["name"].replace("_", " ").title()
@@ -448,7 +439,7 @@ class Source(Plugin):
 
 def _get_field_meta(f: dataclasses.Field) -> dict[str, Any]:  # type: ignore[type-arg]
     """Extract Field metadata from an Annotated dataclass field."""
-    from shenas_plugins.core.field import Field
+    from shenas_plugins.core.table import Field
 
     hints = getattr(f.type, "__metadata__", ()) if hasattr(f.type, "__metadata__") else ()
     # Unwrap Optional[Annotated[...]]

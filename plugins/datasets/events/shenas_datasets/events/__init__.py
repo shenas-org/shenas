@@ -1,7 +1,6 @@
-from shenas_datasets.core import MetricProvider
 from shenas_datasets.core.dataset import Dataset
 from shenas_datasets.events.metrics import ALL_TABLES, Event
-from shenas_plugins.core import Field, generate_ddl
+from shenas_plugins.core import Field
 
 
 class EventsSchema(Dataset):
@@ -19,7 +18,5 @@ __all__ = [
     "Event",
     "EventsSchema",
     "Field",
-    "MetricProvider",
     "ensure_schema",
-    "generate_ddl",
 ]

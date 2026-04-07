@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from shenas_sources.core.table import AggregateTable, EventTable
 from shenas_sources.obsidian.tables import (
     DailyNotes,
     Habits,
@@ -232,9 +233,9 @@ class TestHabitsExtract:
 
 class TestKindsAndDispositions:
     def test_daily_notes_is_aggregate(self) -> None:
-        assert DailyNotes.kind == "aggregate"
+        assert issubclass(DailyNotes, AggregateTable)
         assert DailyNotes.time_at == "date"
 
     def test_habits_is_event(self) -> None:
-        assert Habits.kind == "event"
+        assert issubclass(Habits, EventTable)
         assert Habits.time_at == "date"

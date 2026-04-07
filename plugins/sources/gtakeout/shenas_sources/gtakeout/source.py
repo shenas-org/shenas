@@ -10,7 +10,7 @@ from typing import Annotated, Any
 
 from shenas_plugins.core.base_auth import SourceAuth
 from shenas_plugins.core.base_config import SourceConfig
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Field
 from shenas_sources.core.source import Source
 
 
@@ -91,7 +91,7 @@ class GTakeoutSource(Source):
         service = self.build_client()
 
         # Read config for latest/name_filter
-        row = self._config_store.get(self.Config)
+        row = self.Config.read_row()
         latest = (row.get("latest") if row else None) or 0
         name_filter = (row.get("name_filter") if row else None) or ""
 
