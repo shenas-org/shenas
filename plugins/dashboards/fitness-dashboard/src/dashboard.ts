@@ -28,7 +28,10 @@ export class ShenasDashboard extends LitElement {
   static styles: CSSResult = css`
     :host {
       display: block;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family:
+        system-ui,
+        -apple-system,
+        sans-serif;
       max-width: 960px;
       margin: 0 auto;
       padding: 24px 16px;
@@ -88,7 +91,10 @@ export class ShenasDashboard extends LitElement {
     try {
       const [hrv, sleep, vitals, body] = await Promise.all([
         query(this.apiBase, "SELECT date, rmssd FROM metrics.daily_hrv ORDER BY date"),
-        query(this.apiBase, "SELECT date, total_hours, deep_min, rem_min, light_min, score FROM metrics.daily_sleep ORDER BY date"),
+        query(
+          this.apiBase,
+          "SELECT date, total_hours, deep_min, rem_min, light_min, score FROM metrics.daily_sleep ORDER BY date",
+        ),
         query(this.apiBase, "SELECT date, resting_hr, steps, active_kcal FROM metrics.daily_vitals ORDER BY date"),
         query(this.apiBase, "SELECT date, weight_kg FROM metrics.daily_body WHERE weight_kg IS NOT NULL ORDER BY date"),
       ]);
@@ -109,7 +115,11 @@ export class ShenasDashboard extends LitElement {
     const series: (Float64Array | number[])[] = [timestamps];
     for (const name of valueColumns) {
       if (cols[name]) {
-        series.push(Float64Array.from(cols[name] as ArrayLike<number>, (v: unknown) => (v == null ? null as unknown as number : Number(v))));
+        series.push(
+          Float64Array.from(cols[name] as ArrayLike<number>, (v: unknown) =>
+            v == null ? (null as unknown as number) : Number(v),
+          ),
+        );
       }
     }
     return series;

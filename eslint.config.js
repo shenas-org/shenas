@@ -1,5 +1,6 @@
 import tseslint from "typescript-eslint";
 import litPlugin from "eslint-plugin-lit";
+import prettierConfig from "eslint-config-prettier";
 
 export default tseslint.config(
   {
@@ -32,4 +33,5 @@ export default tseslint.config(
       eqeqeq: ["error", "always", { null: "ignore" }],
     },
   },
+  prettierConfig,
 );

@@ -1,7 +1,17 @@
 import { LitElement, html, css } from "lit";
-import { gql, gqlFull, registerCommands, renderMessage, buttonStyles, formStyles, messageStyles, tableStyles } from "shenas-frontends";
+import {
+  gql,
+  gqlFull,
+  registerCommands,
+  renderMessage,
+  buttonStyles,
+  formStyles,
+  messageStyles,
+  tableStyles,
+} from "shenas-frontends";
 
-const _inspectBtnStyle = "background:none;border:none;cursor:pointer;color:var(--shenas-text-faint, #aaa);font-size:0.7rem;padding:0 2px";
+const _inspectBtnStyle =
+  "background:none;border:none;cursor:pointer;color:var(--shenas-text-faint, #aaa);font-size:0.7rem;padding:0 2px";
 
 interface Transform {
   id: number;
@@ -162,14 +172,19 @@ class TransformsPage extends LitElement {
 
   async _fetchAll(): Promise<void> {
     this._loading = true;
-    const data = await gql(this.apiBase, `query($source: String) { transforms(source: $source) { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin description sql isDefault enabled } }`, { source: this.source || null });
+    const data = await gql(
+      this.apiBase,
+      `query($source: String) { transforms(source: $source) { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin description sql isDefault enabled } }`,
+      { source: this.source || null },
+    );
     this._transforms = (data?.transforms as Transform[]) || [];
     this._loading = false;
     this._registerCommands();
   }
 
   _registerCommands(): void {
-    const commands: Array<{ id: string; category: string; label: string; description?: string; action: () => void }> = [];
+    const commands: Array<{ id: string; category: string; label: string; description?: string; action: () => void }> =
+      [];
     for (const t of this._transforms) {
       const desc = t.description || `${t.sourceDuckdbTable} -> ${t.targetDuckdbTable}`;
       commands.push({
@@ -192,13 +207,14 @@ class TransformsPage extends LitElement {
     registerCommands(this, `transforms:${this.source}`, commands);
   }
 
-
   _inspectTable(schema: string, table: string): void {
-    this.dispatchEvent(new CustomEvent("inspect-table", {
-      bubbles: true,
-      composed: true,
-      detail: { schema, table },
-    }));
+    this.dispatchEvent(
+      new CustomEvent("inspect-table", {
+        bubbles: true,
+        composed: true,
+        detail: { schema, table },
+      }),
+    );
   }
 
   async _toggle(t: Transform): Promise<void> {
@@ -210,7 +226,11 @@ class TransformsPage extends LitElement {
   }
 
   async _delete(t: Transform): Promise<void> {
-    const { ok, data } = await gqlFull(this.apiBase, `mutation($id: Int!) { deleteTransform(transformId: $id) { ok message } }`, { id: t.id });
+    const { ok, data } = await gqlFull(
+      this.apiBase,
+      `mutation($id: Int!) { deleteTransform(transformId: $id) { ok message } }`,
+      { id: t.id },
+    );
     if (ok && (data?.deleteTransform as Record<string, unknown>)?.ok) {
       this._message = { type: "success", text: `Deleted transform #${t.id}` };
       await this._fetchAll();
@@ -232,7 +252,11 @@ class TransformsPage extends LitElement {
   }
 
   async _saveEdit(): Promise<void> {
-    const { ok } = await gqlFull(this.apiBase, `mutation($id: Int!, $sql: String!) { updateTransform(transformId: $id, sql: $sql) { id } }`, { id: this._editing, sql: this._editSql });
+    const { ok } = await gqlFull(
+      this.apiBase,
+      `mutation($id: Int!, $sql: String!) { updateTransform(transformId: $id, sql: $sql) { id } }`,
+      { id: this._editing, sql: this._editSql },
+    );
     if (ok) {
       this._message = { type: "success", text: "Transform updated" };
       this._editing = null;
@@ -267,17 +291,21 @@ class TransformsPage extends LitElement {
       this._message = { type: "error", text: "Fill in all required fields" };
       return;
     }
-    const { ok, data } = await gqlFull(this.apiBase, `mutation($input: TransformCreateInput!) { createTransform(transformInput: $input) { id } }`, {
-      input: {
-        sourceDuckdbSchema: this.source,
-        sourceDuckdbTable: f.source_duckdb_table,
-        targetDuckdbSchema: "metrics",
-        targetDuckdbTable: f.target_duckdb_table,
-        sourcePlugin: this.source,
-        description: f.description,
-        sql: f.sql,
+    const { ok, data } = await gqlFull(
+      this.apiBase,
+      `mutation($input: TransformCreateInput!) { createTransform(transformInput: $input) { id } }`,
+      {
+        input: {
+          sourceDuckdbSchema: this.source,
+          sourceDuckdbTable: f.source_duckdb_table,
+          targetDuckdbSchema: "metrics",
+          targetDuckdbTable: f.target_duckdb_table,
+          sourcePlugin: this.source,
+          description: f.description,
+          sql: f.sql,
+        },
       },
-    });
+    );
     if (ok) {
       this._message = { type: "success", text: "Transform created" };
       this._creating = false;
@@ -289,7 +317,11 @@ class TransformsPage extends LitElement {
   }
 
   async _preview(): Promise<void> {
-    const { ok, data } = await gqlFull(this.apiBase, `mutation($id: Int!) { testTransform(transformId: $id, limit: 5) }`, { id: this._editing });
+    const { ok, data } = await gqlFull(
+      this.apiBase,
+      `mutation($id: Int!) { testTransform(transformId: $id, limit: 5) }`,
+      { id: this._editing },
+    );
     if (ok) {
       this._previewRows = data?.testTransform as Record<string, unknown>[] | null;
     } else {
@@ -304,31 +336,65 @@ class TransformsPage extends LitElement {
     if (this._loading) return html``;
     return html`
       <div>
-      ${renderMessage(this._message)}
-      ${this._editing ? this._renderEditor() : ""}
-      ${this._creating ? this._renderCreateForm() : ""}
-      <shenas-data-list
-        ?show-add=${!this._creating && !this._editing}
-        @add=${this._startCreate}
-        .columns=${[
-          { key: "id", label: "ID", class: "muted" },
-          { label: "Source", class: "mono", render: (t: Transform) => html`${t.sourceDuckdbSchema}.${t.sourceDuckdbTable} <button style=${_inspectBtnStyle} title="Inspect table" @click=${() => this._inspectTable(t.sourceDuckdbSchema, t.sourceDuckdbTable)}>&#9655;</button>` },
-          { label: "Target", class: "mono", render: (t: Transform) => html`${t.targetDuckdbSchema}.${t.targetDuckdbTable} <button style=${_inspectBtnStyle} title="Inspect table" @click=${() => this._inspectTable(t.targetDuckdbSchema, t.targetDuckdbTable)}>&#9655;</button>` },
-          { label: "Description", render: (t: Transform) => html`${t.description || ""}${t.isDefault ? html`<span style="font-size:0.75rem;color:var(--shenas-text-muted, #888);background:var(--shenas-border-light, #f0f0f0);padding:1px 5px;border-radius:3px;margin-left:4px">default</span>` : ""}` },
-          { label: "Status", render: (t: Transform) => html`<status-toggle ?enabled=${t.enabled} toggleable @toggle=${() => this._toggle(t)}></status-toggle>` },
-        ]}
-        .rows=${this._transforms}
-        .rowClass=${(t: Transform) => t.enabled ? "" : "disabled-row"}
-        .actions=${(t: Transform) => html`
-          ${!t.isDefault
-            ? html`<button @click=${() => this._startEdit(t)}>Edit</button>`
-            : html`<button @click=${() => this._startEdit(t)}>View</button>`}
-          ${!t.isDefault
-            ? html`<button class="danger" @click=${() => this._delete(t)}>Delete</button>`
-            : ""}
-        `}
-        empty-text="No transforms"
-      ></shenas-data-list>
+        ${renderMessage(this._message)} ${this._editing ? this._renderEditor() : ""}
+        ${this._creating ? this._renderCreateForm() : ""}
+        <shenas-data-list
+          ?show-add=${!this._creating && !this._editing}
+          @add=${this._startCreate}
+          .columns=${[
+            { key: "id", label: "ID", class: "muted" },
+            {
+              label: "Source",
+              class: "mono",
+              render: (t: Transform) =>
+                html`${t.sourceDuckdbSchema}.${t.sourceDuckdbTable}
+                  <button
+                    style=${_inspectBtnStyle}
+                    title="Inspect table"
+                    @click=${() => this._inspectTable(t.sourceDuckdbSchema, t.sourceDuckdbTable)}
+                  >
+                    &#9655;
+                  </button>`,
+            },
+            {
+              label: "Target",
+              class: "mono",
+              render: (t: Transform) =>
+                html`${t.targetDuckdbSchema}.${t.targetDuckdbTable}
+                  <button
+                    style=${_inspectBtnStyle}
+                    title="Inspect table"
+                    @click=${() => this._inspectTable(t.targetDuckdbSchema, t.targetDuckdbTable)}
+                  >
+                    &#9655;
+                  </button>`,
+            },
+            {
+              label: "Description",
+              render: (t: Transform) =>
+                html`${t.description || ""}${t.isDefault
+                  ? html`<span
+                      style="font-size:0.75rem;color:var(--shenas-text-muted, #888);background:var(--shenas-border-light, #f0f0f0);padding:1px 5px;border-radius:3px;margin-left:4px"
+                      >default</span
+                    >`
+                  : ""}`,
+            },
+            {
+              label: "Status",
+              render: (t: Transform) =>
+                html`<status-toggle ?enabled=${t.enabled} toggleable @toggle=${() => this._toggle(t)}></status-toggle>`,
+            },
+          ]}
+          .rows=${this._transforms}
+          .rowClass=${(t: Transform) => (t.enabled ? "" : "disabled-row")}
+          .actions=${(t: Transform) => html`
+            ${!t.isDefault
+              ? html`<button @click=${() => this._startEdit(t)}>Edit</button>`
+              : html`<button @click=${() => this._startEdit(t)}>View</button>`}
+            ${!t.isDefault ? html`<button class="danger" @click=${() => this._delete(t)}>Delete</button>` : ""}
+          `}
+          empty-text="No transforms"
+        ></shenas-data-list>
       </div>
     `;
   }
@@ -353,7 +419,9 @@ class TransformsPage extends LitElement {
               @change=${(e: Event) => this._updateNewForm("source_duckdb_table", (e.target as HTMLSelectElement).value)}
             >
               <option value="">-- select --</option>
-              ${sourceTables.map((t) => html`<option value=${t} ?selected=${f.source_duckdb_table === t}>${t}</option>`)}
+              ${sourceTables.map(
+                (t) => html`<option value=${t} ?selected=${f.source_duckdb_table === t}>${t}</option>`,
+              )}
             </select>
           </label>
           <label>
@@ -363,7 +431,9 @@ class TransformsPage extends LitElement {
               @change=${(e: Event) => this._updateNewForm("target_duckdb_table", (e.target as HTMLSelectElement).value)}
             >
               <option value="">-- select --</option>
-              ${allSchemaTables.map((t) => html`<option value=${t} ?selected=${f.target_duckdb_table === t}>${t}</option>`)}
+              ${allSchemaTables.map(
+                (t) => html`<option value=${t} ?selected=${f.target_duckdb_table === t}>${t}</option>`,
+              )}
             </select>
           </label>
           <label class="form-full">
@@ -400,9 +470,7 @@ class TransformsPage extends LitElement {
           class="${readonly ? "readonly" : ""}"
         ></textarea>
         <div class="edit-actions">
-          ${!readonly
-            ? html`<button @click=${this._saveEdit}>Save</button>`
-            : ""}
+          ${!readonly ? html`<button @click=${this._saveEdit}>Save</button>` : ""}
           <button @click=${this._preview}>Preview</button>
           <button @click=${this._cancelEdit}>${readonly ? "Close" : "Cancel"}</button>
         </div>

@@ -1,6 +1,15 @@
 import { LitElement, html, css } from "lit";
 import { Router } from "@lit-labs/router";
-import { arrowQuery, gql, gqlFull, PLUGIN_KINDS, matchesHotkey, sortActions, linkStyles, utilityStyles } from "shenas-frontends";
+import {
+  arrowQuery,
+  gql,
+  gqlFull,
+  PLUGIN_KINDS,
+  matchesHotkey,
+  sortActions,
+  linkStyles,
+  utilityStyles,
+} from "shenas-frontends";
 
 interface DashboardInfo {
   name: string;
@@ -35,7 +44,10 @@ interface Command {
 
 interface DbStatus {
   size_mb?: number;
-  schemas: Array<{ name: string; tables: Array<{ name: string; rows: number; cols: number; earliest?: string; latest?: string }> }>;
+  schemas: Array<{
+    name: string;
+    tables: Array<{ name: string; rows: number; cols: number; earliest?: string; latest?: string }>;
+  }>;
   [key: string]: unknown;
 }
 
@@ -102,26 +114,34 @@ class ShenasApp extends LitElement {
     },
     {
       path: "/settings/:kind/:name",
-      render: (params: { [key: string]: string | undefined }) => this._renderPluginDetail(params?.kind ?? "", params?.name ?? ""),
+      render: (params: { [key: string]: string | undefined }) =>
+        this._renderPluginDetail(params?.kind ?? "", params?.name ?? ""),
     },
     {
       path: "/settings/:kind/:name/config",
-      render: (params: { [key: string]: string | undefined }) => this._renderPluginDetail(params?.kind ?? "", params?.name ?? "", "config"),
+      render: (params: { [key: string]: string | undefined }) =>
+        this._renderPluginDetail(params?.kind ?? "", params?.name ?? "", "config"),
     },
     {
       path: "/settings/:kind/:name/auth",
-      render: (params: { [key: string]: string | undefined }) => this._renderPluginDetail(params?.kind ?? "", params?.name ?? "", "auth"),
+      render: (params: { [key: string]: string | undefined }) =>
+        this._renderPluginDetail(params?.kind ?? "", params?.name ?? "", "auth"),
     },
     {
       path: "/settings/:kind/:name/data",
-      render: (params: { [key: string]: string | undefined }) => this._renderPluginDetail(params?.kind ?? "", params?.name ?? "", "data"),
+      render: (params: { [key: string]: string | undefined }) =>
+        this._renderPluginDetail(params?.kind ?? "", params?.name ?? "", "data"),
     },
     {
       path: "/settings/:kind/:name/logs",
-      render: (params: { [key: string]: string | undefined }) => this._renderPluginDetail(params?.kind ?? "", params?.name ?? "", "logs"),
+      render: (params: { [key: string]: string | undefined }) =>
+        this._renderPluginDetail(params?.kind ?? "", params?.name ?? "", "logs"),
     },
     { path: "/logs", render: () => html`<shenas-logs api-base="${this.apiBase}"></shenas-logs>` },
-    { path: "/:tab", render: (params: { [key: string]: string | undefined }) => this._renderDynamicTab(params?.tab ?? "") },
+    {
+      path: "/:tab",
+      render: (params: { [key: string]: string | undefined }) => this._renderDynamicTab(params?.tab ?? ""),
+    },
   ]);
 
   static styles = [
@@ -518,7 +538,7 @@ class ShenasApp extends LitElement {
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.3);
+        background: rgba(0, 0, 0, 0.3);
         z-index: 200;
       }
       /* Bottom nav for mobile */
@@ -566,7 +586,7 @@ class ShenasApp extends LitElement {
           width: 260px;
           z-index: 201;
           background: var(--shenas-bg, #fff);
-          box-shadow: -2px 0 8px rgba(0,0,0,0.15);
+          box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
           transform: translateX(100%);
           transition: transform 0.2s ease;
         }
@@ -628,18 +648,21 @@ class ShenasApp extends LitElement {
     super.connectedCallback();
     this._fetchData();
     this.addEventListener("plugin-state-changed", () => this._refreshDashboards());
-    this.addEventListener("job-start", ((e: CustomEvent) => this._getJobPanel()?.addJob(e.detail.id, e.detail.label)) as EventListener);
-    this.addEventListener("job-log", ((e: CustomEvent) => this._getJobPanel()?.appendLine(e.detail.id, e.detail.text)) as EventListener);
-    this.addEventListener("job-finish", ((e: CustomEvent) => this._getJobPanel()?.finishJob(e.detail.id, e.detail.ok, e.detail.message)) as EventListener);
-    this.addEventListener("inspect-table", ((e: CustomEvent) => this._inspect(e.detail.schema, e.detail.table)) as unknown as EventListener);
+    this.addEventListener("job-start", ((e: CustomEvent) =>
+      this._getJobPanel()?.addJob(e.detail.id, e.detail.label)) as EventListener);
+    this.addEventListener("job-log", ((e: CustomEvent) =>
+      this._getJobPanel()?.appendLine(e.detail.id, e.detail.text)) as EventListener);
+    this.addEventListener("job-finish", ((e: CustomEvent) =>
+      this._getJobPanel()?.finishJob(e.detail.id, e.detail.ok, e.detail.message)) as EventListener);
+    this.addEventListener("inspect-table", ((e: CustomEvent) =>
+      this._inspect(e.detail.schema, e.detail.table)) as unknown as EventListener);
     this.addEventListener("page-title", ((e: CustomEvent) => {
       if (this._activeTabId != null) {
-        this._tabs = this._tabs.map((t) =>
-          t.id === this._activeTabId ? { ...t, label: e.detail.title } : t,
-        );
+        this._tabs = this._tabs.map((t) => (t.id === this._activeTabId ? { ...t, label: e.detail.title } : t));
       }
     }) as EventListener);
-    this.addEventListener("navigate", ((e: CustomEvent) => this._navigateTo(e.detail.path, e.detail.label)) as EventListener);
+    this.addEventListener("navigate", ((e: CustomEvent) =>
+      this._navigateTo(e.detail.path, e.detail.label)) as EventListener);
     this.addEventListener("register-command", ((e: CustomEvent) => {
       const { componentId, commands } = e.detail as { componentId: string; commands: Command[] };
       if (!commands || commands.length === 0) {
@@ -664,27 +687,38 @@ class ShenasApp extends LitElement {
     };
     document.addEventListener("keydown", this._keyHandler);
     this.addEventListener("hotkeys-changed", () => this._loadHotkeys());
-    this.addEventListener("plugins-changed", ((e: CustomEvent) => { if (e.detail) this._allPlugins = e.detail; else this._allPlugins = {}; }) as EventListener);
+    this.addEventListener("plugins-changed", ((e: CustomEvent) => {
+      if (e.detail) this._allPlugins = e.detail;
+      else this._allPlugins = {};
+    }) as EventListener);
     // Touch swipe handlers for mobile drawer
     let _touchStartX = 0;
     let _touchStartY = 0;
-    this.addEventListener("touchstart", ((e: TouchEvent) => {
-      _touchStartX = e.touches[0].clientX;
-      _touchStartY = e.touches[0].clientY;
-    }) as EventListener, { passive: true });
-    this.addEventListener("touchend", ((e: TouchEvent) => {
-      const dx = e.changedTouches[0].clientX - _touchStartX;
-      const dy = e.changedTouches[0].clientY - _touchStartY;
-      if (Math.abs(dy) > Math.abs(dx)) return;
-      // Swipe left from right edge to open
-      if (dx < -50 && _touchStartX > window.innerWidth - 40) {
-        this._mobileDrawerOpen = true;
-      }
-      // Swipe right to close
-      if (dx > 50 && this._mobileDrawerOpen) {
-        this._mobileDrawerOpen = false;
-      }
-    }) as EventListener, { passive: true });
+    this.addEventListener(
+      "touchstart",
+      ((e: TouchEvent) => {
+        _touchStartX = e.touches[0].clientX;
+        _touchStartY = e.touches[0].clientY;
+      }) as EventListener,
+      { passive: true },
+    );
+    this.addEventListener(
+      "touchend",
+      ((e: TouchEvent) => {
+        const dx = e.changedTouches[0].clientX - _touchStartX;
+        const dy = e.changedTouches[0].clientY - _touchStartY;
+        if (Math.abs(dy) > Math.abs(dx)) return;
+        // Swipe left from right edge to open
+        if (dx < -50 && _touchStartX > window.innerWidth - 40) {
+          this._mobileDrawerOpen = true;
+        }
+        // Swipe right to close
+        if (dx > 50 && this._mobileDrawerOpen) {
+          this._mobileDrawerOpen = false;
+        }
+      }) as EventListener,
+      { passive: true },
+    );
   }
 
   disconnectedCallback(): void {
@@ -772,7 +806,7 @@ class ShenasApp extends LitElement {
                 : `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok } }`;
               await gqlFull(this.apiBase, mutation, { k: k.id, n: p.name });
               if (k.id === "ui" && !enabled) {
-                window.location.replace(window.location.pathname + '?_switch=' + Date.now());
+                window.location.replace(window.location.pathname + "?_switch=" + Date.now());
                 return;
               }
               await this._fetchData();
@@ -785,8 +819,12 @@ class ShenasApp extends LitElement {
               label: `${name}${enabled ? " (active)" : ""}`,
               action: async () => {
                 if (enabled) return;
-                await gqlFull(this.apiBase, `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok } }`, { k: "ui", n: p.name });
-                window.location.replace(window.location.pathname + '?_switch=' + Date.now());
+                await gqlFull(
+                  this.apiBase,
+                  `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok } }`,
+                  { k: "ui", n: p.name },
+                );
+                window.location.replace(window.location.pathname + "?_switch=" + Date.now());
               },
             });
           }
@@ -795,13 +833,17 @@ class ShenasApp extends LitElement {
               id: `sync:${p.name}`,
               category: "Pipe",
               label: `Sync ${name}`,
-              action: () => { fetch(`${this.apiBase}/sync/${p.name}`, { method: "POST" }); },
+              action: () => {
+                fetch(`${this.apiBase}/sync/${p.name}`, { method: "POST" });
+              },
             });
             commands.push({
               id: `transform:pipe:${p.name}`,
               category: "Transform",
               label: `Run Transforms: ${name}`,
-              action: () => { gqlFull(this.apiBase, `mutation($pipe: String!) { runPipeTransforms(pipe: $pipe) }`, { pipe: p.name }); },
+              action: () => {
+                gqlFull(this.apiBase, `mutation($pipe: String!) { runPipeTransforms(pipe: $pipe) }`, { pipe: p.name });
+              },
             });
           }
         }
@@ -810,13 +852,17 @@ class ShenasApp extends LitElement {
         id: "sync:all",
         category: "Pipe",
         label: "Sync All Pipes",
-        action: () => { fetch(`${this.apiBase}/sync`, { method: "POST" }); },
+        action: () => {
+          fetch(`${this.apiBase}/sync`, { method: "POST" });
+        },
       });
       commands.push({
         id: "seed:transforms",
         category: "Transform",
         label: "Seed Default Transforms",
-        action: () => { gqlFull(this.apiBase, `mutation { seedTransforms }`); },
+        action: () => {
+          gqlFull(this.apiBase, `mutation { seedTransforms }`);
+        },
       });
       // Per-schema transform commands
       for (const s of this._allPlugins.schema || []) {
@@ -826,17 +872,35 @@ class ShenasApp extends LitElement {
             id: `transform:schema:${table}`,
             category: "Transform",
             label: `Run Transforms -> ${s.displayName || s.name}: ${table}`,
-            action: () => { gqlFull(this.apiBase, `mutation($schema: String!) { runSchemaTransforms(schema: $schema) }`, { schema: table }); },
+            action: () => {
+              gqlFull(this.apiBase, `mutation($schema: String!) { runSchemaTransforms(schema: $schema) }`, {
+                schema: table,
+              });
+            },
           });
         }
       }
-    } catch { /* */ }
+    } catch {
+      /* */
+    }
     this._pluginDisplayNames = names;
     // System actions (also triggerable from Ctrl+P)
     commands.push(
       { id: "command-palette", category: "System", label: "Command Palette", action: () => this._togglePalette() },
-      { id: "navigation-palette", category: "System", label: "Navigation Palette", action: () => this._toggleNavPalette() },
-      { id: "close-tab", category: "System", label: "Close Tab", action: () => { if (this._activeTabId != null) this._closeTab(this._activeTabId); } },
+      {
+        id: "navigation-palette",
+        category: "System",
+        label: "Navigation Palette",
+        action: () => this._toggleNavPalette(),
+      },
+      {
+        id: "close-tab",
+        category: "System",
+        label: "Close Tab",
+        action: () => {
+          if (this._activeTabId != null) this._closeTab(this._activeTabId);
+        },
+      },
       { id: "new-tab", category: "System", label: "New Tab", action: () => this._addTab() },
     );
     this._registeredCommands.set("global", commands);
@@ -867,9 +931,7 @@ class ShenasApp extends LitElement {
       return;
     }
     const lbl = label || this._labelForPath(path);
-    this._tabs = this._tabs.map((t) =>
-      t.id === this._activeTabId ? { ...t, path, label: lbl } : t,
-    );
+    this._tabs = this._tabs.map((t) => (t.id === this._activeTabId ? { ...t, path, label: lbl } : t));
     window.history.pushState({}, "", path);
     this._router.goto(path);
     this._saveWorkspace();
@@ -925,7 +987,9 @@ class ShenasApp extends LitElement {
         nextTabId: this._nextTabId,
         rightPanelOpen: this._rightOpen,
       };
-      gqlFull(this.apiBase, `mutation($data: JSON!) { saveWorkspace(data: $data) { ok } }`, { data: state }).catch(() => {});
+      gqlFull(this.apiBase, `mutation($data: JSON!) { saveWorkspace(data: $data) { ok } }`, { data: state }).catch(
+        () => {},
+      );
     }, 300);
   }
 
@@ -937,7 +1001,7 @@ class ShenasApp extends LitElement {
       if (state.tabs && (state.tabs as TabInfo[]).length > 0) {
         this._tabs = state.tabs as TabInfo[];
         this._activeTabId = (state.activeTabId as number) || (state.tabs as TabInfo[])[0].id;
-        this._nextTabId = (state.nextTabId as number) || (Math.max(...(state.tabs as TabInfo[]).map((t) => t.id)) + 1);
+        this._nextTabId = (state.nextTabId as number) || Math.max(...(state.tabs as TabInfo[]).map((t) => t.id)) + 1;
         // If URL has a specific path (shared link), open it
         const urlPath = window.location.pathname;
         if (urlPath && urlPath !== "/" && !this._tabs.some((t) => t.path === urlPath)) {
@@ -975,7 +1039,7 @@ class ShenasApp extends LitElement {
       }
     }
     const comp = this._dashboards.find((c) => c.name === parts[0]);
-    return comp ? (comp.display_name || comp.name) : parts[0];
+    return comp ? comp.display_name || comp.name : parts[0];
   }
 
   async _refreshDashboards(): Promise<void> {
@@ -984,14 +1048,17 @@ class ShenasApp extends LitElement {
   }
 
   async _refreshPlugins(): Promise<void> {
-    const data = await gql(this.apiBase, `{
+    const data = await gql(
+      this.apiBase,
+      `{
       sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth isAuthenticated }
       datasets: plugins(kind: "dataset") { name displayName enabled }
       dashboardPlugins: plugins(kind: "dashboard") { name displayName enabled }
       frontends: plugins(kind: "frontend") { name displayName enabled }
       themes: plugins(kind: "theme") { name displayName enabled }
       models: plugins(kind: "model") { name displayName enabled }
-    }`);
+    }`,
+    );
     if (data) {
       this._allPlugins = {
         source: (data.sources as PluginSummary[]) || [],
@@ -1007,7 +1074,9 @@ class ShenasApp extends LitElement {
   async _fetchData(): Promise<void> {
     this._loading = true;
     try {
-      const data = await gql(this.apiBase, `{
+      const data = await gql(
+        this.apiBase,
+        `{
         dashboards
         hotkeys
         workspace
@@ -1021,7 +1090,8 @@ class ShenasApp extends LitElement {
         theme { css }
         deviceName
         schemaPlugins
-      }`);
+      }`,
+      );
       this._dashboards = (data?.dashboards as DashboardInfo[]) || [];
       this._dbStatus = data?.dbStatus as DbStatus | null;
       this._deviceName = (data?.deviceName as string) || "";
@@ -1050,7 +1120,7 @@ class ShenasApp extends LitElement {
       if (ws?.tabs && (ws.tabs as TabInfo[]).length > 0) {
         this._tabs = ws.tabs as TabInfo[];
         this._activeTabId = (ws.activeTabId as number) || (ws.tabs as TabInfo[])[0].id;
-        this._nextTabId = (ws.nextTabId as number) || (Math.max(...(ws.tabs as TabInfo[]).map((t) => t.id)) + 1);
+        this._nextTabId = (ws.nextTabId as number) || Math.max(...(ws.tabs as TabInfo[]).map((t) => t.id)) + 1;
         const urlPath = window.location.pathname;
         if (urlPath && urlPath !== "/" && !this._tabs.some((t) => t.path === urlPath)) {
           this._openTab(urlPath);
@@ -1068,14 +1138,21 @@ class ShenasApp extends LitElement {
     this._loading = false;
     this._registerGlobalCommands();
     fetch(`${this.apiBase}/auth/me`)
-        .then((r) => r.json())
-        .then((d: Record<string, unknown>) => { this._remoteUser = (d.user as Record<string, unknown>) || null; })
-        .catch(() => { this._remoteUser = null; });
+      .then((r) => r.json())
+      .then((d: Record<string, unknown>) => {
+        this._remoteUser = (d.user as Record<string, unknown>) || null;
+      })
+      .catch(() => {
+        this._remoteUser = null;
+      });
   }
 
   _activeTab(): string {
     const active = this._tabs.find((t) => t.id === this._activeTabId);
-    return active?.path?.replace(/^\/+/, "")?.split("/")[0] || (this._dashboards.length > 0 ? this._dashboards[0].name : "settings");
+    return (
+      active?.path?.replace(/^\/+/, "")?.split("/")[0] ||
+      (this._dashboards.length > 0 ? this._dashboards[0].name : "settings")
+    );
   }
 
   _activePath(): string {
@@ -1114,7 +1191,11 @@ class ShenasApp extends LitElement {
 
   render() {
     if (this._loading) {
-      return html`<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--shenas-text-muted,#888);background:var(--shenas-bg,#f5f1eb)">Loading...</div>`;
+      return html`<div
+        style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--shenas-text-muted,#888);background:var(--shenas-bg,#f5f1eb)"
+      >
+        Loading...
+      </div>`;
     }
 
     const active = this._activeTab();
@@ -1131,77 +1212,159 @@ class ShenasApp extends LitElement {
           <nav class="nav">
             ${this._dashboards.map((c) => this._navItem(c.name, c.display_name || c.name, active))}
             ${this._navItem("logs", "Logs", active)}
-            <a class="nav-link settings-toggle" @click=${() => { this._settingsOpen = !this._settingsOpen; }}>
+            <a
+              class="nav-link settings-toggle"
+              @click=${() => {
+                this._settingsOpen = !this._settingsOpen;
+              }}
+            >
               Settings
               <span class="chevron ${this._settingsOpen ? "open" : ""}">&rsaquo;</span>
             </a>
-            ${this._settingsOpen ? html`
-              <div class="settings-sub">
-                ${this._settingsNavItem("flow", "Flow", activePath)}
-                ${this._settingsNavItem("hotkeys", "Hotkeys", activePath)}
-                <span class="sub-heading">Plugins</span>
-                ${PLUGIN_KINDS.map(({ id, label }) => html`
-                  ${this._settingsNavItem(id, `${label} (${(this._allPlugins[id] || []).length})`, activePath)}
-                `)}
-              </div>
-            ` : ""}
+            ${this._settingsOpen
+              ? html`
+                  <div class="settings-sub">
+                    ${this._settingsNavItem("flow", "Flow", activePath)}
+                    ${this._settingsNavItem("hotkeys", "Hotkeys", activePath)}
+                    <span class="sub-heading">Plugins</span>
+                    ${PLUGIN_KINDS.map(
+                      ({ id, label }) => html`
+                        ${this._settingsNavItem(id, `${label} (${(this._allPlugins[id] || []).length})`, activePath)}
+                      `,
+                    )}
+                  </div>
+                `
+              : ""}
           </nav>
           <div class="sidebar-footer">
-            <a class="auth-link" href="/api/auth/login" @click=${(e: MouseEvent) => { e.preventDefault(); window.location.href = "/api/auth/login"; }}>
+            <a
+              class="auth-link"
+              href="/api/auth/login"
+              @click=${(e: MouseEvent) => {
+                e.preventDefault();
+                window.location.href = "/api/auth/login";
+              }}
+            >
               ${this._remoteUser ? (this._remoteUser.name as string) || (this._remoteUser.email as string) : "Sign in"}
             </a>
-            ${this._deviceName ? html`<span class="device-name"><span class="device-dot ${this._remoteUser ? "connected" : ""}"></span>${this._deviceName}</span>` : ""}
+            ${this._deviceName
+              ? html`<span class="device-name"
+                  ><span class="device-dot ${this._remoteUser ? "connected" : ""}"></span>${this._deviceName}</span
+                >`
+              : ""}
           </div>
         </div>
         <div class="divider" @mousedown=${this._startDrag("left")}></div>
         <div class="panel-middle">
           ${this._tabs.length > 0
-            ? html`
-              <div class="tab-bar">
-                ${this._tabs.map((t) => html`
-                  <div class="tab-item ${t.id === this._activeTabId ? "active" : ""}"
-                    @click=${() => this._switchTab(t.id)}>
-                    <span>${t.label}</span>
-                    <button class="tab-close" @click=${(e: MouseEvent) => { e.stopPropagation(); this._closeTab(t.id); }}>x</button>
-                  </div>
-                `)}
-                <button class="tab-add" title="New tab" @click=${this._addTab}>+</button>
-              </div>
-              <div class="tab-content">
-                <div class="tab-content-inner">
-                  ${this._router.outlet()}
+            ? html` <div class="tab-bar">
+                  ${this._tabs.map(
+                    (t) => html`
+                      <div
+                        class="tab-item ${t.id === this._activeTabId ? "active" : ""}"
+                        @click=${() => this._switchTab(t.id)}
+                      >
+                        <span>${t.label}</span>
+                        <button
+                          class="tab-close"
+                          @click=${(e: MouseEvent) => {
+                            e.stopPropagation();
+                            this._closeTab(t.id);
+                          }}
+                        >
+                          x
+                        </button>
+                      </div>
+                    `,
+                  )}
+                  <button class="tab-add" title="New tab" @click=${this._addTab}>+</button>
                 </div>
-              </div>`
-            : html`
-              <div class="empty-state">
+                <div class="tab-content">
+                  <div class="tab-content-inner">${this._router.outlet()}</div>
+                </div>`
+            : html` <div class="empty-state">
                 <img src="/static/images/shenas.svg" alt="shenas" />
                 <p>Open a page from the sidebar</p>
               </div>`}
           <shenas-job-panel></shenas-job-panel>
         </div>
-        <button class="right-toggle" @click=${() => { this._rightOpen = !this._rightOpen; this._saveWorkspace(); }} title="${this._rightOpen ? "Collapse" : "Expand"} panel">${this._rightOpen ? "\u203a" : "\u2039"}</button>
+        <button
+          class="right-toggle"
+          @click=${() => {
+            this._rightOpen = !this._rightOpen;
+            this._saveWorkspace();
+          }}
+          title="${this._rightOpen ? "Collapse" : "Expand"} panel"
+        >
+          ${this._rightOpen ? "\u203a" : "\u2039"}
+        </button>
         <div class="divider" @mousedown=${this._startDrag("right")}></div>
-        <div class="drawer-overlay ${this._mobileDrawerOpen ? "visible" : ""}" @click=${() => { this._mobileDrawerOpen = false; }}></div>
-        <div class="panel-right ${this._rightOpen ? "" : "collapsed"} ${this._mobileDrawerOpen ? "mobile-open" : ""}" style="width: ${this._rightWidth}px">
+        <div
+          class="drawer-overlay ${this._mobileDrawerOpen ? "visible" : ""}"
+          @click=${() => {
+            this._mobileDrawerOpen = false;
+          }}
+        ></div>
+        <div
+          class="panel-right ${this._rightOpen ? "" : "collapsed"} ${this._mobileDrawerOpen ? "mobile-open" : ""}"
+          style="width: ${this._rightWidth}px"
+        >
           ${this._inspectTable ? this._renderInspect() : this._renderDbStats()}
         </div>
         <div class="bottom-nav">
           <nav>
-            ${this._dashboards.map((c) => html`
-              <a class="nav-item" href="/${c.name}" @click=${(e: MouseEvent) => { e.preventDefault(); this._navigateTo(`/${c.name}`); }}
-                aria-selected=${active === c.name}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-                <span>${c.display_name || c.name}</span>
-              </a>
-            `)}
-            <a class="nav-item" href="/logs" @click=${(e: MouseEvent) => { e.preventDefault(); this._navigateTo("/logs"); }}
-              aria-selected=${active === "logs"}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            ${this._dashboards.map(
+              (c) => html`
+                <a
+                  class="nav-item"
+                  href="/${c.name}"
+                  @click=${(e: MouseEvent) => {
+                    e.preventDefault();
+                    this._navigateTo(`/${c.name}`);
+                  }}
+                  aria-selected=${active === c.name}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M3 9h18M9 21V9" />
+                  </svg>
+                  <span>${c.display_name || c.name}</span>
+                </a>
+              `,
+            )}
+            <a
+              class="nav-item"
+              href="/logs"
+              @click=${(e: MouseEvent) => {
+                e.preventDefault();
+                this._navigateTo("/logs");
+              }}
+              aria-selected=${active === "logs"}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
               <span>Logs</span>
             </a>
-            <a class="nav-item" href="/settings" aria-selected=${activePath.startsWith("/settings")}
-              @click=${(e: MouseEvent) => { e.preventDefault(); this._navigateTo("/settings"); }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            <a
+              class="nav-item"
+              href="/settings"
+              aria-selected=${activePath.startsWith("/settings")}
+              @click=${(e: MouseEvent) => {
+                e.preventDefault();
+                this._navigateTo("/settings");
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3" />
+                <path
+                  d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"
+                />
+              </svg>
               <span>Settings</span>
             </a>
           </nav>
@@ -1211,21 +1374,36 @@ class ShenasApp extends LitElement {
         ?open=${this._paletteOpen}
         .commands=${this._paletteCommands}
         @execute=${this._executePaletteCommand}
-        @close=${() => { this._paletteOpen = false; }}
+        @close=${() => {
+          this._paletteOpen = false;
+        }}
       ></shenas-command-palette>
       <shenas-command-palette
         ?open=${this._navPaletteOpen}
         .commands=${this._navCommands}
         @execute=${this._executePaletteCommand}
-        @close=${() => { this._navPaletteOpen = false; }}
+        @close=${() => {
+          this._navPaletteOpen = false;
+        }}
       ></shenas-command-palette>
     `;
   }
 
   _navItem(id: string, label: string, active: string) {
     return html`
-      <a class="nav-item" href="/${id}" aria-selected=${active === id}
-        @click=${(e: MouseEvent) => { e.preventDefault(); if (e.ctrlKey || e.metaKey) { this._openTab(`/${id}`, label); } else { this._navigateTo(`/${id}`, label); } }}>
+      <a
+        class="nav-item"
+        href="/${id}"
+        aria-selected=${active === id}
+        @click=${(e: MouseEvent) => {
+          e.preventDefault();
+          if (e.ctrlKey || e.metaKey) {
+            this._openTab(`/${id}`, label);
+          } else {
+            this._navigateTo(`/${id}`, label);
+          }
+        }}
+      >
         ${label}
       </a>
     `;
@@ -1235,8 +1413,19 @@ class ShenasApp extends LitElement {
     const path = `/settings/${id}`;
     const isActive = activePath === path || activePath.startsWith(path + "/");
     return html`
-      <a class="nav-sub-item" href="${path}" aria-selected=${isActive}
-        @click=${(e: MouseEvent) => { e.preventDefault(); if (e.ctrlKey || e.metaKey) { this._openTab(path, label); } else { this._navigateTo(path, label); } }}>
+      <a
+        class="nav-sub-item"
+        href="${path}"
+        aria-selected=${isActive}
+        @click=${(e: MouseEvent) => {
+          e.preventDefault();
+          if (e.ctrlKey || e.metaKey) {
+            this._openTab(path, label);
+          } else {
+            this._navigateTo(path, label);
+          }
+        }}
+      >
         ${label}
       </a>
     `;
@@ -1259,9 +1448,7 @@ class ShenasApp extends LitElement {
       script.src = comp.js;
       document.head.appendChild(script);
     }
-    return html`<div class="component-host">
-      ${this._getOrCreateElement(comp)}
-    </div>`;
+    return html`<div class="component-host">${this._getOrCreateElement(comp)}</div>`;
   }
 
   _renderPluginDetail(kind: string, name: string, tab = "details") {
@@ -1291,21 +1478,35 @@ class ShenasApp extends LitElement {
     return sortActions(actions, this._hotkeys) as Command[];
   }
 
-  _getJobPanel(): (HTMLElement & { addJob: (id: string, label: string) => void; appendLine: (id: string, text: string) => void; finishJob: (id: string, ok: boolean, message: string) => void }) | null {
-    return this.shadowRoot?.querySelector("shenas-job-panel") as (HTMLElement & { addJob: (id: string, label: string) => void; appendLine: (id: string, text: string) => void; finishJob: (id: string, ok: boolean, message: string) => void }) | null;
+  _getJobPanel():
+    | (HTMLElement & {
+        addJob: (id: string, label: string) => void;
+        appendLine: (id: string, text: string) => void;
+        finishJob: (id: string, ok: boolean, message: string) => void;
+      })
+    | null {
+    return this.shadowRoot?.querySelector("shenas-job-panel") as
+      | (HTMLElement & {
+          addJob: (id: string, label: string) => void;
+          appendLine: (id: string, text: string) => void;
+          finishJob: (id: string, ok: boolean, message: string) => void;
+        })
+      | null;
   }
 
   _renderSettings(kind: string) {
     return html`<shenas-settings
       api-base="${this.apiBase}"
-      active-kind="${kind || 'flow'}"
+      active-kind="${kind || "flow"}"
       .allActions=${this._getAllActions()}
       .allPlugins=${this._allPlugins}
       .schemaPlugins=${this._schemaPlugins}
       .onNavigate=${(k: string) => {
         this._navigateTo(`/settings/${k}`);
       }}
-      .onPluginsChanged=${(data: Record<string, PluginSummary[]>) => { this._allPlugins = data; }}
+      .onPluginsChanged=${(data: Record<string, PluginSummary[]>) => {
+        this._allPlugins = data;
+      }}
     ></shenas-settings>`;
   }
 
@@ -1320,7 +1521,11 @@ class ShenasApp extends LitElement {
     this._inspectTable = key;
     this._inspectRows = null;
     try {
-      this._inspectRows = (await arrowQuery(this.apiBase, `SELECT * FROM "${schema}"."${table}" ORDER BY 1 DESC LIMIT 50`) as Record<string, unknown>[]) || [];
+      this._inspectRows =
+        ((await arrowQuery(this.apiBase, `SELECT * FROM "${schema}"."${table}" ORDER BY 1 DESC LIMIT 50`)) as Record<
+          string,
+          unknown
+        >[]) || [];
     } catch {
       this._inspectRows = [];
     }
@@ -1332,9 +1537,7 @@ class ShenasApp extends LitElement {
     return html`
       <div class="db-section">
         <div class="db-meta">
-          ${db.size_mb != null
-            ? html`<code>${db.size_mb} MB</code>`
-            : html`<span>Not created</span>`}
+          ${db.size_mb != null ? html`<code>${db.size_mb} MB</code>` : html`<span>Not created</span>`}
         </div>
         ${(db.schemas || []).map(
           (s) => html`
@@ -1345,9 +1548,7 @@ class ShenasApp extends LitElement {
                   <span class="db-table-name">${t.name}</span>
                   <span class="db-table-count">${t.rows}</span>
                 </div>
-                ${t.earliest
-                  ? html`<span class="db-date-range">${t.earliest} - ${t.latest}</span>`
-                  : ""}
+                ${t.earliest ? html`<span class="db-date-range">${t.earliest} - ${t.latest}</span>` : ""}
               `,
             )}
           `,
@@ -1360,26 +1561,40 @@ class ShenasApp extends LitElement {
     return html`
       <div class="inspect-header">
         <h4>${this._inspectTable}</h4>
-        <button class="inspect-close" title="Close" @click=${() => { this._inspectTable = null; this._inspectRows = null; }}>x</button>
+        <button
+          class="inspect-close"
+          title="Close"
+          @click=${() => {
+            this._inspectTable = null;
+            this._inspectRows = null;
+          }}
+        >
+          x
+        </button>
       </div>
       ${!this._inspectRows
         ? html`<p class="loading" style="font-size:0.75rem">Loading...</p>`
         : this._inspectRows.length === 0
           ? html`<p class="empty" style="font-size:0.75rem">No rows</p>`
           : html`
-            <div style="overflow-x: auto;">
-              <table class="inspect-table">
-                <thead>
-                  <tr>${Object.keys(this._inspectRows[0]).map((c) => html`<th>${c}</th>`)}</tr>
-                </thead>
-                <tbody>
-                  ${this._inspectRows.map(
-                    (row) => html`<tr>${Object.keys(row).map((c) => html`<td title="${row[c] ?? ""}">${row[c] ?? ""}</td>`)}</tr>`,
-                  )}
-                </tbody>
-              </table>
-            </div>
-          `}
+              <div style="overflow-x: auto;">
+                <table class="inspect-table">
+                  <thead>
+                    <tr>
+                      ${Object.keys(this._inspectRows[0]).map((c) => html`<th>${c}</th>`)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${this._inspectRows.map(
+                      (row) =>
+                        html`<tr>
+                          ${Object.keys(row).map((c) => html`<td title="${row[c] ?? ""}">${row[c] ?? ""}</td>`)}
+                        </tr>`,
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            `}
     `;
   }
 

@@ -93,7 +93,7 @@ class FocusApp extends LitElement {
       color: var(--shenas-text-secondary, #666);
     }
     .nav-item[aria-selected="true"] {
-      color: var(--shenas-accent, #728F67);
+      color: var(--shenas-accent, #728f67);
       font-weight: 600;
     }
     .nav-item svg {
@@ -151,9 +151,11 @@ class FocusApp extends LitElement {
       const resp = await fetch(`${this.apiBase}/graphql`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: `{ dashboards hotkeys theme { css } uis: plugins(kind: "frontend") { name displayName enabled } }` }),
+        body: JSON.stringify({
+          query: `{ dashboards hotkeys theme { css } uis: plugins(kind: "frontend") { name displayName enabled } }`,
+        }),
       });
-      const json = await resp.json() as { data: Record<string, unknown> };
+      const json = (await resp.json()) as { data: Record<string, unknown> };
       const data = json.data;
       this._dashboards = (data?.dashboards as DashboardInfo[]) || [];
       this._hotkeys = (data?.hotkeys as Record<string, string>) || {};
@@ -180,7 +182,9 @@ class FocusApp extends LitElement {
       id: `nav:${c.name}`,
       category: "Navigate",
       label: c.display_name || c.name,
-      action: () => { this._activeIndex = i; },
+      action: () => {
+        this._activeIndex = i;
+      },
     }));
     for (const ui of this._uis) {
       const label = ui.displayName || ui.name;
@@ -191,9 +195,14 @@ class FocusApp extends LitElement {
         action: () => this._switchUI(ui.name),
       });
     }
-    cmds.push(
-      { id: "command-palette", category: "System", label: "Command Palette", action: () => { this._paletteOpen = true; } },
-    );
+    cmds.push({
+      id: "command-palette",
+      category: "System",
+      label: "Command Palette",
+      action: () => {
+        this._paletteOpen = true;
+      },
+    });
     this._paletteCommands = cmds;
   }
 
@@ -206,7 +215,7 @@ class FocusApp extends LitElement {
         variables: { k: "ui", n: name },
       }),
     });
-    window.location.replace(window.location.pathname + '?_switch=' + Date.now());
+    window.location.replace(window.location.pathname + "?_switch=" + Date.now());
   }
 
   _onKeydown(e: KeyboardEvent): void {
@@ -287,22 +296,30 @@ class FocusApp extends LitElement {
       </div>
       <shenas-job-panel></shenas-job-panel>
       <nav class="bottom-nav">
-        ${this._dashboards.map((c, i) => html`
-          <button class="nav-item" aria-selected=${i === this._activeIndex}
-            @click=${() => this._switchTo(i)}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
-            </svg>
-            <span>${c.display_name || c.name}</span>
-            ${i < 9 ? html`<span class="hotkey-hint">Ctrl+${i + 1}</span>` : ""}
-          </button>
-        `)}
+        ${this._dashboards.map(
+          (c, i) => html`
+            <button class="nav-item" aria-selected=${i === this._activeIndex} @click=${() => this._switchTo(i)}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M3 9h18M9 21V9" />
+              </svg>
+              <span>${c.display_name || c.name}</span>
+              ${i < 9 ? html`<span class="hotkey-hint">Ctrl+${i + 1}</span>` : ""}
+            </button>
+          `,
+        )}
       </nav>
       <shenas-command-palette
         ?open=${this._paletteOpen}
         .commands=${this._paletteCommands}
-        @execute=${(e: CustomEvent) => { const cmd = e.detail as Command; if (cmd.action) cmd.action(); this._paletteOpen = false; }}
-        @close=${() => { this._paletteOpen = false; }}
+        @execute=${(e: CustomEvent) => {
+          const cmd = e.detail as Command;
+          if (cmd.action) cmd.action();
+          this._paletteOpen = false;
+        }}
+        @close=${() => {
+          this._paletteOpen = false;
+        }}
       ></shenas-command-palette>
     `;
   }

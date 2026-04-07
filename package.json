@@ -1,10 +1,17 @@
 {
   "private": true,
   "type": "module",
+  "scripts": {
+    "lint": "eslint 'plugins/**/src/**/*.ts' 'app/vendor/src/**/*.ts'",
+    "format": "prettier --write 'plugins/**/src/**/*.ts' 'app/vendor/src/**/*.ts'",
+    "format:check": "prettier --check 'plugins/**/src/**/*.ts' 'app/vendor/src/**/*.ts'"
+  },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.2",
     "eslint": "^9.0.0",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-lit": "^2.0.0",
+    "prettier": "^3.8.1",
     "typescript": "^5.8.0",
     "typescript-eslint": "^8.0.0"
   }

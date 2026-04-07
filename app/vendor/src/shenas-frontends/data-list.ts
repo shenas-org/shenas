@@ -86,7 +86,9 @@ class DataList extends LitElement {
         align-items: center;
         justify-content: center;
         padding: 0;
-        transition: background 0.15s, color 0.15s;
+        transition:
+          background 0.15s,
+          color 0.15s;
       }
       .add-btn:hover {
         background: var(--shenas-primary, #0066cc);
@@ -116,29 +118,25 @@ class DataList extends LitElement {
       : "";
 
     if (!this.rows || this.rows.length === 0) {
-      return html`<p class="empty">${this.emptyText}</p>${addRow}`;
+      return html`<p class="empty">${this.emptyText}</p>
+        ${addRow}`;
     }
 
     return html`
       <table>
         <thead>
           <tr>
-            ${this.columns.map((col) => html`<th>${col.label}</th>`)}
-            ${hasActions ? html`<th></th>` : ""}
+            ${this.columns.map((col) => html`<th>${col.label}</th>`)} ${hasActions ? html`<th></th>` : ""}
           </tr>
         </thead>
         <tbody>
           ${this.rows.map(
             (row) => html`
               <tr class="${this.rowClass ? this.rowClass(row) : ""}">
-                ${this.columns.map((col) => html`
-                  <td class="${col.class || ""}">
-                    ${col.render ? col.render(row) : row[col.key]}
-                  </td>
-                `)}
-                ${hasActions
-                  ? html`<td class="actions-cell">${this.actions!(row)}</td>`
-                  : ""}
+                ${this.columns.map(
+                  (col) => html` <td class="${col.class || ""}">${col.render ? col.render(row) : row[col.key]}</td> `,
+                )}
+                ${hasActions ? html`<td class="actions-cell">${this.actions!(row)}</td>` : ""}
               </tr>
             `,
           )}

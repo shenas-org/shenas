@@ -69,16 +69,30 @@ class PipelineOverview extends LitElement {
         height: 10px;
         border-radius: 3px;
       }
-      .legend-dot.pipe { background: var(--shenas-node-pipe, #4a90d9); }
-      .legend-dot.schema { background: var(--shenas-node-schema, #66bb6a); }
-      .legend-dot.component { background: var(--shenas-node-component, #ffa726); }
-      .legend-dot.model { background: var(--shenas-node-model, #ab47bc); }
+      .legend-dot.pipe {
+        background: var(--shenas-node-pipe, #4a90d9);
+      }
+      .legend-dot.schema {
+        background: var(--shenas-node-schema, #66bb6a);
+      }
+      .legend-dot.component {
+        background: var(--shenas-node-component, #ffa726);
+      }
+      .legend-dot.model {
+        background: var(--shenas-node-model, #ab47bc);
+      }
       .legend-line {
         width: 20px;
         height: 2px;
       }
-      .legend-line.enabled { background: var(--shenas-text-muted, #888); }
-      .legend-line.disabled { background: var(--shenas-text-faint, #aaa); border-top: 2px dashed var(--shenas-text-faint, #aaa); height: 0; }
+      .legend-line.enabled {
+        background: var(--shenas-text-muted, #888);
+      }
+      .legend-line.disabled {
+        background: var(--shenas-text-faint, #aaa);
+        border-top: 2px dashed var(--shenas-text-faint, #aaa);
+        height: 0;
+      }
     `,
   ];
 
@@ -121,10 +135,13 @@ class PipelineOverview extends LitElement {
     this._loading = true;
     try {
       // Only fetch transforms + dependencies (plugins and schemaPlugins come from parent)
-      const data = await gql(this.apiBase, `{
+      const data = await gql(
+        this.apiBase,
+        `{
         transforms { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin enabled }
         dependencies
-      }`);
+      }`,
+      );
       const ap = this.allPlugins || {};
       this._buildElements(
         (ap.source || []) as PluginInfo[],
@@ -278,8 +295,8 @@ class PipelineOverview extends LitElement {
     this._cy = cytoscape({
       container,
       elements: this._elements,
-       
-      style: ([
+
+      style: [
         {
           selector: "node",
           style: {
@@ -297,19 +314,19 @@ class PipelineOverview extends LitElement {
         },
         {
           selector: 'node[kind="source"]',
-          style: { "background-color": "#4a90d9", "cursor": "pointer" },
+          style: { "background-color": "#4a90d9", cursor: "pointer" },
         },
         {
           selector: 'node[kind="dataset"]',
-          style: { "background-color": "#66bb6a", "cursor": "pointer" },
+          style: { "background-color": "#66bb6a", cursor: "pointer" },
         },
         {
           selector: 'node[kind="dashboard"]',
-          style: { "background-color": "#ffa726", "cursor": "pointer" },
+          style: { "background-color": "#ffa726", cursor: "pointer" },
         },
         {
           selector: 'node[kind="model"]',
-          style: { "background-color": "#ab47bc", "cursor": "pointer" },
+          style: { "background-color": "#ab47bc", cursor: "pointer" },
         },
         {
           selector: 'node[enabled="no"]',
@@ -322,7 +339,7 @@ class PipelineOverview extends LitElement {
             "target-arrow-shape": "triangle",
             "target-arrow-color": "#999",
             "line-color": "#999",
-            "cursor": "pointer",
+            cursor: "pointer",
             width: 2,
             label: "data(label)",
             "font-size": 9,
@@ -354,7 +371,7 @@ class PipelineOverview extends LitElement {
             label: "",
           },
         },
-      ] as unknown) as cytoscape.StylesheetStyle[],
+      ] as unknown as cytoscape.StylesheetStyle[],
       layout: {
         name: "dagre",
         rankDir: "LR",
@@ -382,7 +399,13 @@ class PipelineOverview extends LitElement {
     this._cy.on("tap", "edge", (evt) => {
       const plugin = evt.target.data("sourcePlugin") as string | undefined;
       if (plugin) {
-        this.dispatchEvent(new CustomEvent("navigate", { bubbles: true, composed: true, detail: { path: `/settings/source/${plugin}` } }));
+        this.dispatchEvent(
+          new CustomEvent("navigate", {
+            bubbles: true,
+            composed: true,
+            detail: { path: `/settings/source/${plugin}` },
+          }),
+        );
       }
     });
 
@@ -421,7 +444,13 @@ class PipelineOverview extends LitElement {
           <span class="legend-item"><span class="legend-dot model"></span> Model</span>
           <span class="legend-item"><span class="legend-line enabled"></span> Transform</span>
           <span class="legend-item"><span class="legend-line disabled"></span> Disabled</span>
-          <span class="legend-item"><span class="legend-line" style="border-top:2px dotted var(--shenas-text-faint, #aaa);height:0;background:none"></span> Dependency</span>
+          <span class="legend-item"
+            ><span
+              class="legend-line"
+              style="border-top:2px dotted var(--shenas-text-faint, #aaa);height:0;background:none"
+            ></span>
+            Dependency</span
+          >
         </div>
         ${this._empty ? html`<p class="empty">No connections found. Add transforms in pipe settings.</p>` : ""}
       </shenas-page>

@@ -186,9 +186,7 @@ describe("command palette", () => {
   it("captures register-command custom events from child elements", async () => {
     const el = mount();
     await el.updateComplete;
-    const commands = [
-      { id: "my-action", label: "My Action", category: "Test", action: () => {} },
-    ];
+    const commands = [{ id: "my-action", label: "My Action", category: "Test", action: () => {} }];
     el.dispatchEvent(
       new CustomEvent("register-command", {
         detail: { componentId: "child-1", commands },

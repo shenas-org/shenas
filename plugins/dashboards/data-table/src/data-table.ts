@@ -47,16 +47,50 @@ export class ShenasDataTable extends LitElement {
     :host {
       display: flex;
       flex-direction: column;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family:
+        system-ui,
+        -apple-system,
+        sans-serif;
       height: 100%;
       overflow: hidden;
     }
-    h1 { font-size: 20px; font-weight: 600; color: #222; margin: 0 0 12px 0; }
-    .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; flex-shrink: 0; }
-    select, input { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
-    select { min-width: 200px; }
-    .table-wrap { overflow: auto; flex: 1; border: 1px solid #e0e0e0; border-radius: 6px; background: #fff; }
-    table { border-collapse: collapse; width: 100%; font-size: 13px; table-layout: fixed; }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #222;
+      margin: 0 0 12px 0;
+    }
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+    select,
+    input {
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    select {
+      min-width: 200px;
+    }
+    .table-wrap {
+      overflow: auto;
+      flex: 1;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      background: #fff;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 13px;
+      table-layout: fixed;
+    }
     th {
       position: relative;
       background: #f5f5f5;
@@ -70,26 +104,85 @@ export class ShenasDataTable extends LitElement {
       cursor: pointer;
       user-select: none;
     }
-    th:hover { background: #eee; }
-    .sort-indicator { margin-left: 4px; color: #999; }
+    th:hover {
+      background: #eee;
+    }
+    .sort-indicator {
+      margin-left: 4px;
+      color: #999;
+    }
     .resize-handle {
       position: absolute;
-      right: 0; top: 0; bottom: 0;
+      right: 0;
+      top: 0;
+      bottom: 0;
       width: 4px;
       cursor: col-resize;
     }
-    .resize-handle:hover { background: #4a90d9; }
-    .filter-row th { padding: 4px 8px; background: #fafafa; border-bottom: 1px solid #eee; cursor: default; }
-    .filter-row input { width: 100%; box-sizing: border-box; padding: 4px 6px; font-size: 12px; }
-    td { padding: 6px 12px; border-bottom: 1px solid #f0f0f0; color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    tr:hover td { background: #f8f8ff; }
-    .pagination { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 13px; color: #666; flex-shrink: 0; }
-    .pagination button { padding: 4px 12px; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; }
-    .pagination button:disabled { opacity: 0.4; cursor: default; }
-    .pagination button:not(:disabled):hover { background: #f0f0f0; }
-    .loading { color: #888; padding: 24px; text-align: center; }
-    .error { color: #c00; background: #fee; padding: 12px; border-radius: 6px; }
-    .page-info { flex: 1; text-align: center; }
+    .resize-handle:hover {
+      background: #4a90d9;
+    }
+    .filter-row th {
+      padding: 4px 8px;
+      background: #fafafa;
+      border-bottom: 1px solid #eee;
+      cursor: default;
+    }
+    .filter-row input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 4px 6px;
+      font-size: 12px;
+    }
+    td {
+      padding: 6px 12px;
+      border-bottom: 1px solid #f0f0f0;
+      color: #444;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    tr:hover td {
+      background: #f8f8ff;
+    }
+    .pagination {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 13px;
+      color: #666;
+      flex-shrink: 0;
+    }
+    .pagination button {
+      padding: 4px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .pagination button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .pagination button:not(:disabled):hover {
+      background: #f0f0f0;
+    }
+    .loading {
+      color: #888;
+      padding: 24px;
+      text-align: center;
+    }
+    .error {
+      color: #c00;
+      background: #fee;
+      padding: 12px;
+      border-radius: 6px;
+    }
+    .page-info {
+      flex: 1;
+      text-align: center;
+    }
   `;
 
   constructor() {
@@ -163,7 +256,7 @@ export class ShenasDataTable extends LitElement {
         if (!val) return true;
         const cell = row[col];
         return cell != null && String(cell).toLowerCase().includes(val.toLowerCase());
-      })
+      }),
     );
   }
 
@@ -173,7 +266,8 @@ export class ShenasDataTable extends LitElement {
     const col = this._sortCol;
     const desc = this._sortDesc;
     return data.sort((a, b) => {
-      const va = a[col], vb = b[col];
+      const va = a[col],
+        vb = b[col];
       if (va == null && vb == null) return 0;
       if (va == null) return 1;
       if (vb == null) return -1;
@@ -246,14 +340,18 @@ export class ShenasDataTable extends LitElement {
               <option value="${t.schema}.${t.table}" ?selected=${`${t.schema}.${t.table}` === this._selectedTable}>
                 ${t.schema}.${t.table}
               </option>
-            `
+            `,
           )}
         </select>
       </div>
     `;
 
-    if (this._loading) return html`${tableSelector}<div class="loading">Loading...</div>`;
-    if (this._data.length === 0) return html`${tableSelector}<div class="loading">No data</div>`;
+    if (this._loading)
+      return html`${tableSelector}
+        <div class="loading">Loading...</div>`;
+    if (this._data.length === 0)
+      return html`${tableSelector}
+        <div class="loading">No data</div>`;
 
     const rows = this._pagedData;
 
@@ -272,7 +370,7 @@ export class ShenasDataTable extends LitElement {
                       : ""}
                     <div class="resize-handle" @mousedown=${(e: MouseEvent) => this._onResizeStart(e, col)}></div>
                   </th>
-                `
+                `,
               )}
             </tr>
             <tr class="filter-row">
@@ -286,7 +384,7 @@ export class ShenasDataTable extends LitElement {
                       @input=${(e: Event) => this._onFilter(col, (e.target as HTMLInputElement).value)}
                     />
                   </th>
-                `
+                `,
               )}
             </tr>
           </thead>
@@ -295,20 +393,18 @@ export class ShenasDataTable extends LitElement {
               (row) => html`
                 <tr>
                   ${this._columns.map(
-                    (col) => html`<td style="width:${this._colWidths[col] || 150}px">${this._formatCell(row[col])}</td>`
+                    (col) =>
+                      html`<td style="width:${this._colWidths[col] || 150}px">${this._formatCell(row[col])}</td>`,
                   )}
                 </tr>
-              `
+              `,
             )}
           </tbody>
         </table>
       </div>
       <div class="pagination">
         <button ?disabled=${this._page === 0} @click=${() => this._page--}>Previous</button>
-        <span class="page-info">
-          Page ${this._page + 1} of ${this._pageCount}
-          (${this._sortedData.length} rows)
-        </span>
+        <span class="page-info"> Page ${this._page + 1} of ${this._pageCount} (${this._sortedData.length} rows) </span>
         <button ?disabled=${this._page >= this._pageCount - 1} @click=${() => this._page++}>Next</button>
       </div>
     `;

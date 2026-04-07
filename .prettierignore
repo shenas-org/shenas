@@ -1,0 +1,9 @@
+node_modules/
+**/dist/**
+**/static/**
+**/shenas_frontends/**
+**/.venv/**
+**/__pycache__/**
+**/coverage/**
+package-lock.json
+**/package-lock.json

@@ -32,9 +32,11 @@ moon run desktop:sidecars           # build PyInstaller sidecars for Tauri
 moon run desktop:tauri              # build desktop app (builds sidecars first)
 
 # JavaScript / TypeScript
-npm install                                                      # root: install eslint + typescript
+npm install                                                      # root: install eslint + prettier + typescript
+npm run lint                                                     # eslint all TS
+npm run format                                                   # prettier write
+npm run format:check                                             # prettier check
 npx tsc --noEmit -p plugins/frontends/default/tsconfig.json      # type check one package
-npx eslint 'plugins/**/src/**/*.ts' 'app/vendor/src/**/*.ts'     # lint TS
 cd app/vendor && npm test                                        # vendor tests
 cd plugins/dashboards/data-table && npm run coverage             # coverage one package
 ```

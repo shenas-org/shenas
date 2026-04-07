@@ -1,5 +1,15 @@
 import { LitElement, html, css } from "lit";
-import { arrowQuery, gql, gqlFull, registerCommands, renderMessage, buttonStyles, linkStyles, messageStyles, tabStyles } from "shenas-frontends";
+import {
+  arrowQuery,
+  gql,
+  gqlFull,
+  registerCommands,
+  renderMessage,
+  buttonStyles,
+  linkStyles,
+  messageStyles,
+  tabStyles,
+} from "shenas-frontends";
 
 interface PluginInfo {
   name: string;
@@ -169,7 +179,8 @@ class PluginDetail extends LitElement {
         overflow-x: auto;
         display: block;
       }
-      .data-table th, .data-table td {
+      .data-table th,
+      .data-table td {
         padding: 0.35rem 0.6rem;
         border: 1px solid var(--shenas-border-light, #e8e8e8);
         text-align: left;
@@ -241,7 +252,9 @@ class PluginDetail extends LitElement {
     if (changed.has("_loading")) {
       if (this._loadingTimer) clearTimeout(this._loadingTimer);
       if (this._loading) {
-        this._loadingTimer = setTimeout(() => { this._showLoading = true; }, 200);
+        this._loadingTimer = setTimeout(() => {
+          this._showLoading = true;
+        }, 200);
       } else {
         this._showLoading = false;
       }
@@ -255,29 +268,32 @@ class PluginDetail extends LitElement {
     const needsSchema = this.kind === "dataset";
     const fields = [
       `pluginInfo(kind: $kind, name: $name)`,
-      needsSchema ? `transforms { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin description enabled }` : "",
-    ].filter(Boolean).join(" ");
-    const data = await gql(this.apiBase, `query($kind: String!, $name: String!) { ${fields} }`, { kind: this.kind, name: this.name });
+      needsSchema
+        ? `transforms { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin description enabled }`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const data = await gql(this.apiBase, `query($kind: String!, $name: String!) { ${fields} }`, {
+      kind: this.kind,
+      name: this.name,
+    });
     this._info = data?.pluginInfo as PluginInfo | null;
     const db = this.dbStatus;
     const ownership = this.schemaPlugins;
     const allTransforms = data?.transforms as SchemaTransform[] | undefined;
-    const ownedTables = ownership ? (ownership[this.name] || []) : [];
+    const ownedTables = ownership ? ownership[this.name] || [] : [];
     if (db) {
       if (this.kind === "source") {
         const schema = (db.schemas || []).find((s) => s.name === this.name);
         this._tables = schema ? schema.tables.filter((t) => !t.name.startsWith("_dlt_")) : [];
       } else if (this.kind === "dataset") {
         const metricsSchema = (db.schemas || []).find((s) => s.name === "metrics");
-        this._tables = metricsSchema
-          ? metricsSchema.tables.filter((t) => ownedTables.includes(t.name))
-          : [];
+        this._tables = metricsSchema ? metricsSchema.tables.filter((t) => ownedTables.includes(t.name)) : [];
       }
     }
     if (allTransforms) {
-      this._schemaTransforms = allTransforms.filter(
-        (t) => ownedTables.includes(t.targetDuckdbTable),
-      );
+      this._schemaTransforms = allTransforms.filter((t) => ownedTables.includes(t.targetDuckdbTable));
     }
     this._loading = false;
     this._registerCommands();
@@ -287,12 +303,27 @@ class PluginDetail extends LitElement {
     if (!this._info) return;
     const label = this._info.display_name || this.name;
     const cmds = [
-      { id: `remove:${this.kind}:${this.name}`, category: "Plugin", label: `Remove ${label}`, action: () => this._remove() },
+      {
+        id: `remove:${this.kind}:${this.name}`,
+        category: "Plugin",
+        label: `Remove ${label}`,
+        action: () => this._remove(),
+      },
     ];
     if (this.kind === "dataset") {
       cmds.unshift(
-        { id: `flush:${this.kind}:${this.name}`, category: "Plugin", label: `Flush ${label}`, action: () => this._flush() },
-        { id: `transform:${this.kind}:${this.name}`, category: "Plugin", label: `Transform ${label}`, action: () => this._runTransforms() },
+        {
+          id: `flush:${this.kind}:${this.name}`,
+          category: "Plugin",
+          label: `Flush ${label}`,
+          action: () => this._flush(),
+        },
+        {
+          id: `transform:${this.kind}:${this.name}`,
+          category: "Plugin",
+          label: `Transform ${label}`,
+          action: () => this._runTransforms(),
+        },
       );
     }
     registerCommands(this, `plugin-detail:${this.kind}:${this.name}`, cmds);
@@ -300,11 +331,14 @@ class PluginDetail extends LitElement {
 
   async _toggle(): Promise<void> {
     const action = this._info?.enabled !== false ? "disable" : "enable";
-    const mutation = action === "enable"
-      ? `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok message } }`
-      : `mutation($k: String!, $n: String!) { disablePlugin(kind: $k, name: $n) { ok message } }`;
+    const mutation =
+      action === "enable"
+        ? `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok message } }`
+        : `mutation($k: String!, $n: String!) { disablePlugin(kind: $k, name: $n) { ok message } }`;
     const { data } = await gqlFull(this.apiBase, mutation, { k: this.kind, n: this.name });
-    const result = (action === "enable" ? data?.enablePlugin : data?.disablePlugin) as Record<string, unknown> | undefined;
+    const result = (action === "enable" ? data?.enablePlugin : data?.disablePlugin) as
+      | Record<string, unknown>
+      | undefined;
     this._message = {
       type: result?.ok ? "success" : "error",
       text: (result?.message as string) || `${action} failed`,
@@ -327,7 +361,7 @@ class PluginDetail extends LitElement {
       }
     }
     if (this.kind === "ui" && action === "enable") {
-      window.location.replace(window.location.pathname + '?_switch=' + Date.now());
+      window.location.replace(window.location.pathname + "?_switch=" + Date.now());
       return;
     }
     this.dispatchEvent(new CustomEvent("plugin-state-changed", { bubbles: true, composed: true }));
@@ -338,17 +372,26 @@ class PluginDetail extends LitElement {
     this._message = null;
     const displayName = this._info?.display_name || this.name;
     const jobId = `sync-${this.name}-${Date.now()}`;
-    this.dispatchEvent(new CustomEvent("job-start", {
-      bubbles: true, composed: true,
-      detail: { id: jobId, label: `Syncing ${displayName}` },
-    }));
+    this.dispatchEvent(
+      new CustomEvent("job-start", {
+        bubbles: true,
+        composed: true,
+        detail: { id: jobId, label: `Syncing ${displayName}` },
+      }),
+    );
     try {
       const resp = await fetch(`${this.apiBase}/sync/${this.name}`, { method: "POST" });
       if (!resp.ok) {
-        const data = await resp.json().catch(() => ({})) as Record<string, unknown>;
+        const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>;
         const errMsg = (data.detail as string) || `Sync failed (${resp.status})`;
         this._message = { type: "error", text: errMsg };
-        this.dispatchEvent(new CustomEvent("job-finish", { bubbles: true, composed: true, detail: { id: jobId, ok: false, message: errMsg } }));
+        this.dispatchEvent(
+          new CustomEvent("job-finish", {
+            bubbles: true,
+            composed: true,
+            detail: { id: jobId, ok: false, message: errMsg },
+          }),
+        );
         this._syncing = false;
         return;
       }
@@ -368,21 +411,41 @@ class PluginDetail extends LitElement {
             try {
               const d = JSON.parse(lastData) as Record<string, unknown>;
               const logText = (d.message || d.source || lastData) as string;
-              this.dispatchEvent(new CustomEvent("job-log", { bubbles: true, composed: true, detail: { id: jobId, text: logText } }));
-            } catch { /* skip */ }
+              this.dispatchEvent(
+                new CustomEvent("job-log", { bubbles: true, composed: true, detail: { id: jobId, text: logText } }),
+              );
+            } catch {
+              /* skip */
+            }
           }
         }
         if (lastEvent === "error") hadError = true;
       }
       let msg = "Sync complete";
-      try { msg = (JSON.parse(lastData) as Record<string, unknown>).message as string || msg; } catch { /* use default */ }
+      try {
+        msg = ((JSON.parse(lastData) as Record<string, unknown>).message as string) || msg;
+      } catch {
+        /* use default */
+      }
       this._message = { type: hadError ? "error" : "success", text: msg };
-      this.dispatchEvent(new CustomEvent("job-finish", { bubbles: true, composed: true, detail: { id: jobId, ok: !hadError, message: msg } }));
+      this.dispatchEvent(
+        new CustomEvent("job-finish", {
+          bubbles: true,
+          composed: true,
+          detail: { id: jobId, ok: !hadError, message: msg },
+        }),
+      );
       if (!hadError) await this._fetchInfo();
     } catch (e) {
       const err = e as Error;
       this._message = { type: "error", text: `Sync failed: ${err.message}` };
-      this.dispatchEvent(new CustomEvent("job-finish", { bubbles: true, composed: true, detail: { id: jobId, ok: false, message: err.message } }));
+      this.dispatchEvent(
+        new CustomEvent("job-finish", {
+          bubbles: true,
+          composed: true,
+          detail: { id: jobId, ok: false, message: err.message },
+        }),
+      );
     }
     this._syncing = false;
   }
@@ -391,7 +454,9 @@ class PluginDetail extends LitElement {
     this._transforming = true;
     this._message = null;
     try {
-      const { data } = await gqlFull(this.apiBase, `mutation($s: String!) { runSchemaTransforms(schema: $s) }`, { s: this.name });
+      const { data } = await gqlFull(this.apiBase, `mutation($s: String!) { runSchemaTransforms(schema: $s) }`, {
+        s: this.name,
+      });
       const tResult = data?.runSchemaTransforms as Record<string, unknown> | undefined;
       if (tResult?.count != null) {
         this._message = { type: "success", text: `Ran ${tResult.count} transform(s)` };
@@ -408,7 +473,9 @@ class PluginDetail extends LitElement {
   async _flush(): Promise<void> {
     this._message = null;
     try {
-      const { data } = await gqlFull(this.apiBase, `mutation($s: String!) { flushSchema(schemaPlugin: $s) }`, { s: this.name });
+      const { data } = await gqlFull(this.apiBase, `mutation($s: String!) { flushSchema(schemaPlugin: $s) }`, {
+        s: this.name,
+      });
       const fResult = data?.flushSchema as Record<string, unknown> | undefined;
       if (fResult?.rows_deleted != null) {
         this._message = { type: "success", text: `Flushed ${fResult.rows_deleted} rows` };
@@ -422,13 +489,17 @@ class PluginDetail extends LitElement {
   }
 
   async _remove(): Promise<void> {
-    const displayName = this._info?.display_name || this.name.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const displayName =
+      this._info?.display_name || this.name.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase());
     const jobId = `remove-${this.kind}-${this.name}-${Date.now()}`;
 
-    this.dispatchEvent(new CustomEvent("job-start", {
-      bubbles: true, composed: true,
-      detail: { id: jobId, label: `Removing ${displayName}` },
-    }));
+    this.dispatchEvent(
+      new CustomEvent("job-start", {
+        bubbles: true,
+        composed: true,
+        detail: { id: jobId, label: `Removing ${displayName}` },
+      }),
+    );
 
     try {
       const resp = await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/remove-stream`, { method: "POST" });
@@ -448,12 +519,22 @@ class PluginDetail extends LitElement {
           try {
             const evt = JSON.parse(line.slice(6)) as Record<string, unknown>;
             if (evt.event === "log") {
-              this.dispatchEvent(new CustomEvent("job-log", { bubbles: true, composed: true, detail: { id: jobId, text: evt.text } }));
+              this.dispatchEvent(
+                new CustomEvent("job-log", { bubbles: true, composed: true, detail: { id: jobId, text: evt.text } }),
+              );
             } else if (evt.event === "done") {
               ok = evt.ok as boolean;
-              this.dispatchEvent(new CustomEvent("job-finish", { bubbles: true, composed: true, detail: { id: jobId, ok: evt.ok, message: evt.message } }));
+              this.dispatchEvent(
+                new CustomEvent("job-finish", {
+                  bubbles: true,
+                  composed: true,
+                  detail: { id: jobId, ok: evt.ok, message: evt.message },
+                }),
+              );
             }
-          } catch { /* skip */ }
+          } catch {
+            /* skip */
+          }
         }
       }
 
@@ -466,7 +547,13 @@ class PluginDetail extends LitElement {
       }
     } catch (err) {
       const error = err as Error;
-      this.dispatchEvent(new CustomEvent("job-finish", { bubbles: true, composed: true, detail: { id: jobId, ok: false, message: error.message } }));
+      this.dispatchEvent(
+        new CustomEvent("job-finish", {
+          bubbles: true,
+          composed: true,
+          detail: { id: jobId, ok: false, message: error.message },
+        }),
+      );
       this._message = { type: "error", text: error.message };
     }
   }
@@ -480,12 +567,18 @@ class PluginDetail extends LitElement {
 
   async _fetchPreview(tableName: string): Promise<void> {
     this._selectedTable = tableName;
-    if (!tableName) { this._previewRows = null; return; }
+    if (!tableName) {
+      this._previewRows = null;
+      return;
+    }
     this._previewLoading = true;
     this._previewRows = null;
     try {
       const dbSchema = this.kind === "dataset" ? "metrics" : this.name;
-      this._previewRows = (await arrowQuery(this.apiBase, `SELECT * FROM "${dbSchema}"."${tableName}" ORDER BY 1 DESC LIMIT 100`)) as Record<string, unknown>[] | null;
+      this._previewRows = (await arrowQuery(
+        this.apiBase,
+        `SELECT * FROM "${dbSchema}"."${tableName}" ORDER BY 1 DESC LIMIT 100`,
+      )) as Record<string, unknown>[] | null;
     } catch (e) {
       console.error("Preview query failed:", e);
       this._previewRows = null;
@@ -495,13 +588,22 @@ class PluginDetail extends LitElement {
 
   _renderPreviewTable() {
     const cols = Object.keys(this._previewRows![0]).filter((c) => !c.startsWith("_dlt"));
-    return html`
-      <table class="data-table">
-        <thead><tr>${cols.map((col) => html`<th>${col}</th>`)}</tr></thead>
-        <tbody>${this._previewRows!.map((row) => html`
-          <tr>${cols.map((col) => html`<td title="${row[col] ?? ""}">${row[col] ?? ""}</td>`)}</tr>
-        `)}</tbody>
-      </table>`;
+    return html` <table class="data-table">
+      <thead>
+        <tr>
+          ${cols.map((col) => html`<th>${col}</th>`)}
+        </tr>
+      </thead>
+      <tbody>
+        ${this._previewRows!.map(
+          (row) => html`
+            <tr>
+              ${cols.map((col) => html`<td title="${row[col] ?? ""}">${row[col] ?? ""}</td>`)}
+            </tr>
+          `,
+        )}
+      </tbody>
+    </table>`;
   }
 
   _renderData() {
@@ -520,20 +622,31 @@ class PluginDetail extends LitElement {
       <div class="data-toolbar">
         <select @change=${(e: Event) => this._fetchPreview((e.target as HTMLSelectElement).value)}>
           <option value="">Select a table</option>
-          ${tables.map((t) => html`<option value=${t.name} ?selected=${this._selectedTable === t.name}>${t.name}${t.rows ? ` (${t.rows})` : ""}</option>`)}
+          ${tables.map(
+            (t) =>
+              html`<option value=${t.name} ?selected=${this._selectedTable === t.name}>
+                ${t.name}${t.rows ? ` (${t.rows})` : ""}
+              </option>`,
+          )}
         </select>
         ${this._previewLoading ? html`<span style="color:var(--shenas-text-muted,#888)">Loading...</span>` : ""}
       </div>
       ${this._previewRows && this._previewRows.length > 0
         ? this._renderPreviewTable()
-        : this._selectedTable && !this._previewLoading ? html`<p style="color:var(--shenas-text-muted,#888)">Table is empty.</p>` : ""}
+        : this._selectedTable && !this._previewLoading
+          ? html`<p style="color:var(--shenas-text-muted,#888)">Table is empty.</p>`
+          : ""}
     `;
   }
 
   render() {
     return html`
-      <shenas-page ?loading=${this._showLoading} ?empty=${!this._loading && !this._info} empty-text="Plugin not found."
-        display-name="${this._info?.display_name || this._info?.name || this.name}">
+      <shenas-page
+        ?loading=${this._showLoading}
+        ?empty=${!this._loading && !this._info}
+        empty-text="Plugin not found."
+        display-name="${this._info?.display_name || this._info?.name || this.name}"
+      >
         ${this._info ? this._renderContent() : ""}
       </shenas-page>
     `;
@@ -546,20 +659,35 @@ class PluginDetail extends LitElement {
     const basePath = `/settings/${this.kind}/${this.name}`;
 
     return html`
-      <a class="back" href="/settings/${this.kind}" @click=${(e: MouseEvent) => { e.preventDefault(); window.history.pushState({}, "", `/settings/${this.kind}`); window.dispatchEvent(new PopStateEvent("popstate")); }}>&larr; Back to ${this.kind}s</a>
+      <a
+        class="back"
+        href="/settings/${this.kind}"
+        @click=${(e: MouseEvent) => {
+          e.preventDefault();
+          window.history.pushState({}, "", `/settings/${this.kind}`);
+          window.dispatchEvent(new PopStateEvent("popstate"));
+        }}
+        >&larr; Back to ${this.kind}s</a
+      >
 
       <div class="title-row">
-        <h2>${info.display_name || info.name} <span class="kind-badge">${info.kind}</span>${info.version ? html` <span class="version">${info.version}</span>` : ""}</h2>
+        <h2>
+          ${info.display_name || info.name} <span class="kind-badge">${info.kind}</span>${info.version
+            ? html` <span class="version">${info.version}</span>`
+            : ""}
+        </h2>
         <div class="title-actions">
           ${this.kind === "source" && enabled
-            ? html`<button @click=${this._sync} ?disabled=${this._syncing}>${this._syncing ? "Syncing..." : "Sync"}</button>`
+            ? html`<button @click=${this._sync} ?disabled=${this._syncing}>
+                ${this._syncing ? "Syncing..." : "Sync"}
+              </button>`
             : ""}
           ${this.kind === "dataset"
-            ? html`<button @click=${this._runTransforms} ?disabled=${this._transforming}>${this._transforming ? "Transforming..." : "Transform"}</button>`
+            ? html`<button @click=${this._runTransforms} ?disabled=${this._transforming}>
+                ${this._transforming ? "Transforming..." : "Transform"}
+              </button>`
             : ""}
-          ${this.kind === "dataset"
-            ? html`<button class="danger" @click=${this._flush}>Flush</button>`
-            : ""}
+          ${this.kind === "dataset" ? html`<button class="danger" @click=${this._flush}>Flush</button>` : ""}
           <button class="danger" @click=${this._remove}>Remove</button>
         </div>
       </div>
@@ -567,22 +695,68 @@ class PluginDetail extends LitElement {
       ${renderMessage(this._message)}
 
       <div class="tabs">
-        <a class="tab" href="${basePath}" aria-selected=${this.activeTab === "details"}
-          @click=${(e: MouseEvent) => { e.preventDefault(); this._switchTab("details"); }}>Details</a>
-        ${this._info?.has_config ? html`
-          <a class="tab" href="${basePath}/config" aria-selected=${this.activeTab === "config"}
-            @click=${(e: MouseEvent) => { e.preventDefault(); this._switchTab("config"); }}>Config</a>
-        ` : ""}
-        ${this._info?.has_auth ? html`
-          <a class="tab" href="${basePath}/auth" aria-selected=${this.activeTab === "auth"}
-            @click=${(e: MouseEvent) => { e.preventDefault(); this._switchTab("auth"); }}>Auth</a>
-        ` : ""}
-        ${this._info?.has_data !== false ? html`
-          <a class="tab" href="${basePath}/data" aria-selected=${this.activeTab === "data"}
-            @click=${(e: MouseEvent) => { e.preventDefault(); this._switchTab("data"); }}>Data</a>
-        ` : ""}
-        <a class="tab" href="${basePath}/logs" aria-selected=${this.activeTab === "logs"}
-          @click=${(e: MouseEvent) => { e.preventDefault(); this._switchTab("logs"); }}>Logs</a>
+        <a
+          class="tab"
+          href="${basePath}"
+          aria-selected=${this.activeTab === "details"}
+          @click=${(e: MouseEvent) => {
+            e.preventDefault();
+            this._switchTab("details");
+          }}
+          >Details</a
+        >
+        ${this._info?.has_config
+          ? html`
+              <a
+                class="tab"
+                href="${basePath}/config"
+                aria-selected=${this.activeTab === "config"}
+                @click=${(e: MouseEvent) => {
+                  e.preventDefault();
+                  this._switchTab("config");
+                }}
+                >Config</a
+              >
+            `
+          : ""}
+        ${this._info?.has_auth
+          ? html`
+              <a
+                class="tab"
+                href="${basePath}/auth"
+                aria-selected=${this.activeTab === "auth"}
+                @click=${(e: MouseEvent) => {
+                  e.preventDefault();
+                  this._switchTab("auth");
+                }}
+                >Auth</a
+              >
+            `
+          : ""}
+        ${this._info?.has_data !== false
+          ? html`
+              <a
+                class="tab"
+                href="${basePath}/data"
+                aria-selected=${this.activeTab === "data"}
+                @click=${(e: MouseEvent) => {
+                  e.preventDefault();
+                  this._switchTab("data");
+                }}
+                >Data</a
+              >
+            `
+          : ""}
+        <a
+          class="tab"
+          href="${basePath}/logs"
+          aria-selected=${this.activeTab === "logs"}
+          @click=${(e: MouseEvent) => {
+            e.preventDefault();
+            this._switchTab("logs");
+          }}
+          >Logs</a
+        >
       </div>
 
       ${this.activeTab === "config"
@@ -599,9 +773,7 @@ class PluginDetail extends LitElement {
 
   _renderDetails(info: PluginInfo, enabled: boolean) {
     return html`
-      ${info.description
-        ? html`<div class="description">${info.description}</div>`
-        : ""}
+      ${info.description ? html`<div class="description">${info.description}</div>` : ""}
 
       <div class="state-table">
         <div class="state-row">
@@ -610,49 +782,56 @@ class PluginDetail extends LitElement {
             <status-toggle ?enabled=${enabled} toggleable @toggle=${this._toggle}></status-toggle>
           </span>
         </div>
-        ${this._stateRow("Last synced", info.synced_at)}
-        ${this._stateRow("Added", info.added_at)}
-        ${this._stateRow("Updated", info.updated_at)}
-        ${this._stateRow("Status changed", info.status_changed_at)}
+        ${this._stateRow("Last synced", info.synced_at)} ${this._stateRow("Added", info.added_at)}
+        ${this._stateRow("Updated", info.updated_at)} ${this._stateRow("Status changed", info.status_changed_at)}
       </div>
 
       ${this.kind === "source" || this.kind === "dataset"
-        ? html`
-          <h4 class="section-title">Resources</h4>
-          <shenas-data-list
-            .columns=${[
-              { key: "name", label: "Table", class: "mono" },
-              { key: "rows", label: "Rows", class: "muted" },
-              { label: "Range", class: "muted", render: (t: TableInfo) => t.earliest ? `${t.earliest} - ${t.latest}` : "" },
-            ]}
-            .rows=${this._tables}
-            empty-text="No tables synced yet"
-          ></shenas-data-list>`
+        ? html` <h4 class="section-title">Resources</h4>
+            <shenas-data-list
+              .columns=${[
+                { key: "name", label: "Table", class: "mono" },
+                { key: "rows", label: "Rows", class: "muted" },
+                {
+                  label: "Range",
+                  class: "muted",
+                  render: (t: TableInfo) => (t.earliest ? `${t.earliest} - ${t.latest}` : ""),
+                },
+              ]}
+              .rows=${this._tables}
+              empty-text="No tables synced yet"
+            ></shenas-data-list>`
         : ""}
-
       ${this.kind === "source"
-        ? html`
-          <h4 class="section-title">Transforms</h4>
-          <shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`
+        ? html` <h4 class="section-title">Transforms</h4>
+            <shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`
         : ""}
-
       ${this.kind === "dataset" && this._schemaTransforms.length > 0
-        ? html`
-          <h4 class="section-title">Transforms</h4>
-          <shenas-data-list
-            .columns=${[
-              { key: "id", label: "ID", class: "muted" },
-              { label: "Source", class: "mono", render: (t: SchemaTransform) => `${t.sourceDuckdbSchema}.${t.sourceDuckdbTable}` },
-              { label: "Target", class: "mono", render: (t: SchemaTransform) => `${t.targetDuckdbSchema}.${t.targetDuckdbTable}` },
-              { label: "Description", render: (t: SchemaTransform) => t.description || "" },
-              { label: "Status", render: (t: SchemaTransform) => html`<status-toggle ?enabled=${t.enabled}></status-toggle>` },
-            ]}
-            .rows=${this._schemaTransforms}
-            .rowClass=${(t: SchemaTransform) => t.enabled ? "" : "disabled-row"}
-            empty-text="No transforms"
-          ></shenas-data-list>`
+        ? html` <h4 class="section-title">Transforms</h4>
+            <shenas-data-list
+              .columns=${[
+                { key: "id", label: "ID", class: "muted" },
+                {
+                  label: "Source",
+                  class: "mono",
+                  render: (t: SchemaTransform) => `${t.sourceDuckdbSchema}.${t.sourceDuckdbTable}`,
+                },
+                {
+                  label: "Target",
+                  class: "mono",
+                  render: (t: SchemaTransform) => `${t.targetDuckdbSchema}.${t.targetDuckdbTable}`,
+                },
+                { label: "Description", render: (t: SchemaTransform) => t.description || "" },
+                {
+                  label: "Status",
+                  render: (t: SchemaTransform) => html`<status-toggle ?enabled=${t.enabled}></status-toggle>`,
+                },
+              ]}
+              .rows=${this._schemaTransforms}
+              .rowClass=${(t: SchemaTransform) => (t.enabled ? "" : "disabled-row")}
+              empty-text="No transforms"
+            ></shenas-data-list>`
         : ""}
-
     `;
   }
 

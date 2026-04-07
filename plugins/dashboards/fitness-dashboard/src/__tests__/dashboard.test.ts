@@ -20,9 +20,7 @@ describe("shenas-dashboard", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.resetAllMocks();
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error("no network in tests"),
-    );
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("no network in tests"));
   });
 
   afterEach(() => {

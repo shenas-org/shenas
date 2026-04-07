@@ -22,11 +22,13 @@ if uv run python -c "import torch" 2>/dev/null; then
   uv run ty check app/fl/
 fi
 
-# Lint staged TypeScript files
+# Lint + format check staged TypeScript files
 TS_FILES=$(git diff --cached --name-only --diff-filter=ACMR -- '*.ts' | grep -v '\.d\.ts$' || true)
 if [ -n "$TS_FILES" ]; then
   echo "Running eslint on staged TS files..."
   npx eslint $TS_FILES
+  echo "Running prettier check on staged TS files..."
+  npx prettier --check $TS_FILES
 fi
 
 echo "All checks passed."

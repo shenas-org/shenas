@@ -126,10 +126,16 @@ class ConfigPage extends LitElement {
   async _fetchConfig(): Promise<void> {
     if (!this.kind || !this.name) return;
     this._loading = true;
-    const data = await gql(this.apiBase, `query($kind: String!) { plugins(kind: $kind) { name hasConfig configEntries { key label value description } } }`, { kind: this.kind });
+    const data = await gql(
+      this.apiBase,
+      `query($kind: String!) { plugins(kind: $kind) { name hasConfig configEntries { key label value description } } }`,
+      { kind: this.kind },
+    );
     const plugins = (data?.plugins as Array<Record<string, unknown>>) || [];
     const match = plugins.find((p) => p.name === this.name && p.hasConfig);
-    this._config = match ? { kind: this.kind, name: match.name as string, entries: match.configEntries as ConfigEntry[] } : null;
+    this._config = match
+      ? { kind: this.kind, name: match.name as string, entries: match.configEntries as ConfigEntry[] }
+      : null;
     this._loading = false;
   }
 
@@ -183,7 +189,11 @@ class ConfigPage extends LitElement {
       this._message = { type: "error", text: "Enter a positive number" };
       return;
     }
-    const { ok, data } = await gqlFull(this.apiBase, `mutation($kind: String!, $name: String!, $key: String!, $value: String!) { setConfig(kind: $kind, name: $name, key: $key, value: $value) { ok } }`, { kind: this.kind, name: this.name, key, value });
+    const { ok, data } = await gqlFull(
+      this.apiBase,
+      `mutation($kind: String!, $name: String!, $key: String!, $value: String!) { setConfig(kind: $kind, name: $name, key: $key, value: $value) { ok } }`,
+      { kind: this.kind, name: this.name, key, value },
+    );
     if (ok) {
       this._message = { type: "success", text: `Updated ${key}` };
       this._editing = null;
@@ -196,30 +206,46 @@ class ConfigPage extends LitElement {
   render() {
     const empty = !this._config || this._config.entries.length === 0;
     return html`
-      <shenas-page ?loading=${this._loading} ?empty=${empty}
-        loading-text="Loading config..." empty-text="No configuration settings for this plugin.">
-        ${renderMessage(this._message)}
-        ${this._config?.entries.map((e) => this._renderEntry(e))}
+      <shenas-page
+        ?loading=${this._loading}
+        ?empty=${empty}
+        loading-text="Loading config..."
+        empty-text="No configuration settings for this plugin."
+      >
+        ${renderMessage(this._message)} ${this._config?.entries.map((e) => this._renderEntry(e))}
       </shenas-page>
     `;
   }
 
   _renderFreqEdit(entry: ConfigEntry) {
-    return html`
-      <div class="edit-row">
-        <input class="config-input" type="number" min="0" step="any" style="width: 80px"
-          .value=${this._freqNum}
-          @input=${(ev: InputEvent) => { this._freqNum = (ev.target as HTMLInputElement).value; }}
-          @keydown=${(ev: KeyboardEvent) => { if (ev.key === "Enter") this._saveEdit(entry.key); if (ev.key === "Escape") this._cancelEdit(); }}
-        />
-        <select @change=${(ev: Event) => { this._freqUnit = (ev.target as HTMLSelectElement).value; }}>
-          ${Object.keys(ConfigPage._UNIT_MULTIPLIERS).map((u) => html`
-            <option value=${u} ?selected=${this._freqUnit === u}>${u}</option>
-          `)}
-        </select>
-        <button @click=${() => this._saveEdit(entry.key)}>Save</button>
-        <button @click=${this._cancelEdit}>Cancel</button>
-      </div>`;
+    return html` <div class="edit-row">
+      <input
+        class="config-input"
+        type="number"
+        min="0"
+        step="any"
+        style="width: 80px"
+        .value=${this._freqNum}
+        @input=${(ev: InputEvent) => {
+          this._freqNum = (ev.target as HTMLInputElement).value;
+        }}
+        @keydown=${(ev: KeyboardEvent) => {
+          if (ev.key === "Enter") this._saveEdit(entry.key);
+          if (ev.key === "Escape") this._cancelEdit();
+        }}
+      />
+      <select
+        @change=${(ev: Event) => {
+          this._freqUnit = (ev.target as HTMLSelectElement).value;
+        }}
+      >
+        ${Object.keys(ConfigPage._UNIT_MULTIPLIERS).map(
+          (u) => html` <option value=${u} ?selected=${this._freqUnit === u}>${u}</option> `,
+        )}
+      </select>
+      <button @click=${() => this._saveEdit(entry.key)}>Save</button>
+      <button @click=${this._cancelEdit}>Cancel</button>
+    </div>`;
   }
 
   _renderEntry(entry: ConfigEntry) {
@@ -230,23 +256,32 @@ class ConfigPage extends LitElement {
       <div class="config-row">
         <div class="config-key">${entry.label || entry.key}</div>
         ${isEditing
-          ? (isFreq ? this._renderFreqEdit(entry) : html`
-            <div class="edit-row">
-              <input class="config-input"
-                .value=${this._editValue}
-                @input=${(ev: InputEvent) => { this._editValue = (ev.target as HTMLInputElement).value; }}
-                @keydown=${(ev: KeyboardEvent) => { if (ev.key === "Enter") this._saveEdit(entry.key); if (ev.key === "Escape") this._cancelEdit(); }}
-              />
-              <button @click=${() => this._saveEdit(entry.key)}>Save</button>
-              <button @click=${this._cancelEdit}>Cancel</button>
-            </div>`)
-          : html`
-            <div class="config-detail">
-              <div class="config-value ${displayValue ? "" : "empty"}"
+          ? isFreq
+            ? this._renderFreqEdit(entry)
+            : html` <div class="edit-row">
+                <input
+                  class="config-input"
+                  .value=${this._editValue}
+                  @input=${(ev: InputEvent) => {
+                    this._editValue = (ev.target as HTMLInputElement).value;
+                  }}
+                  @keydown=${(ev: KeyboardEvent) => {
+                    if (ev.key === "Enter") this._saveEdit(entry.key);
+                    if (ev.key === "Escape") this._cancelEdit();
+                  }}
+                />
+                <button @click=${() => this._saveEdit(entry.key)}>Save</button>
+                <button @click=${this._cancelEdit}>Cancel</button>
+              </div>`
+          : html` <div class="config-detail">
+              <div
+                class="config-value ${displayValue ? "" : "empty"}"
                 @click=${() => this._startEdit(entry.key, entry.value)}
                 style="cursor: pointer"
                 title="Click to edit"
-              >${displayValue || "not set"}</div>
+              >
+                ${displayValue || "not set"}
+              </div>
               ${entry.description ? html`<div class="config-desc">${entry.description}</div>` : ""}
             </div>`}
       </div>
