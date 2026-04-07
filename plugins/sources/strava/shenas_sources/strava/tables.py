@@ -1,26 +1,113 @@
-"""Strava raw table schemas."""
+"""Strava source tables.
+
+Each table is a subclass of one of the kind base classes in
+``shenas_sources.core.table``. The class declares its schema fields, its
+metadata, and the extraction logic in one place. Activities and Laps are
+``IntervalTable`` (start + computed end). Kudos is ``M2MTable`` (athletes
+who kudoed an activity), so when a kudo is removed the row's
+``_dlt_valid_to`` is closed instead of leaving the link alive forever. Gear
+is ``CounterTable`` so cumulative distance can be diffed across syncs.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Annotated, ClassVar
+import json
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
-from shenas_plugins.core.field import Field, TableKind
+from shenas_plugins.core.field import Field
+from shenas_sources.core.table import (
+    CounterTable,
+    EventTable,
+    IntervalTable,
+    M2MTable,
+    SnapshotTable,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
-@dataclass
-class Activity:
-    """Strava activity (run, ride, swim, ...) -- fetched as DetailedActivity."""
+# ---------------------------------------------------------------------------
+# Helpers (shared by Activities/Laps/Kudos/Comments via the prefetched context)
+# ---------------------------------------------------------------------------
 
-    __table__: ClassVar[str] = "activities"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "event"
+
+def _q(value: Any) -> float | None:
+    """Unwrap a stravalib pint Quantity (or numeric) into a plain float."""
+    if value is None:
+        return None
+    magnitude = getattr(value, "magnitude", value)
+    try:
+        return float(magnitude)
+    except (TypeError, ValueError):
+        return None
+
+
+def _i(value: Any) -> int | None:
+    f = _q(value)
+    return int(f) if f is not None else None
+
+
+def _iso(value: Any) -> str | None:
+    if value is None:
+        return None
+    isoformat = getattr(value, "isoformat", None)
+    return isoformat() if callable(isoformat) else str(value)
+
+
+def _add_seconds(iso_start: str | None, seconds: int | None) -> str | None:
+    """Compute an ISO end timestamp from start + duration in seconds."""
+    if not iso_start or seconds is None:
+        return None
+    try:
+        # fromisoformat handles trailing 'Z' since Python 3.11.
+        dt = datetime.fromisoformat(iso_start)
+        return (dt + timedelta(seconds=seconds)).isoformat()
+    except (ValueError, TypeError):
+        return None
+
+
+def fetch_detailed_activities(client: Any, start_date: str = "30 days ago") -> list[Any]:
+    """Fetch detailed activities since `start_date`.
+
+    Each summary activity from get_activities() is followed by a get_activity()
+    call to retrieve laps and rich metadata. Returned as a list so multiple
+    Tables can iterate the same data without re-calling the API.
+    """
+    import pendulum
+
+    from shenas_sources.core.utils import resolve_start_date
+
+    after = pendulum.parse(resolve_start_date(start_date))
+    detailed: list[Any] = []
+    for summary in client.get_activities(after=after):
+        detail = client.get_activity(summary.id, include_all_efforts=False)
+        detailed.append(detail)
+    return detailed
+
+
+# ---------------------------------------------------------------------------
+# Intervals
+# ---------------------------------------------------------------------------
+
+
+class Activities(IntervalTable):
+    """A workout / activity (run, ride, swim, ...) -- start + computed end."""
+
+    name: ClassVar[str] = "activities"
+    display_name: ClassVar[str] = "Activities"
+    description: ClassVar[str | None] = "Strava workouts and activities, fetched as DetailedActivity."
+    pk: ClassVar[tuple[str, ...]] = ("id",)
+    time_start: ClassVar[str] = "start_date"
+    time_end: ClassVar[str] = "end_date"
 
     id: Annotated[int, Field(db_type="BIGINT", description="Activity ID")]
-    name: Annotated[str | None, Field(db_type="VARCHAR", description="Activity name")] = None
-    description: Annotated[str | None, Field(db_type="TEXT", description="Activity description")] = None
+    name_: Annotated[str | None, Field(db_type="VARCHAR", description="Activity name")] = None
+    activity_description: Annotated[str | None, Field(db_type="TEXT", description="Activity description")] = None
     sport_type: Annotated[str | None, Field(db_type="VARCHAR", description="Sport type (Run, Ride, ...)")] = None
     start_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="Start time (UTC)")] = None
+    end_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="Computed end (start + elapsed_time)")] = None
     timezone: Annotated[str | None, Field(db_type="VARCHAR", description="Activity timezone")] = None
     distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Distance (meters)")] = None
     moving_time_s: Annotated[int | None, Field(db_type="INTEGER", description="Moving time (seconds)")] = None
@@ -46,20 +133,65 @@ class Activity:
     commute: Annotated[bool, Field(db_type="BOOLEAN", description="Commute")] = False
     manual: Annotated[bool, Field(db_type="BOOLEAN", description="Manually entered")] = False
 
+    @classmethod
+    def extract(cls, client: Any, *, detailed: list[Any] | None = None, **_: Any) -> Iterator[dict[str, Any]]:  # noqa: ARG003
+        for activity in detailed or []:
+            yield _activity_row(activity)
 
-@dataclass
-class Lap:
-    """A single lap within an activity."""
 
-    __table__: ClassVar[str] = "laps"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "event"
+def _activity_row(activity: Any) -> dict[str, Any]:
+    start = _iso(getattr(activity, "start_date", None))
+    elapsed = _i(getattr(activity, "elapsed_time", None))
+    return {
+        "id": int(activity.id),
+        "name_": getattr(activity, "name", None),
+        "activity_description": getattr(activity, "description", None),
+        "sport_type": str(getattr(activity, "sport_type", "") or "") or None,
+        "start_date": start,
+        "end_date": _add_seconds(start, elapsed),
+        "timezone": str(getattr(activity, "timezone", "") or "") or None,
+        "distance_m": _q(getattr(activity, "distance", None)),
+        "moving_time_s": _i(getattr(activity, "moving_time", None)),
+        "elapsed_time_s": elapsed,
+        "elevation_gain_m": _q(getattr(activity, "total_elevation_gain", None)),
+        "average_speed_mps": _q(getattr(activity, "average_speed", None)),
+        "max_speed_mps": _q(getattr(activity, "max_speed", None)),
+        "average_heartrate": _q(getattr(activity, "average_heartrate", None)),
+        "max_heartrate": _q(getattr(activity, "max_heartrate", None)),
+        "average_temp": _q(getattr(activity, "average_temp", None)),
+        "kilojoules": _q(getattr(activity, "kilojoules", None)),
+        "calories": _q(getattr(activity, "calories", None)),
+        "average_watts": _q(getattr(activity, "average_watts", None)),
+        "max_watts": _q(getattr(activity, "max_watts", None)),
+        "suffer_score": _q(getattr(activity, "suffer_score", None)),
+        "achievement_count": int(getattr(activity, "achievement_count", 0) or 0),
+        "kudos_count": int(getattr(activity, "kudos_count", 0) or 0),
+        "comment_count": int(getattr(activity, "comment_count", 0) or 0),
+        "photo_count": int(getattr(activity, "total_photo_count", 0) or 0),
+        "gear_id": getattr(activity, "gear_id", None),
+        "device_name": getattr(activity, "device_name", None),
+        "trainer": bool(getattr(activity, "trainer", False)),
+        "commute": bool(getattr(activity, "commute", False)),
+        "manual": bool(getattr(activity, "manual", False)),
+    }
+
+
+class Laps(IntervalTable):
+    """A single lap within an activity -- start + computed end."""
+
+    name: ClassVar[str] = "laps"
+    display_name: ClassVar[str] = "Laps"
+    description: ClassVar[str | None] = "Per-lap splits embedded in each detailed activity."
+    pk: ClassVar[tuple[str, ...]] = ("id",)
+    time_start: ClassVar[str] = "start_date"
+    time_end: ClassVar[str] = "end_date"
 
     id: Annotated[int, Field(db_type="BIGINT", description="Lap ID")]
     activity_id: Annotated[int, Field(db_type="BIGINT", description="Parent activity ID")]
     lap_index: Annotated[int, Field(db_type="INTEGER", description="Lap index within activity")]
-    name: Annotated[str | None, Field(db_type="VARCHAR", description="Lap name")] = None
+    name_: Annotated[str | None, Field(db_type="VARCHAR", description="Lap name")] = None
     start_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="Lap start time (UTC)")] = None
+    end_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="Computed end")] = None
     distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Distance (meters)")] = None
     moving_time_s: Annotated[int | None, Field(db_type="INTEGER", description="Moving time (seconds)")] = None
     elapsed_time_s: Annotated[int | None, Field(db_type="INTEGER", description="Elapsed time (seconds)")] = None
@@ -71,44 +203,134 @@ class Lap:
     average_watts: Annotated[float | None, Field(db_type="DOUBLE", description="Average power (W)")] = None
     average_cadence: Annotated[float | None, Field(db_type="DOUBLE", description="Average cadence")] = None
 
+    @classmethod
+    def extract(cls, client: Any, *, detailed: list[Any] | None = None, **_: Any) -> Iterator[dict[str, Any]]:  # noqa: ARG003
+        for d in detailed or []:
+            for lap in getattr(d, "laps", None) or []:
+                yield _lap_row(int(d.id), lap)
 
-@dataclass
-class Kudos:
-    """An athlete who kudos'd an activity."""
 
-    __table__: ClassVar[str] = "kudos"
-    __pk__: ClassVar[tuple[str, ...]] = ("activity_id", "athlete_id")
-    __kind__: ClassVar[TableKind] = "event"
+def _lap_row(activity_id: int, lap: Any) -> dict[str, Any]:
+    start = _iso(getattr(lap, "start_date", None))
+    elapsed = _i(getattr(lap, "elapsed_time", None))
+    return {
+        "id": int(lap.id),
+        "activity_id": activity_id,
+        "lap_index": int(getattr(lap, "lap_index", 0) or 0),
+        "name_": getattr(lap, "name", None),
+        "start_date": start,
+        "end_date": _add_seconds(start, elapsed),
+        "distance_m": _q(getattr(lap, "distance", None)),
+        "moving_time_s": _i(getattr(lap, "moving_time", None)),
+        "elapsed_time_s": elapsed,
+        "elevation_gain_m": _q(getattr(lap, "total_elevation_gain", None)),
+        "average_speed_mps": _q(getattr(lap, "average_speed", None)),
+        "max_speed_mps": _q(getattr(lap, "max_speed", None)),
+        "average_heartrate": _q(getattr(lap, "average_heartrate", None)),
+        "max_heartrate": _q(getattr(lap, "max_heartrate", None)),
+        "average_watts": _q(getattr(lap, "average_watts", None)),
+        "average_cadence": _q(getattr(lap, "average_cadence", None)),
+    }
+
+
+# ---------------------------------------------------------------------------
+# m2m bridge: kudos
+# ---------------------------------------------------------------------------
+
+
+class Kudos(M2MTable):
+    """Athletes who kudoed an activity. Pure m2m link, loaded as SCD2.
+
+    Composite PK is (activity_id, athlete_id). The previous EventTable
+    classification silently failed when a kudo was removed -- the link row
+    stayed alive in DuckDB forever. SCD2 closes _dlt_valid_to on disappearance.
+    """
+
+    name: ClassVar[str] = "kudos"
+    display_name: ClassVar[str] = "Kudos"
+    description: ClassVar[str | None] = "Per-activity kudos links (athlete -> activity)."
+    pk: ClassVar[tuple[str, ...]] = ("activity_id", "athlete_id")
 
     activity_id: Annotated[int, Field(db_type="BIGINT", description="Activity ID")]
-    athlete_id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID")]
-    firstname: Annotated[str | None, Field(db_type="VARCHAR", description="First name")] = None
-    lastname: Annotated[str | None, Field(db_type="VARCHAR", description="Last name")] = None
+    athlete_id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID who kudoed")]
+
+    @classmethod
+    def extract(
+        cls,
+        client: Any,
+        *,
+        detailed: list[Any] | None = None,
+        **_: Any,
+    ) -> Iterator[dict[str, Any]]:
+        for d in detailed or []:
+            for k in client.get_activity_kudos(d.id):
+                athlete_id = getattr(k, "id", None)
+                if athlete_id is None:
+                    continue
+                yield {
+                    "activity_id": int(d.id),
+                    "athlete_id": int(athlete_id),
+                }
 
 
-@dataclass
-class Comment:
-    """A comment on an activity."""
+# ---------------------------------------------------------------------------
+# Events
+# ---------------------------------------------------------------------------
 
-    __table__: ClassVar[str] = "comments"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "event"
+
+class Comments(EventTable):
+    """Per-activity comments. Each comment has its own id and is immutable."""
+
+    name: ClassVar[str] = "comments"
+    display_name: ClassVar[str] = "Comments"
+    description: ClassVar[str | None] = "Comments left on activities by other athletes."
+    pk: ClassVar[tuple[str, ...]] = ("id",)
+    time_at: ClassVar[str] = "created_at"
 
     id: Annotated[int, Field(db_type="BIGINT", description="Comment ID")]
     activity_id: Annotated[int, Field(db_type="BIGINT", description="Activity ID")]
     athlete_id: Annotated[int | None, Field(db_type="BIGINT", description="Commenter athlete ID")] = None
-    athlete_name: Annotated[str | None, Field(db_type="VARCHAR", description="Commenter name")] = None
+    athlete_name: Annotated[str | None, Field(db_type="VARCHAR", description="Commenter name (denormalized)")] = None
     text: Annotated[str | None, Field(db_type="TEXT", description="Comment text")] = None
-    created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Created (UTC)")] = None
+    created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Comment posted (UTC)")] = None
+
+    @classmethod
+    def extract(
+        cls,
+        client: Any,
+        *,
+        detailed: list[Any] | None = None,
+        **_: Any,
+    ) -> Iterator[dict[str, Any]]:
+        for d in detailed or []:
+            for c in client.get_activity_comments(d.id):
+                commenter = getattr(c, "athlete", None)
+                athlete_id = getattr(commenter, "id", None) if commenter else None
+                firstname = getattr(commenter, "firstname", "") if commenter else ""
+                lastname = getattr(commenter, "lastname", "") if commenter else ""
+                full_name = f"{firstname} {lastname}".strip() or None
+                yield {
+                    "id": int(c.id),
+                    "activity_id": int(d.id),
+                    "athlete_id": int(athlete_id) if athlete_id is not None else None,
+                    "athlete_name": full_name,
+                    "text": getattr(c, "text", None),
+                    "created_at": _iso(getattr(c, "created_at", None)),
+                }
 
 
-@dataclass
-class Athlete:
-    """Authenticated Strava athlete profile."""
+# ---------------------------------------------------------------------------
+# Snapshots (loaded as SCD2)
+# ---------------------------------------------------------------------------
 
-    __table__: ClassVar[str] = "athlete"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "snapshot"
+
+class Athlete(SnapshotTable):
+    """The authenticated Strava athlete profile."""
+
+    name: ClassVar[str] = "athlete"
+    display_name: ClassVar[str] = "Athlete"
+    description: ClassVar[str | None] = "Authenticated Strava athlete profile."
+    pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID")]
     username: Annotated[str | None, Field(db_type="VARCHAR", description="Username")] = None
@@ -120,19 +342,42 @@ class Athlete:
     weight_kg: Annotated[float | None, Field(db_type="DOUBLE", description="Weight (kg)")] = None
     ftp: Annotated[int | None, Field(db_type="INTEGER", description="Functional threshold power (W)")] = None
 
+    @classmethod
+    def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:
+        a = client.get_athlete()
+        yield {
+            "id": int(a.id),
+            "username": getattr(a, "username", None),
+            "firstname": getattr(a, "firstname", None),
+            "lastname": getattr(a, "lastname", None),
+            "city": getattr(a, "city", None),
+            "country": getattr(a, "country", None),
+            "sex": getattr(a, "sex", None),
+            "weight_kg": _q(getattr(a, "weight", None)),
+            "ftp": _i(getattr(a, "ftp", None)),
+        }
 
-@dataclass
-class AthleteStats:
-    """Aggregated athlete stats (totals across run/ride/swim)."""
 
-    __table__: ClassVar[str] = "athlete_stats"
-    __pk__: ClassVar[tuple[str, ...]] = ("athlete_id",)
-    __kind__: ClassVar[TableKind] = "snapshot"
+class AthleteStats(SnapshotTable):
+    """Aggregated athlete totals (single row).
+
+    NOTE: snapshot SCD2 versions on every change. Since YTD totals tick up
+    after every activity, this will accumulate one version per sync. That's
+    fine for now -- a future PR may split the cumulative columns out into a
+    proper CounterTable, similar to the asset/plaid/crypto balance follow-up.
+    """
+
+    name: ClassVar[str] = "athlete_stats"
+    display_name: ClassVar[str] = "Athlete Stats"
+    description: ClassVar[str | None] = "Recent / YTD / all-time totals for run, ride, swim."
+    pk: ClassVar[tuple[str, ...]] = ("athlete_id",)
 
     athlete_id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID")]
     biggest_ride_distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Biggest ride distance")] = None
-    biggest_climb_elevation_m: Annotated[float | None, Field(db_type="DOUBLE", description="Biggest climb elevation")] = None
-
+    biggest_climb_elevation_m: Annotated[
+        float | None,
+        Field(db_type="DOUBLE", description="Biggest climb elevation"),
+    ] = None
     recent_run_count: Annotated[int, Field(db_type="INTEGER", description="Recent (28d) run count")] = 0
     recent_run_distance_m: Annotated[float, Field(db_type="DOUBLE", description="Recent run distance")] = 0.0
     recent_run_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="Recent run moving time")] = 0
@@ -142,7 +387,6 @@ class AthleteStats:
     recent_swim_count: Annotated[int, Field(db_type="INTEGER", description="Recent (28d) swim count")] = 0
     recent_swim_distance_m: Annotated[float, Field(db_type="DOUBLE", description="Recent swim distance")] = 0.0
     recent_swim_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="Recent swim moving time")] = 0
-
     ytd_run_count: Annotated[int, Field(db_type="INTEGER", description="YTD run count")] = 0
     ytd_run_distance_m: Annotated[float, Field(db_type="DOUBLE", description="YTD run distance")] = 0.0
     ytd_run_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="YTD run moving time")] = 0
@@ -152,7 +396,6 @@ class AthleteStats:
     ytd_swim_count: Annotated[int, Field(db_type="INTEGER", description="YTD swim count")] = 0
     ytd_swim_distance_m: Annotated[float, Field(db_type="DOUBLE", description="YTD swim distance")] = 0.0
     ytd_swim_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="YTD swim moving time")] = 0
-
     all_run_count: Annotated[int, Field(db_type="INTEGER", description="All-time run count")] = 0
     all_run_distance_m: Annotated[float, Field(db_type="DOUBLE", description="All-time run distance")] = 0.0
     all_run_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="All-time run moving time")] = 0
@@ -163,33 +406,137 @@ class AthleteStats:
     all_swim_distance_m: Annotated[float, Field(db_type="DOUBLE", description="All-time swim distance")] = 0.0
     all_swim_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="All-time swim moving time")] = 0
 
+    @classmethod
+    def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:
+        me = client.get_athlete()
+        stats = client.get_athlete_stats(int(me.id))
+        row: dict[str, Any] = {
+            "athlete_id": int(me.id),
+            "biggest_ride_distance_m": _q(getattr(stats, "biggest_ride_distance", None)),
+            "biggest_climb_elevation_m": _q(getattr(stats, "biggest_climb_elevation_gain", None)),
+        }
+        for prefix, field in [
+            ("recent_run", "recent_run_totals"),
+            ("recent_ride", "recent_ride_totals"),
+            ("recent_swim", "recent_swim_totals"),
+            ("ytd_run", "ytd_run_totals"),
+            ("ytd_ride", "ytd_ride_totals"),
+            ("ytd_swim", "ytd_swim_totals"),
+            ("all_run", "all_run_totals"),
+            ("all_ride", "all_ride_totals"),
+            ("all_swim", "all_swim_totals"),
+        ]:
+            row.update(_totals(getattr(stats, field, None), prefix))
+        yield row
 
-@dataclass
-class AthleteZones:
-    """Athlete heart rate and power zones (JSON blob)."""
 
-    __table__: ClassVar[str] = "athlete_zones"
-    __pk__: ClassVar[tuple[str, ...]] = ("athlete_id",)
-    __kind__: ClassVar[TableKind] = "snapshot"
+def _totals(obj: Any, prefix: str) -> dict[str, Any]:
+    return {
+        f"{prefix}_count": int(getattr(obj, "count", 0) or 0),
+        f"{prefix}_distance_m": _q(getattr(obj, "distance", None)) or 0.0,
+        f"{prefix}_moving_time_s": _i(getattr(obj, "moving_time", None)) or 0,
+    }
+
+
+class AthleteZones(SnapshotTable):
+    """HR + power zone configuration."""
+
+    name: ClassVar[str] = "athlete_zones"
+    display_name: ClassVar[str] = "Athlete Zones"
+    description: ClassVar[str | None] = "Heart-rate and power training zones."
+    pk: ClassVar[tuple[str, ...]] = ("athlete_id",)
 
     athlete_id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID")]
     heart_rate_zones: Annotated[str | None, Field(db_type="TEXT", description="HR zones JSON")] = None
     power_zones: Annotated[str | None, Field(db_type="TEXT", description="Power zones JSON")] = None
 
+    @classmethod
+    def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:
+        me = client.get_athlete()
+        try:
+            zones = client.get_athlete_zones()
+        except Exception:
+            return
+        yield {
+            "athlete_id": int(me.id),
+            "heart_rate_zones": _zone_list(getattr(zones, "heart_rate", None)),
+            "power_zones": _zone_list(getattr(zones, "power", None)),
+        }
 
-@dataclass
-class Gear:
-    """Bike or shoe with cumulative distance."""
 
-    __table__: ClassVar[str] = "gear"
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "counter"
+def _zone_list(zone_obj: Any) -> str | None:
+    if zone_obj is None:
+        return None
+    zones = getattr(zone_obj, "zones", None)
+    if not zones:
+        return None
+    return json.dumps([{"min": getattr(z, "min", None), "max": getattr(z, "max", None)} for z in zones])
 
-    id: Annotated[str, Field(db_type="VARCHAR", description="Gear ID (e.g. 'b12345' or 'g6789')")]
-    type: Annotated[str, Field(db_type="VARCHAR", description="'bike' or 'shoe'")]
-    name: Annotated[str | None, Field(db_type="VARCHAR", description="Gear name")] = None
+
+# ---------------------------------------------------------------------------
+# Counters
+# ---------------------------------------------------------------------------
+
+
+class Gear(CounterTable):
+    """Bikes and shoes with cumulative distance.
+
+    Loaded as append-with-observed_at so consumers can compute deltas
+    (kilometers ridden between two observations) instead of just reading
+    the latest cumulative value.
+    """
+
+    name: ClassVar[str] = "gear"
+    display_name: ClassVar[str] = "Gear"
+    description: ClassVar[str | None] = "Bikes and shoes with cumulative distance."
+    pk: ClassVar[tuple[str, ...]] = ("id",)
+    counter_columns: ClassVar[tuple[str, ...]] = ("distance_m",)
+
+    id: Annotated[str, Field(db_type="VARCHAR", description="Gear ID")]
+    type: Annotated[str, Field(db_type="VARCHAR", description="'bike' or 'shoe'")] = ""
+    name_: Annotated[str | None, Field(db_type="VARCHAR", description="Gear name")] = None
     brand_name: Annotated[str | None, Field(db_type="VARCHAR", description="Brand name")] = None
     model_name: Annotated[str | None, Field(db_type="VARCHAR", description="Model name")] = None
     distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Cumulative distance (m)")] = None
     primary: Annotated[bool, Field(db_type="BOOLEAN", description="Marked as primary")] = False
     retired: Annotated[bool, Field(db_type="BOOLEAN", description="Retired")] = False
+
+    @classmethod
+    def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:
+        me = client.get_athlete()
+        for kind, items in (("bike", getattr(me, "bikes", None) or []), ("shoe", getattr(me, "shoes", None) or [])):
+            for item in items:
+                gear_id = getattr(item, "id", None)
+                if gear_id is None:
+                    continue
+                try:
+                    detail = client.get_gear(gear_id)
+                except Exception:
+                    detail = item
+                yield {
+                    "id": str(gear_id),
+                    "type": kind,
+                    "name_": getattr(detail, "name", None) or getattr(item, "name", None),
+                    "brand_name": getattr(detail, "brand_name", None),
+                    "model_name": getattr(detail, "model_name", None),
+                    "distance_m": _q(getattr(detail, "distance", None)) or _q(getattr(item, "distance", None)),
+                    "primary": bool(getattr(detail, "primary", False) or getattr(item, "primary", False)),
+                    "retired": bool(getattr(detail, "retired", False) or getattr(item, "retired", False)),
+                }
+
+
+# ---------------------------------------------------------------------------
+# Tables this source exposes, in sync order.
+# ---------------------------------------------------------------------------
+
+
+TABLES: tuple[type, ...] = (
+    Activities,
+    Laps,
+    Kudos,
+    Comments,
+    Athlete,
+    AthleteStats,
+    AthleteZones,
+    Gear,
+)
