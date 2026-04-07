@@ -5,15 +5,19 @@ import { resolve } from "path";
 
 const repoRoot = resolve(import.meta.dirname, "../../..");
 
-/** Auto-discover JS plugins with a vite.config.js and src/index.js. */
+/** Auto-discover JS/TS plugins with a vite.config.js and src/index. */
 function discoverPlugins(base, urlPrefix) {
   const aliases = {};
   const absBase = resolve(repoRoot, base);
   if (!existsSync(absBase)) return aliases;
   for (const name of readdirSync(absBase)) {
     const dir = resolve(absBase, name);
-    if (existsSync(resolve(dir, "vite.config.js")) && existsSync(resolve(dir, "src/index.js"))) {
-      aliases[`/${urlPrefix}/${name}/${name}.js`] = resolve(dir, "src/index.js");
+    if (!existsSync(resolve(dir, "vite.config.js"))) continue;
+    const entry = existsSync(resolve(dir, "src/index.ts")) ? resolve(dir, "src/index.ts")
+      : existsSync(resolve(dir, "src/index.js")) ? resolve(dir, "src/index.js")
+      : null;
+    if (entry) {
+      aliases[`/${urlPrefix}/${name}/${name}.js`] = entry;
     }
   }
   return aliases;
@@ -27,8 +31,11 @@ function discoverFrontends() {
   for (const name of readdirSync(frontendsBase)) {
     const dir = resolve(frontendsBase, name);
     if (name === "core") continue;
-    if (existsSync(resolve(dir, "src/index.js"))) {
-      aliases[`/frontend/${name}/${name}.js`] = resolve(dir, "src/index.js");
+    const entry = existsSync(resolve(dir, "src/index.ts")) ? resolve(dir, "src/index.ts")
+      : existsSync(resolve(dir, "src/index.js")) ? resolve(dir, "src/index.js")
+      : null;
+    if (entry) {
+      aliases[`/frontend/${name}/${name}.js`] = entry;
     }
   }
   return aliases;
@@ -44,10 +51,15 @@ const pythonServer = "http://127.0.0.1:7280";
 export default defineConfig({
   test: {
     environment: "happy-dom",
-    setupFiles: ["src/__tests__/setup.js"],
+    setupFiles: ["src/__tests__/setup.ts"],
     alias: {
-      "/vendor/apache-arrow.js": new URL("src/__tests__/mock-arrow.js", import.meta.url).pathname,
-      "shenas-frontends": new URL("../../../app/vendor/src/shenas-frontends.js", import.meta.url).pathname,
+      "/vendor/apache-arrow.js": new URL("src/__tests__/mock-arrow.ts", import.meta.url).pathname,
+      "shenas-frontends": new URL("../../../app/vendor/src/shenas-frontends.ts", import.meta.url).pathname,
+    },
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.ts"],
+      exclude: ["src/__tests__/**", "src/index.ts", "src/*.d.ts"],
     },
   },
   build: {
@@ -55,7 +67,7 @@ export default defineConfig({
     emptyOutDir: false,
     cssCodeSplit: false,
     rollupOptions: {
-      input: "src/index.js",
+      input: "src/index.ts",
       external: ["lit", /^lit\//, /^@lit-labs\//, "cytoscape", "shenas-frontends", /^\/vendor\//],
       output: {
         entryFileNames: "default.js",

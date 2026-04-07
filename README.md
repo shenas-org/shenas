@@ -6,7 +6,8 @@
 
 <p align="center">
   <a href="https://github.com/afuncke/shenas/actions/workflows/ci.yml"><img src="https://github.com/afuncke/shenas/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/afuncke/244bc7a96fa33c93b77c16950e287366/raw/shenas-coverage.json" alt="Coverage">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/afuncke/244bc7a96fa33c93b77c16950e287366/raw/shenas-coverage.json" alt="Python coverage">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/afuncke/244bc7a96fa33c93b77c16950e287366/raw/shenas-js-coverage.json" alt="JS coverage">
 </p>
 
 A federated quantified-self platform where ML and AI coaches you without you ever giving up your data. Collects health, finance, and lifestyle metrics from multiple sources, normalizes them into canonical schemas, trains models locally via federated learning, and visualizes insights through pluggable web components.
@@ -81,9 +82,24 @@ shenasctl source add garmin
 ## Testing
 
 ```bash
-moon run :test      # run all tests
-moon run :lint      # ruff check across all projects
-make coverage       # tests with coverage report
+# Python
+uv run pytest                                     # run Python tests
+uv run ruff check . && uv run ruff format --check .   # lint + format check
+uv run ty check app/                              # type check
+make coverage                                     # Python coverage report
+
+# JavaScript / TypeScript
+npm install                                       # root: install eslint + typescript
+npx eslint 'plugins/**/src/**/*.ts' 'app/vendor/src/**/*.ts'   # lint
+cd app/vendor && npm test                         # vendor unit tests
+cd plugins/dashboards/data-table && npm test      # dashboard tests
+cd plugins/frontends/default && npm test          # frontend tests
+cd app/vendor && npm run coverage                 # coverage for one package
+cd plugins/frontends/default && npx tsc --noEmit  # type check one package
+
+# All tests via moon
+moon run :test
+moon run :lint
 make clean          # remove all build artifacts
 ```
 
