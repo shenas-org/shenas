@@ -26,102 +26,14 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# Parsing helpers (shared between Habits and DailyNotes)
+# Shared filesystem helpers (used by both DailyNotes and Habits)
 # ---------------------------------------------------------------------------
-
-
-def _parse_frontmatter(text: str) -> dict[str, Any] | None:
-    """Extract YAML frontmatter from a markdown file."""
-    import yaml
-
-    match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
-    if not match:
-        return None
-    try:
-        return yaml.safe_load(match.group(1))
-    except yaml.YAMLError:
-        return None
 
 
 def _date_from_filename(path: Path) -> str | None:
     """Extract YYYY-MM-DD from a daily note filename."""
     match = re.match(r"(\d{4}-\d{2}-\d{2})", path.stem)
     return match.group(1) if match else None
-
-
-_CHECKBOX_RE = re.compile(r"^- \[([ xX])\] (.+)$")
-_INLINE_FIELD_RE = re.compile(r"\s*\[([\w_-]+)::\s*([^\]]*)\]")
-_MD_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
-
-
-def _parse_habit_line(line: str, date: str) -> dict[str, Any] | None:
-    """Parse one top-level checkbox line into a habit row."""
-    if line[:1] != "-":
-        return None
-    match = _CHECKBOX_RE.match(line)
-    if not match:
-        return None
-
-    completed = match.group(1).lower() == "x"
-    raw = match.group(2)
-
-    scheduled: str | None = None
-    completion: str | None = None
-    for fld_name, fld_value in _INLINE_FIELD_RE.findall(raw):
-        if fld_name == "scheduled":
-            scheduled = fld_value.strip() or None
-        elif fld_name == "completion":
-            completion = fld_value.strip() or None
-
-    name = _INLINE_FIELD_RE.sub("", raw).strip()
-
-    url: str | None = None
-    link_match = _MD_LINK_RE.search(name)
-    if link_match:
-        url = link_match.group(2)
-        name = _MD_LINK_RE.sub(lambda m: m.group(1), name).strip()
-
-    if not name:
-        return None
-
-    return {
-        "date": date,
-        "habit_name": name,
-        "completed": completed,
-        "scheduled": scheduled,
-        "completion": completion,
-        "url": url,
-        "raw": raw,
-    }
-
-
-def _extract_habits(text: str, date: str, heading: str) -> Iterator[dict[str, Any]]:
-    """Yield habit rows for every top-level checkbox under the given H1/H2 heading."""
-    target = heading.strip().lower()
-    in_section = False
-    for line in text.splitlines():
-        stripped = line.strip()
-
-        h_match = re.match(r"^(#{1,6})\s+(.+?)\s*$", stripped)
-        if h_match:
-            level = len(h_match.group(1))
-            text_part = h_match.group(2).strip().lower()
-            if level <= 2 and text_part == target:
-                in_section = True
-            elif level <= 2 and in_section:
-                in_section = False
-            continue
-
-        if not in_section:
-            continue
-
-        if stripped == "---":
-            in_section = False
-            continue
-
-        row = _parse_habit_line(line, date)
-        if row is not None:
-            yield row
 
 
 def _iter_daily_notes(notes_dir: str) -> Iterator[tuple[str, str]]:
@@ -156,10 +68,23 @@ class DailyNotes(AggregateTable):
 
     date: Annotated[str, Field(db_type="DATE", description="Daily note date from filename")] = ""
 
+    @staticmethod
+    def _parse_frontmatter(text: str) -> dict[str, Any] | None:
+        """Extract YAML frontmatter from a markdown file."""
+        import yaml
+
+        match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
+        if not match:
+            return None
+        try:
+            return yaml.safe_load(match.group(1))
+        except yaml.YAMLError:
+            return None
+
     @classmethod
     def extract(cls, client: str, **_: Any) -> Iterator[dict[str, Any]]:
         for date, text in _iter_daily_notes(client):
-            frontmatter = _parse_frontmatter(text)
+            frontmatter = cls._parse_frontmatter(text)
             if not frontmatter:
                 continue
             row: dict[str, Any] = {"date": date}
@@ -200,10 +125,84 @@ class Habits(EventTable):
         Field(db_type="VARCHAR", description="The full original checkbox label"),
     ] = None
 
+    _CHECKBOX_RE: ClassVar[re.Pattern[str]] = re.compile(r"^- \[([ xX])\] (.+)$")
+    _INLINE_FIELD_RE: ClassVar[re.Pattern[str]] = re.compile(r"\s*\[([\w_-]+)::\s*([^\]]*)\]")
+    _MD_LINK_RE: ClassVar[re.Pattern[str]] = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+
+    @classmethod
+    def _parse_habit_line(cls, line: str, date: str) -> dict[str, Any] | None:
+        """Parse one top-level checkbox line into a habit row."""
+        if line[:1] != "-":
+            return None
+        match = cls._CHECKBOX_RE.match(line)
+        if not match:
+            return None
+
+        completed = match.group(1).lower() == "x"
+        raw = match.group(2)
+
+        scheduled: str | None = None
+        completion: str | None = None
+        for fld_name, fld_value in cls._INLINE_FIELD_RE.findall(raw):
+            if fld_name == "scheduled":
+                scheduled = fld_value.strip() or None
+            elif fld_name == "completion":
+                completion = fld_value.strip() or None
+
+        name = cls._INLINE_FIELD_RE.sub("", raw).strip()
+
+        url: str | None = None
+        link_match = cls._MD_LINK_RE.search(name)
+        if link_match:
+            url = link_match.group(2)
+            name = cls._MD_LINK_RE.sub(lambda m: m.group(1), name).strip()
+
+        if not name:
+            return None
+
+        return {
+            "date": date,
+            "habit_name": name,
+            "completed": completed,
+            "scheduled": scheduled,
+            "completion": completion,
+            "url": url,
+            "raw": raw,
+        }
+
+    @classmethod
+    def _extract_habits(cls, text: str, date: str, heading: str) -> Iterator[dict[str, Any]]:
+        """Yield habit rows for every top-level checkbox under the given H1/H2 heading."""
+        target = heading.strip().lower()
+        in_section = False
+        for line in text.splitlines():
+            stripped = line.strip()
+
+            h_match = re.match(r"^(#{1,6})\s+(.+?)\s*$", stripped)
+            if h_match:
+                level = len(h_match.group(1))
+                text_part = h_match.group(2).strip().lower()
+                if level <= 2 and text_part == target:
+                    in_section = True
+                elif level <= 2 and in_section:
+                    in_section = False
+                continue
+
+            if not in_section:
+                continue
+
+            if stripped == "---":
+                in_section = False
+                continue
+
+            row = cls._parse_habit_line(line, date)
+            if row is not None:
+                yield row
+
     @classmethod
     def extract(cls, client: str, *, heading: str = "Plan for the day", **_: Any) -> Iterator[dict[str, Any]]:
         for date, text in _iter_daily_notes(client):
-            yield from _extract_habits(text, date, heading)
+            yield from cls._extract_habits(text, date, heading)
 
 
 TABLES: tuple[type, ...] = (DailyNotes, Habits)

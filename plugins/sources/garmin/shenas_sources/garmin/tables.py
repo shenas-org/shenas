@@ -62,6 +62,16 @@ class Activities(IntervalTable):
     averageHR: Annotated[float | None, Field(db_type="DOUBLE", description="Average heart rate")] = None  # noqa: N815
     maxHR: Annotated[float | None, Field(db_type="DOUBLE", description="Maximum heart rate")] = None  # noqa: N815
 
+    @staticmethod
+    def _compute_end(start: str | None, duration_seconds: float | None) -> str | None:
+        """Compute interval end as start + duration. Returns None if either is missing."""
+        if not start or duration_seconds is None:
+            return None
+        try:
+            return pendulum.parse(start).add(seconds=int(duration_seconds)).to_datetime_string()
+        except Exception:
+            return None
+
     @classmethod
     def extract(
         cls,
@@ -77,18 +87,8 @@ class Activities(IntervalTable):
         rows = client.get_activities_by_date(effective_start, end_date) or []
         for row in rows:
             row["activity_id"] = str(row["activityId"])
-            row["end_time_local"] = _compute_end(row.get("startTimeLocal"), row.get("duration"))
+            row["end_time_local"] = cls._compute_end(row.get("startTimeLocal"), row.get("duration"))
             yield row
-
-
-def _compute_end(start: str | None, duration_seconds: float | None) -> str | None:
-    """Compute interval end as start + duration. Returns None if either is missing."""
-    if not start or duration_seconds is None:
-        return None
-    try:
-        return pendulum.parse(start).add(seconds=int(duration_seconds)).to_datetime_string()
-    except Exception:
-        return None
 
 
 class _DailyAggregate(AggregateTable):

@@ -32,17 +32,11 @@ if TYPE_CHECKING:
     from shenas_sources.duolingo.client import DuolingoClient
 
 
-def _epoch_to_date(epoch: int) -> date:
-    return datetime.fromtimestamp(epoch, tz=UTC).date()
-
-
 def _epoch_to_iso(epoch: int | None) -> str | None:
+    """Convert epoch seconds to UTC ISO string. Used by Achievements and League."""
     if epoch is None:
         return None
     return datetime.fromtimestamp(epoch, tz=UTC).isoformat()
-
-
-_LEAGUE_NAMES = ["Bronze", "Silver", "Gold", "Sapphire", "Ruby", "Emerald", "Amethyst", "Pearl", "Obsidian", "Diamond"]
 
 
 # ---------------------------------------------------------------------------
@@ -65,6 +59,10 @@ class DailyXp(AggregateTable):
     num_sessions: Annotated[int, Field(db_type="INTEGER", description="Number of practice sessions")] = 0
     total_session_time_sec: Annotated[int, Field(db_type="INTEGER", description="Total session time in seconds")] = 0
 
+    @staticmethod
+    def _epoch_to_date(epoch: int) -> date:
+        return datetime.fromtimestamp(epoch, tz=UTC).date()
+
     @classmethod
     def extract(
         cls,
@@ -79,7 +77,7 @@ class DailyXp(AggregateTable):
             raw_date = summary.get("date")
             if raw_date is None:
                 continue
-            d = _epoch_to_date(raw_date) if isinstance(raw_date, int) else date.fromisoformat(str(raw_date)[:10])
+            d = cls._epoch_to_date(raw_date) if isinstance(raw_date, int) else date.fromisoformat(str(raw_date)[:10])
             yield {
                 "date": d,
                 "xp_gained": summary.get("gainedXp") or 0,
@@ -203,6 +201,19 @@ class League(AggregateTable):
     cohort_size: Annotated[int | None, Field(db_type="INTEGER", description="Number of users in cohort")] = None
     cohort_end: Annotated[str | None, Field(db_type="TIMESTAMP", description="Cohort end time (UTC)")] = None
 
+    LEAGUE_NAMES: ClassVar[tuple[str, ...]] = (
+        "Bronze",
+        "Silver",
+        "Gold",
+        "Sapphire",
+        "Ruby",
+        "Emerald",
+        "Amethyst",
+        "Pearl",
+        "Obsidian",
+        "Diamond",
+    )
+
     @classmethod
     def extract(cls, client: DuolingoClient, **_: Any) -> Iterator[dict[str, Any]]:
         data = client.get_league()
@@ -225,7 +236,7 @@ class League(AggregateTable):
         yield {
             "cohort_id": str(cohort_id),
             "league_tier": tier,
-            "league_name": _LEAGUE_NAMES[tier] if isinstance(tier, int) and 0 <= tier < len(_LEAGUE_NAMES) else None,
+            "league_name": (cls.LEAGUE_NAMES[tier] if isinstance(tier, int) and 0 <= tier < len(cls.LEAGUE_NAMES) else None),
             "rank": rank,
             "weekly_xp": weekly_xp,
             "cohort_size": len(users) or None,

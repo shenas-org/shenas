@@ -14,9 +14,10 @@ from shenas_sources.strava.tables import (
     Gear,
     Kudos,
     Laps,
-    _activity_row,
     fetch_detailed_activities,
 )
+
+_activity_row = Activities._activity_row
 
 
 def _make_activity(**overrides: object) -> SimpleNamespace:
