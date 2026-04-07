@@ -162,6 +162,7 @@ All artifacts (sources, dashboards, datasets, frontends, themes) are Python whee
 - **Python namespaces**: `shenas_sources.*`, `shenas_datasets.*`, `shenas_dashboards.*` (not `pipes.*` — conflicts with stdlib)
 - **DuckDB schemas**: raw data in source-specific schemas (`garmin.*`, `lunchmoney.*`, `strava.*`, ...), canonical in `metrics.*`
 - **Raw table semantics**: every raw source table inherits from one of `EventTable` | `IntervalTable` | `SnapshotTable` | `DimensionTable` | `AggregateTable` | `CounterTable` (in `shenas_sources.core.table`). The kind base class drives the dlt write_disposition automatically — see "Raw table semantics" above
+- **Units: always SI** (or universally-accepted SI-derived / SI-prefixed) **unless there's an explicit reason not to**. Whenever you add a `Field()` annotation for a quantity column, set `unit="..."` and use one of: `m` (meters), `s` (seconds), `ms` (milliseconds), `kg` (kilograms), `W` (watts), `kJ` (kilojoules), `m/s`, `bpm`, `degC`, `kcal` (food convention), `percent`, `bytes`, `min`, `rpm`. Column names should match the unit suffix (`distance_m`, `moving_time_s`, `weight_kg`, ...). Imperial / non-SI is allowed only when the upstream API hands data over in those units AND converting would be lossy or surprising — when you do, document why in the field's description.
 
 ## Modules
 
