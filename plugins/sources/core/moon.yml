@@ -6,5 +6,5 @@ stack: 'data'
 tags: ['source', 'core']
 
 dependsOn:
-  - 'schema-core'
+  - 'dataset-core'
 
