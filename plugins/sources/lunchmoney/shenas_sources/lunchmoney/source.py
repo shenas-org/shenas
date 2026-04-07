@@ -51,18 +51,24 @@ class LunchMoneySource(Source):
             assets,
             budgets,
             categories,
+            crypto,
             plaid_accounts,
             recurring_items,
             tags,
+            transaction_tags,
             transactions,
+            user,
         )
 
         return [
             transactions(client, "90 days ago"),
+            transaction_tags(client, "90 days ago"),
             categories(client),
             tags(client),
             budgets(client, "90 days ago"),
             recurring_items(client),
             assets(client),
             plaid_accounts(client),
+            user(client),
+            crypto(client),
         ]
