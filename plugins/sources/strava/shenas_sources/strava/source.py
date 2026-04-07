@@ -187,6 +187,29 @@ class StravaSource(Source):
         raise ValueError(msg)
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.strava.resources import activities, athlete
+        from shenas_sources.strava.resources import (
+            activities,
+            athlete,
+            athlete_stats,
+            athlete_zones,
+            comments,
+            fetch_detailed_activities,
+            gear,
+            kudos,
+            laps,
+        )
 
-        return [activities(client), athlete(client)]
+        # Fetch detailed activities once and share across activities/laps/kudos/comments
+        # so we don't call get_activity() / get_activity_kudos() / etc. more than necessary.
+        detailed = fetch_detailed_activities(client)
+
+        return [
+            activities(detailed),
+            laps(detailed),
+            kudos(client, detailed),
+            comments(client, detailed),
+            athlete(client),
+            athlete_stats(client),
+            athlete_zones(client),
+            gear(client),
+        ]
