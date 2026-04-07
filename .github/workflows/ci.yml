@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  lint:
-    name: Lint & Type Check
+  python-lint:
+    name: Python lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,64 +19,86 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
-      - name: Lint Python
-        run: |
-          uv run ruff check .
-          uv run ruff format --check .
-          uv run ty check app/ --exclude "**/vendor/**" --exclude "**/fl/**" --exclude "**/telemetry/**" --exclude "**/graphql/**" --exclude "**/tests/**"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Install JS deps
-        run: |
-          npm ci --silent
-          for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
-            dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
-            if [ -f "$dir/package.json" ]; then
-              echo "Installing $dir"
-              (cd "$dir" && npm ci --silent)
-            fi
-          done
-      - name: TypeScript check
-        run: |
-          for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
-            dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
-            if [ -f "$dir/tsconfig.json" ]; then
-              echo "Type checking $dir"
-              (cd "$dir" && npx tsc --noEmit)
-            fi
-          done
-      - name: ESLint
-        run: npm run lint
-      - name: Prettier
-        run: npm run format:check
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run ty check app/ --exclude "**/vendor/**" --exclude "**/fl/**" --exclude "**/telemetry/**" --exclude "**/graphql/**" --exclude "**/tests/**"
 
-  test:
-    name: Test
+  python-test:
+    name: Python test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
       - run: uv sync
-      - name: Run Python tests
-        run: uv run --no-sync pytest
-      - name: Run JS tests
-        run: |
-          for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
-            dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
-            if grep -q '"test"' "$dir/package.json" 2>/dev/null; then
-              echo "Testing $dir"
-              (cd "$dir" && npm ci --silent && npm test)
-            fi
-          done
+      - run: uv run --no-sync pytest
+
+  js-lint:
+    name: JS lint + format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --silent
+      - run: npm run lint
+      - run: npm run format:check
+
+  js-typecheck:
+    name: JS typecheck
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - app/vendor
+          - plugins/dashboards/data-table
+          - plugins/dashboards/event-gantt
+          - plugins/dashboards/fitness-dashboard
+          - plugins/frontends/default
+          - plugins/frontends/focus
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ${{ matrix.package }}/package-lock.json
+      - run: npm ci --silent
+        working-directory: ${{ matrix.package }}
+      - run: npx tsc --noEmit
+        working-directory: ${{ matrix.package }}
+
+  js-test:
+    name: JS test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - app/vendor
+          - plugins/dashboards/data-table
+          - plugins/dashboards/event-gantt
+          - plugins/dashboards/fitness-dashboard
+          - plugins/frontends/default
+          - plugins/frontends/focus
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ${{ matrix.package }}/package-lock.json
+      - run: npm ci --silent
+        working-directory: ${{ matrix.package }}
+      - run: npm test
+        working-directory: ${{ matrix.package }}
 
   infra:
     name: Infra Validate
@@ -94,7 +116,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
-    needs: [test]
+    needs: [python-test, js-test]
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
