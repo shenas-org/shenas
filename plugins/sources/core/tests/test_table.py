@@ -300,3 +300,180 @@ class TestToResource:
             )
         )
         assert rows == [{"id": 1, "ts": "2026-04-07T12:00:00Z"}]
+
+
+class TestTableKindAndMetadata:
+    """Tests for the kind-aware extensions to ``Table.table_metadata()`` (PR 1.1)."""
+
+    def test_kind_event_with_time_at(self) -> None:
+        class _Evt(EventTable):
+            table_name: ClassVar[str] = "evts"
+            table_display_name: ClassVar[str] = "Events"
+            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            time_at: ClassVar[str] = "ts"
+            id: Annotated[int, Field(db_type="BIGINT", description="x")]
+            ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
+
+        assert _Evt.table_kind() == "event"
+        meta = _Evt.table_metadata()
+        assert meta["kind"] == "event"
+        assert meta["time_columns"] == {"time_at": "ts"}
+        assert "as_of_macro" not in meta
+        assert "Filter or window by `time_at`" in meta["query_hint"]
+
+    def test_kind_event_with_observed_at_injected(self) -> None:
+        class _Evt(EventTable):
+            table_name: ClassVar[str] = "evts_no_ts"
+            table_display_name: ClassVar[str] = "Events without time"
+            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            id: Annotated[int, Field(db_type="BIGINT", description="x")]
+
+        meta = _Evt.table_metadata()
+        assert meta["kind"] == "event"
+        # Without time_at, EventTable._needs_observed_at() is True -> the loader
+        # auto-injects an observed_at column. The catalog should advertise that.
+        assert meta["time_columns"]["observed_at_injected"] is True
+
+    def test_kind_interval_emits_both_time_columns(self) -> None:
+        class _Iv(IntervalTable):
+            table_name: ClassVar[str] = "intervals"
+            table_display_name: ClassVar[str] = "Intervals"
+            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            time_start: ClassVar[str] = "starts_at"
+            time_end: ClassVar[str] = "ends_at"
+            id: Annotated[int, Field(db_type="BIGINT", description="x")]
+            starts_at: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
+            ends_at: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
+
+        meta = _Iv.table_metadata()
+        assert meta["kind"] == "interval"
+        assert meta["time_columns"]["time_start"] == "starts_at"
+        assert meta["time_columns"]["time_end"] == "ends_at"
+        assert "overlap" in meta["query_hint"].lower()
+
+    def test_kind_dimension_has_as_of_macro(self) -> None:
+        class _Dim(DimensionTable):
+            table_name: ClassVar[str] = "dims"
+            table_display_name: ClassVar[str] = "Dims"
+            table_schema: ClassVar[str | None] = "mysrc"
+            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            id: Annotated[int, Field(db_type="BIGINT", description="x")]
+
+        meta = _Dim.table_metadata()
+        assert meta["kind"] == "dimension"
+        assert meta["as_of_macro"] == "mysrc.dims_as_of"
+        assert "AS-OF" in meta["query_hint"]
+
+    def test_kind_snapshot_has_as_of_macro(self) -> None:
+        class _Snap(SnapshotTable):
+            table_name: ClassVar[str] = "snap"
+            table_display_name: ClassVar[str] = "Snapshot"
+            table_schema: ClassVar[str | None] = "mysrc"
+            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            id: Annotated[int, Field(db_type="BIGINT", description="x")]
+
+        meta = _Snap.table_metadata()
+        assert meta["kind"] == "snapshot"
+        assert meta["as_of_macro"] == "mysrc.snap_as_of"
+
+    def test_kind_m2m_has_as_of_macro(self) -> None:
+        class _Link(M2MTable):
+            table_name: ClassVar[str] = "links"
+            table_display_name: ClassVar[str] = "Links"
+            table_schema: ClassVar[str | None] = "mysrc"
+            table_pk: ClassVar[tuple[str, ...]] = ("a_id", "b_id")
+            a_id: Annotated[int, Field(db_type="BIGINT", description="x")]
+            b_id: Annotated[int, Field(db_type="BIGINT", description="x")]
+
+        meta = _Link.table_metadata()
+        assert meta["kind"] == "m2m_relation"
+        assert meta["as_of_macro"] == "mysrc.links_as_of"
+        assert "linked at ts" in meta["query_hint"]
+
+    def test_kind_aggregate_has_no_as_of_macro(self) -> None:
+        class _Agg(AggregateTable):
+            table_name: ClassVar[str] = "rollup"
+            table_display_name: ClassVar[str] = "Rollup"
+            table_schema: ClassVar[str | None] = "mysrc"
+            table_pk: ClassVar[tuple[str, ...]] = ("date",)
+            time_at: ClassVar[str] = "date"
+            date: Annotated[str, Field(db_type="DATE", description="x")]
+
+        meta = _Agg.table_metadata()
+        assert meta["kind"] == "aggregate"
+        assert "as_of_macro" not in meta
+        assert meta["time_columns"] == {"time_at": "date"}
+
+    def test_kind_counter_observed_at_injected(self) -> None:
+        class _Ctr(CounterTable):
+            table_name: ClassVar[str] = "counters"
+            table_display_name: ClassVar[str] = "Counters"
+            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            counter_columns: ClassVar[tuple[str, ...]] = ("distance_m",)
+            id: Annotated[int, Field(db_type="BIGINT", description="x")]
+            distance_m: Annotated[float, Field(db_type="DOUBLE", description="cum")] = 0.0
+
+        meta = _Ctr.table_metadata()
+        assert meta["kind"] == "counter"
+        # Counters always inject observed_at.
+        assert meta["time_columns"] == {"observed_at_injected": True}
+
+    def test_cursor_column_emitted_when_set(self) -> None:
+        class _Cursored(EventTable):
+            table_name: ClassVar[str] = "messages"
+            table_display_name: ClassVar[str] = "Messages"
+            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            time_at: ClassVar[str] = "internal_date"
+            cursor_column: ClassVar[str] = "internal_date"
+            id: Annotated[str, Field(db_type="VARCHAR", description="x")]
+            internal_date: Annotated[int, Field(db_type="BIGINT", description="x")]
+
+        meta = _Cursored.table_metadata()
+        assert meta["time_columns"]["time_at"] == "internal_date"
+        assert meta["time_columns"]["cursor_column"] == "internal_date"
+
+    def test_non_source_table_has_no_kind(self) -> None:
+        # A bare Table subclass (not a SourceTable kind) should report
+        # kind=None and have no kind-specific keys. This covers MetricTable
+        # subclasses, system tables (Plugin._Table, Workspace._Table, ...),
+        # and SourceConfig / SourceAuth.
+        from shenas_plugins.core.table import Table
+
+        class _Plain(Table):
+            table_name: ClassVar[str] = "plain"
+            table_display_name: ClassVar[str] = "Plain"
+            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            id: Annotated[int, Field(db_type="BIGINT", description="x")]
+
+        assert _Plain.table_kind() is None
+        meta = _Plain.table_metadata()
+        assert "kind" not in meta
+        assert "query_hint" not in meta
+        assert "time_columns" not in meta
+        assert "as_of_macro" not in meta
+
+    def test_schema_field_present_for_all_tables(self) -> None:
+        # The catalog needs the schema for every table so consumers can
+        # qualify references. Read it back even when None.
+        class _NoSchema(EventTable):
+            table_name: ClassVar[str] = "noschema"
+            table_display_name: ClassVar[str] = "No Schema"
+            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            time_at: ClassVar[str] = "ts"
+            id: Annotated[int, Field(db_type="BIGINT", description="x")]
+            ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
+
+        meta = _NoSchema.table_metadata()
+        assert meta["schema"] is None
+
+        class _WithSchema(EventTable):
+            table_name: ClassVar[str] = "withschema"
+            table_display_name: ClassVar[str] = "With Schema"
+            table_schema: ClassVar[str | None] = "garmin"
+            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            time_at: ClassVar[str] = "ts"
+            id: Annotated[int, Field(db_type="BIGINT", description="x")]
+            ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
+
+        meta = _WithSchema.table_metadata()
+        assert meta["schema"] == "garmin"
