@@ -2,6 +2,7 @@ import { LitElement, html, css } from "lit";
 import {
   gql,
   gqlFull,
+  openExternal,
   renderMessage,
   PLUGIN_KINDS,
   buttonStyles,
@@ -33,6 +34,21 @@ interface ActionInfo {
   category: string;
 }
 
+/**
+ * Single source of truth for the static (non-plugin-kind) entries in the
+ * settings sidebar. The plugin kinds (source/dataset/...) are appended after
+ * these by both the desktop sub-nav (app-shell.ts) and the mobile burger menu.
+ */
+export interface SettingsNavItem {
+  id: string;
+  label: string;
+}
+export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
+  { id: "profile", label: "Profile" },
+  { id: "flow", label: "Flow" },
+  { id: "hotkeys", label: "Hotkeys" },
+];
+
 class SettingsPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
@@ -42,6 +58,8 @@ class SettingsPage extends LitElement {
     allActions: { type: Array },
     allPlugins: { type: Object },
     schemaPlugins: { type: Object },
+    remoteUser: { type: Object },
+    deviceName: { type: String, attribute: "device-name" },
     _plugins: { state: true },
     _loading: { state: true },
     _actionMessage: { state: true },
@@ -194,6 +212,44 @@ class SettingsPage extends LitElement {
         color: var(--shenas-text-faint, #aaa);
         padding: 0.8rem 0.5rem 0.3rem;
       }
+      .profile {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        max-width: 480px;
+      }
+      .profile-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.6rem 0.8rem;
+        background: var(--shenas-bg-secondary, #f3f0eb);
+        border: 1px solid var(--shenas-border, #d8d4cc);
+        border-radius: 6px;
+      }
+      .profile-label {
+        font-size: 0.8rem;
+        color: var(--shenas-text-muted, #888);
+      }
+      .profile-value {
+        font-size: 0.9rem;
+        color: var(--shenas-text, #222);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .profile .device-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--shenas-text-muted, #888);
+      }
+      .profile .device-dot.connected {
+        background: var(--shenas-success, #628261);
+      }
+      .profile-actions {
+        margin-top: 0.5rem;
+      }
       @media (max-width: 768px) {
         .sidebar {
           display: none;
@@ -221,6 +277,8 @@ class SettingsPage extends LitElement {
   declare allActions: ActionInfo[];
   declare allPlugins: Record<string, PluginSummary[]>;
   declare schemaPlugins: Record<string, string[]>;
+  declare remoteUser: Record<string, unknown> | null;
+  declare deviceName: string;
   declare _plugins: Record<string, PluginSummary[]>;
   declare _loading: boolean;
   declare _actionMessage: Message | null;
@@ -238,6 +296,8 @@ class SettingsPage extends LitElement {
     this.allActions = [];
     this.allPlugins = {};
     this.schemaPlugins = {};
+    this.remoteUser = null;
+    this.deviceName = "";
     this._plugins = {};
     this._loading = true;
     this._actionMessage = null;
@@ -439,6 +499,7 @@ class SettingsPage extends LitElement {
   }
 
   _displayName(): string {
+    if (this.activeKind === "profile") return "Profile";
     if (this.activeKind === "flow") return "Flow";
     if (this.activeKind === "hotkeys") return "Hotkeys";
     const kind = PLUGIN_KINDS.find((k) => k.id === this.activeKind);
@@ -469,24 +530,19 @@ class SettingsPage extends LitElement {
               }}
             ></div>
             <div class="menu-panel">
-              <a
-                href="/settings/flow"
-                aria-selected=${this.activeKind === "flow"}
-                @click=${(e: MouseEvent) => {
-                  e.preventDefault();
-                  this._switchKind("flow");
-                }}
-                >Flow</a
-              >
-              <a
-                href="/settings/hotkeys"
-                aria-selected=${this.activeKind === "hotkeys"}
-                @click=${(e: MouseEvent) => {
-                  e.preventDefault();
-                  this._switchKind("hotkeys");
-                }}
-                >Hotkeys</a
-              >
+              ${SETTINGS_NAV_ITEMS.map(
+                (item) => html`
+                  <a
+                    href="/settings/${item.id}"
+                    aria-selected=${this.activeKind === item.id}
+                    @click=${(e: MouseEvent) => {
+                      e.preventDefault();
+                      this._switchKind(item.id);
+                    }}
+                    >${item.label}</a
+                  >
+                `,
+              )}
               <span class="sidebar-section">Plugins</span>
               ${PLUGIN_KINDS.map(
                 ({ id, label }) => html`
@@ -506,16 +562,57 @@ class SettingsPage extends LitElement {
         : ""}
       <shenas-page ?loading=${this._loading} loading-text="Loading plugins..." display-name="${this._displayName()}">
         ${renderMessage(this._actionMessage)}
-        ${this.activeKind === "flow"
-          ? html`<shenas-pipeline-overview
-              api-base="${this.apiBase}"
-              .allPlugins=${this.allPlugins}
-              .schemaPlugins=${this.schemaPlugins}
-            ></shenas-pipeline-overview>`
-          : this.activeKind === "hotkeys"
-            ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
-            : this._renderKind(this.activeKind)}
+        ${this.activeKind === "profile"
+          ? this._renderProfile()
+          : this.activeKind === "flow"
+            ? html`<shenas-pipeline-overview
+                api-base="${this.apiBase}"
+                .allPlugins=${this.allPlugins}
+                .schemaPlugins=${this.schemaPlugins}
+              ></shenas-pipeline-overview>`
+            : this.activeKind === "hotkeys"
+              ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
+              : this._renderKind(this.activeKind)}
       </shenas-page>
+    `;
+  }
+
+  _renderProfile() {
+    const user = this.remoteUser;
+    const name = user ? (user.name as string) || (user.email as string) || "" : "";
+    const email = user ? (user.email as string) || "" : "";
+    if (!user) {
+      return html`
+        <div class="profile">
+          <p>You are not signed in.</p>
+          <button @click=${() => (window.location.href = "/api/auth/login")}>Sign in</button>
+        </div>
+      `;
+    }
+    return html`
+      <div class="profile">
+        <div class="profile-row">
+          <span class="profile-label">Name</span>
+          <span class="profile-value">${name}</span>
+        </div>
+        ${email && email !== name
+          ? html`<div class="profile-row">
+              <span class="profile-label">Email</span>
+              <span class="profile-value">${email}</span>
+            </div>`
+          : ""}
+        <div class="profile-row">
+          <span class="profile-label">Device</span>
+          <span class="profile-value">
+            <span class="device-dot connected"></span>
+            ${this.deviceName || "this device"}
+          </span>
+        </div>
+        <div class="profile-actions">
+          <button @click=${() => openExternal("https://shenas.net/dashboard")}>Dashboard</button>
+          <button class="danger" @click=${() => (window.location.href = "/api/auth/logout")}>Logout</button>
+        </div>
+      </div>
     `;
   }
 
