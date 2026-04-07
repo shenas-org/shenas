@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.entry-points."shenas.sources"]
-gcalendar = "shenas_sources.gcalendar.pipe:GCalendarSource"
+gcalendar = "shenas_sources.gcalendar.source:GCalendarSource"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from shenas_sources.duolingo.pipe import DuolingoSource
+from shenas_sources.duolingo.source import DuolingoSource
 
 
 @pytest.fixture

@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from shenas_sources.gmail.pipe import GmailSource
+from shenas_sources.gmail.source import GmailSource
 
 
 @pytest.fixture

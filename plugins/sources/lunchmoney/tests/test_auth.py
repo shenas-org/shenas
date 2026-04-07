@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from shenas_sources.lunchmoney.pipe import LunchMoneySource
+from shenas_sources.lunchmoney.source import LunchMoneySource
 
 
 @pytest.fixture

@@ -1,64 +1,50 @@
-"""Parse Obsidian daily notes frontmatter into dlt resources."""
+"""Obsidian pipe -- extracts frontmatter from daily notes."""
 
 from __future__ import annotations
 
-import re
-from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
+from typing import Annotated, Any
 
-import dlt
-import yaml
-
-from shenas_datasets.core.dlt import dataclass_to_dlt_columns
-from shenas_sources.obsidian.tables import DailyNote
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
+from shenas_plugins.core.base_config import SourceConfig
+from shenas_plugins.core.field import Field
+from shenas_sources.core.source import Source
 
 
-def _parse_frontmatter(text: str) -> dict[str, Any] | None:
-    """Extract YAML frontmatter from a markdown file."""
-    match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
-    if not match:
-        return None
-    try:
-        return yaml.safe_load(match.group(1))
-    except yaml.YAMLError:
-        return None
+class ObsidianSource(Source):
+    name = "obsidian"
+    display_name = "Obsidian"
+    primary_table = "daily_notes"
+    description = (
+        "Extracts frontmatter fields from Obsidian daily notes.\n\n"
+        "Scans a configured daily notes folder for markdown files, parses YAML "
+        "frontmatter, and loads the key-value pairs into DuckDB. No API auth "
+        "needed -- just configure the vault path."
+    )
 
+    @dataclass
+    class Config(SourceConfig):
+        daily_notes_folder: (
+            Annotated[
+                str,
+                Field(
+                    db_type="VARCHAR",
+                    description="Path to Obsidian daily notes folder",
+                    ui_widget="text",
+                    example_value="/home/user/vault/daily",
+                ),
+            ]
+            | None
+        ) = None
 
-def _date_from_filename(path: Path) -> str | None:
-    """Extract YYYY-MM-DD from a daily note filename."""
-    match = re.match(r"(\d{4}-\d{2}-\d{2})", path.stem)
-    return match.group(1) if match else None
+    def build_client(self) -> Any:
+        row = self._config_store.get(self.Config)
+        folder = row.get("daily_notes_folder") if row else None
+        if not folder:
+            msg = "Daily notes folder not configured. Set it in the Config tab."
+            raise RuntimeError(msg)
+        return folder
 
+    def resources(self, client: Any) -> list[Any]:
+        from shenas_sources.obsidian.resources import daily_notes
 
-@dlt.resource(
-    write_disposition="merge",
-    primary_key=list(DailyNote.__pk__),
-    columns=dataclass_to_dlt_columns(DailyNote),
-)
-def daily_notes(notes_dir: str) -> Iterator[dict[str, Any]]:
-    """Yield one row per daily note with frontmatter fields as columns."""
-    notes_path = Path(notes_dir)
-    if not notes_path.is_dir():
-        return
-
-    for md_file in sorted(notes_path.glob("*.md")):
-        date = _date_from_filename(md_file)
-        if not date:
-            continue
-
-        text = md_file.read_text(encoding="utf-8")
-        frontmatter = _parse_frontmatter(text)
-        if not frontmatter:
-            continue
-
-        row: dict[str, Any] = {"date": date}
-        for key, value in frontmatter.items():
-            if isinstance(value, list):
-                row[key] = ", ".join(str(v) for v in value)
-            else:
-                row[key] = value
-
-        yield row
+        return [daily_notes(client)]

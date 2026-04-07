@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from shenas_sources.spotify.source import recently_played, saved_tracks, top_artists, top_tracks
+from shenas_sources.spotify.resources import recently_played, saved_tracks, top_artists, top_tracks
 
 
 class TestRecentlyPlayed:
