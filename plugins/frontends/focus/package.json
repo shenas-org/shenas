@@ -6,12 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && cp focus.html shenas_frontends/focus/static/focus.html",
-    "preview": "vite preview"
+    "test": "vitest run",
+    "preview": "vite preview",
+    "coverage": "vitest run --coverage"
   },
   "dependencies": {
     "lit": "^3.2.0"
   },
   "devDependencies": {
-    "vite": "^6.0.0"
+    "happy-dom": "^17.0.0",
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
   }
 }
