@@ -11,7 +11,11 @@ import httpx
 BASE_URL = "https://www.duolingo.com"
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
 
-USER_FIELDS = "username,name,streak,totalXp,courses,streakData,currentCourseId,learningLanguage,fromLanguage,creationDate"
+USER_FIELDS = (
+    "username,name,streak,totalXp,courses,streakData,currentCourseId,"
+    "learningLanguage,fromLanguage,creationDate,xpGoal,achievements,"
+    "hasPlus,_achievements,subscriberLevel"
+)
 
 
 def _user_id_from_jwt(jwt: str) -> int:
@@ -82,3 +86,48 @@ class DuolingoClient:
             }
             for c in courses
         ]
+
+    def get_achievements(self) -> list[dict[str, Any]]:
+        """Get the user's unlocked achievements (badges).
+
+        Returns the raw `achievements` array from the user payload. Each entry
+        typically has name, tier, count, unlockTimestamp.
+        """
+        data = self.get_user()
+        return data.get("achievements") or data.get("_achievements") or []
+
+    def get_league(self) -> dict[str, Any] | None:
+        """Get the current weekly league standing for the user."""
+        try:
+            resp = self._client.get(f"/leaderboards/7d9f5dd1-8423-491a-912f-b6c46ed73d09/users/{self._user_id}")
+            resp.raise_for_status()
+        except httpx.HTTPError:
+            return None
+        return resp.json()
+
+    def get_following(self) -> list[dict[str, Any]]:
+        """Get the list of users this user follows."""
+        try:
+            resp = self._client.get(f"/2017-06-30/friends/users/{self._user_id}/following")
+            resp.raise_for_status()
+        except httpx.HTTPError:
+            return []
+        data = resp.json()
+        # API has nested under "following" -> "users" or just "users"
+        following = data.get("following", data)
+        if isinstance(following, dict):
+            return following.get("users", []) or []
+        return following or []
+
+    def get_followers(self) -> list[dict[str, Any]]:
+        """Get the list of users following this user."""
+        try:
+            resp = self._client.get(f"/2017-06-30/friends/users/{self._user_id}/followers")
+            resp.raise_for_status()
+        except httpx.HTTPError:
+            return []
+        data = resp.json()
+        followers = data.get("followers", data)
+        if isinstance(followers, dict):
+            return followers.get("users", []) or []
+        return followers or []
