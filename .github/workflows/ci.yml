@@ -19,11 +19,35 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
-      - name: Lint
+      - name: Lint Python
         run: |
           uv run ruff check .
           uv run ruff format --check .
           uv run ty check app/ --exclude "**/vendor/**" --exclude "**/fl/**" --exclude "**/telemetry/**" --exclude "**/graphql/**" --exclude "**/tests/**"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install JS deps
+        run: |
+          npm install --silent
+          for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
+            dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
+            if [ -f "$dir/package.json" ]; then
+              echo "Installing $dir"
+              (cd "$dir" && npm install --silent)
+            fi
+          done
+      - name: TypeScript check
+        run: |
+          for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
+            dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
+            if [ -f "$dir/tsconfig.json" ]; then
+              echo "Type checking $dir"
+              (cd "$dir" && npx tsc --noEmit)
+            fi
+          done
+      - name: ESLint
+        run: npx eslint 'plugins/**/src/**/*.ts' 'app/vendor/src/**/*.ts'
 
   test:
     name: Test
@@ -42,12 +66,14 @@ jobs:
       - run: uv sync
       - name: Run Python tests
         run: uv run --no-sync pytest
-      - name: Run component tests
+      - name: Run JS tests
         run: |
-          for comp in plugins/dashboards/*/package.json; do
-            dir=$(dirname "$comp")
-            echo "Testing $dir"
-            cd "$dir" && npm install --silent && npm test && cd "$GITHUB_WORKSPACE"
+          for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
+            dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
+            if grep -q '"test"' "$dir/package.json" 2>/dev/null; then
+              echo "Testing $dir"
+              (cd "$dir" && npm install --silent && npm test)
+            fi
           done
 
   infra:
@@ -80,13 +106,13 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
-      - name: Run tests with coverage
+      - name: Run Python tests with coverage
         id: coverage
         run: |
           make coverage
           TOTAL=$(python -c "import json; print(int(json.load(open('coverage.json'))['totals']['percent_covered']))")
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
-      - name: Update coverage badge
+      - name: Update Python coverage badge
         if: vars.COVERAGE_GIST_ID != ''
         uses: schneegans/dynamic-badges-action@v1.7.0
         with:
@@ -99,3 +125,42 @@ jobs:
           minColorRange: 50
           maxColorRange: 90
           namedLogo: pytest
+      - name: Run JS tests with coverage
+        id: js-coverage
+        run: |
+          npm install --silent
+          TOTAL_LINES=0
+          COVERED_LINES=0
+          for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
+            dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
+            if grep -q '"coverage"' "$dir/package.json" 2>/dev/null; then
+              echo "Coverage for $dir"
+              (cd "$dir" && npm install --silent && npm run coverage -- --reporter=json-summary || true)
+              SUMMARY="$dir/coverage/coverage-summary.json"
+              if [ -f "$SUMMARY" ]; then
+                LINES=$(python -c "import json; d=json.load(open('$SUMMARY'))['total']['lines']; print(d['total'])")
+                COVERED=$(python -c "import json; d=json.load(open('$SUMMARY'))['total']['lines']; print(d['covered'])")
+                TOTAL_LINES=$((TOTAL_LINES + LINES))
+                COVERED_LINES=$((COVERED_LINES + COVERED))
+              fi
+            fi
+          done
+          if [ "$TOTAL_LINES" -gt 0 ]; then
+            JS_TOTAL=$(python -c "print(int(($COVERED_LINES / $TOTAL_LINES) * 100))")
+          else
+            JS_TOTAL=0
+          fi
+          echo "total=$JS_TOTAL" >> $GITHUB_OUTPUT
+      - name: Update JS coverage badge
+        if: vars.JS_COVERAGE_GIST_ID != ''
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: ${{ vars.JS_COVERAGE_GIST_ID }}
+          filename: shenas-js-coverage.json
+          label: js coverage
+          message: "${{ steps.js-coverage.outputs.total }}%"
+          valColorRange: ${{ steps.js-coverage.outputs.total }}
+          minColorRange: 50
+          maxColorRange: 90
+          namedLogo: vitest
