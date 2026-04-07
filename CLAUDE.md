@@ -99,6 +99,19 @@ class LunchMoneySource(Source):
 
 The legacy `tables.py` + `resources.py` split is being phased out. Sources already on the new Table ABC pattern: **lunchmoney**, **strava**, **spotify**, **gcalendar**, **gmail**, **duolingo**, **obsidian**, **gtakeout**, **garmin**. All sources are now on the new pattern.
 
+### AS-OF macros for SCD2 tables
+
+After every sync, `Source.sync()` calls `apply_as_of_macros(con, schema)` from `shenas_sources.core.as_of`, which discovers any table in the source's schema with both `_dlt_valid_from` and `_dlt_valid_to` columns and creates a DuckDB macro per table:
+
+```sql
+CREATE OR REPLACE MACRO <schema>.<table>_as_of(ts) AS TABLE
+  SELECT * FROM <schema>.<table>
+  WHERE _dlt_valid_from <= ts
+    AND (_dlt_valid_to IS NULL OR _dlt_valid_to > ts);
+```
+
+Example: `SELECT * FROM gcalendar.calendars_as_of('2026-01-15')` returns the calendar names that were valid on 2026-01-15 instead of the current ones. Discovery is column-shape-based, so any new SCD2 table picked up by dlt automatically gets a macro on the next sync without per-source configuration. Works for `DimensionTable`, `SnapshotTable`, and `M2MTable`.
+
 ### Data flow: raw -> canonical
 
 1. **Sync**: Source fetches from API, dlt loads into source-specific schema (`garmin.*`, `lunchmoney.*`, `strava.*`, ...)
