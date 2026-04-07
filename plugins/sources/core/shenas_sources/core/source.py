@@ -256,11 +256,22 @@ class Source(Plugin):
         `on_progress`, if given, is forwarded to `run_sync` and called at each
         per-resource checkpoint so streaming consumers can surface progress.
         """
+        from shenas_sources.core.as_of import apply_as_of_macros
         from shenas_sources.core.cli import run_sync
+        from shenas_sources.core.db import connect
 
         client = self.build_client()
         res = self.resources(client)
         run_sync(self.name, self.name, res, full_refresh, self._auto_transform, on_progress=on_progress)
+        # Refresh AS-OF macros for any SCD2 tables in this source's schema.
+        try:
+            con = connect()
+            try:
+                apply_as_of_macros(con, self.name)
+            finally:
+                con.close()
+        except Exception:
+            logger.exception("Failed to refresh AS-OF macros for %s", self.name)
         self._mark_synced()
         self._log_sync_event(full_refresh)
 
