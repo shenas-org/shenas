@@ -3,16 +3,25 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-TableKind = Literal["event", "snapshot", "aggregate", "counter"]
+TableKind = Literal["event", "snapshot", "aggregate", "counter", "dimension"]
 """Semantic kind of a raw source table.
 
 - ``event``: discrete, immutable occurrence with its own native timestamp.
   Examples: a workout, a transaction, an email, a kudo, a comment, a play,
   a calendar event. PK is the natural id; dlt strategy is merge on id.
 
-- ``snapshot``: current state with no temporal axis -- read as of now and
-  overwritten on every sync. Examples: user profile, current categories,
-  current zones, current top tracks. dlt strategy is replace.
+- ``snapshot``: current self-state with no temporal axis -- read as of now
+  and overwritten on every sync. Examples: the authenticated user profile,
+  the current top-tracks ranking, current zones, the current playlist
+  list. Nothing else joins to it -- it's leaf state. dlt strategy is
+  replace.
+
+- ``dimension``: reference / lookup data that other tables join against.
+  Same write semantics as ``snapshot`` (replace each sync) but flagged
+  separately so dashboards know which tables are *joinable lookups* and
+  which are leaf state. Examples: gcalendar.calendars (events join on
+  calendar_id), gmail.labels, lunchmoney.categories / tags / assets /
+  plaid_accounts (transactions join on these), gcalendar.colors.
 
 - ``aggregate``: per-window summary that can be re-emitted with updates as
   more data arrives. PK includes the window key (date/hour). Examples:

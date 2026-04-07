@@ -103,7 +103,7 @@ class Category:
 
     __table__: ClassVar[str] = "categories"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "snapshot"
+    __kind__: ClassVar[TableKind] = "dimension"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Category ID")]
     name: Annotated[str, Field(db_type="VARCHAR", description="Category name")]
@@ -119,7 +119,7 @@ class Tag:
 
     __table__: ClassVar[str] = "tags"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "snapshot"
+    __kind__: ClassVar[TableKind] = "dimension"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Tag ID")]
     name: Annotated[str, Field(db_type="VARCHAR", description="Tag name")]
@@ -166,7 +166,7 @@ class Asset:
 
     __table__: ClassVar[str] = "assets"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "snapshot"
+    __kind__: ClassVar[TableKind] = "dimension"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Asset ID")]
     name: Annotated[str, Field(db_type="VARCHAR", description="Asset name")]
@@ -183,7 +183,7 @@ class PlaidAccount:
 
     __table__: ClassVar[str] = "plaid_accounts"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "snapshot"
+    __kind__: ClassVar[TableKind] = "dimension"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Plaid account ID")]
     name: Annotated[str, Field(db_type="VARCHAR", description="Account name")]

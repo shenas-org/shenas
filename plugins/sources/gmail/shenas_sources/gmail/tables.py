@@ -55,7 +55,7 @@ class Label:
 
     __table__: ClassVar[str] = "labels"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "snapshot"
+    __kind__: ClassVar[TableKind] = "dimension"
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Label ID")]
     name: Annotated[str | None, Field(db_type="VARCHAR", description="Label name")] = None
