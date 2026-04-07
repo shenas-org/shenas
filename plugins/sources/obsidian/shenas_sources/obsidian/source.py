@@ -35,6 +35,16 @@ class ObsidianSource(Source):
             ]
             | None
         ) = None
+        habits_heading: Annotated[
+            str,
+            Field(
+                db_type="VARCHAR",
+                description="Heading whose top-level checkboxes are extracted into the habits table",
+                default="Plan for the day",
+                ui_widget="text",
+                example_value="Plan for the day",
+            ),
+        ] = "Plan for the day"
 
     def build_client(self) -> Any:
         row = self._config_store.get(self.Config)
@@ -45,6 +55,9 @@ class ObsidianSource(Source):
         return folder
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.obsidian.resources import daily_notes
+        from shenas_sources.obsidian.resources import daily_notes, habits
 
-        return [daily_notes(client)]
+        row = self._config_store.get(self.Config)
+        heading = (row.get("habits_heading") if row else None) or "Plan for the day"
+
+        return [daily_notes(client), habits(client, heading=heading)]

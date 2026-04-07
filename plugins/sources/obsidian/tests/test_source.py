@@ -1,6 +1,36 @@
 from pathlib import Path
 
-from shenas_sources.obsidian.resources import _date_from_filename, _parse_frontmatter, daily_notes
+from shenas_sources.obsidian.resources import (
+    _date_from_filename,
+    _extract_habits,
+    _parse_frontmatter,
+    _parse_habit_line,
+    daily_notes,
+    habits,
+)
+
+# A representative diary chunk based on the user's real template.
+_REAL_DIARY = """\
+---
+mood: 7
+---
+
+# Plan for the day
+- [ ] Brilliant [scheduled:: 2026-04-03]
+- [x] Duolingo  [scheduled:: 2026-04-03]  [completion:: 2026-04-03]
+- [ ] Consume culture [scheduled:: 2026-04-03]
+- [ ] Learn science [scheduled:: 2026-04-03]
+- [ ] Learn technology [scheduled:: 2026-04-03]
+- [ ] Workout [scheduled:: 2026-04-03]
+- [ ] [Shoulder mobility](https://youtu.be/35lIPoZdJNs) [scheduled:: 2026-04-03]
+- [ ] Shower [scheduled:: 2026-04-03]
+- [ ] Break [scheduled:: 2026-04-03]
+---
+- 7:30 - 8:30 Morning Routine
+    - [x] Toothbrush  [scheduled:: 2026-04-03]  [completion:: 2026-04-03]
+    - [ ] Clean face [scheduled:: 2026-04-03]
+- 9:00 - 16:00 IKEA Day
+"""
 
 
 class TestParseFrontmatter:
@@ -72,3 +102,137 @@ class TestDailyNotes:
     def test_empty_dir(self, tmp_path: Path) -> None:
         rows = list(daily_notes(str(tmp_path)))
         assert len(rows) == 0
+
+
+class TestParseHabitLine:
+    def test_unchecked(self) -> None:
+        row = _parse_habit_line("- [ ] Brilliant [scheduled:: 2026-04-03]", "2026-04-03")
+        assert row is not None
+        assert row["name"] == "Brilliant"
+        assert row["completed"] is False
+        assert row["scheduled"] == "2026-04-03"
+        assert row["completion"] is None
+        assert row["url"] is None
+
+    def test_checked_with_completion(self) -> None:
+        row = _parse_habit_line(
+            "- [x] Duolingo  [scheduled:: 2026-04-03]  [completion:: 2026-04-03]",
+            "2026-04-03",
+        )
+        assert row is not None
+        assert row["completed"] is True
+        assert row["completion"] == "2026-04-03"
+        assert row["name"] == "Duolingo"
+
+    def test_strips_markdown_link_keeps_url(self) -> None:
+        row = _parse_habit_line(
+            "- [ ] [Shoulder mobility](https://youtu.be/abc) [scheduled:: 2026-04-03]",
+            "2026-04-03",
+        )
+        assert row is not None
+        assert row["name"] == "Shoulder mobility"
+        assert row["url"] == "https://youtu.be/abc"
+
+    def test_skips_indented_lines(self) -> None:
+        # Sub-tasks of "Morning Routine" are nested -- they must NOT be parsed.
+        assert _parse_habit_line("    - [x] Toothbrush [scheduled:: 2026-04-03]", "2026-04-03") is None
+        assert _parse_habit_line("\t- [ ] Anything", "2026-04-03") is None
+
+    def test_skips_non_checkbox_bullets(self) -> None:
+        assert _parse_habit_line("- 7:30 - 8:30 Morning Routine", "2026-04-03") is None
+
+    def test_skips_non_dash_lines(self) -> None:
+        assert _parse_habit_line("```tasks", "2026-04-03") is None
+        assert _parse_habit_line("# Heading", "2026-04-03") is None
+
+    def test_capital_x_is_checked(self) -> None:
+        row = _parse_habit_line("- [X] Done thing", "2026-04-03")
+        assert row is not None
+        assert row["completed"] is True
+
+
+class TestExtractHabitsFromRealDiary:
+    def test_extracts_only_top_level_under_plan_for_the_day(self) -> None:
+        rows = list(_extract_habits(_REAL_DIARY, "2026-04-03", "Plan for the day"))
+        names = [r["name"] for r in rows]
+        assert names == [
+            "Brilliant",
+            "Duolingo",
+            "Consume culture",
+            "Learn science",
+            "Learn technology",
+            "Workout",
+            "Shoulder mobility",
+            "Shower",
+            "Break",
+        ]
+        # Sub-tasks under Morning Routine must NOT be included.
+        assert "Toothbrush" not in names
+        assert "Clean face" not in names
+
+    def test_completion_state(self) -> None:
+        rows = list(_extract_habits(_REAL_DIARY, "2026-04-03", "Plan for the day"))
+        by_name = {r["name"]: r for r in rows}
+        assert by_name["Duolingo"]["completed"] is True
+        assert by_name["Duolingo"]["completion"] == "2026-04-03"
+        assert by_name["Brilliant"]["completed"] is False
+        assert by_name["Brilliant"]["completion"] is None
+
+    def test_url_extracted_from_link(self) -> None:
+        rows = list(_extract_habits(_REAL_DIARY, "2026-04-03", "Plan for the day"))
+        by_name = {r["name"]: r for r in rows}
+        assert by_name["Shoulder mobility"]["url"] == "https://youtu.be/35lIPoZdJNs"
+
+    def test_section_ends_at_horizontal_rule(self) -> None:
+        # Everything after the `---` separator must NOT be included.
+        rows = list(_extract_habits(_REAL_DIARY, "2026-04-03", "Plan for the day"))
+        # 9 top-level habits, no sub-tasks.
+        assert len(rows) == 9
+
+    def test_section_ends_at_next_heading(self) -> None:
+        text = "# Plan for the day\n- [ ] One\n# Other heading\n- [ ] Two\n"
+        rows = list(_extract_habits(text, "2026-04-03", "Plan for the day"))
+        assert [r["name"] for r in rows] == ["One"]
+
+    def test_no_matching_heading_yields_nothing(self) -> None:
+        text = "# Some other section\n- [ ] Nope\n"
+        assert list(_extract_habits(text, "2026-04-03", "Plan for the day")) == []
+
+    def test_heading_match_is_case_insensitive(self) -> None:
+        text = "# PLAN FOR THE DAY\n- [ ] Yes\n"
+        rows = list(_extract_habits(text, "2026-04-03", "Plan for the day"))
+        assert len(rows) == 1
+
+    def test_h2_heading_also_works(self) -> None:
+        text = "## Plan for the day\n- [ ] Yes\n"
+        rows = list(_extract_habits(text, "2026-04-03", "Plan for the day"))
+        assert len(rows) == 1
+
+    def test_configurable_heading(self) -> None:
+        text = "# Daily Habits\n- [ ] Hydrate\n- [x] Vitamins\n"
+        rows = list(_extract_habits(text, "2026-04-03", "Daily Habits"))
+        assert {r["name"] for r in rows} == {"Hydrate", "Vitamins"}
+
+
+class TestHabitsResource:
+    def test_yields_one_row_per_checkbox_per_day(self, tmp_path: Path) -> None:
+        (tmp_path / "2026-04-03.md").write_text(_REAL_DIARY)
+        (tmp_path / "2026-04-04.md").write_text(_REAL_DIARY.replace("2026-04-03", "2026-04-04"))
+
+        rows = list(habits(str(tmp_path)))
+        # 9 top-level habits per day x 2 days = 18.
+        assert len(rows) == 18
+        dates = {r["date"] for r in rows}
+        assert dates == {"2026-04-03", "2026-04-04"}
+
+    def test_skips_files_without_date(self, tmp_path: Path) -> None:
+        (tmp_path / "random.md").write_text(_REAL_DIARY)
+        assert list(habits(str(tmp_path))) == []
+
+    def test_nonexistent_dir(self) -> None:
+        assert list(habits("/nonexistent/path")) == []
+
+    def test_custom_heading(self, tmp_path: Path) -> None:
+        (tmp_path / "2026-04-03.md").write_text("# Daily Habits\n- [x] Read\n- [ ] Sleep early\n")
+        rows = list(habits(str(tmp_path), heading="Daily Habits"))
+        assert {r["name"] for r in rows} == {"Read", "Sleep early"}
