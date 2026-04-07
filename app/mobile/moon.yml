@@ -5,10 +5,10 @@ stack: 'frontend'
 tags: ['mobile']
 
 tasks:
-  build-ui:
-    command: 'bash build-ui.sh'
+  build-frontend:
+    command: 'bash build-frontend.sh'
     inputs:
-      - '/plugins/ui/default/src/**/*'
+      - '/plugins/frontends/default/src/**/*'
       - '/app/vendor/src/**/*'
       - '/app/static/**/*'
     outputs:
