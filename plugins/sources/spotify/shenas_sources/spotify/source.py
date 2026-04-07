@@ -10,7 +10,6 @@ from typing import Annotated, Any
 from spotipy.cache_handler import CacheHandler
 
 from shenas_plugins.core.base_auth import SourceAuth
-from shenas_plugins.core.base_config import SourceConfig
 from shenas_plugins.core.field import Field
 from shenas_sources.core.source import Source
 
@@ -55,19 +54,6 @@ class SpotifySource(Source):
             ]
             | None
         ) = None
-
-    @dataclass
-    class Config(SourceConfig):
-        time_range: Annotated[
-            str,
-            Field(
-                db_type="VARCHAR",
-                description="Time range for top tracks/artists: short_term, medium_term, long_term",
-                default="medium_term",
-                ui_widget="text",
-                example_value="medium_term",
-            ),
-        ] = "medium_term"
 
     auth_instructions = (
         "Spotify requires an API application for OAuth2 access.\n"
@@ -232,14 +218,37 @@ class SpotifySource(Source):
         raise ValueError(f"OAUTH_URL:{auth_url}")
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.spotify.resources import recently_played, saved_tracks, top_artists, top_tracks
+        from shenas_sources.spotify.resources import (
+            audio_features,
+            followed_artists,
+            playlists,
+            recently_played,
+            reset_track_id_cache,
+            saved_albums,
+            saved_episodes,
+            saved_shows,
+            saved_tracks,
+            top_artists,
+            top_tracks,
+            user_profile,
+        )
 
-        row = self._config_store.get(self.Config)
-        time_range = (row.get("time_range") if row else None) or "medium_term"
+        # Wipe the per-sync track-id cache so audio_features only sees ids from
+        # this run.
+        reset_track_id_cache()
 
+        # Order matters: track-yielding resources run BEFORE audio_features so
+        # the cache is populated by the time audio_features is iterated.
         return [
             recently_played(client),
-            top_tracks(client, time_range=time_range),
-            top_artists(client, time_range=time_range),
+            top_tracks(client),
+            top_artists(client),
             saved_tracks(client),
+            audio_features(client),
+            user_profile(client),
+            followed_artists(client),
+            saved_albums(client),
+            playlists(client),
+            saved_shows(client),
+            saved_episodes(client),
         ]
