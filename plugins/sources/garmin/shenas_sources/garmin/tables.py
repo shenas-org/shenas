@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.field import Field, TableKind
 
 
 @dataclass
@@ -19,6 +19,7 @@ class Activity:
 
     __table__: ClassVar[str] = "activities"
     __pk__: ClassVar[tuple[str, ...]] = ("activity_id",)
+    __kind__: ClassVar[TableKind] = "event"
 
     activity_id: Annotated[str, Field(db_type="VARCHAR", description="Unique activity identifier")]
     activityName: Annotated[str | None, Field(db_type="VARCHAR", description="Activity name")] = None  # noqa: N815
@@ -37,6 +38,7 @@ class DailyStat:
 
     __table__: ClassVar[str] = "daily_stats"
     __pk__: ClassVar[tuple[str, ...]] = ("calendarDate",)
+    __kind__: ClassVar[TableKind] = "aggregate"
 
     calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")]  # noqa: N815
     totalSteps: Annotated[int | None, Field(db_type="INTEGER", description="Total steps")] = None  # noqa: N815
@@ -53,6 +55,7 @@ class Sleep:
 
     __table__: ClassVar[str] = "sleep"
     __pk__: ClassVar[tuple[str, ...]] = ("calendarDate",)
+    __kind__: ClassVar[TableKind] = "aggregate"
 
     calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")]  # noqa: N815
 
@@ -63,6 +66,7 @@ class HRV:
 
     __table__: ClassVar[str] = "hrv"
     __pk__: ClassVar[tuple[str, ...]] = ("calendarDate",)
+    __kind__: ClassVar[TableKind] = "aggregate"
 
     calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")]  # noqa: N815
 
@@ -73,6 +77,7 @@ class SpO2:
 
     __table__: ClassVar[str] = "spo2"
     __pk__: ClassVar[tuple[str, ...]] = ("calendarDate",)
+    __kind__: ClassVar[TableKind] = "aggregate"
 
     calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")]  # noqa: N815
 
@@ -83,5 +88,6 @@ class BodyComposition:
 
     __table__: ClassVar[str] = "body_composition"
     __pk__: ClassVar[tuple[str, ...]] = ("samplePk",)
+    __kind__: ClassVar[TableKind] = "aggregate"
 
     samplePk: Annotated[int, Field(db_type="INTEGER", description="Sample primary key")]  # noqa: N815

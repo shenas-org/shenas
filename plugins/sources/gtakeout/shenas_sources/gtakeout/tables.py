@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.field import Field, TableKind
 
 
 @dataclass
@@ -14,6 +14,7 @@ class PhotoMetadata:
 
     __table__: ClassVar[str] = "photos_metadata"
     __pk__: ClassVar[tuple[str, ...]] = ("title", "photo_taken_timestamp")
+    __kind__: ClassVar[TableKind] = "event"
 
     title: Annotated[str, Field(db_type="VARCHAR", description="Photo/video title")]
     photo_taken_timestamp: Annotated[str, Field(db_type="VARCHAR", description="Epoch timestamp when photo was taken")]
@@ -37,6 +38,7 @@ class LocationRecord:
 
     __table__: ClassVar[str] = "location_records"
     __pk__: ClassVar[tuple[str, ...]] = ("timestamp", "latitude", "longitude")
+    __kind__: ClassVar[TableKind] = "event"
 
     timestamp: Annotated[str, Field(db_type="VARCHAR", description="ISO timestamp")]
     latitude: Annotated[float, Field(db_type="DOUBLE", description="Latitude")] = 0.0
@@ -53,6 +55,7 @@ class LocationVisit:
 
     __table__: ClassVar[str] = "location_visits"
     __pk__: ClassVar[tuple[str, ...]] = ("start_timestamp", "place_name", "type")
+    __kind__: ClassVar[TableKind] = "event"
 
     start_timestamp: Annotated[str, Field(db_type="VARCHAR", description="Start ISO timestamp")]
     place_name: Annotated[str, Field(db_type="VARCHAR", description="Place name or activity type")]
@@ -71,6 +74,7 @@ class YouTubeWatchHistory:
 
     __table__: ClassVar[str] = "youtube_watch_history"
     __pk__: ClassVar[tuple[str, ...]] = ("title_url", "time")
+    __kind__: ClassVar[TableKind] = "event"
 
     title_url: Annotated[str, Field(db_type="VARCHAR", description="Video URL")]
     time: Annotated[str, Field(db_type="VARCHAR", description="Watch timestamp")]
@@ -86,6 +90,7 @@ class YouTubeSearchHistory:
 
     __table__: ClassVar[str] = "youtube_search_history"
     __pk__: ClassVar[tuple[str, ...]] = ("title", "time")
+    __kind__: ClassVar[TableKind] = "event"
 
     title: Annotated[str, Field(db_type="VARCHAR", description="Search query")]
     time: Annotated[str, Field(db_type="VARCHAR", description="Search timestamp")]
@@ -99,6 +104,7 @@ class YouTubeSubscription:
 
     __table__: ClassVar[str] = "youtube_subscriptions"
     __pk__: ClassVar[tuple[str, ...]] = ("channel_id",)
+    __kind__: ClassVar[TableKind] = "snapshot"
 
     channel_id: Annotated[str, Field(db_type="VARCHAR", description="YouTube channel ID")]
     channel_url: Annotated[str | None, Field(db_type="VARCHAR", description="Channel URL")] = None
