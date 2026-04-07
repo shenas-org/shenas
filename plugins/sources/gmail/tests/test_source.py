@@ -1,4 +1,13 @@
-from shenas_sources.gmail.resources import _get_header
+from unittest.mock import MagicMock
+
+from shenas_sources.gmail.resources import (
+    _get_header,
+    _parse_message,
+    filters,
+    profile,
+    send_as,
+    vacation,
+)
 
 
 class TestGetHeader:
@@ -17,3 +26,156 @@ class TestGetHeader:
 
     def test_empty_headers(self) -> None:
         assert _get_header([], "From") == ""
+
+
+def _msg(headers: list[dict[str, str]] | None = None, label_ids: list[str] | None = None) -> dict[str, object]:
+    return {
+        "id": "m1",
+        "threadId": "t1",
+        "internalDate": "1700000000000",
+        "snippet": "hi",
+        "sizeEstimate": 1234,
+        "labelIds": label_ids or [],
+        "payload": {"headers": headers or []},
+    }
+
+
+class TestParseMessage:
+    def test_extracts_extended_headers(self) -> None:
+        row = _parse_message(
+            _msg(
+                headers=[
+                    {"name": "From", "value": "alice@example.com"},
+                    {"name": "To", "value": "bob@example.com"},
+                    {"name": "Cc", "value": "carol@example.com"},
+                    {"name": "Bcc", "value": "dan@example.com"},
+                    {"name": "Reply-To", "value": "replies@example.com"},
+                    {"name": "Subject", "value": "Hello"},
+                    {"name": "Message-ID", "value": "<smtp-id@example.com>"},
+                    {"name": "In-Reply-To", "value": "<prev@example.com>"},
+                    {"name": "References", "value": "<ref1@example.com> <ref2@example.com>"},
+                    {"name": "List-Id", "value": "<my.list.example.com>"},
+                    {"name": "List-Unsubscribe", "value": "<https://unsub.example.com>"},
+                ]
+            )
+        )
+        assert row["cc_address"] == "carol@example.com"
+        assert row["bcc_address"] == "dan@example.com"
+        assert row["reply_to"] == "replies@example.com"
+        assert row["message_id_header"] == "<smtp-id@example.com>"
+        assert row["in_reply_to"] == "<prev@example.com>"
+        assert row["references"] == "<ref1@example.com> <ref2@example.com>"
+        assert row["list_id"] == "<my.list.example.com>"
+        assert row["list_unsubscribe"] == "<https://unsub.example.com>"
+
+    def test_state_flags_from_labels(self) -> None:
+        row = _parse_message(_msg(label_ids=["UNREAD", "STARRED", "INBOX", "IMPORTANT"]))
+        assert row["is_read"] is False
+        assert row["is_starred"] is True
+        assert row["is_important"] is True
+        assert row["is_inbox"] is True
+        assert row["is_sent"] is False
+
+    def test_read_flag_when_unread_label_absent(self) -> None:
+        row = _parse_message(_msg(label_ids=["INBOX"]))
+        assert row["is_read"] is True
+
+    def test_category_extracted(self) -> None:
+        row = _parse_message(_msg(label_ids=["INBOX", "CATEGORY_PROMOTIONS"]))
+        assert row["category"] == "PROMOTIONS"
+
+    def test_no_category(self) -> None:
+        row = _parse_message(_msg(label_ids=["INBOX"]))
+        assert row["category"] is None
+
+
+class TestProfileResource:
+    def test_yields_profile(self) -> None:
+        service = MagicMock()
+        service.users().getProfile().execute.return_value = {
+            "emailAddress": "me@example.com",
+            "messagesTotal": 12345,
+            "threadsTotal": 6789,
+            "historyId": "98765",
+        }
+        rows = list(profile(service))
+        assert len(rows) == 1
+        assert rows[0]["email_address"] == "me@example.com"
+        assert rows[0]["messages_total"] == 12345
+
+
+class TestFiltersResource:
+    def test_yields_filters(self) -> None:
+        service = MagicMock()
+        service.users().settings().filters().list().execute.return_value = {
+            "filter": [
+                {
+                    "id": "f1",
+                    "criteria": {"from": "noreply@example.com", "subject": "promo"},
+                    "action": {"addLabelIds": ["Label_1", "Label_2"], "removeLabelIds": ["INBOX"]},
+                },
+                {
+                    "id": "f2",
+                    "criteria": {"query": "older_than:1y"},
+                    "action": {"forward": "archive@example.com"},
+                },
+            ]
+        }
+        rows = list(filters(service))
+        assert len(rows) == 2
+        assert rows[0]["from_criteria"] == "noreply@example.com"
+        assert rows[0]["add_label_ids"] == "Label_1, Label_2"
+        assert rows[0]["remove_label_ids"] == "INBOX"
+        assert rows[1]["query_criteria"] == "older_than:1y"
+        assert rows[1]["forward_to"] == "archive@example.com"
+
+    def test_handles_failure(self) -> None:
+        service = MagicMock()
+        service.users().settings().filters().list().execute.side_effect = RuntimeError("scope")
+        assert list(filters(service)) == []
+
+
+class TestVacationResource:
+    def test_yields_vacation(self) -> None:
+        service = MagicMock()
+        service.users().settings().getVacation().execute.return_value = {
+            "enableAutoReply": True,
+            "responseSubject": "Out",
+            "responseBodyPlainText": "Back next week",
+            "restrictToContacts": False,
+            "restrictToDomain": True,
+            "startTime": "1700000000000",
+            "endTime": "1700604800000",
+        }
+        rows = list(vacation(service))
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["enabled"] is True
+        assert row["response_subject"] == "Out"
+        assert row["restrict_to_domain"] is True
+        assert row["start_time"] == 1700000000000
+        assert row["end_time"] == 1700604800000
+
+
+class TestSendAsResource:
+    def test_yields_identities(self) -> None:
+        service = MagicMock()
+        service.users().settings().sendAs().list().execute.return_value = {
+            "sendAs": [
+                {
+                    "sendAsEmail": "me@example.com",
+                    "displayName": "Me",
+                    "isDefault": True,
+                    "isPrimary": True,
+                    "verificationStatus": "accepted",
+                },
+                {"sendAsEmail": "alt@example.com", "displayName": "Alt", "treatAsAlias": True},
+            ]
+        }
+        rows = list(send_as(service))
+        assert len(rows) == 2
+        primary = next(r for r in rows if r["send_as_email"] == "me@example.com")
+        assert primary["is_default"] is True
+        assert primary["is_primary"] is True
+        alt = next(r for r in rows if r["send_as_email"] == "alt@example.com")
+        assert alt["treat_as_alias"] is True
