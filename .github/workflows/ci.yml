@@ -31,10 +31,17 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
       - run: uv sync
+      - name: Build default frontend (for integration tests)
+        run: |
+          cd app/vendor && npm ci --silent && npm run build && cd "$GITHUB_WORKSPACE"
+          cd plugins/frontends/default && npm ci --silent && npm run build
       - run: uv run --no-sync pytest
 
   js-lint:
