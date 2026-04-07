@@ -13,7 +13,8 @@ install:
 dev:
 	@uv sync --group fl --quiet 2>/dev/null; \
 	for pkg in plugins/frontends/* plugins/dashboards/*; do \
-		if [ -f "$$pkg/package.json" ] && [ ! -d "$$pkg/shenas_frontends" ] && [ ! -d "$$pkg/shenas_dashboards" ]; then continue; fi; \
+		[ -f "$$pkg/package.json" ] || continue; \
+		[ -f "$$pkg/vite.config.js" ] || continue; \
 		static=$$(find "$$pkg" -path '*/static' -type d 2>/dev/null | head -1); \
 		if [ -z "$$static" ] || [ -z "$$(ls -A $$static 2>/dev/null)" ]; then \
 			echo "Building $$pkg (missing static/)..."; \
