@@ -31,7 +31,7 @@ def parse_photos_metadata(files: list[Path]) -> Iterator[dict[str, Any]]:
 
         yield {
             "title": data.get("title", ""),
-            "description": data.get("description", ""),
+            "photo_description": data.get("description", ""),
             "photo_taken_timestamp": photo_taken.get("timestamp", ""),
             "photo_taken_formatted": photo_taken.get("formatted", ""),
             "creation_timestamp": creation.get("timestamp", ""),

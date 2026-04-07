@@ -86,14 +86,7 @@ class GTakeoutSource(Source):
         from shenas_sources.core.cli import run_sync
         from shenas_sources.core.db import DB_PATH
         from shenas_sources.gtakeout.drive import download_archive, extract_archive, find_takeout_archives
-        from shenas_sources.gtakeout.resources import (
-            location_records,
-            location_visits,
-            photos_metadata,
-            youtube_search_history,
-            youtube_subscriptions,
-            youtube_watch_history,
-        )
+        from shenas_sources.gtakeout.tables import TABLES
 
         service = self.build_client()
 
@@ -138,14 +131,7 @@ class GTakeoutSource(Source):
                 archive_path = download_archive(service, archive_info["id"], tmp_dir)
                 extract_dir = extract_archive(archive_path, tmp_dir)
 
-                resources = [
-                    photos_metadata(extract_dir),
-                    location_records(extract_dir),
-                    location_visits(extract_dir),
-                    youtube_watch_history(extract_dir),
-                    youtube_search_history(extract_dir),
-                    youtube_subscriptions(extract_dir),
-                ]
+                resources = [t.to_resource(extract_dir) for t in TABLES]
 
                 run_sync("gtakeout", "gtakeout", resources, full_refresh, self._auto_transform)
 
