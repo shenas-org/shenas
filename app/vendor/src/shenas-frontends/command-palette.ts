@@ -223,7 +223,9 @@ class CommandPalette extends LitElement {
                   <div
                     class="item ${i === this._selectedIndex ? "selected" : ""}"
                     @click=${() => this._execute(cmd)}
-                    @mouseenter=${() => { this._selectedIndex = i; }}
+                    @mouseenter=${() => {
+                      this._selectedIndex = i;
+                    }}
                   >
                     <span class="item-category">${cmd.category}</span>
                     <span class="item-label">${cmd.label}</span>

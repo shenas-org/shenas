@@ -99,7 +99,11 @@ class AuthPage extends LitElement {
     this._loading = true;
     this._needsMfa = false;
     this._oauthUrl = null;
-    const data = await gql(this.apiBase, `query($pipe: String!) { authFields(pipe: $pipe) { fields { name prompt hide } instructions stored } }`, { pipe: this.pipeName });
+    const data = await gql(
+      this.apiBase,
+      `query($pipe: String!) { authFields(pipe: $pipe) { fields { name prompt hide } instructions stored } }`,
+      { pipe: this.pipeName },
+    );
     if (data?.authFields) {
       const authFields = data.authFields as Record<string, unknown>;
       this._fields = (authFields.fields as AuthField[]) || [];
@@ -127,7 +131,11 @@ class AuthPage extends LitElement {
       }
     }
 
-    const { data } = await gqlFull(this.apiBase, `mutation($pipe: String!, $creds: JSON!) { authenticate(pipe: $pipe, credentials: $creds) { ok message error needsMfa oauthUrl } }`, { pipe: this.pipeName, creds: credentials });
+    const { data } = await gqlFull(
+      this.apiBase,
+      `mutation($pipe: String!, $creds: JSON!) { authenticate(pipe: $pipe, credentials: $creds) { ok message error needsMfa oauthUrl } }`,
+      { pipe: this.pipeName, creds: credentials },
+    );
     this._submitting = false;
     const auth = data?.authenticate as Record<string, unknown> | undefined;
 
@@ -152,35 +160,40 @@ class AuthPage extends LitElement {
   render() {
     const empty = this._fields.length === 0 && !this._instructions;
     return html`
-      <shenas-page ?loading=${this._loading} ?empty=${empty}
-        loading-text="Loading auth..." empty-text="No authentication required for this plugin.">
+      <shenas-page
+        ?loading=${this._loading}
+        ?empty=${empty}
+        loading-text="Loading auth..."
+        empty-text="No authentication required for this plugin."
+      >
         ${renderMessage(this._message)}
         ${this._stored.length > 0
           ? html`<div class="stored-creds">
               ${this._stored.map((s) => html`<div class="stored-item">&#10003; ${s} configured</div>`)}
             </div>`
           : ""}
-        ${this._instructions
-          ? html`<div class="instructions">${this._instructions}</div>`
-          : ""}
-        ${this._oauthUrl ? this._renderOAuth()
-          : this._needsMfa ? this._renderMfa()
-          : this._renderFields()}
+        ${this._instructions ? html`<div class="instructions">${this._instructions}</div>` : ""}
+        ${this._oauthUrl ? this._renderOAuth() : this._needsMfa ? this._renderMfa() : this._renderFields()}
       </shenas-page>
     `;
   }
 
   _renderFields() {
     return html`
-      ${this._fields.map((f) => html`
-        <div class="field">
-          <label for="field-${f.name}">${f.prompt}</label>
-          <input id="field-${f.name}"
-            type="${f.hide ? "password" : "text"}"
-            @keydown=${(e: KeyboardEvent) => { if (e.key === "Enter") this._submit(); }}
-          />
-        </div>
-      `)}
+      ${this._fields.map(
+        (f) => html`
+          <div class="field">
+            <label for="field-${f.name}">${f.prompt}</label>
+            <input
+              id="field-${f.name}"
+              type="${f.hide ? "password" : "text"}"
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === "Enter") this._submit();
+              }}
+            />
+          </div>
+        `,
+      )}
       <div class="actions">
         <button @click=${this._submit} ?disabled=${this._submitting}>
           ${this._submitting ? "Authenticating..." : "Authenticate"}
@@ -193,8 +206,13 @@ class AuthPage extends LitElement {
     return html`
       <div class="field">
         <label for="mfa-code">MFA Code</label>
-        <input id="mfa-code" type="text" autocomplete="one-time-code"
-          @keydown=${(e: KeyboardEvent) => { if (e.key === "Enter") this._submit(); }}
+        <input
+          id="mfa-code"
+          type="text"
+          autocomplete="one-time-code"
+          @keydown=${(e: KeyboardEvent) => {
+            if (e.key === "Enter") this._submit();
+          }}
         />
       </div>
       <div class="actions">
@@ -208,9 +226,7 @@ class AuthPage extends LitElement {
   _renderOAuth() {
     return html`
       <p>
-        <a class="oauth-link" href="${this._oauthUrl}" target="_blank" rel="noopener">
-          Open authorization page
-        </a>
+        <a class="oauth-link" href="${this._oauthUrl}" target="_blank" rel="noopener"> Open authorization page </a>
       </p>
       <p style="font-size:0.85rem;color:var(--shenas-text-secondary, #666)">
         After authorizing in your browser, click Complete below.

@@ -157,7 +157,11 @@ class HotkeysPage extends LitElement {
 
   async _saveBinding(actionId: string, binding: string): Promise<void> {
     if (binding) {
-      await gqlFull(this.apiBase, `mutation($id: String!, $b: String!) { setHotkey(actionId: $id, binding: $b) { ok } }`, { id: actionId, b: binding });
+      await gqlFull(
+        this.apiBase,
+        `mutation($id: String!, $b: String!) { setHotkey(actionId: $id, binding: $b) { ok } }`,
+        { id: actionId, b: binding },
+      );
     } else {
       await gqlFull(this.apiBase, `mutation($id: String!) { deleteHotkey(actionId: $id) { ok } }`, { id: actionId });
     }
@@ -180,13 +184,14 @@ class HotkeysPage extends LitElement {
     if (!this._recording) return;
     e.preventDefault();
     e.stopPropagation();
-    if (e.key === "Escape") { this._stopRecording(); return; }
+    if (e.key === "Escape") {
+      this._stopRecording();
+      return;
+    }
     if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) return;
     const combo = formatHotkey(e);
     this._recordedKey = combo;
-    const conflict = Object.entries(this._bindings).find(
-      ([id, b]) => b === combo && id !== this._recording,
-    );
+    const conflict = Object.entries(this._bindings).find(([id, b]) => b === combo && id !== this._recording);
     this._conflict = conflict ? conflict[0] : null;
   }
 
@@ -229,16 +234,22 @@ class HotkeysPage extends LitElement {
 
     const q = this._filter.toLowerCase();
     const filtered = sortActions(
-      this.actions.filter((a) =>
-        !q || a.label.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)),
+      this.actions.filter((a) => !q || a.label.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)),
       this._bindings,
     ) as HotkeyAction[];
 
     return html`
       <div class="toolbar">
         <button @click=${this._resetDefaults}>Reset to Defaults</button>
-        <input class="filter-input" type="text" placeholder="Filter actions..."
-          .value=${this._filter} @input=${(e: InputEvent) => { this._filter = (e.target as HTMLInputElement).value; }} />
+        <input
+          class="filter-input"
+          type="text"
+          placeholder="Filter actions..."
+          .value=${this._filter}
+          @input=${(e: InputEvent) => {
+            this._filter = (e.target as HTMLInputElement).value;
+          }}
+        />
       </div>
       ${filtered.map((a) => this._renderRow(a.id, a.label, a.category))}
     `;
@@ -256,18 +267,18 @@ class HotkeysPage extends LitElement {
         <span class="hotkey-binding">
           ${isRecording
             ? html`
-              <span class="recording">${this._recordedKey || "Press a key..."}</span>
-              ${this._conflict ? html`<span class="conflict">Conflicts with ${conflictLabel}</span>` : ""}
-              <button @click=${this._applyRecording} ?disabled=${!this._recordedKey}>Save</button>
-              <button @click=${this._stopRecording}>Cancel</button>
-            `
+                <span class="recording">${this._recordedKey || "Press a key..."}</span>
+                ${this._conflict ? html`<span class="conflict">Conflicts with ${conflictLabel}</span>` : ""}
+                <button @click=${this._applyRecording} ?disabled=${!this._recordedKey}>Save</button>
+                <button @click=${this._stopRecording}>Cancel</button>
+              `
             : html`
-              ${binding
-                ? html`<span class="kbd">${binding}</span>`
-                : html`<span class="unbound">-</span>`}
-              <button class="edit-btn" @click=${() => this._startRecording(actionId)}>Edit</button>
-              ${binding ? html`<button class="edit-btn" @click=${() => this._clearBinding(actionId)}>Clear</button>` : ""}
-            `}
+                ${binding ? html`<span class="kbd">${binding}</span>` : html`<span class="unbound">-</span>`}
+                <button class="edit-btn" @click=${() => this._startRecording(actionId)}>Edit</button>
+                ${binding
+                  ? html`<button class="edit-btn" @click=${() => this._clearBinding(actionId)}>Clear</button>`
+                  : ""}
+              `}
         </span>
       </div>
     `;

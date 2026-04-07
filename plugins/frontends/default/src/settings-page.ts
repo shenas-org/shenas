@@ -1,5 +1,14 @@
 import { LitElement, html, css } from "lit";
-import { gql, gqlFull, renderMessage, PLUGIN_KINDS, buttonStyles, formStyles, linkStyles, messageStyles } from "shenas-frontends";
+import {
+  gql,
+  gqlFull,
+  renderMessage,
+  PLUGIN_KINDS,
+  buttonStyles,
+  formStyles,
+  linkStyles,
+  messageStyles,
+} from "shenas-frontends";
 
 interface PluginSummary {
   name: string;
@@ -123,16 +132,20 @@ class SettingsPage extends LitElement {
         gap: 0.4rem;
         font-size: 0.85rem;
       }
-      .burger svg { flex-shrink: 0; }
+      .burger svg {
+        flex-shrink: 0;
+      }
       /* Overlay menu (mobile) */
       .menu-overlay {
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.3);
+        background: rgba(0, 0, 0, 0.3);
         z-index: 100;
       }
-      .menu-overlay.open { display: block; }
+      .menu-overlay.open {
+        display: block;
+      }
       .menu-panel {
         position: fixed;
         top: 0;
@@ -143,7 +156,7 @@ class SettingsPage extends LitElement {
         z-index: 101;
         padding: 1rem;
         overflow-y: auto;
-        box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
       }
       .menu-panel .menu-close {
         background: none;
@@ -171,7 +184,9 @@ class SettingsPage extends LitElement {
         color: var(--shenas-text, #222);
         font-weight: 600;
       }
-      .menu-panel a svg { flex-shrink: 0; }
+      .menu-panel a svg {
+        flex-shrink: 0;
+      }
       .menu-panel .sidebar-section {
         font-size: 0.7rem;
         text-transform: uppercase;
@@ -180,8 +195,12 @@ class SettingsPage extends LitElement {
         padding: 0.8rem 0.5rem 0.3rem;
       }
       @media (max-width: 768px) {
-        .sidebar { display: none; }
-        .burger { display: flex; }
+        .sidebar {
+          display: none;
+        }
+        .burger {
+          display: flex;
+        }
         .layout {
           gap: 0;
           flex-direction: column;
@@ -240,14 +259,17 @@ class SettingsPage extends LitElement {
 
   async _fetchAll(_options?: { force?: boolean }): Promise<void> {
     this._loading = true;
-    const data = await gql(this.apiBase, `{
+    const data = await gql(
+      this.apiBase,
+      `{
       sources: plugins(kind: "source") { name displayName package version enabled description syncedAt hasAuth isAuthenticated }
       datasets: plugins(kind: "dataset") { name displayName package version enabled description }
       dashboardPlugins: plugins(kind: "dashboard") { name displayName package version enabled description }
       frontends: plugins(kind: "frontend") { name displayName package version enabled description }
       themes: plugins(kind: "theme") { name displayName package version enabled description }
       models: plugins(kind: "model") { name displayName package version enabled description }
-    }`);
+    }`,
+    );
     const result: Record<string, PluginSummary[]> = {
       source: (data?.sources as PluginSummary[]) || [],
       dataset: (data?.datasets as PluginSummary[]) || [],
@@ -261,15 +283,16 @@ class SettingsPage extends LitElement {
     if (this.onPluginsChanged) this.onPluginsChanged(result);
   }
 
-
-
   async _togglePlugin(kind: string, name: string, currentlyEnabled: boolean): Promise<void> {
     const action = currentlyEnabled ? "disable" : "enable";
-    const mutation = action === "enable"
-      ? `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok message } }`
-      : `mutation($k: String!, $n: String!) { disablePlugin(kind: $k, name: $n) { ok message } }`;
+    const mutation =
+      action === "enable"
+        ? `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok message } }`
+        : `mutation($k: String!, $n: String!) { disablePlugin(kind: $k, name: $n) { ok message } }`;
     const { data } = await gqlFull(this.apiBase, mutation, { k: kind, n: name });
-    const result = (action === "enable" ? data?.enablePlugin : data?.disablePlugin) as Record<string, unknown> | undefined;
+    const result = (action === "enable" ? data?.enablePlugin : data?.disablePlugin) as
+      | Record<string, unknown>
+      | undefined;
     if (!result?.ok) {
       this._actionMessage = { type: "error", text: (result?.message as string) || `${action} failed` };
     }
@@ -277,7 +300,7 @@ class SettingsPage extends LitElement {
       await this._applyActiveTheme();
     }
     if (kind === "ui") {
-      window.location.replace(window.location.pathname + '?_switch=' + Date.now());
+      window.location.replace(window.location.pathname + "?_switch=" + Date.now());
       return;
     }
     this.dispatchEvent(new CustomEvent("plugin-state-changed", { bubbles: true, composed: true }));
@@ -288,7 +311,7 @@ class SettingsPage extends LitElement {
     const data = await gql(this.apiBase, `{ theme { css } }`);
     if (!data?.theme) return;
     const { css } = data.theme as Record<string, string>;
-    let link = document.querySelector('link[data-shenas-theme]') as HTMLLinkElement | null;
+    let link = document.querySelector("link[data-shenas-theme]") as HTMLLinkElement | null;
     if (css) {
       if (!link) {
         link = document.createElement("link");
@@ -320,16 +343,19 @@ class SettingsPage extends LitElement {
     const displayName = this._displayPluginName(name);
     const jobId = `install-${kind}-${name}-${Date.now()}`;
 
-    this.dispatchEvent(new CustomEvent("job-start", {
-      bubbles: true, composed: true,
-      detail: { id: jobId, label: `Adding ${displayName}` },
-    }));
-
-    const result = await this._streamJob(
-      jobId,
-      `${this.apiBase}/plugins/${kind}/install-stream`,
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ names: [name], skip_verify: true }) },
+    this.dispatchEvent(
+      new CustomEvent("job-start", {
+        bubbles: true,
+        composed: true,
+        detail: { id: jobId, label: `Adding ${displayName}` },
+      }),
     );
+
+    const result = await this._streamJob(jobId, `${this.apiBase}/plugins/${kind}/install-stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names: [name], skip_verify: true }),
+    });
 
     if (result?.ok) {
       this._actionMessage = { type: "success", text: result.message };
@@ -339,7 +365,11 @@ class SettingsPage extends LitElement {
     }
   }
 
-  async _streamJob(jobId: string, url: string, fetchOptions: RequestInit): Promise<{ ok: boolean; message: string } | null> {
+  async _streamJob(
+    jobId: string,
+    url: string,
+    fetchOptions: RequestInit,
+  ): Promise<{ ok: boolean; message: string } | null> {
     try {
       const resp = await fetch(url, fetchOptions);
       const reader = resp.body!.getReader();
@@ -359,33 +389,47 @@ class SettingsPage extends LitElement {
           try {
             const evt = JSON.parse(line.slice(6)) as Record<string, unknown>;
             if (evt.event === "log") {
-              this.dispatchEvent(new CustomEvent("job-log", {
-                bubbles: true, composed: true,
-                detail: { id: jobId, text: evt.text },
-              }));
+              this.dispatchEvent(
+                new CustomEvent("job-log", {
+                  bubbles: true,
+                  composed: true,
+                  detail: { id: jobId, text: evt.text },
+                }),
+              );
             } else if (evt.event === "done") {
               finalResult = { ok: evt.ok as boolean, message: evt.message as string };
-              this.dispatchEvent(new CustomEvent("job-finish", {
-                bubbles: true, composed: true,
-                detail: { id: jobId, ok: evt.ok, message: evt.message },
-              }));
+              this.dispatchEvent(
+                new CustomEvent("job-finish", {
+                  bubbles: true,
+                  composed: true,
+                  detail: { id: jobId, ok: evt.ok, message: evt.message },
+                }),
+              );
             }
-          } catch { /* skip malformed lines */ }
+          } catch {
+            /* skip malformed lines */
+          }
         }
       }
       return finalResult;
     } catch (err) {
       const error = err as Error;
-      this.dispatchEvent(new CustomEvent("job-finish", {
-        bubbles: true, composed: true,
-        detail: { id: jobId, ok: false, message: error.message },
-      }));
+      this.dispatchEvent(
+        new CustomEvent("job-finish", {
+          bubbles: true,
+          composed: true,
+          detail: { id: jobId, ok: false, message: error.message },
+        }),
+      );
       return { ok: false, message: error.message };
     }
   }
 
   _displayPluginName(name: string): string {
-    return name.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    return name
+      .split("-")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
   }
 
   _switchKind(kind: string): void {
@@ -403,25 +447,71 @@ class SettingsPage extends LitElement {
 
   render() {
     return html`
-      <button class="burger" @click=${() => { this._menuOpen = !this._menuOpen; }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      <button
+        class="burger"
+        @click=${() => {
+          this._menuOpen = !this._menuOpen;
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
         ${this._displayName()}
       </button>
-      ${this._menuOpen ? html`
-        <div class="menu-overlay" @click=${() => { this._menuOpen = false; }}></div>
-        <div class="menu-panel">
-          <a href="/settings/flow" aria-selected=${this.activeKind === "flow"} @click=${(e: MouseEvent) => { e.preventDefault(); this._switchKind("flow"); }}>Flow</a>
-          <a href="/settings/hotkeys" aria-selected=${this.activeKind === "hotkeys"} @click=${(e: MouseEvent) => { e.preventDefault(); this._switchKind("hotkeys"); }}>Hotkeys</a>
-          <span class="sidebar-section">Plugins</span>
-          ${PLUGIN_KINDS.map(({ id, label }) => html`
-            <a href="/settings/${id}" aria-selected=${this.activeKind === id} @click=${(e: MouseEvent) => { e.preventDefault(); this._switchKind(id); }}>${label}</a>
-          `)}
-        </div>
-      ` : ""}
+      ${this._menuOpen
+        ? html`
+            <div
+              class="menu-overlay"
+              @click=${() => {
+                this._menuOpen = false;
+              }}
+            ></div>
+            <div class="menu-panel">
+              <a
+                href="/settings/flow"
+                aria-selected=${this.activeKind === "flow"}
+                @click=${(e: MouseEvent) => {
+                  e.preventDefault();
+                  this._switchKind("flow");
+                }}
+                >Flow</a
+              >
+              <a
+                href="/settings/hotkeys"
+                aria-selected=${this.activeKind === "hotkeys"}
+                @click=${(e: MouseEvent) => {
+                  e.preventDefault();
+                  this._switchKind("hotkeys");
+                }}
+                >Hotkeys</a
+              >
+              <span class="sidebar-section">Plugins</span>
+              ${PLUGIN_KINDS.map(
+                ({ id, label }) => html`
+                  <a
+                    href="/settings/${id}"
+                    aria-selected=${this.activeKind === id}
+                    @click=${(e: MouseEvent) => {
+                      e.preventDefault();
+                      this._switchKind(id);
+                    }}
+                    >${label}</a
+                  >
+                `,
+              )}
+            </div>
+          `
+        : ""}
       <shenas-page ?loading=${this._loading} loading-text="Loading plugins..." display-name="${this._displayName()}">
         ${renderMessage(this._actionMessage)}
         ${this.activeKind === "flow"
-          ? html`<shenas-pipeline-overview api-base="${this.apiBase}" .allPlugins=${this.allPlugins} .schemaPlugins=${this.schemaPlugins}></shenas-pipeline-overview>`
+          ? html`<shenas-pipeline-overview
+              api-base="${this.apiBase}"
+              .allPlugins=${this.allPlugins}
+              .schemaPlugins=${this.schemaPlugins}
+            ></shenas-pipeline-overview>`
           : this.activeKind === "hotkeys"
             ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
             : this._renderKind(this.activeKind)}
@@ -443,16 +533,33 @@ class SettingsPage extends LitElement {
       <h3>${label}</h3>
       <shenas-data-list
         .columns=${[
-          { label: "Name", render: (p: PluginSummary) => html`<a href="/settings/${kind}/${p.name}">${p.displayName || p.name}</a>` },
-          ...(kind === "source" ? [
-            { label: "Last Synced", class: "mono", render: (p: PluginSummary) => p.syncedAt ? p.syncedAt.slice(0, 16).replace("T", " ") : "never" },
-          ] : []),
-          { label: "Status", render: (p: PluginSummary) => p.hasAuth && p.isAuthenticated === false
-            ? html`<span style="color:var(--shenas-error,#c62828);font-size:0.8rem">Needs Auth</span>`
-            : html`<status-toggle ?enabled=${p.enabled !== false} toggleable @toggle=${() => this._togglePlugin(kind, p.name, p.enabled !== false)}></status-toggle>` },
+          {
+            label: "Name",
+            render: (p: PluginSummary) => html`<a href="/settings/${kind}/${p.name}">${p.displayName || p.name}</a>`,
+          },
+          ...(kind === "source"
+            ? [
+                {
+                  label: "Last Synced",
+                  class: "mono",
+                  render: (p: PluginSummary) => (p.syncedAt ? p.syncedAt.slice(0, 16).replace("T", " ") : "never"),
+                },
+              ]
+            : []),
+          {
+            label: "Status",
+            render: (p: PluginSummary) =>
+              p.hasAuth && p.isAuthenticated === false
+                ? html`<span style="color:var(--shenas-error,#c62828);font-size:0.8rem">Needs Auth</span>`
+                : html`<status-toggle
+                    ?enabled=${p.enabled !== false}
+                    toggleable
+                    @toggle=${() => this._togglePlugin(kind, p.name, p.enabled !== false)}
+                  ></status-toggle>`,
+          },
         ]}
         .rows=${plugins}
-        .rowClass=${(p: PluginSummary) => p.enabled === false ? "disabled-row" : ""}
+        .rowClass=${(p: PluginSummary) => (p.enabled === false ? "disabled-row" : "")}
         ?show-add=${!this._installing}
         @add=${() => this._startInstall(kind)}
         empty-text="No ${label.toLowerCase()} added"
@@ -462,7 +569,9 @@ class SettingsPage extends LitElement {
             title="Add ${label.slice(0, -1)}"
             submit-label="Add"
             @submit=${() => this._install(kind)}
-            @cancel=${() => { this._installing = false; }}
+            @cancel=${() => {
+              this._installing = false;
+            }}
           >
             <div class="field">
               ${this._availablePlugins === null
@@ -470,11 +579,15 @@ class SettingsPage extends LitElement {
                 : this._availablePlugins.length === 0
                   ? html`<span style="color:var(--shenas-text-muted)">No new ${label.toLowerCase()} available</span>`
                   : html`<select
-                      @change=${(e: Event) => { this._selectedPlugin = (e.target as HTMLSelectElement).value; }}
+                      @change=${(e: Event) => {
+                        this._selectedPlugin = (e.target as HTMLSelectElement).value;
+                      }}
                       style="width:100%;padding:0.5rem;border:1px solid var(--shenas-border-input,#ddd);border-radius:6px;font-size:0.9rem"
                     >
                       <option value="">Select a ${label.slice(0, -1).toLowerCase()}...</option>
-                      ${this._availablePlugins.map((n) => html`<option value=${n}>${this._displayPluginName(n)}</option>`)}
+                      ${this._availablePlugins.map(
+                        (n) => html`<option value=${n}>${this._displayPluginName(n)}</option>`,
+                      )}
                     </select>`}
             </div>
           </shenas-form-panel>`

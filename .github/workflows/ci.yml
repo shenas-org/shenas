@@ -47,7 +47,9 @@ jobs:
             fi
           done
       - name: ESLint
-        run: npx eslint 'plugins/**/src/**/*.ts' 'app/vendor/src/**/*.ts'
+        run: npm run lint
+      - name: Prettier
+        run: npm run format:check
 
   test:
     name: Test

@@ -130,10 +130,22 @@ class LogsPage extends LitElement {
         min-width: 40px;
         text-align: center;
       }
-      .severity.INFO { color: var(--shenas-primary, #0066cc); background: var(--shenas-bg-selected, #f0f4ff); }
-      .severity.WARNING { color: #f57c00; background: #fff3e0; }
-      .severity.ERROR { color: var(--shenas-error, #c62828); background: var(--shenas-error-bg, #fce4ec); }
-      .severity.DEBUG { color: var(--shenas-text-muted, #888); background: var(--shenas-bg-secondary, #fafafa); }
+      .severity.INFO {
+        color: var(--shenas-primary, #0066cc);
+        background: var(--shenas-bg-selected, #f0f4ff);
+      }
+      .severity.WARNING {
+        color: #f57c00;
+        background: #fff3e0;
+      }
+      .severity.ERROR {
+        color: var(--shenas-error, #c62828);
+        background: var(--shenas-error-bg, #fce4ec);
+      }
+      .severity.DEBUG {
+        color: var(--shenas-text-muted, #888);
+        background: var(--shenas-bg-secondary, #fafafa);
+      }
       .body {
         color: var(--shenas-text, #222);
         flex: 1;
@@ -156,8 +168,14 @@ class LogsPage extends LitElement {
         padding: 1px 4px;
         border-radius: 3px;
       }
-      .status.OK { color: var(--shenas-success, #2e7d32); background: var(--shenas-success-bg, #e8f5e9); }
-      .status.ERROR { color: var(--shenas-error, #c62828); background: var(--shenas-error-bg, #fce4ec); }
+      .status.OK {
+        color: var(--shenas-success, #2e7d32);
+        background: var(--shenas-success-bg, #e8f5e9);
+      }
+      .status.ERROR {
+        color: var(--shenas-error, #c62828);
+        background: var(--shenas-error-bg, #fce4ec);
+      }
       .detail {
         padding: 0.5rem 0 0.5rem 1rem;
         font-size: 0.75rem;
@@ -209,8 +227,13 @@ class LogsPage extends LitElement {
         animation: pulse 2s infinite;
       }
       @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.3; }
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
       }
       .live-label {
         font-size: 0.7rem;
@@ -267,23 +290,37 @@ class LogsPage extends LitElement {
       try {
         const row = JSON.parse(e.data) as LogRow;
         this._logs = [row, ...this._logs].slice(0, 500);
-      } catch { /* */ }
+      } catch {
+        /* */
+      }
     };
-    this._logSource.onopen = () => { this._live = true; };
-    this._logSource.onerror = () => { this._live = false; };
+    this._logSource.onopen = () => {
+      this._live = true;
+    };
+    this._logSource.onerror = () => {
+      this._live = false;
+    };
 
     this._spanSource = new EventSource(`${base}/stream/spans`);
     this._spanSource.onmessage = (e: MessageEvent) => {
       try {
         const row = JSON.parse(e.data) as SpanRow;
         this._spans = [row, ...this._spans].slice(0, 500);
-      } catch { /* */ }
+      } catch {
+        /* */
+      }
     };
   }
 
   _disconnectStreams(): void {
-    if (this._logSource) { this._logSource.close(); this._logSource = null; }
-    if (this._spanSource) { this._spanSource.close(); this._spanSource = null; }
+    if (this._logSource) {
+      this._logSource.close();
+      this._logSource = null;
+    }
+    if (this._spanSource) {
+      this._spanSource.close();
+      this._spanSource = null;
+    }
     this._live = false;
   }
 
@@ -314,7 +351,9 @@ class LogsPage extends LitElement {
       ]);
       if (logs) this._logs = logs as LogRow[];
       if (spans) this._spans = spans as SpanRow[];
-    } catch { /* */ }
+    } catch {
+      /* */
+    }
     this._loading = false;
   }
 
@@ -323,11 +362,13 @@ class LogsPage extends LitElement {
     this._expanded = null;
     try {
       if (this._activeTab === "logs") {
-        this._logs = (await arrowQuery(this.apiBase, this._logsSql()) as LogRow[]) || [];
+        this._logs = ((await arrowQuery(this.apiBase, this._logsSql())) as LogRow[]) || [];
       } else {
-        this._spans = (await arrowQuery(this.apiBase, this._spansSql()) as SpanRow[]) || [];
+        this._spans = ((await arrowQuery(this.apiBase, this._spansSql())) as SpanRow[]) || [];
       }
-    } catch { /* */ }
+    } catch {
+      /* */
+    }
     this._loading = false;
   }
 
@@ -361,7 +402,13 @@ class LogsPage extends LitElement {
       <div class="toolbar">
         <input class="search" type="text" placeholder="Search..." .value=${this._search} @input=${this._onSearch} />
         ${this._activeTab === "logs"
-          ? html`<select .value=${this._severity} @change=${(e: Event) => { this._severity = (e.target as HTMLSelectElement).value; this._fetch(); }}>
+          ? html`<select
+              .value=${this._severity}
+              @change=${(e: Event) => {
+                this._severity = (e.target as HTMLSelectElement).value;
+                this._fetch();
+              }}
+            >
               <option value="">All severities</option>
               <option value="DEBUG">DEBUG</option>
               <option value="INFO">INFO</option>
@@ -377,7 +424,9 @@ class LogsPage extends LitElement {
           ? html`<p class="loading">Loading...</p>`
           : items.length === 0
             ? html`<p class="empty">No ${this._activeTab} found</p>`
-            : items.map((item, i) => this._activeTab === "logs" ? this._renderLog(item as LogRow, i) : this._renderSpan(item as SpanRow, i))}
+            : items.map((item, i) =>
+                this._activeTab === "logs" ? this._renderLog(item as LogRow, i) : this._renderSpan(item as SpanRow, i),
+              )}
       </div>
     `;
   }
@@ -391,15 +440,15 @@ class LogsPage extends LitElement {
           <span class="severity ${log.severity || ""}">${log.severity || "-"}</span>
           <span class="body">${log.body || ""}</span>
         </div>
-        ${expanded ? html`
-          <div class="detail">
-            <div style="white-space:pre-wrap; word-break:break-word; margin-bottom:0.5rem">${log.body || ""}</div>
-            ${this._detailRow("Service", log.service_name)}
-            ${this._detailRow("Trace ID", log.trace_id)}
-            ${this._detailRow("Span ID", log.span_id)}
-            ${this._renderAttributes(log.attributes)}
-          </div>
-        ` : ""}
+        ${expanded
+          ? html`
+              <div class="detail">
+                <div style="white-space:pre-wrap; word-break:break-word; margin-bottom:0.5rem">${log.body || ""}</div>
+                ${this._detailRow("Service", log.service_name)} ${this._detailRow("Trace ID", log.trace_id)}
+                ${this._detailRow("Span ID", log.span_id)} ${this._renderAttributes(log.attributes)}
+              </div>
+            `
+          : ""}
       </div>
     `;
   }
@@ -414,32 +463,37 @@ class LogsPage extends LitElement {
           <span class="span-name">${span.name}</span>
           <span class="duration">${span.duration_ms != null ? `${Math.round(span.duration_ms)}ms` : ""}</span>
         </div>
-        ${expanded ? html`
-          <div class="detail">
-            ${this._detailRow("Service", span.service_name)}
-            ${this._detailRow("Kind", span.kind)}
-            ${this._detailRow("Trace ID", span.trace_id)}
-            ${this._detailRow("Span ID", span.span_id)}
-            ${this._detailRow("Parent", span.parent_span_id)}
-            ${this._detailRow("Status", span.status_code)}
-            ${span.duration_ms != null ? this._detailRow("Duration", `${span.duration_ms.toFixed(2)}ms`) : ""}
-            ${this._renderAttributes(span.attributes)}
-          </div>
-        ` : ""}
+        ${expanded
+          ? html`
+              <div class="detail">
+                ${this._detailRow("Service", span.service_name)} ${this._detailRow("Kind", span.kind)}
+                ${this._detailRow("Trace ID", span.trace_id)} ${this._detailRow("Span ID", span.span_id)}
+                ${this._detailRow("Parent", span.parent_span_id)} ${this._detailRow("Status", span.status_code)}
+                ${span.duration_ms != null ? this._detailRow("Duration", `${span.duration_ms.toFixed(2)}ms`) : ""}
+                ${this._renderAttributes(span.attributes)}
+              </div>
+            `
+          : ""}
       </div>
     `;
   }
 
   _detailRow(key: string, value: string) {
     if (!value) return "";
-    return html`<div class="detail-row"><span class="detail-key">${key}</span><span class="detail-value">${value}</span></div>`;
+    return html`<div class="detail-row">
+      <span class="detail-key">${key}</span><span class="detail-value">${value}</span>
+    </div>`;
   }
 
   _renderAttributes(attrs: string | Record<string, unknown> | null) {
     if (!attrs) return "";
     let parsed: Record<string, unknown> = attrs as Record<string, unknown>;
     if (typeof attrs === "string") {
-      try { parsed = JSON.parse(attrs); } catch { return this._detailRow("Attributes", attrs); }
+      try {
+        parsed = JSON.parse(attrs);
+      } catch {
+        return this._detailRow("Attributes", attrs);
+      }
     }
     if (typeof parsed !== "object" || parsed === null) return this._detailRow("Attributes", String(attrs));
     const entries = Object.entries(parsed);
@@ -448,12 +502,14 @@ class LogsPage extends LitElement {
       <div class="detail-row">
         <span class="detail-key">Attributes</span>
         <div class="attr-list">
-          ${entries.map(([k, v]) => html`
-            <div class="attr-item">
-              <span class="attr-key">${k}</span>
-              <span class="attr-val">${typeof v === "string" ? v : JSON.stringify(v)}</span>
-            </div>
-          `)}
+          ${entries.map(
+            ([k, v]) => html`
+              <div class="attr-item">
+                <span class="attr-key">${k}</span>
+                <span class="attr-val">${typeof v === "string" ? v : JSON.stringify(v)}</span>
+              </div>
+            `,
+          )}
         </div>
       </div>
     `;
@@ -462,7 +518,7 @@ class LogsPage extends LitElement {
   _formatTime(ts: unknown): string {
     if (!ts) return "-";
     // Arrow returns DuckDB TIMESTAMP as milliseconds (possibly with sub-ms fraction)
-    const d = typeof ts === "number" ? new Date(ts) : new Date(String(ts).endsWith("Z") ? ts as string : ts + "Z");
+    const d = typeof ts === "number" ? new Date(ts) : new Date(String(ts).endsWith("Z") ? (ts as string) : ts + "Z");
     if (isNaN(d.getTime())) return String(ts);
     const pad = (n: number, len = 2): string => String(n).padStart(len, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;

@@ -34,13 +34,15 @@ class ShenasPage extends LitElement {
   static styles: CSSResultGroup = [
     utilityStyles,
     css`
-      :host([loading]), :host([empty]) {
+      :host([loading]),
+      :host([empty]) {
         display: flex;
         align-items: center;
         justify-content: center;
         min-height: 100%;
       }
-      .loading, .empty {
+      .loading,
+      .empty {
         color: var(--shenas-text-muted, #888);
       }
     `,
@@ -57,11 +59,13 @@ class ShenasPage extends LitElement {
 
   updated(changed: PropertyValues): void {
     if (changed.has("displayName") && this.displayName) {
-      this.dispatchEvent(new CustomEvent("page-title", {
-        bubbles: true,
-        composed: true,
-        detail: { title: this.displayName },
-      }));
+      this.dispatchEvent(
+        new CustomEvent("page-title", {
+          bubbles: true,
+          composed: true,
+          detail: { title: this.displayName },
+        }),
+      );
     }
   }
 
