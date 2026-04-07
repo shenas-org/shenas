@@ -5,7 +5,6 @@ from shenas_datasets.outcomes import (
     DailyOutcome,
     OutcomesSchema,
     generate_ddl,
-    table_metadata,
 )
 
 
@@ -51,14 +50,14 @@ class TestIntrospect:
         assert meta[0]["table"] == "daily_outcomes"
 
     def test_column_metadata(self) -> None:
-        meta = table_metadata(DailyOutcome)
+        meta = DailyOutcome.table_metadata()
         mood = next(c for c in meta["columns"] if c["name"] == "mood")
         assert mood["db_type"] == "INTEGER"
         assert mood.get("value_range") == (0, 9)
         assert "interpretation" in mood
 
     def test_all_fields_have_metadata(self) -> None:
-        for col in table_metadata(DailyOutcome)["columns"]:
+        for col in DailyOutcome.table_metadata()["columns"]:
             assert "description" in col, f"{col['name']} missing description"
 
 

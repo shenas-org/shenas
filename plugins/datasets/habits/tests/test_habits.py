@@ -5,7 +5,6 @@ from shenas_datasets.habits import (
     DailyHabits,
     HabitsSchema,
     generate_ddl,
-    table_metadata,
 )
 
 
@@ -46,7 +45,7 @@ class TestIntrospect:
         assert meta[0]["table"] == "daily_habits"
 
     def test_column_metadata(self) -> None:
-        meta = table_metadata(DailyHabits)
+        meta = DailyHabits.table_metadata()
         duo = next(c for c in meta["columns"] if c["name"] == "duolingo")
         assert duo["db_type"] == "BOOLEAN"
 

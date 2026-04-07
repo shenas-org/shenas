@@ -6,7 +6,7 @@ from shenas_datasets.finance.metrics import (
     MonthlyOverview,
     Transaction,
 )
-from shenas_plugins.core import Field, generate_ddl, table_metadata
+from shenas_plugins.core import Field, generate_ddl
 
 
 class FinanceSchema(Dataset):
@@ -27,5 +27,4 @@ __all__ = [
     "MonthlyOverview",
     "Transaction",
     "generate_ddl",
-    "table_metadata",
 ]

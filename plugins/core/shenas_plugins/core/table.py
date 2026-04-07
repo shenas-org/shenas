@@ -45,8 +45,12 @@ Example (dataset side)
 
 from __future__ import annotations
 
+import dataclasses
+import types
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Annotated, Any, ClassVar, get_args, get_origin, get_type_hints
+
+from shenas_plugins.core.field import Field
 
 
 class Table:
@@ -111,3 +115,46 @@ class Table:
         if "__dataclass_fields__" not in cls.__dict__:
             dataclass(cls)
         cls._validate()
+
+    @classmethod
+    def table_metadata(cls) -> dict[str, Any]:
+        """Return structured metadata for this table.
+
+        Walks the dataclass fields, extracts ``Field()`` metadata from
+        each ``Annotated[type, Field(...)]`` hint, and returns a dict
+        suitable for the frontend / LLM context. Used by
+        :meth:`shenas_datasets.core.dataset.Dataset.metadata` and the
+        per-source ``Source.get_*_metadata`` helpers.
+        """
+        import sys
+
+        mod = sys.modules.get(cls.__module__, None)
+        globalns = vars(mod) if mod else None
+        hints: dict[str, Any] = get_type_hints(cls, globalns=globalns, include_extras=True)
+        columns: list[dict[str, Any]] = []
+        for f in dataclasses.fields(cls):
+            col_meta = _extract_field_meta(hints[f.name])
+            columns.append({"name": f.name, "nullable": f.name not in cls.table_pk, **col_meta})
+        return {
+            "table": cls.table_name,
+            "description": getattr(cls, "table_description", None) or cls.__doc__,
+            "primary_key": list(cls.table_pk),
+            "columns": columns,
+        }
+
+
+def _extract_field_meta(hint: type) -> dict[str, Any]:
+    """Extract Field metadata from an ``Annotated[type, Field(...)]`` hint.
+
+    Walks ``X | None`` unions to find the inner Annotated[].
+    """
+    origin = get_origin(hint)
+    if origin is Annotated:
+        meta = get_args(hint)[1]
+        if isinstance(meta, Field):
+            return {k: v for k, v in dataclasses.asdict(meta).items() if v is not None}
+        return {"db_type": meta}
+    if origin is types.UnionType or str(origin) == "typing.Union":
+        inner = [a for a in get_args(hint) if a is not type(None)]
+        return _extract_field_meta(inner[0])
+    return {}

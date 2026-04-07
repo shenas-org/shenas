@@ -1,7 +1,7 @@
 from shenas_datasets.core import MetricProvider
 from shenas_datasets.core.dataset import Dataset
 from shenas_datasets.events.metrics import ALL_TABLES, Event
-from shenas_plugins.core import Field, generate_ddl, table_metadata
+from shenas_plugins.core import Field, generate_ddl
 
 
 class EventsSchema(Dataset):
@@ -22,5 +22,4 @@ __all__ = [
     "MetricProvider",
     "ensure_schema",
     "generate_ddl",
-    "table_metadata",
 ]

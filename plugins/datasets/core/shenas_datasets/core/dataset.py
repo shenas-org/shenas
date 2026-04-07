@@ -41,6 +41,4 @@ class Dataset(Plugin):
 
     @classmethod
     def metadata(cls) -> list[dict[str, Any]]:
-        from shenas_plugins.core.introspect import schema_metadata
-
-        return schema_metadata(all_tables=cls.all_tables)
+        return [t.table_metadata() for t in cls.all_tables]
