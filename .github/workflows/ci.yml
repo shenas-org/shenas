@@ -133,6 +133,10 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
+      - name: Build default frontend (for integration tests)
+        run: |
+          cd app/vendor && npm ci --silent && npm run build && cd "$GITHUB_WORKSPACE"
+          cd plugins/frontends/default && npm ci --silent && npm run build
       - name: Run Python tests with coverage
         id: coverage
         run: |

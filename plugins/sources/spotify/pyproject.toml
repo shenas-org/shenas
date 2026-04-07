@@ -15,7 +15,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project.entry-points."shenas.sources"]
-spotify = "shenas_sources.spotify.pipe:SpotifySource"
+spotify = "shenas_sources.spotify.source:SpotifySource"
 
 [tool.hatch.version]
 source = "vcs"

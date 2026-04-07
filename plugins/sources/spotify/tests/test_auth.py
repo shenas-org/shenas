@@ -30,7 +30,7 @@ class _FakeCache:
 _fake_auth._MemoryCacheHandler = _FakeCache  # type: ignore[attr-defined]
 sys.modules["shenas_sources.spotify.auth"] = _fake_auth
 
-from shenas_sources.spotify.pipe import SpotifySource  # noqa: E402
+from shenas_sources.spotify.source import SpotifySource  # noqa: E402
 
 
 @pytest.fixture

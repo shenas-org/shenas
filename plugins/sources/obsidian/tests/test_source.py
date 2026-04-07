@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from shenas_sources.obsidian.source import _date_from_filename, _parse_frontmatter, daily_notes
+from shenas_sources.obsidian.resources import _date_from_filename, _parse_frontmatter, daily_notes
 
 
 class TestParseFrontmatter:

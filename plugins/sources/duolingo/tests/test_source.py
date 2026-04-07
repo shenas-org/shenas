@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from unittest.mock import MagicMock
 
-from shenas_sources.duolingo.source import courses, daily_xp, user_profile
+from shenas_sources.duolingo.resources import courses, daily_xp, user_profile
 
 
 class TestDailyXp:

@@ -1,95 +1,68 @@
+"""Lunch Money pipe -- syncs financial data."""
+
 from __future__ import annotations
 
-from datetime import date as date_type
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
+from typing import Annotated, Any
 
-import dlt
-import pendulum
-
-from shenas_datasets.core.dlt import dataclass_to_dlt_columns
-from shenas_sources.lunchmoney.tables import (
-    Asset,
-    Budget,
-    Category,
-    PlaidAccount,
-    RecurringItem,
-    Tag,
-    Transaction,
-)
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
-
-    from lunchable import LunchMoney
+from shenas_plugins.core.base_auth import SourceAuth
+from shenas_plugins.core.field import Field
+from shenas_sources.core.source import Source
 
 
-@dlt.resource(
-    write_disposition="merge",
-    primary_key=list(Transaction.__pk__),
-    columns=dataclass_to_dlt_columns(Transaction),
-)
-def transactions(
-    client: LunchMoney,
-    start_date: str,
-    cursor: dlt.sources.incremental[str] = dlt.sources.incremental("date", initial_value=None),
-) -> Iterator[dict[str, Any]]:
-    from shenas_sources.core.utils import resolve_start_date
+class LunchMoneySource(Source):
+    name = "lunchmoney"
+    display_name = "Lunch Money"
+    primary_table = "transactions"
+    description = "Syncs financial data from Lunch Money.\n\nAuthenticates via API key from Lunch Money Settings > Developers."
 
-    effective_start = (cursor.last_value or resolve_start_date(start_date))[:10]
-    end_date = pendulum.now().to_date_string()
-    rows = client.get_transactions(
-        start_date=date_type.fromisoformat(effective_start),
-        end_date=date_type.fromisoformat(end_date),
+    @dataclass
+    class Auth(SourceAuth):
+        api_key: (
+            Annotated[str | None, Field(db_type="VARCHAR", description="Lunch Money API key", category="secret")] | None
+        ) = None
+
+    auth_instructions = (
+        "Enter your Lunch Money API key.\n\nGet your key from: Lunch Money > Settings > Developers > Request new Access Token"
     )
-    for tx in rows:
-        yield tx.model_dump(mode="json")
 
+    def build_client(self) -> Any:
+        from lunchable import LunchMoney
 
-@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(Category))
-def categories(client: LunchMoney) -> Iterator[dict[str, Any]]:
-    rows = client.get_categories()
-    for cat in rows:
-        yield cat.model_dump(mode="json")
+        row = self._auth_store.get(self.Auth)
+        if not row or not row.get("api_key"):
+            msg = "No API key found. Configure authentication in the Auth tab."
+            raise RuntimeError(msg)
+        return LunchMoney(access_token=row["api_key"])
 
+    def authenticate(self, credentials: dict[str, str]) -> None:
+        from lunchable import LunchMoney
 
-@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(Tag))
-def tags(client: LunchMoney) -> Iterator[dict[str, Any]]:
-    rows = client.get_tags()
-    for tag in rows:
-        yield tag.model_dump(mode="json")
+        api_key = (credentials.get("api_key") or credentials.get("password") or "").strip()
+        if not api_key:
+            msg = "api_key is required"
+            raise ValueError(msg)
+        client = LunchMoney(access_token=api_key)
+        client.get_user()  # verify the key works
+        self._auth_store.set(self.Auth, api_key=api_key)
 
+    def resources(self, client: Any) -> list[Any]:
+        from shenas_sources.lunchmoney.resources import (
+            assets,
+            budgets,
+            categories,
+            plaid_accounts,
+            recurring_items,
+            tags,
+            transactions,
+        )
 
-@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(Budget))
-def budgets(client: LunchMoney, start_date: str) -> Iterator[dict[str, Any]]:
-    from shenas_sources.core.utils import resolve_start_date
-
-    start = date_type.fromisoformat(resolve_start_date(start_date)[:10])
-    end = pendulum.now().date()
-    data = client.get_budgets(start_date=start, end_date=end)
-    for budget in data:
-        yield budget.model_dump(mode="json")
-
-
-@dlt.resource(
-    write_disposition="merge",
-    primary_key=list(RecurringItem.__pk__),
-    columns=dataclass_to_dlt_columns(RecurringItem),
-)
-def recurring_items(client: LunchMoney) -> Iterator[dict[str, Any]]:
-    rows = client.get_recurring_items()
-    for item in rows:
-        yield item.model_dump(mode="json")
-
-
-@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(Asset))
-def assets(client: LunchMoney) -> Iterator[dict[str, Any]]:
-    rows = client.get_assets()
-    for asset in rows:
-        yield asset.model_dump(mode="json")
-
-
-@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(PlaidAccount))
-def plaid_accounts(client: LunchMoney) -> Iterator[dict[str, Any]]:
-    rows = client.get_plaid_accounts()
-    for acct in rows:
-        yield acct.model_dump(mode="json")
+        return [
+            transactions(client, "90 days ago"),
+            categories(client),
+            tags(client),
+            budgets(client, "90 days ago"),
+            recurring_items(client),
+            assets(client),
+            plaid_accounts(client),
+        ]
