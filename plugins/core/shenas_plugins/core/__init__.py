@@ -5,11 +5,10 @@ from shenas_plugins.core.field import Field
 from shenas_plugins.core.introspect import schema_metadata, table_metadata
 from shenas_plugins.core.plugin import Plugin, _SelectOneMixin
 from shenas_plugins.core.static import StaticPlugin
-from shenas_plugins.core.store import DataclassStore
+from shenas_plugins.core.store import TableStore
 
 __all__ = [
     "Dashboard",
-    "DataclassStore",
     "Dataset",
     "Field",
     "Frontend",
@@ -18,6 +17,7 @@ __all__ = [
     "SourceAuth",
     "SourceConfig",
     "StaticPlugin",
+    "TableStore",
     "Theme",
     "_SelectOneMixin",
     "ensure_schema",

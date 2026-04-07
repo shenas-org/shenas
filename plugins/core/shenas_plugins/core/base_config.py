@@ -1,20 +1,38 @@
 """Base config dataclass for all pipes.
 
-Provides the common fields (id, sync_frequency, lookback_period) and class vars (__pk__)
-so individual pipes only define their custom fields and __table__.
+Provides the common fields (``id``, ``sync_frequency``, ``lookback_period``)
+and the ``table_pk`` class var so individual pipes only need to declare
+their custom fields and a ``table_name`` (set dynamically by
+``Source.__init_subclass__``).
 """
 
 from dataclasses import dataclass
-from typing import Annotated, ClassVar
+from typing import Annotated, Any, ClassVar
 
 from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Table
 
 
 @dataclass
-class SourceConfig:
-    """Base configuration for all pipes."""
+class SourceConfig(Table):
+    """Base configuration for all pipes.
 
-    __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    Same deferred-validation pattern as ``SourceAuth`` -- ``table_name``
+    is set later by ``Source.__init_subclass__`` so per-source ``Config``
+    subclasses are kept abstract until
+    :func:`shenas_plugins.core.base_config.finalize_pipe_table` is called.
+    """
+
+    _abstract: ClassVar[bool] = True
+    table_display_name: ClassVar[str] = "Source Config"
+    table_description: ClassVar[str | None] = "Per-source configuration storage."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        # Defer validation: see SourceAuth.__init_subclass__ for the rationale.
+        if "_abstract" not in cls.__dict__:
+            cls._abstract = True
+        super().__init_subclass__(**kwargs)
 
     id: Annotated[int, Field(db_type="INTEGER", description="Config row identifier")] = 1
     sync_frequency: (

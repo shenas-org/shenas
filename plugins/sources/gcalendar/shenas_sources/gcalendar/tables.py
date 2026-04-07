@@ -80,10 +80,10 @@ def fetch_all_events(service: Any, start_date: str = "30 days ago") -> list[tupl
 class Events(IntervalTable):
     """A Google Calendar event."""
 
-    name: ClassVar[str] = "events"
-    display_name: ClassVar[str] = "Calendar Events"
-    description: ClassVar[str | None] = "Events across all the user's calendars."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "events"
+    table_display_name: ClassVar[str] = "Calendar Events"
+    table_description: ClassVar[str | None] = "Events across all the user's calendars."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
     time_start: ClassVar[str] = "start_date"
     time_end: ClassVar[str] = "end_date"
 
@@ -183,10 +183,10 @@ class Events(IntervalTable):
 class EventAttendees(M2MTable):
     """Bridge table linking events to attendees. SCD2 closes a row when removed."""
 
-    name: ClassVar[str] = "event_attendees"
-    display_name: ClassVar[str] = "Event Attendees"
-    description: ClassVar[str | None] = "Attendees on calendar events (m2m bridge)."
-    pk: ClassVar[tuple[str, ...]] = ("event_id", "email")
+    table_name: ClassVar[str] = "event_attendees"
+    table_display_name: ClassVar[str] = "Event Attendees"
+    table_description: ClassVar[str | None] = "Attendees on calendar events (m2m bridge)."
+    table_pk: ClassVar[tuple[str, ...]] = ("event_id", "email")
 
     event_id: Annotated[str, Field(db_type="VARCHAR", description="Parent event ID")]
     email: Annotated[str, Field(db_type="VARCHAR", description="Attendee email")]
@@ -230,10 +230,10 @@ class EventAttendees(M2MTable):
 class Calendars(DimensionTable):
     """A Google Calendar entry. SCD2 captures rename history."""
 
-    name: ClassVar[str] = "calendars"
-    display_name: ClassVar[str] = "Calendars"
-    description: ClassVar[str | None] = "Calendars the user has access to."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "calendars"
+    table_display_name: ClassVar[str] = "Calendars"
+    table_description: ClassVar[str | None] = "Calendars the user has access to."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Calendar ID")]
     summary: Annotated[str | None, Field(db_type="VARCHAR", description="Calendar name")] = None
@@ -276,10 +276,10 @@ class Calendars(DimensionTable):
 class Colors(DimensionTable):
     """Google Calendar event color palette. SCD2 captures palette changes."""
 
-    name: ClassVar[str] = "colors"
-    display_name: ClassVar[str] = "Calendar Colors"
-    description: ClassVar[str | None] = "Global event color palette."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "colors"
+    table_display_name: ClassVar[str] = "Calendar Colors"
+    table_description: ClassVar[str | None] = "Global event color palette."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Color ID")]
     background: Annotated[str | None, Field(db_type="VARCHAR", description="Background hex color")] = None

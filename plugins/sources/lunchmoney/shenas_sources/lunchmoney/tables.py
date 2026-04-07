@@ -55,10 +55,10 @@ def _fetch_transactions(client: LunchMoney, start: date_type, end: date_type) ->
 class Transactions(EventTable):
     """A single Lunch Money transaction (one per outflow/inflow event)."""
 
-    name: ClassVar[str] = "transactions"
-    display_name: ClassVar[str] = "Transactions"
-    description: ClassVar[str | None] = "Per-transaction events synced from Lunch Money."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "transactions"
+    table_display_name: ClassVar[str] = "Transactions"
+    table_description: ClassVar[str | None] = "Per-transaction events synced from Lunch Money."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
     time_at: ClassVar[str] = "date"
     cursor_column: ClassVar[str] = "date"
 
@@ -124,10 +124,10 @@ class TransactionTags(M2MTable):
     ``tags`` dimension AS OF the desired timestamp to get historical names.
     """
 
-    name: ClassVar[str] = "transaction_tags"
-    display_name: ClassVar[str] = "Transaction Tags"
-    description: ClassVar[str | None] = "(transaction_id, tag_id) link rows from tagged transactions."
-    pk: ClassVar[tuple[str, ...]] = ("transaction_id", "tag_id")
+    table_name: ClassVar[str] = "transaction_tags"
+    table_display_name: ClassVar[str] = "Transaction Tags"
+    table_description: ClassVar[str | None] = "(transaction_id, tag_id) link rows from tagged transactions."
+    table_pk: ClassVar[tuple[str, ...]] = ("transaction_id", "tag_id")
 
     transaction_id: Annotated[int, Field(db_type="INTEGER", description="Transaction ID")]
     tag_id: Annotated[int, Field(db_type="INTEGER", description="Tag ID")]
@@ -168,10 +168,10 @@ class TransactionTags(M2MTable):
 class Categories(DimensionTable):
     """A spending/income category. Joined by transactions on ``category_id``."""
 
-    name: ClassVar[str] = "categories"
-    display_name: ClassVar[str] = "Categories"
-    description: ClassVar[str | None] = "Spending and income categories the user has defined."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "categories"
+    table_display_name: ClassVar[str] = "Categories"
+    table_description: ClassVar[str | None] = "Spending and income categories the user has defined."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[int, Field(db_type="INTEGER", description="Category ID")]
     category_name: Annotated[str, Field(db_type="VARCHAR", description="Category name")]
@@ -194,10 +194,10 @@ class Categories(DimensionTable):
 class Tags(DimensionTable):
     """A user-defined tag. Joined by transaction_tags on ``tag_id``."""
 
-    name: ClassVar[str] = "tags"
-    display_name: ClassVar[str] = "Tags"
-    description: ClassVar[str | None] = "User-defined transaction tags."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "tags"
+    table_display_name: ClassVar[str] = "Tags"
+    table_description: ClassVar[str | None] = "User-defined transaction tags."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[int, Field(db_type="INTEGER", description="Tag ID")]
     tag_name: Annotated[str, Field(db_type="VARCHAR", description="Tag name")]
@@ -220,10 +220,10 @@ class Assets(DimensionTable):
     sync. A separate counter table for asset balances will land in a follow-up.
     """
 
-    name: ClassVar[str] = "assets"
-    display_name: ClassVar[str] = "Assets"
-    description: ClassVar[str | None] = "Manually-tracked assets (cash accounts, brokerage, etc.)."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "assets"
+    table_display_name: ClassVar[str] = "Assets"
+    table_description: ClassVar[str | None] = "Manually-tracked assets (cash accounts, brokerage, etc.)."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[int, Field(db_type="INTEGER", description="Asset ID")]
     asset_name: Annotated[str, Field(db_type="VARCHAR", description="Asset name")]
@@ -250,10 +250,10 @@ class PlaidAccounts(DimensionTable):
     NOTE: ``balance`` is intentionally not in this schema -- it changes daily.
     """
 
-    name: ClassVar[str] = "plaid_accounts"
-    display_name: ClassVar[str] = "Plaid Accounts"
-    description: ClassVar[str | None] = "Connected bank/credit card accounts via Plaid."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "plaid_accounts"
+    table_display_name: ClassVar[str] = "Plaid Accounts"
+    table_description: ClassVar[str | None] = "Connected bank/credit card accounts via Plaid."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[int, Field(db_type="INTEGER", description="Plaid account ID")]
     account_name: Annotated[str, Field(db_type="VARCHAR", description="Account name")]
@@ -282,10 +282,10 @@ class PlaidAccounts(DimensionTable):
 class Budgets(SnapshotTable):
     """Per-category budget configuration."""
 
-    name: ClassVar[str] = "budgets"
-    display_name: ClassVar[str] = "Budgets"
-    description: ClassVar[str | None] = "Per-category budget configuration."
-    pk: ClassVar[tuple[str, ...]] = ("category_name",)
+    table_name: ClassVar[str] = "budgets"
+    table_display_name: ClassVar[str] = "Budgets"
+    table_description: ClassVar[str | None] = "Per-category budget configuration."
+    table_pk: ClassVar[tuple[str, ...]] = ("category_name",)
 
     category_name: Annotated[str, Field(db_type="VARCHAR", description="Budget category name")]
     category_id: Annotated[int | None, Field(db_type="INTEGER", description="Category ID")] = None
@@ -317,10 +317,10 @@ class RecurringItems(DimensionTable):
     their own date will still resolve the original amount via SCD2.
     """
 
-    name: ClassVar[str] = "recurring_items"
-    display_name: ClassVar[str] = "Recurring Items"
-    description: ClassVar[str | None] = "Recurring transaction templates (subscriptions, bills, etc.)."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "recurring_items"
+    table_display_name: ClassVar[str] = "Recurring Items"
+    table_description: ClassVar[str | None] = "Recurring transaction templates (subscriptions, bills, etc.)."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[int, Field(db_type="INTEGER", description="Recurring item ID")]
     payee: Annotated[str, Field(db_type="VARCHAR", description="Payee name")]
@@ -340,10 +340,10 @@ class RecurringItems(DimensionTable):
 class User(SnapshotTable):
     """The authenticated Lunch Money user / account info."""
 
-    name: ClassVar[str] = "user"
-    display_name: ClassVar[str] = "User"
-    description: ClassVar[str | None] = "Authenticated user / account info."
-    pk: ClassVar[tuple[str, ...]] = ("user_id",)
+    table_name: ClassVar[str] = "user"
+    table_display_name: ClassVar[str] = "User"
+    table_description: ClassVar[str | None] = "Authenticated user / account info."
+    table_pk: ClassVar[tuple[str, ...]] = ("user_id",)
 
     user_id: Annotated[int, Field(db_type="INTEGER", description="User ID")]
     user_name: Annotated[str | None, Field(db_type="VARCHAR", description="User name")] = None
@@ -366,10 +366,10 @@ class Crypto(SnapshotTable):
     land in a follow-up.
     """
 
-    name: ClassVar[str] = "crypto"
-    display_name: ClassVar[str] = "Crypto"
-    description: ClassVar[str | None] = "Crypto holdings (manual + connected exchange accounts)."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "crypto"
+    table_display_name: ClassVar[str] = "Crypto"
+    table_description: ClassVar[str | None] = "Crypto holdings (manual + connected exchange accounts)."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[int, Field(db_type="INTEGER", description="Crypto holding ID")]
     crypto_name: Annotated[str | None, Field(db_type="VARCHAR", description="Asset name")] = None

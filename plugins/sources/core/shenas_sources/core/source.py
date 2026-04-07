@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 from shenas_plugins.core.base_auth import SourceAuth
 from shenas_plugins.core.base_config import SourceConfig
 from shenas_plugins.core.plugin import Plugin
-from shenas_plugins.core.store import DataclassStore
+from shenas_plugins.core.store import TableStore
 
 logger = logging.getLogger("shenas.sources")
 
@@ -26,7 +26,7 @@ class Source(Plugin):
 
     Subclass this, set class attributes, and implement ``resources()``.
     The base class provides default ``sync()`` (build_client -> resources ->
-    run_sync -> auto_transform) and auto-derived auth_fields / __table__.
+    run_sync -> auto_transform) and auto-derived auth_fields / table_name.
     """
 
     _kind = "source"
@@ -42,25 +42,29 @@ class Source(Plugin):
     _sync_locks_guard: ClassVar[threading.Lock] = threading.Lock()
 
     # Populated by __init__
-    _config_store: DataclassStore
-    _auth_store: DataclassStore
+    _config_store: TableStore
+    _auth_store: TableStore
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         if not hasattr(cls, "name"):
             return
-        # Auto-set __table__ on Config/Auth classes
+        # Auto-set table_name on Config/Auth classes (one row per pipe), then
+        # call _finalize() to apply the deferred @dataclass + Table validation.
         if cls.Config is SourceConfig:
-            # Source uses base SourceConfig -- create a per-pipe subclass so __table__ is unique
-            cls.Config = type(f"{cls.name.title()}Config", (SourceConfig,), {"__table__": f"pipe_{cls.name}"})
-        elif not hasattr(cls.Config, "__table__"):
-            cls.Config.__table__ = f"pipe_{cls.name}"
-        if cls.Auth is not SourceAuth and not hasattr(cls.Auth, "__table__"):
-            cls.Auth.__table__ = f"pipe_{cls.name}"
+            # Source uses base SourceConfig -- create a per-pipe subclass so table_name is unique.
+            cls.Config = type(f"{cls.name.title()}Config", (SourceConfig,), {"table_name": f"pipe_{cls.name}"})
+        elif not hasattr(cls.Config, "table_name"):
+            cls.Config.table_name = f"pipe_{cls.name}"
+        cls.Config._finalize()
+        if cls.Auth is not SourceAuth:
+            if not hasattr(cls.Auth, "table_name"):
+                cls.Auth.table_name = f"pipe_{cls.name}"
+            cls.Auth._finalize()
 
     def __init__(self) -> None:
-        self._config_store = DataclassStore("config")
-        self._auth_store = DataclassStore("auth")
+        self._config_store = TableStore("config")
+        self._auth_store = TableStore("auth")
 
     # -- Auth field derivation ------------------------------------------------
 

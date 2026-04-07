@@ -34,9 +34,9 @@ def _duckdb_type(hint: type) -> str:
 
 
 def generate_ddl(cls: type, *, schema: str = "metrics") -> str:
-    """Generate CREATE TABLE DDL from a dataclass with __table__ and __pk__."""
-    table: str = cls.__table__
-    pk: tuple[str, ...] = cls.__pk__
+    """Generate CREATE TABLE DDL from a Table subclass."""
+    table: str = cls.table_name
+    pk: tuple[str, ...] = cls.table_pk
     hints: dict[str, type] = get_type_hints(cls, include_extras=True)
     lines: list[str] = []
     for f in dataclasses.fields(cls):
@@ -80,7 +80,7 @@ def ensure_schema(con: duckdb.DuckDBPyConnection, all_tables: Sequence[type], *,
 
 def _add_missing_columns(con: duckdb.DuckDBPyConnection, cls: type, *, schema: str = "metrics") -> None:
     """Add columns that exist in the dataclass but not in the DB table."""
-    table: str = cls.__table__
+    table: str = cls.table_name
     hints: dict[str, type] = get_type_hints(cls, include_extras=True)
 
     existing = {

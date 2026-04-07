@@ -1,5 +1,5 @@
 """Re-exports from shenas_plugins.core for backward compatibility."""
 
-from shenas_plugins.core.store import DataclassStore
+from shenas_plugins.core.store import TableStore
 
-__all__ = ["DataclassStore"]
+__all__ = ["TableStore"]

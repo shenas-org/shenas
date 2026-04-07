@@ -76,6 +76,20 @@ Sources register `[project.entry-points."shenas.sources"]`, datasets register `s
 
 All plugins are uv workspace members. `uv sync` installs everything for development. For production, users install plugins separately via `shenasctl source add`.
 
+### Common Table ABC: SourceTable + MetricTable
+
+Every plugin-defined DuckDB-persisted dataclass inherits from a slim common `Table` ABC at `plugins/core/shenas_plugins/core/table.py`. The metadata ClassVars are prefixed `table_*` (`table_name`, `table_display_name`, `table_pk`, `table_description`) so they never collide with row-level columns called `name`, `description`, etc. The base auto-applies `@dataclass` via `__init_subclass__` and validates the required ClassVars at class-definition time.
+
+Three layers:
+
+- **`Table`** (in `shenas-plugin-core`) — slim common base: `table_name`, `table_display_name`, `table_pk`, `table_description`. Auto-`@dataclass`.
+- **`SourceTable(Table)`** (in `shenas-source-core`) — adds `kind`, `cursor_column`, `extract()`, `to_resource()`, `write_disposition()`, `to_dlt_columns()`, observed_at injection. The 7 kind base classes (`EventTable`, `IntervalTable`, `SnapshotTable`, `DimensionTable`, `AggregateTable`, `CounterTable`, `M2MTable`) inherit from `SourceTable`.
+- **`MetricTable(Table)`** (in `shenas-dataset-core`) — adds `to_ddl(schema="metrics")`. Used by every dataset plugin's metric tables. Future home of per-table `transform(cls, con)` classmethods (Source -> Metric and Metric -> Metric).
+
+Other persisted dataclasses also inherit from `Table` directly: `Plugin._Table` (the installed-plugins registry), `Transform._Table` (user-supplied SQL transforms), `Workspace._Table`, `Hotkey._Table`, and `SourceConfig` / `SourceAuth` (per-pipe credential / config storage). `SourceConfig` and `SourceAuth` defer validation via their own `__init_subclass__` because `table_name` is set lazily by `Source.__init_subclass__`; they call `cls._finalize()` after assigning `table_name` to apply the auto-`@dataclass` and run validation.
+
+`TableStore` (formerly `DataclassStore`, in `shenas-plugin-core`) is the thin single-row CRUD wrapper used by `Source._config_store` and `Source._auth_store`. It accepts any `Table` subclass.
+
 ### Raw table semantics: kind base classes
 
 Every raw source table is a subclass of one of six kind base classes in `shenas_sources.core.table`. The kind is encoded in the inheritance chain (no magic strings) and determines the dlt write_disposition automatically:
