@@ -124,13 +124,24 @@ export default defineConfig({
             proxyReq.on("error", () => next());
             return;
           }
-          // Serve active UI HTML from Python server (respects DB-enabled UI)
-          if (path === "/" || path === "/index.html") {
+          // SPA fallback: any GET that isn't an asset, an /api call, or a Vite
+          // internal should serve the shell HTML so deep links like
+          // /settings/source/garmin work on direct load and refresh.
+          const isAsset = /\.[a-z0-9]+$/i.test(path);
+          const isInternal =
+            path.startsWith("/@") ||
+            path.startsWith("/node_modules/") ||
+            path.startsWith("/api") ||
+            path.startsWith("/vendor") ||
+            path.startsWith("/static") ||
+            path.startsWith("/themes") ||
+            path.startsWith("/dashboards/") ||
+            path.startsWith("/frontend/");
+          if (req.method === "GET" && !isAsset && !isInternal) {
             const proxyReq = http.get(`${pythonServer}/`, (proxyRes) => {
               let body = "";
               proxyRes.on("data", (chunk) => { body += chunk; });
               proxyRes.on("end", () => {
-                // Inject Vite client for HMR
                 body = body.replace("</head>", '  <script type="module" src="/@vite/client"></script>\n  </head>');
                 res.setHeader("Content-Type", "text/html");
                 res.end(body);

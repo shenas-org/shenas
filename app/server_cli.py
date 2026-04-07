@@ -10,6 +10,16 @@ app = typer.Typer(name="shenas", help="Start the shenas server.", invoke_without
 DEFAULT_CERT_DIR = Path(".shenas")
 
 
+def _python_reload_dirs() -> list[str]:
+    """Reload only Python source dirs; skip JS/Rust/build noise."""
+    dirs: list[str] = ["app"]
+    for sub in ("sources", "datasets", "core", "themes"):
+        base = Path("plugins") / sub
+        if base.exists():
+            dirs.append(str(base))
+    return dirs
+
+
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
@@ -40,7 +50,8 @@ def main(
                 host=host,
                 port=port,
                 reload=True,
-                reload_dirs=["app", "plugins"],
+                reload_dirs=_python_reload_dirs(),
+                reload_includes=["*.py"],
             )
             return
 

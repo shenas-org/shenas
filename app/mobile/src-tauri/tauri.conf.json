@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "identifier": "com.shenas.mobile",
   "build": {
-    "frontendDist": "../mobile-dist"
+    "frontendDist": "../mobile-dist",
+    "devUrl": "http://localhost:5173"
   },
   "app": {
     "windows": [
@@ -17,7 +18,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://localhost:7280 http://127.0.0.1:7280; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self' http://localhost:5173; connect-src 'self' http://localhost:5173 ws://localhost:5173 http://localhost:7280 http://127.0.0.1:7280; script-src 'self' 'unsafe-inline' http://localhost:5173; style-src 'self' 'unsafe-inline' http://localhost:5173"
     }
   },
   "bundle": {

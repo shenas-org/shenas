@@ -158,6 +158,7 @@ class ShenasApp extends LitElement {
       .layout {
         display: flex;
         height: 100%;
+        box-sizing: border-box;
       }
       .panel-left {
         flex-shrink: 0;
@@ -575,6 +576,12 @@ class ShenasApp extends LitElement {
       @media (max-width: 768px) {
         .layout {
           flex-direction: column;
+          padding-top: env(safe-area-inset-top, 0);
+          padding-left: env(safe-area-inset-left, 0);
+          padding-right: env(safe-area-inset-right, 0);
+        }
+        .bottom-nav {
+          padding-bottom: calc(0.3rem + env(safe-area-inset-bottom, 0));
         }
         .panel-left {
           display: none;
@@ -1005,7 +1012,7 @@ class ShenasApp extends LitElement {
         this._activeTabId = (state.activeTabId as number) || (state.tabs as TabInfo[])[0].id;
         this._nextTabId = (state.nextTabId as number) || Math.max(...(state.tabs as TabInfo[]).map((t) => t.id)) + 1;
         // If URL has a specific path (shared link), open it
-        const urlPath = window.location.pathname;
+        const urlPath = window.location.pathname.replace(/\/+$/, "") || "/";
         if (urlPath && urlPath !== "/" && !this._tabs.some((t) => t.path === urlPath)) {
           this._openTab(urlPath);
           return;
@@ -1015,7 +1022,7 @@ class ShenasApp extends LitElement {
         if (active) this._router.goto(active.path);
       } else {
         // No saved state -- open from URL if present
-        const path = window.location.pathname;
+        const path = window.location.pathname.replace(/\/+$/, "") || "/";
         if (path && path !== "/") this._openTab(path);
       }
     } catch {
@@ -1123,7 +1130,7 @@ class ShenasApp extends LitElement {
         this._tabs = ws.tabs as TabInfo[];
         this._activeTabId = (ws.activeTabId as number) || (ws.tabs as TabInfo[])[0].id;
         this._nextTabId = (ws.nextTabId as number) || Math.max(...(ws.tabs as TabInfo[]).map((t) => t.id)) + 1;
-        const urlPath = window.location.pathname;
+        const urlPath = window.location.pathname.replace(/\/+$/, "") || "/";
         if (urlPath && urlPath !== "/" && !this._tabs.some((t) => t.path === urlPath)) {
           this._openTab(urlPath);
         } else {
@@ -1131,7 +1138,7 @@ class ShenasApp extends LitElement {
           if (active) this._router.goto(active.path);
         }
       } else {
-        const path = window.location.pathname;
+        const path = window.location.pathname.replace(/\/+$/, "") || "/";
         if (path && path !== "/") this._openTab(path);
       }
     } catch (e) {

@@ -11,7 +11,8 @@ install:
 	@echo "Run 'shenasctl --install-completion' for tab completion"
 
 dev:
-	@uv sync --group fl --quiet 2>/dev/null; \
+	@fuser -k 7280/tcp 5173/tcp 2>/dev/null; sleep 0.3; \
+	uv sync --group fl --quiet 2>/dev/null; \
 	for pkg in plugins/frontends/* plugins/dashboards/*; do \
 		[ -f "$$pkg/package.json" ] || continue; \
 		[ -f "$$pkg/vite.config.js" ] || continue; \
@@ -166,11 +167,28 @@ setup-android:
 
 android-emulator:
 	@ANDROID_AVD_HOME=$(HOME)/.config/.android/avd \
-	$(ANDROID_SDK_ROOT)/emulator/emulator -avd shenas &
+	$(ANDROID_SDK_ROOT)/emulator/emulator -avd shenas >/tmp/emu.log 2>&1 &
+	@if command -v hyprctl >/dev/null; then \
+		for i in $$(seq 1 30); do sleep 1; \
+			if hyprctl clients | grep -q "Android Emulator - shenas"; then \
+				hyprctl dispatch focuswindow "title:Android Emulator - shenas:5554" >/dev/null; \
+				hyprctl dispatch togglefloating active >/dev/null; \
+				hyprctl dispatch resizeactive exact 1100 1900 >/dev/null; \
+				break; \
+			fi; \
+		done; \
+	fi
 
 android-dev:
+	 @$(ANDROID_SDK_ROOT)/platform-tools/adb shell pm clear com.shenas.mobile
+
 	@cd app/mobile && if [ ! -d src-tauri/gen/android ]; then npx tauri android init; fi
 	moon run mobile:build-frontend
+	@# Reverse-forward the host's shenas API into the device so vite's /api proxy
+	@# (which targets 127.0.0.1:7280 on the host) is reachable. Tauri itself
+	@# already auto-reverses 5173 (the devUrl). The mobile Rust API server
+	@# silently steps aside when this port is taken (see src-tauri/src/lib.rs).
+	@$(ANDROID_SDK_ROOT)/platform-tools/adb reverse tcp:7280 tcp:7280 2>/dev/null || true
 	cd app/mobile && npx tauri android dev
 
 # Force a clean rebuild of mobile frontend + Rust

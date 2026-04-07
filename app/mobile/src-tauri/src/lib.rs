@@ -17,11 +17,18 @@ fn start_api_server(database: Arc<db::Database>) {
 
         rt.block_on(async {
             let app = api::router(database);
-            let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", API_PORT))
-                .await
-                .expect("Failed to bind API server");
-            eprintln!("API server listening on http://127.0.0.1:{}", API_PORT);
-            axum::serve(listener, app).await.unwrap();
+            // In dev mode the host's vite/shenas may already be reverse-forwarded
+            // onto this port via `adb reverse tcp:7280`. If we can't bind, just
+            // log and exit the API thread -- the WebView will use the host's API.
+            match tokio::net::TcpListener::bind(format!("127.0.0.1:{}", API_PORT)).await {
+                Ok(listener) => {
+                    eprintln!("API server listening on http://127.0.0.1:{}", API_PORT);
+                    axum::serve(listener, app).await.unwrap();
+                }
+                Err(e) => {
+                    eprintln!("API server bind failed ({}); assuming reverse-forwarded host API", e);
+                }
+            }
         });
     });
 }
