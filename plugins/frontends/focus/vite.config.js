@@ -5,6 +5,17 @@ const repoRoot = resolve(import.meta.dirname, "../../..");
 const pythonServer = "http://127.0.0.1:7280";
 
 export default defineConfig({
+  test: {
+    environment: "happy-dom",
+    alias: {
+      "shenas-frontends": new URL("../../../app/vendor/src/shenas-frontends.ts", import.meta.url).pathname,
+    },
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.ts"],
+      exclude: ["src/__tests__/**", "src/index.ts", "src/*.d.ts"],
+    },
+  },
   build: {
     outDir: "shenas_frontends/focus/static",
     emptyOutDir: false,
