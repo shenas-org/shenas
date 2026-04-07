@@ -55,9 +55,9 @@ class ObsidianSource(Source):
         return folder
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.obsidian.resources import daily_notes, habits
+        from shenas_sources.obsidian.tables import TABLES
 
         row = self._config_store.get(self.Config)
         heading = (row.get("habits_heading") if row else None) or "Plan for the day"
 
-        return [daily_notes(client), habits(client, heading=heading)]
+        return [t.to_resource(client, heading=heading) for t in TABLES]

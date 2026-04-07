@@ -1,3 +1,3 @@
-from shenas_sources.obsidian.resources import daily_notes
+from shenas_sources.obsidian.tables import DailyNotes
 
-__all__ = ["daily_notes"]
+__all__ = ["DailyNotes"]
