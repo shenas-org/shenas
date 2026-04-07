@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Build the Lit UI and vendor deps, then assemble into a single static
+# Build the Lit frontend and vendor deps, then assemble into a single static
 # directory that the Rust server embeds at compile time.
 #
 # Output: app/mobile/mobile-dist/
-#   ├── index.html           (the UI shell HTML)
-#   ├── vendor/              (Lit, uPlot, Arrow, Cytoscape)
-#   ├── ui/default/          (built UI JS)
-#   └── static/              (images, manifest, etc.)
+#   ├── index.html              (the frontend shell HTML)
+#   ├── vendor/                 (Lit, uPlot, Arrow, Cytoscape)
+#   ├── frontend/default/       (built frontend JS)
+#   └── static/                 (images, manifest, etc.)
 
 set -e
 
@@ -17,7 +17,7 @@ echo "Building UI for mobile..."
 
 # Clean
 rm -rf "$DIST"
-mkdir -p "$DIST/vendor" "$DIST/ui/default" "$DIST/static"
+mkdir -p "$DIST/vendor" "$DIST/frontend/default" "$DIST/static"
 
 # Build vendor libs
 echo "  Building vendor..."
@@ -26,12 +26,12 @@ npm install --silent 2>/dev/null
 npm run build --silent 2>/dev/null
 cp dist/*.js "$DIST/vendor/"
 
-# Build UI
-echo "  Building UI..."
-cd "$ROOT/plugins/uis/default"
+# Build frontend
+echo "  Building frontend..."
+cd "$ROOT/plugins/frontends/default"
 npm install --silent 2>/dev/null
 npm run build --silent 2>/dev/null
-cp shenas_ui/default/static/default.js "$DIST/ui/default/"
+cp shenas_frontends/default/static/default.js "$DIST/frontend/default/"
 cp default.html "$DIST/index.html"
 
 # Patch for mobile: API base and remove service worker (doesn't work in Tauri)
