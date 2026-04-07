@@ -89,6 +89,10 @@ jobs:
           cache-dependency-path: ${{ matrix.package }}/package-lock.json
       - run: npm ci --silent
         working-directory: ${{ matrix.package }}
+      - name: Install vendor deps (for shenas-frontends alias)
+        if: startsWith(matrix.package, 'plugins/frontends/')
+        run: npm ci --silent
+        working-directory: app/vendor
       - run: npm test
         working-directory: ${{ matrix.package }}
 
