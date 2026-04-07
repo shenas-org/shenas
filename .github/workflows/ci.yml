@@ -137,7 +137,7 @@ jobs:
             dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
             if grep -q '"coverage"' "$dir/package.json" 2>/dev/null; then
               echo "Coverage for $dir"
-              (cd "$dir" && npm install --silent && npm run coverage -- --reporter=json-summary || true)
+              (cd "$dir" && npm install --silent && npm run coverage -- --coverage.reporter=json-summary --coverage.reporter=text || true)
               SUMMARY="$dir/coverage/coverage-summary.json"
               if [ -f "$SUMMARY" ]; then
                 LINES=$(python -c "import json; d=json.load(open('$SUMMARY'))['total']['lines']; print(d['total'])")
