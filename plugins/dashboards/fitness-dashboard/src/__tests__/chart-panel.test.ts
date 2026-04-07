@@ -59,7 +59,8 @@ describe("chart-panel", () => {
     await el.updateComplete;
 
     expect(uplotCtor).toHaveBeenCalled();
-    const callArgs = uplotCtor.mock.calls[0];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const callArgs = (uplotCtor.mock.calls as any[][])[0];
     // opts is first arg
     expect(callArgs[0]).toMatchObject({ height: 200 });
     expect(Array.isArray(callArgs[0].series)).toBe(true);

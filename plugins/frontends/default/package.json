@@ -16,7 +16,7 @@
   },
   "devDependencies": {
     "@types/cytoscape": "^3.21.9",
-    "happy-dom": "^17.0.0",
+    "happy-dom": "~17.6.3",
     "urlpattern-polyfill": "^10.1.0",
     "vite": "^6.0.0",
     "vitest": "^3.0.0"

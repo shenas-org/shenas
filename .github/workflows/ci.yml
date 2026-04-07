@@ -29,12 +29,12 @@ jobs:
           node-version: "22"
       - name: Install JS deps
         run: |
-          npm install --silent
+          npm ci --silent
           for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
             dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
             if [ -f "$dir/package.json" ]; then
               echo "Installing $dir"
-              (cd "$dir" && npm install --silent)
+              (cd "$dir" && npm ci --silent)
             fi
           done
       - name: TypeScript check
@@ -74,7 +74,7 @@ jobs:
             dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
             if grep -q '"test"' "$dir/package.json" 2>/dev/null; then
               echo "Testing $dir"
-              (cd "$dir" && npm install --silent && npm test)
+              (cd "$dir" && npm ci --silent && npm test)
             fi
           done
 
@@ -130,14 +130,14 @@ jobs:
       - name: Run JS tests with coverage
         id: js-coverage
         run: |
-          npm install --silent
+          npm ci --silent
           TOTAL_LINES=0
           COVERED_LINES=0
           for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
             dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
             if grep -q '"coverage"' "$dir/package.json" 2>/dev/null; then
               echo "Coverage for $dir"
-              (cd "$dir" && npm install --silent && npm run coverage -- --coverage.reporter=json-summary --coverage.reporter=text || true)
+              (cd "$dir" && npm ci --silent && npm run coverage -- --coverage.reporter=json-summary --coverage.reporter=text || true)
               SUMMARY="$dir/coverage/coverage-summary.json"
               if [ -f "$SUMMARY" ]; then
                 LINES=$(python -c "import json; d=json.load(open('$SUMMARY'))['total']['lines']; print(d['total'])")
