@@ -1,19 +1,20 @@
 from typing import Annotated, ClassVar
 
-from shenas_datasets.core import MetricTable
+from shenas_datasets.core import DailyMetricTable, EventMetricTable, MonthlyMetricTable
 from shenas_plugins.core.table import Field
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", category="time")]
 Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier (e.g. lunchmoney)")]
 
 
-class Transaction(MetricTable):
+class Transaction(EventMetricTable):
     """Individual financial transaction -- one row per (id, source)."""
 
     table_name: ClassVar[str] = "transactions"
     table_display_name: ClassVar[str] = "Transactions"
     table_description: ClassVar[str | None] = "Per-transaction financial events from spending sources."
     table_pk: ClassVar[tuple[str, ...]] = ("id", "source")
+    time_at: ClassVar[str] = "date"
 
     id: Annotated[
         str,
@@ -129,7 +130,7 @@ class Transaction(MetricTable):
     ) = None
 
 
-class DailySpending(MetricTable):
+class DailySpending(DailyMetricTable):
     """Aggregated daily spending -- one row per (date, source)."""
 
     table_name: ClassVar[str] = "daily_spending"
@@ -182,7 +183,7 @@ class DailySpending(MetricTable):
     ) = None
 
 
-class MonthlyCategory(MetricTable):
+class MonthlyCategory(MonthlyMetricTable):
     """Monthly spending by category -- one row per (month, category, source)."""
 
     table_name: ClassVar[str] = "monthly_category"
@@ -249,7 +250,7 @@ class MonthlyCategory(MetricTable):
     ) = None
 
 
-class MonthlyOverview(MetricTable):
+class MonthlyOverview(MonthlyMetricTable):
     """Monthly financial summary -- one row per (month, source)."""
 
     table_name: ClassVar[str] = "monthly_overview"

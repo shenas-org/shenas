@@ -83,7 +83,7 @@ class RecentlyPlayed(EventTable):
     artists: Annotated[str | None, Field(db_type="VARCHAR", description="Comma-separated artist names")] = None
     album_name: Annotated[str | None, Field(db_type="VARCHAR", description="Album name")] = None
     album_release_date: Annotated[str | None, Field(db_type="VARCHAR", description="Album release date")] = None
-    duration_ms: Annotated[int, Field(db_type="INTEGER", description="Track duration in milliseconds")] = 0
+    duration_ms: Annotated[int, Field(db_type="INTEGER", description="Track duration in milliseconds", unit="ms")] = 0
     explicit: Annotated[bool, Field(db_type="BOOLEAN", description="Whether the track is explicit")] = False
     popularity: Annotated[int, Field(db_type="INTEGER", description="Track popularity (0-100)")] = 0
     track_uri: Annotated[str | None, Field(db_type="VARCHAR", description="Spotify track URI")] = None
@@ -135,7 +135,7 @@ class TopTracks(SnapshotTable):
     artists: Annotated[str | None, Field(db_type="VARCHAR", description="Comma-separated artist names")] = None
     album_name: Annotated[str | None, Field(db_type="VARCHAR", description="Album name")] = None
     popularity: Annotated[int, Field(db_type="INTEGER", description="Track popularity (0-100)")] = 0
-    duration_ms: Annotated[int, Field(db_type="INTEGER", description="Track duration in milliseconds")] = 0
+    duration_ms: Annotated[int, Field(db_type="INTEGER", description="Track duration in milliseconds", unit="ms")] = 0
 
     @classmethod
     def extract(cls, client: spotipy.Spotify, **_: Any) -> Iterator[dict[str, Any]]:
@@ -218,7 +218,7 @@ class SavedTracks(SnapshotTable):
     track_name: Annotated[str | None, Field(db_type="VARCHAR", description="Track name")] = None
     artists: Annotated[str | None, Field(db_type="VARCHAR", description="Comma-separated artist names")] = None
     album_name: Annotated[str | None, Field(db_type="VARCHAR", description="Album name")] = None
-    duration_ms: Annotated[int, Field(db_type="INTEGER", description="Track duration in milliseconds")] = 0
+    duration_ms: Annotated[int, Field(db_type="INTEGER", description="Track duration in milliseconds", unit="ms")] = 0
     popularity: Annotated[int, Field(db_type="INTEGER", description="Track popularity (0-100)")] = 0
 
     @classmethod
@@ -274,7 +274,7 @@ class AudioFeatures(SnapshotTable):
     valence: Annotated[float | None, Field(db_type="DOUBLE", description="Valence / positivity (0..1)")] = None
     tempo: Annotated[float | None, Field(db_type="DOUBLE", description="Tempo (BPM)")] = None
     time_signature: Annotated[int | None, Field(db_type="INTEGER", description="Time signature")] = None
-    duration_ms: Annotated[int | None, Field(db_type="INTEGER", description="Track duration (ms)")] = None
+    duration_ms: Annotated[int | None, Field(db_type="INTEGER", description="Track duration (ms)", unit="ms")] = None
 
     @classmethod
     def extract(cls, client: spotipy.Spotify, **_: Any) -> Iterator[dict[str, Any]]:
@@ -522,7 +522,7 @@ class SavedEpisodes(SnapshotTable):
     show_name: Annotated[str | None, Field(db_type="VARCHAR", description="Show name")] = None
     publisher: Annotated[str | None, Field(db_type="VARCHAR", description="Publisher")] = None
     episode_description: Annotated[str | None, Field(db_type="TEXT", description="Description")] = None
-    duration_ms: Annotated[int, Field(db_type="INTEGER", description="Episode duration (ms)")] = 0
+    duration_ms: Annotated[int, Field(db_type="INTEGER", description="Episode duration (ms)", unit="ms")] = 0
     release_date: Annotated[str | None, Field(db_type="VARCHAR", description="Release date")] = None
     languages: Annotated[str | None, Field(db_type="VARCHAR", description="Comma-separated languages")] = None
 

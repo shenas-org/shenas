@@ -10,7 +10,14 @@ fills in the rest.
 - ``DailyStats``, ``Sleep``, ``Hrv``, ``Spo2``, ``BodyComposition`` are
   ``AggregateTable`` -- one row per calendar day -- with cursor on
   ``calendarDate``.
+
+Field names mirror the Garmin API (camelCase). The file-level
+``ruff: noqa: N815`` silences PEP-8 mixedCase complaints across the
+whole module so individual ``# noqa`` comments don't have to be
+maintained on every column.
 """
+
+# ruff: noqa: N815
 
 from __future__ import annotations
 
@@ -49,18 +56,18 @@ class Activities(IntervalTable):
     cursor_column: ClassVar[str] = "startTimeLocal"
 
     activity_id: Annotated[str, Field(db_type="VARCHAR", description="Unique activity identifier")] = ""
-    activityName: Annotated[str | None, Field(db_type="VARCHAR", description="Activity name")] = None  # noqa: N815
-    startTimeLocal: Annotated[str | None, Field(db_type="TIMESTAMP", description="Local start time")] = None  # noqa: N815
+    activityName: Annotated[str | None, Field(db_type="VARCHAR", description="Activity name")] = None
+    startTimeLocal: Annotated[str | None, Field(db_type="TIMESTAMP", description="Local start time")] = None
     end_time_local: Annotated[
         str | None,
         Field(db_type="TIMESTAMP", description="Local end time (start + duration)"),
     ] = None
-    activityType: Annotated[str | None, Field(db_type="VARCHAR", description="Activity type name")] = None  # noqa: N815
+    activityType: Annotated[str | None, Field(db_type="VARCHAR", description="Activity type name")] = None
     distance: Annotated[float | None, Field(db_type="DOUBLE", description="Distance in meters")] = None
     duration: Annotated[float | None, Field(db_type="DOUBLE", description="Duration in seconds")] = None
-    calories: Annotated[float | None, Field(db_type="DOUBLE", description="Calories burned")] = None
-    averageHR: Annotated[float | None, Field(db_type="DOUBLE", description="Average heart rate")] = None  # noqa: N815
-    maxHR: Annotated[float | None, Field(db_type="DOUBLE", description="Maximum heart rate")] = None  # noqa: N815
+    calories: Annotated[float | None, Field(db_type="DOUBLE", description="Calories burned", unit="kcal")] = None
+    averageHR: Annotated[float | None, Field(db_type="DOUBLE", description="Average heart rate")] = None
+    maxHR: Annotated[float | None, Field(db_type="DOUBLE", description="Maximum heart rate")] = None
 
     @staticmethod
     def _compute_end(start: str | None, duration_seconds: float | None) -> str | None:
@@ -107,13 +114,15 @@ class DailyStats(_DailyAggregate):
     table_display_name: ClassVar[str] = "Daily Stats"
     table_description: ClassVar[str | None] = "Per-day Garmin user summary (steps, calories, RHR)."
 
-    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""  # noqa: N815
-    totalSteps: Annotated[int | None, Field(db_type="INTEGER", description="Total steps")] = None  # noqa: N815
-    totalDistanceMeters: Annotated[int | None, Field(db_type="INTEGER", description="Total distance in meters")] = None  # noqa: N815
-    activeKilocalories: Annotated[float | None, Field(db_type="DOUBLE", description="Active kilocalories")] = None  # noqa: N815
-    restingHeartRate: Annotated[int | None, Field(db_type="INTEGER", description="Resting heart rate")] = None  # noqa: N815
-    maxHeartRate: Annotated[int | None, Field(db_type="INTEGER", description="Max heart rate")] = None  # noqa: N815
-    stressQualifier: Annotated[str | None, Field(db_type="VARCHAR", description="Stress qualifier")] = None  # noqa: N815
+    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
+    totalSteps: Annotated[int | None, Field(db_type="INTEGER", description="Total steps")] = None
+    totalDistanceMeters: Annotated[int | None, Field(db_type="INTEGER", description="Total distance in meters", unit="m")] = (
+        None
+    )
+    activeKilocalories: Annotated[float | None, Field(db_type="DOUBLE", description="Active kilocalories", unit="kcal")] = None
+    restingHeartRate: Annotated[int | None, Field(db_type="INTEGER", description="Resting heart rate", unit="bpm")] = None
+    maxHeartRate: Annotated[int | None, Field(db_type="INTEGER", description="Max heart rate", unit="bpm")] = None
+    stressQualifier: Annotated[str | None, Field(db_type="VARCHAR", description="Stress qualifier")] = None
 
     @classmethod
     def extract(
@@ -139,7 +148,7 @@ class Sleep(_DailyAggregate):
     table_display_name: ClassVar[str] = "Sleep"
     table_description: ClassVar[str | None] = "Per-day sleep data."
 
-    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""  # noqa: N815
+    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
 
     @classmethod
     def extract(
@@ -166,7 +175,7 @@ class Hrv(_DailyAggregate):
     table_display_name: ClassVar[str] = "HRV"
     table_description: ClassVar[str | None] = "Per-day heart rate variability data."
 
-    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""  # noqa: N815
+    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
 
     @classmethod
     def extract(
@@ -193,7 +202,7 @@ class Spo2(_DailyAggregate):
     table_display_name: ClassVar[str] = "SpO2"
     table_description: ClassVar[str | None] = "Per-day blood oxygen saturation data."
 
-    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""  # noqa: N815
+    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
 
     @classmethod
     def extract(
@@ -220,7 +229,7 @@ class BodyComposition(AggregateTable):
     table_description: ClassVar[str | None] = "Body composition entries (weight, body fat, etc)."
     table_pk: ClassVar[tuple[str, ...]] = ("samplePk",)
 
-    samplePk: Annotated[int, Field(db_type="INTEGER", description="Sample primary key")] = 0  # noqa: N815
+    samplePk: Annotated[int, Field(db_type="INTEGER", description="Sample primary key")] = 0
 
     @classmethod
     def extract(

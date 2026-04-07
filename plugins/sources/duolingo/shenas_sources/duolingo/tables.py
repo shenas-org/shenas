@@ -57,7 +57,7 @@ class DailyXp(AggregateTable):
     date: Annotated[date | None, Field(db_type="DATE", description="Day of activity")] = None
     xp_gained: Annotated[int, Field(db_type="INTEGER", description="XP earned")] = 0
     num_sessions: Annotated[int, Field(db_type="INTEGER", description="Number of practice sessions")] = 0
-    total_session_time_sec: Annotated[int, Field(db_type="INTEGER", description="Total session time in seconds")] = 0
+    total_session_time_sec: Annotated[int, Field(db_type="INTEGER", description="Total session time in seconds", unit="s")] = 0
 
     @staticmethod
     def _epoch_to_date(epoch: int) -> date:
