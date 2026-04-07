@@ -4,10 +4,11 @@ from shenas_sources.obsidian.tables import (
     DailyNotes,
     Habits,
     _date_from_filename,
-    _extract_habits,
-    _parse_frontmatter,
-    _parse_habit_line,
 )
+
+_parse_frontmatter = DailyNotes._parse_frontmatter
+_parse_habit_line = Habits._parse_habit_line
+_extract_habits = Habits._extract_habits
 
 # A representative diary chunk based on the user's real template.
 _REAL_DIARY = """\

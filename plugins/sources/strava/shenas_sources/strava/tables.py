@@ -133,47 +133,47 @@ class Activities(IntervalTable):
     commute: Annotated[bool, Field(db_type="BOOLEAN", description="Commute")] = False
     manual: Annotated[bool, Field(db_type="BOOLEAN", description="Manually entered")] = False
 
+    @staticmethod
+    def _activity_row(activity: Any) -> dict[str, Any]:
+        start = _iso(getattr(activity, "start_date", None))
+        elapsed = _i(getattr(activity, "elapsed_time", None))
+        return {
+            "id": int(activity.id),
+            "name_": getattr(activity, "name", None),
+            "activity_description": getattr(activity, "description", None),
+            "sport_type": str(getattr(activity, "sport_type", "") or "") or None,
+            "start_date": start,
+            "end_date": _add_seconds(start, elapsed),
+            "timezone": str(getattr(activity, "timezone", "") or "") or None,
+            "distance_m": _q(getattr(activity, "distance", None)),
+            "moving_time_s": _i(getattr(activity, "moving_time", None)),
+            "elapsed_time_s": elapsed,
+            "elevation_gain_m": _q(getattr(activity, "total_elevation_gain", None)),
+            "average_speed_mps": _q(getattr(activity, "average_speed", None)),
+            "max_speed_mps": _q(getattr(activity, "max_speed", None)),
+            "average_heartrate": _q(getattr(activity, "average_heartrate", None)),
+            "max_heartrate": _q(getattr(activity, "max_heartrate", None)),
+            "average_temp": _q(getattr(activity, "average_temp", None)),
+            "kilojoules": _q(getattr(activity, "kilojoules", None)),
+            "calories": _q(getattr(activity, "calories", None)),
+            "average_watts": _q(getattr(activity, "average_watts", None)),
+            "max_watts": _q(getattr(activity, "max_watts", None)),
+            "suffer_score": _q(getattr(activity, "suffer_score", None)),
+            "achievement_count": int(getattr(activity, "achievement_count", 0) or 0),
+            "kudos_count": int(getattr(activity, "kudos_count", 0) or 0),
+            "comment_count": int(getattr(activity, "comment_count", 0) or 0),
+            "photo_count": int(getattr(activity, "total_photo_count", 0) or 0),
+            "gear_id": getattr(activity, "gear_id", None),
+            "device_name": getattr(activity, "device_name", None),
+            "trainer": bool(getattr(activity, "trainer", False)),
+            "commute": bool(getattr(activity, "commute", False)),
+            "manual": bool(getattr(activity, "manual", False)),
+        }
+
     @classmethod
     def extract(cls, client: Any, *, detailed: list[Any] | None = None, **_: Any) -> Iterator[dict[str, Any]]:  # noqa: ARG003
         for activity in detailed or []:
-            yield _activity_row(activity)
-
-
-def _activity_row(activity: Any) -> dict[str, Any]:
-    start = _iso(getattr(activity, "start_date", None))
-    elapsed = _i(getattr(activity, "elapsed_time", None))
-    return {
-        "id": int(activity.id),
-        "name_": getattr(activity, "name", None),
-        "activity_description": getattr(activity, "description", None),
-        "sport_type": str(getattr(activity, "sport_type", "") or "") or None,
-        "start_date": start,
-        "end_date": _add_seconds(start, elapsed),
-        "timezone": str(getattr(activity, "timezone", "") or "") or None,
-        "distance_m": _q(getattr(activity, "distance", None)),
-        "moving_time_s": _i(getattr(activity, "moving_time", None)),
-        "elapsed_time_s": elapsed,
-        "elevation_gain_m": _q(getattr(activity, "total_elevation_gain", None)),
-        "average_speed_mps": _q(getattr(activity, "average_speed", None)),
-        "max_speed_mps": _q(getattr(activity, "max_speed", None)),
-        "average_heartrate": _q(getattr(activity, "average_heartrate", None)),
-        "max_heartrate": _q(getattr(activity, "max_heartrate", None)),
-        "average_temp": _q(getattr(activity, "average_temp", None)),
-        "kilojoules": _q(getattr(activity, "kilojoules", None)),
-        "calories": _q(getattr(activity, "calories", None)),
-        "average_watts": _q(getattr(activity, "average_watts", None)),
-        "max_watts": _q(getattr(activity, "max_watts", None)),
-        "suffer_score": _q(getattr(activity, "suffer_score", None)),
-        "achievement_count": int(getattr(activity, "achievement_count", 0) or 0),
-        "kudos_count": int(getattr(activity, "kudos_count", 0) or 0),
-        "comment_count": int(getattr(activity, "comment_count", 0) or 0),
-        "photo_count": int(getattr(activity, "total_photo_count", 0) or 0),
-        "gear_id": getattr(activity, "gear_id", None),
-        "device_name": getattr(activity, "device_name", None),
-        "trainer": bool(getattr(activity, "trainer", False)),
-        "commute": bool(getattr(activity, "commute", False)),
-        "manual": bool(getattr(activity, "manual", False)),
-    }
+            yield cls._activity_row(activity)
 
 
 class Laps(IntervalTable):
@@ -203,34 +203,34 @@ class Laps(IntervalTable):
     average_watts: Annotated[float | None, Field(db_type="DOUBLE", description="Average power (W)")] = None
     average_cadence: Annotated[float | None, Field(db_type="DOUBLE", description="Average cadence")] = None
 
+    @staticmethod
+    def _lap_row(activity_id: int, lap: Any) -> dict[str, Any]:
+        start = _iso(getattr(lap, "start_date", None))
+        elapsed = _i(getattr(lap, "elapsed_time", None))
+        return {
+            "id": int(lap.id),
+            "activity_id": activity_id,
+            "lap_index": int(getattr(lap, "lap_index", 0) or 0),
+            "name_": getattr(lap, "name", None),
+            "start_date": start,
+            "end_date": _add_seconds(start, elapsed),
+            "distance_m": _q(getattr(lap, "distance", None)),
+            "moving_time_s": _i(getattr(lap, "moving_time", None)),
+            "elapsed_time_s": elapsed,
+            "elevation_gain_m": _q(getattr(lap, "total_elevation_gain", None)),
+            "average_speed_mps": _q(getattr(lap, "average_speed", None)),
+            "max_speed_mps": _q(getattr(lap, "max_speed", None)),
+            "average_heartrate": _q(getattr(lap, "average_heartrate", None)),
+            "max_heartrate": _q(getattr(lap, "max_heartrate", None)),
+            "average_watts": _q(getattr(lap, "average_watts", None)),
+            "average_cadence": _q(getattr(lap, "average_cadence", None)),
+        }
+
     @classmethod
     def extract(cls, client: Any, *, detailed: list[Any] | None = None, **_: Any) -> Iterator[dict[str, Any]]:  # noqa: ARG003
         for d in detailed or []:
             for lap in getattr(d, "laps", None) or []:
-                yield _lap_row(int(d.id), lap)
-
-
-def _lap_row(activity_id: int, lap: Any) -> dict[str, Any]:
-    start = _iso(getattr(lap, "start_date", None))
-    elapsed = _i(getattr(lap, "elapsed_time", None))
-    return {
-        "id": int(lap.id),
-        "activity_id": activity_id,
-        "lap_index": int(getattr(lap, "lap_index", 0) or 0),
-        "name_": getattr(lap, "name", None),
-        "start_date": start,
-        "end_date": _add_seconds(start, elapsed),
-        "distance_m": _q(getattr(lap, "distance", None)),
-        "moving_time_s": _i(getattr(lap, "moving_time", None)),
-        "elapsed_time_s": elapsed,
-        "elevation_gain_m": _q(getattr(lap, "total_elevation_gain", None)),
-        "average_speed_mps": _q(getattr(lap, "average_speed", None)),
-        "max_speed_mps": _q(getattr(lap, "max_speed", None)),
-        "average_heartrate": _q(getattr(lap, "average_heartrate", None)),
-        "max_heartrate": _q(getattr(lap, "max_heartrate", None)),
-        "average_watts": _q(getattr(lap, "average_watts", None)),
-        "average_cadence": _q(getattr(lap, "average_cadence", None)),
-    }
+                yield cls._lap_row(int(d.id), lap)
 
 
 # ---------------------------------------------------------------------------
@@ -406,6 +406,14 @@ class AthleteStats(SnapshotTable):
     all_swim_distance_m: Annotated[float, Field(db_type="DOUBLE", description="All-time swim distance")] = 0.0
     all_swim_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="All-time swim moving time")] = 0
 
+    @staticmethod
+    def _totals(obj: Any, prefix: str) -> dict[str, Any]:
+        return {
+            f"{prefix}_count": int(getattr(obj, "count", 0) or 0),
+            f"{prefix}_distance_m": _q(getattr(obj, "distance", None)) or 0.0,
+            f"{prefix}_moving_time_s": _i(getattr(obj, "moving_time", None)) or 0,
+        }
+
     @classmethod
     def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:
         me = client.get_athlete()
@@ -426,16 +434,8 @@ class AthleteStats(SnapshotTable):
             ("all_ride", "all_ride_totals"),
             ("all_swim", "all_swim_totals"),
         ]:
-            row.update(_totals(getattr(stats, field, None), prefix))
+            row.update(cls._totals(getattr(stats, field, None), prefix))
         yield row
-
-
-def _totals(obj: Any, prefix: str) -> dict[str, Any]:
-    return {
-        f"{prefix}_count": int(getattr(obj, "count", 0) or 0),
-        f"{prefix}_distance_m": _q(getattr(obj, "distance", None)) or 0.0,
-        f"{prefix}_moving_time_s": _i(getattr(obj, "moving_time", None)) or 0,
-    }
 
 
 class AthleteZones(SnapshotTable):
@@ -450,6 +450,15 @@ class AthleteZones(SnapshotTable):
     heart_rate_zones: Annotated[str | None, Field(db_type="TEXT", description="HR zones JSON")] = None
     power_zones: Annotated[str | None, Field(db_type="TEXT", description="Power zones JSON")] = None
 
+    @staticmethod
+    def _zone_list(zone_obj: Any) -> str | None:
+        if zone_obj is None:
+            return None
+        zones = getattr(zone_obj, "zones", None)
+        if not zones:
+            return None
+        return json.dumps([{"min": getattr(z, "min", None), "max": getattr(z, "max", None)} for z in zones])
+
     @classmethod
     def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:
         me = client.get_athlete()
@@ -459,18 +468,9 @@ class AthleteZones(SnapshotTable):
             return
         yield {
             "athlete_id": int(me.id),
-            "heart_rate_zones": _zone_list(getattr(zones, "heart_rate", None)),
-            "power_zones": _zone_list(getattr(zones, "power", None)),
+            "heart_rate_zones": cls._zone_list(getattr(zones, "heart_rate", None)),
+            "power_zones": cls._zone_list(getattr(zones, "power", None)),
         }
-
-
-def _zone_list(zone_obj: Any) -> str | None:
-    if zone_obj is None:
-        return None
-    zones = getattr(zone_obj, "zones", None)
-    if not zones:
-        return None
-    return json.dumps([{"min": getattr(z, "min", None), "max": getattr(z, "max", None)} for z in zones])
 
 
 # ---------------------------------------------------------------------------

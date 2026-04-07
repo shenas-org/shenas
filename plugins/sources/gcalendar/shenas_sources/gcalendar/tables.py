@@ -72,65 +72,6 @@ def fetch_all_events(service: Any, start_date: str = "30 days ago") -> list[tupl
     return out
 
 
-def _event_row(event: dict[str, Any], calendar_id: str) -> dict[str, Any]:
-    """Map a raw Google Calendar event to a flat row matching Events."""
-    start = event.get("start", {}) or {}
-    end = event.get("end", {}) or {}
-    creator = event.get("creator", {}) or {}
-    organizer = event.get("organizer", {}) or {}
-    conference = event.get("conferenceData") or {}
-    entry_points = conference.get("entryPoints") or []
-    video_entry = next((ep for ep in entry_points if ep.get("entryPointType") == "video"), None)
-    conference_url = (video_entry or (entry_points[0] if entry_points else {})).get("uri")
-    conference_type = (conference.get("conferenceSolution") or {}).get("name")
-    recurrence_list = event.get("recurrence") or []
-    original_start = event.get("originalStartTime") or {}
-    original_start_time = original_start.get("dateTime") or original_start.get("date")
-    return {
-        "id": event["id"],
-        "calendar_id": calendar_id,
-        "summary": event.get("summary", ""),
-        "event_description": event.get("description", ""),
-        "location": event.get("location", ""),
-        "start_date": start.get("date") or start.get("dateTime", ""),
-        "end_date": end.get("date") or end.get("dateTime", ""),
-        "all_day": "date" in start,
-        "status": event.get("status", ""),
-        "creator_email": creator.get("email", ""),
-        "organizer_email": organizer.get("email", ""),
-        "attendees_count": len(event.get("attendees") or []),
-        "event_type": event.get("eventType"),
-        "visibility": event.get("visibility"),
-        "transparency": event.get("transparency"),
-        "color_id": event.get("colorId"),
-        "is_video_call": bool(conference_url),
-        "conference_url": conference_url,
-        "conference_type": conference_type,
-        "recurrence_rule": "\n".join(recurrence_list) or None,
-        "recurring_event_id": event.get("recurringEventId"),
-        "original_start_time": original_start_time,
-        "html_link": event.get("htmlLink", ""),
-        "created": event.get("created", ""),
-        "updated": event.get("updated", ""),
-    }
-
-
-def _attendee_rows(event: dict[str, Any]) -> Iterator[dict[str, Any]]:
-    for a in event.get("attendees") or []:
-        email = a.get("email")
-        if not email:
-            continue
-        yield {
-            "event_id": event["id"],
-            "email": email,
-            "attendee_name": a.get("displayName"),
-            "response_status": a.get("responseStatus"),
-            "optional": bool(a.get("optional", False)),
-            "organizer": bool(a.get("organizer", False)),
-            "is_self": bool(a.get("self", False)),
-        }
-
-
 # ---------------------------------------------------------------------------
 # Tables
 # ---------------------------------------------------------------------------
@@ -184,6 +125,49 @@ class Events(IntervalTable):
     created: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp")] = None
     updated: Annotated[str | None, Field(db_type="TIMESTAMP", description="Last updated timestamp")] = None
 
+    @staticmethod
+    def _event_row(event: dict[str, Any], calendar_id: str) -> dict[str, Any]:
+        """Map a raw Google Calendar event to a flat row."""
+        start = event.get("start", {}) or {}
+        end = event.get("end", {}) or {}
+        creator = event.get("creator", {}) or {}
+        organizer = event.get("organizer", {}) or {}
+        conference = event.get("conferenceData") or {}
+        entry_points = conference.get("entryPoints") or []
+        video_entry = next((ep for ep in entry_points if ep.get("entryPointType") == "video"), None)
+        conference_url = (video_entry or (entry_points[0] if entry_points else {})).get("uri")
+        conference_type = (conference.get("conferenceSolution") or {}).get("name")
+        recurrence_list = event.get("recurrence") or []
+        original_start = event.get("originalStartTime") or {}
+        original_start_time = original_start.get("dateTime") or original_start.get("date")
+        return {
+            "id": event["id"],
+            "calendar_id": calendar_id,
+            "summary": event.get("summary", ""),
+            "event_description": event.get("description", ""),
+            "location": event.get("location", ""),
+            "start_date": start.get("date") or start.get("dateTime", ""),
+            "end_date": end.get("date") or end.get("dateTime", ""),
+            "all_day": "date" in start,
+            "status": event.get("status", ""),
+            "creator_email": creator.get("email", ""),
+            "organizer_email": organizer.get("email", ""),
+            "attendees_count": len(event.get("attendees") or []),
+            "event_type": event.get("eventType"),
+            "visibility": event.get("visibility"),
+            "transparency": event.get("transparency"),
+            "color_id": event.get("colorId"),
+            "is_video_call": bool(conference_url),
+            "conference_url": conference_url,
+            "conference_type": conference_type,
+            "recurrence_rule": "\n".join(recurrence_list) or None,
+            "recurring_event_id": event.get("recurringEventId"),
+            "original_start_time": original_start_time,
+            "html_link": event.get("htmlLink", ""),
+            "created": event.get("created", ""),
+            "updated": event.get("updated", ""),
+        }
+
     @classmethod
     def extract(
         cls,
@@ -193,7 +177,7 @@ class Events(IntervalTable):
         **_: Any,
     ) -> Iterator[dict[str, Any]]:
         for cal_id, event in raw_events or []:
-            yield _event_row(event, cal_id)
+            yield cls._event_row(event, cal_id)
 
 
 class EventAttendees(M2MTable):
@@ -215,6 +199,22 @@ class EventAttendees(M2MTable):
     organizer: Annotated[bool, Field(db_type="BOOLEAN", description="Organizer flag")] = False
     is_self: Annotated[bool, Field(db_type="BOOLEAN", description="The authenticated user")] = False
 
+    @staticmethod
+    def _attendee_rows(event: dict[str, Any]) -> Iterator[dict[str, Any]]:
+        for a in event.get("attendees") or []:
+            email = a.get("email")
+            if not email:
+                continue
+            yield {
+                "event_id": event["id"],
+                "email": email,
+                "attendee_name": a.get("displayName"),
+                "response_status": a.get("responseStatus"),
+                "optional": bool(a.get("optional", False)),
+                "organizer": bool(a.get("organizer", False)),
+                "is_self": bool(a.get("self", False)),
+            }
+
     @classmethod
     def extract(
         cls,
@@ -224,7 +224,7 @@ class EventAttendees(M2MTable):
         **_: Any,
     ) -> Iterator[dict[str, Any]]:
         for _cal_id, event in raw_events or []:
-            yield from _attendee_rows(event)
+            yield from cls._attendee_rows(event)
 
 
 class Calendars(DimensionTable):
