@@ -81,7 +81,7 @@ class Color:
 
     __table__: ClassVar[str] = "colors"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "snapshot"
+    __kind__: ClassVar[TableKind] = "dimension"
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Color ID")]
     background: Annotated[str | None, Field(db_type="VARCHAR", description="Background hex color")] = None
@@ -94,7 +94,7 @@ class Calendar:
 
     __table__: ClassVar[str] = "calendars"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "snapshot"
+    __kind__: ClassVar[TableKind] = "dimension"
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Calendar ID")]
     summary: Annotated[str | None, Field(db_type="VARCHAR", description="Calendar name")] = None
