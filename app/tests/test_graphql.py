@@ -72,6 +72,7 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
         patch("app.api.db.cursor", _fake_cursor),
         patch("app.workspace.cursor", _fake_cursor),
         patch("app.hotkeys.cursor", _fake_cursor),
+        patch("app.transforms.cursor", _fake_cursor),
     ):
         yield TestClient(app)
 
@@ -170,7 +171,6 @@ class TestGraphQLQueries:
         assert "errors" not in result
         assert result["data"]["transforms"] == []
 
-    @pytest.mark.skip(reason="Transform DB isolation")
     def test_transforms_with_data(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
             "INSERT INTO shenas_system.transforms "
@@ -187,7 +187,6 @@ class TestGraphQLQueries:
         assert transforms[0]["sql"] == "SELECT 1 AS id"
         assert transforms[0]["enabled"] is True
 
-    @pytest.mark.skip(reason="Transform DB isolation")
     def test_transforms_filtered_by_source(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
             "INSERT INTO shenas_system.transforms "
@@ -206,7 +205,6 @@ class TestGraphQLQueries:
         assert len(result["data"]["transforms"]) == 1
         assert result["data"]["transforms"][0]["sourcePlugin"] == "garmin"
 
-    @pytest.mark.skip(reason="Transform DB isolation")
     def test_transform_by_id(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
             "INSERT INTO shenas_system.transforms "
@@ -222,7 +220,6 @@ class TestGraphQLQueries:
         assert result["data"]["transform"]["id"] == tid
         assert result["data"]["transform"]["sql"] == "SELECT 1"
 
-    @pytest.mark.skip(reason="Transform DB isolation")
     def test_transform_by_id_not_found(self, client: TestClient) -> None:
         result = _gql(client, "{ transform(transformId: 9999) { id sql } }")
         assert "errors" not in result
@@ -462,7 +459,6 @@ class TestGraphQLMutations:
         assert "errors" not in result
         assert result["data"]["deleteTransform"]["ok"] is True
 
-    @pytest.mark.skip(reason="Transform DB isolation")
     def test_enable_transform(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
             "INSERT INTO shenas_system.transforms "
@@ -480,7 +476,6 @@ class TestGraphQLMutations:
         assert "errors" not in result
         assert result["data"]["enableTransform"]["enabled"] is True
 
-    @pytest.mark.skip(reason="Transform DB isolation")
     def test_disable_transform(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
             "INSERT INTO shenas_system.transforms "
@@ -498,7 +493,6 @@ class TestGraphQLMutations:
         assert "errors" not in result
         assert result["data"]["disableTransform"]["enabled"] is False
 
-    @pytest.mark.skip(reason="Transform DB isolation")
     def test_enable_transform_not_found(self, client: TestClient) -> None:
         result = _gql(
             client,
@@ -507,7 +501,6 @@ class TestGraphQLMutations:
         assert "errors" not in result
         assert result["data"]["enableTransform"] is None
 
-    @pytest.mark.skip(reason="Transform DB isolation")
     def test_disable_transform_not_found(self, client: TestClient) -> None:
         result = _gql(
             client,
@@ -542,7 +535,6 @@ class TestGraphQLMutations:
         assert "errors" not in result
         assert result["data"]["disablePlugin"]["ok"] is True
 
-    @pytest.mark.skip(reason="Transform DB isolation")
     def test_test_transform(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
             "INSERT INTO shenas_system.transforms "
@@ -564,7 +556,6 @@ class TestGraphQLMutations:
         assert rows[0]["id"] == 1
         assert rows[0]["source"] == "garmin"
 
-    @pytest.mark.skip(reason="Transform DB isolation")
     def test_test_transform_not_found(self, client: TestClient) -> None:
         result = _gql(
             client,
@@ -588,3 +579,163 @@ class TestGraphQLMutations:
             result = _gql(client, '{ configValue(kind: "source", name: "garmin", key: "missing") }')
         assert "errors" not in result
         assert result["data"]["configValue"] is None
+
+
+class TestGraphQLMutationsExtra:
+    """Coverage for mutations that aren't covered above."""
+
+    def test_authenticate(self, client: TestClient) -> None:
+        fake_source = MagicMock()
+        fake_source.handle_auth.return_value = {"ok": True, "needs_mfa": False, "auth_url": None, "message": "logged in"}
+        with patch("app.api.sources._load_source", return_value=fake_source):
+            result = _gql(
+                client,
+                'mutation { authenticate(pipe: "garmin", credentials: {username: "u", password: "p"}) { ok message } }',
+            )
+        assert "errors" not in result
+        assert result["data"]["authenticate"]["ok"] is True
+        assert result["data"]["authenticate"]["message"] == "logged in"
+        fake_source.handle_auth.assert_called_once()
+
+    def test_set_config_success(self, client: TestClient) -> None:
+        fake_plugin = MagicMock()
+        fake_cls = MagicMock(return_value=fake_plugin)
+        with patch("app.api.sources._load_plugin", return_value=fake_cls):
+            result = _gql(
+                client,
+                'mutation { setConfig(kind: "source", name: "garmin", key: "k", value: "v") { ok } }',
+            )
+        assert "errors" not in result
+        assert result["data"]["setConfig"]["ok"] is True
+        fake_plugin.set_config_value.assert_called_once_with("k", "v")
+
+    def test_set_config_plugin_not_found(self, client: TestClient) -> None:
+        with patch("app.api.sources._load_plugin", return_value=None):
+            result = _gql(
+                client,
+                'mutation { setConfig(kind: "source", name: "missing", key: "k", value: "v") { ok message } }',
+            )
+        assert result["data"]["setConfig"]["ok"] is False
+        assert "missing" in result["data"]["setConfig"]["message"]
+
+    def test_delete_config_success(self, client: TestClient) -> None:
+        fake_plugin = MagicMock()
+        fake_cls = MagicMock(return_value=fake_plugin)
+        with patch("app.api.sources._load_plugin", return_value=fake_cls):
+            result = _gql(client, 'mutation { deleteConfig(kind: "source", name: "garmin") { ok } }')
+        assert result["data"]["deleteConfig"]["ok"] is True
+        fake_plugin.delete_config.assert_called_once()
+
+    def test_delete_config_plugin_not_found(self, client: TestClient) -> None:
+        with patch("app.api.sources._load_plugin", return_value=None):
+            result = _gql(client, 'mutation { deleteConfig(kind: "source", name: "missing") { ok message } }')
+        assert result["data"]["deleteConfig"]["ok"] is False
+
+    def test_delete_config_key_success(self, client: TestClient) -> None:
+        fake_plugin = MagicMock()
+        fake_cls = MagicMock(return_value=fake_plugin)
+        with patch("app.api.sources._load_plugin", return_value=fake_cls):
+            result = _gql(
+                client,
+                'mutation { deleteConfigKey(kind: "source", name: "garmin", key: "k") { ok } }',
+            )
+        assert result["data"]["deleteConfigKey"]["ok"] is True
+        fake_plugin.set_config_value.assert_called_once_with("k", None)
+
+    def test_delete_config_key_plugin_not_found(self, client: TestClient) -> None:
+        with patch("app.api.sources._load_plugin", return_value=None):
+            result = _gql(
+                client,
+                'mutation { deleteConfigKey(kind: "source", name: "missing", key: "k") { ok message } }',
+            )
+        assert result["data"]["deleteConfigKey"]["ok"] is False
+
+    def test_generate_db_key(self, client: TestClient) -> None:
+        with patch("app.db.generate_db_key", return_value="newkey"), patch("app.db.set_db_key") as mock_set:
+            result = _gql(client, "mutation { generateDbKey { ok } }")
+        assert result["data"]["generateDbKey"]["ok"] is True
+        mock_set.assert_called_once_with("newkey")
+
+    def test_flush_schema(self, client: TestClient) -> None:
+        with patch("app.api.db.flush_schema", return_value={"flushed": "metrics", "rows_deleted": 10}):
+            result = _gql(
+                client,
+                'mutation { flushSchema(schemaPlugin: "fitness") }',
+            )
+        assert "errors" not in result
+        assert result["data"]["flushSchema"]["flushed"] == "metrics"
+
+    def test_install_plugins(self, client: TestClient) -> None:
+        with patch("shenas_plugins.core.plugin.Plugin.install", return_value=(True, "installed")):
+            result = _gql(
+                client,
+                'mutation { installPlugins(kind: "source", names: ["garmin", "spotify"], skipVerify: true) '
+                "{ results { name ok message } } }",
+            )
+        assert "errors" not in result
+        results = result["data"]["installPlugins"]["results"]
+        assert len(results) == 2
+        assert all(r["ok"] for r in results)
+
+    def test_remove_plugin(self, client: TestClient) -> None:
+        with patch("shenas_plugins.core.plugin.Plugin.uninstall", return_value=(True, "removed")):
+            result = _gql(
+                client,
+                'mutation { removePlugin(kind: "source", name: "garmin") { ok message } }',
+            )
+        assert result["data"]["removePlugin"]["ok"] is True
+        assert result["data"]["removePlugin"]["message"] == "removed"
+
+    def test_enable_plugin_not_found(self, client: TestClient) -> None:
+        with patch("app.api.sources._load_plugin", return_value=None):
+            result = _gql(
+                client,
+                'mutation { enablePlugin(kind: "source", name: "missing") { ok message } }',
+            )
+        assert result["data"]["enablePlugin"]["ok"] is False
+
+    def test_disable_plugin_not_found(self, client: TestClient) -> None:
+        with patch("app.api.sources._load_plugin", return_value=None):
+            result = _gql(
+                client,
+                'mutation { disablePlugin(kind: "source", name: "missing") { ok message } }',
+            )
+        assert result["data"]["disablePlugin"]["ok"] is False
+
+    def test_seed_transforms(self, client: TestClient) -> None:
+        fake_ep = MagicMock()
+        fake_ep.name = "garmin"
+        with (
+            patch("importlib.metadata.entry_points", return_value=[fake_ep]),
+            patch("shenas_sources.core.transform.load_transform_defaults", return_value=[{"sql": "SELECT 1"}]),
+            patch("app.transforms.Transform.seed_defaults") as mock_seed,
+        ):
+            result = _gql(client, "mutation { seedTransforms }")
+        assert "errors" not in result
+        assert result["data"]["seedTransforms"]["count"] == 1
+        assert result["data"]["seedTransforms"]["seeded"] == ["garmin"]
+        mock_seed.assert_called_once()
+
+    def test_seed_transforms_no_defaults(self, client: TestClient) -> None:
+        fake_ep = MagicMock()
+        fake_ep.name = "duolingo"
+        with (
+            patch("importlib.metadata.entry_points", return_value=[fake_ep]),
+            patch("shenas_sources.core.transform.load_transform_defaults", return_value=[]),
+        ):
+            result = _gql(client, "mutation { seedTransforms }")
+        assert result["data"]["seedTransforms"]["count"] == 0
+
+    def test_run_pipe_transforms(self, client: TestClient) -> None:
+        with patch("app.transforms.Transform.run_for_source", return_value=3):
+            result = _gql(client, 'mutation { runPipeTransforms(pipe: "garmin") }')
+        assert "errors" not in result
+        assert result["data"]["runPipeTransforms"]["source"] == "garmin"
+        assert result["data"]["runPipeTransforms"]["count"] == 3
+
+    def test_run_schema_transforms(self, client: TestClient) -> None:
+        with patch("app.transforms.Transform.run_for_target", return_value=2):
+            result = _gql(client, 'mutation { runSchemaTransforms(schema: "metrics") }')
+        assert "errors" not in result
+        assert result["data"]["runSchemaTransforms"]["schema"] == "metrics"
+        assert result["data"]["runSchemaTransforms"]["count"] == 2
