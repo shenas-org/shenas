@@ -5,7 +5,8 @@ Each table is a subclass of one of the kind base classes in
 the dataclasses declare only the key fields and dlt's schema inference
 fills in the rest.
 
-- ``Activities`` is an ``EventTable`` with cursor on ``startTimeLocal``.
+- ``Activities`` is an ``IntervalTable`` (start + computed end) with
+  cursor on ``startTimeLocal``.
 - ``DailyStats``, ``Sleep``, ``Hrv``, ``Spo2``, ``BodyComposition`` are
   ``AggregateTable`` -- one row per calendar day -- with cursor on
   ``calendarDate``.
@@ -20,7 +21,7 @@ import pendulum
 from shenas_plugins.core.field import Field
 from shenas_sources.core.table import (
     AggregateTable,
-    EventTable,
+    IntervalTable,
 )
 from shenas_sources.core.utils import date_range, is_empty_response
 
@@ -30,19 +31,30 @@ if TYPE_CHECKING:
     from garminconnect import Garmin
 
 
-class Activities(EventTable):
-    """Garmin Connect activity summary."""
+class Activities(IntervalTable):
+    """Garmin Connect activity summary.
+
+    The Garmin API returns ``startTimeLocal`` and ``duration`` (seconds);
+    we materialise ``end_time_local`` from start + duration so the row
+    has both ends of the interval and the AS-OF / gantt-style queries
+    work uniformly with the other interval tables.
+    """
 
     name: ClassVar[str] = "activities"
     display_name: ClassVar[str] = "Activities"
     description: ClassVar[str | None] = "Activity summaries from Garmin Connect."
     pk: ClassVar[tuple[str, ...]] = ("activity_id",)
-    time_at: ClassVar[str] = "startTimeLocal"
+    time_start: ClassVar[str] = "startTimeLocal"
+    time_end: ClassVar[str] = "end_time_local"
     cursor_column: ClassVar[str] = "startTimeLocal"
 
     activity_id: Annotated[str, Field(db_type="VARCHAR", description="Unique activity identifier")] = ""
     activityName: Annotated[str | None, Field(db_type="VARCHAR", description="Activity name")] = None  # noqa: N815
     startTimeLocal: Annotated[str | None, Field(db_type="TIMESTAMP", description="Local start time")] = None  # noqa: N815
+    end_time_local: Annotated[
+        str | None,
+        Field(db_type="TIMESTAMP", description="Local end time (start + duration)"),
+    ] = None
     activityType: Annotated[str | None, Field(db_type="VARCHAR", description="Activity type name")] = None  # noqa: N815
     distance: Annotated[float | None, Field(db_type="DOUBLE", description="Distance in meters")] = None
     duration: Annotated[float | None, Field(db_type="DOUBLE", description="Duration in seconds")] = None
@@ -65,7 +77,18 @@ class Activities(EventTable):
         rows = client.get_activities_by_date(effective_start, end_date) or []
         for row in rows:
             row["activity_id"] = str(row["activityId"])
+            row["end_time_local"] = _compute_end(row.get("startTimeLocal"), row.get("duration"))
             yield row
+
+
+def _compute_end(start: str | None, duration_seconds: float | None) -> str | None:
+    """Compute interval end as start + duration. Returns None if either is missing."""
+    if not start or duration_seconds is None:
+        return None
+    try:
+        return pendulum.parse(start).add(seconds=int(duration_seconds)).to_datetime_string()
+    except Exception:
+        return None
 
 
 class _DailyAggregate(AggregateTable):
