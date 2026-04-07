@@ -38,7 +38,7 @@ jobs:
       - run: uv run --no-sync pytest
 
   js-lint:
-    name: JS lint + format
+    name: JS lint, format, typecheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,33 +47,25 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci --silent
+      - name: Install per-package deps
+        run: |
+          for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
+            dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
+            if [ -f "$dir/package.json" ]; then
+              (cd "$dir" && npm ci --silent)
+            fi
+          done
+      - name: TypeScript check
+        run: |
+          for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
+            dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
+            if [ -f "$dir/tsconfig.json" ]; then
+              echo "Type checking $dir"
+              (cd "$dir" && npx --no-install tsc --noEmit) || exit 1
+            fi
+          done
       - run: npm run lint
       - run: npm run format:check
-
-  js-typecheck:
-    name: JS typecheck
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        package:
-          - app/vendor
-          - plugins/dashboards/data-table
-          - plugins/dashboards/event-gantt
-          - plugins/dashboards/fitness-dashboard
-          - plugins/frontends/default
-          - plugins/frontends/focus
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: ${{ matrix.package }}/package-lock.json
-      - run: npm ci --silent
-        working-directory: ${{ matrix.package }}
-      - run: npx tsc --noEmit
-        working-directory: ${{ matrix.package }}
 
   js-test:
     name: JS test

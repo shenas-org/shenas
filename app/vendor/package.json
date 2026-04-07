@@ -11,15 +11,16 @@
   "dependencies": {
     "@lit-labs/router": "^0.1.4",
     "apache-arrow": "^19.0.0",
-    "lit": "^3.2.0",
     "cytoscape": "^3.30.0",
     "cytoscape-dagre": "^2.5.0",
     "dagre": "^0.8.5",
+    "lit": "^3.2.0",
     "uplot": "^1.6.31"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^3.0.0",
     "happy-dom": "~17.6.3",
+    "typescript": "^5.9.3",
     "vite": "^6.0.0",
     "vitest": "^3.0.0"
   }
