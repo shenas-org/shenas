@@ -1,4 +1,4 @@
-"""LLM integration for hypothesis-driven analysis (PR 2.3).
+"""LLM integration for hypothesis-driven analysis.
 
 This module is the bridge between the curated analytics vocabulary
 (`OPERATIONS`, the catalog, the Recipe DAG) and an LLM. The LLM never

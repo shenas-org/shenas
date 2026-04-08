@@ -1,4 +1,4 @@
-"""Tests for app.promotion (PR 3.1, Alt 1).
+"""Tests for app.promotion.
 
 Promotion writes to ``shenas_system.promoted_metrics`` and the
 ``PromotedSchema`` dataset synthesizes ``MetricTable`` subclasses
