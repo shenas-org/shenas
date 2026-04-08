@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, ClassVar  # noqa: F401 - used in test class annotations
 from unittest.mock import MagicMock, patch
 
 if TYPE_CHECKING:
@@ -88,6 +88,26 @@ def _gql(client: TestClient, query: str, variables: dict | None = None) -> dict:
     resp = client.post("/api/graphql", json={"query": query, "variables": variables or {}})
     assert resp.status_code == 200
     return resp.json()
+
+
+# Module-scope test fixture for catalog tests. Defined here (rather than
+# inside the test function) so `get_type_hints` can resolve `Annotated`
+# and `Field` from this module's namespace.
+from shenas_datasets.core import DailyMetricTable  # noqa: E402
+from shenas_plugins.core.table import Field  # noqa: E402
+
+
+class _CatalogMood(DailyMetricTable):
+    class _Meta:
+        name = "daily_mood_test"
+        display_name = "Daily Mood (test)"
+        description = "Test metric."
+        schema = "metrics"
+        pk = ("date", "source")
+
+    date: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
+    source: Annotated[str, Field(db_type="VARCHAR", description="Source")] = ""
+    mood: Annotated[float | None, Field(db_type="DOUBLE", description="Mood 1-10")] = None
 
 
 class TestGraphQLQueries:
@@ -323,6 +343,35 @@ class TestGraphQLQueries:
             result = _gql(client, "{ syncSchedule { name syncFrequency isDue } }")
         assert "errors" not in result
         assert result["data"]["syncSchedule"] == []
+
+    def test_catalog_empty_when_no_plugins(self, client: TestClient) -> None:
+        with (
+            patch("app.api.sources._load_plugins", return_value=[]),
+            patch("app.api.sources._load_datasets", return_value=[]),
+        ):
+            result = _gql(client, "{ catalog }")
+        assert "errors" not in result
+        assert result["data"]["catalog"] == []
+
+    def test_catalog_returns_dataset_metadata(self, client: TestClient) -> None:
+        fake_dataset = MagicMock()
+        fake_dataset.all_tables = [_CatalogMood]
+        with (
+            patch("app.api.sources._load_plugins", return_value=[]),
+            patch("app.api.sources._load_datasets", return_value=[fake_dataset]),
+        ):
+            result = _gql(client, "{ catalog }")
+        assert "errors" not in result
+        catalog = result["data"]["catalog"]
+        assert len(catalog) == 1
+        entry = catalog[0]
+        assert entry["table"] == "daily_mood_test"
+        assert entry["schema"] == "metrics"
+        assert entry["primary_key"] == ["date", "source"]
+        assert entry["kind"] == "daily_metric"
+        assert "query_hint" in entry
+        col_names = {c["name"] for c in entry["columns"]}
+        assert col_names == {"date", "source", "mood"}
 
     def test_sync_schedule_with_data(self, client: TestClient) -> None:
         from shenas_sources.core.source import Source
