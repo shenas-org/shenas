@@ -8,11 +8,11 @@ individual pipes only need to declare their credential fields and a
 from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
-from shenas_plugins.core.table import Field, Table
+from shenas_plugins.core.table import Field, SingletonTable
 
 
 @dataclass
-class SourceAuth(Table):
+class SourceAuth(SingletonTable):
     """Base authentication storage for all pipes.
 
     ``table_name`` is set lazily by ``Source.__init_subclass__`` (one
@@ -27,7 +27,7 @@ class SourceAuth(Table):
 
     _abstract: ClassVar[bool] = True
 
-    class _Meta(Table._Meta):
+    class _Meta(SingletonTable._Meta):
         display_name = "Source Auth"
         description = "Encrypted per-source credential storage."
         pk = ("id",)

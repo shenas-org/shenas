@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from shenas_plugins.core.table import Field, Table
+from shenas_plugins.core.table import Field, SingletonTable
 
 
-class SystemSettings(Table):
+class SystemSettings(SingletonTable):
     class _Meta:
         name = "system_settings"
         display_name = "System Settings"

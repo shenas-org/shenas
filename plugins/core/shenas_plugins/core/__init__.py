@@ -2,7 +2,7 @@ from shenas_plugins.core.base_auth import SourceAuth
 from shenas_plugins.core.base_config import SourceConfig
 from shenas_plugins.core.plugin import Plugin, _SelectOneMixin
 from shenas_plugins.core.static import StaticPlugin
-from shenas_plugins.core.table import Field, Table, UserTable
+from shenas_plugins.core.table import Field, SingletonTable, Table, UserTable
 
 __all__ = [
     "Dashboard",
@@ -10,6 +10,7 @@ __all__ = [
     "Field",
     "Frontend",
     "Plugin",
+    "SingletonTable",
     "Source",
     "SourceAuth",
     "SourceConfig",
