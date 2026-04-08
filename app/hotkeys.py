@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, ClassVar
+from typing import Annotated, ClassVar
 
-from app.db import cursor
-from shenas_plugins.core.table import Field, Table
-
-if TYPE_CHECKING:
-    import duckdb
+from shenas_plugins.core.table import Field, UserTable
 
 
 class Hotkey:
     """A single keyboard shortcut binding."""
 
-    class _Table(Table):
+    class _Table(UserTable):
         table_name: ClassVar[str] = "hotkeys"
         table_schema: ClassVar[str | None] = "shenas_system"
         table_display_name: ClassVar[str] = "Hotkeys"
@@ -41,48 +37,32 @@ class Hotkey:
         self.user_id = user_id
 
     def set(self, binding: str) -> None:
+        from datetime import datetime, timezone
+
         self.binding = binding
-        with cursor() as cur:
-            cur.execute(
-                "INSERT INTO shenas_system.hotkeys (action_id, user_id, binding, updated_at) VALUES (?, ?, ?, now()) "
-                "ON CONFLICT (action_id, user_id) DO UPDATE SET binding = ?, updated_at = now()",
-                [self.action_id, self.user_id, binding, binding],
-            )
+        Hotkey._Table.upsert_row(
+            self.user_id,
+            action_id=self.action_id,
+            binding=binding,
+            updated_at=datetime.now(timezone.utc).isoformat(),
+        )
 
     def delete(self) -> None:
-        with cursor() as cur:
-            cur.execute(
-                "DELETE FROM shenas_system.hotkeys WHERE action_id = ? AND user_id = ?",
-                [self.action_id, self.user_id],
-            )
+        Hotkey._Table.delete_row(self.user_id, action_id=self.action_id)
 
     @staticmethod
     def get_all(user_id: int = 0) -> dict[str, str]:
-        with cursor() as cur:
-            rows = cur.execute(
-                "SELECT action_id, binding FROM shenas_system.hotkeys WHERE user_id = ? ORDER BY action_id",
-                [user_id],
-            ).fetchall()
-        return {r[0]: r[1] for r in rows}
+        rows = Hotkey._Table.read_rows(user_id)
+        return {r["action_id"]: r["binding"] for r in rows}
 
     @staticmethod
-    def seed(con: duckdb.DuckDBPyConnection, user_id: int = 0) -> None:
-        row = con.execute(
-            "SELECT COUNT(*) FROM shenas_system.hotkeys WHERE user_id = ?", [user_id]
-        ).fetchone()
-        if row and row[0] == 0:
+    def seed(user_id: int = 0) -> None:
+        if not Hotkey._Table.read_rows(user_id):
             for action_id, binding in Hotkey._DEFAULTS:
-                con.execute(
-                    "INSERT INTO shenas_system.hotkeys (action_id, user_id, binding) VALUES (?, ?, ?)",
-                    [action_id, user_id, binding],
-                )
+                Hotkey._Table.upsert_row(user_id, action_id=action_id, binding=binding)
 
     @staticmethod
     def reset(user_id: int = 0) -> None:
-        with cursor() as cur:
-            cur.execute("DELETE FROM shenas_system.hotkeys WHERE user_id = ?", [user_id])
-            for action_id, binding in Hotkey._DEFAULTS:
-                cur.execute(
-                    "INSERT INTO shenas_system.hotkeys (action_id, user_id, binding) VALUES (?, ?, ?)",
-                    [action_id, user_id, binding],
-                )
+        Hotkey._Table.delete_rows(user_id)
+        for action_id, binding in Hotkey._DEFAULTS:
+            Hotkey._Table.upsert_row(user_id, action_id=action_id, binding=binding)
