@@ -598,7 +598,10 @@ class SettingsPage extends LitElement {
       <div class="profile-row">
         <div>
           <span class="profile-label">Multi-user mode</span>
-          <span class="profile-value" style="font-size:0.8rem;color:var(--shenas-text-muted,#888);display:block;margin-top:2px">
+          <span
+            class="profile-value"
+            style="font-size:0.8rem;color:var(--shenas-text-muted,#888);display:block;margin-top:2px"
+          >
             Enable multiple local users on this device
           </span>
         </div>

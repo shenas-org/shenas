@@ -19,12 +19,7 @@ import "./user-select-dialog.ts";
 (function _patchFetch() {
   const _orig = window.fetch.bind(window);
   window.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url =
-      typeof input === "string"
-        ? input
-        : input instanceof URL
-          ? input.toString()
-          : (input as Request).url;
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : (input as Request).url;
     const token = localStorage.getItem("shenas-session");
     if (token && (url.startsWith("/api") || url.includes("/api/"))) {
       const headers = new Headers(init?.headers);
@@ -35,7 +30,7 @@ import "./user-select-dialog.ts";
     }
     return _orig(input, init);
   };
-})()
+})();
 
 interface DashboardInfo {
   name: string;

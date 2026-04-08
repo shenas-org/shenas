@@ -252,7 +252,6 @@ class UserSelectDialog extends LitElement {
         <h2>Select User</h2>
 
         ${this._error ? html`<p class="error">${this._error}</p>` : ""}
-
         ${this._users.length > 0
           ? html`
               <div>
@@ -263,10 +262,7 @@ class UserSelectDialog extends LitElement {
                       <div class="user-row">
                         <div class="user-row-header">
                           <span class="user-name">${u.username}</span>
-                          <button
-                            @click=${() => this._expandUser(u.id)}
-                            ?disabled=${this._loading}
-                          >
+                          <button @click=${() => this._expandUser(u.id)} ?disabled=${this._loading}>
                             ${this._expandedUserId === u.id ? "Cancel" : "Select"}
                           </button>
                         </div>
