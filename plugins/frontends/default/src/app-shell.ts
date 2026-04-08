@@ -75,6 +75,9 @@ class ShenasApp extends LitElement {
     _allPlugins: { state: true },
     _rightOpen: { state: true },
     _mobileDrawerOpen: { state: true },
+    _multiuserEnabled: { state: true },
+    _localUser: { state: true },
+    _showUserDialog: { state: true },
   };
 
   declare apiBase: string;
@@ -97,6 +100,10 @@ class ShenasApp extends LitElement {
   declare _allPlugins: Record<string, PluginSummary[]>;
   declare _rightOpen: boolean;
   declare _mobileDrawerOpen: boolean;
+  declare _multiuserEnabled: boolean;
+  declare _localUser: { id: number; username: string } | null;
+  declare _showUserDialog: boolean;
+  private _sessionToken: string | null = null;
   private _elementCache = new Map<string, HTMLElement>();
   private _registeredCommands = new Map<string, Command[]>();
   private _keyHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -651,10 +658,26 @@ class ShenasApp extends LitElement {
     this._allPlugins = {};
     this._rightOpen = true;
     this._mobileDrawerOpen = false;
+    this._multiuserEnabled = false;
+    this._localUser = null;
+    this._showUserDialog = false;
+    // Restore session token from localStorage
+    this._sessionToken = localStorage.getItem("shenas-session-token");
   }
 
   connectedCallback(): void {
     super.connectedCallback();
+    // Patch fetch globally to inject X-Shenas-Session header when a token is present.
+    const origFetch = window.fetch.bind(window);
+    window.fetch = (input: RequestInfo | URL, init: RequestInit = {}) => {
+      const token = this._sessionToken;
+      if (token) {
+        const headers = new Headers((init.headers as HeadersInit | undefined) || {});
+        headers.set("X-Shenas-Session", token);
+        init = { ...init, headers };
+      }
+      return origFetch(input, init);
+    };
     this._fetchData();
     this.addEventListener("plugin-state-changed", () => this._refreshDashboards());
     this.addEventListener("job-start", ((e: CustomEvent) =>
@@ -1154,6 +1177,65 @@ class ShenasApp extends LitElement {
       .catch(() => {
         this._remoteUser = null;
       });
+    await this._checkUserSession();
+  }
+
+  async _checkUserSession(): Promise<void> {
+    try {
+      const res = await fetch(`${this.apiBase}/settings/system`);
+      if (!res.ok) return;
+      const settings = await res.json();
+      this._multiuserEnabled = Boolean(settings.multiuser_enabled);
+    } catch {
+      return;
+    }
+    if (!this._multiuserEnabled) return;
+
+    try {
+      const res = await fetch(`${this.apiBase}/users/current`);
+      if (res.ok) {
+        const data = await res.json();
+        this._localUser = data.user || null;
+      } else {
+        this._localUser = null;
+        this._showUserDialog = true;
+      }
+    } catch {
+      this._localUser = null;
+      this._showUserDialog = true;
+    }
+  }
+
+  _onUserSelected(e: CustomEvent): void {
+    const { userId, username, token } = e.detail as { userId: number; username: string; token: string };
+    this._sessionToken = token;
+    this._localUser = { id: userId, username };
+    this._showUserDialog = false;
+    localStorage.setItem("shenas-session-token", token);
+    // Reload data with the new user context
+    this._fetchData();
+  }
+
+  _onSwitchUser(): void {
+    this._showUserDialog = true;
+  }
+
+  async _onMultiuserToggle(enabled: boolean): Promise<void> {
+    try {
+      await fetch(`${this.apiBase}/settings/system?multiuser_enabled=${enabled}`, { method: "PUT" });
+      this._multiuserEnabled = enabled;
+      if (enabled) {
+        this._showUserDialog = true;
+      } else {
+        // Clear local session
+        await fetch(`${this.apiBase}/users/logout`, { method: "POST" });
+        this._localUser = null;
+        this._sessionToken = null;
+        localStorage.removeItem("shenas-session-token");
+      }
+    } catch {
+      // ignore
+    }
   }
 
   _activeTab(): string {
@@ -1205,6 +1287,18 @@ class ShenasApp extends LitElement {
       >
         Loading...
       </div>`;
+    }
+
+    // Block the UI until a user is selected in multi-user mode
+    if (this._multiuserEnabled && this._showUserDialog) {
+      return html`<user-select-dialog
+        api-base="${this.apiBase}"
+        ?cancelable=${Boolean(this._localUser)}
+        @user-selected=${(e: CustomEvent) => this._onUserSelected(e)}
+        @dialog-close=${() => {
+          this._showUserDialog = false;
+        }}
+      ></user-select-dialog>`;
     }
 
     const active = this._activeTab();
@@ -1515,6 +1609,10 @@ class ShenasApp extends LitElement {
       .schemaPlugins=${this._schemaPlugins}
       .remoteUser=${this._remoteUser}
       device-name=${this._deviceName || ""}
+      .multiuserEnabled=${this._multiuserEnabled}
+      .localUser=${this._localUser}
+      .onSwitchUser=${() => this._onSwitchUser()}
+      .onMultiuserToggle=${(enabled: boolean) => this._onMultiuserToggle(enabled)}
       .onNavigate=${(k: string) => {
         this._navigateTo(`/settings/${k}`);
       }}

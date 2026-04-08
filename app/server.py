@@ -6,6 +6,7 @@ import asyncio as _asyncio
 import os as _os
 import pathlib as _pathlib
 import sys as _sys
+import typing
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
@@ -18,7 +19,7 @@ if getattr(_sys, "_MEIPASS", None):
         if str(_p) not in _sys.path:
             _sys.path.insert(0, str(_p))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -61,8 +62,49 @@ _telemetry.init_telemetry("shenas-server")
 app.state.ui_name = _os.environ.get("SHENAS_UI", "default")
 app.state.default_theme = _os.environ.get("SHENAS_DEFAULT_THEME", "default")
 
+
+# ---------------------------------------------------------------------------
+# Session middleware: resolves X-Shenas-Session → user_id ContextVar
+# ---------------------------------------------------------------------------
+
+
+@app.middleware("http")
+async def _session_middleware(request: Request, call_next: typing.Callable) -> Response:
+    from app.local_sessions import LocalSession
+    from app.user_context import _current_user_id
+
+    token = request.headers.get("X-Shenas-Session")
+    user_id = LocalSession.validate_token(token) or 0
+    request.state.user_id = user_id
+    ctx_token = _current_user_id.set(user_id)
+    try:
+        return await call_next(request)
+    finally:
+        _current_user_id.reset(ctx_token)
+
+
 # Register API routes (includes GraphQL at /api/graphql)
 app.include_router(api_router)
+
+
+# ---------------------------------------------------------------------------
+# System settings REST endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/settings/system")
+def get_system_settings() -> dict:
+    from app.system_settings import SystemSettings
+
+    return SystemSettings.get()
+
+
+@app.put("/api/settings/system")
+def update_system_settings(multiuser_enabled: bool) -> dict:
+    from app.system_settings import SystemSettings
+
+    SystemSettings.save(multiuser_enabled=multiuser_enabled)
+    return SystemSettings.get()
 
 
 # ---------------------------------------------------------------------------

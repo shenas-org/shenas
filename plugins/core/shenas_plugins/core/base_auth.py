@@ -3,6 +3,11 @@
 Provides the common ``id`` field and the ``table_pk`` class var so
 individual pipes only need to declare their credential fields and a
 ``table_name`` (set dynamically by ``Source.__init_subclass__``).
+
+Per-user isolation: ``read_row``, ``write_row``, and ``clear_rows`` are
+overridden to route to ``auth_{user_id}`` schema when a user is active,
+falling back to ``auth`` in single-user mode.  This happens transparently
+via the ``user_schema()`` helper so callers never need to pass user_id.
 """
 
 from dataclasses import dataclass
@@ -40,3 +45,23 @@ class SourceAuth(Table):
         if "_abstract" not in cls.__dict__:
             cls._abstract = True
         super().__init_subclass__(**kwargs)
+
+    @classmethod
+    def _auth_schema(cls, schema: str | None) -> str:
+        if schema is not None:
+            return schema
+        from app.user_context import user_schema
+
+        return user_schema("auth")
+
+    @classmethod
+    def read_row(cls, *, schema: str | None = None) -> dict[str, Any] | None:
+        return super().read_row(schema=cls._auth_schema(schema))
+
+    @classmethod
+    def write_row(cls, *, schema: str | None = None, **kwargs: Any) -> None:
+        super().write_row(schema=cls._auth_schema(schema), **kwargs)
+
+    @classmethod
+    def clear_rows(cls, *, schema: str | None = None) -> None:
+        super().clear_rows(schema=cls._auth_schema(schema))

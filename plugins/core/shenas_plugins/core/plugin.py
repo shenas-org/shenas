@@ -149,10 +149,11 @@ class Plugin(abc.ABC):
         table_schema: ClassVar[str | None] = "shenas_system"
         table_display_name: ClassVar[str] = "Installed Plugins"
         table_description: ClassVar[str | None] = "Per-plugin install / enable / sync state."
-        table_pk: ClassVar[tuple[str, ...]] = ("kind", "name")
+        table_pk: ClassVar[tuple[str, ...]] = ("kind", "name", "user_id")
 
         kind: Annotated[str, Field(db_type="VARCHAR", description="Plugin kind")] = ""
         name: Annotated[str, Field(db_type="VARCHAR", description="Plugin name")] = ""
+        user_id: Annotated[int, Field(db_type="INTEGER", description="User ID (0 = single-user)")] = 0
         enabled: Annotated[bool, Field(db_type="BOOLEAN", description="Is enabled", db_default="TRUE")] = True
         added_at: (
             Annotated[str, Field(db_type="TIMESTAMP", description="When added", db_default="current_timestamp")] | None
@@ -219,14 +220,21 @@ class Plugin(abc.ABC):
     # -- State management --
 
     @property
+    def _user_id(self) -> int:
+        from app.user_context import get_current_user_id
+
+        return get_current_user_id()
+
+    @property
     def state(self) -> dict[str, Any] | None:
         from app.db import cursor
 
+        uid = self._user_id
         with cursor() as cur:
             row = cur.execute(
                 "SELECT kind, name, enabled, added_at, updated_at, status_changed_at, synced_at "
-                "FROM shenas_system.plugins WHERE kind = ? AND name = ?",
-                [self._kind, self.name],
+                "FROM shenas_system.plugins WHERE kind = ? AND name = ? AND user_id = ?",
+                [self._kind, self.name, uid],
             ).fetchone()
         if not row:
             return None
@@ -248,52 +256,59 @@ class Plugin(abc.ABC):
     def save_state(self, *, enabled: bool) -> None:
         from app.db import cursor
 
+        uid = self._user_id
         now = "current_timestamp"
         with cursor() as cur:
             row = cur.execute(
-                "SELECT enabled FROM shenas_system.plugins WHERE kind = ? AND name = ?",
-                [self._kind, self.name],
+                "SELECT enabled FROM shenas_system.plugins WHERE kind = ? AND name = ? AND user_id = ?",
+                [self._kind, self.name, uid],
             ).fetchone()
             if row is not None:
                 if enabled != row[0]:
                     cur.execute(
                         f"UPDATE shenas_system.plugins SET enabled = ?, status_changed_at = {now}, updated_at = {now} "
-                        "WHERE kind = ? AND name = ?",
-                        [enabled, self._kind, self.name],
+                        "WHERE kind = ? AND name = ? AND user_id = ?",
+                        [enabled, self._kind, self.name, uid],
                     )
                 else:
                     cur.execute(
-                        f"UPDATE shenas_system.plugins SET updated_at = {now} WHERE kind = ? AND name = ?",
-                        [self._kind, self.name],
+                        f"UPDATE shenas_system.plugins SET updated_at = {now} "
+                        "WHERE kind = ? AND name = ? AND user_id = ?",
+                        [self._kind, self.name, uid],
                     )
             else:
                 cur.execute(
-                    f"INSERT INTO shenas_system.plugins (kind, name, enabled, added_at, status_changed_at) "
-                    f"VALUES (?, ?, ?, {now}, {now})",
-                    [self._kind, self.name, enabled],
+                    f"INSERT INTO shenas_system.plugins (kind, name, user_id, enabled, added_at, status_changed_at) "
+                    f"VALUES (?, ?, ?, ?, {now}, {now})",
+                    [self._kind, self.name, uid, enabled],
                 )
 
     def remove_state(self) -> None:
         from app.db import cursor
 
+        uid = self._user_id
         with cursor() as cur:
-            cur.execute("DELETE FROM shenas_system.plugins WHERE kind = ? AND name = ?", [self._kind, self.name])
+            cur.execute(
+                "DELETE FROM shenas_system.plugins WHERE kind = ? AND name = ? AND user_id = ?",
+                [self._kind, self.name, uid],
+            )
 
     def mark_synced(self) -> None:
         from app.db import cursor
 
+        uid = self._user_id
         with cursor() as cur:
             row = cur.execute(
-                "SELECT 1 FROM shenas_system.plugins WHERE kind = ? AND name = ?",
-                [self._kind, self.name],
+                "SELECT 1 FROM shenas_system.plugins WHERE kind = ? AND name = ? AND user_id = ?",
+                [self._kind, self.name, uid],
             ).fetchone()
         if not row:
             self.save_state(enabled=True)
         with cursor() as cur:
             cur.execute(
                 "UPDATE shenas_system.plugins SET synced_at = current_timestamp, updated_at = current_timestamp "
-                "WHERE kind = ? AND name = ?",
-                [self._kind, self.name],
+                "WHERE kind = ? AND name = ? AND user_id = ?",
+                [self._kind, self.name, uid],
             )
 
     def enable(self) -> str:
@@ -462,13 +477,15 @@ class _SelectOneMixin:
 
     def enable(self) -> str:
         from app.db import cursor
+        from app.user_context import get_current_user_id
 
+        uid = get_current_user_id()
         with cursor() as cur:
             cur.execute(
                 "UPDATE shenas_system.plugins SET enabled = false, "
                 "status_changed_at = current_timestamp, updated_at = current_timestamp "
-                "WHERE kind = ? AND name != ? AND enabled = true",
-                [self._kind, self.name],
+                "WHERE kind = ? AND name != ? AND user_id = ? AND enabled = true",
+                [self._kind, self.name, uid],
             )
         self.save_state(enabled=True)
         return f"Selected {self._kind} {self.name}"
@@ -478,23 +495,25 @@ class _SelectOneMixin:
             return f"Cannot deselect the default {self._kind}"
         self.save_state(enabled=False)
         from app.db import cursor
+        from app.user_context import get_current_user_id
 
+        uid = get_current_user_id()
         now = "current_timestamp"
         with cursor() as cur:
             row = cur.execute(
-                "SELECT 1 FROM shenas_system.plugins WHERE kind = ? AND name = 'default'",
-                [self._kind],
+                "SELECT 1 FROM shenas_system.plugins WHERE kind = ? AND name = 'default' AND user_id = ?",
+                [self._kind, uid],
             ).fetchone()
             if row:
                 cur.execute(
                     f"UPDATE shenas_system.plugins SET enabled = true, status_changed_at = {now}, updated_at = {now} "
-                    "WHERE kind = ? AND name = 'default'",
-                    [self._kind],
+                    "WHERE kind = ? AND name = 'default' AND user_id = ?",
+                    [self._kind, uid],
                 )
             else:
                 cur.execute(
-                    f"INSERT INTO shenas_system.plugins (kind, name, enabled, added_at, status_changed_at) "
-                    f"VALUES (?, 'default', true, {now}, {now})",
-                    [self._kind],
+                    f"INSERT INTO shenas_system.plugins (kind, name, user_id, enabled, added_at, status_changed_at) "
+                    f"VALUES (?, 'default', ?, true, {now}, {now})",
+                    [self._kind, uid],
                 )
         return f"Switched {self._kind} to default"

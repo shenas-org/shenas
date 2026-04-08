@@ -262,23 +262,30 @@ class Source(Plugin):
 
         `on_progress`, if given, is forwarded to `run_sync` and called at each
         per-resource checkpoint so streaming consumers can surface progress.
+
+        The dlt dataset (DuckDB schema) is ``{source_name}_{user_id}`` when a
+        user is active, or ``{source_name}`` in single-user mode.  This is
+        derived from the ``user_schema()`` helper so the calling code never
+        needs to pass user_id explicitly.
         """
+        from app.user_context import user_schema
         from shenas_sources.core.as_of import apply_as_of_macros
         from shenas_sources.core.cli import run_sync
         from shenas_sources.core.db import connect
 
+        schema_name = user_schema(self.name)  # e.g. "garmin_1" or "garmin"
         client = self.build_client()
         res = self.resources(client)
-        run_sync(self.name, self.name, res, full_refresh, self._auto_transform, on_progress=on_progress)
+        run_sync(self.name, schema_name, res, full_refresh, self._auto_transform, on_progress=on_progress)
         # Refresh AS-OF macros for any SCD2 tables in this source's schema.
         try:
             con = connect()
             try:
-                apply_as_of_macros(con, self.name)
+                apply_as_of_macros(con, schema_name)
             finally:
                 con.close()
         except Exception:
-            logger.exception("Failed to refresh AS-OF macros for %s", self.name)
+            logger.exception("Failed to refresh AS-OF macros for %s", schema_name)
         self._mark_synced()
         self._log_sync_event(full_refresh)
 
@@ -305,22 +312,29 @@ class Source(Plugin):
             return
 
         # ContextVars don't propagate across threading.Thread boundaries -- capture
-        # the parent's job_id and rebind inside the worker so logs emitted from the
-        # sync thread also carry it.
+        # the parent's job_id and user_id, then rebind both inside the worker so
+        # logs and per-user schema lookups work correctly in the sync thread.
+        from app.user_context import _current_user_id
+
         job_id = get_job_id()
+        user_id = _current_user_id.get()
         q: queue.Queue[tuple[str, str] | None] = queue.Queue()
 
         def _worker() -> None:
-            with bind_job_id(job_id):
-                try:
-                    self.sync(full_refresh=full_refresh, on_progress=lambda e, m: q.put((e, m)))
-                    label = getattr(self, "display_name", None) or self.name
-                    q.put(("__done__", f"Sync complete: {label}"))
-                except Exception as exc:
-                    logger.exception("Sync failed: %s", self.name)
-                    q.put(("__error__", str(exc)))
-                finally:
-                    q.put(None)  # sentinel: end-of-stream
+            tok = _current_user_id.set(user_id)
+            try:
+                with bind_job_id(job_id):
+                    try:
+                        self.sync(full_refresh=full_refresh, on_progress=lambda e, m: q.put((e, m)))
+                        label = getattr(self, "display_name", None) or self.name
+                        q.put(("__done__", f"Sync complete: {label}"))
+                    except Exception as exc:
+                        logger.exception("Sync failed: %s", self.name)
+                        q.put(("__error__", str(exc)))
+                    finally:
+                        q.put(None)  # sentinel: end-of-stream
+            finally:
+                _current_user_id.reset(tok)
 
         t = threading.Thread(target=_worker, daemon=True)
         t.start()
@@ -361,19 +375,51 @@ class Source(Plugin):
             pass  # mesh not initialized yet
 
     def _auto_transform(self) -> None:
-        """Run transforms if this pipe has a transforms.json."""
+        """Run transforms if this pipe has a transforms.json.
+
+        Default transform SQL references source schema names like ``"garmin"``
+        and target schemas like ``"metrics"``.  In multi-user mode these are
+        substituted with per-user variants (``"garmin_1"``, ``"metrics_1"``)
+        before seeding so each user gets isolated transforms.
+        """
+        from app.user_context import get_current_user_id, user_schema
         from shenas_sources.core.db import connect
         from shenas_sources.core.transform import load_transform_defaults
 
         defaults = load_transform_defaults(self.name)
         if not defaults:
             return
+
+        uid = get_current_user_id()
+        source_schema = user_schema(self.name)
+
+        # Substitute per-user schema names into the bundled defaults so each
+        # user's transforms read from their own raw schema and write to their
+        # own metrics schema.
+        user_defaults = [
+            {
+                **d,
+                "source_duckdb_schema": source_schema,
+                "target_duckdb_schema": user_schema(d.get("target_duckdb_schema", "metrics")),
+            }
+            for d in defaults
+        ]
+
         from app.transforms import Transform
 
         con = connect()
-        Transform.seed_defaults(self.name, defaults)
-        count = Transform.run_for_source(con, self.name)
-        logger.info("Transforms done: %s (%d)", self.name, count)
+        # Ensure the per-user metrics schema and its tables exist before running.
+        try:
+            from shenas_datasets.core.dataset import Dataset
+
+            metrics_schema = user_schema("metrics")
+            Dataset.ensure_all_for_schema(con, metrics_schema)
+        except Exception:
+            logger.exception("Failed to ensure metrics schema for user %d", uid)
+
+        Transform.seed_defaults(self.name, user_defaults, user_id=uid)
+        count = Transform.run_for_source(con, self.name, user_id=uid)
+        logger.info("Transforms done: %s (user=%d, %d transforms)", self.name, uid, count)
 
     # -- Auth flow ------------------------------------------------------------
 

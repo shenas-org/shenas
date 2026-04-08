@@ -20,7 +20,7 @@ log = logging.getLogger(f"shenas.{__name__}")
 
 _COLS = (
     "id, source_duckdb_schema, source_duckdb_table, target_duckdb_schema,"
-    " target_duckdb_table, source_plugin, description, sql, is_default,"
+    " target_duckdb_table, source_plugin, user_id, description, sql, is_default,"
     " enabled, added_at, updated_at, status_changed_at"
 )
 
@@ -33,13 +33,14 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "target_duckdb_schema": row[3],
         "target_duckdb_table": row[4],
         "source_plugin": row[5],
-        "description": row[6] or "",
-        "sql": row[7],
-        "is_default": row[8],
-        "enabled": row[9],
-        "added_at": str(row[10]) if row[10] else None,
-        "updated_at": str(row[11]) if row[11] else None,
-        "status_changed_at": str(row[12]) if row[12] else None,
+        "user_id": row[6],
+        "description": row[7] or "",
+        "sql": row[8],
+        "is_default": row[9],
+        "enabled": row[10],
+        "added_at": str(row[11]) if row[11] else None,
+        "updated_at": str(row[12]) if row[12] else None,
+        "status_changed_at": str(row[13]) if row[13] else None,
     }
 
 
@@ -64,6 +65,7 @@ class Transform:
         target_duckdb_schema: Annotated[str, Field(db_type="VARCHAR", description="Target schema")] = ""
         target_duckdb_table: Annotated[str, Field(db_type="VARCHAR", description="Target table")] = ""
         source_plugin: Annotated[str, Field(db_type="VARCHAR", description="Source plugin name")] = ""
+        user_id: Annotated[int, Field(db_type="INTEGER", description="User ID (0 = single-user)", db_default="0")] = 0
         description: Annotated[str, Field(db_type="VARCHAR", description="Transform description", db_default="''")] | None = (
             None
         )
@@ -93,15 +95,22 @@ class Transform:
     # -- Queries --
 
     @staticmethod
-    def all(source_plugin: str | None = None) -> list[Transform]:
+    def all(source_plugin: str | None = None, user_id: int | None = None) -> list[Transform]:
+        from app.user_context import get_current_user_id
+
+        uid = user_id if user_id is not None else get_current_user_id()
         with cursor() as cur:
             if source_plugin:
                 rows = cur.execute(
-                    f"SELECT {_COLS} FROM shenas_system.transforms WHERE source_plugin = ? ORDER BY id",
-                    [source_plugin],
+                    f"SELECT {_COLS} FROM shenas_system.transforms"
+                    " WHERE source_plugin = ? AND user_id = ? ORDER BY id",
+                    [source_plugin, uid],
                 ).fetchall()
             else:
-                rows = cur.execute(f"SELECT {_COLS} FROM shenas_system.transforms ORDER BY id").fetchall()
+                rows = cur.execute(
+                    f"SELECT {_COLS} FROM shenas_system.transforms WHERE user_id = ? ORDER BY id",
+                    [uid],
+                ).fetchall()
         return [Transform(_row_to_dict(r)) for r in rows]
 
     @staticmethod
@@ -122,19 +131,24 @@ class Transform:
         sql: str,
         description: str = "",
         is_default: bool = False,
+        user_id: int | None = None,
     ) -> Transform:
+        from app.user_context import get_current_user_id
+
+        uid = user_id if user_id is not None else get_current_user_id()
         with cursor() as cur:
             row = cur.execute(
                 "INSERT INTO shenas_system.transforms "
                 "(source_duckdb_schema, source_duckdb_table, target_duckdb_schema,"
-                " target_duckdb_table, source_plugin, description, sql, is_default) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                " target_duckdb_table, source_plugin, user_id, description, sql, is_default) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
                 [
                     source_duckdb_schema,
                     source_duckdb_table,
                     target_duckdb_schema,
                     target_duckdb_table,
                     source_plugin,
+                    uid,
                     description,
                     sql,
                     is_default,
@@ -183,12 +197,15 @@ class Transform:
     # -- Seeding --
 
     @staticmethod
-    def seed_defaults(source_plugin: str, defaults: list[dict[str, str]]) -> None:
+    def seed_defaults(source_plugin: str, defaults: list[dict[str, str]], user_id: int | None = None) -> None:
+        from app.user_context import get_current_user_id
+
+        uid = user_id if user_id is not None else get_current_user_id()
         with cursor() as cur:
             existing_defaults = cur.execute(
                 "SELECT source_duckdb_table, target_duckdb_table FROM shenas_system.transforms "
-                "WHERE source_plugin = ? AND is_default = true",
-                [source_plugin],
+                "WHERE source_plugin = ? AND is_default = true AND user_id = ?",
+                [source_plugin, uid],
             ).fetchall()
         existing_keys = {(r[0], r[1]) for r in existing_defaults}
         for d in defaults:
@@ -197,14 +214,19 @@ class Transform:
                 with cursor() as cur:
                     cur.execute(
                         "UPDATE shenas_system.transforms SET sql = ?, description = ?,"
+                        " source_duckdb_schema = ?, target_duckdb_schema = ?,"
                         " updated_at = current_timestamp WHERE source_plugin = ?"
-                        " AND source_duckdb_table = ? AND target_duckdb_table = ? AND is_default = true",
+                        " AND source_duckdb_table = ? AND target_duckdb_table = ?"
+                        " AND is_default = true AND user_id = ?",
                         [
                             d["sql"],
                             d.get("description", ""),
+                            d["source_duckdb_schema"],
+                            d["target_duckdb_schema"],
                             source_plugin,
                             d["source_duckdb_table"],
                             d["target_duckdb_table"],
+                            uid,
                         ],
                     )
                 continue
@@ -217,14 +239,18 @@ class Transform:
                 sql=d["sql"],
                 description=d.get("description", ""),
                 is_default=True,
+                user_id=uid,
             )
 
     # -- Execution --
 
     @staticmethod
-    def run_for_source(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
-        transforms = Transform.all(source_plugin)
-        log.info("Running transforms for %s (%d total)", source_plugin, len(transforms))
+    def run_for_source(con: duckdb.DuckDBPyConnection, source_plugin: str, user_id: int | None = None) -> int:
+        from app.user_context import get_current_user_id
+
+        uid = user_id if user_id is not None else get_current_user_id()
+        transforms = Transform.all(source_plugin, user_id=uid)
+        log.info("Running transforms for %s (user=%d, %d total)", source_plugin, uid, len(transforms))
         device_id = _get_device_id()
         count = 0
         for t in transforms:
@@ -234,8 +260,11 @@ class Transform:
         return count
 
     @staticmethod
-    def run_for_target(con: duckdb.DuckDBPyConnection, target_table: str) -> int:
-        matching = [t for t in Transform.all() if t["target_duckdb_table"] == target_table and t["enabled"]]
+    def run_for_target(con: duckdb.DuckDBPyConnection, target_table: str, user_id: int | None = None) -> int:
+        from app.user_context import get_current_user_id
+
+        uid = user_id if user_id is not None else get_current_user_id()
+        matching = [t for t in Transform.all(user_id=uid) if t["target_duckdb_table"] == target_table and t["enabled"]]
         log.info("Running transforms targeting %s (%d total)", target_table, len(matching))
         device_id = _get_device_id()
         count = 0

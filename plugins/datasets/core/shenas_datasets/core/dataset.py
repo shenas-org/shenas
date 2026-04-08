@@ -40,5 +40,24 @@ class Dataset(Plugin):
             dataset_cls.ensure(con)
 
     @classmethod
+    def ensure_for_schema(cls, con: Any, schema: str) -> None:
+        """Create this dataset's metric tables in an arbitrary schema.
+
+        Used to initialise per-user metric schemas (e.g. ``metrics_1``) before
+        transforms run for that user.
+        """
+        from shenas_plugins.core.table import Table
+
+        Table.ensure_schema(con, all_tables=cls.all_tables, schema=schema)
+
+    @classmethod
+    def ensure_all_for_schema(cls, con: Any, schema: str) -> None:
+        """Create all installed datasets' metric tables in ``schema``."""
+        from app.api.sources import _load_datasets
+
+        for dataset_cls in _load_datasets():
+            dataset_cls.ensure_for_schema(con, schema)
+
+    @classmethod
     def metadata(cls) -> list[dict[str, Any]]:
         return [t.table_metadata() for t in cls.all_tables]

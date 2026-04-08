@@ -60,6 +60,10 @@ class SettingsPage extends LitElement {
     schemaPlugins: { type: Object },
     remoteUser: { type: Object },
     deviceName: { type: String, attribute: "device-name" },
+    multiuserEnabled: { type: Boolean },
+    localUser: { type: Object },
+    onSwitchUser: { type: Function },
+    onMultiuserToggle: { type: Function },
     _plugins: { state: true },
     _loading: { state: true },
     _actionMessage: { state: true },
@@ -279,6 +283,10 @@ class SettingsPage extends LitElement {
   declare schemaPlugins: Record<string, string[]>;
   declare remoteUser: Record<string, unknown> | null;
   declare deviceName: string;
+  declare multiuserEnabled: boolean;
+  declare localUser: { id: number; username: string } | null;
+  declare onSwitchUser: (() => void) | null;
+  declare onMultiuserToggle: ((enabled: boolean) => void) | null;
   declare _plugins: Record<string, PluginSummary[]>;
   declare _loading: boolean;
   declare _actionMessage: Message | null;
@@ -298,6 +306,10 @@ class SettingsPage extends LitElement {
     this.schemaPlugins = {};
     this.remoteUser = null;
     this.deviceName = "";
+    this.multiuserEnabled = false;
+    this.localUser = null;
+    this.onSwitchUser = null;
+    this.onMultiuserToggle = null;
     this._plugins = {};
     this._loading = true;
     this._actionMessage = null;
@@ -581,36 +593,77 @@ class SettingsPage extends LitElement {
     const user = this.remoteUser;
     const name = user ? (user.name as string) || (user.email as string) || "" : "";
     const email = user ? (user.email as string) || "" : "";
-    if (!user) {
-      return html`
-        <div class="profile">
-          <p>You are not signed in.</p>
-          <button @click=${() => (window.location.href = "/api/auth/login")}>Sign in</button>
-        </div>
-      `;
-    }
     return html`
       <div class="profile">
+        <!-- Multi-user section -->
         <div class="profile-row">
-          <span class="profile-label">Name</span>
-          <span class="profile-value">${name}</span>
+          <div>
+            <span class="profile-label">Multi-user mode</span>
+            <div style="font-size:0.8rem;color:var(--shenas-text-muted,#888);margin-top:2px">
+              Enable multiple local users on this device
+            </div>
+          </div>
+          <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">
+            <input
+              type="checkbox"
+              ?checked=${this.multiuserEnabled}
+              @change=${(e: Event) => this.onMultiuserToggle?.((e.target as HTMLInputElement).checked)}
+            />
+            ${this.multiuserEnabled ? "On" : "Off"}
+          </label>
         </div>
-        ${email && email !== name
-          ? html`<div class="profile-row">
-              <span class="profile-label">Email</span>
-              <span class="profile-value">${email}</span>
-            </div>`
+        ${this.multiuserEnabled && this.localUser
+          ? html`
+              <div class="profile-row">
+                <div>
+                  <span class="profile-label">Signed in as</span>
+                  <div class="profile-value" style="margin-top:2px">${this.localUser.username}</div>
+                </div>
+                <button class="btn btn-sm" @click=${() => this.onSwitchUser?.()}>Switch User</button>
+              </div>
+            `
           : ""}
+        ${this.multiuserEnabled && !this.localUser
+          ? html`
+              <div class="profile-row">
+                <span class="profile-label">No user selected</span>
+                <button class="btn btn-sm btn-primary" @click=${() => this.onSwitchUser?.()}>Select User</button>
+              </div>
+            `
+          : ""}
+
+        <!-- shenas.net account section -->
+        ${!user
+          ? html`
+              <div class="profile-row">
+                <span class="profile-label">shenas.net</span>
+                <button @click=${() => (window.location.href = "/api/auth/login")}>Sign in</button>
+              </div>
+            `
+          : html`
+              <div class="profile-row">
+                <span class="profile-label">Name</span>
+                <span class="profile-value">${name}</span>
+              </div>
+              ${email && email !== name
+                ? html`<div class="profile-row">
+                    <span class="profile-label">Email</span>
+                    <span class="profile-value">${email}</span>
+                  </div>`
+                : ""}
+              <div class="profile-actions">
+                <button @click=${() => openExternal("https://shenas.net/dashboard")}>Dashboard</button>
+                <button class="danger" @click=${() => (window.location.href = "/api/auth/logout")}>Logout</button>
+              </div>
+            `}
+
+        <!-- Device section -->
         <div class="profile-row">
           <span class="profile-label">Device</span>
           <span class="profile-value">
-            <span class="device-dot connected"></span>
+            <span class="device-dot ${user ? "connected" : ""}"></span>
             ${this.deviceName || "this device"}
           </span>
-        </div>
-        <div class="profile-actions">
-          <button @click=${() => openExternal("https://shenas.net/dashboard")}>Dashboard</button>
-          <button class="danger" @click=${() => (window.location.href = "/api/auth/logout")}>Logout</button>
         </div>
       </div>
     `;

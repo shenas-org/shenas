@@ -34,6 +34,26 @@ class SourceConfig(Table):
             cls._abstract = True
         super().__init_subclass__(**kwargs)
 
+    @classmethod
+    def _config_schema(cls, schema: str | None) -> str:
+        if schema is not None:
+            return schema
+        from app.user_context import user_schema
+
+        return user_schema("config")
+
+    @classmethod
+    def read_row(cls, *, schema: str | None = None) -> dict[str, Any] | None:
+        return super().read_row(schema=cls._config_schema(schema))
+
+    @classmethod
+    def write_row(cls, *, schema: str | None = None, **kwargs: Any) -> None:
+        super().write_row(schema=cls._config_schema(schema), **kwargs)
+
+    @classmethod
+    def clear_rows(cls, *, schema: str | None = None) -> None:
+        super().clear_rows(schema=cls._config_schema(schema))
+
     id: Annotated[int, Field(db_type="INTEGER", description="Config row identifier")] = 1
     sync_frequency: (
         Annotated[

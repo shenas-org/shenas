@@ -43,14 +43,27 @@ class Query:
     @strawberry.field
     def tables(self) -> list[TableEntry]:
         from app.db import cursor
+        from app.user_context import get_current_user_id
 
+        uid = get_current_user_id()
+        # In multi-user mode show only the current user's schemas.
+        # In single-user mode (uid=0) show all schemas (existing behaviour).
         with cursor() as cur:
-            rows = cur.execute(
-                "SELECT table_schema, table_name FROM information_schema.tables "
-                "WHERE table_schema NOT IN ('information_schema', 'main') "
-                "AND table_schema NOT LIKE '%\\_staging' ESCAPE '\\' "
-                "ORDER BY table_schema, table_name"
-            ).fetchall()
+            if uid:
+                rows = cur.execute(
+                    "SELECT table_schema, table_name FROM information_schema.tables "
+                    "WHERE (table_schema LIKE ? OR table_schema = 'shenas_system') "
+                    "AND table_schema NOT LIKE '%\\_staging' ESCAPE '\\' "
+                    "ORDER BY table_schema, table_name",
+                    [f"%_{uid}"],
+                ).fetchall()
+            else:
+                rows = cur.execute(
+                    "SELECT table_schema, table_name FROM information_schema.tables "
+                    "WHERE table_schema NOT IN ('information_schema', 'main') "
+                    "AND table_schema NOT LIKE '%\\_staging' ESCAPE '\\' "
+                    "ORDER BY table_schema, table_name"
+                ).fetchall()
         return [TableEntry(schema_name=r[0], table=r[1]) for r in rows]
 
     # -- Auth --
