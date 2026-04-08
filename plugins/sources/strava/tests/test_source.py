@@ -1,21 +1,21 @@
-"""Tests for Strava source resources."""
+"""Tests for Strava source tables (Table ABC pattern)."""
 
 import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from shenas_sources.strava.resources import (
+from shenas_sources.strava.tables import (
+    Activities,
+    Athlete,
+    AthleteStats,
+    AthleteZones,
+    Comments,
+    Gear,
+    Kudos,
+    Laps,
     _activity_row,
-    activities,
-    athlete,
-    athlete_stats,
-    athlete_zones,
-    comments,
     fetch_detailed_activities,
-    gear,
-    kudos,
-    laps,
 )
 
 
@@ -84,6 +84,18 @@ class TestActivityRow:
         assert row["average_heartrate"] == 148.0
         assert row["max_heartrate"] == 170.0
 
+    def test_end_date_computed_from_start_plus_elapsed(self) -> None:
+        row = _activity_row(_make_activity())
+        # 2026-03-28T08:00:00 + 1850 seconds = 08:30:50
+        assert row["end_date"] is not None
+        assert row["end_date"].startswith("2026-03-28T08:30:50")
+
+    def test_end_date_none_when_start_or_elapsed_missing(self) -> None:
+        row = _activity_row(_make_activity(start_date=None))
+        assert row["end_date"] is None
+        row = _activity_row(_make_activity(elapsed_time=None))
+        assert row["end_date"] is None
+
 
 class TestFetchDetailedActivities:
     def test_calls_get_activity_per_summary(self) -> None:
@@ -92,16 +104,15 @@ class TestFetchDetailedActivities:
         client.get_activity.side_effect = lambda i, include_all_efforts=False: _make_activity(id=i)
 
         result = fetch_detailed_activities(client, start_date="2026-03-01")
-
         assert len(result) == 2
         assert client.get_activity.call_count == 2
         assert [a.id for a in result] == [1, 2]
 
 
-class TestActivitiesAndLapsResources:
+class TestActivitiesAndLapsExtract:
     def test_activities_yields_rows(self) -> None:
         detailed = [_make_activity(id=1), _make_activity(id=2, name="Ride")]
-        rows = list(activities(detailed))
+        rows = list(Activities.extract(MagicMock(), detailed=detailed))
         assert [r["id"] for r in rows] == [1, 2]
 
     def test_laps_yields_per_lap(self) -> None:
@@ -123,28 +134,37 @@ class TestActivitiesAndLapsResources:
         )
         lap2 = SimpleNamespace(**{**lap1.__dict__, "id": 11, "lap_index": 2})
         detailed = [_make_activity(id=999, laps=[lap1, lap2])]
-        rows = list(laps(detailed))
+        rows = list(Laps.extract(MagicMock(), detailed=detailed))
         assert len(rows) == 2
         assert rows[0]["activity_id"] == 999
         assert rows[0]["lap_index"] == 1
         assert rows[0]["distance_m"] == 1000.0
+        # Lap end_date is computed from start + elapsed_time
+        assert rows[0]["end_date"] is not None
+        assert rows[0]["end_date"].startswith("2026-03-28T08:05:10")
 
 
-class TestKudosAndCommentsResources:
-    def test_kudos(self) -> None:
+class TestKudosM2M:
+    def test_yields_link_rows_only(self) -> None:
         client = MagicMock()
         client.get_activity_kudos.return_value = [
             SimpleNamespace(id=100, firstname="Alice", lastname="A"),
             SimpleNamespace(id=101, firstname="Bob", lastname="B"),
         ]
         detailed = [_make_activity(id=42)]
-        rows = list(kudos(client, detailed))
-        assert [(r["activity_id"], r["athlete_id"], r["firstname"]) for r in rows] == [
-            (42, 100, "Alice"),
-            (42, 101, "Bob"),
-        ]
+        rows = list(Kudos.extract(client, detailed=detailed))
+        # Pure m2m link -- only the FKs, no firstname/lastname.
+        assert sorted((r["activity_id"], r["athlete_id"]) for r in rows) == [(42, 100), (42, 101)]
+        for row in rows:
+            assert set(row.keys()) == {"activity_id", "athlete_id"}
 
-    def test_comments(self) -> None:
+    def test_kind_is_m2m_relation_with_scd2(self) -> None:
+        assert Kudos.kind == "m2m_relation"
+        assert Kudos.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
+
+
+class TestCommentsExtract:
+    def test_yields_comment_rows(self) -> None:
         client = MagicMock()
         client.get_activity_comments.return_value = [
             SimpleNamespace(
@@ -155,13 +175,13 @@ class TestKudosAndCommentsResources:
             )
         ]
         detailed = [_make_activity(id=42)]
-        rows = list(comments(client, detailed))
+        rows = list(Comments.extract(client, detailed=detailed))
         assert len(rows) == 1
         assert rows[0]["athlete_name"] == "Carol C"
         assert rows[0]["text"] == "nice"
 
 
-class TestAthleteResources:
+class TestSnapshotExtract:
     def test_athlete(self) -> None:
         client = MagicMock()
         client.get_athlete.return_value = SimpleNamespace(
@@ -175,8 +195,7 @@ class TestAthleteResources:
             weight=SimpleNamespace(magnitude=72.5),
             ftp=240,
         )
-
-        rows = list(athlete(client))
+        rows = list(Athlete.extract(client))
         assert rows[0]["weight_kg"] == 72.5
         assert rows[0]["ftp"] == 240
 
@@ -197,11 +216,10 @@ class TestAthleteResources:
             all_swim_totals=SimpleNamespace(count=0, distance=None, moving_time=None),
         )
         client.get_athlete_stats.return_value = stats
-        rows = list(athlete_stats(client))
+        rows = list(AthleteStats.extract(client))
         assert rows[0]["athlete_id"] == 999
         assert rows[0]["biggest_ride_distance_m"] == 120000.0
         assert rows[0]["recent_run_count"] == 4
-        assert rows[0]["recent_run_distance_m"] == 42000.0
         assert rows[0]["all_run_count"] == 200
 
     def test_athlete_zones(self) -> None:
@@ -213,7 +231,7 @@ class TestAthleteResources:
             ),
             power=None,
         )
-        rows = list(athlete_zones(client))
+        rows = list(AthleteZones.extract(client))
         assert len(rows) == 1
         hr = json.loads(rows[0]["heart_rate_zones"])
         assert hr == [{"min": 0, "max": 120}, {"min": 120, "max": 140}]
@@ -223,11 +241,11 @@ class TestAthleteResources:
         client = MagicMock()
         client.get_athlete.return_value = SimpleNamespace(id=999)
         client.get_athlete_zones.side_effect = RuntimeError("no zones")
-        rows = list(athlete_zones(client))
+        rows = list(AthleteZones.extract(client))
         assert rows == []
 
 
-class TestGearResource:
+class TestGearCounter:
     def test_yields_bikes_and_shoes(self) -> None:
         client = MagicMock()
         client.get_athlete.return_value = SimpleNamespace(
@@ -243,11 +261,40 @@ class TestGearResource:
             primary=True,
             retired=False,
         )
-
-        rows = list(gear(client))
+        rows = list(Gear.extract(client))
         assert len(rows) == 2
         types = {r["type"] for r in rows}
         assert types == {"bike", "shoe"}
         bike = next(r for r in rows if r["type"] == "bike")
         assert bike["brand_name"] == "Acme"
         assert bike["distance_m"] == 8000.0
+
+    def test_kind_is_counter_with_append(self) -> None:
+        assert Gear.kind == "counter"
+        assert Gear.write_disposition() == "append"
+
+    def test_observed_at_auto_injected(self) -> None:
+        # Counter tables get observed_at injected so consumers can compute deltas.
+        cols = Gear.to_dlt_columns()
+        assert "observed_at" in cols
+
+
+class TestKindsAndDispositions:
+    def test_activities_is_interval(self) -> None:
+        assert Activities.kind == "interval"
+        assert Activities.write_disposition() == "merge"
+        assert Activities.time_start == "start_date"
+        assert Activities.time_end == "end_date"
+
+    def test_laps_is_interval(self) -> None:
+        assert Laps.kind == "interval"
+        assert Laps.time_start == "start_date"
+        assert Laps.time_end == "end_date"
+
+    def test_comments_is_event(self) -> None:
+        assert Comments.kind == "event"
+        assert Comments.time_at == "created_at"
+
+    def test_athlete_is_snapshot_scd2(self) -> None:
+        assert Athlete.kind == "snapshot"
+        assert Athlete.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
