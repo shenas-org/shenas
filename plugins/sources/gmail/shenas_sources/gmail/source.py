@@ -108,6 +108,13 @@ class GmailSource(Source):
             logger.info("Sync complete: gmail (%d messages in %d pages)", total_msgs, page_num)
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.gmail.resources import labels, messages
+        from shenas_sources.gmail.resources import filters, labels, messages, profile, send_as, vacation
 
-        return [messages(client), labels(client)]
+        return [
+            messages(client),
+            labels(client),
+            profile(client),
+            filters(client),
+            vacation(client),
+            send_as(client),
+        ]
