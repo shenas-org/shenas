@@ -23,15 +23,78 @@ class Transaction:
 
     id: Annotated[int, Field(db_type="INTEGER", description="Transaction ID")]
     date: Annotated[str, Field(db_type="DATE", description="Transaction date")]
-    payee: Annotated[str | None, Field(db_type="VARCHAR", description="Payee name")] = None
+    payee: Annotated[str | None, Field(db_type="VARCHAR", description="Payee name (user-edited)")] = None
+    original_name: Annotated[str | None, Field(db_type="VARCHAR", description="Original payee from source")] = None
     amount: Annotated[float, Field(db_type="DOUBLE", description="Transaction amount")] = 0.0
     currency: Annotated[str | None, Field(db_type="VARCHAR", description="Currency code")] = None
+    to_base: Annotated[float | None, Field(db_type="DOUBLE", description="Amount in primary currency")] = None
+    category_id: Annotated[int | None, Field(db_type="INTEGER", description="Category ID")] = None
     category_name: Annotated[str | None, Field(db_type="VARCHAR", description="Category name")] = None
+    asset_id: Annotated[int | None, Field(db_type="INTEGER", description="Linked manual asset ID")] = None
+    plaid_account_id: Annotated[int | None, Field(db_type="INTEGER", description="Linked Plaid account ID")] = None
+    recurring_id: Annotated[int | None, Field(db_type="INTEGER", description="Linked recurring item ID")] = None
+    type: Annotated[str | None, Field(db_type="VARCHAR", description="Transaction type")] = None
+    parent_id: Annotated[int | None, Field(db_type="INTEGER", description="Parent transaction ID (for splits)")] = None
+    has_children: Annotated[bool, Field(db_type="BOOLEAN", description="Has split children")] = False
+    group_id: Annotated[int | None, Field(db_type="INTEGER", description="Transaction group ID (e.g. transfers)")] = None
+    is_group: Annotated[bool, Field(db_type="BOOLEAN", description="Is itself a group transaction")] = False
+    external_id: Annotated[str | None, Field(db_type="VARCHAR", description="External / Plaid ID")] = None
     is_income: Annotated[bool | None, Field(db_type="BOOLEAN", description="Whether this is income")] = None
+    is_pending: Annotated[bool, Field(db_type="BOOLEAN", description="Pending transaction")] = False
     status: Annotated[str | None, Field(db_type="VARCHAR", description="Transaction status")] = None
     notes: Annotated[str | None, Field(db_type="TEXT", description="Notes")] = None
     created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp")] = None
     updated_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Last updated timestamp")] = None
+
+
+@dataclass
+class TransactionTag:
+    """Link table joining a transaction to a tag."""
+
+    __table__: ClassVar[str] = "transaction_tags"
+    __pk__: ClassVar[tuple[str, ...]] = ("transaction_id", "tag_id")
+    __kind__: ClassVar[TableKind] = "event"
+
+    transaction_id: Annotated[int, Field(db_type="INTEGER", description="Transaction ID")]
+    tag_id: Annotated[int, Field(db_type="INTEGER", description="Tag ID")]
+    tag_name: Annotated[str | None, Field(db_type="VARCHAR", description="Tag name (denormalized)")] = None
+
+
+@dataclass
+class User:
+    """Lunch Money authenticated user / account info."""
+
+    __table__: ClassVar[str] = "user"
+    __pk__: ClassVar[tuple[str, ...]] = ("user_id",)
+    __kind__: ClassVar[TableKind] = "snapshot"
+
+    user_id: Annotated[int, Field(db_type="INTEGER", description="User ID")]
+    user_name: Annotated[str | None, Field(db_type="VARCHAR", description="User name")] = None
+    user_email: Annotated[str | None, Field(db_type="VARCHAR", description="User email")] = None
+    account_id: Annotated[int | None, Field(db_type="INTEGER", description="Account ID")] = None
+    budget_name: Annotated[str | None, Field(db_type="VARCHAR", description="Budget name")] = None
+    api_key_label: Annotated[str | None, Field(db_type="VARCHAR", description="API key label")] = None
+
+
+@dataclass
+class Crypto:
+    """Lunch Money crypto holding."""
+
+    __table__: ClassVar[str] = "crypto"
+    __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    __kind__: ClassVar[TableKind] = "snapshot"
+
+    id: Annotated[int, Field(db_type="INTEGER", description="Crypto holding ID")]
+    name: Annotated[str | None, Field(db_type="VARCHAR", description="Asset name")] = None
+    display_name: Annotated[str | None, Field(db_type="VARCHAR", description="Display name")] = None
+    currency: Annotated[str | None, Field(db_type="VARCHAR", description="Crypto symbol/currency")] = None
+    balance: Annotated[float | None, Field(db_type="DOUBLE", description="Current balance")] = None
+    balance_as_of: Annotated[str | None, Field(db_type="TIMESTAMP", description="Balance asof timestamp")] = None
+    institution_name: Annotated[str | None, Field(db_type="VARCHAR", description="Institution name")] = None
+    source: Annotated[str | None, Field(db_type="VARCHAR", description="Source: manual or synced")] = None
+    status: Annotated[str | None, Field(db_type="VARCHAR", description="Status")] = None
+    zabo_account_id: Annotated[str | None, Field(db_type="VARCHAR", description="Zabo account ID")] = None
+    created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp")] = None
 
 
 @dataclass
