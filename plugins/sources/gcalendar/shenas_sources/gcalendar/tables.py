@@ -14,7 +14,11 @@ class Event:
 
     __table__: ClassVar[str] = "events"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
-    __kind__: ClassVar[TableKind] = "event"
+    __kind__: ClassVar[TableKind] = "interval"
+    # Inert until this source migrates to the Table ABC -- the legacy
+    # @dlt.resource decorator in resources.py still drives the loader for now.
+    __time_start__: ClassVar[str] = "start_date"
+    __time_end__: ClassVar[str] = "end_date"
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Event ID")]
     calendar_id: Annotated[str | None, Field(db_type="VARCHAR", description="Calendar ID")] = None
