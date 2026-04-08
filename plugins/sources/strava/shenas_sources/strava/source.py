@@ -23,10 +23,8 @@ class StravaSource(Source):
     display_name = "Strava"
     primary_table = "activities"
     description = (
-        "Syncs activities and athlete profile from Strava.\n\n"
-        "Uses OAuth2 with a user-supplied API application. Create one at "
-        "https://www.strava.com/settings/api with Authorization Callback Domain "
-        "127.0.0.1, then enter the Client ID and Client Secret here."
+        "Syncs activities (with laps, kudos, comments), athlete profile, "
+        "athlete totals, heart rate / power zones, and gear from Strava."
     )
 
     @dataclass
