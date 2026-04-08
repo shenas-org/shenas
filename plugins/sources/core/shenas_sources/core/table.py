@@ -51,6 +51,25 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
+# Map DuckDB types (as produced by shenas_plugins.core.ddl._duckdb_type) to
+# dlt's type system. Used by Table.to_dlt_columns().
+_DLT_TYPE_MAP: dict[str, str] = {
+    "varchar": "text",
+    "text": "text",
+    "integer": "bigint",
+    "bigint": "bigint",
+    "double": "double",
+    "float": "double",
+    "real": "double",
+    "boolean": "bool",
+    "date": "date",
+    "timestamp": "timestamp",
+    "time": "time",
+    "json": "json",
+    "blob": "binary",
+}
+
+
 class Table:
     """Abstract base class for raw source tables.
 
@@ -126,17 +145,28 @@ class Table:
 
     @classmethod
     def to_dlt_columns(cls) -> dict[str, dict[str, Any]]:
-        """Build the dlt column schema from this Table's dataclass fields.
+        """Build the dlt column schema from this Table's dataclass fields."""
+        import dataclasses
+        from typing import get_type_hints
 
-        Currently delegates to ``shenas_datasets.core.dlt.dataclass_to_dlt_columns``
-        for compatibility with the legacy resources.py callsites in source plugins
-        that haven't yet migrated to the Table ABC. Once all sources migrate,
-        the helper has zero callers and a final cleanup PR can fold its body
-        inline here and delete it from ``datasets/core/dlt.py``.
-        """
-        from shenas_datasets.core.dlt import dataclass_to_dlt_columns
+        from shenas_plugins.core.ddl import _duckdb_type, _get_field_obj
 
-        columns = dataclass_to_dlt_columns(cls)
+        hints = get_type_hints(cls, include_extras=True)
+        columns: dict[str, dict[str, Any]] = {}
+        for f in dataclasses.fields(cls):
+            if f.name.startswith("_"):
+                continue
+            hint = hints[f.name]
+            db_type = _duckdb_type(hint).lower()
+            dlt_type = _DLT_TYPE_MAP.get(db_type, "text")
+            col: dict[str, Any] = {"name": f.name, "data_type": dlt_type}
+
+            meta = _get_field_obj(hint)
+            if meta and meta.description:
+                col["description"] = meta.description
+
+            columns[f.name] = col
+
         if cls._needs_observed_at():
             columns["observed_at"] = {
                 "name": "observed_at",
