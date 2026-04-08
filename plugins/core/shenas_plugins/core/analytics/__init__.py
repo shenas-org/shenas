@@ -30,10 +30,18 @@ from shenas_plugins.core.analytics.operations import (
     Rolling,
 )
 from shenas_plugins.core.analytics.recipe import OpCall, Recipe, RecipeError, SourceRef
+from shenas_plugins.core.analytics.runner import (
+    ErrorResult,
+    Result,
+    ScalarResult,
+    TableResult,
+    run_recipe,
+)
 
 __all__ = [
     "OPERATIONS",
     "Correlate",
+    "ErrorResult",
     "JoinAsOf",
     "Lag",
     "OpCall",
@@ -43,6 +51,10 @@ __all__ = [
     "RecipeError",
     "RecipeNode",
     "Resample",
+    "Result",
     "Rolling",
+    "ScalarResult",
     "SourceRef",
+    "TableResult",
+    "run_recipe",
 ]
