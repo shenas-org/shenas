@@ -1,97 +1,118 @@
+"""Garmin Connect pipe -- syncs health and fitness data."""
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import json
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Annotated, Any
 
-import dlt
-import pendulum
+from shenas_plugins.core.base_auth import SourceAuth
+from shenas_plugins.core.field import Field
+from shenas_sources.core.source import Source
 
-from shenas_datasets.core.dlt import dataclass_to_dlt_columns
-from shenas_sources.core.utils import date_range, is_empty_response
-from shenas_sources.garmin.tables import HRV, Activity, BodyComposition, DailyStat, Sleep, SpO2
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
-
-    from garminconnect import Garmin
+_pending_mfa: dict[str, Any] = {}
 
 
-@dlt.resource(write_disposition="merge", primary_key=list(Activity.__pk__), columns=dataclass_to_dlt_columns(Activity))
-def activities(
-    client: Garmin,
-    start_date: str,
-    updated_at: dlt.sources.incremental[str] = dlt.sources.incremental("startTimeLocal", initial_value=None),
-) -> Iterator[dict[str, Any]]:
-    effective_start = (updated_at.last_value or start_date)[:10]
-    end_date = pendulum.now().to_date_string()
-    rows = client.get_activities_by_date(effective_start, end_date) or []
-    for row in rows:
-        row["activity_id"] = str(row["activityId"])
-        yield row
+class GarminSource(Source):
+    name = "garmin"
+    display_name = "Garmin Connect"
+    primary_table = "daily_stats"
+    description = (
+        "Syncs health and fitness data from Garmin Connect.\n\n"
+        "Authenticates via email/password with MFA support. Tokens are stored "
+        "in the database."
+    )
 
+    @dataclass
+    class Auth(SourceAuth):
+        tokens: (
+            Annotated[
+                str | None,
+                Field(db_type="VARCHAR", description="JSON blob of garth token files", category="secret"),
+            ]
+            | None
+        ) = None
 
-@dlt.resource(write_disposition="merge", primary_key=list(DailyStat.__pk__), columns=dataclass_to_dlt_columns(DailyStat))
-def daily_stats(
-    client: Garmin,
-    start_date: str,
-    cursor: dlt.sources.incremental[str] = dlt.sources.incremental("calendarDate", initial_value=None),
-) -> Iterator[dict[str, Any]]:
-    for date in date_range(cursor.last_value or start_date):
-        data = client.get_user_summary(date)
-        if is_empty_response(data, sentinel_key="totalSteps"):
-            continue
-        yield data
+    auth_instructions = (
+        "Log in with your Garmin Connect email and password.\n"
+        "If your account has MFA enabled, you will be prompted for a code."
+    )
 
+    @property
+    def auth_fields(self) -> list[dict[str, str | bool]]:
+        return [
+            {"name": "email", "prompt": "Email", "hide": False},
+            {"name": "password", "prompt": "Password", "hide": True},
+        ]
 
-@dlt.resource(write_disposition="merge", primary_key=list(Sleep.__pk__), columns=dataclass_to_dlt_columns(Sleep))
-def sleep(
-    client: Garmin,
-    start_date: str,
-    cursor: dlt.sources.incremental[str] = dlt.sources.incremental("calendarDate", initial_value=None),
-) -> Iterator[dict[str, Any]]:
-    for date in date_range(cursor.last_value or start_date):
-        data = client.get_sleep_data(date)
-        if not data:
-            continue
-        data["calendarDate"] = date
-        yield data
+    def build_client(self) -> Any:
+        from garminconnect import Garmin
 
+        row = self._auth_store.get(self.Auth)
+        if row and row.get("tokens"):
+            tokens = json.loads(row["tokens"])
+            tmp = Path(tempfile.mkdtemp(prefix="garmin_tokens_"))
+            for name, content in tokens.items():
+                (tmp / name).write_text(content)
+            client = Garmin()
+            try:
+                client.login(str(tmp))
+                return client
+            except Exception:
+                pass
 
-@dlt.resource(write_disposition="merge", primary_key=list(HRV.__pk__), columns=dataclass_to_dlt_columns(HRV))
-def hrv(
-    client: Garmin,
-    start_date: str,
-    cursor: dlt.sources.incremental[str] = dlt.sources.incremental("calendarDate", initial_value=None),
-) -> Iterator[dict[str, Any]]:
-    for date in date_range(cursor.last_value or start_date):
-        data = client.get_hrv_data(date)
-        if not data:
-            continue
-        data["calendarDate"] = date
-        yield data
+        msg = "No valid tokens found. Configure authentication in the Auth tab."
+        raise RuntimeError(msg)
 
+    def _save_tokens_from_client(self, client: Any) -> None:
+        """Serialize garth tokens from client to the auth store."""
+        with tempfile.TemporaryDirectory(prefix="garmin_tokens_") as tmp:
+            client.client.dump(tmp)
+            tokens: dict[str, str] = {}
+            for f in Path(tmp).iterdir():
+                if f.suffix == ".json":
+                    tokens[f.name] = f.read_text()
+            self._auth_store.set(self.Auth, tokens=json.dumps(tokens))
 
-@dlt.resource(write_disposition="merge", primary_key=list(SpO2.__pk__), columns=dataclass_to_dlt_columns(SpO2))
-def spo2(
-    client: Garmin,
-    start_date: str,
-    cursor: dlt.sources.incremental[str] = dlt.sources.incremental("calendarDate", initial_value=None),
-) -> Iterator[dict[str, Any]]:
-    for date in date_range(cursor.last_value or start_date):
-        data = client.get_spo2_data(date)
-        if is_empty_response(data):
-            continue
-        yield data
+    def authenticate(self, credentials: dict[str, str]) -> None:
+        from garminconnect import Garmin
 
+        email = credentials.get("email")
+        password = credentials.get("password")
 
-@dlt.resource(
-    write_disposition="merge", primary_key=list(BodyComposition.__pk__), columns=dataclass_to_dlt_columns(BodyComposition)
-)
-def body_composition(client: Garmin, start_date: str) -> Iterator[dict[str, Any]]:
-    end_date = pendulum.now().to_date_string()
-    data = client.get_body_composition(start_date, end_date)
-    if not data:
-        return
-    entries = data.get("dateWeightList") or data.get("totalAverage") or []
-    if isinstance(entries, dict):
-        entries = [entries]
-    yield from entries
+        if not email or not password:
+            msg = "email and password are required"
+            raise ValueError(msg)
+
+        client = Garmin(email=email, password=password, return_on_mfa=True)
+        result1, result2 = client.login()
+
+        if result1 == "needs_mfa":
+            _pending_mfa["garmin"] = {"client": client, "mfa_state": result2}
+            msg = "MFA code required"
+            raise ValueError(msg)
+
+        self._save_tokens_from_client(client)
+
+    def get_pending_mfa_state(self) -> dict[str, Any] | None:
+        return _pending_mfa.pop("garmin", None)
+
+    def complete_mfa(self, state: dict[str, Any], mfa_code: str) -> None:
+        client = state["client"]
+        mfa_state = state["mfa_state"]
+        client.resume_login(mfa_state, mfa_code)
+        self._save_tokens_from_client(client)
+
+    def resources(self, client: Any) -> list[Any]:
+        from shenas_sources.garmin.resources import activities, body_composition, daily_stats, hrv, sleep, spo2
+
+        return [
+            activities(client, "30 days ago"),
+            daily_stats(client, "30 days ago"),
+            sleep(client, "30 days ago"),
+            hrv(client, "30 days ago"),
+            spo2(client, "30 days ago"),
+            body_composition(client, "30 days ago"),
+        ]

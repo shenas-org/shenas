@@ -16,7 +16,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project.entry-points."shenas.sources"]
-lunchmoney = "shenas_sources.lunchmoney.pipe:LunchMoneySource"
+lunchmoney = "shenas_sources.lunchmoney.source:LunchMoneySource"
 
 [tool.hatch.version]
 source = "vcs"

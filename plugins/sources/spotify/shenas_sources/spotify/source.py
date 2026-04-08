@@ -1,136 +1,245 @@
-"""Spotify dlt resources -- recently played, top tracks/artists, saved tracks."""
+"""Spotify pipe -- syncs listening data via OAuth2 PKCE."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import json
+import threading
+from dataclasses import dataclass
+from typing import Annotated, Any
 
-import dlt
+from spotipy.cache_handler import CacheHandler
 
-from shenas_datasets.core.dlt import dataclass_to_dlt_columns
-from shenas_sources.spotify.tables import RecentlyPlayed, SavedTrack, TopArtist, TopTrack
+from shenas_plugins.core.base_auth import SourceAuth
+from shenas_plugins.core.base_config import SourceConfig
+from shenas_plugins.core.field import Field
+from shenas_sources.core.source import Source
 
-if TYPE_CHECKING:
-    from collections.abc import Iterator
+REDIRECT_URI = "http://127.0.0.1:8090/callback"
+SCOPES = "user-read-recently-played user-top-read user-library-read"
 
-    import spotipy
-
-
-def _artists_str(artists: list[dict[str, Any]]) -> str:
-    """Join artist names from a track's artists array."""
-    return ", ".join(a.get("name", "") for a in artists if a.get("name"))
+_pending_auth: dict[str, Any] = {}
 
 
-@dlt.resource(
-    write_disposition="merge",
-    primary_key=list(RecentlyPlayed.__pk__),
-    columns=dataclass_to_dlt_columns(RecentlyPlayed),
-)
-def recently_played(
-    client: spotipy.Spotify,
-    cursor: dlt.sources.incremental[str] = dlt.sources.incremental("played_at", initial_value=None),
-) -> Iterator[dict[str, Any]]:
-    """Yield recently played tracks (up to 50 per call).
+class _MemoryCacheHandler(CacheHandler):
+    def __init__(self) -> None:
+        self.token_info: dict[str, Any] | None = None
 
-    Uses the 'after' cursor to only fetch tracks since last sync.
-    Poll this frequently (~1-2 hours) to build a complete history.
-    """
-    params: dict[str, Any] = {"limit": 50}
-    if cursor.last_value:
-        from datetime import datetime
+    def get_cached_token(self) -> dict[str, Any] | None:
+        return self.token_info
 
-        dt = datetime.fromisoformat(cursor.last_value)
-        after_ms = int(dt.timestamp() * 1000)
-        params["after"] = after_ms
+    def save_token_to_cache(self, token_info: dict[str, Any]) -> None:
+        self.token_info = token_info
 
-    result = client.current_user_recently_played(**params)
-    for item in result.get("items", []):
-        track = item.get("track", {})
-        album = track.get("album", {})
-        yield {
-            "played_at": item.get("played_at", ""),
-            "track_id": track.get("id", ""),
-            "track_name": track.get("name", ""),
-            "artists": _artists_str(track.get("artists", [])),
-            "album_name": album.get("name", ""),
-            "album_release_date": album.get("release_date", ""),
-            "duration_ms": track.get("duration_ms", 0),
-            "explicit": track.get("explicit", False),
-            "popularity": track.get("popularity", 0),
-            "track_uri": track.get("uri", ""),
+
+class SpotifySource(Source):
+    name = "spotify"
+    display_name = "Spotify"
+    primary_table = "recently_played"
+    description = (
+        "Syncs listening data from Spotify.\n\n"
+        "Uses OAuth2 PKCE flow (no client secret needed). Create an app at "
+        "developer.spotify.com/dashboard with redirect URI http://127.0.0.1:8090/callback.\n\n"
+        "Poll frequently (~1-2 hours) to build complete listening history."
+    )
+
+    @dataclass
+    class Auth(SourceAuth):
+        tokens: (
+            Annotated[
+                str | None,
+                Field(
+                    db_type="VARCHAR",
+                    description="JSON blob of OAuth2 tokens (access, refresh, client_id)",
+                    category="secret",
+                ),
+            ]
+            | None
+        ) = None
+
+    @dataclass
+    class Config(SourceConfig):
+        time_range: Annotated[
+            str,
+            Field(
+                db_type="VARCHAR",
+                description="Time range for top tracks/artists: short_term, medium_term, long_term",
+                default="medium_term",
+                ui_widget="text",
+                example_value="medium_term",
+            ),
+        ] = "medium_term"
+
+    auth_instructions = (
+        "Spotify requires an API application for OAuth2 access.\n"
+        "\n"
+        "  1. Go to https://developer.spotify.com/dashboard\n"
+        "  2. Create an app (select 'Web API')\n"
+        "  3. Add Redirect URI: http://127.0.0.1:8090/callback\n"
+        "  4. Enter the Client ID below"
+    )
+
+    @property
+    def auth_fields(self) -> list[dict[str, str | bool]]:
+        return [
+            {"name": "client_id", "prompt": "Client ID", "hide": False},
+        ]
+
+    def build_client(self) -> Any:
+        import spotipy
+        from spotipy.oauth2 import SpotifyPKCE
+
+        row = self._auth_store.get(self.Auth)
+        if not row or not row.get("tokens"):
+            msg = "No Spotify tokens found. Configure authentication in the Auth tab."
+            raise RuntimeError(msg)
+
+        tokens = json.loads(row["tokens"])
+        if "access_token" not in tokens:
+            msg = "No Spotify tokens found. Configure authentication in the Auth tab."
+            raise RuntimeError(msg)
+
+        cache = _MemoryCacheHandler()
+        cache.token_info = {
+            "access_token": tokens["access_token"],
+            "refresh_token": tokens["refresh_token"],
+            "expires_at": tokens["expires_at"],
+            "token_type": "Bearer",
+            "scope": SCOPES,
         }
 
+        pkce = SpotifyPKCE(
+            client_id=tokens["client_id"],
+            redirect_uri=REDIRECT_URI,
+            scope=SCOPES,
+            cache_handler=cache,
+        )
 
-@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(TopTrack))
-def top_tracks(client: spotipy.Spotify, time_range: str = "medium_term") -> Iterator[dict[str, Any]]:
-    """Yield the user's top tracks for a time range."""
-    offset = 0
-    while True:
-        result = client.current_user_top_tracks(limit=50, offset=offset, time_range=time_range)
-        items = result.get("items", [])
-        if not items:
-            break
-        for i, track in enumerate(items):
-            album = track.get("album", {})
-            yield {
-                "rank": offset + i + 1,
-                "time_range": time_range,
-                "track_id": track.get("id", ""),
-                "track_name": track.get("name", ""),
-                "artists": _artists_str(track.get("artists", [])),
-                "album_name": album.get("name", ""),
-                "popularity": track.get("popularity", 0),
-                "duration_ms": track.get("duration_ms", 0),
-            }
-        if len(items) < 50:
-            break
-        offset += 50
+        pkce.get_access_token(check_cache=True)
+        token_info = cache.token_info
+        if not token_info:
+            msg = "Token refresh failed"
+            raise RuntimeError(msg)
 
+        if token_info["access_token"] != tokens["access_token"]:
+            self._auth_store.set(
+                self.Auth,
+                tokens=json.dumps(
+                    {
+                        **tokens,
+                        "access_token": token_info["access_token"],
+                        "refresh_token": token_info.get("refresh_token", tokens["refresh_token"]),
+                        "expires_at": token_info["expires_at"],
+                    }
+                ),
+            )
 
-@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(TopArtist))
-def top_artists(client: spotipy.Spotify, time_range: str = "medium_term") -> Iterator[dict[str, Any]]:
-    """Yield the user's top artists for a time range."""
-    offset = 0
-    while True:
-        result = client.current_user_top_artists(limit=50, offset=offset, time_range=time_range)
-        items = result.get("items", [])
-        if not items:
-            break
-        for i, artist in enumerate(items):
-            yield {
-                "rank": offset + i + 1,
-                "time_range": time_range,
-                "artist_id": artist.get("id", ""),
-                "artist_name": artist.get("name", ""),
-                "genres": ", ".join(artist.get("genres", [])),
-                "popularity": artist.get("popularity", 0),
-                "followers": artist.get("followers", {}).get("total", 0),
-            }
-        if len(items) < 50:
-            break
-        offset += 50
+        return spotipy.Spotify(auth=token_info["access_token"])
 
+    def authenticate(self, credentials: dict[str, str]) -> None:
 
-@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(SavedTrack))
-def saved_tracks(client: spotipy.Spotify) -> Iterator[dict[str, Any]]:
-    """Yield the user's saved/liked tracks."""
-    offset = 0
-    while True:
-        result = client.current_user_saved_tracks(limit=50, offset=offset)
-        items = result.get("items", [])
-        if not items:
-            break
-        for item in items:
-            track = item.get("track", {})
-            album = track.get("album", {})
-            yield {
-                "added_at": item.get("added_at", ""),
-                "track_id": track.get("id", ""),
-                "track_name": track.get("name", ""),
-                "artists": _artists_str(track.get("artists", [])),
-                "album_name": album.get("name", ""),
-                "duration_ms": track.get("duration_ms", 0),
-                "popularity": track.get("popularity", 0),
-            }
-        if len(items) < 50:
-            break
-        offset += 50
+        if credentials.get("auth_complete") == "true":
+            state = _pending_auth.pop("spotify", None)
+            if state is None:
+                msg = "No pending auth flow. Start auth again."
+                raise ValueError(msg)
+            thread = state["thread"]
+            thread.join(timeout=120)
+            if state.get("error"):
+                raise RuntimeError(state["error"])
+            return
+
+        client_id = (credentials.get("client_id") or "").strip()
+        if not client_id:
+            msg = "client_id is required"
+            raise ValueError(msg)
+
+        from spotipy.oauth2 import SpotifyPKCE
+
+        cache = _MemoryCacheHandler()
+        pkce = SpotifyPKCE(
+            client_id=client_id,
+            redirect_uri=REDIRECT_URI,
+            scope=SCOPES,
+            open_browser=False,
+            cache_handler=cache,
+        )
+
+        auth_url = pkce.get_authorize_url()
+        state: dict[str, Any] = {}
+        auth_store = self._auth_store
+        auth_cls = self.Auth
+
+        def _run_flow() -> None:
+            from http.server import BaseHTTPRequestHandler, HTTPServer
+            from urllib.parse import parse_qs, urlparse
+
+            code_result: dict[str, str] = {}
+
+            class Handler(BaseHTTPRequestHandler):
+                def do_GET(self) -> None:
+                    qs = parse_qs(urlparse(self.path).query)
+                    if "code" in qs:
+                        code_result["code"] = qs["code"][0]
+                        self.send_response(200)
+                        self.send_header("Content-Type", "text/html")
+                        self.end_headers()
+                        self.wfile.write(b"<html><body><h2>Authorization complete. You can close this tab.</h2></body></html>")
+                    else:
+                        code_result["error"] = qs.get("error", ["unknown"])[0]
+                        self.send_response(400)
+                        self.end_headers()
+
+                def log_message(self, fmt: str, *args: Any) -> None:
+                    pass
+
+            try:
+                server = HTTPServer(("localhost", 8090), Handler)
+                server.timeout = 120
+                server.handle_request()
+                server.server_close()
+
+                if "error" in code_result:
+                    state["error"] = f"Authorization denied: {code_result['error']}"
+                    return
+                if "code" not in code_result:
+                    state["error"] = "Authorization timed out"
+                    return
+
+                pkce.get_access_token(code_result["code"], check_cache=False)
+                token_info = cache.token_info
+                if not token_info:
+                    state["error"] = "Token exchange failed -- no token received"
+                    return
+                auth_store.set(
+                    auth_cls,
+                    tokens=json.dumps(
+                        {
+                            "access_token": token_info["access_token"],
+                            "refresh_token": token_info["refresh_token"],
+                            "expires_at": token_info["expires_at"],
+                            "client_id": client_id,
+                        }
+                    ),
+                )
+            except Exception as exc:
+                state["error"] = str(exc)
+
+        thread = threading.Thread(target=_run_flow, daemon=True)
+        thread.start()
+        state["thread"] = thread
+        _pending_auth["spotify"] = state
+
+        raise ValueError(f"OAUTH_URL:{auth_url}")
+
+    def resources(self, client: Any) -> list[Any]:
+        from shenas_sources.spotify.resources import recently_played, saved_tracks, top_artists, top_tracks
+
+        row = self._config_store.get(self.Config)
+        time_range = (row.get("time_range") if row else None) or "medium_term"
+
+        return [
+            recently_played(client),
+            top_tracks(client, time_range=time_range),
+            top_artists(client, time_range=time_range),
+            saved_tracks(client),
+        ]

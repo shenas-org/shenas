@@ -1,4 +1,4 @@
-from shenas_sources.gmail.source import _get_header
+from shenas_sources.gmail.resources import _get_header
 
 
 class TestGetHeader:

@@ -1,126 +1,113 @@
-"""Gmail dlt resources -- messages, labels, threads."""
+"""Gmail pipe -- syncs email metadata via Google OAuth2."""
 
 from __future__ import annotations
 
 import logging
-import time
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
+from typing import Annotated, Any
 
-import dlt
-
-from shenas_datasets.core.dlt import dataclass_to_dlt_columns
-from shenas_sources.gmail.tables import Label, Message
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
+from shenas_plugins.core.base_auth import SourceAuth
+from shenas_plugins.core.field import Field
+from shenas_sources.core.source import Source
 
 logger = logging.getLogger(__name__)
 
 
-def _get_header(headers: list[dict[str, str]], name: str) -> str:
-    """Extract a header value from Gmail message payload headers."""
-    for h in headers:
-        if h.get("name", "").lower() == name.lower():
-            return h.get("value", "")
-    return ""
+class GmailSource(Source):
+    name = "gmail"
+    display_name = "Gmail"
+    primary_table = "messages"
+    description = (
+        "Syncs email metadata from Gmail.\n\n"
+        "Uses Google OAuth2 with shared credentials from shenas-source-core. "
+        "Authorization URL is passed back to the CLI for browser-based consent."
+    )
 
+    @dataclass
+    class Auth(SourceAuth):
+        token: (
+            Annotated[
+                str | None,
+                Field(db_type="VARCHAR", description="Google OAuth2 credentials (JSON)", category="secret"),
+            ]
+            | None
+        ) = None
 
-def _parse_message(msg: dict[str, Any]) -> dict[str, Any]:
-    headers = msg.get("payload", {}).get("headers", [])
-    msg_labels = msg.get("labelIds", [])
-    return {
-        "id": msg["id"],
-        "thread_id": msg.get("threadId"),
-        "internal_date": int(msg.get("internalDate", 0)),
-        "date": _get_header(headers, "Date"),
-        "from_address": _get_header(headers, "From"),
-        "to_address": _get_header(headers, "To"),
-        "subject": _get_header(headers, "Subject"),
-        "snippet": msg.get("snippet", ""),
-        "labels": ", ".join(msg_labels),
-        "size_estimate": msg.get("sizeEstimate", 0),
-    }
+    @property
+    def auth_fields(self) -> list:  # No user input -- browser OAuth
+        return []
 
+    auth_instructions = "Click Authenticate to sign in with your Google account."
 
-def _api_call_with_retry(fn: Any, max_retries: int = 5) -> Any:
-    """Execute a Google API call with exponential backoff on quota errors."""
-    for attempt in range(max_retries + 1):
-        try:
-            return fn()
-        except Exception as exc:
-            exc_str = repr(exc)
-            is_rate_limit = any(
-                s in exc_str for s in ("rateLimitExceeded", "Quota exceeded", "HttpError 429", "HttpError 403")
-            )
-            if is_rate_limit:
-                if attempt == max_retries:
-                    raise
-                wait = 15 * (attempt + 1)
-                logger.warning("Rate limited, waiting %ds before retry (%d/%d)...", wait, attempt + 1, max_retries)
-                time.sleep(wait)
-            else:
-                raise
-    return None
+    def _google_auth(self) -> Any:
+        from shenas_sources.core.google_auth import GoogleAuth
 
+        return GoogleAuth(
+            "gmail",
+            ["https://www.googleapis.com/auth/gmail.readonly"],
+            "gmail",
+            "v1",
+            auth_cls=self.Auth,
+        )
 
-def _batch_get_messages(service: Any, msg_ids: list[str]) -> list[dict[str, Any]]:
-    """Fetch multiple messages in a single batch request."""
-    results: list[dict[str, Any]] = []
+    def build_client(self) -> Any:
+        return self._google_auth().build_client()
 
-    def _callback(_request_id: str, response: Any, exception: Any) -> None:
-        if exception is None:
-            results.append(response)
+    def authenticate(self, credentials: dict[str, str]) -> None:
+        self._google_auth().authenticate(credentials)
 
-    batch = service.new_batch_http_request(callback=_callback)
-    for msg_id in msg_ids:
-        batch.add(service.users().messages().get(userId="me", id=msg_id, format="metadata"))
-    _api_call_with_retry(batch.execute)
-    return results
+    def sync(self, *, full_refresh: bool = False, **_kwargs: Any) -> None:
+        """Custom sync: page-by-page flush for large mailboxes."""
+        import dlt
+        from opentelemetry import trace
 
+        from shenas_sources.core.cli import print_load_info
+        from shenas_sources.core.db import DB_PATH, dlt_destination, flush_to_encrypted
+        from shenas_sources.gmail.resources import labels, message_pages
 
-BATCH_SIZE = 25
-PAGE_DELAY = 3
+        tracer = trace.get_tracer("shenas.sources")
+        service = self.build_client()
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+        logger.info("Sync started: gmail (dataset=gmail, full_refresh=%s)", full_refresh)
 
-def message_pages(service: Any, query: str = "") -> Iterator[list[dict[str, Any]]]:
-    """Yield pages of parsed Gmail messages. Each page is a list of dicts."""
-    page_token: str | None = None
-    page_num = 0
-    while True:
-        params: dict[str, Any] = {"userId": "me", "maxResults": 25}
-        if query:
-            params["q"] = query
-        if page_token:
-            params["pageToken"] = page_token
+        with tracer.start_as_current_span("pipe.sync", attributes={"pipe.name": "gmail"}):
+            page_num = 0
+            total_msgs = 0
 
-        result = _api_call_with_retry(lambda p=params: service.users().messages().list(**p).execute())
-        msg_ids = [m["id"] for m in result.get("messages", [])]
-        page_num += 1
+            for page in message_pages(service):
+                page_num += 1
 
-        if msg_ids:
-            raw = _batch_get_messages(service, msg_ids)
-            page = [_parse_message(m) for m in raw]
-            logger.info("Gmail page %d: %d messages fetched", page_num, len(page))
-            yield page
+                with tracer.start_as_current_span("pipe.fetch", attributes={"resource": "messages", "page": page_num}):
+                    dest, mem_con = dlt_destination()
+                    pipeline = dlt.pipeline(pipeline_name="gmail", destination=dest, dataset_name="gmail")
 
-        page_token = result.get("nextPageToken")
-        if not page_token:
-            break
-        time.sleep(PAGE_DELAY)
+                    @dlt.resource(name="messages", write_disposition="merge", primary_key="id")
+                    def _page_data(_data: tuple[dict[str, Any], ...] = tuple(page)) -> Any:
+                        yield from _data
 
+                    ref = "drop_sources" if full_refresh and page_num == 1 else None
+                    load_info = pipeline.run(_page_data(), refresh=ref)
+                    print_load_info(load_info)
 
-@dlt.resource(write_disposition="merge", primary_key=list(Message.__pk__), columns=dataclass_to_dlt_columns(Message))
-def messages(
-    service: Any,
-    query: str = "",
-    _cursor: dlt.sources.incremental[int] = dlt.sources.incremental("internal_date", initial_value=None),
-) -> Iterator[list[dict[str, Any]]]:
-    """Yield Gmail messages in batches for single-resource usage."""
-    yield from message_pages(service, query)
+                with tracer.start_as_current_span("pipe.flush", attributes={"resource": "messages", "page": page_num}):
+                    flush_to_encrypted(mem_con, "gmail")
+                    total_msgs += len(page)
+                    logger.info("Flushed page %d (%d messages, %d total)", page_num, len(page), total_msgs)
 
+            # Sync labels (small, single pass)
+            with tracer.start_as_current_span("pipe.fetch", attributes={"resource": "labels"}):
+                dest, mem_con = dlt_destination()
+                pipeline = dlt.pipeline(pipeline_name="gmail", destination=dest, dataset_name="gmail")
+                load_info = pipeline.run(labels(service))
+                print_load_info(load_info)
 
-@dlt.resource(write_disposition="replace", columns=dataclass_to_dlt_columns(Label))
-def labels(service: Any) -> Iterator[dict[str, Any]]:
-    """Yield all Gmail labels."""
-    result = service.users().labels().list(userId="me").execute()
-    yield from result.get("labels", [])
+            with tracer.start_as_current_span("pipe.flush", attributes={"resource": "labels"}):
+                flush_to_encrypted(mem_con, "gmail")
+
+            logger.info("Sync complete: gmail (%d messages in %d pages)", total_msgs, page_num)
+
+    def resources(self, client: Any) -> list[Any]:
+        from shenas_sources.gmail.resources import labels, messages
+
+        return [messages(client), labels(client)]

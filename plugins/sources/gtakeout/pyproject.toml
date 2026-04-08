@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.entry-points."shenas.sources"]
-gtakeout = "shenas_sources.gtakeout.pipe:GTakeoutSource"
+gtakeout = "shenas_sources.gtakeout.source:GTakeoutSource"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]

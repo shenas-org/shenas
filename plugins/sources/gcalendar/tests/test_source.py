@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from shenas_sources.gcalendar.source import _fetch_events, all_events, calendars
+from shenas_sources.gcalendar.resources import _fetch_events, all_events, calendars
 
 
 class TestFetchEvents:

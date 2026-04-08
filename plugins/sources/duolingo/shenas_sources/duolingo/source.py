@@ -1,73 +1,64 @@
-"""Duolingo dlt resources -- daily XP, courses, streak."""
+"""Duolingo pipe -- syncs daily XP, course progress, and profile data."""
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
+from typing import Annotated, Any
 
-import dlt
-
-from shenas_datasets.core.dlt import dataclass_to_dlt_columns
-from shenas_sources.duolingo.tables import Course, DailyXP, UserProfile
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
-
-    from shenas_sources.duolingo.client import DuolingoClient
+from shenas_plugins.core.base_auth import SourceAuth
+from shenas_plugins.core.field import Field
+from shenas_sources.core.source import Source
 
 
-def _epoch_to_date(epoch: int) -> date:
-    """Convert epoch seconds to a date object."""
-    return datetime.fromtimestamp(epoch, tz=UTC).date()
+class DuolingoSource(Source):
+    name = "duolingo"
+    display_name = "Duolingo"
+    primary_table = "daily_xp"
+    description = (
+        "Syncs daily XP, course progress, and profile data from Duolingo.\n\n"
+        "Duolingo has no official API. This pipe uses the unofficial REST API "
+        "with a JWT token extracted from your browser session."
+    )
 
+    @dataclass
+    class Auth(SourceAuth):
+        jwt_token: (
+            Annotated[str | None, Field(db_type="VARCHAR", description="Browser JWT token", category="secret")] | None
+        ) = None
 
-@dlt.resource(
-    write_disposition="merge",
-    primary_key=list(DailyXP.__pk__),
-    columns=dataclass_to_dlt_columns(DailyXP),
-)
-def daily_xp(
-    client: DuolingoClient,
-    start_date: str,
-    cursor: dlt.sources.incremental[date] = dlt.sources.incremental("date", initial_value=None),
-) -> Iterator[dict[str, Any]]:
-    """Yield daily XP summaries."""
-    effective_start = str(cursor.last_value or start_date)[:10]
-    for summary in client.get_xp_summaries(effective_start):
-        raw_date = summary.get("date")
-        if raw_date is None:
-            continue
-        d = _epoch_to_date(raw_date) if isinstance(raw_date, int) else date.fromisoformat(str(raw_date)[:10])
-        yield {
-            "date": d,
-            "xp_gained": summary.get("gainedXp") or 0,
-            "num_sessions": summary.get("numSessions") or 0,
-            "total_session_time_sec": summary.get("totalSessionTime") or 0,
-        }
+    auth_instructions = (
+        "Duolingo blocks programmatic login. Extract a JWT from your browser:\n"
+        "\n"
+        "  1. Log into duolingo.com\n"
+        "  2. Open DevTools (F12) > Console\n"
+        "  3. Run:  document.cookie.match(/jwt_token=([^;]+)/)[1]\n"
+        "  4. Paste the token below"
+    )
 
+    def build_client(self) -> Any:
+        from shenas_sources.duolingo.client import DuolingoClient
 
-@dlt.resource(
-    write_disposition="replace",
-    columns=dataclass_to_dlt_columns(Course),
-)
-def courses(client: DuolingoClient) -> Iterator[dict[str, Any]]:
-    """Yield the user's active language courses."""
-    yield from client.get_courses()
+        row = self._auth_store.get(self.Auth)
+        if not row or not row.get("jwt_token"):
+            msg = "No JWT token found. Configure authentication in the Auth tab."
+            raise RuntimeError(msg)
+        return DuolingoClient(row["jwt_token"])
 
+    def authenticate(self, credentials: dict[str, str]) -> None:
+        from shenas_sources.duolingo.client import DuolingoClient
 
-@dlt.resource(
-    write_disposition="replace",
-    columns=dataclass_to_dlt_columns(UserProfile),
-)
-def user_profile(client: DuolingoClient) -> Iterator[dict[str, Any]]:
-    """Yield the user's profile and streak info."""
-    data = client.get_user()
-    yield {
-        "username": data.get("username", ""),
-        "name": data.get("name", ""),
-        "streak": data.get("streak", 0),
-        "total_xp": data.get("totalXp", 0),
-        "created_at": data.get("creationDate"),
-        "current_course": data.get("learningLanguage", ""),
-        "from_language": data.get("fromLanguage", ""),
-    }
+        jwt = (credentials.get("jwt_token") or "").strip()
+        if not jwt:
+            msg = "jwt_token is required"
+            raise ValueError(msg)
+        client = DuolingoClient(jwt)
+        try:
+            client.get_user()
+        finally:
+            client.close()
+        self._auth_store.set(self.Auth, jwt_token=jwt)
+
+    def resources(self, client: Any) -> list[Any]:
+        from shenas_sources.duolingo.resources import courses, daily_xp, user_profile
+
+        return [daily_xp(client, "30 days ago"), courses(client), user_profile(client)]
