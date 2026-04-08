@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import strawberry
 from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawberry
 
@@ -391,14 +393,17 @@ class Mutation:
     # -- LLM-driven hypothesis --
 
     @strawberry.mutation
-    def ask_hypothesis(self, question: str) -> JSON:
+    def ask_hypothesis(self, question: str) -> JSON:  # noqa: PLR0915 -- linear narrative is clearer than splitting
         """End-to-end: create a hypothesis, ask the LLM for a recipe, run it, persist.
 
         The LLM provider is constructed from environment / settings; the
         default is :class:`AnthropicProvider` which reads
         ``ANTHROPIC_API_KEY``. Returns the hypothesis id, the LLM's plan,
-        the recipe payload, and the run result.
+        the recipe payload, the run result, and a per-turn cost block
+        (input/output tokens, llm/query/wall_clock elapsed ms).
         """
+        import time
+
         from app.db import analytics_backend
         from app.graphql.llm_provider import get_llm_provider
         from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
@@ -412,6 +417,7 @@ class Mutation:
         )
 
         provider = get_llm_provider()
+        wall_start = time.monotonic()
 
         # Step 1: create empty hypothesis row so we can persist failures.
         empty = Recipe(nodes={}, final="")
@@ -432,6 +438,7 @@ class Mutation:
             Recipe(nodes=tmp_nodes, final=p.get("final", "")).validate()
 
         catalog = _build_catalog()
+        llm_start = time.monotonic()
         try:
             payload, retry_errors = ask_for_recipe_with_retry(
                 provider,
@@ -444,6 +451,7 @@ class Mutation:
                 msg = f"validation failed after retries: {retry_errors[-1]}"
                 raise RuntimeError(msg)  # noqa: TRY301 -- inner func indirection isn't worth it here
         except Exception as exc:
+            llm_elapsed_ms = (time.monotonic() - llm_start) * 1000.0
             err = {
                 "type": "error",
                 "message": f"LLM call failed: {exc}",
@@ -451,9 +459,14 @@ class Mutation:
                 "elapsed_ms": 0.0,
                 "sql": "",
             }
-            h.result_json = __import__("json").dumps(err)
+            h.result_json = json.dumps(err)
+            h.llm_input_tokens = getattr(provider, "last_input_tokens", 0)
+            h.llm_output_tokens = getattr(provider, "last_output_tokens", 0)
+            h.llm_elapsed_ms = llm_elapsed_ms
+            h.wall_clock_ms = (time.monotonic() - wall_start) * 1000.0
             h.save()
             return {"id": h.id, "ok": False, "error": err}
+        llm_elapsed_ms = (time.monotonic() - llm_start) * 1000.0
 
         plan = payload.get("plan", "")
         nodes_payload = payload.get("nodes", {})
@@ -476,12 +489,28 @@ class Mutation:
         h.save()
 
         # Step 4: run.
+        query_start = time.monotonic()
         result = run_recipe(recipe, catalog, backend=analytics_backend())
+        query_elapsed_ms = (time.monotonic() - query_start) * 1000.0
         h.attach_result(result)
+        # Step 5: persist cost / latency.
+        h.llm_input_tokens = getattr(provider, "last_input_tokens", 0)
+        h.llm_output_tokens = getattr(provider, "last_output_tokens", 0)
+        h.llm_elapsed_ms = llm_elapsed_ms
+        h.query_elapsed_ms = query_elapsed_ms
+        h.wall_clock_ms = (time.monotonic() - wall_start) * 1000.0
+        h.save()
         return {
             "id": h.id,
             "plan": plan,
             "recipe": payload,
             "result": result.to_dict(),
             "ok": not isinstance(result, ErrorResult),
+            "cost": {
+                "llm_input_tokens": h.llm_input_tokens,
+                "llm_output_tokens": h.llm_output_tokens,
+                "llm_elapsed_ms": h.llm_elapsed_ms,
+                "query_elapsed_ms": h.query_elapsed_ms,
+                "wall_clock_ms": h.wall_clock_ms,
+            },
         }

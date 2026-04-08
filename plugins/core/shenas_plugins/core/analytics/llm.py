@@ -1,4 +1,4 @@
-"""LLM integration for hypothesis-driven analysis.
+"""LLM integration for hypothesis-driven analysis (PR 2.3).
 
 This module is the bridge between the curated analytics vocabulary
 (`OPERATIONS`, the catalog, the Recipe DAG) and an LLM. The LLM never
@@ -50,6 +50,8 @@ class LLMProvider(Protocol):
     """Minimal interface every LLM provider must implement."""
 
     name: str
+    last_input_tokens: int
+    last_output_tokens: int
 
     def ask(self, *, system: str, user: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
         """Send the prompt + tools to the LLM and return the parsed tool-use payload.
@@ -57,7 +59,9 @@ class LLMProvider(Protocol):
         The implementation MUST instruct the model to respond by calling
         the ``submit_recipe`` tool. The return value is the dict the
         model passed as the tool's input -- caller is responsible for
-        validating it against ``Recipe``.
+        validating it against ``Recipe``. Implementations should also
+        update ``last_input_tokens`` / ``last_output_tokens`` so the
+        caller can record cost (PR 4.5).
         """
         ...
 
@@ -67,12 +71,18 @@ class FakeProvider:
 
     name: ClassVar[str] = "fake@v0"
 
-    def __init__(self, payload: dict[str, Any]) -> None:
+    def __init__(self, payload: dict[str, Any], *, input_tokens: int = 100, output_tokens: int = 50) -> None:
         self._payload = payload
+        self._in = input_tokens
+        self._out = output_tokens
         self.calls: list[tuple[str, str]] = []
+        self.last_input_tokens = 0
+        self.last_output_tokens = 0
 
     def ask(self, *, system: str, user: str, tools: list[dict[str, Any]]) -> dict[str, Any]:  # noqa: ARG002
         self.calls.append((system, user))
+        self.last_input_tokens = self._in
+        self.last_output_tokens = self._out
         return self._payload
 
 
@@ -87,6 +97,8 @@ class AnthropicProvider:
         self.model = model
         self.max_tokens = max_tokens
         self.name = f"anthropic@{model}"
+        self.last_input_tokens: int = 0
+        self.last_output_tokens: int = 0
 
     def ask(self, *, system: str, user: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
         try:
@@ -109,6 +121,10 @@ class AnthropicProvider:
             tools=tools,
             tool_choice={"type": "tool", "name": "submit_recipe"},
         )
+        usage = getattr(resp, "usage", None)
+        if usage is not None:
+            self.last_input_tokens = int(getattr(usage, "input_tokens", 0))
+            self.last_output_tokens = int(getattr(usage, "output_tokens", 0))
         # Find the tool_use block; the model is forced to call submit_recipe.
         for block in resp.content:
             if getattr(block, "type", None) == "tool_use" and block.name == "submit_recipe":
@@ -285,7 +301,7 @@ def ask_for_recipe_with_retry(
     validate: Any = None,
     max_attempts: int = 2,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Iteration loop: retry once if the recipe doesn't validate.
+    """Iteration loop (PR 4.4): retry once if the recipe doesn't validate.
 
     Calls ``validate(payload)`` after each attempt; if it raises, the
     exception message is appended to the user prompt and the LLM is
