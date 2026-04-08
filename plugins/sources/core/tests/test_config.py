@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import Annotated, ClassVar  # noqa: F401 - used in inherited class annotations
+from typing import Annotated
 from unittest.mock import patch
 
 import duckdb
