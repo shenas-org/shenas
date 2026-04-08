@@ -23,7 +23,7 @@ most common hypothesis shapes.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, ClassVar
 
 import ibis
@@ -70,13 +70,25 @@ class Operation:
     Subclasses are :func:`@dataclass(frozen=True)` so they're hashable
     (used by recipe content-hash dedup later) and self-describing
     (the field names ARE the parameter schema for the LLM tool spec).
+
+    The ``arity`` ClassVar declares how many ``RecipeNode`` inputs the
+    operation consumes; the recipe compiler in ``recipe.py`` uses it to
+    validate that DAG nodes wire the right number of upstream
+    references. Most operations are arity-1; ``JoinAsOf`` is arity-2.
     """
 
     name: ClassVar[str]
     accepts: ClassVar[frozenset[str]] = frozenset()  # input kinds the op accepts
+    arity: ClassVar[int] = 1
 
-    def apply(self, node: RecipeNode) -> RecipeNode:
-        """Validate against ``node.kind`` and return a new ``RecipeNode``."""
+    def apply(self, *inputs: RecipeNode) -> RecipeNode:
+        """Validate against the inputs' kinds and return a new ``RecipeNode``.
+
+        Subclasses override with a fixed-arity signature
+        (``apply(self, node)`` for arity 1, ``apply(self, left, right)``
+        for arity 2). The recipe compiler always calls with positional
+        args, so Python's standard argument binding handles it.
+        """
         raise NotImplementedError
 
     def _check_kind(self, node: RecipeNode) -> None:
@@ -291,40 +303,38 @@ class JoinAsOf(Operation):
        tables on the same date column to compare them.
 
     Both sides must agree on the ``on`` column type and name.
+
+    Arity 2: ``apply(left, right)``. The recipe compiler wires the two
+    upstream nodes from the DAG by name; standalone callers pass them
+    positionally.
     """
 
-    right: RecipeNode = field(repr=False)
     on: str  # time-axis column name on both sides
     by: tuple[str, ...] = ()  # additional equality predicates ("partition" cols)
 
     name: ClassVar[str] = "join_as_of"
     accepts: ClassVar[frozenset[str]] = _TIME_SERIES_KINDS | _SCD2_KINDS
+    arity: ClassVar[int] = 2
 
-    def apply(self, node: RecipeNode) -> RecipeNode:
-        self._check_kind(node)
-        if self.on not in node.expr.columns:
-            msg = f"join_as_of: `{self.on}` not in left side ({node.table_ref})"
+    def apply(self, left: RecipeNode, right: RecipeNode) -> RecipeNode:  # type: ignore[override]
+        self._check_kind(left)
+        if self.on not in left.expr.columns:
+            msg = f"join_as_of: `{self.on}` not in left side ({left.table_ref})"
             raise OperationError(msg)
-        if self.on not in self.right.expr.columns:
-            msg = f"join_as_of: `{self.on}` not in right side ({self.right.table_ref})"
+        if self.on not in right.expr.columns:
+            msg = f"join_as_of: `{self.on}` not in right side ({right.table_ref})"
             raise OperationError(msg)
 
         # Ibis 12's asof_join takes the time column as positional ``on`` and
-        # additional equality predicates as positional ``predicates``. The
-        # rname template avoids ``date_right`` style collisions when the
-        # right side has a column with the same name.
+        # additional equality predicates as positional ``predicates``.
         if self.by:
-            joined = node.expr.asof_join(
-                self.right.expr,
-                on=self.on,
-                predicates=list(self.by),
-            )
+            joined = left.expr.asof_join(right.expr, on=self.on, predicates=list(self.by))
         else:
-            joined = node.expr.asof_join(self.right.expr, on=self.on)
+            joined = left.expr.asof_join(right.expr, on=self.on)
         # Output kind = left side's kind (the join enriches the left rows
         # with right-side columns; row count and time semantics don't
         # change).
-        return node.with_expr(joined)
+        return left.with_expr(joined)
 
 
 # ----------------------------------------------------------------------

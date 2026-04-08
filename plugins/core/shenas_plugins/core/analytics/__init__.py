@@ -29,15 +29,20 @@ from shenas_plugins.core.analytics.operations import (
     Resample,
     Rolling,
 )
+from shenas_plugins.core.analytics.recipe import OpCall, Recipe, RecipeError, SourceRef
 
 __all__ = [
     "OPERATIONS",
     "Correlate",
     "JoinAsOf",
     "Lag",
+    "OpCall",
     "Operation",
     "OperationError",
+    "Recipe",
+    "RecipeError",
     "RecipeNode",
     "Resample",
     "Rolling",
+    "SourceRef",
 ]
