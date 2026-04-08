@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from unittest.mock import MagicMock
 
+from shenas_sources.core.table import AggregateTable, EventTable, SnapshotTable
 from shenas_sources.duolingo.tables import (
     Achievements,
     Courses,
@@ -171,13 +172,13 @@ class TestFriends:
 
 class TestKindsAndDispositions:
     def test_daily_xp_is_aggregate(self) -> None:
-        assert DailyXp.kind == "aggregate"
+        assert issubclass(DailyXp, AggregateTable)
         assert DailyXp.time_at == "date"
 
     def test_achievements_is_event(self) -> None:
-        assert Achievements.kind == "event"
+        assert issubclass(Achievements, EventTable)
         assert Achievements.time_at == "unlocked_at"
 
     def test_friends_is_snapshot_scd2(self) -> None:
-        assert Friends.kind == "snapshot"
+        assert issubclass(Friends, SnapshotTable)
         assert Friends.write_disposition() == {"disposition": "merge", "strategy": "scd2"}

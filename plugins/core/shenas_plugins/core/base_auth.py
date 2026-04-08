@@ -8,8 +8,7 @@ individual pipes only need to declare their credential fields and a
 from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
-from shenas_plugins.core.field import Field
-from shenas_plugins.core.table import Table
+from shenas_plugins.core.table import Field, Table
 
 
 @dataclass
@@ -30,6 +29,7 @@ class SourceAuth(Table):
     table_display_name: ClassVar[str] = "Source Auth"
     table_description: ClassVar[str | None] = "Encrypted per-source credential storage."
     table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_schema: ClassVar[str | None] = "auth"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Auth row identifier")] = 1
 

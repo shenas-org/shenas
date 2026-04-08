@@ -7,7 +7,6 @@ from shenas_datasets.finance import (
     MonthlyCategory,
     MonthlyOverview,
     Transaction,
-    generate_ddl,
 )
 
 
@@ -49,7 +48,7 @@ class TestMetrics:
 
 class TestDDL:
     def test_generate_ddl_transactions(self) -> None:
-        ddl = generate_ddl(Transaction)
+        ddl = Transaction.to_ddl()
         assert "CREATE TABLE IF NOT EXISTS metrics.transactions" in ddl
         assert "id VARCHAR NOT NULL" in ddl
         assert "source VARCHAR NOT NULL" in ddl
@@ -58,7 +57,7 @@ class TestDDL:
 
     def test_generate_ddl_all_tables(self) -> None:
         for cls in ALL_TABLES:
-            ddl = generate_ddl(cls)
+            ddl = cls.to_ddl()
             assert f"metrics.{cls.table_name}" in ddl
             assert "PRIMARY KEY" in ddl
 

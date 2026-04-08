@@ -14,8 +14,7 @@ from typing import Annotated, Any, ClassVar
 import duckdb
 
 from app.db import cursor
-from shenas_plugins.core.field import Field
-from shenas_plugins.core.table import Table
+from shenas_plugins.core.table import Field, Table
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -49,6 +48,7 @@ class Transform:
 
     class _Table(Table):
         table_name: ClassVar[str] = "transforms"
+        table_schema: ClassVar[str | None] = "shenas_system"
         table_display_name: ClassVar[str] = "Transforms"
         table_description: ClassVar[str | None] = (
             "User-supplied SQL transforms bridging source data to canonical metric tables."

@@ -5,8 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Any, ClassVar
 
 from app.db import cursor
-from shenas_plugins.core.field import Field
-from shenas_plugins.core.table import Table
+from shenas_plugins.core.table import Field, Table
 
 
 class Workspace:
@@ -14,6 +13,7 @@ class Workspace:
 
     class _Table(Table):
         table_name: ClassVar[str] = "workspace"
+        table_schema: ClassVar[str | None] = "shenas_system"
         table_display_name: ClassVar[str] = "Workspace"
         table_description: ClassVar[str | None] = "Single-row workspace state (tab layout, active tab, ...)."
         table_pk: ClassVar[tuple[str, ...]] = ("id",)

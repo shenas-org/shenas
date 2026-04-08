@@ -9,7 +9,6 @@ from shenas_datasets.fitness import (
     DailyVitals,
     Field,
     FitnessSchema,
-    generate_ddl,
 )
 
 
@@ -85,7 +84,7 @@ class TestMetrics:
 
 class TestDDL:
     def test_generate_ddl_hrv(self) -> None:
-        ddl = generate_ddl(DailyHRV)
+        ddl = DailyHRV.to_ddl()
         assert "CREATE TABLE IF NOT EXISTS metrics.daily_hrv" in ddl
         assert "date DATE NOT NULL" in ddl
         assert "source VARCHAR NOT NULL" in ddl
@@ -94,18 +93,18 @@ class TestDDL:
 
     def test_generate_ddl_all_tables(self) -> None:
         for cls in ALL_TABLES:
-            ddl = generate_ddl(cls)
+            ddl = cls.to_ddl()
             assert f"metrics.{cls.table_name}" in ddl
             assert "PRIMARY KEY" in ddl
 
     def test_nullable_fields_have_no_not_null(self) -> None:
-        ddl = generate_ddl(DailyHRV)
+        ddl = DailyHRV.to_ddl()
         lines = ddl.split("\n")
         rmssd_line = next(line for line in lines if "rmssd" in line)
         assert "NOT NULL" not in rmssd_line
 
     def test_pk_fields_have_not_null(self) -> None:
-        ddl = generate_ddl(DailyHRV)
+        ddl = DailyHRV.to_ddl()
         lines = ddl.split("\n")
         date_line = next(line for line in lines if line.strip().startswith("date "))
         assert "NOT NULL" in date_line

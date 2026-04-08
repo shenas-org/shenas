@@ -1,4 +1,3 @@
-from shenas_plugins.core.store import TableStore
 from shenas_sources.core.cli import create_pipe_app, print_load_info, run_sync
 from shenas_sources.core.db import DB_PATH, close, connect, dlt_destination, flush_to_encrypted, get_db_key
 from shenas_sources.core.table import (
@@ -24,7 +23,6 @@ __all__ = [
     "M2MTable",
     "SnapshotTable",
     "SourceTable",
-    "TableStore",
     "close",
     "connect",
     "create_pipe_app",

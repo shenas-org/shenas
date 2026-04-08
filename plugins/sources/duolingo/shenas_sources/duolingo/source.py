@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from shenas_plugins.core.base_auth import SourceAuth
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Field
 from shenas_sources.core.source import Source
 
 
@@ -38,7 +38,7 @@ class DuolingoSource(Source):
     def build_client(self) -> Any:
         from shenas_sources.duolingo.client import DuolingoClient
 
-        row = self._auth_store.get(self.Auth)
+        row = self.Auth.read_row()
         if not row or not row.get("jwt_token"):
             msg = "No JWT token found. Configure authentication in the Auth tab."
             raise RuntimeError(msg)
@@ -56,7 +56,7 @@ class DuolingoSource(Source):
             client.get_user()
         finally:
             client.close()
-        self._auth_store.set(self.Auth, jwt_token=jwt)
+        self.Auth.write_row(jwt_token=jwt)
 
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.duolingo.tables import TABLES, DailyXp

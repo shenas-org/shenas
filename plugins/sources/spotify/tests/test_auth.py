@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 import types
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -35,27 +36,34 @@ from shenas_sources.spotify.source import SpotifySource  # noqa: E402
 
 @pytest.fixture
 def pipe() -> SpotifySource:
-    p = SpotifySource.__new__(SpotifySource)
-    p._auth_store = MagicMock()
-    p._config_store = MagicMock()
-    return p
+    return SpotifySource.__new__(SpotifySource)
+
+
+@pytest.fixture
+def auth_mock():
+    with (
+        patch.object(SpotifySource.Auth, "read_row") as read,
+        patch.object(SpotifySource.Auth, "write_row") as write,
+        patch.object(SpotifySource.Auth, "clear_rows") as clear,
+    ):
+        yield SimpleNamespace(read=read, write=write, clear=clear)
 
 
 class TestBuildClient:
-    def test_no_tokens_raises(self, pipe: SpotifySource) -> None:
-        pipe._auth_store.get.return_value = None
+    def test_no_tokens_raises(self, pipe: SpotifySource, auth_mock) -> None:
+        auth_mock.read.return_value = None
         with pytest.raises(RuntimeError, match="No Spotify tokens"):
             pipe.build_client()
 
     @patch("spotipy.Spotify")
-    def test_returns_client(self, mock_spotify: MagicMock, pipe: SpotifySource) -> None:
+    def test_returns_client(self, mock_spotify: MagicMock, pipe: SpotifySource, auth_mock) -> None:
         tokens = {
             "access_token": "tok",
             "refresh_token": "ref",
             "expires_at": 9999999999,
             "client_id": "cid",
         }
-        pipe._auth_store.get.return_value = {"tokens": json.dumps(tokens)}
+        auth_mock.read.return_value = {"tokens": json.dumps(tokens)}
 
         mock_pkce = MagicMock()
         mock_pkce.is_token_expired.return_value = False

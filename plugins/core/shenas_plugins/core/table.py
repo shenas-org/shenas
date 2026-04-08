@@ -48,9 +48,33 @@ from __future__ import annotations
 import dataclasses
 import types
 from dataclasses import dataclass
-from typing import Annotated, Any, ClassVar, get_args, get_origin, get_type_hints
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, get_args, get_origin, get_type_hints
 
-from shenas_plugins.core.field import Field
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    import duckdb
+
+
+@dataclass(frozen=True)
+class Field:
+    """Structured metadata for schema fields and config fields.
+
+    Used by canonical metric tables and pipe/component config tables alike.
+    The frontend can introspect these to generate UIs on the fly.
+    """
+
+    db_type: str
+    description: str
+    unit: str | None = None
+    value_range: tuple[float, float] | None = None
+    example_value: float | str | None = None
+    category: str | None = None  # "secret", "connection", "schedule", "wellbeing", etc.
+    interpretation: str | None = None
+    default: str | None = None  # default value (for config fields)
+    db_default: str | None = None  # SQL DEFAULT expression (e.g. "current_timestamp", "'{}'")
+    ui_widget: str | None = None  # "text", "number", "toggle", "password", "select", "textarea"
+    options: tuple[str, ...] | None = None  # choices for select widgets
 
 
 class Table:
@@ -72,6 +96,12 @@ class Table:
     table_pk: ClassVar[tuple[str, ...]]
 
     table_description: ClassVar[str | None] = None
+    table_schema: ClassVar[str | None] = None
+
+    # Cache of (schema, table_name) tuples that have already had their
+    # CREATE TABLE + ALTER TABLE migrations applied this process. Read /
+    # written by ``ensure``.
+    _ensured: ClassVar[set[tuple[str, str]]] = set()
 
     # Internal: True on Table itself and on every abstract intermediate base
     # (SourceTable, MetricTable, EventTable, IntervalTable, ...). False on
@@ -133,7 +163,7 @@ class Table:
         hints: dict[str, Any] = get_type_hints(cls, globalns=globalns, include_extras=True)
         columns: list[dict[str, Any]] = []
         for f in dataclasses.fields(cls):
-            col_meta = _extract_field_meta(hints[f.name])
+            col_meta = cls._extract_field_meta(hints[f.name])
             columns.append({"name": f.name, "nullable": f.name not in cls.table_pk, **col_meta})
         return {
             "table": cls.table_name,
@@ -142,19 +172,207 @@ class Table:
             "columns": columns,
         }
 
+    @classmethod
+    def to_ddl(cls, *, schema: str = "metrics") -> str:
+        """Render the ``CREATE TABLE IF NOT EXISTS <schema>.<table_name> (...)`` DDL.
 
-def _extract_field_meta(hint: type) -> dict[str, Any]:
-    """Extract Field metadata from an ``Annotated[type, Field(...)]`` hint.
+        Walks the dataclass fields, maps each to a DuckDB column type via
+        the ``db_type`` from its ``Field`` metadata (or the type-map for
+        bare ``str``/``int``/``float`` annotations), and emits a complete
+        ``CREATE TABLE`` statement with a composite ``PRIMARY KEY`` clause.
+        """
+        hints: dict[str, type] = get_type_hints(cls, include_extras=True)
+        lines: list[str] = []
+        for f in dataclasses.fields(cls):
+            col_type = cls._duckdb_type(hints[f.name])
+            not_null = " NOT NULL" if f.name in cls.table_pk else ""
+            db_default = ""
+            meta = cls._get_field_obj(hints[f.name])
+            if meta and meta.db_default:
+                db_default = f" DEFAULT {meta.db_default}"
+            lines.append(f"    {f.name} {col_type}{not_null}{db_default}")
+        lines.append(f"    PRIMARY KEY ({', '.join(cls.table_pk)})")
+        return f"CREATE TABLE IF NOT EXISTS {schema}.{cls.table_name} (\n" + ",\n".join(lines) + "\n)"
 
-    Walks ``X | None`` unions to find the inner Annotated[].
-    """
-    origin = get_origin(hint)
-    if origin is Annotated:
-        meta = get_args(hint)[1]
-        if isinstance(meta, Field):
-            return {k: v for k, v in dataclasses.asdict(meta).items() if v is not None}
-        return {"db_type": meta}
-    if origin is types.UnionType or str(origin) == "typing.Union":
-        inner = [a for a in get_args(hint) if a is not type(None)]
-        return _extract_field_meta(inner[0])
-    return {}
+    @classmethod
+    def ensure(cls, con: duckdb.DuckDBPyConnection, *, schema: str = "metrics") -> None:
+        """Create this table in ``schema`` if missing, then add any new columns.
+
+        Caller is responsible for ensuring the schema itself exists -- use
+        :func:`ensure_schema` for the orchestrated multi-table version.
+        """
+        con.execute(cls.to_ddl(schema=schema))
+        cls._add_missing_columns(con, schema=schema)
+
+    @classmethod
+    def _add_missing_columns(cls, con: duckdb.DuckDBPyConnection, *, schema: str = "metrics") -> None:
+        """Add columns that exist on the dataclass but not in the live DuckDB table."""
+        hints: dict[str, type] = get_type_hints(cls, include_extras=True)
+        existing = {
+            row[0]
+            for row in con.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ?",
+                [schema, cls.table_name],
+            ).fetchall()
+        }
+        for f in dataclasses.fields(cls):
+            if f.name not in existing:
+                col_type = cls._duckdb_type(hints[f.name])
+                con.execute(f"ALTER TABLE {schema}.{cls.table_name} ADD COLUMN {f.name} {col_type}")
+
+    # ------------------------------------------------------------------
+    # Single-row CRUD (replaces the old TableStore wrapper)
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def _resolve_schema(cls, schema: str | None) -> str:
+        s = schema or cls.table_schema
+        if not s:
+            msg = f"{cls.__name__}: no schema specified and no `table_schema` ClassVar set on the class or its bases"
+            raise TypeError(msg)
+        return s
+
+    @classmethod
+    def _ensure_once(cls, schema: str) -> None:
+        """Idempotent CREATE SCHEMA + CREATE TABLE; memoized per process."""
+        key = (schema, cls.table_name)
+        if key in cls._ensured:
+            return
+        from app.db import cursor
+
+        with cursor() as cur:
+            cur.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+            cls.ensure(cur, schema=schema)
+        cls._ensured.add(key)
+
+    @classmethod
+    def read_row(cls, *, schema: str | None = None) -> dict[str, Any] | None:
+        """Read the single row from this table as a dict, or None if empty."""
+        from app.db import cursor
+
+        s = cls._resolve_schema(schema)
+        cls._ensure_once(s)
+        cols = [f.name for f in dataclasses.fields(cls)]
+        col_list = ", ".join(cols)
+        with cursor() as cur:
+            row = cur.execute(f"SELECT {col_list} FROM {s}.{cls.table_name} LIMIT 1").fetchone()
+        if row is None:
+            return None
+        return dict(zip(cols, row, strict=False))
+
+    @classmethod
+    def read_value(cls, key: str, *, schema: str | None = None) -> Any | None:
+        """Read a single column value from the row, or None."""
+        row = cls.read_row(schema=schema)
+        if row is None:
+            return None
+        return row.get(key)
+
+    @classmethod
+    def write_row(cls, *, schema: str | None = None, **kwargs: Any) -> None:
+        """Upsert the single row: merge with existing values, then DELETE + INSERT."""
+        from app.db import cursor
+
+        s = cls._resolve_schema(schema)
+        cls._ensure_once(s)
+
+        existing = cls.read_row(schema=s)
+        if existing:
+            merged = {**existing, **kwargs}
+        else:
+            defaults: dict[str, Any] = {}
+            for f in dataclasses.fields(cls):
+                if f.default is not dataclasses.MISSING:
+                    defaults[f.name] = f.default
+                elif f.default_factory is not dataclasses.MISSING:  # type: ignore[misc]
+                    defaults[f.name] = f.default_factory()  # type: ignore[misc]
+                else:
+                    defaults[f.name] = None
+            merged = {**defaults, **kwargs}
+
+        cols = [f.name for f in dataclasses.fields(cls)]
+        placeholders = ", ".join(["?"] * len(cols))
+        col_names = ", ".join(cols)
+        values = [merged.get(c) for c in cols]
+        with cursor() as cur:
+            cur.execute(f"DELETE FROM {s}.{cls.table_name}")
+            cur.execute(f"INSERT INTO {s}.{cls.table_name} ({col_names}) VALUES ({placeholders})", values)
+
+    @classmethod
+    def clear_rows(cls, *, schema: str | None = None) -> None:
+        """Delete every row from this table."""
+        from app.db import cursor
+
+        s = cls._resolve_schema(schema)
+        cls._ensure_once(s)
+        with cursor() as cur:
+            cur.execute(f"DELETE FROM {s}.{cls.table_name}")
+
+    # ------------------------------------------------------------------
+    # Schema-introspection / DDL helpers (used internally by to_ddl,
+    # ensure, table_metadata, and SourceTable.to_dlt_columns)
+    # ------------------------------------------------------------------
+
+    _DUCKDB_TYPE_MAP: ClassVar[dict[type, str]] = {
+        str: "VARCHAR",
+        int: "INTEGER",
+        float: "DOUBLE",
+    }
+
+    @staticmethod
+    def _duckdb_type(hint: type) -> str:
+        """Resolve the DuckDB SQL type for an ``Annotated[T, Field(...)]`` hint."""
+        origin = get_origin(hint)
+        if origin is Annotated:
+            meta = get_args(hint)[1]
+            if isinstance(meta, Field):
+                return meta.db_type
+            return meta
+        if origin is types.UnionType or str(origin) == "typing.Union":
+            inner = [a for a in get_args(hint) if a is not type(None)]
+            return Table._duckdb_type(inner[0])
+        if hint in Table._DUCKDB_TYPE_MAP:
+            return Table._DUCKDB_TYPE_MAP[hint]
+        msg = f"No DuckDB mapping for {hint}"
+        raise ValueError(msg)
+
+    @staticmethod
+    def _get_field_obj(hint: type) -> Field | None:
+        """Extract a ``Field`` from an ``Annotated[T, Field(...)]`` hint."""
+        origin = get_origin(hint)
+        if origin is Annotated:
+            meta = get_args(hint)[1]
+            if isinstance(meta, Field):
+                return meta
+        if origin is types.UnionType or str(origin) == "typing.Union":
+            for arg in get_args(hint):
+                if arg is not type(None):
+                    result = Table._get_field_obj(arg)
+                    if result:
+                        return result
+        return None
+
+    @staticmethod
+    def _extract_field_meta(hint: type) -> dict[str, Any]:
+        """Extract Field metadata as a dict from an ``Annotated[T, Field(...)]`` hint."""
+        origin = get_origin(hint)
+        if origin is Annotated:
+            meta = get_args(hint)[1]
+            if isinstance(meta, Field):
+                return {k: v for k, v in dataclasses.asdict(meta).items() if v is not None}
+            return {"db_type": meta}
+        if origin is types.UnionType or str(origin) == "typing.Union":
+            inner = [a for a in get_args(hint) if a is not type(None)]
+            return Table._extract_field_meta(inner[0])
+        return {}
+
+    @staticmethod
+    def ensure_schema(con: duckdb.DuckDBPyConnection, all_tables: Sequence[type[Table]], *, schema: str = "metrics") -> None:
+        """Create the named schema and ensure every table in ``all_tables`` exists.
+
+        Also adds any columns that exist on the dataclass but not in the live
+        DuckDB table (forward-compatible schema migration).
+        """
+        con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+        for t in all_tables:
+            t.ensure(con, schema=schema)

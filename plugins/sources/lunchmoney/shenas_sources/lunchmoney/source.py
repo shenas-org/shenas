@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from shenas_plugins.core.base_auth import SourceAuth
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Field
 from shenas_sources.core.source import Source
 
 
@@ -29,7 +29,7 @@ class LunchMoneySource(Source):
     def build_client(self) -> Any:
         from lunchable import LunchMoney
 
-        row = self._auth_store.get(self.Auth)
+        row = self.Auth.read_row()
         if not row or not row.get("api_key"):
             msg = "No API key found. Configure authentication in the Auth tab."
             raise RuntimeError(msg)
@@ -44,7 +44,7 @@ class LunchMoneySource(Source):
             raise ValueError(msg)
         client = LunchMoney(access_token=api_key)
         client.get_user()  # verify the key works
-        self._auth_store.set(self.Auth, api_key=api_key)
+        self.Auth.write_row(api_key=api_key)
 
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.lunchmoney.tables import TABLES

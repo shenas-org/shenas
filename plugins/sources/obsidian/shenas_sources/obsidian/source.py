@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from shenas_plugins.core.base_config import SourceConfig
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Field
 from shenas_sources.core.source import Source
 
 
@@ -47,7 +47,7 @@ class ObsidianSource(Source):
         ] = "Plan for the day"
 
     def build_client(self) -> Any:
-        row = self._config_store.get(self.Config)
+        row = self.Config.read_row()
         folder = row.get("daily_notes_folder") if row else None
         if not folder:
             msg = "Daily notes folder not configured. Set it in the Config tab."
@@ -57,7 +57,7 @@ class ObsidianSource(Source):
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.obsidian.tables import TABLES
 
-        row = self._config_store.get(self.Config)
+        row = self.Config.read_row()
         heading = (row.get("habits_heading") if row else None) or "Plan for the day"
 
         return [t.to_resource(client, heading=heading) for t in TABLES]

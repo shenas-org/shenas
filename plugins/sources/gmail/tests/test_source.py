@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 
+from shenas_sources.core.table import DimensionTable, EventTable, SnapshotTable
 from shenas_sources.gmail.tables import (
     Filters,
     Labels,
@@ -201,15 +202,15 @@ class TestSendAsExtract:
 
 class TestKindsAndDispositions:
     def test_messages_is_event(self) -> None:
-        assert Messages.kind == "event"
+        assert issubclass(Messages, EventTable)
         assert Messages.time_at == "internal_date"
         assert Messages.cursor_column == "internal_date"
         assert Messages.write_disposition() == "merge"
 
     def test_labels_is_dimension_scd2(self) -> None:
-        assert Labels.kind == "dimension"
+        assert issubclass(Labels, DimensionTable)
         assert Labels.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
 
     def test_profile_is_snapshot_scd2(self) -> None:
-        assert Profile.kind == "snapshot"
+        assert issubclass(Profile, SnapshotTable)
         assert Profile.write_disposition() == {"disposition": "merge", "strategy": "scd2"}

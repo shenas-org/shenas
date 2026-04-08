@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from shenas_plugins.core.base_auth import SourceAuth
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Field
 from shenas_sources.core.source import Source
 
 _pending_mfa: dict[str, Any] = {}
@@ -50,7 +50,7 @@ class GarminSource(Source):
     def build_client(self) -> Any:
         from garminconnect import Garmin
 
-        row = self._auth_store.get(self.Auth)
+        row = self.Auth.read_row()
         if row and row.get("tokens"):
             tokens = json.loads(row["tokens"])
             tmp = Path(tempfile.mkdtemp(prefix="garmin_tokens_"))
@@ -74,7 +74,7 @@ class GarminSource(Source):
             for f in Path(tmp).iterdir():
                 if f.suffix == ".json":
                     tokens[f.name] = f.read_text()
-            self._auth_store.set(self.Auth, tokens=json.dumps(tokens))
+            self.Auth.write_row(tokens=json.dumps(tokens))
 
     def authenticate(self, credentials: dict[str, str]) -> None:
         from garminconnect import Garmin

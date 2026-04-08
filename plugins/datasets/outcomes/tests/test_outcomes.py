@@ -4,7 +4,6 @@ from shenas_datasets.outcomes import (
     ALL_TABLES,
     DailyOutcome,
     OutcomesSchema,
-    generate_ddl,
 )
 
 
@@ -27,7 +26,7 @@ class TestMetrics:
 
 class TestDDL:
     def test_generate_ddl(self) -> None:
-        ddl = generate_ddl(DailyOutcome)
+        ddl = DailyOutcome.to_ddl()
         assert "CREATE TABLE IF NOT EXISTS metrics.daily_outcomes" in ddl
         assert "mood INTEGER" in ddl
         assert "PRIMARY KEY (date, source)" in ddl

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+from shenas_sources.core.table import IntervalTable
 from shenas_sources.garmin.tables import Activities
 
 
 class TestActivitiesInterval:
     def test_kind_is_interval(self) -> None:
-        assert Activities.kind == "interval"
+        assert issubclass(Activities, IntervalTable)
         assert Activities.time_start == "startTimeLocal"
         assert Activities.time_end == "end_time_local"
 

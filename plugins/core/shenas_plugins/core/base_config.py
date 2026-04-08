@@ -9,8 +9,7 @@ their custom fields and a ``table_name`` (set dynamically by
 from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
-from shenas_plugins.core.field import Field
-from shenas_plugins.core.table import Table
+from shenas_plugins.core.table import Field, Table
 
 
 @dataclass
@@ -27,6 +26,7 @@ class SourceConfig(Table):
     table_display_name: ClassVar[str] = "Source Config"
     table_description: ClassVar[str | None] = "Per-source configuration storage."
     table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_schema: ClassVar[str | None] = "config"
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         # Defer validation: see SourceAuth.__init_subclass__ for the rationale.
