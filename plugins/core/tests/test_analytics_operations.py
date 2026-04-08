@@ -221,19 +221,19 @@ class TestResample:
 
 class TestJoinAsOf:
     def test_two_daily_metrics(self, daily_intake, daily_outcomes):
-        joined = JoinAsOf(right=daily_outcomes, on="date").apply(daily_intake)
+        joined = JoinAsOf(on="date").apply(daily_intake, daily_outcomes)
         df = joined.expr.order_by("date").execute()
         assert "caffeine_mg" in df.columns
         assert "mood" in df.columns
         assert len(df) == 5  # one row per left date
 
     def test_left_kind_propagates(self, daily_intake, daily_outcomes):
-        joined = JoinAsOf(right=daily_outcomes, on="date").apply(daily_intake)
+        joined = JoinAsOf(on="date").apply(daily_intake, daily_outcomes)
         assert joined.kind == "daily_metric"
 
     def test_rejects_missing_left_column(self, daily_intake, daily_outcomes):
         with pytest.raises(OperationError, match="not in left side"):
-            JoinAsOf(right=daily_outcomes, on="bogus").apply(daily_intake)
+            JoinAsOf(on="bogus").apply(daily_intake, daily_outcomes)
 
     def test_rejects_missing_right_column(self, daily_intake, daily_outcomes):
         # Use a right node that doesn't have the same join key
@@ -243,7 +243,7 @@ class TestJoinAsOf:
             table_ref="metrics.no_date",
         )
         with pytest.raises(OperationError, match="not in right side"):
-            JoinAsOf(right=bad_right, on="date").apply(daily_intake)
+            JoinAsOf(on="date").apply(daily_intake, bad_right)
 
 
 # ----------------------------------------------------------------------
@@ -254,13 +254,13 @@ class TestJoinAsOf:
 class TestCorrelate:
     def test_perfect_anticorrelation(self, daily_intake, daily_outcomes):
         # caffeine declines monotonically while mood rises monotonically -> -1.0
-        joined = JoinAsOf(right=daily_outcomes, on="date").apply(daily_intake)
+        joined = JoinAsOf(on="date").apply(daily_intake, daily_outcomes)
         result = Correlate(x="caffeine_mg", y="mood").apply(joined)
         df = result.expr.execute()
         assert df["corr"].iloc[0] == pytest.approx(-1.0, abs=0.01)
 
     def test_kind_becomes_scalar(self, daily_intake, daily_outcomes):
-        joined = JoinAsOf(right=daily_outcomes, on="date").apply(daily_intake)
+        joined = JoinAsOf(on="date").apply(daily_intake, daily_outcomes)
         result = Correlate(x="caffeine_mg", y="mood").apply(joined)
         assert result.kind == "scalar_result"
         assert result.time_columns == {}
@@ -317,7 +317,7 @@ class TestTwoBranchCorrelationRecipe:
         lagged = Lag("caffeine_mg", n=1).apply(intake)
 
         # Step 2: join with outcomes on date
-        joined = JoinAsOf(right=outcomes, on="date").apply(lagged)
+        joined = JoinAsOf(on="date").apply(lagged, outcomes)
 
         # Step 3: correlate the lagged caffeine with same-day mood
         correlated = Correlate(x="caffeine_mg_lag1", y="mood").apply(joined)
