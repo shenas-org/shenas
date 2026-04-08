@@ -18,6 +18,7 @@ declare module "shenas-frontends" {
   export function arrowQuery(base: string, sql: string): Promise<unknown>;
   export function renderMessage(msg: unknown): import("lit").TemplateResult | string;
   export function registerCommands<T>(host: HTMLElement, componentId: string, commands: T[]): void;
+  export function openExternal(url: string): void;
   export const PLUGIN_KINDS: Array<{ id: string; label: string }>;
   export function sortActions<T>(actions: T[], bindings?: Record<string, string>): T[];
   export function parseHotkey(binding: string): Record<string, unknown>;

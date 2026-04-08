@@ -3,9 +3,23 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": ["main"],
+  "remote": {
+    "urls": [
+      "http://localhost:*",
+      "http://127.0.0.1:*",
+      "https://localhost:*",
+      "https://127.0.0.1:*"
+    ]
+  },
   "permissions": [
     "core:default",
-    "shell:allow-open",
+    {
+      "identifier": "shell:allow-open",
+      "allow": [
+        { "url": "https://shenas.net/**" },
+        { "url": "https://*.shenas.net/**" }
+      ]
+    },
     "shell:allow-spawn",
     "shell:allow-execute",
     "shell:allow-stdin-write",

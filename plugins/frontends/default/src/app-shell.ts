@@ -6,10 +6,12 @@ import {
   gqlFull,
   PLUGIN_KINDS,
   matchesHotkey,
+  openExternal,
   sortActions,
   linkStyles,
   utilityStyles,
 } from "shenas-frontends";
+import { SETTINGS_NAV_ITEMS } from "./settings-page.ts";
 
 interface DashboardInfo {
   name: string;
@@ -1224,8 +1226,7 @@ class ShenasApp extends LitElement {
             ${this._settingsOpen
               ? html`
                   <div class="settings-sub">
-                    ${this._settingsNavItem("flow", "Flow", activePath)}
-                    ${this._settingsNavItem("hotkeys", "Hotkeys", activePath)}
+                    ${SETTINGS_NAV_ITEMS.map((item) => this._settingsNavItem(item.id, item.label, activePath))}
                     <span class="sub-heading">Plugins</span>
                     ${PLUGIN_KINDS.map(
                       ({ id, label }) => html`
@@ -1239,10 +1240,14 @@ class ShenasApp extends LitElement {
           <div class="sidebar-footer">
             <a
               class="auth-link"
-              href="/api/auth/login"
+              href=${this._remoteUser ? "https://shenas.net/dashboard" : "/api/auth/login"}
               @click=${(e: MouseEvent) => {
                 e.preventDefault();
-                window.location.href = "/api/auth/login";
+                if (this._remoteUser) {
+                  openExternal("https://shenas.net/dashboard");
+                } else {
+                  window.location.href = "/api/auth/login";
+                }
               }}
             >
               ${this._remoteUser ? (this._remoteUser.name as string) || (this._remoteUser.email as string) : "Sign in"}
@@ -1501,6 +1506,8 @@ class ShenasApp extends LitElement {
       .allActions=${this._getAllActions()}
       .allPlugins=${this._allPlugins}
       .schemaPlugins=${this._schemaPlugins}
+      .remoteUser=${this._remoteUser}
+      device-name=${this._deviceName || ""}
       .onNavigate=${(k: string) => {
         this._navigateTo(`/settings/${k}`);
       }}
