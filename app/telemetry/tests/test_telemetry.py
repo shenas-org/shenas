@@ -204,3 +204,158 @@ class TestLogExporter:
             from opentelemetry.sdk._logs.export import LogRecordExportResult
 
             assert result == LogRecordExportResult.SUCCESS
+
+
+class TestDispatchingProcessors:
+    """Tests for processors.py: DispatchingSpanProcessor, DispatchingLogProcessor, dispatch helpers."""
+
+    def test_span_processor_delegates(self) -> None:
+        from unittest.mock import MagicMock
+
+        from app.telemetry.processors import DispatchingSpanProcessor
+
+        delegate = MagicMock()
+        proc = DispatchingSpanProcessor(delegate)
+
+        fake_span = MagicMock()
+        proc.on_start(fake_span, None)
+        delegate.on_start.assert_called_once()
+
+        proc.on_end(fake_span)
+        delegate.on_end.assert_called_once_with(fake_span)
+
+        proc.shutdown()
+        delegate.shutdown.assert_called_once()
+
+        delegate.force_flush.return_value = True
+        assert proc.force_flush(1000) is True
+
+    def test_log_processor_emit_and_on_emit(self) -> None:
+        from unittest.mock import MagicMock
+
+        from app.telemetry.processors import DispatchingLogProcessor
+
+        delegate = MagicMock(spec=["emit", "on_emit", "shutdown", "force_flush"])
+        proc = DispatchingLogProcessor(delegate)
+
+        fake_record = MagicMock()
+        proc.emit(fake_record)
+        delegate.emit.assert_called_once_with(fake_record)
+
+        proc.on_emit(fake_record)
+        delegate.on_emit.assert_called_once_with(fake_record)
+
+        proc.shutdown()
+        delegate.shutdown.assert_called_once()
+
+        delegate.force_flush.return_value = True
+        assert proc.force_flush(500) is True
+
+    def test_log_processor_without_emit_methods(self) -> None:
+        from unittest.mock import MagicMock
+
+        from app.telemetry.processors import DispatchingLogProcessor
+
+        class Bare:
+            def shutdown(self) -> None:
+                pass
+
+            def force_flush(self, timeout_millis: int = 30000) -> bool:
+                return True
+
+        proc = DispatchingLogProcessor(Bare())  # type: ignore[arg-type]
+        proc.emit(MagicMock())
+        proc.on_emit(MagicMock())
+
+    def test_dispatch_log_parses_record(self) -> None:
+        import json
+        from unittest.mock import MagicMock, patch
+
+        from app.telemetry.processors import _dispatch_log
+
+        record = MagicMock()
+        record.to_json.return_value = json.dumps(
+            {
+                "trace_id": "0xabcdef",
+                "span_id": "0x123456",
+                "timestamp": "2026-01-01T00:00:00Z",
+                "severity_text": "INFO",
+                "body": "hello",
+                "attributes": {"k": "v"},
+                "resource": {"attributes": {"service.name": "shenas"}},
+            }
+        )
+
+        with patch("app.telemetry.dispatcher.notify") as notify:
+            _dispatch_log(record)
+
+        assert notify.called
+        args = notify.call_args[0]
+        assert args[0] == "log"
+        data = args[1][0]
+        assert data["trace_id"] == "abcdef"
+        assert data["span_id"] == "123456"
+        assert data["severity"] == "INFO"
+        assert data["body"] == "hello"
+        assert data["service_name"] == "shenas"
+
+    def test_dispatch_log_strips_zero_ids(self) -> None:
+        import json
+        from unittest.mock import MagicMock, patch
+
+        from app.telemetry.processors import _dispatch_log
+
+        record = MagicMock()
+        record.to_json.return_value = json.dumps(
+            {
+                "trace_id": "0x00000000000000000000000000000000",
+                "span_id": "0x0000000000000000",
+                "severity_text": "WARN",
+                "body": "x",
+            }
+        )
+
+        with patch("app.telemetry.dispatcher.notify") as notify:
+            _dispatch_log(record)
+        data = notify.call_args[0][1][0]
+        assert data["trace_id"] is None
+        assert data["span_id"] is None
+        assert data["service_name"] is None
+        assert data["attributes"] is None
+
+    def test_dispatch_log_handles_bad_record(self) -> None:
+        from unittest.mock import MagicMock
+
+        from app.telemetry.processors import _dispatch_log
+
+        record = MagicMock()
+        record.to_json.side_effect = ValueError("nope")
+        _dispatch_log(record)  # must not raise
+
+    def test_dispatch_span_handles_bad_span(self) -> None:
+        from unittest.mock import MagicMock
+
+        from app.telemetry.processors import _dispatch_span
+
+        span = MagicMock()
+        span.get_span_context.side_effect = RuntimeError("boom")
+        _dispatch_span(span)  # must not raise
+
+    def test_dispatch_span_real(self) -> None:
+        from unittest.mock import patch
+
+        from opentelemetry.sdk.trace import TracerProvider
+
+        from app.telemetry.processors import _dispatch_span
+
+        provider = TracerProvider(resource=Resource.create({"service.name": "svc"}))
+        tracer = provider.get_tracer("t")
+        with tracer.start_as_current_span("op") as span:
+            pass
+
+        with patch("app.telemetry.dispatcher.notify") as notify:
+            _dispatch_span(span)  # type: ignore[arg-type]
+        assert notify.called
+        data = notify.call_args[0][1][0]
+        assert data["name"] == "op"
+        assert data["service_name"] == "svc"
