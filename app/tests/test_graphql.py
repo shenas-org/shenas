@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, ClassVar  # noqa: F401 - used in test class annotations
 from unittest.mock import MagicMock, patch
 
 if TYPE_CHECKING:
@@ -48,6 +48,34 @@ def test_con() -> duckdb.DuckDBPyConnection:
         "added_at TIMESTAMP, updated_at TIMESTAMP, status_changed_at TIMESTAMP, synced_at TIMESTAMP, "
         "PRIMARY KEY (kind, name))"
     )
+    con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
+    con.execute(
+        "CREATE TABLE shenas_system.hypotheses ("
+        "id INTEGER DEFAULT nextval('shenas_system.hypothesis_seq'), "
+        "question TEXT, plan TEXT DEFAULT '', recipe_json TEXT, "
+        "inputs VARCHAR DEFAULT '', result_json TEXT DEFAULT '', "
+        "interpretation TEXT DEFAULT '', created_at TIMESTAMP DEFAULT current_timestamp, "
+        "model VARCHAR DEFAULT '', promoted_to VARCHAR, "
+        "llm_input_tokens INTEGER, llm_output_tokens INTEGER, "
+        "llm_elapsed_ms DOUBLE, query_elapsed_ms DOUBLE, wall_clock_ms DOUBLE, "
+        "parent_id INTEGER, "
+        "PRIMARY KEY (id))"
+    )
+    con.execute(
+        "CREATE TABLE shenas_system.promoted_metrics ("
+        "name VARCHAR, metric_schema VARCHAR DEFAULT 'metrics', "
+        "recipe_json TEXT, inputs VARCHAR DEFAULT '', "
+        "columns_json TEXT DEFAULT '[]', pk_json TEXT DEFAULT '[]', "
+        "hypothesis_id INTEGER, question TEXT DEFAULT '', "
+        "created_at TIMESTAMP DEFAULT current_timestamp, "
+        "PRIMARY KEY (name, metric_schema))"
+    )
+    con.execute(
+        "CREATE TABLE shenas_system.recipe_cache ("
+        "cache_key VARCHAR, result_json TEXT, "
+        "created_at TIMESTAMP DEFAULT current_timestamp, "
+        "PRIMARY KEY (cache_key))"
+    )
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
     con.execute(
         "CREATE TABLE shenas_system.transforms ("
@@ -88,6 +116,26 @@ def _gql(client: TestClient, query: str, variables: dict | None = None) -> dict:
     resp = client.post("/api/graphql", json={"query": query, "variables": variables or {}})
     assert resp.status_code == 200
     return resp.json()
+
+
+# Module-scope test fixture for catalog tests. Defined here (rather than
+# inside the test function) so `get_type_hints` can resolve `Annotated`
+# and `Field` from this module's namespace.
+from shenas_datasets.core import DailyMetricTable  # noqa: E402
+from shenas_plugins.core.table import Field  # noqa: E402
+
+
+class _CatalogMood(DailyMetricTable):
+    class _Meta:
+        name = "daily_mood_test"
+        display_name = "Daily Mood (test)"
+        description = "Test metric."
+        schema = "metrics"
+        pk = ("date", "source")
+
+    date: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
+    source: Annotated[str, Field(db_type="VARCHAR", description="Source")] = ""
+    mood: Annotated[float | None, Field(db_type="DOUBLE", description="Mood 1-10")] = None
 
 
 class TestGraphQLQueries:
@@ -324,6 +372,35 @@ class TestGraphQLQueries:
         assert "errors" not in result
         assert result["data"]["syncSchedule"] == []
 
+    def test_catalog_empty_when_no_plugins(self, client: TestClient) -> None:
+        with (
+            patch("app.api.sources._load_plugins", return_value=[]),
+            patch("app.api.sources._load_datasets", return_value=[]),
+        ):
+            result = _gql(client, "{ catalog }")
+        assert "errors" not in result
+        assert result["data"]["catalog"] == []
+
+    def test_catalog_returns_dataset_metadata(self, client: TestClient) -> None:
+        fake_dataset = MagicMock()
+        fake_dataset.all_tables = [_CatalogMood]
+        with (
+            patch("app.api.sources._load_plugins", return_value=[]),
+            patch("app.api.sources._load_datasets", return_value=[fake_dataset]),
+        ):
+            result = _gql(client, "{ catalog }")
+        assert "errors" not in result
+        catalog = result["data"]["catalog"]
+        assert len(catalog) == 1
+        entry = catalog[0]
+        assert entry["table"] == "daily_mood_test"
+        assert entry["schema"] == "metrics"
+        assert entry["primary_key"] == ["date", "source"]
+        assert entry["kind"] == "daily_metric"
+        assert "query_hint" in entry
+        col_names = {c["name"] for c in entry["columns"]}
+        assert col_names == {"date", "source", "mood"}
+
     def test_sync_schedule_with_data(self, client: TestClient) -> None:
         from shenas_sources.core.source import Source
 
@@ -402,6 +479,242 @@ class TestGraphQLMutations:
         assert "errors" not in result
         assert result["data"]["saveWorkspace"]["ok"] is True
         mock_save.assert_called_once()
+
+    # -- Hypotheses --
+
+    def test_create_hypothesis(self, client: TestClient) -> None:
+        result = _gql(
+            client,
+            'mutation { createHypothesis(question: "does coffee affect mood?", plan: "join then correlate") }',
+        )
+        assert "errors" not in result
+        data = result["data"]["createHypothesis"]
+        assert data["question"] == "does coffee affect mood?"
+        assert data["id"] >= 1
+
+    def test_list_and_get_hypothesis(self, client: TestClient) -> None:
+        created = _gql(client, 'mutation { createHypothesis(question: "q1") }')["data"]["createHypothesis"]
+        hid = created["id"]
+
+        listed = _gql(client, "{ hypotheses }")
+        assert "errors" not in listed
+        rows = listed["data"]["hypotheses"]
+        assert any(r["id"] == hid and r["question"] == "q1" for r in rows)
+
+        single = _gql(client, f"{{ hypothesis(hypothesisId: {hid}) }}")
+        assert "errors" not in single
+        assert single["data"]["hypothesis"]["question"] == "q1"
+        assert single["data"]["hypothesis"]["result"] is None
+
+    def test_run_recipe_attaches_result(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
+        test_con.execute("DROP TABLE IF EXISTS metrics.daily_intake")
+        test_con.execute("CREATE TABLE metrics.daily_intake (date DATE, source VARCHAR, caffeine_mg DOUBLE)")
+        test_con.execute(
+            "INSERT INTO metrics.daily_intake VALUES "
+            "('2026-01-01', 'manual', 100), ('2026-01-02', 'manual', 200), ('2026-01-03', 'manual', 0)"
+        )
+
+        created = _gql(client, 'mutation { createHypothesis(question: "what is mean caffeine?") }')
+        hid = created["data"]["createHypothesis"]["id"]
+
+        # Mock _build_catalog so this test doesn't depend on every installed
+        # plugin loading cleanly under get_type_hints. The runner only
+        # consults the catalog for kind / time-axis hints.
+        fake_catalog = {
+            "metrics.daily_intake": {
+                "table": "daily_intake",
+                "schema": "metrics",
+                "primary_key": ["date", "source"],
+                "kind": "daily_metric",
+                "columns": [
+                    {"name": "date", "db_type": "DATE"},
+                    {"name": "source", "db_type": "VARCHAR"},
+                    {"name": "caffeine_mg", "db_type": "DOUBLE"},
+                ],
+            }
+        }
+        recipe_json = ('{"nodes": {"a": {"type": "source", "table": "metrics.daily_intake"}}, "final": "a"}').replace(
+            '"', '\\"'
+        )
+        with patch("app.graphql.mutations._build_catalog", return_value=fake_catalog):
+            result = _gql(
+                client,
+                f'mutation {{ runRecipe(hypothesisId: {hid}, recipeJson: "{recipe_json}") }}',
+            )
+        assert "errors" not in result
+        body = result["data"]["runRecipe"]
+        assert body["id"] == hid
+        assert "result" in body
+        assert body["result"] is not None
+
+    def test_run_recipe_missing_hypothesis(self, client: TestClient) -> None:
+        result = _gql(
+            client,
+            'mutation { runRecipe(hypothesisId: 999999, recipeJson: "{}") }',
+        )
+        assert "errors" not in result
+        assert "error" in result["data"]["runRecipe"]
+
+    # -- LLM-driven hypothesis --
+
+    def test_ask_hypothesis_with_fake_provider(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
+        from shenas_plugins.core.analytics import FakeProvider
+
+        test_con.execute("DROP TABLE IF EXISTS metrics.daily_intake")
+        test_con.execute("CREATE TABLE metrics.daily_intake (date DATE, source VARCHAR, caffeine_mg DOUBLE)")
+        test_con.execute(
+            "INSERT INTO metrics.daily_intake VALUES ('2026-01-01', 'manual', 100), ('2026-01-02', 'manual', 200)"
+        )
+
+        canned = {
+            "plan": "Read daily caffeine intake.",
+            "nodes": {"a": {"type": "source", "table": "metrics.daily_intake"}},
+            "final": "a",
+        }
+        fake_catalog = {
+            "metrics.daily_intake": {
+                "table": "daily_intake",
+                "schema": "metrics",
+                "primary_key": ["date", "source"],
+                "kind": "daily_metric",
+                "columns": [
+                    {"name": "date", "db_type": "DATE"},
+                    {"name": "source", "db_type": "VARCHAR"},
+                    {"name": "caffeine_mg", "db_type": "DOUBLE"},
+                ],
+            }
+        }
+        with (
+            patch("app.graphql.llm_provider.get_llm_provider", return_value=FakeProvider(canned)),
+            patch("app.graphql.mutations._build_catalog", return_value=fake_catalog),
+        ):
+            result = _gql(
+                client,
+                'mutation { askHypothesis(question: "what does my caffeine look like?") }',
+            )
+        assert "errors" not in result
+        body = result["data"]["askHypothesis"]
+        assert body["plan"] == "Read daily caffeine intake."
+        assert body["recipe"] == canned
+        assert body["result"] is not None
+        assert body["id"] >= 1
+
+    def test_ask_hypothesis_records_cost_and_latency(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
+        from shenas_plugins.core.analytics import FakeProvider
+
+        test_con.execute("DROP TABLE IF EXISTS metrics.daily_intake")
+        test_con.execute("CREATE TABLE metrics.daily_intake (date DATE, source VARCHAR, x DOUBLE)")
+        test_con.execute("INSERT INTO metrics.daily_intake VALUES ('2026-01-01', 'm', 1)")
+        canned = {
+            "plan": "p",
+            "nodes": {"a": {"type": "source", "table": "metrics.daily_intake"}},
+            "final": "a",
+        }
+        catalog = {
+            "metrics.daily_intake": {
+                "table": "daily_intake",
+                "schema": "metrics",
+                "primary_key": ["date", "source"],
+                "kind": "daily_metric",
+                "columns": [
+                    {"name": "date", "db_type": "DATE"},
+                    {"name": "source", "db_type": "VARCHAR"},
+                    {"name": "x", "db_type": "DOUBLE"},
+                ],
+            }
+        }
+        provider = FakeProvider(canned, input_tokens=123, output_tokens=45)
+        with (
+            patch("app.graphql.llm_provider.get_llm_provider", return_value=provider),
+            patch("app.graphql.mutations._build_catalog", return_value=catalog),
+        ):
+            result = _gql(client, 'mutation { askHypothesis(question: "q") }')
+        assert "errors" not in result
+        cost = result["data"]["askHypothesis"]["cost"]
+        assert cost["llm_input_tokens"] == 123
+        assert cost["llm_output_tokens"] == 45
+        assert cost["llm_elapsed_ms"] >= 0
+        assert cost["query_elapsed_ms"] >= 0
+        assert cost["wall_clock_ms"] >= 0
+
+    # -- Forking --
+
+    def test_fork_hypothesis(self, client: TestClient) -> None:
+        from app.hypotheses import Hypothesis
+        from shenas_plugins.core.analytics import Recipe, SourceRef
+
+        recipe = Recipe(nodes={"a": SourceRef(table="metrics.daily_intake")}, final="a")
+        parent = Hypothesis.create("does coffee affect mood?", recipe, plan="initial plan")
+
+        result = _gql(client, f"mutation {{ forkHypothesis(hypothesisId: {parent.id}) }}")
+        assert "errors" not in result
+        body = result["data"]["forkHypothesis"]
+        assert body["parent_id"] == parent.id
+        assert body["question"] == parent.question
+        assert body["id"] != parent.id
+
+        fork = Hypothesis.find(body["id"])
+        assert fork is not None
+        assert fork.parent_id == parent.id
+        assert fork.recipe_json == parent.recipe_json
+
+    def test_fork_hypothesis_not_found(self, client: TestClient) -> None:
+        result = _gql(client, "mutation { forkHypothesis(hypothesisId: 999999) }")
+        assert "errors" not in result
+        assert "error" in result["data"]["forkHypothesis"]
+
+    # -- Promotion --
+
+    def test_promote_hypothesis(self, client: TestClient) -> None:
+        from app.hypotheses import Hypothesis
+        from shenas_datasets.promoted import PromotedMetric
+        from shenas_plugins.core.analytics import Recipe, SourceRef
+
+        recipe = Recipe(
+            nodes={"a": SourceRef(table="metrics.daily_intake")},
+            final="a",
+        )
+        h = Hypothesis.create("q", recipe)
+
+        result = _gql(
+            client,
+            f'mutation {{ promoteHypothesis(hypothesisId: {h.id}, name: "my_metric") }}',
+        )
+        assert "errors" not in result
+        body = result["data"]["promoteHypothesis"]
+        assert body["promoted_to"] == "metrics.my_metric"
+        # Row landed in shenas_system.promoted_metrics
+        row = PromotedMetric.find("my_metric", "metrics")
+        assert row is not None
+        assert row.hypothesis_id == h.id
+
+    def test_promote_hypothesis_not_found(self, client: TestClient) -> None:
+        result = _gql(
+            client,
+            'mutation { promoteHypothesis(hypothesisId: 999999, name: "x") }',
+        )
+        assert "errors" not in result
+        assert "error" in result["data"]["promoteHypothesis"]
+
+    def test_ask_hypothesis_llm_failure_persists_error(self, client: TestClient) -> None:
+        class _BoomProvider:
+            name = "boom@v0"
+
+            def ask(self, **_):
+                raise RuntimeError("rate limited")
+
+        with (
+            patch("app.graphql.llm_provider.get_llm_provider", return_value=_BoomProvider()),
+            patch("app.graphql.mutations._build_catalog", return_value={}),
+        ):
+            result = _gql(
+                client,
+                'mutation { askHypothesis(question: "anything") }',
+            )
+        assert "errors" not in result
+        body = result["data"]["askHypothesis"]
+        assert body["ok"] is False
+        assert "rate limited" in body["error"]["message"]
 
     def test_create_transform(self, client: TestClient) -> None:
         result = _gql(

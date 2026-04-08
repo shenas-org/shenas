@@ -3,6 +3,7 @@ import "./pipeline-overview.ts";
 import "./auth-page.ts";
 import "./config-page.ts";
 import "./hotkeys-page.ts";
+import "./hypotheses-page.ts";
 import "./logs-page.ts";
 import "./app-shell.ts";
 import "./settings-page.ts";

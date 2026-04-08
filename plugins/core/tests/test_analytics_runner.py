@@ -1,4 +1,4 @@
-"""Tests for the recipe runner (PR 1.4).
+"""Tests for the recipe runner.
 
 Covers:
 

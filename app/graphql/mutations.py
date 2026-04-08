@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import strawberry
 from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawberry
 
@@ -14,6 +16,17 @@ from app.graphql.types import (
     TransformCreateInput,
     TransformType,
 )
+
+
+def _build_catalog() -> dict[str, dict]:
+    """Return ``{qualified_table: table_metadata}`` for the recipe runner.
+
+    Thin wrapper over :func:`app.analytics_catalog.catalog_by_qualified_name`,
+    which is the shared walk used by the GraphQL ``catalog`` query too.
+    """
+    from app.analytics_catalog import catalog_by_qualified_name
+
+    return catalog_by_qualified_name()
 
 
 @strawberry.type
@@ -265,3 +278,266 @@ class Mutation:
         user_id: int = (info.context or {}).get("user_id", 0) or 0
         Workspace.put(data, user_id=user_id)
         return OkType.from_pydantic(OkResponse(ok=True))
+
+    # -- Hypotheses --
+    #
+    # CRUD-shaped mutations over the Hypothesis system table. The recipe
+    # is supplied as a JSON DAG (the same format Hypothesis._serialize_recipe
+    # produces) so this layer is LLM-agnostic -- a curl request or test
+    # can drive it directly. askHypothesis (the LLM-driven mutation)
+    # lands on top of these.
+
+    @strawberry.mutation
+    def create_hypothesis(self, question: str, plan: str = "", model: str = "") -> JSON:
+        """Create an empty hypothesis row from a question. No recipe yet."""
+        from app.hypotheses import Hypothesis
+        from shenas_plugins.core.analytics import Recipe
+
+        empty = Recipe(nodes={}, final="")
+        h = Hypothesis.create(question, empty, plan=plan, model=model)
+        return {"id": h.id, "question": h.question}
+
+    @strawberry.mutation
+    def run_recipe(self, hypothesis_id: int, recipe_json: str) -> JSON:
+        """Attach a recipe DAG (JSON) to a hypothesis, run it, persist the result.
+
+        ``recipe_json`` is the same shape Hypothesis._serialize_recipe
+        emits: ``{"nodes": {name: {type, ...}}, "final": str}``.
+        """
+        import json
+
+        from app.db import analytics_backend
+        from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
+        from shenas_plugins.core.analytics import (
+            ErrorResult,
+            OpCall,
+            Recipe,
+            SourceRef,
+            run_recipe,
+        )
+
+        h = Hypothesis.find(hypothesis_id)
+        if h is None:
+            return {"error": f"hypothesis {hypothesis_id} not found"}
+
+        payload = json.loads(recipe_json)
+        nodes: dict[str, SourceRef | OpCall] = {}
+        for name, node in payload.get("nodes", {}).items():
+            if node.get("type") == "source":
+                nodes[name] = SourceRef(table=node["table"])
+            else:
+                nodes[name] = OpCall(
+                    op_name=node["op_name"],
+                    params=node.get("params", {}),
+                    inputs=tuple(node.get("inputs", ())),
+                )
+        recipe = Recipe(nodes=nodes, final=payload.get("final", ""))
+
+        # Persist the new recipe + inputs *before* running so even a runner
+        # crash leaves a recoverable record of what was attempted.
+        h.recipe_json = _serialize_recipe(recipe)
+        h.inputs = ",".join(sorted(_extract_input_tables(recipe)))
+        h.save()
+
+        catalog = _build_catalog()
+
+        # Cache lookup: hash recipe + freshness of inputs.
+        from app.recipe_cache import RecipeCache
+
+        cache_key = RecipeCache.key_for(h.recipe_json, _extract_input_tables(recipe))
+        cached_row = RecipeCache.find(cache_key)
+        if cached_row is not None and cached_row.payload is not None:
+            cached = cached_row.payload
+            h.result_json = json.dumps(cached)
+            h.save()
+            return {"id": h.id, "result": cached, "ok": cached.get("type") != "error", "cached": True}
+
+        result = run_recipe(recipe, catalog, backend=analytics_backend())
+        h.attach_result(result)
+        if not isinstance(result, ErrorResult):
+            RecipeCache.put(cache_key, result.to_dict())
+        return {
+            "id": h.id,
+            "result": result.to_dict(),
+            "ok": not isinstance(result, ErrorResult),
+            "cached": False,
+        }
+
+    # -- Forking --
+
+    @strawberry.mutation
+    def fork_hypothesis(self, hypothesis_id: int) -> JSON:
+        """Create a new hypothesis that copies the parent's question + recipe.
+
+        The fork has its own id, its own result history, and its own
+        cost / latency tracking. Use this to try a different recipe
+        against the same question without losing the original.
+        """
+        from app.hypotheses import Hypothesis
+
+        parent = Hypothesis.find(hypothesis_id)
+        if parent is None:
+            return {"error": f"hypothesis {hypothesis_id} not found"}
+
+        fork = Hypothesis(
+            question=parent.question,
+            plan=parent.plan or "",
+            recipe_json=parent.recipe_json or "",
+            inputs=parent.inputs or "",
+            model=parent.model or "",
+            parent_id=parent.id,
+        )
+        fork.insert()
+        return {"id": fork.id, "parent_id": parent.id, "question": fork.question}
+
+    # -- Promotion --
+
+    @strawberry.mutation
+    def promote_hypothesis(self, hypothesis_id: int, name: str, metric_schema: str = "metrics") -> JSON:
+        """Promote a hypothesis into a canonical MetricTable.
+
+        Inserts a row into ``shenas_system.promoted_metrics``. The
+        promoted thing is then visible to the catalog walker as a
+        synthesized ``MetricTable`` subclass; no Python source files
+        are generated.
+        """
+        from app.hypotheses import Hypothesis
+        from app.promotion import promote_hypothesis as _promote
+
+        h = Hypothesis.find(hypothesis_id)
+        if h is None:
+            return {"error": f"hypothesis {hypothesis_id} not found"}
+        try:
+            record = _promote(h, name=name, metric_schema=metric_schema)
+        except ValueError as exc:
+            return {"error": str(exc)}
+        return {
+            "id": h.id,
+            "promoted_to": h.promoted_to,
+            "qualified": record["qualified"],
+        }
+
+    # -- LLM-driven hypothesis --
+
+    @strawberry.mutation
+    def ask_hypothesis(self, question: str) -> JSON:  # noqa: PLR0915 -- linear narrative is clearer than splitting
+        """End-to-end: create a hypothesis, ask the LLM for a recipe, run it, persist.
+
+        The LLM provider is constructed from environment / settings; the
+        default is :class:`AnthropicProvider` which reads
+        ``ANTHROPIC_API_KEY``. Returns the hypothesis id, the LLM's plan,
+        the recipe payload, the run result, and a per-turn cost block
+        (input/output tokens, llm/query/wall_clock elapsed ms).
+        """
+        import time
+
+        from app.db import analytics_backend
+        from app.graphql.llm_provider import get_llm_provider
+        from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
+        from shenas_plugins.core.analytics import (
+            ErrorResult,
+            OpCall,
+            Recipe,
+            SourceRef,
+            ask_for_recipe_with_retry,
+            run_recipe,
+        )
+
+        provider = get_llm_provider()
+        wall_start = time.monotonic()
+
+        # Step 1: create empty hypothesis row so we can persist failures.
+        empty = Recipe(nodes={}, final="")
+        h = Hypothesis.create(question, empty, model=provider.name)
+
+        # Step 2: ask the LLM for a recipe with one validation retry.
+        def _validate_payload(p: dict) -> None:
+            tmp_nodes: dict = {}
+            for nm, nd in p.get("nodes", {}).items():
+                if nd.get("type") == "source":
+                    tmp_nodes[nm] = SourceRef(table=nd["table"])
+                else:
+                    tmp_nodes[nm] = OpCall(
+                        op_name=nd.get("op_name", ""),
+                        params=nd.get("params", {}),
+                        inputs=tuple(nd.get("inputs", ())),
+                    )
+            Recipe(nodes=tmp_nodes, final=p.get("final", "")).validate()
+
+        catalog = _build_catalog()
+        llm_start = time.monotonic()
+        try:
+            payload, retry_errors = ask_for_recipe_with_retry(
+                provider,
+                question,
+                catalog,
+                validate=_validate_payload,
+                max_attempts=2,
+            )
+            if retry_errors and not payload.get("nodes"):
+                msg = f"validation failed after retries: {retry_errors[-1]}"
+                raise RuntimeError(msg)  # noqa: TRY301 -- inner func indirection isn't worth it here
+        except Exception as exc:
+            llm_elapsed_ms = (time.monotonic() - llm_start) * 1000.0
+            err = {
+                "type": "error",
+                "message": f"LLM call failed: {exc}",
+                "kind": "validation",
+                "elapsed_ms": 0.0,
+                "sql": "",
+            }
+            h.result_json = json.dumps(err)
+            h.llm_input_tokens = getattr(provider, "last_input_tokens", 0)
+            h.llm_output_tokens = getattr(provider, "last_output_tokens", 0)
+            h.llm_elapsed_ms = llm_elapsed_ms
+            h.wall_clock_ms = (time.monotonic() - wall_start) * 1000.0
+            h.save()
+            return {"id": h.id, "ok": False, "error": err}
+        llm_elapsed_ms = (time.monotonic() - llm_start) * 1000.0
+
+        plan = payload.get("plan", "")
+        nodes_payload = payload.get("nodes", {})
+        nodes: dict[str, SourceRef | OpCall] = {}
+        for name, node in nodes_payload.items():
+            if node.get("type") == "source":
+                nodes[name] = SourceRef(table=node["table"])
+            else:
+                nodes[name] = OpCall(
+                    op_name=node.get("op_name", ""),
+                    params=node.get("params", {}),
+                    inputs=tuple(node.get("inputs", ())),
+                )
+        recipe = Recipe(nodes=nodes, final=payload.get("final", ""))
+
+        # Step 3: persist the recipe + plan before running.
+        h.plan = plan
+        h.recipe_json = _serialize_recipe(recipe)
+        h.inputs = ",".join(sorted(_extract_input_tables(recipe)))
+        h.save()
+
+        # Step 4: run.
+        query_start = time.monotonic()
+        result = run_recipe(recipe, catalog, backend=analytics_backend())
+        query_elapsed_ms = (time.monotonic() - query_start) * 1000.0
+        h.attach_result(result)
+        # Step 5: persist cost / latency.
+        h.llm_input_tokens = getattr(provider, "last_input_tokens", 0)
+        h.llm_output_tokens = getattr(provider, "last_output_tokens", 0)
+        h.llm_elapsed_ms = llm_elapsed_ms
+        h.query_elapsed_ms = query_elapsed_ms
+        h.wall_clock_ms = (time.monotonic() - wall_start) * 1000.0
+        h.save()
+        return {
+            "id": h.id,
+            "plan": plan,
+            "recipe": payload,
+            "result": result.to_dict(),
+            "ok": not isinstance(result, ErrorResult),
+            "cost": {
+                "llm_input_tokens": h.llm_input_tokens,
+                "llm_output_tokens": h.llm_output_tokens,
+                "llm_elapsed_ms": h.llm_elapsed_ms,
+                "query_elapsed_ms": h.query_elapsed_ms,
+                "wall_clock_ms": h.wall_clock_ms,
+            },
+        }

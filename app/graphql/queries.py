@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import strawberry
 from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawberry
@@ -352,3 +352,74 @@ class Query:
         if not cls:
             return None
         return cls().predict()
+
+    # -- Analytics catalog --
+    #
+    # Single read-only query that returns the structured metadata for every
+    # source-side raw table and every dataset-side metric table that is
+    # currently installed. The LLM uses this to know what columns exist,
+    # what kind each table is (so it can pick the right operation), and
+    # which AS-OF macros to call for SCD2 lookups. System tables (Hypothesis,
+    # Transform, Hotkey, Workspace, PluginInstance) are intentionally
+    # excluded -- they are not joinable analytical inputs.
+
+    @strawberry.field
+    def catalog(self) -> JSON:
+        """Return ``[table_metadata]`` for every queryable source / metric table.
+
+        Thin wrapper over :func:`app.analytics_catalog.walk_catalog`,
+        which both this query and the recipe runner share.
+        """
+        from app.analytics_catalog import walk_catalog
+
+        return walk_catalog()
+
+    # -- Hypotheses --
+    #
+    # Read-only listing + single fetch over the Hypothesis system table.
+    # The mutations that create / run / promote hypotheses live in
+    # app/graphql/mutations.py.
+
+    @strawberry.field
+    def hypotheses(self, limit: int | None = None) -> JSON:
+        """Return every hypothesis row, most recent first."""
+        from app.hypotheses import Hypothesis
+
+        return [_hypothesis_to_dict(h) for h in Hypothesis.all(order_by="created_at DESC", limit=limit)]
+
+    @strawberry.field
+    def hypothesis(self, hypothesis_id: int) -> JSON:
+        """Return one hypothesis by id, or ``None`` if not found."""
+        from app.hypotheses import Hypothesis
+
+        h = Hypothesis.find(hypothesis_id)
+        return _hypothesis_to_dict(h) if h else None
+
+
+def _hypothesis_to_dict(h: Any) -> dict[str, Any]:
+    """Serialize a Hypothesis row to a JSON-friendly dict for GraphQL."""
+    result = h.result()
+    return {
+        "id": h.id,
+        "question": h.question,
+        "plan": h.plan or "",
+        "inputs": (h.inputs or "").split(",") if h.inputs else [],
+        "interpretation": h.interpretation or "",
+        "model": h.model or "",
+        "promoted_to": h.promoted_to,
+        "parent_id": getattr(h, "parent_id", None),
+        "created_at": str(h.created_at) if h.created_at else None,
+        "recipe": _safe_json_load(h.recipe_json),
+        "result": result.to_dict() if result is not None else None,
+    }
+
+
+def _safe_json_load(s: str) -> Any:
+    import json
+
+    if not s:
+        return None
+    try:
+        return json.loads(s)
+    except Exception:
+        return None

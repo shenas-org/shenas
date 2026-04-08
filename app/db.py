@@ -129,9 +129,11 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     from app.hypotheses import Hypothesis
     from app.local_sessions import LocalSession
     from app.local_users import LocalUser
+    from app.recipe_cache import RecipeCache
     from app.system_settings import SystemSettings
     from app.transforms import Transform
     from app.workspace import Workspace
+    from shenas_datasets.promoted import PromotedMetric
     from shenas_plugins.core.plugin import PluginInstance
     from shenas_plugins.core.table import Table
 
@@ -144,6 +146,8 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
         Workspace,
         Hotkey,
         Hypothesis,
+        PromotedMetric,
+        RecipeCache,
         SystemSettings,
         LocalUser,
         LocalSession,

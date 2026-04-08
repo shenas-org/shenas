@@ -119,6 +119,19 @@ class Hypothesis(Table):
         ]
         | None
     ) = None
+    # PR 4.5 -- cost / latency tracking
+    llm_input_tokens: Annotated[int, Field(db_type="INTEGER", description="LLM input tokens consumed")] | None = None
+    llm_output_tokens: Annotated[int, Field(db_type="INTEGER", description="LLM output tokens generated")] | None = None
+    llm_elapsed_ms: Annotated[float, Field(db_type="DOUBLE", description="Total wall-clock LLM time in ms")] | None = None
+    query_elapsed_ms: (
+        Annotated[float, Field(db_type="DOUBLE", description="Total wall-clock query execution time in ms")] | None
+    ) = None
+    wall_clock_ms: (
+        Annotated[float, Field(db_type="DOUBLE", description="End-to-end wall clock for the whole askHypothesis turn")] | None
+    ) = None
+    # Forking: parent_id is the hypothesis this one was branched from.
+    # Forks share the question + initial recipe but iterate independently.
+    parent_id: Annotated[int, Field(db_type="INTEGER", description="Parent hypothesis id if this is a fork")] | None = None
 
     # ------------------------------------------------------------------
     # Factory: create() handles recipe serialization + input extraction

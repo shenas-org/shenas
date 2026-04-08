@@ -341,7 +341,7 @@ class TestToResource:
 
 
 class TestTableKindAndMetadata:
-    """Tests for the kind-aware extensions to ``Table.table_metadata()`` (PR 1.1)."""
+    """Tests for the kind-aware extensions to ``Table.table_metadata()``."""
 
     def test_kind_event_with_time_at(self) -> None:
         class _Evt(EventTable):
