@@ -18,10 +18,11 @@ class Hotkey:
         table_name: ClassVar[str] = "hotkeys"
         table_schema: ClassVar[str | None] = "shenas_system"
         table_display_name: ClassVar[str] = "Hotkeys"
-        table_description: ClassVar[str | None] = "Per-action keyboard shortcut bindings."
-        table_pk: ClassVar[tuple[str, ...]] = ("action_id",)
+        table_description: ClassVar[str | None] = "Per-action keyboard shortcut bindings, per user."
+        table_pk: ClassVar[tuple[str, ...]] = ("action_id", "user_id")
 
         action_id: Annotated[str, Field(db_type="VARCHAR", description="Action identifier")] = ""
+        user_id: Annotated[int, Field(db_type="INTEGER", description="User ID (0 = single-user)", db_default="0")] = 0
         binding: Annotated[str, Field(db_type="VARCHAR", description="Key binding", db_default="''")] = ""
         updated_at: (
             Annotated[str, Field(db_type="TIMESTAMP", description="When last updated", db_default="current_timestamp")] | None
@@ -34,45 +35,54 @@ class Hotkey:
         ("new-tab", "Ctrl+T"),
     ]
 
-    def __init__(self, action_id: str, binding: str = "") -> None:
+    def __init__(self, action_id: str, binding: str = "", user_id: int = 0) -> None:
         self.action_id = action_id
         self.binding = binding
+        self.user_id = user_id
 
     def set(self, binding: str) -> None:
         self.binding = binding
         with cursor() as cur:
             cur.execute(
-                "INSERT INTO shenas_system.hotkeys (action_id, binding, updated_at) VALUES (?, ?, now()) "
-                "ON CONFLICT (action_id) DO UPDATE SET binding = ?, updated_at = now()",
-                [self.action_id, binding, binding],
+                "INSERT INTO shenas_system.hotkeys (action_id, user_id, binding, updated_at) VALUES (?, ?, ?, now()) "
+                "ON CONFLICT (action_id, user_id) DO UPDATE SET binding = ?, updated_at = now()",
+                [self.action_id, self.user_id, binding, binding],
             )
 
     def delete(self) -> None:
         with cursor() as cur:
-            cur.execute("DELETE FROM shenas_system.hotkeys WHERE action_id = ?", [self.action_id])
+            cur.execute(
+                "DELETE FROM shenas_system.hotkeys WHERE action_id = ? AND user_id = ?",
+                [self.action_id, self.user_id],
+            )
 
     @staticmethod
-    def get_all() -> dict[str, str]:
+    def get_all(user_id: int = 0) -> dict[str, str]:
         with cursor() as cur:
-            rows = cur.execute("SELECT action_id, binding FROM shenas_system.hotkeys ORDER BY action_id").fetchall()
+            rows = cur.execute(
+                "SELECT action_id, binding FROM shenas_system.hotkeys WHERE user_id = ? ORDER BY action_id",
+                [user_id],
+            ).fetchall()
         return {r[0]: r[1] for r in rows}
 
     @staticmethod
-    def seed(con: duckdb.DuckDBPyConnection) -> None:
-        row = con.execute("SELECT COUNT(*) FROM shenas_system.hotkeys").fetchone()
+    def seed(con: duckdb.DuckDBPyConnection, user_id: int = 0) -> None:
+        row = con.execute(
+            "SELECT COUNT(*) FROM shenas_system.hotkeys WHERE user_id = ?", [user_id]
+        ).fetchone()
         if row and row[0] == 0:
             for action_id, binding in Hotkey._DEFAULTS:
                 con.execute(
-                    "INSERT INTO shenas_system.hotkeys (action_id, binding) VALUES (?, ?)",
-                    [action_id, binding],
+                    "INSERT INTO shenas_system.hotkeys (action_id, user_id, binding) VALUES (?, ?, ?)",
+                    [action_id, user_id, binding],
                 )
 
     @staticmethod
-    def reset() -> None:
+    def reset(user_id: int = 0) -> None:
         with cursor() as cur:
-            cur.execute("DELETE FROM shenas_system.hotkeys")
+            cur.execute("DELETE FROM shenas_system.hotkeys WHERE user_id = ?", [user_id])
             for action_id, binding in Hotkey._DEFAULTS:
                 cur.execute(
-                    "INSERT INTO shenas_system.hotkeys (action_id, binding) VALUES (?, ?)",
-                    [action_id, binding],
+                    "INSERT INTO shenas_system.hotkeys (action_id, user_id, binding) VALUES (?, ?, ?)",
+                    [action_id, user_id, binding],
                 )

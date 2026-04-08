@@ -253,16 +253,18 @@ class Query:
     # -- App-level --
 
     @strawberry.field
-    def hotkeys(self) -> JSON:
+    def hotkeys(self, info: strawberry.types.Info) -> JSON:
         from app.hotkeys import Hotkey
 
-        return Hotkey.get_all()
+        user_id = info.context.get("user_id", 0) or 0
+        return Hotkey.get_all(user_id=user_id)
 
     @strawberry.field
-    def workspace(self) -> JSON:
+    def workspace(self, info: strawberry.types.Info) -> JSON:
         from app.workspace import Workspace
 
-        return Workspace.get()
+        user_id = info.context.get("user_id", 0) or 0
+        return Workspace.get(user_id=user_id)
 
     @strawberry.field
     def dashboards(self) -> JSON:

@@ -18,7 +18,7 @@ if getattr(_sys, "_MEIPASS", None):
         if str(_p) not in _sys.path:
             _sys.path.insert(0, str(_p))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -63,6 +63,33 @@ app.state.default_theme = _os.environ.get("SHENAS_DEFAULT_THEME", "default")
 
 # Register API routes (includes GraphQL at /api/graphql)
 app.include_router(api_router)
+
+
+# ---------------------------------------------------------------------------
+# Session middleware -- injects request.state.user_id from X-Shenas-Session
+# ---------------------------------------------------------------------------
+
+
+@app.middleware("http")
+async def session_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
+    """Validate X-Shenas-Session header and inject user_id into request.state.
+
+    When multi-user mode is disabled, user_id is always 0 (single-user sentinel).
+    """
+    try:
+        from app.local_sessions import LocalSession
+        from app.system_settings import SystemSettings
+
+        settings = SystemSettings.get()
+        if settings.get("multiuser_enabled"):
+            token = request.headers.get("X-Shenas-Session")
+            user_id = LocalSession.validate_token(token)
+            request.state.user_id = user_id
+        else:
+            request.state.user_id = 0
+    except Exception:
+        request.state.user_id = 0
+    return await call_next(request)
 
 
 # ---------------------------------------------------------------------------
@@ -229,6 +256,23 @@ async def stream_spans() -> StreamingResponse:
 SHENAS_NET_URL = _os.environ.get("SHENAS_NET_URL", "https://shenas.net")
 
 
+@app.get("/api/settings/system")
+def get_system_settings() -> dict:
+    """Return system-wide settings (e.g. multiuser_enabled)."""
+    from app.system_settings import SystemSettings
+
+    return SystemSettings.get()
+
+
+@app.put("/api/settings/system")
+def update_system_settings(multiuser_enabled: bool) -> dict:
+    """Update system-wide settings."""
+    from app.system_settings import SystemSettings
+
+    SystemSettings.set_multiuser(multiuser_enabled)
+    return SystemSettings.get()
+
+
 @app.get("/api/auth/login")
 def remote_login() -> RedirectResponse:
     """Redirect to shenas.net OAuth, which will redirect back with a token."""
@@ -238,7 +282,11 @@ def remote_login() -> RedirectResponse:
 
 @app.get("/api/auth/callback")
 def remote_callback(token: str | None = None) -> HTMLResponse:
-    """Receive the token from shenas.net after OAuth and store it."""
+    """Receive the token from shenas.net after OAuth and store it.
+
+    When multi-user mode is enabled, also create/find a LocalUser linked to
+    the remote account and auto-select them as the active session.
+    """
     if token:
         from app.db import cursor
 
@@ -249,6 +297,34 @@ def remote_callback(token: str | None = None) -> HTMLResponse:
                 "ON CONFLICT (key) DO UPDATE SET value = ?",
                 [token, token],
             )
+
+        # Auto-link to a LocalUser when multi-user is enabled
+        try:
+            from app.local_sessions import LocalSession
+            from app.local_users import LocalUser
+            from app.system_settings import SystemSettings
+
+            if SystemSettings.get().get("multiuser_enabled"):
+                # Fetch the remote username from shenas.net
+                import httpx
+
+                try:
+                    resp = httpx.get(
+                        f"{SHENAS_NET_URL}/api/auth/me",
+                        headers={"Authorization": f"Bearer {token}"},
+                        verify=False,
+                        timeout=5,
+                    )
+                    data = resp.json()
+                    remote_username = (data.get("user") or {}).get("username") or (data.get("user") or {}).get("email")
+                    if remote_username:
+                        user = LocalUser.upsert_remote_user(remote_username, token)
+                        LocalSession.set_user(user["id"])
+                except Exception:
+                    pass  # OAuth linking is best-effort
+        except Exception:
+            pass
+
     return HTMLResponse(
         content="""
         <html><body style="font-family:system-ui;text-align:center;padding:4rem">

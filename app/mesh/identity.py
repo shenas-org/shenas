@@ -87,6 +87,14 @@ def register_with_server(server_url: str, token: str) -> dict[str, Any] | None:
     import httpx
 
     info = get_device_info()
+    multiuser_enabled = False
+    try:
+        from app.system_settings import SystemSettings
+
+        multiuser_enabled = bool(SystemSettings.get().get("multiuser_enabled"))
+    except Exception:
+        pass
+
     try:
         resp = httpx.post(
             f"{server_url}/api/devices",
@@ -94,6 +102,7 @@ def register_with_server(server_url: str, token: str) -> dict[str, Any] | None:
                 "name": info["device_name"],
                 "device_type": info["device_type"],
                 "public_key": info["public_key"],
+                "multiuser_enabled": multiuser_enabled,
             },
             headers={"Authorization": f"Bearer {token}"},
             verify=False,
