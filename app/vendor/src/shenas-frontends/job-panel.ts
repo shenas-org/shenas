@@ -50,7 +50,7 @@ class JobPanel extends LitElement {
       background: var(--shenas-bg-hover, #f5f5f5);
     }
     .badge {
-      background: var(--shenas-accent, #728F67);
+      background: var(--shenas-accent, #728f67);
       color: #fff;
       border-radius: 8px;
       padding: 0 0.4rem;
@@ -92,7 +92,9 @@ class JobPanel extends LitElement {
       animation: spin 1s linear infinite;
     }
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
     .line {
       color: var(--shenas-text-muted, #999);
@@ -140,16 +142,12 @@ class JobPanel extends LitElement {
   }
 
   appendLine(id: string, text: string): void {
-    this._jobs = this._jobs.map((j) =>
-      j.id === id ? { ...j, lines: [...j.lines, text] } : j,
-    );
+    this._jobs = this._jobs.map((j) => (j.id === id ? { ...j, lines: [...j.lines, text] } : j));
     this._scrollToBottom();
   }
 
   finishJob(id: string, ok: boolean, message?: string): void {
-    this._jobs = this._jobs.map((j) =>
-      j.id === id ? { ...j, status: ok ? "done" : "error", message } : j,
-    );
+    this._jobs = this._jobs.map((j) => (j.id === id ? { ...j, status: ok ? "done" : "error", message } : j));
   }
 
   _scrollToBottom(): void {
@@ -174,45 +172,59 @@ class JobPanel extends LitElement {
 
     return html`
       <div class="panel">
-        <div class="header" @click=${() => { this._collapsed = !this._collapsed; }}>
-          <span>
-            Jobs
-            ${this._activeCount > 0
-              ? html`<span class="badge">${this._activeCount}</span>`
-              : ""}
-          </span>
+        <div
+          class="header"
+          @click=${() => {
+            this._collapsed = !this._collapsed;
+          }}
+        >
+          <span> Jobs ${this._activeCount > 0 ? html`<span class="badge">${this._activeCount}</span>` : ""} </span>
           <span>
             ${finished > 0
-              ? html`<button class="dismiss" @click=${(e: Event) => { e.stopPropagation(); this._dismissAll(); }}>Clear</button>`
+              ? html`<button
+                  class="dismiss"
+                  @click=${(e: Event) => {
+                    e.stopPropagation();
+                    this._dismissAll();
+                  }}
+                >
+                  Clear
+                </button>`
               : ""}
-            <span class="chevron ${this._collapsed ? "" : "up"}">\u25BC</span>
+            <span class="chevron ${this._collapsed ? "" : "up"}">▼</span>
           </span>
         </div>
-        ${this._collapsed ? "" : html`
-          <div class="log-area">
-            ${this._jobs.map((job) => html`
-              <div class="job-group">
-                <div class="job-label">
-                  <span class="status">
-                    ${job.status === "running"
-                      ? html`<span class="spinning">\u25E0</span>`
-                      : job.status === "done" ? "\u2713" : "\u2717"}
-                  </span>
-                  ${job.label}
-                  ${job.status !== "running"
-                    ? html`<button class="dismiss" @click=${() => this._dismiss(job.id)}>\u2715</button>`
-                    : ""}
-                </div>
-                ${job.lines.map((line) => html`
-                  <div class="line ${job.status === "error" ? "error" : ""}">${line}</div>
-                `)}
-                ${job.message ? html`
-                  <div class="line ${job.status === "done" ? "success" : "error"}">${job.message}</div>
-                ` : ""}
+        ${this._collapsed
+          ? ""
+          : html`
+              <div class="log-area">
+                ${this._jobs.map(
+                  (job) => html`
+                    <div class="job-group">
+                      <div class="job-label">
+                        <span class="status">
+                          ${job.status === "running"
+                            ? html`<span class="spinning">◠</span>`
+                            : job.status === "done"
+                              ? "\u2713"
+                              : "\u2717"}
+                        </span>
+                        ${job.label}
+                        ${job.status !== "running"
+                          ? html`<button class="dismiss" @click=${() => this._dismiss(job.id)}>✕</button>`
+                          : ""}
+                      </div>
+                      ${job.lines.map(
+                        (line) => html` <div class="line ${job.status === "error" ? "error" : ""}">${line}</div> `,
+                      )}
+                      ${job.message
+                        ? html` <div class="line ${job.status === "done" ? "success" : "error"}">${job.message}</div> `
+                        : ""}
+                    </div>
+                  `,
+                )}
               </div>
-            `)}
-          </div>
-        `}
+            `}
       </div>
     `;
   }

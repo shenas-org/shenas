@@ -125,9 +125,7 @@ describe("registerCommands", () => {
     el.addEventListener("register-command", (e) => {
       captured = e as CustomEvent;
     });
-    registerCommands(el, "test-component", [
-      { id: "act1", label: "Action 1", category: "Test" },
-    ]);
+    registerCommands(el, "test-component", [{ id: "act1", label: "Action 1", category: "Test" }]);
     expect(captured).not.toBeNull();
     expect((captured as unknown as CustomEvent).detail).toEqual({
       componentId: "test-component",

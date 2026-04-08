@@ -28,14 +28,15 @@ function filterData(data: TestRow[], filters: Record<string, string>): TestRow[]
       if (!val) return true;
       const cell = row[col];
       return cell != null && String(cell).toLowerCase().includes(val.toLowerCase());
-    })
+    }),
   );
 }
 
 function sortData(data: TestRow[], sortCol: string | null, sortDesc: boolean): TestRow[] {
   if (!sortCol) return data;
   return [...data].sort((a, b) => {
-    const va = a[sortCol], vb = b[sortCol];
+    const va = a[sortCol],
+      vb = b[sortCol];
     if (va == null && vb == null) return 0;
     if (va == null) return 1;
     if (vb == null) return -1;
@@ -146,10 +147,18 @@ describe("Cell formatting", () => {
     return String(value);
   }
 
-  it("formats null as empty", () => { expect(formatCell(null)).toBe(""); });
-  it("formats numbers", () => { expect(formatCell(42)).toBe("42"); });
-  it("formats bigint", () => { expect(formatCell(42n)).toBe("42"); });
-  it("formats dates", () => { expect(formatCell(new Date("2026-03-15T00:00:00Z"))).toBe("2026-03-15"); });
+  it("formats null as empty", () => {
+    expect(formatCell(null)).toBe("");
+  });
+  it("formats numbers", () => {
+    expect(formatCell(42)).toBe("42");
+  });
+  it("formats bigint", () => {
+    expect(formatCell(42n)).toBe("42");
+  });
+  it("formats dates", () => {
+    expect(formatCell(new Date("2026-03-15T00:00:00Z"))).toBe("2026-03-15");
+  });
 });
 
 describe("DataTable component", () => {
@@ -164,10 +173,7 @@ describe("DataTable component", () => {
     });
   });
 
-  function makeEl(
-    columns: string[],
-    data: TestRow[],
-  ): ShenasDataTable & HTMLElement {
+  function makeEl(columns: string[], data: TestRow[]): ShenasDataTable & HTMLElement {
     const el = document.createElement("shenas-data-table") as ShenasDataTable & HTMLElement;
     // Disable rendering to sidestep a happy-dom/lit template parsing quirk;
     // we exercise the component's reactive state and getters directly.

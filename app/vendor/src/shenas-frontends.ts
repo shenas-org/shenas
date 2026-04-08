@@ -16,13 +16,7 @@ export {
   renderMessage,
 } from "./shenas-frontends/api.ts";
 
-export {
-  formatHotkey,
-  matchesHotkey,
-  parseHotkey,
-  PLUGIN_KINDS,
-  sortActions,
-} from "./shenas-frontends/constants.ts";
+export { formatHotkey, matchesHotkey, parseHotkey, PLUGIN_KINDS, sortActions } from "./shenas-frontends/constants.ts";
 
 export {
   buttonStyles,

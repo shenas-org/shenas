@@ -114,7 +114,9 @@ export class ShenasEventGantt extends LitElement {
       color: white;
     }
 
-    .loading, .error, .empty {
+    .loading,
+    .error,
+    .empty {
       padding: 2rem;
       text-align: center;
       color: var(--shenas-text-muted, #8888a0);
@@ -204,7 +206,7 @@ export class ShenasEventGantt extends LitElement {
       overflow: hidden;
       text-overflow: ellipsis;
       color: white;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
     }
 
     .hour-labels {
@@ -253,7 +255,7 @@ export class ShenasEventGantt extends LitElement {
       z-index: 1000;
       pointer-events: none;
       max-width: 300px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     }
 
     .tooltip-title {
@@ -297,7 +299,7 @@ export class ShenasEventGantt extends LitElement {
         `SELECT source, source_id, start_at, end_at, duration_min, title, category
          FROM metrics.events
          WHERE start_at >= current_date - INTERVAL '${this.days}' DAY
-         ORDER BY start_at`
+         ORDER BY start_at`,
       );
       this._events = arrowToRows(table) as EventData[];
     } catch (e) {
@@ -351,7 +353,7 @@ export class ShenasEventGantt extends LitElement {
         <h2>Events Timeline</h2>
         <div class="controls">
           ${[7, 14, 30].map(
-            (n) => html`<button aria-pressed=${this.days === n} @click=${() => this._setDays(n)}>${n}d</button>`
+            (n) => html`<button aria-pressed=${this.days === n} @click=${() => this._setDays(n)}>${n}d</button>`,
           )}
         </div>
       </div>
@@ -359,8 +361,12 @@ export class ShenasEventGantt extends LitElement {
       <div class="container">
         <div class="gantt">
           <div class="hour-labels">
-            ${Array.from({ length: 24 }, (_, i) =>
-              html`<div class="hour-label">${i === 0 ? "12a" : i < 12 ? `${i}a` : i === 12 ? "12p" : `${i - 12}p`}</div>`
+            ${Array.from(
+              { length: 24 },
+              (_, i) =>
+                html`<div class="hour-label">
+                  ${i === 0 ? "12a" : i < 12 ? `${i}a` : i === 12 ? "12p" : `${i - 12}p`}
+                </div>`,
             )}
           </div>
 
@@ -371,9 +377,7 @@ export class ShenasEventGantt extends LitElement {
               <div class="day-row">
                 <div class="day-label ${isToday ? "today" : ""}">${formatDate(date)}</div>
                 <div class="timeline">
-                  <div class="hour-grid">
-                    ${Array.from({ length: 24 }, () => html`<div class="hour-line"></div>`)}
-                  </div>
+                  <div class="hour-grid">${Array.from({ length: 24 }, () => html`<div class="hour-line"></div>`)}</div>
                   ${events.map((ev) => this._renderBar(ev))}
                 </div>
               </div>
@@ -389,7 +393,7 @@ export class ShenasEventGantt extends LitElement {
               <div class="legend-dot" style="background: ${categoryColor(cat)}"></div>
               ${cat}
             </div>
-          `
+          `,
         )}
       </div>
 
@@ -398,9 +402,15 @@ export class ShenasEventGantt extends LitElement {
             <div class="tooltip" style="left: ${this._tooltipX}px; top: ${this._tooltipY}px">
               <div class="tooltip-title">${this._hoveredEvent.title || "Untitled"}</div>
               <div class="tooltip-meta">
-                <span>${formatTime(this._hoveredEvent._start!)}${this._hoveredEvent._end ? ` - ${formatTime(this._hoveredEvent._end)}` : ""}</span>
+                <span
+                  >${formatTime(this._hoveredEvent._start!)}${this._hoveredEvent._end
+                    ? ` - ${formatTime(this._hoveredEvent._end)}`
+                    : ""}</span
+                >
                 <span>${this._hoveredEvent.category || "uncategorized"} / ${this._hoveredEvent.source}</span>
-                ${this._hoveredEvent.duration_min ? html`<span>${Math.round(this._hoveredEvent.duration_min)} min</span>` : nothing}
+                ${this._hoveredEvent.duration_min
+                  ? html`<span>${Math.round(this._hoveredEvent.duration_min)} min</span>`
+                  : nothing}
               </div>
             </div>
           `

@@ -123,10 +123,7 @@ export async function gqlFull<T = Record<string, unknown>>(
  * Query DuckDB via Arrow IPC and return rows as an array of plain objects.
  * Uses the REST /api/query endpoint (binary Arrow stream, not GraphQL).
  */
-export async function arrowQuery(
-  apiBase: string,
-  sql: string,
-): Promise<Record<string, unknown>[] | null> {
+export async function arrowQuery(apiBase: string, sql: string): Promise<Record<string, unknown>[] | null> {
   const arrowUrl = "/vendor/apache-arrow.js";
   const mod = (await import(/* @vite-ignore */ arrowUrl)) as {
     tableFromIPC: (buf: Uint8Array) => Promise<{ toArray: () => { toJSON: () => Record<string, unknown> }[] }>;
@@ -150,14 +147,12 @@ export function renderMessage(message: MessageBanner | null | undefined): Templa
  * Dispatch a register-command event from an element.
  * The app-shell listens for these to populate the command palette.
  */
-export function registerCommands(
-  element: HTMLElement,
-  componentId: string,
-  commands: CommandDescriptor[],
-): void {
-  element.dispatchEvent(new CustomEvent("register-command", {
-    bubbles: true,
-    composed: true,
-    detail: { componentId, commands },
-  }));
+export function registerCommands(element: HTMLElement, componentId: string, commands: CommandDescriptor[]): void {
+  element.dispatchEvent(
+    new CustomEvent("register-command", {
+      bubbles: true,
+      composed: true,
+      detail: { componentId, commands },
+    }),
+  );
 }

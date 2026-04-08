@@ -89,8 +89,10 @@ uv run ty check app/                              # type check
 make coverage                                     # Python coverage report
 
 # JavaScript / TypeScript
-npm install                                       # root: install eslint + typescript
-npx eslint 'plugins/**/src/**/*.ts' 'app/vendor/src/**/*.ts'   # lint
+npm install                                       # root: install eslint + prettier + typescript
+npm run lint                                      # eslint
+npm run format                                    # prettier write
+npm run format:check                              # prettier check
 cd app/vendor && npm test                         # vendor unit tests
 cd plugins/dashboards/data-table && npm test      # dashboard tests
 cd plugins/frontends/default && npm test          # frontend tests

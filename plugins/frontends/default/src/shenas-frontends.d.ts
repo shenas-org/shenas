@@ -1,7 +1,20 @@
 declare module "shenas-frontends" {
-  export function gql(base: string, query: string, variables?: Record<string, unknown>): Promise<Record<string, unknown>>;
-  export function gqlFull(base: string, query: string, variables?: Record<string, unknown>): Promise<{ ok: boolean; data?: Record<string, unknown>; error?: string }>;
-  export function apiFetch(base: string, method: string, path: string, options?: Record<string, unknown>): Promise<unknown>;
+  export function gql(
+    base: string,
+    query: string,
+    variables?: Record<string, unknown>,
+  ): Promise<Record<string, unknown>>;
+  export function gqlFull(
+    base: string,
+    query: string,
+    variables?: Record<string, unknown>,
+  ): Promise<{ ok: boolean; data?: Record<string, unknown>; error?: string }>;
+  export function apiFetch(
+    base: string,
+    method: string,
+    path: string,
+    options?: Record<string, unknown>,
+  ): Promise<unknown>;
   export function arrowQuery(base: string, sql: string): Promise<unknown>;
   export function renderMessage(msg: unknown): import("lit").TemplateResult | string;
   export function registerCommands<T>(host: HTMLElement, componentId: string, commands: T[]): void;

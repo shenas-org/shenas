@@ -118,8 +118,6 @@ describe("sortActions", () => {
 describe("PLUGIN_KINDS", () => {
   it("contains all 6 kinds", () => {
     expect(PLUGIN_KINDS).toHaveLength(6);
-    expect(PLUGIN_KINDS.map((k) => k.id)).toEqual([
-      "source", "dataset", "dashboard", "model", "frontend", "theme",
-    ]);
+    expect(PLUGIN_KINDS.map((k) => k.id)).toEqual(["source", "dataset", "dashboard", "model", "frontend", "theme"]);
   });
 });

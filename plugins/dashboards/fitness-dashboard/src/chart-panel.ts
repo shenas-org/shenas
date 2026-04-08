@@ -107,14 +107,13 @@ export class ChartPanel extends LitElement {
         {
           stroke: "#888",
           grid: { stroke: "#eee" },
-          values: (_u: uPlot, vals: number[]) => vals.map((v) => {
-            const d = new Date(v * 1000);
-            return `${d.getMonth() + 1}/${d.getDate()}`;
-          }),
+          values: (_u: uPlot, vals: number[]) =>
+            vals.map((v) => {
+              const d = new Date(v * 1000);
+              return `${d.getMonth() + 1}/${d.getDate()}`;
+            }),
         },
-        ...(this.axes.length
-          ? this.axes
-          : [{ stroke: "#888", grid: { stroke: "#f4f4f4" } }]),
+        ...(this.axes.length ? this.axes : [{ stroke: "#888", grid: { stroke: "#f4f4f4" } }]),
       ],
       series: [
         {},
