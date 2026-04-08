@@ -126,7 +126,7 @@ def analytics_backend() -> Any:
 def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     """Create system tables and canonical schema tables if they don't exist."""
     from app.hotkeys import Hotkey
-    from app.hypotheses import HypothesisRecord
+    from app.hypotheses import Hypothesis
     from app.transforms import Transform
     from app.workspace import Workspace
     from shenas_plugins.core.plugin import Plugin
@@ -134,7 +134,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
 
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
-    tables = [Transform._Table, Plugin._Table, Workspace._Table, Hotkey._Table, HypothesisRecord._Table]
+    tables = [Transform._Table, Plugin._Table, Workspace, Hotkey._Table, Hypothesis]
     Table.ensure_schema(con, tables, schema="shenas_system")
     Hotkey.seed(con)
     from shenas_datasets.core.dataset import Dataset

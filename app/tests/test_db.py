@@ -148,14 +148,14 @@ class TestWorkspace:
         from app.workspace import Workspace
 
         state = {"tabs": ["dashboard", "settings"], "active": 0}
-        Workspace.save(state)
+        Workspace.put(state)
         assert Workspace.get() == state
 
     def test_save_overwrites(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.workspace import Workspace
 
-        Workspace.save({"first": True})
-        Workspace.save({"second": True})
+        Workspace.put({"first": True})
+        Workspace.put({"second": True})
         assert Workspace.get() == {"second": True}
 
 
