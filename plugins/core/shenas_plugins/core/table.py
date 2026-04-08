@@ -263,11 +263,16 @@ class Table:
         per-source ``Source.get_*_metadata`` helpers, and (eventually) the
         analytics catalog endpoint that feeds the LLM.
         """
-        import sys
-
-        mod = sys.modules.get(cls.__module__, None)
-        globalns = vars(mod) if mod else None
-        hints: dict[str, Any] = get_type_hints(cls, globalns=globalns, include_extras=True)
+        # Don't pass `globalns=` here. ``get_type_hints`` walks the MRO and
+        # resolves each base class's annotations against THAT base's own
+        # ``__module__``, which is what we want -- ``ClassVar`` (and other
+        # typing imports) live in whichever file declared them, not
+        # necessarily in the leaf subclass's module. Forcing
+        # ``globalns=vars(leaf_module)`` makes intermediate-base annotations
+        # like ``SingletonTable._abstract: ClassVar[bool]`` resolve in the
+        # leaf's namespace, which often doesn't import ``ClassVar`` and
+        # crashes with a NameError at request time.
+        hints: dict[str, Any] = get_type_hints(cls, include_extras=True)
         columns: list[dict[str, Any]] = []
         for f in dataclasses.fields(cls):
             col_meta = cls._extract_field_meta(hints[f.name])
