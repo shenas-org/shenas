@@ -48,7 +48,7 @@ from __future__ import annotations
 import dataclasses
 import types
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, get_args, get_origin, get_type_hints
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self, get_args, get_origin, get_type_hints
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -407,6 +407,143 @@ class Table:
         with cursor() as cur:
             cur.execute(f"DELETE FROM {s}.{cls.table_name}")
             cur.execute(f"INSERT INTO {s}.{cls.table_name} ({col_names}) VALUES ({placeholders})", values)
+
+    # ------------------------------------------------------------------
+    # Multi-row CRUD (find / all / insert / save / delete)
+    #
+    # Generic primitives that operate on the dataclass fields directly,
+    # so subclasses don't need a wrapper class with hand-written SQL.
+    # The schema is resolved from ``table_schema``; the column list is
+    # taken from ``dataclasses.fields(cls)`` in declaration order, which
+    # matches the DDL emitted by ``to_ddl`` and therefore matches both
+    # SELECT-by-column-name and ``RETURNING *`` row order.
+    #
+    # ``insert`` consults each field's ``Field.db_default`` and skips
+    # values that match the dataclass default -- so DB-side defaults
+    # like ``nextval(...)`` and ``current_timestamp`` actually fire.
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def _qualified(cls) -> str:
+        return f"{cls._resolve_schema(None)}.{cls.table_name}"
+
+    @classmethod
+    def _column_names(cls) -> list[str]:
+        return [f.name for f in dataclasses.fields(cls)]
+
+    @classmethod
+    def from_row(cls, row: tuple[Any, ...]) -> Self:
+        """Build an instance from a row tuple in dataclass field order."""
+        return cls(*row)
+
+    @classmethod
+    def find(cls, *pk_values: Any) -> Self | None:
+        """Look up a single row by its primary key. Returns ``None`` if missing."""
+        from app.db import cursor
+
+        if len(pk_values) != len(cls.table_pk):
+            msg = f"{cls.__name__}.find expects {len(cls.table_pk)} pk value(s), got {len(pk_values)}"
+            raise TypeError(msg)
+        cols = ", ".join(cls._column_names())
+        where = " AND ".join(f"{c} = ?" for c in cls.table_pk)
+        with cursor() as cur:
+            row = cur.execute(f"SELECT {cols} FROM {cls._qualified()} WHERE {where}", list(pk_values)).fetchone()
+        return cls.from_row(row) if row else None
+
+    @classmethod
+    def all(
+        cls,
+        *,
+        where: str | None = None,
+        params: list[Any] | None = None,
+        order_by: str | None = None,
+        limit: int | None = None,
+    ) -> list[Self]:
+        """Return every row matching the optional WHERE clause as instances."""
+        from app.db import cursor
+
+        cols = ", ".join(cls._column_names())
+        sql = f"SELECT {cols} FROM {cls._qualified()}"
+        if where:
+            sql += f" WHERE {where}"
+        if order_by:
+            sql += f" ORDER BY {order_by}"
+        if limit is not None:
+            sql += f" LIMIT {int(limit)}"
+        with cursor() as cur:
+            rows = cur.execute(sql, params or []).fetchall()
+        return [cls.from_row(r) for r in rows]
+
+    def insert(self) -> Self:
+        """INSERT this row, letting DB defaults fire for fields whose value
+        equals the dataclass default. Refreshes ``self`` from ``RETURNING``
+        so DB-generated values (sequence ids, timestamps) are populated.
+        """
+        from app.db import cursor
+
+        cls = type(self)
+        hints: dict[str, Any] = get_type_hints(cls, include_extras=True)
+        insert_cols: list[str] = []
+        insert_vals: list[Any] = []
+        for f in dataclasses.fields(cls):
+            current = getattr(self, f.name)
+            meta = cls._get_field_obj(hints[f.name])
+            has_db_default = meta is not None and meta.db_default is not None
+            if f.default is not dataclasses.MISSING:
+                default_val: Any = f.default
+            elif f.default_factory is not dataclasses.MISSING:  # type: ignore[misc]
+                default_val = f.default_factory()  # type: ignore[misc]
+            else:
+                default_val = None
+            if has_db_default and current == default_val:
+                continue
+            insert_cols.append(f.name)
+            insert_vals.append(current)
+        col_list = ", ".join(insert_cols)
+        placeholders = ", ".join(["?"] * len(insert_cols))
+        return_cols = ", ".join(cls._column_names())
+        sql = f"INSERT INTO {cls._qualified()} ({col_list}) VALUES ({placeholders}) RETURNING {return_cols}"
+        with cursor() as cur:
+            row = cur.execute(sql, insert_vals).fetchone()
+        if row is None:
+            msg = f"INSERT into {cls._qualified()} returned no row"
+            raise RuntimeError(msg)
+        for name, val in zip(cls._column_names(), row, strict=True):
+            object.__setattr__(self, name, val)
+        return self
+
+    def save(self) -> Self:
+        """UPDATE this row by primary key. Refreshes ``self`` from ``RETURNING``."""
+        from app.db import cursor
+
+        cls = type(self)
+        set_cols = [c for c in cls._column_names() if c not in cls.table_pk]
+        if not set_cols:
+            return self
+        set_clause = ", ".join(f"{c} = ?" for c in set_cols)
+        where = " AND ".join(f"{c} = ?" for c in cls.table_pk)
+        return_cols = ", ".join(cls._column_names())
+        set_vals = [getattr(self, c) for c in set_cols]
+        pk_vals = [getattr(self, c) for c in cls.table_pk]
+        sql = f"UPDATE {cls._qualified()} SET {set_clause} WHERE {where} RETURNING {return_cols}"
+        with cursor() as cur:
+            row = cur.execute(sql, [*set_vals, *pk_vals]).fetchone()
+        if row is None:
+            msg = f"UPDATE in {cls._qualified()} found no row matching pk={pk_vals}"
+            raise ValueError(msg)
+        for name, val in zip(cls._column_names(), row, strict=True):
+            object.__setattr__(self, name, val)
+        return self
+
+    def delete(self) -> None:
+        """DELETE this row by primary key. Idempotent: no error if already gone."""
+        from app.db import cursor
+
+        cls = type(self)
+        where = " AND ".join(f"{c} = ?" for c in cls.table_pk)
+        pk_vals = [getattr(self, c) for c in cls.table_pk]
+        with cursor() as cur:
+            cur.execute(f"DELETE FROM {cls._qualified()} WHERE {where}", pk_vals)
 
     @classmethod
     def clear_rows(cls, *, schema: str | None = None) -> None:

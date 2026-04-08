@@ -1,50 +1,44 @@
-"""Workspace state persistence."""
+"""Workspace state persistence: a single-row JSON blob."""
 
 from __future__ import annotations
 
+import json
 from typing import Annotated, Any, ClassVar
 
-from app.db import cursor
 from shenas_plugins.core.table import Field, Table
 
 
-class Workspace:
-    """App workspace state (tab layout, active tab, etc.)."""
+class Workspace(Table):
+    """App workspace state (tab layout, active tab, etc.).
 
-    class _Table(Table):
-        table_name: ClassVar[str] = "workspace"
-        table_schema: ClassVar[str | None] = "shenas_system"
-        table_display_name: ClassVar[str] = "Workspace"
-        table_description: ClassVar[str | None] = "Single-row workspace state (tab layout, active tab, ...)."
-        table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    Single-row config table: the entire workspace state is JSON-encoded
+    into the ``state`` column. Reads / writes go through the ABC's
+    single-row helpers (``read_value`` / ``write_row``); ``get`` and
+    ``save`` are thin convenience views that handle the JSON layer.
+    """
 
-        id: Annotated[int, Field(db_type="INTEGER", description="Row ID")] = 1
-        state: Annotated[str, Field(db_type="VARCHAR", description="Workspace state JSON", db_default="'{}'")] = "{}"
-        updated_at: (
-            Annotated[str, Field(db_type="TIMESTAMP", description="When last updated", db_default="current_timestamp")] | None
-        ) = None
+    table_name: ClassVar[str] = "workspace"
+    table_schema: ClassVar[str | None] = "shenas_system"
+    table_display_name: ClassVar[str] = "Workspace"
+    table_description: ClassVar[str | None] = "Single-row workspace state (tab layout, active tab, ...)."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
-    @staticmethod
-    def get() -> dict[str, Any]:
-        import json
+    id: Annotated[int, Field(db_type="INTEGER", description="Row ID")] = 1
+    state: Annotated[str, Field(db_type="VARCHAR", description="Workspace state JSON", db_default="'{}'")] = "{}"
+    updated_at: (
+        Annotated[str, Field(db_type="TIMESTAMP", description="When last updated", db_default="current_timestamp")] | None
+    ) = None
 
-        with cursor() as cur:
-            row = cur.execute("SELECT state FROM shenas_system.workspace WHERE id = 1").fetchone()
-        if not row:
+    @classmethod
+    def get(cls) -> dict[str, Any]:
+        raw = cls.read_value("state")
+        if not raw:
             return {}
         try:
-            return json.loads(row[0])
+            return json.loads(raw)
         except Exception:
             return {}
 
-    @staticmethod
-    def save(state: dict[str, Any]) -> None:
-        import json
-
-        data = json.dumps(state)
-        with cursor() as cur:
-            cur.execute(
-                "INSERT INTO shenas_system.workspace (id, state, updated_at) VALUES (1, ?, now()) "
-                "ON CONFLICT (id) DO UPDATE SET state = excluded.state, updated_at = now()",
-                [data],
-            )
+    @classmethod
+    def put(cls, state: dict[str, Any]) -> None:
+        cls.write_row(state=json.dumps(state))

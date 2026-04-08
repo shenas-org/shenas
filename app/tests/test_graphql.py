@@ -70,7 +70,6 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
         patch("app.db.connect", return_value=test_con),
         patch("app.api.query.cursor", _fake_cursor),
         patch("app.api.db.cursor", _fake_cursor),
-        patch("app.workspace.cursor", _fake_cursor),
         patch("app.hotkeys.cursor", _fake_cursor),
         patch("app.transforms.cursor", _fake_cursor),
     ):
@@ -376,7 +375,7 @@ class TestGraphQLMutations:
         assert result["data"]["resetHotkeys"]["ok"] is True
 
     def test_save_workspace(self, client: TestClient) -> None:
-        with patch("app.workspace.Workspace.save"):
+        with patch("app.workspace.Workspace.put"):
             result = _gql(
                 client,
                 'mutation { saveWorkspace(data: {key: "value"}) { ok } }',
@@ -385,7 +384,7 @@ class TestGraphQLMutations:
         assert result["data"]["saveWorkspace"]["ok"] is True
 
     def test_save_workspace_with_nested_data(self, client: TestClient) -> None:
-        with patch("app.workspace.Workspace.save") as mock_save:
+        with patch("app.workspace.Workspace.put") as mock_save:
             result = _gql(
                 client,
                 'mutation { saveWorkspace(data: {tabs: ["a", "b"], active: 0}) { ok } }',

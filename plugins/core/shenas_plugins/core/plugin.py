@@ -7,12 +7,49 @@ import json
 import logging
 import subprocess
 import sys
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Annotated, Any, ClassVar
 from urllib.request import urlopen
 
 from shenas_plugins.core.table import Field, Table
+
+
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+@dataclass
+class PluginRecord(Table):
+    """Per-(kind, name) install / enable / sync state for a plugin.
+
+    The row is the deployment-time state of a plugin: when it was added,
+    whether it's enabled, when it was last synced. It is a sibling of
+    :class:`Plugin`, not its base -- the plugin class is a behavior
+    discovered via entry points; the record is a fact about this device's
+    plugin install. Decoupling the two lets ``PluginRecord`` use the
+    generic :class:`Table` CRUD primitives directly while keeping
+    :class:`Plugin` free of dataclass / row-shape concerns.
+    """
+
+    table_name: ClassVar[str] = "plugins"
+    table_schema: ClassVar[str | None] = "shenas_system"
+    table_display_name: ClassVar[str] = "Installed Plugins"
+    table_description: ClassVar[str | None] = "Per-plugin install / enable / sync state."
+    table_pk: ClassVar[tuple[str, ...]] = ("kind", "name")
+
+    kind: Annotated[str, Field(db_type="VARCHAR", description="Plugin kind")] = ""
+    name: Annotated[str, Field(db_type="VARCHAR", description="Plugin name")] = ""
+    enabled: Annotated[bool, Field(db_type="BOOLEAN", description="Is enabled", db_default="TRUE")] = True
+    added_at: Annotated[str, Field(db_type="TIMESTAMP", description="When added", db_default="current_timestamp")] | None = (
+        None
+    )
+    updated_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last updated")] | None = None
+    status_changed_at: Annotated[str, Field(db_type="TIMESTAMP", description="When status changed")] | None = None
+    synced_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last synced")] | None = None
+
 
 log = logging.getLogger("shenas.plugins")
 
@@ -142,24 +179,13 @@ def _verify_from_index(pkg: str, index_url: str, pub_key: Any) -> str | None:
 
 
 class Plugin(abc.ABC):
-    """Base for all plugin kinds."""
+    """Base for all plugin kinds.
 
-    class _Table(Table):
-        table_name: ClassVar[str] = "plugins"
-        table_schema: ClassVar[str | None] = "shenas_system"
-        table_display_name: ClassVar[str] = "Installed Plugins"
-        table_description: ClassVar[str | None] = "Per-plugin install / enable / sync state."
-        table_pk: ClassVar[tuple[str, ...]] = ("kind", "name")
-
-        kind: Annotated[str, Field(db_type="VARCHAR", description="Plugin kind")] = ""
-        name: Annotated[str, Field(db_type="VARCHAR", description="Plugin name")] = ""
-        enabled: Annotated[bool, Field(db_type="BOOLEAN", description="Is enabled", db_default="TRUE")] = True
-        added_at: (
-            Annotated[str, Field(db_type="TIMESTAMP", description="When added", db_default="current_timestamp")] | None
-        ) = None
-        updated_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last updated")] | None = None
-        status_changed_at: Annotated[str, Field(db_type="TIMESTAMP", description="When status changed")] | None = None
-        synced_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last synced")] | None = None
+    A plugin's *behavior* lives on this class (entry-point discovery,
+    config / auth / data accessors, ``commands``, ``version``). Its
+    *deployment state* lives in :class:`PluginRecord`, a sibling row
+    class. The two are joined at runtime by the (kind, name) pair.
+    """
 
     name: ClassVar[str]
     display_name: ClassVar[str]
@@ -216,85 +242,54 @@ class Plugin(abc.ABC):
     def commands(self) -> list[str]:
         return []
 
-    # -- State management --
+    # -- State management (delegates to PluginRecord) --
 
     @property
-    def state(self) -> dict[str, Any] | None:
-        from app.db import cursor
-
-        with cursor() as cur:
-            row = cur.execute(
-                "SELECT kind, name, enabled, added_at, updated_at, status_changed_at, synced_at "
-                "FROM shenas_system.plugins WHERE kind = ? AND name = ?",
-                [self._kind, self.name],
-            ).fetchone()
-        if not row:
-            return None
-        return {
-            "kind": row[0],
-            "name": row[1],
-            "enabled": row[2],
-            "added_at": str(row[3]) if row[3] else None,
-            "updated_at": str(row[4]) if row[4] else None,
-            "status_changed_at": str(row[5]) if row[5] else None,
-            "synced_at": str(row[6]) if row[6] else None,
-        }
+    def state(self) -> PluginRecord | None:
+        """The :class:`PluginRecord` row for this (kind, name), or ``None``."""
+        return PluginRecord.find(self._kind, self.name)
 
     @property
     def enabled(self) -> bool:
         s = self.state
-        return s["enabled"] if s else self.enabled_by_default
+        return s.enabled if s else self.enabled_by_default
 
     def save_state(self, *, enabled: bool) -> None:
-        from app.db import cursor
-
-        now = "current_timestamp"
-        with cursor() as cur:
-            row = cur.execute(
-                "SELECT enabled FROM shenas_system.plugins WHERE kind = ? AND name = ?",
-                [self._kind, self.name],
-            ).fetchone()
-            if row is not None:
-                if enabled != row[0]:
-                    cur.execute(
-                        f"UPDATE shenas_system.plugins SET enabled = ?, status_changed_at = {now}, updated_at = {now} "
-                        "WHERE kind = ? AND name = ?",
-                        [enabled, self._kind, self.name],
-                    )
-                else:
-                    cur.execute(
-                        f"UPDATE shenas_system.plugins SET updated_at = {now} WHERE kind = ? AND name = ?",
-                        [self._kind, self.name],
-                    )
-            else:
-                cur.execute(
-                    f"INSERT INTO shenas_system.plugins (kind, name, enabled, added_at, status_changed_at) "
-                    f"VALUES (?, ?, ?, {now}, {now})",
-                    [self._kind, self.name, enabled],
-                )
+        """Upsert the row for this plugin: bumps timestamps, toggles enabled."""
+        record = self.state
+        now = _now_iso()
+        if record is not None:
+            if enabled != record.enabled:
+                record.enabled = enabled
+                record.status_changed_at = now
+            record.updated_at = now
+            record.save()
+        else:
+            PluginRecord(
+                kind=self._kind,
+                name=self.name,
+                enabled=enabled,
+                status_changed_at=now,
+            ).insert()
 
     def remove_state(self) -> None:
-        from app.db import cursor
-
-        with cursor() as cur:
-            cur.execute("DELETE FROM shenas_system.plugins WHERE kind = ? AND name = ?", [self._kind, self.name])
+        """Delete this plugin's row. Idempotent."""
+        record = self.state
+        if record is not None:
+            record.delete()
 
     def mark_synced(self) -> None:
-        from app.db import cursor
-
-        with cursor() as cur:
-            row = cur.execute(
-                "SELECT 1 FROM shenas_system.plugins WHERE kind = ? AND name = ?",
-                [self._kind, self.name],
-            ).fetchone()
-        if not row:
+        """Stamp ``synced_at`` (and ``updated_at``); creates the row if missing."""
+        record = self.state
+        if record is None:
             self.save_state(enabled=True)
-        with cursor() as cur:
-            cur.execute(
-                "UPDATE shenas_system.plugins SET synced_at = current_timestamp, updated_at = current_timestamp "
-                "WHERE kind = ? AND name = ?",
-                [self._kind, self.name],
-            )
+            record = self.state
+        if record is None:
+            return
+        now = _now_iso()
+        record.synced_at = now
+        record.updated_at = now
+        record.save()
 
     def enable(self) -> str:
         self.save_state(enabled=True)
@@ -315,11 +310,11 @@ class Plugin(abc.ABC):
             "has_config": self.has_config,
             "has_data": self.has_data,
             "has_auth": self.has_auth,
-            "enabled": s["enabled"] if s else self.enabled_by_default,
-            "added_at": s["added_at"] if s else None,
-            "updated_at": s["updated_at"] if s else None,
-            "status_changed_at": s["status_changed_at"] if s else None,
-            "synced_at": s["synced_at"] if s else None,
+            "enabled": s.enabled if s else self.enabled_by_default,
+            "added_at": str(s.added_at) if s and s.added_at else None,
+            "updated_at": str(s.updated_at) if s and s.updated_at else None,
+            "status_changed_at": str(s.status_changed_at) if s and s.status_changed_at else None,
+            "synced_at": str(s.synced_at) if s and s.synced_at else None,
         }
 
     # -- Package management (classmethods) --
@@ -461,15 +456,13 @@ class _SelectOneMixin:
     enabled_by_default: ClassVar[bool] = False
 
     def enable(self) -> str:
-        from app.db import cursor
-
-        with cursor() as cur:
-            cur.execute(
-                "UPDATE shenas_system.plugins SET enabled = false, "
-                "status_changed_at = current_timestamp, updated_at = current_timestamp "
-                "WHERE kind = ? AND name != ? AND enabled = true",
-                [self._kind, self.name],
-            )
+        # Disable every other currently-enabled plugin of this kind.
+        now = _now_iso()
+        for other in PluginRecord.all(where="kind = ? AND name != ? AND enabled = TRUE", params=[self._kind, self.name]):
+            other.enabled = False
+            other.status_changed_at = now
+            other.updated_at = now
+            other.save()
         self.save_state(enabled=True)
         return f"Selected {self._kind} {self.name}"
 
@@ -477,24 +470,19 @@ class _SelectOneMixin:
         if self.name == "default":
             return f"Cannot deselect the default {self._kind}"
         self.save_state(enabled=False)
-        from app.db import cursor
-
-        now = "current_timestamp"
-        with cursor() as cur:
-            row = cur.execute(
-                "SELECT 1 FROM shenas_system.plugins WHERE kind = ? AND name = 'default'",
-                [self._kind],
-            ).fetchone()
-            if row:
-                cur.execute(
-                    f"UPDATE shenas_system.plugins SET enabled = true, status_changed_at = {now}, updated_at = {now} "
-                    "WHERE kind = ? AND name = 'default'",
-                    [self._kind],
-                )
-            else:
-                cur.execute(
-                    f"INSERT INTO shenas_system.plugins (kind, name, enabled, added_at, status_changed_at) "
-                    f"VALUES (?, 'default', true, {now}, {now})",
-                    [self._kind],
-                )
+        # Re-enable (or create) the kind's "default" plugin.
+        now = _now_iso()
+        default = PluginRecord.find(self._kind, "default")
+        if default is not None:
+            default.enabled = True
+            default.status_changed_at = now
+            default.updated_at = now
+            default.save()
+        else:
+            PluginRecord(
+                kind=self._kind,
+                name="default",
+                enabled=True,
+                status_changed_at=now,
+            ).insert()
         return f"Switched {self._kind} to default"
