@@ -32,10 +32,12 @@ if TYPE_CHECKING:
 class PhotosMetadata(EventTable):
     """Google Photos metadata from Takeout."""
 
-    table_name: ClassVar[str] = "photos_metadata"
-    table_display_name: ClassVar[str] = "Photos Metadata"
-    table_description: ClassVar[str | None] = "Per-photo metadata extracted from Google Photos Takeout."
-    table_pk: ClassVar[tuple[str, ...]] = ("title", "photo_taken_timestamp")
+    class _Meta:
+        name = "photos_metadata"
+        display_name = "Photos Metadata"
+        description = "Per-photo metadata extracted from Google Photos Takeout."
+        pk = ("title", "photo_taken_timestamp")
+
     time_at: ClassVar[str] = "photo_taken_timestamp"
 
     title: Annotated[str, Field(db_type="VARCHAR", description="Photo/video title")] = ""
@@ -62,10 +64,12 @@ class PhotosMetadata(EventTable):
 class LocationRecords(EventTable):
     """Raw location record from Location History."""
 
-    table_name: ClassVar[str] = "location_records"
-    table_display_name: ClassVar[str] = "Location Records"
-    table_description: ClassVar[str | None] = "Raw location pings from Location History."
-    table_pk: ClassVar[tuple[str, ...]] = ("timestamp", "latitude", "longitude")
+    class _Meta:
+        name = "location_records"
+        display_name = "Location Records"
+        description = "Raw location pings from Location History."
+        pk = ("timestamp", "latitude", "longitude")
+
     time_at: ClassVar[str] = "timestamp"
 
     timestamp: Annotated[str, Field(db_type="VARCHAR", description="ISO timestamp")] = ""
@@ -87,10 +91,12 @@ class LocationRecords(EventTable):
 class LocationVisits(EventTable):
     """Semantic location visit or activity segment."""
 
-    table_name: ClassVar[str] = "location_visits"
-    table_display_name: ClassVar[str] = "Location Visits"
-    table_description: ClassVar[str | None] = "Semantic place visits / activity segments."
-    table_pk: ClassVar[tuple[str, ...]] = ("start_timestamp", "place_name", "type")
+    class _Meta:
+        name = "location_visits"
+        display_name = "Location Visits"
+        description = "Semantic place visits / activity segments."
+        pk = ("start_timestamp", "place_name", "type")
+
     time_at: ClassVar[str] = "start_timestamp"
 
     start_timestamp: Annotated[str, Field(db_type="VARCHAR", description="Start ISO timestamp")] = ""
@@ -114,10 +120,12 @@ class LocationVisits(EventTable):
 class YouTubeWatchHistory(EventTable):
     """YouTube watch history entry."""
 
-    table_name: ClassVar[str] = "youtube_watch_history"
-    table_display_name: ClassVar[str] = "YouTube Watch History"
-    table_description: ClassVar[str | None] = "YouTube watch history events."
-    table_pk: ClassVar[tuple[str, ...]] = ("title_url", "time")
+    class _Meta:
+        name = "youtube_watch_history"
+        display_name = "YouTube Watch History"
+        description = "YouTube watch history events."
+        pk = ("title_url", "time")
+
     time_at: ClassVar[str] = "time"
 
     title_url: Annotated[str, Field(db_type="VARCHAR", description="Video URL")] = ""
@@ -136,10 +144,12 @@ class YouTubeWatchHistory(EventTable):
 class YouTubeSearchHistory(EventTable):
     """YouTube search history entry."""
 
-    table_name: ClassVar[str] = "youtube_search_history"
-    table_display_name: ClassVar[str] = "YouTube Search History"
-    table_description: ClassVar[str | None] = "YouTube search history events."
-    table_pk: ClassVar[tuple[str, ...]] = ("title", "time")
+    class _Meta:
+        name = "youtube_search_history"
+        display_name = "YouTube Search History"
+        description = "YouTube search history events."
+        pk = ("title", "time")
+
     time_at: ClassVar[str] = "time"
 
     title: Annotated[str, Field(db_type="VARCHAR", description="Search query")] = ""
@@ -156,10 +166,11 @@ class YouTubeSearchHistory(EventTable):
 class YouTubeSubscriptions(SnapshotTable):
     """YouTube subscriptions. SCD2 closes a row when the user unsubscribes."""
 
-    table_name: ClassVar[str] = "youtube_subscriptions"
-    table_display_name: ClassVar[str] = "YouTube Subscriptions"
-    table_description: ClassVar[str | None] = "Channels the user is subscribed to."
-    table_pk: ClassVar[tuple[str, ...]] = ("channel_id",)
+    class _Meta:
+        name = "youtube_subscriptions"
+        display_name = "YouTube Subscriptions"
+        description = "Channels the user is subscribed to."
+        pk = ("channel_id",)
 
     channel_id: Annotated[str, Field(db_type="VARCHAR", description="YouTube channel ID")] = ""
     channel_url: Annotated[str | None, Field(db_type="VARCHAR", description="Channel URL")] = None

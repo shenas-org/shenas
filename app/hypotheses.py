@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from shenas_plugins.core.table import Field, Table
 
@@ -43,11 +43,12 @@ class Hypothesis(Table):
     :meth:`create` factory that handles serialization.
     """
 
-    table_name: ClassVar[str] = "hypotheses"
-    table_schema: ClassVar[str | None] = "shenas_system"
-    table_display_name: ClassVar[str] = "Hypotheses"
-    table_description: ClassVar[str | None] = "LLM-authored hypothesis records: question, recipe, result, interpretation."
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    class _Meta:
+        name = "hypotheses"
+        display_name = "Hypotheses"
+        description = "LLM-authored hypothesis records: question, recipe, result, interpretation."
+        schema = "shenas_system"
+        pk = ("id",)
 
     id: Annotated[
         int,

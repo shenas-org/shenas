@@ -21,9 +21,11 @@ from shenas_sources.core.table import (
 class TestM2MTable:
     def test_kind_and_disposition(self) -> None:
         class _Link(M2MTable):
-            table_name: ClassVar[str] = "links"
-            table_display_name: ClassVar[str] = "Links"
-            table_pk: ClassVar[tuple[str, ...]] = ("a_id", "b_id")
+            class _Meta:
+                name = "links"
+                display_name = "Links"
+                pk = ("a_id", "b_id")
+
             a_id: Annotated[int, Field(db_type="BIGINT", description="x")]
             b_id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
@@ -34,16 +36,20 @@ class TestM2MTable:
         with pytest.raises(TypeError, match="M2MTable requires a composite PK"):
 
             class _BadLink(M2MTable):
-                table_name: ClassVar[str] = "x"
-                table_display_name: ClassVar[str] = "X"
-                table_pk: ClassVar[tuple[str, ...]] = ("only_one",)
+                class _Meta:
+                    name = "x"
+                    display_name = "X"
+                    pk = ("only_one",)
+
                 only_one: Annotated[int, Field(db_type="BIGINT", description="x")]
 
     def test_no_observed_at_injected(self) -> None:
         class _Link(M2MTable):
-            table_name: ClassVar[str] = "links2"
-            table_display_name: ClassVar[str] = "Links"
-            table_pk: ClassVar[tuple[str, ...]] = ("a_id", "b_id")
+            class _Meta:
+                name = "links2"
+                display_name = "Links"
+                pk = ("a_id", "b_id")
+
             a_id: Annotated[int, Field(db_type="BIGINT", description="x")]
             b_id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
@@ -55,10 +61,12 @@ class TestM2MTable:
 class _Sample(EventTable):
     """A simple event table used by multiple tests."""
 
-    table_name: ClassVar[str] = "sample"
-    table_display_name: ClassVar[str] = "Sample Events"
-    table_description: ClassVar[str | None] = "A sample event table for tests."
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    class _Meta:
+        name = "sample"
+        display_name = "Sample Events"
+        description = "A sample event table for tests."
+        pk = ("id",)
+
     time_at: ClassVar[str] = "occurred_at"
 
     id: Annotated[int, Field(db_type="BIGINT", description="row id")]
@@ -88,52 +96,64 @@ class TestSubclassAutoDataclass:
 
 class TestValidation:
     def test_missing_name_raises(self) -> None:
-        with pytest.raises(TypeError, match="missing required class attribute `table_name`"):
+        with pytest.raises(TypeError, match="_Meta missing required attribute `name`"):
 
             class _BadNoName(EventTable):
-                table_display_name: ClassVar[str] = "x"
-                table_pk: ClassVar[tuple[str, ...]] = ("id",)
+                class _Meta:
+                    display_name = "x"
+                    pk = ("id",)
+
                 id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
     def test_missing_display_name_raises(self) -> None:
-        with pytest.raises(TypeError, match="missing required class attribute `table_display_name`"):
+        with pytest.raises(TypeError, match="_Meta missing required attribute `display_name`"):
 
             class _BadNoDisplayName(EventTable):
-                table_name: ClassVar[str] = "x"
-                table_pk: ClassVar[tuple[str, ...]] = ("id",)
+                class _Meta:
+                    name = "x"
+                    pk = ("id",)
+
                 id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
     def test_missing_pk_raises(self) -> None:
-        with pytest.raises(TypeError, match="missing required class attribute `table_pk`"):
+        with pytest.raises(TypeError, match="_Meta missing required attribute `pk`"):
 
             class _BadNoPk(EventTable):
-                table_name: ClassVar[str] = "x"
-                table_display_name: ClassVar[str] = "X"
+                class _Meta:
+                    name = "x"
+                    display_name = "X"
+
                 id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
     def test_interval_requires_time_start_and_end(self) -> None:
         with pytest.raises(TypeError, match="IntervalTable requires both `time_start` and `time_end`"):
 
             class _BadInterval(IntervalTable):
-                table_name: ClassVar[str] = "x"
-                table_display_name: ClassVar[str] = "X"
-                table_pk: ClassVar[tuple[str, ...]] = ("id",)
+                class _Meta:
+                    name = "x"
+                    display_name = "X"
+                    pk = ("id",)
+
                 id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
     def test_counter_requires_counter_columns(self) -> None:
         with pytest.raises(TypeError, match="CounterTable requires `counter_columns`"):
 
             class _BadCounter(CounterTable):
-                table_name: ClassVar[str] = "x"
-                table_display_name: ClassVar[str] = "X"
-                table_pk: ClassVar[tuple[str, ...]] = ("id",)
+                class _Meta:
+                    name = "x"
+                    display_name = "X"
+                    pk = ("id",)
+
                 id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
     def test_valid_interval_passes(self) -> None:
         class _GoodInterval(IntervalTable):
-            table_name: ClassVar[str] = "intervals"
-            table_display_name: ClassVar[str] = "Intervals"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "intervals"
+                display_name = "Intervals"
+                pk = ("id",)
+
             time_start: ClassVar[str] = "starts_at"
             time_end: ClassVar[str] = "ends_at"
 
@@ -145,9 +165,11 @@ class TestValidation:
 
     def test_valid_counter_passes(self) -> None:
         class _GoodCounter(CounterTable):
-            table_name: ClassVar[str] = "ctr"
-            table_display_name: ClassVar[str] = "Ctr"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "ctr"
+                display_name = "Ctr"
+                pk = ("id",)
+
             counter_columns: ClassVar[tuple[str, ...]] = ("distance_m",)
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             distance_m: Annotated[float, Field(db_type="DOUBLE", description="cum")] = 0.0
@@ -161,9 +183,11 @@ class TestWriteDisposition:
 
     def test_dimension_is_scd2(self) -> None:
         class _Dim(DimensionTable):
-            table_name: ClassVar[str] = "dim"
-            table_display_name: ClassVar[str] = "Dim"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "dim"
+                display_name = "Dim"
+                pk = ("id",)
+
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
         assert _Dim.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
@@ -171,9 +195,11 @@ class TestWriteDisposition:
 
     def test_snapshot_is_scd2(self) -> None:
         class _Snap(SnapshotTable):
-            table_name: ClassVar[str] = "snap"
-            table_display_name: ClassVar[str] = "Snap"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "snap"
+                display_name = "Snap"
+                pk = ("id",)
+
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
         assert _Snap.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
@@ -181,9 +207,11 @@ class TestWriteDisposition:
 
     def test_counter_is_append(self) -> None:
         class _Counter(CounterTable):
-            table_name: ClassVar[str] = "ctr2"
-            table_display_name: ClassVar[str] = "Ctr2"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "ctr2"
+                display_name = "Ctr2"
+                pk = ("id",)
+
             counter_columns: ClassVar[tuple[str, ...]] = ("distance_m",)
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             distance_m: Annotated[float, Field(db_type="DOUBLE", description="cum")] = 0.0
@@ -193,9 +221,11 @@ class TestWriteDisposition:
 
     def test_aggregate_is_merge(self) -> None:
         class _Agg(AggregateTable):
-            table_name: ClassVar[str] = "agg"
-            table_display_name: ClassVar[str] = "Agg"
-            table_pk: ClassVar[tuple[str, ...]] = ("date",)
+            class _Meta:
+                name = "agg"
+                display_name = "Agg"
+                pk = ("date",)
+
             time_at: ClassVar[str] = "date"
             date: Annotated[str, Field(db_type="DATE", description="x")]
 
@@ -212,9 +242,11 @@ class TestColumns:
 
     def test_observed_at_injected_when_no_time_at(self) -> None:
         class _NoTime(EventTable):
-            table_name: ClassVar[str] = "nt"
-            table_display_name: ClassVar[str] = "NT"
-            table_pk: ClassVar[tuple[str, ...]] = ("activity_id", "athlete_id")
+            class _Meta:
+                name = "nt"
+                display_name = "NT"
+                pk = ("activity_id", "athlete_id")
+
             # time_at omitted -- no native timestamp
             activity_id: Annotated[int, Field(db_type="BIGINT", description="x")]
             athlete_id: Annotated[int, Field(db_type="BIGINT", description="x")]
@@ -229,9 +261,11 @@ class TestColumns:
 
     def test_counter_always_injects_observed_at(self) -> None:
         class _Counter(CounterTable):
-            table_name: ClassVar[str] = "ctr3"
-            table_display_name: ClassVar[str] = "Ctr3"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "ctr3"
+                display_name = "Ctr3"
+                pk = ("id",)
+
             counter_columns: ClassVar[tuple[str, ...]] = ("dist",)
             id: Annotated[str, Field(db_type="VARCHAR", description="x")]
             dist: Annotated[float, Field(db_type="DOUBLE", description="x")] = 0.0
@@ -257,9 +291,11 @@ class TestToResource:
         from unittest.mock import MagicMock
 
         class _NoTime(EventTable):
-            table_name: ClassVar[str] = "nt2"
-            table_display_name: ClassVar[str] = "NT2"
-            table_pk: ClassVar[tuple[str, ...]] = ("link_id",)
+            class _Meta:
+                name = "nt2"
+                display_name = "NT2"
+                pk = ("link_id",)
+
             link_id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
             @classmethod
@@ -282,9 +318,11 @@ class TestToResource:
         from unittest.mock import MagicMock
 
         class _CtxTable(EventTable):
-            table_name: ClassVar[str] = "ctx"
-            table_display_name: ClassVar[str] = "Ctx"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "ctx"
+                display_name = "Ctx"
+                pk = ("id",)
+
             time_at: ClassVar[str] = "ts"
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
@@ -307,9 +345,11 @@ class TestTableKindAndMetadata:
 
     def test_kind_event_with_time_at(self) -> None:
         class _Evt(EventTable):
-            table_name: ClassVar[str] = "evts"
-            table_display_name: ClassVar[str] = "Events"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "evts"
+                display_name = "Events"
+                pk = ("id",)
+
             time_at: ClassVar[str] = "ts"
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
@@ -323,9 +363,11 @@ class TestTableKindAndMetadata:
 
     def test_kind_event_with_observed_at_injected(self) -> None:
         class _Evt(EventTable):
-            table_name: ClassVar[str] = "evts_no_ts"
-            table_display_name: ClassVar[str] = "Events without time"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "evts_no_ts"
+                display_name = "Events without time"
+                pk = ("id",)
+
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
         meta = _Evt.table_metadata()
@@ -336,9 +378,11 @@ class TestTableKindAndMetadata:
 
     def test_kind_interval_emits_both_time_columns(self) -> None:
         class _Iv(IntervalTable):
-            table_name: ClassVar[str] = "intervals"
-            table_display_name: ClassVar[str] = "Intervals"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "intervals"
+                display_name = "Intervals"
+                pk = ("id",)
+
             time_start: ClassVar[str] = "starts_at"
             time_end: ClassVar[str] = "ends_at"
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
@@ -353,10 +397,12 @@ class TestTableKindAndMetadata:
 
     def test_kind_dimension_has_as_of_macro(self) -> None:
         class _Dim(DimensionTable):
-            table_name: ClassVar[str] = "dims"
-            table_display_name: ClassVar[str] = "Dims"
-            table_schema: ClassVar[str | None] = "mysrc"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "dims"
+                display_name = "Dims"
+                schema = "mysrc"
+                pk = ("id",)
+
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
         meta = _Dim.table_metadata()
@@ -366,10 +412,12 @@ class TestTableKindAndMetadata:
 
     def test_kind_snapshot_has_as_of_macro(self) -> None:
         class _Snap(SnapshotTable):
-            table_name: ClassVar[str] = "snap"
-            table_display_name: ClassVar[str] = "Snapshot"
-            table_schema: ClassVar[str | None] = "mysrc"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "snap"
+                display_name = "Snapshot"
+                schema = "mysrc"
+                pk = ("id",)
+
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
         meta = _Snap.table_metadata()
@@ -378,10 +426,12 @@ class TestTableKindAndMetadata:
 
     def test_kind_m2m_has_as_of_macro(self) -> None:
         class _Link(M2MTable):
-            table_name: ClassVar[str] = "links"
-            table_display_name: ClassVar[str] = "Links"
-            table_schema: ClassVar[str | None] = "mysrc"
-            table_pk: ClassVar[tuple[str, ...]] = ("a_id", "b_id")
+            class _Meta:
+                name = "links"
+                display_name = "Links"
+                schema = "mysrc"
+                pk = ("a_id", "b_id")
+
             a_id: Annotated[int, Field(db_type="BIGINT", description="x")]
             b_id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
@@ -392,10 +442,12 @@ class TestTableKindAndMetadata:
 
     def test_kind_aggregate_has_no_as_of_macro(self) -> None:
         class _Agg(AggregateTable):
-            table_name: ClassVar[str] = "rollup"
-            table_display_name: ClassVar[str] = "Rollup"
-            table_schema: ClassVar[str | None] = "mysrc"
-            table_pk: ClassVar[tuple[str, ...]] = ("date",)
+            class _Meta:
+                name = "rollup"
+                display_name = "Rollup"
+                schema = "mysrc"
+                pk = ("date",)
+
             time_at: ClassVar[str] = "date"
             date: Annotated[str, Field(db_type="DATE", description="x")]
 
@@ -406,9 +458,11 @@ class TestTableKindAndMetadata:
 
     def test_kind_counter_observed_at_injected(self) -> None:
         class _Ctr(CounterTable):
-            table_name: ClassVar[str] = "counters"
-            table_display_name: ClassVar[str] = "Counters"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "counters"
+                display_name = "Counters"
+                pk = ("id",)
+
             counter_columns: ClassVar[tuple[str, ...]] = ("distance_m",)
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             distance_m: Annotated[float, Field(db_type="DOUBLE", description="cum")] = 0.0
@@ -420,9 +474,11 @@ class TestTableKindAndMetadata:
 
     def test_cursor_column_emitted_when_set(self) -> None:
         class _Cursored(EventTable):
-            table_name: ClassVar[str] = "messages"
-            table_display_name: ClassVar[str] = "Messages"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "messages"
+                display_name = "Messages"
+                pk = ("id",)
+
             time_at: ClassVar[str] = "internal_date"
             cursor_column: ClassVar[str] = "internal_date"
             id: Annotated[str, Field(db_type="VARCHAR", description="x")]
@@ -440,9 +496,11 @@ class TestTableKindAndMetadata:
         from shenas_plugins.core.table import Table
 
         class _Plain(Table):
-            table_name: ClassVar[str] = "plain"
-            table_display_name: ClassVar[str] = "Plain"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "plain"
+                display_name = "Plain"
+                pk = ("id",)
+
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
         assert _Plain.table_kind() is None
@@ -456,9 +514,11 @@ class TestTableKindAndMetadata:
         # The catalog needs the schema for every table so consumers can
         # qualify references. Read it back even when None.
         class _NoSchema(EventTable):
-            table_name: ClassVar[str] = "noschema"
-            table_display_name: ClassVar[str] = "No Schema"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "noschema"
+                display_name = "No Schema"
+                pk = ("id",)
+
             time_at: ClassVar[str] = "ts"
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
@@ -467,10 +527,12 @@ class TestTableKindAndMetadata:
         assert meta["schema"] is None
 
         class _WithSchema(EventTable):
-            table_name: ClassVar[str] = "withschema"
-            table_display_name: ClassVar[str] = "With Schema"
-            table_schema: ClassVar[str | None] = "garmin"
-            table_pk: ClassVar[tuple[str, ...]] = ("id",)
+            class _Meta:
+                name = "withschema"
+                display_name = "With Schema"
+                schema = "garmin"
+                pk = ("id",)
+
             time_at: ClassVar[str] = "ts"
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]

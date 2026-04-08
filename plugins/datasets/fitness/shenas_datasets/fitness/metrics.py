@@ -1,4 +1,4 @@
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar  # noqa: F401 - used in inherited class annotations
 
 from shenas_datasets.core import DailyMetricTable
 from shenas_plugins.core.table import Field
@@ -10,10 +10,11 @@ Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identi
 class DailyHRV(DailyMetricTable):
     """Heart Rate Variability -- one row per (date, source)."""
 
-    table_name: ClassVar[str] = "daily_hrv"
-    table_display_name: ClassVar[str] = "Daily HRV"
-    table_description: ClassVar[str | None] = "Per-day heart rate variability summary."
-    table_pk: ClassVar[tuple[str, ...]] = ("date", "source")
+    class _Meta:
+        name = "daily_hrv"
+        display_name = "Daily HRV"
+        description = "Per-day heart rate variability summary."
+        pk = ("date", "source")
 
     date: Date
     source: Source
@@ -52,10 +53,11 @@ class DailyHRV(DailyMetricTable):
 class DailySleep(DailyMetricTable):
     """Sleep summary -- one row per (date, source)."""
 
-    table_name: ClassVar[str] = "daily_sleep"
-    table_display_name: ClassVar[str] = "Daily Sleep"
-    table_description: ClassVar[str | None] = "Per-day sleep summary (duration, score, stage breakdown)."
-    table_pk: ClassVar[tuple[str, ...]] = ("date", "source")
+    class _Meta:
+        name = "daily_sleep"
+        display_name = "Daily Sleep"
+        description = "Per-day sleep summary (duration, score, stage breakdown)."
+        pk = ("date", "source")
 
     date: Date
     source: Source
@@ -153,10 +155,11 @@ class DailySleep(DailyMetricTable):
 class DailyVitals(DailyMetricTable):
     """Key daily vitals -- one row per (date, source)."""
 
-    table_name: ClassVar[str] = "daily_vitals"
-    table_display_name: ClassVar[str] = "Daily Vitals"
-    table_description: ClassVar[str | None] = "Per-day vital signs and activity totals (HR, steps, calories, SpO2)."
-    table_pk: ClassVar[tuple[str, ...]] = ("date", "source")
+    class _Meta:
+        name = "daily_vitals"
+        display_name = "Daily Vitals"
+        description = "Per-day vital signs and activity totals (HR, steps, calories, SpO2)."
+        pk = ("date", "source")
 
     date: Date
     source: Source
@@ -225,10 +228,11 @@ class DailyVitals(DailyMetricTable):
 class DailyBody(DailyMetricTable):
     """Body composition -- one row per (date, source)."""
 
-    table_name: ClassVar[str] = "daily_body"
-    table_display_name: ClassVar[str] = "Daily Body Composition"
-    table_description: ClassVar[str | None] = "Per-day body weight, BMI, body fat, and muscle mass."
-    table_pk: ClassVar[tuple[str, ...]] = ("date", "source")
+    class _Meta:
+        name = "daily_body"
+        display_name = "Daily Body Composition"
+        description = "Per-day body weight, BMI, body fat, and muscle mass."
+        pk = ("date", "source")
 
     date: Date
     source: Source

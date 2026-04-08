@@ -10,10 +10,12 @@ Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identi
 class Transaction(EventMetricTable):
     """Individual financial transaction -- one row per (id, source)."""
 
-    table_name: ClassVar[str] = "transactions"
-    table_display_name: ClassVar[str] = "Transactions"
-    table_description: ClassVar[str | None] = "Per-transaction financial events from spending sources."
-    table_pk: ClassVar[tuple[str, ...]] = ("id", "source")
+    class _Meta:
+        name = "transactions"
+        display_name = "Transactions"
+        description = "Per-transaction financial events from spending sources."
+        pk = ("id", "source")
+
     time_at: ClassVar[str] = "date"
 
     id: Annotated[
@@ -133,10 +135,11 @@ class Transaction(EventMetricTable):
 class DailySpending(DailyMetricTable):
     """Aggregated daily spending -- one row per (date, source)."""
 
-    table_name: ClassVar[str] = "daily_spending"
-    table_display_name: ClassVar[str] = "Daily Spending"
-    table_description: ClassVar[str | None] = "Per-day rollup of transaction outflows / inflows."
-    table_pk: ClassVar[tuple[str, ...]] = ("date", "source")
+    class _Meta:
+        name = "daily_spending"
+        display_name = "Daily Spending"
+        description = "Per-day rollup of transaction outflows / inflows."
+        pk = ("date", "source")
 
     date: Date
     source: Source
@@ -186,10 +189,11 @@ class DailySpending(DailyMetricTable):
 class MonthlyCategory(MonthlyMetricTable):
     """Monthly spending by category -- one row per (month, category, source)."""
 
-    table_name: ClassVar[str] = "monthly_category"
-    table_display_name: ClassVar[str] = "Monthly Spending by Category"
-    table_description: ClassVar[str | None] = "Per-month spend totals broken down by category."
-    table_pk: ClassVar[tuple[str, ...]] = ("month", "category", "source")
+    class _Meta:
+        name = "monthly_category"
+        display_name = "Monthly Spending by Category"
+        description = "Per-month spend totals broken down by category."
+        pk = ("month", "category", "source")
 
     month: Annotated[
         str,
@@ -253,10 +257,11 @@ class MonthlyCategory(MonthlyMetricTable):
 class MonthlyOverview(MonthlyMetricTable):
     """Monthly financial summary -- one row per (month, source)."""
 
-    table_name: ClassVar[str] = "monthly_overview"
-    table_display_name: ClassVar[str] = "Monthly Overview"
-    table_description: ClassVar[str | None] = "Per-month income, spending, net, and savings rate summary."
-    table_pk: ClassVar[tuple[str, ...]] = ("month", "source")
+    class _Meta:
+        name = "monthly_overview"
+        display_name = "Monthly Overview"
+        description = "Per-month income, spending, net, and savings rate summary."
+        pk = ("month", "source")
 
     month: Annotated[
         str,

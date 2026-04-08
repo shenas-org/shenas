@@ -12,7 +12,7 @@ import dataclasses
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Annotated, Any, ClassVar
+from typing import Annotated, Any
 
 import duckdb
 
@@ -36,11 +36,12 @@ class Transform(Table):
     ``run_for_source``, ``run_for_target``) are added on top.
     """
 
-    table_name: ClassVar[str] = "transforms"
-    table_schema: ClassVar[str | None] = "shenas_system"
-    table_display_name: ClassVar[str] = "Transforms"
-    table_description: ClassVar[str | None] = "User-supplied SQL transforms bridging source data to canonical metric tables."
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    class _Meta:
+        name = "transforms"
+        display_name = "Transforms"
+        description = "User-supplied SQL transforms bridging source data to canonical metric tables."
+        schema = "shenas_system"
+        pk = ("id",)
 
     id: Annotated[
         int,

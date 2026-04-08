@@ -23,11 +23,12 @@ class Hotkey(UserTable):
     single-user mode. CRUD comes from the :class:`UserTable` ABC.
     """
 
-    table_name: ClassVar[str] = "hotkeys"
-    table_schema: ClassVar[str | None] = "shenas_system"
-    table_display_name: ClassVar[str] = "Hotkeys"
-    table_description: ClassVar[str | None] = "Per-action keyboard shortcut bindings, per user."
-    table_pk: ClassVar[tuple[str, ...]] = ("action_id", "user_id")
+    class _Meta:
+        name = "hotkeys"
+        display_name = "Hotkeys"
+        description = "Per-action keyboard shortcut bindings, per user."
+        schema = "shenas_system"
+        pk = ("action_id", "user_id")
 
     action_id: Annotated[str, Field(db_type="VARCHAR", description="Action identifier")] = ""
     user_id: Annotated[int, Field(db_type="INTEGER", description="Local user ID (0 = single-user mode)")] = 0
