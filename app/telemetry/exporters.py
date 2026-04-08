@@ -156,7 +156,14 @@ class DuckDBLogExporter(LogRecordExporter):
 
                     ts = data.get("timestamp") or datetime.now(UTC).isoformat()
                     service_name = data.get("resource", {}).get("attributes", {}).get("service.name")
-                    attributes = data.get("attributes")
+                    attributes = data.get("attributes") or {}
+                    # JobIdLogFilter sets record.job_id; OTel's LoggingHandler bridges
+                    # stdlib LogRecord extras into this attributes dict, so we pick it
+                    # up here. Persisted into the JSON `attributes` column so historical
+                    # queries can grep by job_id without a schema migration.
+                    job_id = attributes.get("job_id") or attributes.get("shenas.job_id")
+                    if job_id:
+                        attributes = {**attributes, "job_id": job_id}
 
                     rows.append(
                         (

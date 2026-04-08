@@ -217,7 +217,7 @@ class JobPanel extends LitElement {
                       ${job.lines.map(
                         (line) => html` <div class="line ${job.status === "error" ? "error" : ""}">${line}</div> `,
                       )}
-                      ${job.message
+                      ${job.message && job.message !== job.lines[job.lines.length - 1]
                         ? html` <div class="line ${job.status === "done" ? "success" : "error"}">${job.message}</div> `
                         : ""}
                     </div>

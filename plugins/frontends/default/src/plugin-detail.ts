@@ -399,6 +399,7 @@ class PluginDetail extends LitElement {
       const decoder = new TextDecoder();
       let lastEvent = "";
       let lastData = "";
+      let lastLogged = "";
       let hadError = false;
       while (true) {
         const { done, value } = await reader.read();
@@ -410,10 +411,20 @@ class PluginDetail extends LitElement {
             lastData = line.slice(6);
             try {
               const d = JSON.parse(lastData) as Record<string, unknown>;
-              const logText = (d.message || d.source || lastData) as string;
-              this.dispatchEvent(
-                new CustomEvent("job-log", { bubbles: true, composed: true, detail: { id: jobId, text: logText } }),
-              );
+              // Use the message; do NOT fall back to source -- that just echoes
+              // the source name and produces noise. Skip empty + duplicate-of-last.
+              const msg = d.message;
+              const logText = typeof msg === "string" ? msg : "";
+              if (logText && logText !== lastLogged) {
+                lastLogged = logText;
+                this.dispatchEvent(
+                  new CustomEvent("job-log", {
+                    bubbles: true,
+                    composed: true,
+                    detail: { id: jobId, text: logText },
+                  }),
+                );
+              }
             } catch {
               /* skip */
             }

@@ -205,6 +205,46 @@ class TestLogExporter:
 
             assert result == LogRecordExportResult.SUCCESS
 
+    @pytest.mark.skipif(
+        not __import__("importlib").util.find_spec("opentelemetry.instrumentation.logging"),  # type: ignore[union-attr]
+        reason="opentelemetry-instrumentation-logging not installed",
+    )
+    def test_log_with_job_id_persists_into_attributes(self, con: duckdb.DuckDBPyConnection) -> None:
+        """JobIdLogFilter -> OTel bridge -> exporter -> attributes JSON."""
+        import json
+        import logging
+
+        from app.jobs import JobIdLogFilter, bind_job_id
+
+        with _patches(con)[0], _patches(con)[1]:
+            from opentelemetry._logs import set_logger_provider
+            from opentelemetry.sdk._logs import LoggerProvider
+            from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+
+            exporter = DuckDBLogExporter()
+            log_provider = LoggerProvider()
+            log_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+            set_logger_provider(log_provider)
+
+            from opentelemetry.instrumentation.logging import LoggingInstrumentor
+
+            LoggingInstrumentor().instrument(set_logging_format=False)
+
+            logger = logging.getLogger("test.jobid.bridge")
+            logger.addFilter(JobIdLogFilter())
+
+            with bind_job_id("job-test-id-1"):
+                logger.warning("hello inside job")
+
+            log_provider.shutdown()
+            LoggingInstrumentor().uninstrument()
+
+        rows = con.execute("SELECT body, attributes FROM telemetry.logs").fetchall()
+        matched = [r for r in rows if r[0] and "hello inside job" in r[0]]
+        assert len(matched) >= 1
+        attrs = json.loads(matched[0][1] or "{}")
+        assert attrs.get("job_id") == "job-test-id-1"
+
 
 class TestDispatchingProcessors:
     """Tests for processors.py: DispatchingSpanProcessor, DispatchingLogProcessor, dispatch helpers."""

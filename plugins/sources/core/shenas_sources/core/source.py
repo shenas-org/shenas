@@ -11,7 +11,7 @@ from datetime import UTC
 from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
 from shenas_plugins.core.base_auth import SourceAuth
 from shenas_plugins.core.base_config import SourceConfig
@@ -244,18 +244,38 @@ class Source(Plugin):
         except Exception:
             logger.exception("Failed to update synced_at for %s", self.name)
 
-    def sync(self, *, full_refresh: bool = False, **_kwargs: Any) -> None:
-        """Default sync: build_client -> resources -> run_sync -> transform -> mark synced."""
+    def sync(
+        self,
+        *,
+        full_refresh: bool = False,
+        on_progress: Callable[[str, str], None] | None = None,
+        **_kwargs: Any,
+    ) -> None:
+        """Default sync: build_client -> resources -> run_sync -> transform -> mark synced.
+
+        `on_progress`, if given, is forwarded to `run_sync` and called at each
+        per-resource checkpoint so streaming consumers can surface progress.
+        """
         from shenas_sources.core.cli import run_sync
 
         client = self.build_client()
         res = self.resources(client)
-        run_sync(self.name, self.name, res, full_refresh, self._auto_transform)
+        run_sync(self.name, self.name, res, full_refresh, self._auto_transform, on_progress=on_progress)
         self._mark_synced()
         self._log_sync_event(full_refresh)
 
     def run_sync_stream(self, *, full_refresh: bool = False) -> Iterator[tuple[str, str]]:
-        """Run sync yielding (event, message) tuples for progress reporting."""
+        """Run sync yielding (event, message) tuples for progress reporting.
+
+        Runs the actual sync in a daemon worker thread and drains a queue from
+        the generator body so per-resource progress events from `run_sync` flow
+        out as they happen instead of all at once when sync completes.
+        """
+        import queue
+        import threading
+
+        from app.jobs import bind_job_id, get_job_id
+
         logger.info("Sync started: %s", self.name)
         yield ("progress", "starting sync")
 
@@ -265,13 +285,48 @@ class Source(Plugin):
             yield ("error", msg)
             return
 
-        try:
-            self.sync(full_refresh=full_refresh)
-            logger.info("Sync complete: %s", self.name)
-            yield ("complete", "done")
-        except Exception as exc:
-            logger.exception("Sync failed: %s", self.name)
-            yield ("error", str(exc))
+        # ContextVars don't propagate across threading.Thread boundaries -- capture
+        # the parent's job_id and rebind inside the worker so logs emitted from the
+        # sync thread also carry it.
+        job_id = get_job_id()
+        q: queue.Queue[tuple[str, str] | None] = queue.Queue()
+
+        def _worker() -> None:
+            with bind_job_id(job_id):
+                try:
+                    self.sync(full_refresh=full_refresh, on_progress=lambda e, m: q.put((e, m)))
+                    label = getattr(self, "display_name", None) or self.name
+                    q.put(("__done__", f"Sync complete: {label}"))
+                except Exception as exc:
+                    logger.exception("Sync failed: %s", self.name)
+                    q.put(("__error__", str(exc)))
+                finally:
+                    q.put(None)  # sentinel: end-of-stream
+
+        t = threading.Thread(target=_worker, daemon=True)
+        t.start()
+
+        while True:
+            try:
+                item = q.get(timeout=0.5)
+            except queue.Empty:
+                if not t.is_alive():
+                    break
+                continue
+            if item is None:  # sentinel
+                break
+            evt, msg = item
+            if evt == "__done__":
+                logger.info("Sync complete: %s", self.name)
+                yield ("complete", msg)
+            elif evt == "__error__":
+                yield ("error", msg)
+                return
+            else:
+                # fetch_start / fetch_done / flush / transform_start -- all "progress"
+                yield ("progress", msg)
+        # Daemon thread exits with the process; nothing to join. We can't cancel
+        # an in-flight dlt run cleanly anyway.
 
     def _log_sync_event(self, full_refresh: bool) -> None:
         """Append a sync event to the mesh sync log."""
