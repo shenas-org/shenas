@@ -164,11 +164,6 @@ def message_pages(service: Any, query: str = "") -> Iterator[list[dict[str, Any]
         time.sleep(PAGE_DELAY)
 
 
-def _action_labels(action: dict[str, Any], key: str) -> str | None:
-    ids = action.get(key) or []
-    return ", ".join(ids) if ids else None
-
-
 # ---------------------------------------------------------------------------
 # Tables
 # ---------------------------------------------------------------------------
@@ -288,6 +283,11 @@ class Filters(SnapshotTable):
     )
     forward_to: Annotated[str | None, Field(db_type="VARCHAR", description="Action: forward to address")] = None
 
+    @staticmethod
+    def _action_labels(action: dict[str, Any], key: str) -> str | None:
+        ids = action.get(key) or []
+        return ", ".join(ids) if ids else None
+
     @classmethod
     def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:
         try:
@@ -303,8 +303,8 @@ class Filters(SnapshotTable):
                 "to_criteria": criteria.get("to"),
                 "subject_criteria": criteria.get("subject"),
                 "query_criteria": criteria.get("query"),
-                "add_label_ids": _action_labels(action, "addLabelIds"),
-                "remove_label_ids": _action_labels(action, "removeLabelIds"),
+                "add_label_ids": cls._action_labels(action, "addLabelIds"),
+                "remove_label_ids": cls._action_labels(action, "removeLabelIds"),
                 "forward_to": action.get("forward"),
             }
 

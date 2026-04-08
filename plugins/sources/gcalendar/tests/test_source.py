@@ -7,10 +7,11 @@ from shenas_sources.gcalendar.tables import (
     Colors,
     EventAttendees,
     Events,
-    _attendee_rows,
-    _event_row,
     fetch_all_events,
 )
+
+_event_row = Events._event_row
+_attendee_rows = EventAttendees._attendee_rows
 
 
 def _make_event(**overrides: object) -> dict[str, object]:
