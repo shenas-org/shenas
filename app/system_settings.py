@@ -28,5 +28,5 @@ class SystemSettings(Table):
         return row
 
     @classmethod
-    def save(cls, *, multiuser_enabled: bool) -> None:
+    def put(cls, *, multiuser_enabled: bool) -> None:
         cls.write_row(id=1, multiuser_enabled=multiuser_enabled)

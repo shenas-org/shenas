@@ -234,7 +234,7 @@ class Mutation:
         from app.models import OkResponse
 
         user_id: int = (info.context or {}).get("user_id", 0) or 0
-        Hotkey(action_id, user_id=user_id).set(binding)
+        Hotkey(action_id=action_id, user_id=user_id).set_binding(binding)
         return OkType.from_pydantic(OkResponse(ok=True))
 
     @strawberry.mutation
@@ -243,7 +243,7 @@ class Mutation:
         from app.models import OkResponse
 
         user_id: int = (info.context or {}).get("user_id", 0) or 0
-        Hotkey(action_id, user_id=user_id).delete()
+        Hotkey(action_id=action_id, user_id=user_id).delete()
         return OkType.from_pydantic(OkResponse(ok=True))
 
     @strawberry.mutation
@@ -263,5 +263,5 @@ class Mutation:
         from app.workspace import Workspace
 
         user_id: int = (info.context or {}).get("user_id", 0) or 0
-        Workspace.save(data, user_id=user_id)
+        Workspace.put(data, user_id=user_id)
         return OkType.from_pydantic(OkResponse(ok=True))

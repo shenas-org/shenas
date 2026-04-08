@@ -93,9 +93,7 @@ class LocalUser(Table):
         from app.db import cursor
 
         with cursor() as cur:
-            rows = cur.execute(
-                "SELECT id, username FROM shenas_system.local_users ORDER BY username"
-            ).fetchall()
+            rows = cur.execute("SELECT id, username FROM shenas_system.local_users ORDER BY username").fetchall()
         return [{"id": r[0], "username": r[1]} for r in rows]
 
     @classmethod

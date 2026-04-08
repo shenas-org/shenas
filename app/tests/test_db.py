@@ -61,10 +61,10 @@ class TestPluginState:
         p.save_state(enabled=True)
         state = p.state
         assert state is not None
-        assert state["kind"] == "source"
-        assert state["name"] == "garmin"
-        assert state["enabled"] is True
-        assert state["added_at"] is not None
+        assert state.kind == "source"
+        assert state.name == "garmin"
+        assert state.enabled is True
+        assert state.added_at is not None
 
     def test_save_state_updates_existing_same_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         p = _FakePlugin()
@@ -75,7 +75,7 @@ class TestPluginState:
         p.save_state(enabled=True)
         second = p.state
         assert second is not None
-        assert second["enabled"] is True
+        assert second.enabled is True
 
     def test_save_state_toggles_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         p = _FakePlugin()
@@ -83,8 +83,8 @@ class TestPluginState:
         p.save_state(enabled=False)
         state = p.state
         assert state is not None
-        assert state["enabled"] is False
-        assert state["status_changed_at"] is not None
+        assert state.enabled is False
+        assert state.status_changed_at is not None
 
     def test_remove_state(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         p = _FakePlugin()
@@ -113,14 +113,14 @@ class TestPluginState:
         p.mark_synced()
         state = p.state
         assert state is not None
-        assert state["synced_at"] is not None
+        assert state.synced_at is not None
 
     def test_mark_synced_creates_missing_state(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         p = _FakePlugin()
         p.mark_synced()
         state = p.state
         assert state is not None
-        assert state["synced_at"] is not None
+        assert state.synced_at is not None
 
     def test_multiple_kinds(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         class _DatasetPlugin(Plugin):
@@ -148,14 +148,14 @@ class TestWorkspace:
         from app.workspace import Workspace
 
         state = {"tabs": ["dashboard", "settings"], "active": 0}
-        Workspace.save(state)
+        Workspace.put(state)
         assert Workspace.get() == state
 
     def test_save_overwrites(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.workspace import Workspace
 
-        Workspace.save({"first": True})
-        Workspace.save({"second": True})
+        Workspace.put({"first": True})
+        Workspace.put({"second": True})
         assert Workspace.get() == {"second": True}
 
 
@@ -171,26 +171,26 @@ class TestHotkeys:
     def test_set_new(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.hotkeys import Hotkey
 
-        Hotkey("custom-action").set("Ctrl+Shift+X")
+        Hotkey(action_id="custom-action").set_binding("Ctrl+Shift+X")
         assert Hotkey.get_all()["custom-action"] == "Ctrl+Shift+X"
 
     def test_set_overwrite(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.hotkeys import Hotkey
 
-        Hotkey("command-palette").set("Ctrl+Shift+P")
+        Hotkey(action_id="command-palette").set_binding("Ctrl+Shift+P")
         assert Hotkey.get_all()["command-palette"] == "Ctrl+Shift+P"
 
     def test_delete(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.hotkeys import Hotkey
 
-        Hotkey("command-palette").delete()
+        Hotkey(action_id="command-palette").delete()
         assert "command-palette" not in Hotkey.get_all()
 
     def test_reset(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.hotkeys import Hotkey
 
-        Hotkey("command-palette").set("Ctrl+Shift+P")
-        Hotkey("custom-action").set("Ctrl+X")
+        Hotkey(action_id="command-palette").set_binding("Ctrl+Shift+P")
+        Hotkey(action_id="custom-action").set_binding("Ctrl+X")
         Hotkey.reset()
         hotkeys = Hotkey.get_all()
         assert hotkeys["command-palette"] == "Ctrl+P"

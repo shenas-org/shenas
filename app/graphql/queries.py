@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 import strawberry
 from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawberry
@@ -17,22 +17,25 @@ from app.graphql.types import (
     TransformType,
 )
 
+if TYPE_CHECKING:
+    from app.transforms import Transform
 
-def _transform_to_gql(t: dict[str, Any]) -> TransformType:
+
+def _transform_to_gql(t: Transform) -> TransformType:
     return TransformType(
-        id=t["id"],
-        source_duckdb_schema=t["source_duckdb_schema"],
-        source_duckdb_table=t["source_duckdb_table"],
-        target_duckdb_schema=t["target_duckdb_schema"],
-        target_duckdb_table=t["target_duckdb_table"],
-        source_plugin=t["source_plugin"],
-        description=t.get("description", ""),
-        sql=t["sql"],
-        is_default=t["is_default"],
-        enabled=t["enabled"],
-        added_at=t.get("added_at"),
-        updated_at=t.get("updated_at"),
-        status_changed_at=t.get("status_changed_at"),
+        id=t.id,
+        source_duckdb_schema=t.source_duckdb_schema,
+        source_duckdb_table=t.source_duckdb_table,
+        target_duckdb_schema=t.target_duckdb_schema,
+        target_duckdb_table=t.target_duckdb_table,
+        source_plugin=t.source_plugin,
+        description=t.description or "",
+        sql=t.sql,
+        is_default=bool(t.is_default),
+        enabled=bool(t.enabled),
+        added_at=t.added_at,
+        updated_at=t.updated_at,
+        status_changed_at=t.status_changed_at,
     )
 
 
@@ -230,7 +233,8 @@ class Query:
     def transforms(self, source: str | None = None) -> list[TransformType]:
         from app.transforms import Transform
 
-        return [_transform_to_gql(t) for t in Transform.all(source)]
+        rows = Transform.for_plugin(source) if source else Transform.all(order_by="id")
+        return [_transform_to_gql(t) for t in rows]
 
     @strawberry.field
     def transform(self, transform_id: int) -> TransformType | None:
