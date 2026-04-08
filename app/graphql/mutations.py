@@ -345,3 +345,79 @@ class Mutation:
             "result": result.to_dict(),
             "ok": not isinstance(result, ErrorResult),
         }
+
+    # -- LLM-driven hypothesis (PR 2.3) --
+
+    @strawberry.mutation
+    def ask_hypothesis(self, question: str) -> JSON:
+        """End-to-end: create a hypothesis, ask the LLM for a recipe, run it, persist.
+
+        The LLM provider is constructed from environment / settings; the
+        default is :class:`AnthropicProvider` which reads
+        ``ANTHROPIC_API_KEY``. Returns the hypothesis id, the LLM's plan,
+        the recipe payload, and the run result.
+        """
+        from app.db import analytics_backend
+        from app.graphql.llm_provider import get_llm_provider
+        from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
+        from shenas_plugins.core.analytics import (
+            ErrorResult,
+            OpCall,
+            Recipe,
+            SourceRef,
+            ask_for_recipe,
+            run_recipe,
+        )
+
+        provider = get_llm_provider()
+
+        # Step 1: create empty hypothesis row so we can persist failures.
+        empty = Recipe(nodes={}, final="")
+        h = Hypothesis.create(question, empty, model=provider.name)
+
+        # Step 2: ask the LLM for a recipe.
+        catalog = _build_catalog()
+        try:
+            payload = ask_for_recipe(provider, question, catalog)
+        except Exception as exc:
+            err = {
+                "type": "error",
+                "message": f"LLM call failed: {exc}",
+                "kind": "validation",
+                "elapsed_ms": 0.0,
+                "sql": "",
+            }
+            h.result_json = __import__("json").dumps(err)
+            h.save()
+            return {"id": h.id, "ok": False, "error": err}
+
+        plan = payload.get("plan", "")
+        nodes_payload = payload.get("nodes", {})
+        nodes: dict[str, SourceRef | OpCall] = {}
+        for name, node in nodes_payload.items():
+            if node.get("type") == "source":
+                nodes[name] = SourceRef(table=node["table"])
+            else:
+                nodes[name] = OpCall(
+                    op_name=node.get("op_name", ""),
+                    params=node.get("params", {}),
+                    inputs=tuple(node.get("inputs", ())),
+                )
+        recipe = Recipe(nodes=nodes, final=payload.get("final", ""))
+
+        # Step 3: persist the recipe + plan before running.
+        h.plan = plan
+        h.recipe_json = _serialize_recipe(recipe)
+        h.inputs = ",".join(sorted(_extract_input_tables(recipe)))
+        h.save()
+
+        # Step 4: run.
+        result = run_recipe(recipe, catalog, backend=analytics_backend())
+        h.attach_result(result)
+        return {
+            "id": h.id,
+            "plan": plan,
+            "recipe": payload,
+            "result": result.to_dict(),
+            "ok": not isinstance(result, ErrorResult),
+        }

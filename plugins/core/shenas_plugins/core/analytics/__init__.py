@@ -18,6 +18,16 @@ system prompt and large enough to express the most common hypothesis
 shapes (lag this, window that, join AS-OF, correlate the two).
 """
 
+from shenas_plugins.core.analytics.llm import (
+    AnthropicProvider,
+    FakeProvider,
+    LLMProvider,
+    ask_for_recipe,
+    build_system_prompt,
+    build_user_prompt,
+    operation_param_schema,
+    submit_recipe_tool,
+)
 from shenas_plugins.core.analytics.node import RecipeNode
 from shenas_plugins.core.analytics.operations import (
     OPERATIONS,
@@ -40,9 +50,12 @@ from shenas_plugins.core.analytics.runner import (
 
 __all__ = [
     "OPERATIONS",
+    "AnthropicProvider",
     "Correlate",
     "ErrorResult",
+    "FakeProvider",
     "JoinAsOf",
+    "LLMProvider",
     "Lag",
     "OpCall",
     "Operation",
@@ -56,5 +69,10 @@ __all__ = [
     "ScalarResult",
     "SourceRef",
     "TableResult",
+    "ask_for_recipe",
+    "build_system_prompt",
+    "build_user_prompt",
+    "operation_param_schema",
     "run_recipe",
+    "submit_recipe_tool",
 ]
