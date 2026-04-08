@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.field import Field, TableKind
 
 
 @dataclass
@@ -19,6 +19,7 @@ class Transaction:
 
     __table__: ClassVar[str] = "transactions"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    __kind__: ClassVar[TableKind] = "event"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Transaction ID")]
     date: Annotated[str, Field(db_type="DATE", description="Transaction date")]
@@ -39,6 +40,7 @@ class Category:
 
     __table__: ClassVar[str] = "categories"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    __kind__: ClassVar[TableKind] = "snapshot"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Category ID")]
     name: Annotated[str, Field(db_type="VARCHAR", description="Category name")]
@@ -54,6 +56,7 @@ class Tag:
 
     __table__: ClassVar[str] = "tags"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    __kind__: ClassVar[TableKind] = "snapshot"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Tag ID")]
     name: Annotated[str, Field(db_type="VARCHAR", description="Tag name")]
@@ -67,6 +70,7 @@ class Budget:
 
     __table__: ClassVar[str] = "budgets"
     __pk__: ClassVar[tuple[str, ...]] = ("category_name",)
+    __kind__: ClassVar[TableKind] = "snapshot"
 
     category_name: Annotated[str, Field(db_type="VARCHAR", description="Budget category name")]
     category_id: Annotated[int | None, Field(db_type="INTEGER", description="Category ID")] = None
@@ -81,6 +85,7 @@ class RecurringItem:
 
     __table__: ClassVar[str] = "recurring_items"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    __kind__: ClassVar[TableKind] = "snapshot"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Recurring item ID")]
     payee: Annotated[str, Field(db_type="VARCHAR", description="Payee name")]
@@ -98,6 +103,7 @@ class Asset:
 
     __table__: ClassVar[str] = "assets"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    __kind__: ClassVar[TableKind] = "snapshot"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Asset ID")]
     name: Annotated[str, Field(db_type="VARCHAR", description="Asset name")]
@@ -114,6 +120,7 @@ class PlaidAccount:
 
     __table__: ClassVar[str] = "plaid_accounts"
     __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    __kind__: ClassVar[TableKind] = "snapshot"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Plaid account ID")]
     name: Annotated[str, Field(db_type="VARCHAR", description="Account name")]

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
-from shenas_plugins.core.field import Field
+from shenas_plugins.core.field import Field, TableKind
 
 
 @dataclass
@@ -18,5 +18,6 @@ class DailyNote:
 
     __table__: ClassVar[str] = "daily_notes"
     __pk__: ClassVar[tuple[str, ...]] = ("date",)
+    __kind__: ClassVar[TableKind] = "aggregate"
 
     date: Annotated[str, Field(db_type="DATE", description="Daily note date from filename")]
