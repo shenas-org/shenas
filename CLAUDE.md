@@ -81,7 +81,8 @@ All plugins are uv workspace members. `uv sync` installs everything for developm
 Every raw source-table dataclass declares a `__kind__: ClassVar[TableKind]` (defined in `shenas_plugins.core.field`):
 
 - **`event`** — discrete, immutable occurrence with its own native timestamp (activity, transaction, email). PK is the natural id; dlt strategy is merge on id.
-- **`snapshot`** — current state with no temporal axis (profile, current zones, current top tracks). dlt strategy is replace.
+- **`snapshot`** — current self-state with no temporal axis and nothing else joins to it (profile, current zones, current top tracks). dlt strategy is replace.
+- **`dimension`** — reference / lookup data that other tables join against (calendars, labels, categories, tags, assets, plaid accounts, color palette). Same write semantics as snapshot (replace) but flagged separately so dashboards know which tables are joinable lookups vs leaf state.
 - **`aggregate`** — per-window summary that can be re-emitted as new data arrives (daily HRV, daily sleep, daily XP). dlt strategy is merge on `(window_key, ...)`.
 - **`counter`** — monotonically growing scalar where deltas matter (gear distance). dlt strategy is merge on entity id.
 
@@ -120,7 +121,7 @@ All artifacts (sources, dashboards, datasets, frontends, themes) are Python whee
 - **Themes**: exclusive (only one enabled at a time), CSS custom properties pierce Shadow DOM
 - **Python namespaces**: `shenas_sources.*`, `shenas_datasets.*`, `shenas_dashboards.*` (not `pipes.*` — conflicts with stdlib)
 - **DuckDB schemas**: raw data in source-specific schemas (`garmin.*`, `lunchmoney.*`, `strava.*`, ...), canonical in `metrics.*`
-- **Raw table semantics**: every table dataclass declares a `__kind__` ClassVar (`event` | `snapshot` | `aggregate` | `counter`) — see "Raw table semantics" above
+- **Raw table semantics**: every table dataclass declares a `__kind__` ClassVar (`event` | `snapshot` | `dimension` | `aggregate` | `counter`) — see "Raw table semantics" above
 
 ## Modules
 
