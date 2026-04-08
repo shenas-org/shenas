@@ -56,6 +56,8 @@ def test_con() -> duckdb.DuckDBPyConnection:
         "inputs VARCHAR DEFAULT '', result_json TEXT DEFAULT '', "
         "interpretation TEXT DEFAULT '', created_at TIMESTAMP DEFAULT current_timestamp, "
         "model VARCHAR DEFAULT '', promoted_to VARCHAR, "
+        "llm_input_tokens INTEGER, llm_output_tokens INTEGER, "
+        "llm_elapsed_ms DOUBLE, query_elapsed_ms DOUBLE, wall_clock_ms DOUBLE, "
         "PRIMARY KEY (id))"
     )
     con.execute(
@@ -595,6 +597,44 @@ class TestGraphQLMutations:
         assert body["recipe"] == canned
         assert body["result"] is not None
         assert body["id"] >= 1
+
+    def test_ask_hypothesis_records_cost_and_latency(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
+        from shenas_plugins.core.analytics import FakeProvider
+
+        test_con.execute("DROP TABLE IF EXISTS metrics.daily_intake")
+        test_con.execute("CREATE TABLE metrics.daily_intake (date DATE, source VARCHAR, x DOUBLE)")
+        test_con.execute("INSERT INTO metrics.daily_intake VALUES ('2026-01-01', 'm', 1)")
+        canned = {
+            "plan": "p",
+            "nodes": {"a": {"type": "source", "table": "metrics.daily_intake"}},
+            "final": "a",
+        }
+        catalog = {
+            "metrics.daily_intake": {
+                "table": "daily_intake",
+                "schema": "metrics",
+                "primary_key": ["date", "source"],
+                "kind": "daily_metric",
+                "columns": [
+                    {"name": "date", "db_type": "DATE"},
+                    {"name": "source", "db_type": "VARCHAR"},
+                    {"name": "x", "db_type": "DOUBLE"},
+                ],
+            }
+        }
+        provider = FakeProvider(canned, input_tokens=123, output_tokens=45)
+        with (
+            patch("app.graphql.llm_provider.get_llm_provider", return_value=provider),
+            patch("app.graphql.mutations._build_catalog", return_value=catalog),
+        ):
+            result = _gql(client, 'mutation { askHypothesis(question: "q") }')
+        assert "errors" not in result
+        cost = result["data"]["askHypothesis"]["cost"]
+        assert cost["llm_input_tokens"] == 123
+        assert cost["llm_output_tokens"] == 45
+        assert cost["llm_elapsed_ms"] >= 0
+        assert cost["query_elapsed_ms"] >= 0
+        assert cost["wall_clock_ms"] >= 0
 
     # -- Promotion --
 
