@@ -98,6 +98,31 @@ def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:  # noqa: ARG0
         return _con
 
 
+def analytics_backend() -> Any:
+    """Return an Ibis Backend wrapping a child cursor of the shared connection.
+
+    Used by the analytics runner (``shenas_plugins.core.analytics.runner``)
+    to compile + execute LLM-authored recipes against the encrypted DB
+    via Ibis. Each call returns a fresh child cursor, so concurrent
+    analytics runs don't step on each other.
+
+    **Soft-guarantee read-only**: the underlying connection is the same
+    read-write one used by syncs and writes. The "read-only" property
+    comes from the fact that the analytics layer (operations + recipe
+    compiler) only emits SELECT-shaped Ibis expressions; no INSERT /
+    UPDATE / DELETE / DDL flows through this path. A future hardening
+    pass (Phase 4) can enforce this at the connection level by spawning
+    a separate read-only DuckDB process or using ``con.interrupt()`` to
+    cancel runaway queries.
+    """
+    import ibis
+
+    parent = connect()
+    cur = parent.cursor()
+    cur.execute("USE db")
+    return ibis.duckdb.from_connection(cur)
+
+
 def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     """Create system tables and canonical schema tables if they don't exist."""
     from app.hotkeys import Hotkey
