@@ -3,7 +3,14 @@ from __future__ import annotations
 from datetime import date
 from unittest.mock import MagicMock
 
-from shenas_sources.duolingo.resources import courses, daily_xp, user_profile
+from shenas_sources.duolingo.resources import (
+    achievements,
+    courses,
+    daily_xp,
+    friends,
+    league,
+    user_profile,
+)
 
 
 class TestDailyXp:
@@ -65,10 +72,97 @@ class TestUserProfile:
             "creationDate": 1600000000,
             "learningLanguage": "de",
             "fromLanguage": "en",
+            "xpGoal": 30,
+            "hasPlus": True,
+            "streakData": {
+                "currentStreak": {"length": 42, "startDate": "2026-02-15"},
+                "longestStreak": {"length": 120},
+                "streakFreezesUsed": 3,
+            },
         }
+        client.get_following.return_value = [{"userId": 1}, {"userId": 2}]
+        client.get_followers.return_value = [{"userId": 3}]
 
         results = list(user_profile(client))
         assert len(results) == 1
-        assert results[0]["username"] == "testuser"
-        assert results[0]["streak"] == 42
-        assert results[0]["total_xp"] == 50000
+        row = results[0]
+        assert row["username"] == "testuser"
+        assert row["streak"] == 42
+        assert row["longest_streak"] == 120
+        assert row["streak_start"] == "2026-02-15"
+        assert row["streak_freezes_used"] == 3
+        assert row["daily_goal_xp"] == 30
+        assert row["has_super"] is True
+        assert row["following_count"] == 2
+        assert row["followers_count"] == 1
+
+
+class TestAchievements:
+    def test_yields_unlocked(self) -> None:
+        client = MagicMock()
+        client.get_achievements.return_value = [
+            {"name": "WILDFIRE", "tier": 3, "title": "Wildfire", "count": 100, "unlockTimestamp": 1700000000},
+            {"name": "SAGE", "tier": 1, "title": "Sage", "count": 5},
+        ]
+
+        rows = list(achievements(client))
+        assert len(rows) == 2
+        assert rows[0]["name"] == "WILDFIRE"
+        assert rows[0]["tier"] == 3
+        assert rows[0]["count"] == 100
+        assert rows[0]["unlocked_at"] is not None
+        assert rows[1]["unlocked_at"] is None
+
+
+class TestLeague:
+    def test_yields_league_with_user_rank(self) -> None:
+        client = MagicMock()
+        client.user_id = 999
+        client.get_league.return_value = {
+            "cohort": {
+                "cohortId": "abc-123",
+                "tier": 4,
+                "cohortEndDate": 1800000000,
+                "rankings": [
+                    {"user_id": 111, "score": 500},
+                    {"user_id": 999, "score": 350},
+                    {"user_id": 222, "score": 200},
+                ],
+            }
+        }
+
+        rows = list(league(client))
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["cohort_id"] == "abc-123"
+        assert row["league_tier"] == 4
+        assert row["league_name"] == "Ruby"
+        assert row["rank"] == 2
+        assert row["weekly_xp"] == 350
+        assert row["cohort_size"] == 3
+
+    def test_no_data_yields_nothing(self) -> None:
+        client = MagicMock()
+        client.user_id = 999
+        client.get_league.return_value = None
+        assert list(league(client)) == []
+
+
+class TestFriends:
+    def test_yields_following_with_mutual_flag(self) -> None:
+        client = MagicMock()
+        client.get_following.return_value = [
+            {"userId": 1, "username": "alice", "displayName": "Alice", "totalXp": 1000, "streak": 5},
+            {"userId": 2, "username": "bob", "displayName": "Bob", "totalXp": 800, "streak": 10},
+        ]
+        client.get_followers.return_value = [
+            {"userId": 1, "username": "alice"},  # mutual
+        ]
+
+        rows = list(friends(client))
+        assert len(rows) == 2
+        alice = next(r for r in rows if r["user_id"] == 1)
+        bob = next(r for r in rows if r["user_id"] == 2)
+        assert alice["is_follower"] is True
+        assert bob["is_follower"] is False
+        assert alice["display_name"] == "Alice"
