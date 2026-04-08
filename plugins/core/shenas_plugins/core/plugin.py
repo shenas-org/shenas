@@ -22,14 +22,14 @@ def _now_iso() -> str:
 
 
 @dataclass
-class PluginRecord(Table):
+class PluginInstance(Table):
     """Per-(kind, name) install / enable / sync state for a plugin.
 
     The row is the deployment-time state of a plugin: when it was added,
     whether it's enabled, when it was last synced. It is a sibling of
     :class:`Plugin`, not its base -- the plugin class is a behavior
-    discovered via entry points; the record is a fact about this device's
-    plugin install. Decoupling the two lets ``PluginRecord`` use the
+    discovered via entry points; the instance is a fact about this device's
+    plugin install. Decoupling the two lets ``PluginInstance`` use the
     generic :class:`Table` CRUD primitives directly while keeping
     :class:`Plugin` free of dataclass / row-shape concerns.
     """
@@ -183,7 +183,7 @@ class Plugin(abc.ABC):
 
     A plugin's *behavior* lives on this class (entry-point discovery,
     config / auth / data accessors, ``commands``, ``version``). Its
-    *deployment state* lives in :class:`PluginRecord`, a sibling row
+    *deployment state* lives in :class:`PluginInstance`, a sibling row
     class. The two are joined at runtime by the (kind, name) pair.
     """
 
@@ -242,12 +242,12 @@ class Plugin(abc.ABC):
     def commands(self) -> list[str]:
         return []
 
-    # -- State management (delegates to PluginRecord) --
+    # -- State management (delegates to PluginInstance) --
 
     @property
-    def state(self) -> PluginRecord | None:
-        """The :class:`PluginRecord` row for this (kind, name), or ``None``."""
-        return PluginRecord.find(self._kind, self.name)
+    def state(self) -> PluginInstance | None:
+        """The :class:`PluginInstance` row for this (kind, name), or ``None``."""
+        return PluginInstance.find(self._kind, self.name)
 
     @property
     def enabled(self) -> bool:
@@ -265,7 +265,7 @@ class Plugin(abc.ABC):
             record.updated_at = now
             record.save()
         else:
-            PluginRecord(
+            PluginInstance(
                 kind=self._kind,
                 name=self.name,
                 enabled=enabled,
@@ -458,7 +458,7 @@ class _SelectOneMixin:
     def enable(self) -> str:
         # Disable every other currently-enabled plugin of this kind.
         now = _now_iso()
-        for other in PluginRecord.all(where="kind = ? AND name != ? AND enabled = TRUE", params=[self._kind, self.name]):
+        for other in PluginInstance.all(where="kind = ? AND name != ? AND enabled = TRUE", params=[self._kind, self.name]):
             other.enabled = False
             other.status_changed_at = now
             other.updated_at = now
@@ -472,14 +472,14 @@ class _SelectOneMixin:
         self.save_state(enabled=False)
         # Re-enable (or create) the kind's "default" plugin.
         now = _now_iso()
-        default = PluginRecord.find(self._kind, "default")
+        default = PluginInstance.find(self._kind, "default")
         if default is not None:
             default.enabled = True
             default.status_changed_at = now
             default.updated_at = now
             default.save()
         else:
-            PluginRecord(
+            PluginInstance(
                 kind=self._kind,
                 name="default",
                 enabled=True,
