@@ -53,21 +53,9 @@ class GCalendarSource(Source):
         self._google_auth().authenticate(credentials)
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.gcalendar.resources import (
-            calendars,
-            colors,
-            event_attendees,
-            events,
-            fetch_all_events,
-        )
+        from shenas_sources.gcalendar.tables import TABLES, fetch_all_events
 
-        # Pre-fetch all raw events once and share between events + event_attendees
-        # so we don't call events.list() twice.
-        raw = fetch_all_events(client)
-
-        return [
-            events(raw),
-            event_attendees(raw),
-            calendars(client),
-            colors(client),
-        ]
+        # Pre-fetch all raw events once and share between Events + EventAttendees
+        # via the `raw_events` context kwarg so we don't call events.list() twice.
+        raw_events = fetch_all_events(client)
+        return [t.to_resource(client, raw_events=raw_events) for t in TABLES]
