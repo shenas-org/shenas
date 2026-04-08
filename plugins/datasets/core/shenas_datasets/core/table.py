@@ -39,7 +39,9 @@ class MetricTable(Table):
     """
 
     _abstract: ClassVar[bool] = True
-    table_schema: ClassVar[str | None] = "metrics"
+
+    class _Meta:
+        schema = "metrics"
 
 
 class DailyMetricTable(MetricTable):

@@ -26,10 +26,12 @@ class SourceAuth(Table):
     """
 
     _abstract: ClassVar[bool] = True
-    table_display_name: ClassVar[str] = "Source Auth"
-    table_description: ClassVar[str | None] = "Encrypted per-source credential storage."
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
-    table_schema: ClassVar[str | None] = "auth"
+
+    class _Meta(Table._Meta):
+        display_name = "Source Auth"
+        description = "Encrypted per-source credential storage."
+        pk = ("id",)
+        schema = "auth"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Auth row identifier")] = 1
 

@@ -80,23 +80,34 @@ class Field:
 class Table:
     """Slim common base for source-side and dataset-side plugin tables.
 
-    Required class attributes on every concrete subclass
-    ----------------------------------------------------
-    table_name           : table name (DuckDB ``<schema>.<table_name>``)
-    table_display_name   : human-readable label for the frontend
-    table_pk             : tuple of natural primary key column names
+    Every concrete subclass declares an inner ``_Meta`` class holding
+    the table's identity. Putting these on a nested class (rather than
+    on the subclass itself) keeps them clear of the row-level dataclass
+    fields -- a real source of confusion in earlier designs where row
+    columns called ``name`` / ``description`` collided with the table's
+    own metadata.
+
+    Required attributes on every concrete subclass's ``_Meta``
+    ---------------------------------------------------------
+    name           : table name (DuckDB ``<schema>.<name>``)
+    display_name   : human-readable label for the frontend
+    pk             : tuple of natural primary key column names
 
     Optional
     --------
-    table_description    : free-text description (rendered in dashboards / docs)
+    description    : free-text description (rendered in dashboards / docs)
+    schema         : default DuckDB schema for this table
     """
 
-    table_name: ClassVar[str]
-    table_display_name: ClassVar[str]
-    table_pk: ClassVar[tuple[str, ...]]
-
-    table_description: ClassVar[str | None] = None
-    table_schema: ClassVar[str | None] = None
+    class _Meta:
+        # Marker base; concrete subclasses MUST override _Meta with all
+        # required attributes. Defaults are read from this base when a
+        # subclass omits the optional ones.
+        name: ClassVar[str]
+        display_name: ClassVar[str]
+        pk: ClassVar[tuple[str, ...]]
+        description: ClassVar[str | None] = None
+        schema: ClassVar[str | None] = None
 
     # Cache of (schema, table_name) tuples that have already had their
     # CREATE TABLE + ALTER TABLE migrations applied this process. Read /
@@ -158,6 +169,23 @@ class Table:
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
+        # Re-bind a locally-declared `_Meta` to inherit from the nearest
+        # parent class's `_Meta`, so attributes defined on intermediate
+        # bases (e.g. `_DailyAggregate._Meta.pk`) flow into concrete
+        # leaf subclasses without each leaf having to repeat them.
+        if "_Meta" in cls.__dict__:
+            local_meta = cls.__dict__["_Meta"]
+            parent_meta: type | None = None
+            for base in cls.__mro__[1:]:
+                if "_Meta" in base.__dict__:
+                    parent_meta = base.__dict__["_Meta"]
+                    break
+            if parent_meta is not None and parent_meta not in local_meta.__mro__:
+                cls._Meta = type(
+                    "_Meta",
+                    (local_meta, parent_meta),
+                    {k: v for k, v in vars(local_meta).items() if not k.startswith("__")},
+                )
         # If a subclass doesn't explicitly mark itself abstract, it's concrete.
         if "_abstract" not in cls.__dict__:
             cls._abstract = False
@@ -171,15 +199,18 @@ class Table:
 
     @classmethod
     def _validate(cls) -> None:
-        """Raise TypeError if any required class attribute is missing.
+        """Raise TypeError if ``_Meta`` is missing required attributes.
 
         Subclasses extend this to enforce per-layer requirements (e.g.
         ``SourceTable`` requires ``kind``; ``IntervalTable`` requires
         ``time_start`` and ``time_end``).
         """
-        for required in ("table_name", "table_display_name", "table_pk"):
-            if not getattr(cls, required, None):
-                msg = f"{cls.__name__}: missing required class attribute `{required}`"
+        if cls._Meta is Table._Meta:
+            msg = f"{cls.__name__}: must define an inner `_Meta` class"
+            raise TypeError(msg)
+        for required in ("name", "display_name", "pk"):
+            if not getattr(cls._Meta, required, None):
+                msg = f"{cls.__name__}: _Meta missing required attribute `{required}`"
                 raise TypeError(msg)
 
     @classmethod
@@ -240,13 +271,13 @@ class Table:
         columns: list[dict[str, Any]] = []
         for f in dataclasses.fields(cls):
             col_meta = cls._extract_field_meta(hints[f.name])
-            columns.append({"name": f.name, "nullable": f.name not in cls.table_pk, **col_meta})
+            columns.append({"name": f.name, "nullable": f.name not in cls._Meta.pk, **col_meta})
 
         meta: dict[str, Any] = {
-            "table": cls.table_name,
-            "schema": getattr(cls, "table_schema", None),
-            "description": getattr(cls, "table_description", None) or cls.__doc__,
-            "primary_key": list(cls.table_pk),
+            "table": cls._Meta.name,
+            "schema": cls._Meta.schema,
+            "description": cls._Meta.description or cls.__doc__,
+            "primary_key": list(cls._Meta.pk),
             "columns": columns,
         }
 
@@ -277,8 +308,8 @@ class Table:
 
         # AS-OF macro: only for SCD2 tables (dimension / snapshot / m2m_relation),
         # generated by apply_as_of_macros() on every Source.sync().
-        if kind in ("dimension", "snapshot", "m2m_relation") and cls.table_schema:
-            meta["as_of_macro"] = f"{cls.table_schema}.{cls.table_name}_as_of"
+        if kind in ("dimension", "snapshot", "m2m_relation") and cls._Meta.schema:
+            meta["as_of_macro"] = f"{cls._Meta.schema}.{cls._Meta.name}_as_of"
 
         return meta
 
@@ -295,14 +326,14 @@ class Table:
         lines: list[str] = []
         for f in dataclasses.fields(cls):
             col_type = cls._duckdb_type(hints[f.name])
-            not_null = " NOT NULL" if f.name in cls.table_pk else ""
+            not_null = " NOT NULL" if f.name in cls._Meta.pk else ""
             db_default = ""
             meta = cls._get_field_obj(hints[f.name])
             if meta and meta.db_default:
                 db_default = f" DEFAULT {meta.db_default}"
             lines.append(f"    {f.name} {col_type}{not_null}{db_default}")
-        lines.append(f"    PRIMARY KEY ({', '.join(cls.table_pk)})")
-        return f"CREATE TABLE IF NOT EXISTS {schema}.{cls.table_name} (\n" + ",\n".join(lines) + "\n)"
+        lines.append(f"    PRIMARY KEY ({', '.join(cls._Meta.pk)})")
+        return f"CREATE TABLE IF NOT EXISTS {schema}.{cls._Meta.name} (\n" + ",\n".join(lines) + "\n)"
 
     @classmethod
     def ensure(cls, con: duckdb.DuckDBPyConnection, *, schema: str = "metrics") -> None:
@@ -322,13 +353,13 @@ class Table:
             row[0]
             for row in con.execute(
                 "SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ?",
-                [schema, cls.table_name],
+                [schema, cls._Meta.name],
             ).fetchall()
         }
         for f in dataclasses.fields(cls):
             if f.name not in existing:
                 col_type = cls._duckdb_type(hints[f.name])
-                con.execute(f"ALTER TABLE {schema}.{cls.table_name} ADD COLUMN {f.name} {col_type}")
+                con.execute(f"ALTER TABLE {schema}.{cls._Meta.name} ADD COLUMN {f.name} {col_type}")
 
     # ------------------------------------------------------------------
     # Single-row CRUD (replaces the old TableStore wrapper)
@@ -336,7 +367,7 @@ class Table:
 
     @classmethod
     def _resolve_schema(cls, schema: str | None) -> str:
-        s = schema or cls.table_schema
+        s = schema or cls._Meta.schema
         if not s:
             msg = f"{cls.__name__}: no schema specified and no `table_schema` ClassVar set on the class or its bases"
             raise TypeError(msg)
@@ -345,7 +376,7 @@ class Table:
     @classmethod
     def _ensure_once(cls, schema: str) -> None:
         """Idempotent CREATE SCHEMA + CREATE TABLE; memoized per process."""
-        key = (schema, cls.table_name)
+        key = (schema, cls._Meta.name)
         if key in cls._ensured:
             return
         from app.db import cursor
@@ -365,7 +396,7 @@ class Table:
         cols = [f.name for f in dataclasses.fields(cls)]
         col_list = ", ".join(cols)
         with cursor() as cur:
-            row = cur.execute(f"SELECT {col_list} FROM {s}.{cls.table_name} LIMIT 1").fetchone()
+            row = cur.execute(f"SELECT {col_list} FROM {s}.{cls._Meta.name} LIMIT 1").fetchone()
         if row is None:
             return None
         return dict(zip(cols, row, strict=False))
@@ -405,8 +436,8 @@ class Table:
         col_names = ", ".join(cols)
         values = [merged.get(c) for c in cols]
         with cursor() as cur:
-            cur.execute(f"DELETE FROM {s}.{cls.table_name}")
-            cur.execute(f"INSERT INTO {s}.{cls.table_name} ({col_names}) VALUES ({placeholders})", values)
+            cur.execute(f"DELETE FROM {s}.{cls._Meta.name}")
+            cur.execute(f"INSERT INTO {s}.{cls._Meta.name} ({col_names}) VALUES ({placeholders})", values)
 
     # ------------------------------------------------------------------
     # Multi-row CRUD (find / all / insert / save / delete)
@@ -425,7 +456,7 @@ class Table:
 
     @classmethod
     def _qualified(cls) -> str:
-        return f"{cls._resolve_schema(None)}.{cls.table_name}"
+        return f"{cls._resolve_schema(None)}.{cls._Meta.name}"
 
     @classmethod
     def _column_names(cls) -> list[str]:
@@ -441,11 +472,11 @@ class Table:
         """Look up a single row by its primary key. Returns ``None`` if missing."""
         from app.db import cursor
 
-        if len(pk_values) != len(cls.table_pk):
-            msg = f"{cls.__name__}.find expects {len(cls.table_pk)} pk value(s), got {len(pk_values)}"
+        if len(pk_values) != len(cls._Meta.pk):
+            msg = f"{cls.__name__}.find expects {len(cls._Meta.pk)} pk value(s), got {len(pk_values)}"
             raise TypeError(msg)
         cols = ", ".join(cls._column_names())
-        where = " AND ".join(f"{c} = ?" for c in cls.table_pk)
+        where = " AND ".join(f"{c} = ?" for c in cls._Meta.pk)
         with cursor() as cur:
             row = cur.execute(f"SELECT {cols} FROM {cls._qualified()} WHERE {where}", list(pk_values)).fetchone()
         return cls.from_row(row) if row else None
@@ -517,14 +548,14 @@ class Table:
         from app.db import cursor
 
         cls = type(self)
-        set_cols = [c for c in cls._column_names() if c not in cls.table_pk]
+        set_cols = [c for c in cls._column_names() if c not in cls._Meta.pk]
         if not set_cols:
             return self
         set_clause = ", ".join(f"{c} = ?" for c in set_cols)
-        where = " AND ".join(f"{c} = ?" for c in cls.table_pk)
+        where = " AND ".join(f"{c} = ?" for c in cls._Meta.pk)
         return_cols = ", ".join(cls._column_names())
         set_vals = [getattr(self, c) for c in set_cols]
-        pk_vals = [getattr(self, c) for c in cls.table_pk]
+        pk_vals = [getattr(self, c) for c in cls._Meta.pk]
         sql = f"UPDATE {cls._qualified()} SET {set_clause} WHERE {where} RETURNING {return_cols}"
         with cursor() as cur:
             row = cur.execute(sql, [*set_vals, *pk_vals]).fetchone()
@@ -540,8 +571,8 @@ class Table:
         from app.db import cursor
 
         cls = type(self)
-        where = " AND ".join(f"{c} = ?" for c in cls.table_pk)
-        pk_vals = [getattr(self, c) for c in cls.table_pk]
+        where = " AND ".join(f"{c} = ?" for c in cls._Meta.pk)
+        pk_vals = [getattr(self, c) for c in cls._Meta.pk]
         with cursor() as cur:
             cur.execute(f"DELETE FROM {cls._qualified()} WHERE {where}", pk_vals)
 
@@ -553,7 +584,7 @@ class Table:
         round-trip is irrelevant.
         """
         cls = type(self)
-        pk_vals = [getattr(self, c) for c in cls.table_pk]
+        pk_vals = [getattr(self, c) for c in cls._Meta.pk]
         if cls.find(*pk_vals) is None:
             return self.insert()
         return self.save()
@@ -566,7 +597,7 @@ class Table:
         s = cls._resolve_schema(schema)
         cls._ensure_once(s)
         with cursor() as cur:
-            cur.execute(f"DELETE FROM {s}.{cls.table_name}")
+            cur.execute(f"DELETE FROM {s}.{cls._Meta.name}")
 
     # ------------------------------------------------------------------
     # Schema-introspection / DDL helpers (used internally by to_ddl,
@@ -663,7 +694,7 @@ class UserTable(Table):
     @classmethod
     def _validate(cls) -> None:
         super()._validate()
-        if "user_id" not in cls.table_pk:
+        if "user_id" not in cls._Meta.pk:
             msg = f"{cls.__name__}: user_id must be included in table_pk"
             raise TypeError(msg)
 
@@ -678,7 +709,7 @@ class UserTable(Table):
         col_list = ", ".join(cols)
         with cursor() as cur:
             rows = cur.execute(
-                f"SELECT {col_list} FROM {s}.{cls.table_name} WHERE user_id = ?",
+                f"SELECT {col_list} FROM {s}.{cls._Meta.name} WHERE user_id = ?",
                 [user_id],
             ).fetchall()
         return [dict(zip(cols, row, strict=False)) for row in rows]
@@ -721,14 +752,14 @@ class UserTable(Table):
                     continue
             insert_cols.append(f.name)
 
-        pk_set = set(cls.table_pk)
+        pk_set = set(cls._Meta.pk)
         non_pk_cols = [c for c in insert_cols if c not in pk_set]
         col_names = ", ".join(insert_cols)
         placeholders = ", ".join(["?"] * len(insert_cols))
-        conflict_target = ", ".join(cls.table_pk)
+        conflict_target = ", ".join(cls._Meta.pk)
         values = [row[c] for c in insert_cols]
 
-        sql = f"INSERT INTO {s}.{cls.table_name} ({col_names}) VALUES ({placeholders})"
+        sql = f"INSERT INTO {s}.{cls._Meta.name} ({col_names}) VALUES ({placeholders})"
         if non_pk_cols:
             update_clause = ", ".join(f"{c} = excluded.{c}" for c in non_pk_cols)
             sql += f" ON CONFLICT ({conflict_target}) DO UPDATE SET {update_clause}"
@@ -746,10 +777,10 @@ class UserTable(Table):
         s = cls._resolve_schema(schema)
         cls._ensure_once(s)
         pk_vals = {**pk_kwargs, "user_id": user_id}
-        where = " AND ".join(f"{col} = ?" for col in cls.table_pk)
-        values = [pk_vals.get(col) for col in cls.table_pk]
+        where = " AND ".join(f"{col} = ?" for col in cls._Meta.pk)
+        values = [pk_vals.get(col) for col in cls._Meta.pk]
         with cursor() as cur:
-            cur.execute(f"DELETE FROM {s}.{cls.table_name} WHERE {where}", values)
+            cur.execute(f"DELETE FROM {s}.{cls._Meta.name} WHERE {where}", values)
 
     @classmethod
     def delete_rows(cls, user_id: int, *, schema: str | None = None) -> None:
@@ -759,4 +790,4 @@ class UserTable(Table):
         s = cls._resolve_schema(schema)
         cls._ensure_once(s)
         with cursor() as cur:
-            cur.execute(f"DELETE FROM {s}.{cls.table_name} WHERE user_id = ?", [user_id])
+            cur.execute(f"DELETE FROM {s}.{cls._Meta.name} WHERE user_id = ?", [user_id])

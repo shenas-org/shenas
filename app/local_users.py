@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-from typing import Annotated, Any, ClassVar
+from typing import Annotated, Any
 
 from shenas_plugins.core.table import Field, Table
 
@@ -30,11 +30,12 @@ def _verify_password(stored_hash: str, password: str) -> bool:
 class LocalUser(Table):
     """Local user registry -- one row per registered user."""
 
-    table_name: ClassVar[str] = "local_users"
-    table_schema: ClassVar[str | None] = "shenas_system"
-    table_display_name: ClassVar[str] = "Local Users"
-    table_description: ClassVar[str | None] = "Local user registry with password-based authentication."
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    class _Meta:
+        name = "local_users"
+        display_name = "Local Users"
+        description = "Local user registry with password-based authentication."
+        schema = "shenas_system"
+        pk = ("id",)
 
     id: Annotated[
         int,

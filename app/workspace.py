@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Annotated, Any, ClassVar
+from typing import Annotated, Any
 
 from shenas_plugins.core.table import Field, UserTable
 
@@ -23,11 +23,12 @@ class Workspace(UserTable):
     The state itself is JSON-encoded into the ``state`` column.
     """
 
-    table_name: ClassVar[str] = "workspace"
-    table_schema: ClassVar[str | None] = "shenas_system"
-    table_display_name: ClassVar[str] = "Workspace"
-    table_description: ClassVar[str | None] = "Per-user workspace state (tab layout, active tab, ...)."
-    table_pk: ClassVar[tuple[str, ...]] = ("workspace_id", "user_id")
+    class _Meta:
+        name = "workspace"
+        display_name = "Workspace"
+        description = "Per-user workspace state (tab layout, active tab, ...)."
+        schema = "shenas_system"
+        pk = ("workspace_id", "user_id")
 
     workspace_id: Annotated[int, Field(db_type="INTEGER", description="Workspace ID")] = 1
     user_id: Annotated[int, Field(db_type="INTEGER", description="Local user ID (0 = single-user mode)")] = 0

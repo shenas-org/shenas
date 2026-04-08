@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import secrets
-from typing import Annotated, Any, ClassVar
+from typing import Annotated, Any
 
 from shenas_plugins.core.table import Field, Table
 
@@ -15,11 +15,12 @@ class LocalSession(Table):
     in the browser's localStorage and validated here on every request.
     """
 
-    table_name: ClassVar[str] = "local_sessions"
-    table_schema: ClassVar[str | None] = "shenas_system"
-    table_display_name: ClassVar[str] = "Local Sessions"
-    table_description: ClassVar[str | None] = "Active user session (single row, persists across restarts)."
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    class _Meta:
+        name = "local_sessions"
+        display_name = "Local Sessions"
+        description = "Active user session (single row, persists across restarts)."
+        schema = "shenas_system"
+        pk = ("id",)
 
     id: Annotated[int, Field(db_type="INTEGER", description="Row ID")] = 1
     user_id: Annotated[int | None, Field(db_type="INTEGER", description="FK to local_users.id")] = None

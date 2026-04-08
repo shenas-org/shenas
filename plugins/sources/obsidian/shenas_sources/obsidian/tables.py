@@ -60,10 +60,12 @@ class DailyNotes(AggregateTable):
     user and dlt picks up the rest from the yielded rows.
     """
 
-    table_name: ClassVar[str] = "daily_notes"
-    table_display_name: ClassVar[str] = "Daily Notes"
-    table_description: ClassVar[str | None] = "Frontmatter fields from Obsidian daily notes."
-    table_pk: ClassVar[tuple[str, ...]] = ("date",)
+    class _Meta:
+        name = "daily_notes"
+        display_name = "Daily Notes"
+        description = "Frontmatter fields from Obsidian daily notes."
+        pk = ("date",)
+
     time_at: ClassVar[str] = "date"
 
     date: Annotated[str, Field(db_type="DATE", description="Daily note date from filename")] = ""
@@ -99,10 +101,12 @@ class DailyNotes(AggregateTable):
 class Habits(EventTable):
     """One row per top-level checkbox under the configured habits heading."""
 
-    table_name: ClassVar[str] = "habits"
-    table_display_name: ClassVar[str] = "Habits"
-    table_description: ClassVar[str | None] = "Top-level checkboxes under the configured habits heading."
-    table_pk: ClassVar[tuple[str, ...]] = ("date", "habit_name")
+    class _Meta:
+        name = "habits"
+        display_name = "Habits"
+        description = "Top-level checkboxes under the configured habits heading."
+        pk = ("date", "habit_name")
+
     time_at: ClassVar[str] = "date"
 
     date: Annotated[str, Field(db_type="DATE", description="Daily note date from filename")] = ""

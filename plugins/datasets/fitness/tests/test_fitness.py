@@ -49,9 +49,9 @@ class TestMetrics:
 
     def test_each_table_has_pk(self) -> None:
         for cls in ALL_TABLES:
-            assert hasattr(cls, "table_name")
-            assert hasattr(cls, "table_pk")
-            assert len(cls.table_pk) >= 2
+            assert hasattr(cls._Meta, "name")
+            assert hasattr(cls._Meta, "pk")
+            assert len(cls._Meta.pk) >= 2
 
     def test_all_tables_have_date_and_source(self) -> None:
         for cls in ALL_TABLES:
@@ -94,7 +94,7 @@ class TestDDL:
     def test_generate_ddl_all_tables(self) -> None:
         for cls in ALL_TABLES:
             ddl = cls.to_ddl()
-            assert f"metrics.{cls.table_name}" in ddl
+            assert f"metrics.{cls._Meta.name}" in ddl
             assert "PRIMARY KEY" in ddl
 
     def test_nullable_fields_have_no_not_null(self) -> None:

@@ -47,10 +47,12 @@ def _epoch_to_iso(epoch: int | None) -> str | None:
 class DailyXp(AggregateTable):
     """Daily XP summary -- one row per day."""
 
-    table_name: ClassVar[str] = "daily_xp"
-    table_display_name: ClassVar[str] = "Daily XP"
-    table_description: ClassVar[str | None] = "Daily XP totals from Duolingo's xp_summaries endpoint."
-    table_pk: ClassVar[tuple[str, ...]] = ("date",)
+    class _Meta:
+        name = "daily_xp"
+        display_name = "Daily XP"
+        description = "Daily XP totals from Duolingo's xp_summaries endpoint."
+        pk = ("date",)
+
     time_at: ClassVar[str] = "date"
     cursor_column: ClassVar[str] = "date"
 
@@ -89,10 +91,11 @@ class DailyXp(AggregateTable):
 class Courses(SnapshotTable):
     """Active language course. SCD2 captures progress changes."""
 
-    table_name: ClassVar[str] = "courses"
-    table_display_name: ClassVar[str] = "Courses"
-    table_description: ClassVar[str | None] = "Active language courses."
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    class _Meta:
+        name = "courses"
+        display_name = "Courses"
+        description = "Active language courses."
+        pk = ("id",)
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Course ID")]
     title: Annotated[str | None, Field(db_type="VARCHAR", description="Course title")] = None
@@ -109,10 +112,11 @@ class Courses(SnapshotTable):
 class UserProfile(SnapshotTable):
     """User profile, streak details, daily goal, and subscription state."""
 
-    table_name: ClassVar[str] = "user_profile"
-    table_display_name: ClassVar[str] = "User Profile"
-    table_description: ClassVar[str | None] = "Authenticated Duolingo user profile."
-    table_pk: ClassVar[tuple[str, ...]] = ("username",)
+    class _Meta:
+        name = "user_profile"
+        display_name = "User Profile"
+        description = "Authenticated Duolingo user profile."
+        pk = ("username",)
 
     username: Annotated[str, Field(db_type="VARCHAR", description="Duolingo username")]
     display_name_: Annotated[str | None, Field(db_type="VARCHAR", description="Display name")] = None
@@ -158,10 +162,12 @@ class UserProfile(SnapshotTable):
 class Achievements(EventTable):
     """An achievement / badge unlocked by the user."""
 
-    table_name: ClassVar[str] = "achievements"
-    table_display_name: ClassVar[str] = "Achievements"
-    table_description: ClassVar[str | None] = "Unlocked Duolingo achievements / badges."
-    table_pk: ClassVar[tuple[str, ...]] = ("achievement_name", "tier")
+    class _Meta:
+        name = "achievements"
+        display_name = "Achievements"
+        description = "Unlocked Duolingo achievements / badges."
+        pk = ("achievement_name", "tier")
+
     time_at: ClassVar[str] = "unlocked_at"
 
     achievement_name: Annotated[str, Field(db_type="VARCHAR", description="Achievement key")]
@@ -187,10 +193,12 @@ class Achievements(EventTable):
 class League(AggregateTable):
     """Weekly league standing for the user."""
 
-    table_name: ClassVar[str] = "league"
-    table_display_name: ClassVar[str] = "League"
-    table_description: ClassVar[str | None] = "Weekly league standings (cohort = week)."
-    table_pk: ClassVar[tuple[str, ...]] = ("cohort_id",)
+    class _Meta:
+        name = "league"
+        display_name = "League"
+        description = "Weekly league standings (cohort = week)."
+        pk = ("cohort_id",)
+
     time_at: ClassVar[str] = "cohort_end"
 
     cohort_id: Annotated[str, Field(db_type="VARCHAR", description="Cohort ID for this week")]
@@ -247,10 +255,11 @@ class League(AggregateTable):
 class Friends(SnapshotTable):
     """Users this user follows. SCD2 closes a row when unfollowed."""
 
-    table_name: ClassVar[str] = "friends"
-    table_display_name: ClassVar[str] = "Friends"
-    table_description: ClassVar[str | None] = "Users this user follows; flagged is_follower if mutual."
-    table_pk: ClassVar[tuple[str, ...]] = ("user_id",)
+    class _Meta:
+        name = "friends"
+        display_name = "Friends"
+        description = "Users this user follows; flagged is_follower if mutual."
+        pk = ("user_id",)
 
     user_id: Annotated[int, Field(db_type="BIGINT", description="Friend's user ID")]
     username: Annotated[str | None, Field(db_type="VARCHAR", description="Friend's username")] = None

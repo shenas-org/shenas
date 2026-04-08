@@ -44,19 +44,21 @@ class Source(Plugin):
         super().__init_subclass__(**kwargs)
         if not hasattr(cls, "name"):
             return
-        # Auto-set table_name on Config/Auth classes (one row per pipe), then
+        # Auto-set _Meta.name on Config/Auth classes (one row per pipe), then
         # call _finalize() to apply the deferred @dataclass + Table validation.
+        per_pipe_name = f"pipe_{cls.name}"
         if cls.Config is SourceConfig:
-            # Source uses base SourceConfig -- create a per-pipe subclass so table_name is unique.
-            cls.Config = type(f"{cls.name.title()}Config", (SourceConfig,), {"table_name": f"pipe_{cls.name}"})
-        elif not hasattr(cls.Config, "table_name"):
-            cls.Config.table_name = f"pipe_{cls.name}"
+            # Source uses base SourceConfig -- create a per-pipe subclass so the table name is unique.
+            per_pipe_meta = type("_Meta", (SourceConfig._Meta,), {"name": per_pipe_name})
+            cls.Config = type(f"{cls.name.title()}Config", (SourceConfig,), {"_Meta": per_pipe_meta})
+        elif getattr(cls.Config._Meta, "name", None) in (None, ""):
+            cls.Config._Meta = type("_Meta", (cls.Config._Meta,), {"name": per_pipe_name})
         cls.Config._finalize()
         if cls.Auth is not SourceAuth:
-            if not hasattr(cls.Auth, "table_name"):
-                cls.Auth.table_name = f"pipe_{cls.name}"
+            if getattr(cls.Auth._Meta, "name", None) in (None, ""):
+                cls.Auth._Meta = type("_Meta", (cls.Auth._Meta,), {"name": per_pipe_name})
             cls.Auth._finalize()
-        # Auto-set table_schema on every SourceTable in this source's TABLES
+        # Auto-set _Meta.schema on every SourceTable in this source's TABLES
         # tuple so the catalog can qualify references like `strava.activities`.
         # Discovery is by convention: each source's tables module is at
         # ``shenas_sources.<source_name>.tables`` and exports a ``TABLES``
@@ -68,8 +70,8 @@ class Source(Plugin):
 
             tables_mod = importlib.import_module(f"shenas_sources.{cls.name}.tables")
             for t in getattr(tables_mod, "TABLES", ()):
-                if not getattr(t, "table_schema", None):
-                    t.table_schema = cls.name
+                if not getattr(t._Meta, "schema", None):
+                    t._Meta = type("_Meta", (t._Meta,), {"schema": cls.name})
         except ImportError:
             pass
 

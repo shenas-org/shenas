@@ -47,10 +47,12 @@ class Activities(IntervalTable):
     work uniformly with the other interval tables.
     """
 
-    table_name: ClassVar[str] = "activities"
-    table_display_name: ClassVar[str] = "Activities"
-    table_description: ClassVar[str | None] = "Activity summaries from Garmin Connect."
-    table_pk: ClassVar[tuple[str, ...]] = ("activity_id",)
+    class _Meta:
+        name = "activities"
+        display_name = "Activities"
+        description = "Activity summaries from Garmin Connect."
+        pk = ("activity_id",)
+
     time_start: ClassVar[str] = "startTimeLocal"
     time_end: ClassVar[str] = "end_time_local"
     cursor_column: ClassVar[str] = "startTimeLocal"
@@ -102,7 +104,10 @@ class _DailyAggregate(AggregateTable):
     """Common base for per-day Garmin aggregates keyed on calendarDate."""
 
     _abstract: ClassVar[bool] = True
-    table_pk: ClassVar[tuple[str, ...]] = ("calendarDate",)
+
+    class _Meta:
+        pk = ("calendarDate",)
+
     time_at: ClassVar[str] = "calendarDate"
     cursor_column: ClassVar[str] = "calendarDate"
 
@@ -110,9 +115,10 @@ class _DailyAggregate(AggregateTable):
 class DailyStats(_DailyAggregate):
     """Garmin daily stats summary."""
 
-    table_name: ClassVar[str] = "daily_stats"
-    table_display_name: ClassVar[str] = "Daily Stats"
-    table_description: ClassVar[str | None] = "Per-day Garmin user summary (steps, calories, RHR)."
+    class _Meta:
+        name = "daily_stats"
+        display_name = "Daily Stats"
+        description = "Per-day Garmin user summary (steps, calories, RHR)."
 
     calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
     totalSteps: Annotated[int | None, Field(db_type="INTEGER", description="Total steps")] = None
@@ -144,9 +150,10 @@ class DailyStats(_DailyAggregate):
 class Sleep(_DailyAggregate):
     """Garmin sleep data."""
 
-    table_name: ClassVar[str] = "sleep"
-    table_display_name: ClassVar[str] = "Sleep"
-    table_description: ClassVar[str | None] = "Per-day sleep data."
+    class _Meta:
+        name = "sleep"
+        display_name = "Sleep"
+        description = "Per-day sleep data."
 
     calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
 
@@ -171,9 +178,10 @@ class Sleep(_DailyAggregate):
 class Hrv(_DailyAggregate):
     """Garmin HRV data."""
 
-    table_name: ClassVar[str] = "hrv"
-    table_display_name: ClassVar[str] = "HRV"
-    table_description: ClassVar[str | None] = "Per-day heart rate variability data."
+    class _Meta:
+        name = "hrv"
+        display_name = "HRV"
+        description = "Per-day heart rate variability data."
 
     calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
 
@@ -198,9 +206,10 @@ class Hrv(_DailyAggregate):
 class Spo2(_DailyAggregate):
     """Garmin SpO2 data."""
 
-    table_name: ClassVar[str] = "spo2"
-    table_display_name: ClassVar[str] = "SpO2"
-    table_description: ClassVar[str | None] = "Per-day blood oxygen saturation data."
+    class _Meta:
+        name = "spo2"
+        display_name = "SpO2"
+        description = "Per-day blood oxygen saturation data."
 
     calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
 
@@ -224,10 +233,11 @@ class Spo2(_DailyAggregate):
 class BodyComposition(AggregateTable):
     """Garmin body composition entry."""
 
-    table_name: ClassVar[str] = "body_composition"
-    table_display_name: ClassVar[str] = "Body Composition"
-    table_description: ClassVar[str | None] = "Body composition entries (weight, body fat, etc)."
-    table_pk: ClassVar[tuple[str, ...]] = ("samplePk",)
+    class _Meta:
+        name = "body_composition"
+        display_name = "Body Composition"
+        description = "Body composition entries (weight, body fat, etc)."
+        pk = ("samplePk",)
 
     samplePk: Annotated[int, Field(db_type="INTEGER", description="Sample primary key")] = 0
 

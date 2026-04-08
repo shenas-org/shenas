@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar  # noqa: F401 - used in inherited class annotations
 from unittest.mock import patch
 
 import duckdb
@@ -9,10 +9,11 @@ from shenas_plugins.core.table import Field, Table
 
 
 class SampleConfig(Table):
-    table_display_name: ClassVar[str] = "Sample Config"
-    table_name: ClassVar[str] = "test_pkg"
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
-    table_schema: ClassVar[str | None] = "config"
+    class _Meta:
+        name = "test_pkg"
+        display_name = "Sample Config"
+        pk = ("id",)
+        schema = "config"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Row ID")] = 1
     api_key: (
