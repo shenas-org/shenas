@@ -98,6 +98,7 @@ class Table:
 
     table_description: ClassVar[str | None] = None
     table_schema: ClassVar[str | None] = None
+    table_soft_delete: ClassVar[bool] = False
 
     # Cache of (schema, table_name) tuples that have already had their
     # CREATE TABLE + ALTER TABLE migrations applied this process. Read /
@@ -439,7 +440,11 @@ class Table:
 
     @classmethod
     def find(cls, *pk_values: Any) -> Self | None:
-        """Look up a single row by its primary key. Returns ``None`` if missing."""
+        """Look up a single row by its primary key. Returns ``None`` if missing.
+
+        When ``table_soft_delete`` is True, soft-deleted rows are excluded.
+        Use :meth:`find_deleted` to retrieve soft-deleted rows.
+        """
         from app.db import cursor
 
         if len(pk_values) != len(cls.table_pk):
@@ -447,6 +452,29 @@ class Table:
             raise TypeError(msg)
         cols = ", ".join(cls._column_names())
         where = " AND ".join(f"{c} = ?" for c in cls.table_pk)
+        if cls.table_soft_delete:
+            where += " AND deleted_at IS NULL"
+        with cursor() as cur:
+            row = cur.execute(f"SELECT {cols} FROM {cls._qualified()} WHERE {where}", list(pk_values)).fetchone()
+        return cls.from_row(row) if row else None
+
+    @classmethod
+    def find_deleted(cls, *pk_values: Any) -> Self | None:
+        """Look up a soft-deleted row by PK.
+
+        Returns ``None`` if not found, not soft-deleted, or if
+        ``table_soft_delete`` is False on this class.
+        """
+        from app.db import cursor
+
+        if not cls.table_soft_delete:
+            return None
+        if len(pk_values) != len(cls.table_pk):
+            msg = f"{cls.__name__}.find_deleted expects {len(cls.table_pk)} pk value(s), got {len(pk_values)}"
+            raise TypeError(msg)
+        cols = ", ".join(cls._column_names())
+        where = " AND ".join(f"{c} = ?" for c in cls.table_pk)
+        where += " AND deleted_at IS NOT NULL"
         with cursor() as cur:
             row = cur.execute(f"SELECT {cols} FROM {cls._qualified()} WHERE {where}", list(pk_values)).fetchone()
         return cls.from_row(row) if row else None
@@ -460,13 +488,20 @@ class Table:
         order_by: str | None = None,
         limit: int | None = None,
     ) -> list[Self]:
-        """Return every row matching the optional WHERE clause as instances."""
+        """Return every row matching the optional WHERE clause as instances.
+
+        When ``table_soft_delete`` is True, soft-deleted rows are excluded.
+        """
         from app.db import cursor
 
         cols = ", ".join(cls._column_names())
         sql = f"SELECT {cols} FROM {cls._qualified()}"
-        if where:
-            sql += f" WHERE {where}"
+        effective_where = where
+        if cls.table_soft_delete:
+            sd_clause = "deleted_at IS NULL"
+            effective_where = f"({effective_where}) AND {sd_clause}" if effective_where else sd_clause
+        if effective_where:
+            sql += f" WHERE {effective_where}"
         if order_by:
             sql += f" ORDER BY {order_by}"
         if limit is not None:
@@ -542,7 +577,20 @@ class Table:
         return self
 
     def delete(self) -> None:
-        """DELETE this row by primary key. Idempotent: no error if already gone."""
+        """Delete this row by primary key.
+
+        When ``table_soft_delete`` is True, sets ``deleted_at`` and saves
+        instead of removing the row. Use :meth:`_hard_delete` to bypass
+        soft-delete, or :meth:`restore` to undo a soft-delete.
+        """
+        if type(self).table_soft_delete:
+            object.__setattr__(self, "deleted_at", datetime.now(UTC).isoformat())
+            self.save()
+            return
+        self._hard_delete()
+
+    def _hard_delete(self) -> None:
+        """Hard-delete this row regardless of ``table_soft_delete`` setting."""
         from app.db import cursor
 
         cls = type(self)
@@ -550,6 +598,13 @@ class Table:
         pk_vals = [getattr(self, c) for c in cls.table_pk]
         with cursor() as cur:
             cur.execute(f"DELETE FROM {cls._qualified()} WHERE {where}", pk_vals)
+
+    def restore(self) -> Self:
+        """Clear ``deleted_at`` and save. No-op if ``table_soft_delete`` is False."""
+        if not type(self).table_soft_delete:
+            return self
+        object.__setattr__(self, "deleted_at", None)
+        return self.save()
 
     def upsert(self) -> Self:
         """Insert if no row with this PK exists, otherwise update.

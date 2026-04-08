@@ -226,6 +226,27 @@ class Mutation:
         count = Transform.run_for_target(connect(), schema)
         return {"schema": schema, "count": count}
 
+    @strawberry.mutation
+    def restore_transform(self, transform_id: int) -> TransformType | None:
+        """Restore a soft-deleted transform. Returns None if not found."""
+        from app.transforms import Transform
+
+        t = Transform.find_deleted(transform_id)
+        if not t:
+            return None
+        return _transform_to_gql(t.restore())
+
+    @strawberry.mutation
+    def purge_transform(self, transform_id: int) -> OkType:
+        """Hard-delete a soft-deleted transform. Cannot be undone."""
+        from app.models import OkResponse
+        from app.transforms import Transform
+
+        t = Transform.find_deleted(transform_id)
+        if t:
+            t._hard_delete()
+        return OkType.from_pydantic(OkResponse(ok=True))
+
     # -- Hotkeys --
 
     @strawberry.mutation

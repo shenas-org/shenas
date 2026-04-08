@@ -41,6 +41,7 @@ class Transform(Table):
     table_display_name: ClassVar[str] = "Transforms"
     table_description: ClassVar[str | None] = "User-supplied SQL transforms bridging source data to canonical metric tables."
     table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_soft_delete: ClassVar[bool] = True
 
     id: Annotated[
         int,
@@ -62,6 +63,7 @@ class Transform(Table):
     )
     updated_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last updated")] | None = None
     status_changed_at: Annotated[str, Field(db_type="TIMESTAMP", description="When status changed")] | None = None
+    deleted_at: Annotated[str, Field(db_type="TIMESTAMP", description="When soft-deleted")] | None = None
 
     # ------------------------------------------------------------------
     # Convenience helpers

@@ -119,6 +119,7 @@ class TransformType:
     created_at: str | None
     updated_at: str | None
     status_changed_at: str | None
+    deleted_at: str | None
 
 
 # -- Input types --------------------------------------------------------------

@@ -36,6 +36,7 @@ def _transform_to_gql(t: Transform) -> TransformType:
         created_at=t.created_at,
         updated_at=t.updated_at,
         status_changed_at=t.status_changed_at,
+        deleted_at=t.deleted_at,
     )
 
 

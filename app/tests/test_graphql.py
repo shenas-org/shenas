@@ -49,7 +49,7 @@ def test_con() -> duckdb.DuckDBPyConnection:
         "source_plugin VARCHAR, description VARCHAR DEFAULT '', "
         "sql TEXT, is_default BOOLEAN DEFAULT FALSE, enabled BOOLEAN DEFAULT TRUE, "
         "created_at TIMESTAMP DEFAULT current_timestamp, updated_at TIMESTAMP, "
-        "status_changed_at TIMESTAMP, PRIMARY KEY (id))"
+        "status_changed_at TIMESTAMP, deleted_at TIMESTAMP, PRIMARY KEY (id))"
     )
     return con
 
@@ -456,6 +456,79 @@ class TestGraphQLMutations:
         )
         assert "errors" not in result
         assert result["data"]["deleteTransform"]["ok"] is True
+
+    def test_delete_transform_is_soft_delete(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
+        test_con.execute(
+            "INSERT INTO shenas_system.transforms "
+            "(source_duckdb_schema, source_duckdb_table, target_duckdb_schema, "
+            "target_duckdb_table, source_plugin, sql) VALUES "
+            "('garmin', 'act', 'metrics', 'daily', 'garmin', 'SELECT 1')"
+        )
+        row = test_con.execute("SELECT id FROM shenas_system.transforms LIMIT 1").fetchone()
+        assert row is not None
+        tid = row[0]
+        _gql(client, f"mutation {{ deleteTransform(transformId: {tid}) {{ ok }} }}")
+        # row still exists in DB with deleted_at set
+        deleted = test_con.execute(
+            "SELECT deleted_at FROM shenas_system.transforms WHERE id = ?", [tid]
+        ).fetchone()
+        assert deleted is not None
+        assert deleted[0] is not None  # deleted_at is populated
+        # not visible via normal query
+        result = _gql(client, f"{{ transform(transformId: {tid}) {{ id }} }}")
+        assert result["data"]["transform"] is None
+
+    def test_restore_transform(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
+        test_con.execute(
+            "INSERT INTO shenas_system.transforms "
+            "(source_duckdb_schema, source_duckdb_table, target_duckdb_schema, "
+            "target_duckdb_table, source_plugin, sql) VALUES "
+            "('garmin', 'act', 'metrics', 'daily', 'garmin', 'SELECT 1')"
+        )
+        row = test_con.execute("SELECT id FROM shenas_system.transforms LIMIT 1").fetchone()
+        assert row is not None
+        tid = row[0]
+        _gql(client, f"mutation {{ deleteTransform(transformId: {tid}) {{ ok }} }}")
+        result = _gql(client, f"mutation {{ restoreTransform(transformId: {tid}) {{ id sql deletedAt }} }}")
+        assert "errors" not in result
+        t = result["data"]["restoreTransform"]
+        assert t is not None
+        assert t["id"] == tid
+        assert t["deletedAt"] is None
+        # now visible again via normal query
+        result2 = _gql(client, f"{{ transform(transformId: {tid}) {{ id sql }} }}")
+        assert result2["data"]["transform"] is not None
+        assert result2["data"]["transform"]["id"] == tid
+
+    def test_restore_transform_not_found(self, client: TestClient) -> None:
+        result = _gql(client, "mutation { restoreTransform(transformId: 9999) { id sql } }")
+        assert "errors" not in result
+        assert result["data"]["restoreTransform"] is None
+
+    def test_purge_transform(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
+        test_con.execute(
+            "INSERT INTO shenas_system.transforms "
+            "(source_duckdb_schema, source_duckdb_table, target_duckdb_schema, "
+            "target_duckdb_table, source_plugin, sql) VALUES "
+            "('garmin', 'act', 'metrics', 'daily', 'garmin', 'SELECT 1')"
+        )
+        row = test_con.execute("SELECT id FROM shenas_system.transforms LIMIT 1").fetchone()
+        assert row is not None
+        tid = row[0]
+        _gql(client, f"mutation {{ deleteTransform(transformId: {tid}) {{ ok }} }}")
+        result = _gql(client, f"mutation {{ purgeTransform(transformId: {tid}) {{ ok }} }}")
+        assert "errors" not in result
+        assert result["data"]["purgeTransform"]["ok"] is True
+        # row is gone from the DB entirely
+        gone = test_con.execute(
+            "SELECT id FROM shenas_system.transforms WHERE id = ?", [tid]
+        ).fetchone()
+        assert gone is None
+
+    def test_purge_transform_not_found(self, client: TestClient) -> None:
+        result = _gql(client, "mutation { purgeTransform(transformId: 9999) { ok } }")
+        assert "errors" not in result
+        assert result["data"]["purgeTransform"]["ok"] is True
 
     def test_enable_transform(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
