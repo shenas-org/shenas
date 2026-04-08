@@ -1,4 +1,4 @@
-from typing import Annotated, ClassVar  # noqa: F401 - used in inherited class annotations
+from typing import Annotated
 
 from shenas_datasets.core import DailyMetricTable
 from shenas_plugins.core.table import Field
