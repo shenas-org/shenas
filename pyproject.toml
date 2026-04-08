@@ -43,6 +43,7 @@ shenas-source-gcalendar = { workspace = true }
 shenas-source-gtakeout = { workspace = true }
 shenas-source-duolingo = { workspace = true }
 shenas-source-spotify = { workspace = true }
+shenas-source-strava = { workspace = true }
 shenas-dataset-core = { workspace = true }
 shenas-dataset-fitness = { workspace = true }
 shenas-dataset-events = { workspace = true }
@@ -75,6 +76,7 @@ dev = [
     "shenas-source-gtakeout",
     "shenas-source-duolingo",
     "shenas-source-spotify",
+    "shenas-source-strava",
     "shenas-dataset-fitness",
     "shenas-dataset-finance",
     "shenas-dataset-outcomes",

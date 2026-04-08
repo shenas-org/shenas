@@ -1,0 +1,10 @@
+[
+  {
+    "source_duckdb_schema": "strava",
+    "source_duckdb_table": "activities",
+    "target_duckdb_schema": "metrics",
+    "target_duckdb_table": "daily_vitals",
+    "description": "Aggregate Strava activity calories into daily active_kcal",
+    "sql": "SELECT CAST(start_date AS DATE) as date, SUM(calories) as active_kcal FROM strava.activities WHERE start_date IS NOT NULL AND calories IS NOT NULL GROUP BY 1"
+  }
+]
