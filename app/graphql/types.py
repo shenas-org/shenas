@@ -116,7 +116,7 @@ class TransformType:
     sql: str
     is_default: bool
     enabled: bool
-    added_at: str | None
+    created_at: str | None
     updated_at: str | None
     status_changed_at: str | None
 

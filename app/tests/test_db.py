@@ -27,7 +27,7 @@ def _query_state(kind: str, name: str) -> dict | None:
 
     with cursor() as cur:
         row = cur.execute(
-            "SELECT kind, name, enabled, added_at, updated_at, status_changed_at, synced_at "
+            "SELECT kind, name, enabled, created_at, updated_at, status_changed_at, synced_at "
             "FROM shenas_system.plugins WHERE kind = ? AND name = ?",
             [kind, name],
         ).fetchone()
@@ -37,7 +37,7 @@ def _query_state(kind: str, name: str) -> dict | None:
         "kind": row[0],
         "name": row[1],
         "enabled": row[2],
-        "added_at": str(row[3]) if row[3] else None,
+        "created_at": str(row[3]) if row[3] else None,
         "updated_at": str(row[4]) if row[4] else None,
         "status_changed_at": str(row[5]) if row[5] else None,
         "synced_at": str(row[6]) if row[6] else None,
@@ -64,7 +64,7 @@ class TestPluginState:
         assert state.kind == "source"
         assert state.name == "garmin"
         assert state.enabled is True
-        assert state.added_at is not None
+        assert state.created_at is not None
 
     def test_save_state_updates_existing_same_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         p = _FakePlugin()

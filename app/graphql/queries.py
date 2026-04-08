@@ -33,7 +33,7 @@ def _transform_to_gql(t: Transform) -> TransformType:
         sql=t.sql,
         is_default=bool(t.is_default),
         enabled=bool(t.enabled),
-        added_at=t.added_at,
+        created_at=t.created_at,
         updated_at=t.updated_at,
         status_changed_at=t.status_changed_at,
     )
@@ -150,7 +150,7 @@ class Query:
                         is_authenticated=pi.get("is_authenticated"),
                         sync_frequency=pi.get("sync_frequency"),
                         config_entries=config_entries,
-                        added_at=pi.get("added_at"),
+                        created_at=pi.get("created_at"),
                         updated_at=pi.get("updated_at"),
                         status_changed_at=pi.get("status_changed_at"),
                         synced_at=pi.get("synced_at"),

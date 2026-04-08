@@ -111,8 +111,8 @@ def info(name: str, kind: str) -> None:
 
     enabled = result.get("enabled", True)
     table.add_row("Status", "[green]enabled[/green]" if enabled else "[yellow]disabled[/yellow]")
-    if result.get("added_at"):
-        table.add_row("Added", result["added_at"][:19])
+    if result.get("created_at"):
+        table.add_row("Added", result["created_at"][:19])
     if result.get("updated_at"):
         table.add_row("Updated", result["updated_at"][:19])
     if result.get("status_changed_at"):

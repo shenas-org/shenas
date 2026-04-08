@@ -39,7 +39,7 @@ impl Database {
                  kind VARCHAR NOT NULL,
                  name VARCHAR NOT NULL,
                  enabled BOOLEAN DEFAULT true,
-                 added_at TIMESTAMP DEFAULT current_timestamp,
+                 created_at TIMESTAMP DEFAULT current_timestamp,
                  updated_at TIMESTAMP DEFAULT current_timestamp,
                  status_changed_at TIMESTAMP,
                  synced_at TIMESTAMP,

@@ -43,7 +43,7 @@ class PluginRecord(Table):
     kind: Annotated[str, Field(db_type="VARCHAR", description="Plugin kind")] = ""
     name: Annotated[str, Field(db_type="VARCHAR", description="Plugin name")] = ""
     enabled: Annotated[bool, Field(db_type="BOOLEAN", description="Is enabled", db_default="TRUE")] = True
-    added_at: Annotated[str, Field(db_type="TIMESTAMP", description="When added", db_default="current_timestamp")] | None = (
+    created_at: Annotated[str, Field(db_type="TIMESTAMP", description="When added", db_default="current_timestamp")] | None = (
         None
     )
     updated_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last updated")] | None = None
@@ -311,7 +311,7 @@ class Plugin(abc.ABC):
             "has_data": self.has_data,
             "has_auth": self.has_auth,
             "enabled": s.enabled if s else self.enabled_by_default,
-            "added_at": str(s.added_at) if s and s.added_at else None,
+            "created_at": str(s.created_at) if s and s.created_at else None,
             "updated_at": str(s.updated_at) if s and s.updated_at else None,
             "status_changed_at": str(s.status_changed_at) if s and s.status_changed_at else None,
             "synced_at": str(s.synced_at) if s and s.synced_at else None,

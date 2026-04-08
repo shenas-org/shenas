@@ -308,7 +308,7 @@ class TestListPluginsData:
         class _StatefulPlugin(_FakePluginCls):
             def get_info(self):
                 info = super().get_info()
-                info.update({"enabled": False, "added_at": "2026-01-01"})
+                info.update({"enabled": False, "created_at": "2026-01-01"})
                 return info
 
         with (
@@ -320,7 +320,7 @@ class TestListPluginsData:
         ):
             result = Plugin.list_installed("source")
         assert result[0]["enabled"] is False
-        assert result[0]["added_at"] == "2026-01-01"
+        assert result[0]["created_at"] == "2026-01-01"
 
 
 # ---------------------------------------------------------------------------

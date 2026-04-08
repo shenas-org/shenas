@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, ClassVar
 
 from shenas_plugins.core.table import Field, Table
 
 if TYPE_CHECKING:
     import duckdb
-
-
-def _now_iso() -> str:
-    return datetime.now(UTC).isoformat()
 
 
 @dataclass
@@ -33,6 +28,9 @@ class Hotkey(Table):
 
     action_id: Annotated[str, Field(db_type="VARCHAR", description="Action identifier")] = ""
     binding: Annotated[str, Field(db_type="VARCHAR", description="Key binding", db_default="''")] = ""
+    created_at: (
+        Annotated[str, Field(db_type="TIMESTAMP", description="When created", db_default="current_timestamp")] | None
+    ) = None
     updated_at: (
         Annotated[str, Field(db_type="TIMESTAMP", description="When last updated", db_default="current_timestamp")] | None
     ) = None
@@ -45,9 +43,8 @@ class Hotkey(Table):
     ]
 
     def set_binding(self, binding: str) -> Hotkey:
-        """Update the binding for this action and upsert. Bumps ``updated_at``."""
+        """Update the binding for this action and upsert."""
         self.binding = binding
-        self.updated_at = _now_iso()
         return self.upsert()
 
     @classmethod

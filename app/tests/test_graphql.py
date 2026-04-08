@@ -29,7 +29,7 @@ def test_con() -> duckdb.DuckDBPyConnection:
     con.execute("CREATE TABLE garmin.activities (id INTEGER, start_time_local DATE)")
     con.execute("INSERT INTO garmin.activities VALUES (1, '2026-03-15')")
     con.execute("CREATE SCHEMA shenas_system")
-    con.execute("CREATE TABLE shenas_system.hotkeys (action_id VARCHAR PRIMARY KEY, binding VARCHAR, updated_at TIMESTAMP)")
+    con.execute("CREATE TABLE shenas_system.hotkeys (action_id VARCHAR PRIMARY KEY, binding VARCHAR, created_at TIMESTAMP, updated_at TIMESTAMP)")
     con.execute("INSERT INTO shenas_system.hotkeys VALUES ('command-palette', 'Ctrl+P', NULL)")
     con.execute("INSERT INTO shenas_system.hotkeys VALUES ('close-tab', 'Ctrl+W', NULL)")
     con.execute("CREATE TABLE shenas_system.workspace (id INTEGER PRIMARY KEY, state TEXT, updated_at TIMESTAMP)")
@@ -37,7 +37,7 @@ def test_con() -> duckdb.DuckDBPyConnection:
     con.execute(
         "CREATE TABLE shenas_system.plugins ("
         "kind VARCHAR, name VARCHAR, enabled BOOLEAN DEFAULT TRUE, "
-        "added_at TIMESTAMP, updated_at TIMESTAMP, status_changed_at TIMESTAMP, synced_at TIMESTAMP, "
+        "created_at TIMESTAMP, updated_at TIMESTAMP, status_changed_at TIMESTAMP, synced_at TIMESTAMP, "
         "PRIMARY KEY (kind, name))"
     )
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
@@ -48,7 +48,7 @@ def test_con() -> duckdb.DuckDBPyConnection:
         "target_duckdb_schema VARCHAR, target_duckdb_table VARCHAR, "
         "source_plugin VARCHAR, description VARCHAR DEFAULT '', "
         "sql TEXT, is_default BOOLEAN DEFAULT FALSE, enabled BOOLEAN DEFAULT TRUE, "
-        "added_at TIMESTAMP DEFAULT current_timestamp, updated_at TIMESTAMP, "
+        "created_at TIMESTAMP DEFAULT current_timestamp, updated_at TIMESTAMP, "
         "status_changed_at TIMESTAMP, PRIMARY KEY (id))"
     )
     return con

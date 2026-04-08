@@ -117,7 +117,7 @@ class PluginInfo(BaseModel):
     is_authenticated: bool | None = None
     sync_frequency: int | None = None
     config_entries: list[ConfigEntry] = []
-    added_at: str | None = None
+    created_at: str | None = None
     updated_at: str | None = None
     status_changed_at: str | None = None
     synced_at: str | None = None

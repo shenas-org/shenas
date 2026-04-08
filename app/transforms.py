@@ -57,7 +57,7 @@ class Transform(Table):
         None
     )
     enabled: Annotated[bool, Field(db_type="BOOLEAN", description="Is enabled", db_default="TRUE")] | None = None
-    added_at: Annotated[str, Field(db_type="TIMESTAMP", description="When added", db_default="current_timestamp")] | None = (
+    created_at: Annotated[str, Field(db_type="TIMESTAMP", description="When added", db_default="current_timestamp")] | None = (
         None
     )
     updated_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last updated")] | None = None

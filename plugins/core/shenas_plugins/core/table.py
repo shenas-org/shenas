@@ -48,6 +48,7 @@ from __future__ import annotations
 import dataclasses
 import types
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self, get_args, get_origin, get_type_hints
 
 if TYPE_CHECKING:
@@ -513,10 +514,15 @@ class Table:
         return self
 
     def save(self) -> Self:
-        """UPDATE this row by primary key. Refreshes ``self`` from ``RETURNING``."""
+        """UPDATE this row by primary key. Refreshes ``self`` from ``RETURNING``.
+
+        Auto-bumps ``updated_at`` if the field is declared on the table.
+        """
         from app.db import cursor
 
         cls = type(self)
+        if "updated_at" in cls._column_names():
+            self.updated_at = datetime.now(UTC).isoformat()
         set_cols = [c for c in cls._column_names() if c not in cls.table_pk]
         if not set_cols:
             return self
