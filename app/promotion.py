@@ -1,4 +1,4 @@
-"""Promote a hypothesis into a canonical MetricTable (PR 3.1, Alt 1).
+"""Promote a hypothesis into a canonical MetricTable.
 
 Promotion is the only path that writes canonical state. Until a user
 explicitly promotes a hypothesis, every analytical transformation is
