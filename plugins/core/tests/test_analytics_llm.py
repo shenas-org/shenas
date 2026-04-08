@@ -92,6 +92,56 @@ def test_anthropic_provider_raises_without_api_key(monkeypatch):
     raise AssertionError("expected RuntimeError")
 
 
+def test_iteration_loop_retries_once_on_validation_error():
+    """The retry loop sends the validation error back to the LLM and accepts the second attempt."""
+    from shenas_plugins.core.analytics import ask_for_recipe_with_retry
+
+    payloads = iter(
+        [
+            {"plan": "first", "nodes": {}, "final": ""},  # validate raises
+            {"plan": "second", "nodes": {"a": {"type": "source", "table": "x"}}, "final": "a"},  # passes
+        ]
+    )
+
+    class _SeqProvider:
+        name = "seq@v0"
+
+        def __init__(self):
+            self.calls = []
+
+        def ask(self, *, system, user, tools):
+            self.calls.append(user)
+            return next(payloads)
+
+    def _validate(p):
+        if not p.get("nodes"):
+            raise ValueError("recipe has no nodes")
+
+    provider = _SeqProvider()
+    payload, errors = ask_for_recipe_with_retry(provider, "q", {}, validate=_validate, max_attempts=2)
+    assert payload["plan"] == "second"
+    assert len(errors) == 1
+    # Second user prompt includes the error from attempt 1
+    assert "no nodes" in provider.calls[1]
+
+
+def test_iteration_loop_gives_up_after_max_attempts():
+    from shenas_plugins.core.analytics import ask_for_recipe_with_retry
+
+    class _AlwaysBad:
+        name = "bad@v0"
+
+        def ask(self, *, system, user, tools):
+            return {"plan": "x", "nodes": {}, "final": ""}
+
+    def _validate(_):
+        raise ValueError("always invalid")
+
+    payload, errors = ask_for_recipe_with_retry(_AlwaysBad(), "q", {}, validate=_validate, max_attempts=2)
+    assert len(errors) == 2
+    assert payload["plan"] == "x"
+
+
 def test_operation_vocabulary_is_valid_json_in_prompt():
     """Each operation's params schema embedded in the prompt is valid JSON."""
     prompt = build_system_prompt()
