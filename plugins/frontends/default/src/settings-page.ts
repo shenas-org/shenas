@@ -55,11 +55,15 @@ class SettingsPage extends LitElement {
     activeKind: { type: String, attribute: "active-kind" },
     onNavigate: { type: Function },
     onPluginsChanged: { type: Function },
+    onMultiuserToggle: { type: Function },
+    onSwitchUser: { type: Function },
     allActions: { type: Array },
     allPlugins: { type: Object },
     schemaPlugins: { type: Object },
     remoteUser: { type: Object },
     deviceName: { type: String, attribute: "device-name" },
+    multiuserEnabled: { type: Boolean },
+    localUser: { type: Object },
     _plugins: { state: true },
     _loading: { state: true },
     _actionMessage: { state: true },
@@ -274,11 +278,15 @@ class SettingsPage extends LitElement {
   declare activeKind: string;
   declare onNavigate: ((kind: string) => void) | null;
   declare onPluginsChanged: ((data: Record<string, PluginSummary[]>) => void) | null;
+  declare onMultiuserToggle: ((enabled: boolean) => void) | null;
+  declare onSwitchUser: (() => void) | null;
   declare allActions: ActionInfo[];
   declare allPlugins: Record<string, PluginSummary[]>;
   declare schemaPlugins: Record<string, string[]>;
   declare remoteUser: Record<string, unknown> | null;
   declare deviceName: string;
+  declare multiuserEnabled: boolean;
+  declare localUser: { id: number; username: string } | null;
   declare _plugins: Record<string, PluginSummary[]>;
   declare _loading: boolean;
   declare _actionMessage: Message | null;
@@ -293,11 +301,15 @@ class SettingsPage extends LitElement {
     this.activeKind = "flow";
     this.onNavigate = null;
     this.onPluginsChanged = null;
+    this.onMultiuserToggle = null;
+    this.onSwitchUser = null;
     this.allActions = [];
     this.allPlugins = {};
     this.schemaPlugins = {};
     this.remoteUser = null;
     this.deviceName = "";
+    this.multiuserEnabled = false;
+    this.localUser = null;
     this._plugins = {};
     this._loading = true;
     this._actionMessage = null;
@@ -581,16 +593,58 @@ class SettingsPage extends LitElement {
     const user = this.remoteUser;
     const name = user ? (user.name as string) || (user.email as string) || "" : "";
     const email = user ? (user.email as string) || "" : "";
+
+    const multiuserSection = html`
+      <div class="profile-row">
+        <div>
+          <span class="profile-label">Multi-user mode</span>
+          <span class="profile-value" style="font-size:0.8rem;color:var(--shenas-text-muted,#888);display:block;margin-top:2px">
+            Enable multiple local users on this device
+          </span>
+        </div>
+        <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer">
+          <input
+            type="checkbox"
+            ?checked=${this.multiuserEnabled}
+            @change=${(e: Event) => {
+              const enabled = (e.target as HTMLInputElement).checked;
+              if (this.onMultiuserToggle) this.onMultiuserToggle(enabled);
+            }}
+          />
+          ${this.multiuserEnabled ? "On" : "Off"}
+        </label>
+      </div>
+      ${this.multiuserEnabled && this.localUser
+        ? html`
+            <div class="profile-row">
+              <div>
+                <span class="profile-label">Local user</span>
+                <span class="profile-value">${this.localUser.username}</span>
+              </div>
+              <button
+                @click=${() => {
+                  if (this.onSwitchUser) this.onSwitchUser();
+                }}
+              >
+                Switch User
+              </button>
+            </div>
+          `
+        : ""}
+    `;
+
     if (!user) {
       return html`
         <div class="profile">
-          <p>You are not signed in.</p>
-          <button @click=${() => (window.location.href = "/api/auth/login")}>Sign in</button>
+          ${multiuserSection}
+          <p>You are not signed in to shenas.net.</p>
+          <button @click=${() => (window.location.href = "/api/auth/login")}>Sign in with shenas.net</button>
         </div>
       `;
     }
     return html`
       <div class="profile">
+        ${multiuserSection}
         <div class="profile-row">
           <span class="profile-label">Name</span>
           <span class="profile-value">${name}</span>
