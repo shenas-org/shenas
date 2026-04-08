@@ -346,6 +346,33 @@ class Mutation:
             "ok": not isinstance(result, ErrorResult),
         }
 
+    # -- Promotion (PR 3.1) --
+
+    @strawberry.mutation
+    def promote_hypothesis(self, hypothesis_id: int, name: str, metric_schema: str = "metrics") -> JSON:
+        """Promote a hypothesis into a canonical MetricTable.
+
+        Inserts a row into ``shenas_system.promoted_metrics``. The
+        promoted thing is then visible to the catalog walker as a
+        synthesized ``MetricTable`` subclass; no Python source files
+        are generated.
+        """
+        from app.hypotheses import Hypothesis
+        from app.promotion import promote_hypothesis as _promote
+
+        h = Hypothesis.find(hypothesis_id)
+        if h is None:
+            return {"error": f"hypothesis {hypothesis_id} not found"}
+        try:
+            record = _promote(h, name=name, metric_schema=metric_schema)
+        except ValueError as exc:
+            return {"error": str(exc)}
+        return {
+            "id": h.id,
+            "promoted_to": h.promoted_to,
+            "qualified": record["qualified"],
+        }
+
     # -- LLM-driven hypothesis (PR 2.3) --
 
     @strawberry.mutation

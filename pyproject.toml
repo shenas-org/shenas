@@ -50,6 +50,7 @@ shenas-dataset-events = { workspace = true }
 shenas-dataset-finance = { workspace = true }
 shenas-dataset-outcomes = { workspace = true }
 shenas-dataset-habits = { workspace = true }
+shenas-dataset-promoted = { workspace = true }
 shenas-dashboard-core = { workspace = true }
 shenas-dashboard-fitness-dashboard = { workspace = true }
 shenas-dashboard-data-table = { workspace = true }
@@ -81,6 +82,7 @@ dev = [
     "shenas-dataset-finance",
     "shenas-dataset-outcomes",
     "shenas-dataset-habits",
+    "shenas-dataset-promoted",
     "shenas-dashboard-fitness-dashboard",
     "shenas-dashboard-data-table",
     "shenas-frontend-default",
