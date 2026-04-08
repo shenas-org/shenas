@@ -8,7 +8,6 @@ from shenas_datasets.finance import (
     MonthlyOverview,
     Transaction,
     generate_ddl,
-    table_metadata,
 )
 
 
@@ -88,29 +87,29 @@ class TestIntrospect:
         assert len(meta) == 4
 
     def test_table_metadata_structure(self) -> None:
-        meta = table_metadata(Transaction)
+        meta = Transaction.table_metadata()
         assert meta["table"] == "transactions"
         assert meta["primary_key"] == ["id", "source"]
         assert len(meta["columns"]) == 12
 
     def test_column_metadata_has_description(self) -> None:
-        meta = table_metadata(Transaction)
+        meta = Transaction.table_metadata()
         amount = next(c for c in meta["columns"] if c["name"] == "amount")
         assert "description" in amount
         assert amount["db_type"] == "DOUBLE"
 
     def test_column_metadata_has_interpretation(self) -> None:
-        meta = table_metadata(DailySpending)
+        meta = DailySpending.table_metadata()
         total_spent = next(c for c in meta["columns"] if c["name"] == "total_spent")
         assert "interpretation" in total_spent
 
     def test_savings_rate_has_range(self) -> None:
-        meta = table_metadata(MonthlyOverview)
+        meta = MonthlyOverview.table_metadata()
         savings = next(c for c in meta["columns"] if c["name"] == "savings_rate")
         assert savings.get("value_range") == (-100, 100)
 
     def test_nullable_flag(self) -> None:
-        meta = table_metadata(Transaction)
+        meta = Transaction.table_metadata()
         id_col = next(c for c in meta["columns"] if c["name"] == "id")
         amount_col = next(c for c in meta["columns"] if c["name"] == "amount")
         assert id_col["nullable"] is False

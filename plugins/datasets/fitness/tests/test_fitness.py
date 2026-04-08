@@ -10,7 +10,6 @@ from shenas_datasets.fitness import (
     Field,
     FitnessSchema,
     generate_ddl,
-    table_metadata,
 )
 
 
@@ -138,31 +137,31 @@ class TestIntrospect:
         assert names == set(FitnessSchema.tables)
 
     def test_table_metadata_structure(self) -> None:
-        meta = table_metadata(DailyHRV)
+        meta = DailyHRV.table_metadata()
         assert meta["table"] == "daily_hrv"
         assert meta["primary_key"] == ["date", "source"]
         assert isinstance(meta["columns"], list)
         assert len(meta["columns"]) == 4
 
     def test_column_metadata_has_description(self) -> None:
-        meta = table_metadata(DailyHRV)
+        meta = DailyHRV.table_metadata()
         rmssd = next(c for c in meta["columns"] if c["name"] == "rmssd")
         assert "description" in rmssd
         assert "db_type" in rmssd
         assert rmssd["db_type"] == "DOUBLE"
 
     def test_column_metadata_has_unit(self) -> None:
-        meta = table_metadata(DailyHRV)
+        meta = DailyHRV.table_metadata()
         rmssd = next(c for c in meta["columns"] if c["name"] == "rmssd")
         assert rmssd.get("unit") == "ms"
 
     def test_column_metadata_has_interpretation(self) -> None:
-        meta = table_metadata(DailyHRV)
+        meta = DailyHRV.table_metadata()
         rmssd = next(c for c in meta["columns"] if c["name"] == "rmssd")
         assert "interpretation" in rmssd
 
     def test_nullable_flag(self) -> None:
-        meta = table_metadata(DailyHRV)
+        meta = DailyHRV.table_metadata()
         date_col = next(c for c in meta["columns"] if c["name"] == "date")
         rmssd_col = next(c for c in meta["columns"] if c["name"] == "rmssd")
         assert date_col["nullable"] is False

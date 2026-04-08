@@ -1,6 +1,6 @@
 from shenas_datasets.core import Dataset, MetricProvider
 from shenas_datasets.outcomes.metrics import ALL_TABLES, DailyOutcome
-from shenas_plugins.core import Field, generate_ddl, table_metadata
+from shenas_plugins.core import Field, generate_ddl
 
 
 class OutcomesSchema(Dataset):
@@ -18,5 +18,4 @@ __all__ = [
     "MetricProvider",
     "OutcomesSchema",
     "generate_ddl",
-    "table_metadata",
 ]

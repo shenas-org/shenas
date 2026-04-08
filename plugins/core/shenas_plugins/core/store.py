@@ -9,8 +9,6 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, ClassVar
 
-from shenas_plugins.core.introspect import table_metadata
-
 
 class TableStore:
     """Single-row dataclass-backed table store in a named DuckDB schema."""
@@ -92,6 +90,3 @@ class TableStore:
         table = cls.table_name
         with self._cursor() as cur:
             cur.execute(f"DELETE FROM {self.schema}.{table}")
-
-    def metadata(self, cls: type) -> dict[str, Any]:
-        return table_metadata(cls)

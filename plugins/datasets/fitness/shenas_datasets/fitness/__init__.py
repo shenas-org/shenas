@@ -1,6 +1,6 @@
 from shenas_datasets.core import Dataset, MetricProvider
 from shenas_datasets.fitness.metrics import ALL_TABLES, DailyBody, DailyHRV, DailySleep, DailyVitals
-from shenas_plugins.core import Field, generate_ddl, table_metadata
+from shenas_plugins.core import Field, generate_ddl
 
 
 class FitnessSchema(Dataset):
@@ -21,5 +21,4 @@ __all__ = [
     "FitnessSchema",
     "MetricProvider",
     "generate_ddl",
-    "table_metadata",
 ]
