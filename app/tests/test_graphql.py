@@ -70,7 +70,6 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
         patch("app.db.connect", return_value=test_con),
         patch("app.api.query.cursor", _fake_cursor),
         patch("app.api.db.cursor", _fake_cursor),
-        patch("app.hotkeys.cursor", _fake_cursor),
         patch("app.transforms.cursor", _fake_cursor),
     ):
         yield TestClient(app)
@@ -351,7 +350,7 @@ class TestGraphQLQueries:
 
 class TestGraphQLMutations:
     def test_set_hotkey(self, client: TestClient) -> None:
-        with patch("app.hotkeys.Hotkey.set"):
+        with patch("app.hotkeys.Hotkey.set_binding"):
             result = _gql(
                 client,
                 'mutation { setHotkey(actionId: "test-action", binding: "Ctrl+X") { ok } }',

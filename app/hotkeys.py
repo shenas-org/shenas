@@ -2,30 +2,40 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, ClassVar
 
-from app.db import cursor
 from shenas_plugins.core.table import Field, Table
 
 if TYPE_CHECKING:
     import duckdb
 
 
-class Hotkey:
-    """A single keyboard shortcut binding."""
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat()
 
-    class _Table(Table):
-        table_name: ClassVar[str] = "hotkeys"
-        table_schema: ClassVar[str | None] = "shenas_system"
-        table_display_name: ClassVar[str] = "Hotkeys"
-        table_description: ClassVar[str | None] = "Per-action keyboard shortcut bindings."
-        table_pk: ClassVar[tuple[str, ...]] = ("action_id",)
 
-        action_id: Annotated[str, Field(db_type="VARCHAR", description="Action identifier")] = ""
-        binding: Annotated[str, Field(db_type="VARCHAR", description="Key binding", db_default="''")] = ""
-        updated_at: (
-            Annotated[str, Field(db_type="TIMESTAMP", description="When last updated", db_default="current_timestamp")] | None
-        ) = None
+@dataclass
+class Hotkey(Table):
+    """A single keyboard shortcut binding.
+
+    Direct :class:`Table` subclass -- no wrapper. CRUD comes from the
+    ABC; ``upsert`` is the natural set / update primitive. ``get_all``
+    and ``reset`` are thin views over the inherited ``all``.
+    """
+
+    table_name: ClassVar[str] = "hotkeys"
+    table_schema: ClassVar[str | None] = "shenas_system"
+    table_display_name: ClassVar[str] = "Hotkeys"
+    table_description: ClassVar[str | None] = "Per-action keyboard shortcut bindings."
+    table_pk: ClassVar[tuple[str, ...]] = ("action_id",)
+
+    action_id: Annotated[str, Field(db_type="VARCHAR", description="Action identifier")] = ""
+    binding: Annotated[str, Field(db_type="VARCHAR", description="Key binding", db_default="''")] = ""
+    updated_at: (
+        Annotated[str, Field(db_type="TIMESTAMP", description="When last updated", db_default="current_timestamp")] | None
+    ) = None
 
     _DEFAULTS: ClassVar[list[tuple[str, str]]] = [
         ("command-palette", "Ctrl+P"),
@@ -34,31 +44,25 @@ class Hotkey:
         ("new-tab", "Ctrl+T"),
     ]
 
-    def __init__(self, action_id: str, binding: str = "") -> None:
-        self.action_id = action_id
+    def set_binding(self, binding: str) -> Hotkey:
+        """Update the binding for this action and upsert. Bumps ``updated_at``."""
         self.binding = binding
+        self.updated_at = _now_iso()
+        return self.upsert()
 
-    def set(self, binding: str) -> None:
-        self.binding = binding
-        with cursor() as cur:
-            cur.execute(
-                "INSERT INTO shenas_system.hotkeys (action_id, binding, updated_at) VALUES (?, ?, now()) "
-                "ON CONFLICT (action_id) DO UPDATE SET binding = ?, updated_at = now()",
-                [self.action_id, binding, binding],
-            )
-
-    def delete(self) -> None:
-        with cursor() as cur:
-            cur.execute("DELETE FROM shenas_system.hotkeys WHERE action_id = ?", [self.action_id])
-
-    @staticmethod
-    def get_all() -> dict[str, str]:
-        with cursor() as cur:
-            rows = cur.execute("SELECT action_id, binding FROM shenas_system.hotkeys ORDER BY action_id").fetchall()
-        return {r[0]: r[1] for r in rows}
+    @classmethod
+    def get_all(cls) -> dict[str, str]:
+        """Return ``{action_id: binding}`` for every registered hotkey."""
+        return {h.action_id: h.binding for h in cls.all(order_by="action_id")}
 
     @staticmethod
     def seed(con: duckdb.DuckDBPyConnection) -> None:
+        """Insert default bindings if the table is empty.
+
+        Runs from ``_ensure_system_tables`` *before* ``app.db.cursor`` is
+        wired up to the shared connection -- hence the raw INSERT here
+        instead of going through the ABC primitives.
+        """
         row = con.execute("SELECT COUNT(*) FROM shenas_system.hotkeys").fetchone()
         if row and row[0] == 0:
             for action_id, binding in Hotkey._DEFAULTS:
@@ -67,12 +71,12 @@ class Hotkey:
                     [action_id, binding],
                 )
 
-    @staticmethod
-    def reset() -> None:
+    @classmethod
+    def reset(cls) -> None:
+        """Drop every binding and re-seed defaults."""
+        from app.db import cursor
+
         with cursor() as cur:
             cur.execute("DELETE FROM shenas_system.hotkeys")
-            for action_id, binding in Hotkey._DEFAULTS:
-                cur.execute(
-                    "INSERT INTO shenas_system.hotkeys (action_id, binding) VALUES (?, ?)",
-                    [action_id, binding],
-                )
+        for action_id, binding in cls._DEFAULTS:
+            cls(action_id=action_id, binding=binding).insert()

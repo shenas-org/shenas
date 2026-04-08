@@ -233,7 +233,7 @@ class Mutation:
         from app.hotkeys import Hotkey
         from app.models import OkResponse
 
-        Hotkey(action_id).set(binding)
+        Hotkey(action_id=action_id).set_binding(binding)
         return OkType.from_pydantic(OkResponse(ok=True))
 
     @strawberry.mutation
@@ -241,7 +241,7 @@ class Mutation:
         from app.hotkeys import Hotkey
         from app.models import OkResponse
 
-        Hotkey(action_id).delete()
+        Hotkey(action_id=action_id).delete()
         return OkType.from_pydantic(OkResponse(ok=True))
 
     @strawberry.mutation

@@ -545,6 +545,20 @@ class Table:
         with cursor() as cur:
             cur.execute(f"DELETE FROM {cls._qualified()} WHERE {where}", pk_vals)
 
+    def upsert(self) -> Self:
+        """Insert if no row with this PK exists, otherwise update.
+
+        Two-statement (SELECT then INSERT/UPDATE) rather than DuckDB's
+        ON CONFLICT, so the same code path works for any backend the
+        ABC ends up supporting. For the small-row system tables this
+        wraps, the extra round-trip is irrelevant.
+        """
+        cls = type(self)
+        pk_vals = [getattr(self, c) for c in cls.table_pk]
+        if cls.find(*pk_vals) is None:
+            return self.insert()
+        return self.save()
+
     @classmethod
     def clear_rows(cls, *, schema: str | None = None) -> None:
         """Delete every row from this table."""

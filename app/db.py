@@ -134,7 +134,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
 
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
-    tables = [Transform, PluginRecord, Workspace, Hotkey._Table, Hypothesis]
+    tables = [Transform, PluginRecord, Workspace, Hotkey, Hypothesis]
     Table.ensure_schema(con, tables, schema="shenas_system")
     Hotkey.seed(con)
     from shenas_datasets.core.dataset import Dataset
