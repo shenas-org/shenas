@@ -13,8 +13,43 @@ from shenas_sources.core.table import (
     DimensionTable,
     EventTable,
     IntervalTable,
+    M2MTable,
     SnapshotTable,
 )
+
+
+class TestM2MTable:
+    def test_kind_and_disposition(self) -> None:
+        class _Link(M2MTable):
+            name: ClassVar[str] = "links"
+            display_name: ClassVar[str] = "Links"
+            pk: ClassVar[tuple[str, ...]] = ("a_id", "b_id")
+            a_id: Annotated[int, Field(db_type="BIGINT", description="x")]
+            b_id: Annotated[int, Field(db_type="BIGINT", description="x")]
+
+        assert _Link.kind == "m2m_relation"
+        assert _Link.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
+
+    def test_requires_composite_pk(self) -> None:
+        with pytest.raises(TypeError, match="M2MTable requires a composite PK"):
+
+            class _BadLink(M2MTable):
+                name: ClassVar[str] = "x"
+                display_name: ClassVar[str] = "X"
+                pk: ClassVar[tuple[str, ...]] = ("only_one",)
+                only_one: Annotated[int, Field(db_type="BIGINT", description="x")]
+
+    def test_no_observed_at_injected(self) -> None:
+        class _Link(M2MTable):
+            name: ClassVar[str] = "links2"
+            display_name: ClassVar[str] = "Links"
+            pk: ClassVar[tuple[str, ...]] = ("a_id", "b_id")
+            a_id: Annotated[int, Field(db_type="BIGINT", description="x")]
+            b_id: Annotated[int, Field(db_type="BIGINT", description="x")]
+
+        cols = _Link.to_dlt_columns()
+        assert "observed_at" not in cols
+        assert set(cols.keys()) == {"a_id", "b_id"}
 
 
 class _Sample(EventTable):

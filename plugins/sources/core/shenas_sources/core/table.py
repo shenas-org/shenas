@@ -329,3 +329,37 @@ class CounterTable(Table):
         if not getattr(cls, "counter_columns", None):
             msg = f"{cls.__name__}: CounterTable requires `counter_columns`"
             raise TypeError(msg)
+
+
+class M2MTable(Table):
+    """Many-to-many bridge table joining two entities. Loaded as SCD2.
+
+    PK is the composite of the two foreign keys (must be at least 2 columns).
+    Rows typically have NO additional value columns -- denormalized attributes
+    belong on the entity dimensions and are joined when needed. Removals are
+    detected by SCD2 and close the row's ``_dlt_valid_to``, so historical
+    "what entities were linked at time T" queries return what was true then,
+    not what's true now.
+
+    This is structurally identical to ``DimensionTable`` (same SCD2 loader)
+    but flagged separately because it represents a graph edge, not standalone
+    reference data. Dashboards can render m2m tables as bipartite filters or
+    graph edges; dimensions as filter dropdowns.
+    """
+
+    _abstract: ClassVar[bool] = True
+    kind: ClassVar[TableKind] = "m2m_relation"
+
+    @classmethod
+    def write_disposition(cls) -> dict[str, str] | str:
+        return {"disposition": "merge", "strategy": "scd2"}
+
+    @classmethod
+    def _validate(cls) -> None:
+        super()._validate()
+        if len(cls.pk) < 2:
+            msg = (
+                f"{cls.__name__}: M2MTable requires a composite PK with at least 2 "
+                f"columns (the two foreign keys); got {cls.pk!r}"
+            )
+            raise TypeError(msg)

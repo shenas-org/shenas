@@ -171,9 +171,19 @@ class TestKindsAndDispositions:
         assert t.User.kind == "snapshot"
         assert t.User.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
 
-    def test_transaction_tags_event_no_native_time_injects_observed_at(self) -> None:
+    def test_transaction_tags_is_m2m_relation_scd2(self) -> None:
+        assert t.TransactionTags.kind == "m2m_relation"
+        assert t.TransactionTags.write_disposition() == {"disposition": "merge", "strategy": "scd2"}
+
+    def test_transaction_tags_no_observed_at(self) -> None:
+        # M2MTable uses SCD2 (_dlt_valid_from/_dlt_valid_to), not observed_at.
         cols = t.TransactionTags.to_dlt_columns()
-        assert "observed_at" in cols
+        assert "observed_at" not in cols
+
+    def test_transaction_tags_has_no_value_columns(self) -> None:
+        # The pure m2m link has only the two FKs -- no denormalized tag_name.
+        cols = t.TransactionTags.to_dlt_columns()
+        assert set(cols.keys()) == {"transaction_id", "tag_id"}
 
     def test_transactions_event_with_native_time_does_not_inject_observed_at(self) -> None:
         cols = t.Transactions.to_dlt_columns()
