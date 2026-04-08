@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, ClassVar
 
-from shenas_datasets.core import MetricTable
+from shenas_datasets.core import EventMetricTable
 from shenas_plugins.core.table import Field
 
 # Shared type aliases
@@ -12,7 +12,7 @@ Timestamp = Annotated[str, Field(db_type="TIMESTAMP", description="Event start t
 Source = Annotated[str, Field(db_type="VARCHAR", description="Source plugin (e.g. gcalendar, spotify, garmin)")]
 
 
-class Event(MetricTable):
+class Event(EventMetricTable):
     """A single event in the unified timeline.
 
     Events come from different sources: calendar appointments, music plays,
@@ -24,6 +24,7 @@ class Event(MetricTable):
     table_display_name: ClassVar[str] = "Events"
     table_description: ClassVar[str | None] = "Unified timeline of events from all sources."
     table_pk: ClassVar[tuple[str, ...]] = ("source", "source_id")
+    time_at: ClassVar[str] = "start_at"
 
     source: Source
     source_id: Annotated[

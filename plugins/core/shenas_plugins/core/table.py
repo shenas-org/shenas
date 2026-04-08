@@ -103,11 +103,16 @@ class Table:
     # written by ``ensure``.
     _ensured: ClassVar[set[tuple[str, str]]] = set()
 
-    # Map of source-side kind base class names to the kind string. Used by
-    # ``table_kind()`` to walk the MRO without importing the SourceTable
-    # subclasses (which would create a circular dep). M2MTable -> "m2m_relation"
-    # is the only entry that doesn't follow the lowercase-strip-Table pattern.
+    # Map of kind base class names to the kind string. Used by ``table_kind()``
+    # to walk the MRO without importing the SourceTable / MetricTable subclasses
+    # (which would create a circular dep). Inspecting class names instead of
+    # identities keeps this in shenas-plugin-core.
+    #
+    # Source-side kinds describe *load semantics* (how dlt writes the table);
+    # metric-side kinds describe *query semantics* (how a downstream consumer
+    # asks questions of an already-projected metric).
     _KIND_BY_BASE_NAME: ClassVar[dict[str, str]] = {
+        # Source-side: load semantics
         "EventTable": "event",
         "IntervalTable": "interval",
         "AggregateTable": "aggregate",
@@ -115,12 +120,18 @@ class Table:
         "SnapshotTable": "snapshot",
         "CounterTable": "counter",
         "M2MTable": "m2m_relation",
+        # Dataset-side: query semantics for derived metric tables
+        "DailyMetricTable": "daily_metric",
+        "WeeklyMetricTable": "weekly_metric",
+        "MonthlyMetricTable": "monthly_metric",
+        "EventMetricTable": "event_metric",
     }
 
     # One-line query hints, keyed by kind string. The LLM-facing catalog
     # surfaces these so a model can pick the right primitive without having
     # to know the SCD2 / observed_at / interval-overlap conventions itself.
     _QUERY_HINT_BY_KIND: ClassVar[dict[str, str]] = {
+        # Source-side load-semantics hints
         "event": "Filter or window by `time_at` (or `observed_at` if no native timestamp). Merge on PK.",
         "interval": "Filter where `time_start <= ts AND time_end > ts` for overlap. Merge on PK.",
         "aggregate": "Point lookup on the window key (`time_at`). Merge on the PK that includes the window key.",
@@ -128,6 +139,15 @@ class Table:
         "snapshot": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to read the value at time ts.",
         "counter": "ORDER BY `observed_at` and use `lag()` to compute per-period deltas; raw values are cumulative.",
         "m2m_relation": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to find which entities were linked at ts.",
+        # Dataset-side query-semantics hints
+        "daily_metric": "Per-day rollup. Filter or join on `date` (DATE). PK includes (date, source). Lag in days.",
+        "weekly_metric": "Per-week rollup. Filter or join on `week` (DATE/VARCHAR). PK includes (week, source). Lag in weeks.",
+        "monthly_metric": (
+            "Per-month rollup. Filter or join on `month` (VARCHAR YYYY-MM). PK includes (month, source). Lag in months."
+        ),
+        "event_metric": (
+            "Discrete event in the unified timeline. Filter or window by `occurred_at`. PK is typically (source, source_id)."
+        ),
     }
 
     # Internal: True on Table itself and on every abstract intermediate base

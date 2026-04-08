@@ -1,13 +1,13 @@
 from typing import Annotated, ClassVar
 
-from shenas_datasets.core import MetricTable
+from shenas_datasets.core import DailyMetricTable
 from shenas_plugins.core.table import Field
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", category="time")]
 Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier")]
 
 
-class DailyHabits(MetricTable):
+class DailyHabits(DailyMetricTable):
     """Daily habit tracking -- one row per (date, source)."""
 
     table_name: ClassVar[str] = "daily_habits"

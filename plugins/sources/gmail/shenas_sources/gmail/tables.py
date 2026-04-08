@@ -209,7 +209,7 @@ class Messages(EventTable):
     is_trash: Annotated[bool, Field(db_type="BOOLEAN", description="In trash")] = False
     is_spam: Annotated[bool, Field(db_type="BOOLEAN", description="In spam")] = False
     is_chat: Annotated[bool, Field(db_type="BOOLEAN", description="Chat message")] = False
-    size_estimate: Annotated[int, Field(db_type="INTEGER", description="Estimated message size in bytes")] = 0
+    size_estimate: Annotated[int, Field(db_type="INTEGER", description="Estimated message size in bytes", unit="bytes")] = 0
 
     @classmethod
     def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:

@@ -109,19 +109,23 @@ class Activities(IntervalTable):
     start_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="Start time (UTC)")] = None
     end_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="Computed end (start + elapsed_time)")] = None
     timezone: Annotated[str | None, Field(db_type="VARCHAR", description="Activity timezone")] = None
-    distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Distance (meters)")] = None
-    moving_time_s: Annotated[int | None, Field(db_type="INTEGER", description="Moving time (seconds)")] = None
-    elapsed_time_s: Annotated[int | None, Field(db_type="INTEGER", description="Elapsed time (seconds)")] = None
-    elevation_gain_m: Annotated[float | None, Field(db_type="DOUBLE", description="Elevation gain (meters)")] = None
-    average_speed_mps: Annotated[float | None, Field(db_type="DOUBLE", description="Average speed (m/s)")] = None
-    max_speed_mps: Annotated[float | None, Field(db_type="DOUBLE", description="Max speed (m/s)")] = None
-    average_heartrate: Annotated[float | None, Field(db_type="DOUBLE", description="Average heart rate (bpm)")] = None
-    max_heartrate: Annotated[float | None, Field(db_type="DOUBLE", description="Max heart rate (bpm)")] = None
-    average_temp: Annotated[float | None, Field(db_type="DOUBLE", description="Average temperature (degC)")] = None
-    kilojoules: Annotated[float | None, Field(db_type="DOUBLE", description="Total work (kJ)")] = None
-    calories: Annotated[float | None, Field(db_type="DOUBLE", description="Calories (kcal)")] = None
-    average_watts: Annotated[float | None, Field(db_type="DOUBLE", description="Average power (W)")] = None
-    max_watts: Annotated[float | None, Field(db_type="DOUBLE", description="Max power (W)")] = None
+    distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Distance (meters)", unit="m")] = None
+    moving_time_s: Annotated[int | None, Field(db_type="INTEGER", description="Moving time (seconds)", unit="s")] = None
+    elapsed_time_s: Annotated[int | None, Field(db_type="INTEGER", description="Elapsed time (seconds)", unit="s")] = None
+    elevation_gain_m: Annotated[float | None, Field(db_type="DOUBLE", description="Elevation gain (meters)", unit="m")] = None
+    average_speed_mps: Annotated[float | None, Field(db_type="DOUBLE", description="Average speed (m/s)", unit="m/s")] = None
+    max_speed_mps: Annotated[float | None, Field(db_type="DOUBLE", description="Max speed (m/s)", unit="m/s")] = None
+    average_heartrate: Annotated[float | None, Field(db_type="DOUBLE", description="Average heart rate (bpm)", unit="bpm")] = (
+        None
+    )
+    max_heartrate: Annotated[float | None, Field(db_type="DOUBLE", description="Max heart rate (bpm)", unit="bpm")] = None
+    average_temp: Annotated[float | None, Field(db_type="DOUBLE", description="Average temperature (degC)", unit="degC")] = (
+        None
+    )
+    kilojoules: Annotated[float | None, Field(db_type="DOUBLE", description="Total work (kJ)", unit="kJ")] = None
+    calories: Annotated[float | None, Field(db_type="DOUBLE", description="Calories (kcal)", unit="kcal")] = None
+    average_watts: Annotated[float | None, Field(db_type="DOUBLE", description="Average power (W)", unit="W")] = None
+    max_watts: Annotated[float | None, Field(db_type="DOUBLE", description="Max power (W)", unit="W")] = None
     suffer_score: Annotated[float | None, Field(db_type="DOUBLE", description="Strava suffer score")] = None
     achievement_count: Annotated[int, Field(db_type="INTEGER", description="Achievement count")] = 0
     kudos_count: Annotated[int, Field(db_type="INTEGER", description="Kudos count")] = 0
@@ -192,16 +196,16 @@ class Laps(IntervalTable):
     name_: Annotated[str | None, Field(db_type="VARCHAR", description="Lap name")] = None
     start_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="Lap start time (UTC)")] = None
     end_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="Computed end")] = None
-    distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Distance (meters)")] = None
-    moving_time_s: Annotated[int | None, Field(db_type="INTEGER", description="Moving time (seconds)")] = None
-    elapsed_time_s: Annotated[int | None, Field(db_type="INTEGER", description="Elapsed time (seconds)")] = None
-    elevation_gain_m: Annotated[float | None, Field(db_type="DOUBLE", description="Elevation gain (meters)")] = None
-    average_speed_mps: Annotated[float | None, Field(db_type="DOUBLE", description="Average speed (m/s)")] = None
-    max_speed_mps: Annotated[float | None, Field(db_type="DOUBLE", description="Max speed (m/s)")] = None
-    average_heartrate: Annotated[float | None, Field(db_type="DOUBLE", description="Average HR (bpm)")] = None
-    max_heartrate: Annotated[float | None, Field(db_type="DOUBLE", description="Max HR (bpm)")] = None
-    average_watts: Annotated[float | None, Field(db_type="DOUBLE", description="Average power (W)")] = None
-    average_cadence: Annotated[float | None, Field(db_type="DOUBLE", description="Average cadence")] = None
+    distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Distance (meters)", unit="m")] = None
+    moving_time_s: Annotated[int | None, Field(db_type="INTEGER", description="Moving time (seconds)", unit="s")] = None
+    elapsed_time_s: Annotated[int | None, Field(db_type="INTEGER", description="Elapsed time (seconds)", unit="s")] = None
+    elevation_gain_m: Annotated[float | None, Field(db_type="DOUBLE", description="Elevation gain (meters)", unit="m")] = None
+    average_speed_mps: Annotated[float | None, Field(db_type="DOUBLE", description="Average speed (m/s)", unit="m/s")] = None
+    max_speed_mps: Annotated[float | None, Field(db_type="DOUBLE", description="Max speed (m/s)", unit="m/s")] = None
+    average_heartrate: Annotated[float | None, Field(db_type="DOUBLE", description="Average HR (bpm)", unit="bpm")] = None
+    max_heartrate: Annotated[float | None, Field(db_type="DOUBLE", description="Max HR (bpm)", unit="bpm")] = None
+    average_watts: Annotated[float | None, Field(db_type="DOUBLE", description="Average power (W)", unit="W")] = None
+    average_cadence: Annotated[float | None, Field(db_type="DOUBLE", description="Average cadence", unit="rpm")] = None
 
     @staticmethod
     def _lap_row(activity_id: int, lap: Any) -> dict[str, Any]:
@@ -339,7 +343,7 @@ class Athlete(SnapshotTable):
     city: Annotated[str | None, Field(db_type="VARCHAR", description="City")] = None
     country: Annotated[str | None, Field(db_type="VARCHAR", description="Country")] = None
     sex: Annotated[str | None, Field(db_type="VARCHAR", description="Sex (M/F)")] = None
-    weight_kg: Annotated[float | None, Field(db_type="DOUBLE", description="Weight (kg)")] = None
+    weight_kg: Annotated[float | None, Field(db_type="DOUBLE", description="Weight (kg)", unit="kg")] = None
     ftp: Annotated[int | None, Field(db_type="INTEGER", description="Functional threshold power (W)")] = None
 
     @classmethod
@@ -373,38 +377,40 @@ class AthleteStats(SnapshotTable):
     table_pk: ClassVar[tuple[str, ...]] = ("athlete_id",)
 
     athlete_id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID")]
-    biggest_ride_distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Biggest ride distance")] = None
+    biggest_ride_distance_m: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Biggest ride distance", unit="m")
+    ] = None
     biggest_climb_elevation_m: Annotated[
         float | None,
-        Field(db_type="DOUBLE", description="Biggest climb elevation"),
+        Field(db_type="DOUBLE", description="Biggest climb elevation", unit="m"),
     ] = None
     recent_run_count: Annotated[int, Field(db_type="INTEGER", description="Recent (28d) run count")] = 0
-    recent_run_distance_m: Annotated[float, Field(db_type="DOUBLE", description="Recent run distance")] = 0.0
-    recent_run_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="Recent run moving time")] = 0
+    recent_run_distance_m: Annotated[float, Field(db_type="DOUBLE", description="Recent run distance", unit="m")] = 0.0
+    recent_run_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="Recent run moving time", unit="s")] = 0
     recent_ride_count: Annotated[int, Field(db_type="INTEGER", description="Recent (28d) ride count")] = 0
-    recent_ride_distance_m: Annotated[float, Field(db_type="DOUBLE", description="Recent ride distance")] = 0.0
-    recent_ride_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="Recent ride moving time")] = 0
+    recent_ride_distance_m: Annotated[float, Field(db_type="DOUBLE", description="Recent ride distance", unit="m")] = 0.0
+    recent_ride_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="Recent ride moving time", unit="s")] = 0
     recent_swim_count: Annotated[int, Field(db_type="INTEGER", description="Recent (28d) swim count")] = 0
-    recent_swim_distance_m: Annotated[float, Field(db_type="DOUBLE", description="Recent swim distance")] = 0.0
-    recent_swim_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="Recent swim moving time")] = 0
+    recent_swim_distance_m: Annotated[float, Field(db_type="DOUBLE", description="Recent swim distance", unit="m")] = 0.0
+    recent_swim_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="Recent swim moving time", unit="s")] = 0
     ytd_run_count: Annotated[int, Field(db_type="INTEGER", description="YTD run count")] = 0
-    ytd_run_distance_m: Annotated[float, Field(db_type="DOUBLE", description="YTD run distance")] = 0.0
-    ytd_run_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="YTD run moving time")] = 0
+    ytd_run_distance_m: Annotated[float, Field(db_type="DOUBLE", description="YTD run distance", unit="m")] = 0.0
+    ytd_run_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="YTD run moving time", unit="s")] = 0
     ytd_ride_count: Annotated[int, Field(db_type="INTEGER", description="YTD ride count")] = 0
-    ytd_ride_distance_m: Annotated[float, Field(db_type="DOUBLE", description="YTD ride distance")] = 0.0
-    ytd_ride_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="YTD ride moving time")] = 0
+    ytd_ride_distance_m: Annotated[float, Field(db_type="DOUBLE", description="YTD ride distance", unit="m")] = 0.0
+    ytd_ride_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="YTD ride moving time", unit="s")] = 0
     ytd_swim_count: Annotated[int, Field(db_type="INTEGER", description="YTD swim count")] = 0
-    ytd_swim_distance_m: Annotated[float, Field(db_type="DOUBLE", description="YTD swim distance")] = 0.0
-    ytd_swim_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="YTD swim moving time")] = 0
+    ytd_swim_distance_m: Annotated[float, Field(db_type="DOUBLE", description="YTD swim distance", unit="m")] = 0.0
+    ytd_swim_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="YTD swim moving time", unit="s")] = 0
     all_run_count: Annotated[int, Field(db_type="INTEGER", description="All-time run count")] = 0
-    all_run_distance_m: Annotated[float, Field(db_type="DOUBLE", description="All-time run distance")] = 0.0
-    all_run_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="All-time run moving time")] = 0
+    all_run_distance_m: Annotated[float, Field(db_type="DOUBLE", description="All-time run distance", unit="m")] = 0.0
+    all_run_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="All-time run moving time", unit="s")] = 0
     all_ride_count: Annotated[int, Field(db_type="INTEGER", description="All-time ride count")] = 0
-    all_ride_distance_m: Annotated[float, Field(db_type="DOUBLE", description="All-time ride distance")] = 0.0
-    all_ride_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="All-time ride moving time")] = 0
+    all_ride_distance_m: Annotated[float, Field(db_type="DOUBLE", description="All-time ride distance", unit="m")] = 0.0
+    all_ride_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="All-time ride moving time", unit="s")] = 0
     all_swim_count: Annotated[int, Field(db_type="INTEGER", description="All-time swim count")] = 0
-    all_swim_distance_m: Annotated[float, Field(db_type="DOUBLE", description="All-time swim distance")] = 0.0
-    all_swim_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="All-time swim moving time")] = 0
+    all_swim_distance_m: Annotated[float, Field(db_type="DOUBLE", description="All-time swim distance", unit="m")] = 0.0
+    all_swim_moving_time_s: Annotated[int, Field(db_type="INTEGER", description="All-time swim moving time", unit="s")] = 0
 
     @staticmethod
     def _totals(obj: Any, prefix: str) -> dict[str, Any]:
@@ -497,7 +503,7 @@ class Gear(CounterTable):
     name_: Annotated[str | None, Field(db_type="VARCHAR", description="Gear name")] = None
     brand_name: Annotated[str | None, Field(db_type="VARCHAR", description="Brand name")] = None
     model_name: Annotated[str | None, Field(db_type="VARCHAR", description="Model name")] = None
-    distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Cumulative distance (m)")] = None
+    distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Cumulative distance (m)", unit="m")] = None
     primary: Annotated[bool, Field(db_type="BOOLEAN", description="Marked as primary")] = False
     retired: Annotated[bool, Field(db_type="BOOLEAN", description="Retired")] = False
 

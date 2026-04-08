@@ -56,6 +56,22 @@ class Source(Plugin):
             if not hasattr(cls.Auth, "table_name"):
                 cls.Auth.table_name = f"pipe_{cls.name}"
             cls.Auth._finalize()
+        # Auto-set table_schema on every SourceTable in this source's TABLES
+        # tuple so the catalog can qualify references like `strava.activities`.
+        # Discovery is by convention: each source's tables module is at
+        # ``shenas_sources.<source_name>.tables`` and exports a ``TABLES``
+        # tuple. The lazy import here mirrors the lazy import in
+        # ``Source.resources()`` and stays tolerant of plugins that don't
+        # follow the convention (or have no source-side raw tables at all).
+        try:
+            import importlib
+
+            tables_mod = importlib.import_module(f"shenas_sources.{cls.name}.tables")
+            for t in getattr(tables_mod, "TABLES", ()):
+                if not getattr(t, "table_schema", None):
+                    t.table_schema = cls.name
+        except ImportError:
+            pass
 
     # -- Auth field derivation ------------------------------------------------
 
