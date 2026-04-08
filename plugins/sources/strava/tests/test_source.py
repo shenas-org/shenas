@@ -1,16 +1,29 @@
 """Tests for Strava source resources."""
 
+import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from shenas_sources.strava.resources import _activity_row, activities, athlete
+from shenas_sources.strava.resources import (
+    _activity_row,
+    activities,
+    athlete,
+    athlete_stats,
+    athlete_zones,
+    comments,
+    fetch_detailed_activities,
+    gear,
+    kudos,
+    laps,
+)
 
 
 def _make_activity(**overrides: object) -> SimpleNamespace:
-    base = {
+    base: dict[str, object] = {
         "id": 12345,
         "name": "Morning Run",
+        "description": "felt good",
         "sport_type": "Run",
         "start_date": datetime(2026, 3, 28, 8, 0, tzinfo=UTC),
         "timezone": "(GMT+01:00) Europe/Stockholm",
@@ -22,14 +35,22 @@ def _make_activity(**overrides: object) -> SimpleNamespace:
         "max_speed": SimpleNamespace(magnitude=4.1),
         "average_heartrate": 150.0,
         "max_heartrate": 175.0,
+        "average_temp": 14.0,
         "kilojoules": None,
         "calories": 320.5,
         "average_watts": None,
         "max_watts": None,
         "suffer_score": 25.0,
+        "achievement_count": 2,
+        "kudos_count": 5,
+        "comment_count": 1,
+        "total_photo_count": 0,
+        "gear_id": "g1",
+        "device_name": "Garmin",
         "trainer": False,
         "commute": False,
         "manual": False,
+        "laps": [],
     }
     base.update(overrides)
     return SimpleNamespace(**base)
@@ -45,36 +66,103 @@ class TestActivityRow:
         assert row["elevation_gain_m"] == 42.0
         assert row["calories"] == 320.5
         assert row["start_date"] == "2026-03-28T08:00:00+00:00"
+        assert row["kudos_count"] == 5
+        assert row["comment_count"] == 1
+        assert row["achievement_count"] == 2
+        assert row["gear_id"] == "g1"
 
     def test_handles_missing_fields(self) -> None:
-        activity = _make_activity(calories=None, average_watts=None, max_watts=None)
-        row = _activity_row(activity)
+        a = _make_activity(calories=None, average_watts=None, max_watts=None)
+        row = _activity_row(a)
         assert row["calories"] is None
         assert row["average_watts"] is None
         assert row["max_watts"] is None
 
     def test_plain_numeric_values(self) -> None:
-        # Some stravalib fields aren't pint quantities -- e.g. average_heartrate.
-        activity = _make_activity(average_heartrate=148, max_heartrate=170)
-        row = _activity_row(activity)
+        a = _make_activity(average_heartrate=148, max_heartrate=170)
+        row = _activity_row(a)
         assert row["average_heartrate"] == 148.0
         assert row["max_heartrate"] == 170.0
 
 
-class TestActivitiesResource:
-    def test_yields_rows_from_client(self) -> None:
+class TestFetchDetailedActivities:
+    def test_calls_get_activity_per_summary(self) -> None:
         client = MagicMock()
-        client.get_activities.return_value = iter([_make_activity(), _make_activity(id=2, name="Ride")])
+        client.get_activities.return_value = iter([SimpleNamespace(id=1), SimpleNamespace(id=2)])
+        client.get_activity.side_effect = lambda i, include_all_efforts=False: _make_activity(id=i)
 
-        rows = list(activities(client, start_date="2026-03-01"))
+        result = fetch_detailed_activities(client, start_date="2026-03-01")
+
+        assert len(result) == 2
+        assert client.get_activity.call_count == 2
+        assert [a.id for a in result] == [1, 2]
+
+
+class TestActivitiesAndLapsResources:
+    def test_activities_yields_rows(self) -> None:
+        detailed = [_make_activity(id=1), _make_activity(id=2, name="Ride")]
+        rows = list(activities(detailed))
+        assert [r["id"] for r in rows] == [1, 2]
+
+    def test_laps_yields_per_lap(self) -> None:
+        lap1 = SimpleNamespace(
+            id=10,
+            lap_index=1,
+            name="Lap 1",
+            start_date=datetime(2026, 3, 28, 8, 0, tzinfo=UTC),
+            distance=SimpleNamespace(magnitude=1000.0),
+            moving_time=SimpleNamespace(magnitude=300),
+            elapsed_time=SimpleNamespace(magnitude=310),
+            total_elevation_gain=SimpleNamespace(magnitude=5.0),
+            average_speed=SimpleNamespace(magnitude=3.3),
+            max_speed=SimpleNamespace(magnitude=4.0),
+            average_heartrate=145.0,
+            max_heartrate=160.0,
+            average_watts=None,
+            average_cadence=85.0,
+        )
+        lap2 = SimpleNamespace(**{**lap1.__dict__, "id": 11, "lap_index": 2})
+        detailed = [_make_activity(id=999, laps=[lap1, lap2])]
+        rows = list(laps(detailed))
         assert len(rows) == 2
-        assert rows[0]["id"] == 12345
-        assert rows[1]["id"] == 2
-        assert rows[1]["name"] == "Ride"
+        assert rows[0]["activity_id"] == 999
+        assert rows[0]["lap_index"] == 1
+        assert rows[0]["distance_m"] == 1000.0
 
 
-class TestAthleteResource:
-    def test_yields_profile(self) -> None:
+class TestKudosAndCommentsResources:
+    def test_kudos(self) -> None:
+        client = MagicMock()
+        client.get_activity_kudos.return_value = [
+            SimpleNamespace(id=100, firstname="Alice", lastname="A"),
+            SimpleNamespace(id=101, firstname="Bob", lastname="B"),
+        ]
+        detailed = [_make_activity(id=42)]
+        rows = list(kudos(client, detailed))
+        assert [(r["activity_id"], r["athlete_id"], r["firstname"]) for r in rows] == [
+            (42, 100, "Alice"),
+            (42, 101, "Bob"),
+        ]
+
+    def test_comments(self) -> None:
+        client = MagicMock()
+        client.get_activity_comments.return_value = [
+            SimpleNamespace(
+                id=200,
+                text="nice",
+                created_at=datetime(2026, 3, 28, 9, 0, tzinfo=UTC),
+                athlete=SimpleNamespace(id=300, firstname="Carol", lastname="C"),
+            )
+        ]
+        detailed = [_make_activity(id=42)]
+        rows = list(comments(client, detailed))
+        assert len(rows) == 1
+        assert rows[0]["athlete_name"] == "Carol C"
+        assert rows[0]["text"] == "nice"
+
+
+class TestAthleteResources:
+    def test_athlete(self) -> None:
         client = MagicMock()
         client.get_athlete.return_value = SimpleNamespace(
             id=999,
@@ -89,7 +177,77 @@ class TestAthleteResource:
         )
 
         rows = list(athlete(client))
-        assert len(rows) == 1
-        assert rows[0]["id"] == 999
         assert rows[0]["weight_kg"] == 72.5
         assert rows[0]["ftp"] == 240
+
+    def test_athlete_stats(self) -> None:
+        client = MagicMock()
+        client.get_athlete.return_value = SimpleNamespace(id=999)
+        stats = SimpleNamespace(
+            biggest_ride_distance=SimpleNamespace(magnitude=120000.0),
+            biggest_climb_elevation_gain=SimpleNamespace(magnitude=850.0),
+            recent_run_totals=SimpleNamespace(count=4, distance=SimpleNamespace(magnitude=42000.0), moving_time=14400),
+            recent_ride_totals=SimpleNamespace(count=0, distance=None, moving_time=None),
+            recent_swim_totals=SimpleNamespace(count=0, distance=None, moving_time=None),
+            ytd_run_totals=SimpleNamespace(count=12, distance=SimpleNamespace(magnitude=126000.0), moving_time=43200),
+            ytd_ride_totals=SimpleNamespace(count=0, distance=None, moving_time=None),
+            ytd_swim_totals=SimpleNamespace(count=0, distance=None, moving_time=None),
+            all_run_totals=SimpleNamespace(count=200, distance=SimpleNamespace(magnitude=2000000.0), moving_time=720000),
+            all_ride_totals=SimpleNamespace(count=0, distance=None, moving_time=None),
+            all_swim_totals=SimpleNamespace(count=0, distance=None, moving_time=None),
+        )
+        client.get_athlete_stats.return_value = stats
+        rows = list(athlete_stats(client))
+        assert rows[0]["athlete_id"] == 999
+        assert rows[0]["biggest_ride_distance_m"] == 120000.0
+        assert rows[0]["recent_run_count"] == 4
+        assert rows[0]["recent_run_distance_m"] == 42000.0
+        assert rows[0]["all_run_count"] == 200
+
+    def test_athlete_zones(self) -> None:
+        client = MagicMock()
+        client.get_athlete.return_value = SimpleNamespace(id=999)
+        client.get_athlete_zones.return_value = SimpleNamespace(
+            heart_rate=SimpleNamespace(
+                zones=[SimpleNamespace(min=0, max=120), SimpleNamespace(min=120, max=140)],
+            ),
+            power=None,
+        )
+        rows = list(athlete_zones(client))
+        assert len(rows) == 1
+        hr = json.loads(rows[0]["heart_rate_zones"])
+        assert hr == [{"min": 0, "max": 120}, {"min": 120, "max": 140}]
+        assert rows[0]["power_zones"] is None
+
+    def test_athlete_zones_handles_missing(self) -> None:
+        client = MagicMock()
+        client.get_athlete.return_value = SimpleNamespace(id=999)
+        client.get_athlete_zones.side_effect = RuntimeError("no zones")
+        rows = list(athlete_zones(client))
+        assert rows == []
+
+
+class TestGearResource:
+    def test_yields_bikes_and_shoes(self) -> None:
+        client = MagicMock()
+        client.get_athlete.return_value = SimpleNamespace(
+            bikes=[SimpleNamespace(id="b1", name="Road", primary=True, distance=SimpleNamespace(magnitude=8000.0))],
+            shoes=[SimpleNamespace(id="g1", name="Trainers", primary=True, distance=SimpleNamespace(magnitude=400.0))],
+        )
+        client.get_gear.side_effect = lambda gid: SimpleNamespace(
+            id=gid,
+            name=f"detail-{gid}",
+            brand_name="Acme",
+            model_name="X",
+            distance=SimpleNamespace(magnitude=8000.0 if gid == "b1" else 400.0),
+            primary=True,
+            retired=False,
+        )
+
+        rows = list(gear(client))
+        assert len(rows) == 2
+        types = {r["type"] for r in rows}
+        assert types == {"bike", "shoe"}
+        bike = next(r for r in rows if r["type"] == "bike")
+        assert bike["brand_name"] == "Acme"
+        assert bike["distance_m"] == 8000.0
