@@ -275,3 +275,48 @@ def ask_for_recipe(
     system = build_system_prompt()
     user = build_user_prompt(question, catalog)
     return provider.ask(system=system, user=user, tools=[submit_recipe_tool()])
+
+
+def ask_for_recipe_with_retry(
+    provider: LLMProvider,
+    question: str,
+    catalog: dict[str, dict[str, Any]],
+    *,
+    validate: Any = None,
+    max_attempts: int = 2,
+) -> tuple[dict[str, Any], list[str]]:
+    """Iteration loop: retry once if the recipe doesn't validate.
+
+    Calls ``validate(payload)`` after each attempt; if it raises, the
+    exception message is appended to the user prompt and the LLM is
+    asked to fix it. Returns ``(payload, errors)`` where ``errors`` is
+    the list of validation errors encountered along the way (empty on
+    first-try success). After ``max_attempts``, the most recent payload
+    is returned even if still invalid -- caller decides what to do.
+
+    ``validate`` is left abstract so this function stays decoupled from
+    Recipe imports; pass ``Recipe.from_payload_and_validate`` (or
+    similar) from the call site.
+    """
+    system = build_system_prompt()
+    user = build_user_prompt(question, catalog)
+    tools = [submit_recipe_tool()]
+
+    errors: list[str] = []
+    payload: dict[str, Any] = {}
+    for attempt in range(max_attempts):
+        payload = provider.ask(system=system, user=user, tools=tools)
+        if validate is None:
+            return payload, errors
+        try:
+            validate(payload)
+            return payload, errors
+        except Exception as exc:
+            errors.append(str(exc))
+            if attempt == max_attempts - 1:
+                break
+            user = (
+                f"{user}\n\n## Previous attempt failed validation\n\n"
+                f"Error: {exc}\n\nFix the recipe and call submit_recipe again."
+            )
+    return payload, errors
