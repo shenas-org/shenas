@@ -58,6 +58,7 @@ def test_con() -> duckdb.DuckDBPyConnection:
         "model VARCHAR DEFAULT '', promoted_to VARCHAR, "
         "llm_input_tokens INTEGER, llm_output_tokens INTEGER, "
         "llm_elapsed_ms DOUBLE, query_elapsed_ms DOUBLE, wall_clock_ms DOUBLE, "
+        "parent_id INTEGER, "
         "PRIMARY KEY (id))"
     )
     con.execute(
@@ -635,6 +636,32 @@ class TestGraphQLMutations:
         assert cost["llm_elapsed_ms"] >= 0
         assert cost["query_elapsed_ms"] >= 0
         assert cost["wall_clock_ms"] >= 0
+
+    # -- Forking --
+
+    def test_fork_hypothesis(self, client: TestClient) -> None:
+        from app.hypotheses import Hypothesis
+        from shenas_plugins.core.analytics import Recipe, SourceRef
+
+        recipe = Recipe(nodes={"a": SourceRef(table="metrics.daily_intake")}, final="a")
+        parent = Hypothesis.create("does coffee affect mood?", recipe, plan="initial plan")
+
+        result = _gql(client, f"mutation {{ forkHypothesis(hypothesisId: {parent.id}) }}")
+        assert "errors" not in result
+        body = result["data"]["forkHypothesis"]
+        assert body["parent_id"] == parent.id
+        assert body["question"] == parent.question
+        assert body["id"] != parent.id
+
+        fork = Hypothesis.find(body["id"])
+        assert fork is not None
+        assert fork.parent_id == parent.id
+        assert fork.recipe_json == parent.recipe_json
+
+    def test_fork_hypothesis_not_found(self, client: TestClient) -> None:
+        result = _gql(client, "mutation { forkHypothesis(hypothesisId: 999999) }")
+        assert "errors" not in result
+        assert "error" in result["data"]["forkHypothesis"]
 
     # -- Promotion --
 

@@ -129,6 +129,9 @@ class Hypothesis(Table):
     wall_clock_ms: (
         Annotated[float, Field(db_type="DOUBLE", description="End-to-end wall clock for the whole askHypothesis turn")] | None
     ) = None
+    # Forking: parent_id is the hypothesis this one was branched from.
+    # Forks share the question + initial recipe but iterate independently.
+    parent_id: Annotated[int, Field(db_type="INTEGER", description="Parent hypothesis id if this is a fork")] | None = None
 
     # ------------------------------------------------------------------
     # Factory: create() handles recipe serialization + input extraction
