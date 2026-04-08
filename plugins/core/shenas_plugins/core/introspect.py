@@ -23,7 +23,7 @@ def _extract_field_meta(hint: type) -> dict[str, Any]:
 
 
 def table_metadata(cls: type) -> dict[str, Any]:
-    """Return full metadata for a table class, suitable for LLM context."""
+    """Return full metadata for a Table subclass, suitable for LLM context."""
     import sys
 
     mod = sys.modules.get(cls.__module__, None)
@@ -32,11 +32,11 @@ def table_metadata(cls: type) -> dict[str, Any]:
     columns: list[dict[str, Any]] = []
     for f in dataclasses.fields(cls):
         meta = _extract_field_meta(hints[f.name])
-        columns.append({"name": f.name, "nullable": f.name not in cls.__pk__, **meta})
+        columns.append({"name": f.name, "nullable": f.name not in cls.table_pk, **meta})
     return {
-        "table": cls.__table__,
-        "description": cls.__doc__,
-        "primary_key": list(cls.__pk__),
+        "table": cls.table_name,
+        "description": getattr(cls, "table_description", None) or cls.__doc__,
+        "primary_key": list(cls.table_pk),
         "columns": columns,
     }
 

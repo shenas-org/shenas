@@ -23,9 +23,9 @@ from shenas_sources.core.table import M2MTable
 class TransactionTagsLink(M2MTable):
     """The minimal m2m bridge: composite PK, NO value columns."""
 
-    name: ClassVar[str] = "transaction_tags"
-    display_name: ClassVar[str] = "Transaction Tags"
-    pk: ClassVar[tuple[str, ...]] = ("transaction_id", "tag_id")
+    table_name: ClassVar[str] = "transaction_tags"
+    table_display_name: ClassVar[str] = "Transaction Tags"
+    table_pk: ClassVar[tuple[str, ...]] = ("transaction_id", "tag_id")
 
     transaction_id: Annotated[int, Field(db_type="INTEGER", description="Transaction ID")]
     tag_id: Annotated[int, Field(db_type="INTEGER", description="Tag ID")]

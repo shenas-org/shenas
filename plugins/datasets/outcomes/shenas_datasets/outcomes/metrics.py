@@ -1,18 +1,19 @@
-from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
+from shenas_datasets.core import MetricTable
 from shenas_plugins.core.field import Field
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", category="time")]
 Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier (e.g. obsidian)")]
 
 
-@dataclass
-class DailyOutcome:
-    """Daily self-reported outcomes — one row per (date, source)."""
+class DailyOutcome(MetricTable):
+    """Daily self-reported outcomes -- one row per (date, source)."""
 
-    __table__: ClassVar[str] = "daily_outcomes"
-    __pk__: ClassVar[tuple[str, ...]] = ("date", "source")
+    table_name: ClassVar[str] = "daily_outcomes"
+    table_display_name: ClassVar[str] = "Daily Outcomes"
+    table_description: ClassVar[str | None] = "Per-day self-reported wellbeing, social, and health signals."
+    table_pk: ClassVar[tuple[str, ...]] = ("date", "source")
 
     date: Date
     source: Source

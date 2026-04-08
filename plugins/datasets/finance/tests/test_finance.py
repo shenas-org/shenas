@@ -21,9 +21,9 @@ class TestMetrics:
 
     def test_each_table_has_pk(self) -> None:
         for cls in ALL_TABLES:
-            assert hasattr(cls, "__table__")
-            assert hasattr(cls, "__pk__")
-            assert len(cls.__pk__) >= 2
+            assert hasattr(cls, "table_name")
+            assert hasattr(cls, "table_pk")
+            assert len(cls.table_pk) >= 2
 
     def test_transaction_fields(self) -> None:
         field_names = [f.name for f in Transaction.__dataclass_fields__.values()]
@@ -45,7 +45,7 @@ class TestMetrics:
         assert "savings_rate" in field_names
 
     def test_monthly_category_pk(self) -> None:
-        assert MonthlyCategory.__pk__ == ("month", "category", "source")
+        assert MonthlyCategory.table_pk == ("month", "category", "source")
 
 
 class TestDDL:
@@ -60,7 +60,7 @@ class TestDDL:
     def test_generate_ddl_all_tables(self) -> None:
         for cls in ALL_TABLES:
             ddl = generate_ddl(cls)
-            assert f"metrics.{cls.__table__}" in ddl
+            assert f"metrics.{cls.table_name}" in ddl
             assert "PRIMARY KEY" in ddl
 
     def test_ensure_schema_creates_tables(self) -> None:

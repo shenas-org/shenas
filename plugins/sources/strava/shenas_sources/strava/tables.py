@@ -95,10 +95,10 @@ def fetch_detailed_activities(client: Any, start_date: str = "30 days ago") -> l
 class Activities(IntervalTable):
     """A workout / activity (run, ride, swim, ...) -- start + computed end."""
 
-    name: ClassVar[str] = "activities"
-    display_name: ClassVar[str] = "Activities"
-    description: ClassVar[str | None] = "Strava workouts and activities, fetched as DetailedActivity."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "activities"
+    table_display_name: ClassVar[str] = "Activities"
+    table_description: ClassVar[str | None] = "Strava workouts and activities, fetched as DetailedActivity."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
     time_start: ClassVar[str] = "start_date"
     time_end: ClassVar[str] = "end_date"
 
@@ -179,10 +179,10 @@ class Activities(IntervalTable):
 class Laps(IntervalTable):
     """A single lap within an activity -- start + computed end."""
 
-    name: ClassVar[str] = "laps"
-    display_name: ClassVar[str] = "Laps"
-    description: ClassVar[str | None] = "Per-lap splits embedded in each detailed activity."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "laps"
+    table_display_name: ClassVar[str] = "Laps"
+    table_description: ClassVar[str | None] = "Per-lap splits embedded in each detailed activity."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
     time_start: ClassVar[str] = "start_date"
     time_end: ClassVar[str] = "end_date"
 
@@ -246,10 +246,10 @@ class Kudos(M2MTable):
     stayed alive in DuckDB forever. SCD2 closes _dlt_valid_to on disappearance.
     """
 
-    name: ClassVar[str] = "kudos"
-    display_name: ClassVar[str] = "Kudos"
-    description: ClassVar[str | None] = "Per-activity kudos links (athlete -> activity)."
-    pk: ClassVar[tuple[str, ...]] = ("activity_id", "athlete_id")
+    table_name: ClassVar[str] = "kudos"
+    table_display_name: ClassVar[str] = "Kudos"
+    table_description: ClassVar[str | None] = "Per-activity kudos links (athlete -> activity)."
+    table_pk: ClassVar[tuple[str, ...]] = ("activity_id", "athlete_id")
 
     activity_id: Annotated[int, Field(db_type="BIGINT", description="Activity ID")]
     athlete_id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID who kudoed")]
@@ -281,10 +281,10 @@ class Kudos(M2MTable):
 class Comments(EventTable):
     """Per-activity comments. Each comment has its own id and is immutable."""
 
-    name: ClassVar[str] = "comments"
-    display_name: ClassVar[str] = "Comments"
-    description: ClassVar[str | None] = "Comments left on activities by other athletes."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "comments"
+    table_display_name: ClassVar[str] = "Comments"
+    table_description: ClassVar[str | None] = "Comments left on activities by other athletes."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
     time_at: ClassVar[str] = "created_at"
 
     id: Annotated[int, Field(db_type="BIGINT", description="Comment ID")]
@@ -327,10 +327,10 @@ class Comments(EventTable):
 class Athlete(SnapshotTable):
     """The authenticated Strava athlete profile."""
 
-    name: ClassVar[str] = "athlete"
-    display_name: ClassVar[str] = "Athlete"
-    description: ClassVar[str | None] = "Authenticated Strava athlete profile."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "athlete"
+    table_display_name: ClassVar[str] = "Athlete"
+    table_description: ClassVar[str | None] = "Authenticated Strava athlete profile."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
     id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID")]
     username: Annotated[str | None, Field(db_type="VARCHAR", description="Username")] = None
@@ -367,10 +367,10 @@ class AthleteStats(SnapshotTable):
     proper CounterTable, similar to the asset/plaid/crypto balance follow-up.
     """
 
-    name: ClassVar[str] = "athlete_stats"
-    display_name: ClassVar[str] = "Athlete Stats"
-    description: ClassVar[str | None] = "Recent / YTD / all-time totals for run, ride, swim."
-    pk: ClassVar[tuple[str, ...]] = ("athlete_id",)
+    table_name: ClassVar[str] = "athlete_stats"
+    table_display_name: ClassVar[str] = "Athlete Stats"
+    table_description: ClassVar[str | None] = "Recent / YTD / all-time totals for run, ride, swim."
+    table_pk: ClassVar[tuple[str, ...]] = ("athlete_id",)
 
     athlete_id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID")]
     biggest_ride_distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Biggest ride distance")] = None
@@ -441,10 +441,10 @@ class AthleteStats(SnapshotTable):
 class AthleteZones(SnapshotTable):
     """HR + power zone configuration."""
 
-    name: ClassVar[str] = "athlete_zones"
-    display_name: ClassVar[str] = "Athlete Zones"
-    description: ClassVar[str | None] = "Heart-rate and power training zones."
-    pk: ClassVar[tuple[str, ...]] = ("athlete_id",)
+    table_name: ClassVar[str] = "athlete_zones"
+    table_display_name: ClassVar[str] = "Athlete Zones"
+    table_description: ClassVar[str | None] = "Heart-rate and power training zones."
+    table_pk: ClassVar[tuple[str, ...]] = ("athlete_id",)
 
     athlete_id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID")]
     heart_rate_zones: Annotated[str | None, Field(db_type="TEXT", description="HR zones JSON")] = None
@@ -486,10 +486,10 @@ class Gear(CounterTable):
     the latest cumulative value.
     """
 
-    name: ClassVar[str] = "gear"
-    display_name: ClassVar[str] = "Gear"
-    description: ClassVar[str | None] = "Bikes and shoes with cumulative distance."
-    pk: ClassVar[tuple[str, ...]] = ("id",)
+    table_name: ClassVar[str] = "gear"
+    table_display_name: ClassVar[str] = "Gear"
+    table_description: ClassVar[str | None] = "Bikes and shoes with cumulative distance."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
     counter_columns: ClassVar[tuple[str, ...]] = ("distance_m",)
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Gear ID")]

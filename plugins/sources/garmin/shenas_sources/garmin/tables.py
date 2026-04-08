@@ -40,10 +40,10 @@ class Activities(IntervalTable):
     work uniformly with the other interval tables.
     """
 
-    name: ClassVar[str] = "activities"
-    display_name: ClassVar[str] = "Activities"
-    description: ClassVar[str | None] = "Activity summaries from Garmin Connect."
-    pk: ClassVar[tuple[str, ...]] = ("activity_id",)
+    table_name: ClassVar[str] = "activities"
+    table_display_name: ClassVar[str] = "Activities"
+    table_description: ClassVar[str | None] = "Activity summaries from Garmin Connect."
+    table_pk: ClassVar[tuple[str, ...]] = ("activity_id",)
     time_start: ClassVar[str] = "startTimeLocal"
     time_end: ClassVar[str] = "end_time_local"
     cursor_column: ClassVar[str] = "startTimeLocal"
@@ -95,7 +95,7 @@ class _DailyAggregate(AggregateTable):
     """Common base for per-day Garmin aggregates keyed on calendarDate."""
 
     _abstract: ClassVar[bool] = True
-    pk: ClassVar[tuple[str, ...]] = ("calendarDate",)
+    table_pk: ClassVar[tuple[str, ...]] = ("calendarDate",)
     time_at: ClassVar[str] = "calendarDate"
     cursor_column: ClassVar[str] = "calendarDate"
 
@@ -103,9 +103,9 @@ class _DailyAggregate(AggregateTable):
 class DailyStats(_DailyAggregate):
     """Garmin daily stats summary."""
 
-    name: ClassVar[str] = "daily_stats"
-    display_name: ClassVar[str] = "Daily Stats"
-    description: ClassVar[str | None] = "Per-day Garmin user summary (steps, calories, RHR)."
+    table_name: ClassVar[str] = "daily_stats"
+    table_display_name: ClassVar[str] = "Daily Stats"
+    table_description: ClassVar[str | None] = "Per-day Garmin user summary (steps, calories, RHR)."
 
     calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""  # noqa: N815
     totalSteps: Annotated[int | None, Field(db_type="INTEGER", description="Total steps")] = None  # noqa: N815
@@ -135,9 +135,9 @@ class DailyStats(_DailyAggregate):
 class Sleep(_DailyAggregate):
     """Garmin sleep data."""
 
-    name: ClassVar[str] = "sleep"
-    display_name: ClassVar[str] = "Sleep"
-    description: ClassVar[str | None] = "Per-day sleep data."
+    table_name: ClassVar[str] = "sleep"
+    table_display_name: ClassVar[str] = "Sleep"
+    table_description: ClassVar[str | None] = "Per-day sleep data."
 
     calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""  # noqa: N815
 
@@ -162,9 +162,9 @@ class Sleep(_DailyAggregate):
 class Hrv(_DailyAggregate):
     """Garmin HRV data."""
 
-    name: ClassVar[str] = "hrv"
-    display_name: ClassVar[str] = "HRV"
-    description: ClassVar[str | None] = "Per-day heart rate variability data."
+    table_name: ClassVar[str] = "hrv"
+    table_display_name: ClassVar[str] = "HRV"
+    table_description: ClassVar[str | None] = "Per-day heart rate variability data."
 
     calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""  # noqa: N815
 
@@ -189,9 +189,9 @@ class Hrv(_DailyAggregate):
 class Spo2(_DailyAggregate):
     """Garmin SpO2 data."""
 
-    name: ClassVar[str] = "spo2"
-    display_name: ClassVar[str] = "SpO2"
-    description: ClassVar[str | None] = "Per-day blood oxygen saturation data."
+    table_name: ClassVar[str] = "spo2"
+    table_display_name: ClassVar[str] = "SpO2"
+    table_description: ClassVar[str | None] = "Per-day blood oxygen saturation data."
 
     calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""  # noqa: N815
 
@@ -215,10 +215,10 @@ class Spo2(_DailyAggregate):
 class BodyComposition(AggregateTable):
     """Garmin body composition entry."""
 
-    name: ClassVar[str] = "body_composition"
-    display_name: ClassVar[str] = "Body Composition"
-    description: ClassVar[str | None] = "Body composition entries (weight, body fat, etc)."
-    pk: ClassVar[tuple[str, ...]] = ("samplePk",)
+    table_name: ClassVar[str] = "body_composition"
+    table_display_name: ClassVar[str] = "Body Composition"
+    table_description: ClassVar[str | None] = "Body composition entries (weight, body fat, etc)."
+    table_pk: ClassVar[tuple[str, ...]] = ("samplePk",)
 
     samplePk: Annotated[int, Field(db_type="INTEGER", description="Sample primary key")] = 0  # noqa: N815
 

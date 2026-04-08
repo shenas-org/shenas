@@ -1,18 +1,19 @@
-from dataclasses import dataclass
 from typing import Annotated, ClassVar
 
+from shenas_datasets.core import MetricTable
 from shenas_plugins.core.field import Field
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", category="time")]
 Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier (e.g. garmin, oura)")]
 
 
-@dataclass
-class DailyHRV:
-    """Heart Rate Variability — one row per (date, source)."""
+class DailyHRV(MetricTable):
+    """Heart Rate Variability -- one row per (date, source)."""
 
-    __table__: ClassVar[str] = "daily_hrv"
-    __pk__: ClassVar[tuple[str, ...]] = ("date", "source")
+    table_name: ClassVar[str] = "daily_hrv"
+    table_display_name: ClassVar[str] = "Daily HRV"
+    table_description: ClassVar[str | None] = "Per-day heart rate variability summary."
+    table_pk: ClassVar[tuple[str, ...]] = ("date", "source")
 
     date: Date
     source: Source
@@ -48,12 +49,13 @@ class DailyHRV:
     ) = None
 
 
-@dataclass
-class DailySleep:
-    """Sleep summary — one row per (date, source)."""
+class DailySleep(MetricTable):
+    """Sleep summary -- one row per (date, source)."""
 
-    __table__: ClassVar[str] = "daily_sleep"
-    __pk__: ClassVar[tuple[str, ...]] = ("date", "source")
+    table_name: ClassVar[str] = "daily_sleep"
+    table_display_name: ClassVar[str] = "Daily Sleep"
+    table_description: ClassVar[str | None] = "Per-day sleep summary (duration, score, stage breakdown)."
+    table_pk: ClassVar[tuple[str, ...]] = ("date", "source")
 
     date: Date
     source: Source
@@ -148,12 +150,13 @@ class DailySleep:
     ) = None
 
 
-@dataclass
-class DailyVitals:
-    """Key daily vitals — one row per (date, source)."""
+class DailyVitals(MetricTable):
+    """Key daily vitals -- one row per (date, source)."""
 
-    __table__: ClassVar[str] = "daily_vitals"
-    __pk__: ClassVar[tuple[str, ...]] = ("date", "source")
+    table_name: ClassVar[str] = "daily_vitals"
+    table_display_name: ClassVar[str] = "Daily Vitals"
+    table_description: ClassVar[str | None] = "Per-day vital signs and activity totals (HR, steps, calories, SpO2)."
+    table_pk: ClassVar[tuple[str, ...]] = ("date", "source")
 
     date: Date
     source: Source
@@ -219,12 +222,13 @@ class DailyVitals:
     ) = None
 
 
-@dataclass
-class DailyBody:
-    """Body composition — one row per (date, source)."""
+class DailyBody(MetricTable):
+    """Body composition -- one row per (date, source)."""
 
-    __table__: ClassVar[str] = "daily_body"
-    __pk__: ClassVar[tuple[str, ...]] = ("date", "source")
+    table_name: ClassVar[str] = "daily_body"
+    table_display_name: ClassVar[str] = "Daily Body Composition"
+    table_description: ClassVar[str | None] = "Per-day body weight, BMI, body fat, and muscle mass."
+    table_pk: ClassVar[tuple[str, ...]] = ("date", "source")
 
     date: Date
     source: Source

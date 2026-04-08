@@ -1,12 +1,19 @@
-"""Abstract source-table base classes.
+"""Source-side raw-table base class.
 
-Each raw source table is a class inheriting from one of the six kind-specific
-base classes (``EventTable``, ``IntervalTable``, ``SnapshotTable``,
-``DimensionTable``, ``AggregateTable``, ``CounterTable``). The kind is encoded
-in the inheritance chain rather than as a magic string -- the type system
-enforces the per-kind required class attributes at definition time, and each
-kind base owns its own ``write_disposition()`` so the dlt loader gets the
-right strategy automatically:
+``SourceTable`` extends the common :class:`shenas_plugins.core.table.Table`
+with everything that's specific to *raw, freshly synced source data*: a
+``kind`` taxonomy, dlt resource translation (write_disposition + columns),
+optional incremental cursors, and auto-injection of ``observed_at`` for
+tables without a native timestamp.
+
+Each raw source table is a class inheriting from one of the seven
+kind-specific base classes (``EventTable``, ``IntervalTable``,
+``SnapshotTable``, ``DimensionTable``, ``AggregateTable``, ``CounterTable``,
+``M2MTable``). The kind is encoded in the inheritance chain rather than as
+a magic string -- the type system enforces the per-kind required class
+attributes at definition time, and each kind base owns its own
+``write_disposition()`` so the dlt loader gets the right strategy
+automatically:
 
 - ``EventTable``     -> ``"merge"`` on PK; observed_at auto-injected if no time_at
 - ``IntervalTable``  -> ``"merge"`` on PK; requires time_start + time_end
@@ -14,21 +21,22 @@ right strategy automatically:
 - ``DimensionTable`` -> ``{"disposition": "merge", "strategy": "scd2"}``
 - ``SnapshotTable``  -> ``{"disposition": "merge", "strategy": "scd2"}``
 - ``CounterTable``   -> ``"append"`` with observed_at; requires counter_columns
+- ``M2MTable``       -> ``{"disposition": "merge", "strategy": "scd2"}``; PK >= 2 cols
 
 Concrete subclasses just declare their schema fields, set ``name``,
 ``display_name``, ``pk``, and any kind-specific metadata, and implement
-:meth:`Table.extract`. The class itself becomes a dlt resource via
-:meth:`Table.to_resource`.
+:meth:`SourceTable.extract`. The class itself becomes a dlt resource via
+:meth:`SourceTable.to_resource`.
 
 Example
 -------
 ::
 
     class Categories(DimensionTable):
-        name = "categories"
-        display_name = "Lunch Money Categories"
-        description = "Spending categories the user has defined."
-        pk = ("id",)
+        table_name = "categories"
+        table_display_name = "Lunch Money Categories"
+        table_description = "Spending categories the user has defined."
+        table_pk = ("id",)
 
         id: Annotated[int, Field(db_type="INTEGER", description="Category ID")]
         name_: Annotated[str, Field(db_type="VARCHAR", description="Category name")]
@@ -41,18 +49,18 @@ Example
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from shenas_plugins.core.field import TableKind  # noqa: TC001  -- needed at runtime by get_type_hints walking the MRO
+from shenas_plugins.core.table import Table
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
 # Map DuckDB types (as produced by shenas_plugins.core.ddl._duckdb_type) to
-# dlt's type system. Used by Table.to_dlt_columns().
+# dlt's type system. Used by SourceTable.to_dlt_columns().
 _DLT_TYPE_MAP: dict[str, str] = {
     "varchar": "text",
     "text": "text",
@@ -70,31 +78,18 @@ _DLT_TYPE_MAP: dict[str, str] = {
 }
 
 
-class Table:
+class SourceTable(Table):
     """Abstract base class for raw source tables.
 
-    **Don't inherit from this directly** -- use one of the six kind-specific
+    **Don't inherit from this directly** -- use one of the seven kind-specific
     bases below (``EventTable``, ``IntervalTable``, etc.). The kind is encoded
     in the inheritance chain.
-
-    Required class attributes on every concrete subclass
-    ----------------------------------------------------
-    name           : dlt resource name + DuckDB table name
-    display_name   : human-readable label for the frontend
-    pk             : tuple of natural primary key column names
-
-    Optional
-    --------
-    description    : free-text description (rendered in dashboards)
     """
 
-    # Concrete subclasses must override these.
-    name: ClassVar[str]
-    display_name: ClassVar[str]
-    pk: ClassVar[tuple[str, ...]]
-    kind: ClassVar[TableKind]  # set by each kind base class
+    _abstract: ClassVar[bool] = True
 
-    description: ClassVar[str | None] = None
+    # Set by each kind base class.
+    kind: ClassVar[TableKind]
 
     # Optional incremental-cursor column (only meaningful for non-SCD2 kinds).
     # When set, ``to_resource`` wires a ``dlt.sources.incremental(cursor_column)``
@@ -102,34 +97,13 @@ class Table:
     # ``extract`` as a ``cursor`` kwarg.
     cursor_column: ClassVar[str | None] = None
 
-    # Internal: True on Table itself and on each kind base; False on concrete
-    # subclasses (auto-set by __init_subclass__). Skips validation + the
-    # @dataclass decorator for abstract base classes.
-    _abstract: ClassVar[bool] = True
-
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        # If a subclass doesn't explicitly mark itself abstract, it's concrete.
-        if "_abstract" not in cls.__dict__:
-            cls._abstract = False
-        if cls._abstract:
-            return
-        # Apply @dataclass to concrete subclasses so the field-annotation
-        # syntax (`name: Annotated[type, Field(...)] = default`) just works.
-        if "__dataclass_fields__" not in cls.__dict__:
-            dataclass(cls)
-        cls._validate()
-
     @classmethod
     def _validate(cls) -> None:
-        """Raise TypeError if any required class attribute is missing.
-
-        Each kind base class extends this to enforce its own requirements.
-        """
-        for required in ("name", "display_name", "pk", "kind"):
-            if not getattr(cls, required, None):
-                msg = f"{cls.__name__}: missing required class attribute `{required}`"
-                raise TypeError(msg)
+        """Extend the common validation with the source-side requirement of ``kind``."""
+        super()._validate()
+        if not getattr(cls, "kind", None):
+            msg = f"{cls.__name__}: missing required class attribute `kind`"
+            raise TypeError(msg)
 
     # ------------------------------------------------------------------
     # dlt translation -- kind base classes override write_disposition()
@@ -208,8 +182,8 @@ class Table:
         cursor_column = cls.cursor_column
 
         common = {
-            "name": cls.name,
-            "primary_key": list(cls.pk),
+            "name": cls.table_name,
+            "primary_key": list(cls.table_pk),
             "write_disposition": cls.write_disposition(),
             "columns": cls.to_dlt_columns(),
         }
@@ -245,7 +219,7 @@ class Table:
 # ---------------------------------------------------------------------------
 
 
-class EventTable(Table):
+class EventTable(SourceTable):
     """A discrete, immutable point-in-time event. Merge on PK.
 
     Optional ``time_at`` declares which column holds the row's timestamp;
@@ -265,7 +239,7 @@ class EventTable(Table):
         return cls.time_at is None
 
 
-class IntervalTable(Table):
+class IntervalTable(SourceTable):
     """A discrete occurrence with both a start and an end timestamp. Merge on PK.
 
     Both ``time_start`` and ``time_end`` are required.
@@ -288,7 +262,7 @@ class IntervalTable(Table):
             raise TypeError(msg)
 
 
-class AggregateTable(Table):
+class AggregateTable(SourceTable):
     """Per-window summary keyed on a time-window column. Merge on PK (which includes the window key).
 
     ``time_at`` should match the window-key column in ``pk`` (date / hour / etc).
@@ -303,7 +277,7 @@ class AggregateTable(Table):
         return "merge"
 
 
-class DimensionTable(Table):
+class DimensionTable(SourceTable):
     """Reference / lookup data that other tables join against. Loaded as SCD2.
 
     Optional ``scd_columns`` lists the value columns whose changes mint a new
@@ -319,7 +293,7 @@ class DimensionTable(Table):
         return {"disposition": "merge", "strategy": "scd2"}
 
 
-class SnapshotTable(Table):
+class SnapshotTable(SourceTable):
     """Current self-state with no temporal axis. Loaded as SCD2 (hash-then-version).
 
     Same write semantics as ``DimensionTable`` but flagged separately so
@@ -335,7 +309,7 @@ class SnapshotTable(Table):
         return {"disposition": "merge", "strategy": "scd2"}
 
 
-class CounterTable(Table):
+class CounterTable(SourceTable):
     """Monotonically growing scalar where deltas matter. Append-with-observed_at.
 
     ``counter_columns`` is required and lists the cumulative columns.
@@ -361,7 +335,7 @@ class CounterTable(Table):
             raise TypeError(msg)
 
 
-class M2MTable(Table):
+class M2MTable(SourceTable):
     """Many-to-many bridge table joining two entities. Loaded as SCD2.
 
     PK is the composite of the two foreign keys (must be at least 2 columns).
@@ -387,9 +361,9 @@ class M2MTable(Table):
     @classmethod
     def _validate(cls) -> None:
         super()._validate()
-        if len(cls.pk) < 2:
+        if len(cls.table_pk) < 2:
             msg = (
                 f"{cls.__name__}: M2MTable requires a composite PK with at least 2 "
-                f"columns (the two foreign keys); got {cls.pk!r}"
+                f"columns (the two foreign keys); got {cls.table_pk!r}"
             )
             raise TypeError(msg)

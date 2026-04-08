@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
 from app.db import cursor
 from shenas_plugins.core.field import Field
+from shenas_plugins.core.table import Table
 
 
 class Workspace:
     """App workspace state (tab layout, active tab, etc.)."""
 
-    @dataclass
-    class _Row:
-        __table__: ClassVar[str] = "workspace"
-        __pk__: ClassVar[tuple[str, ...]] = ("id",)
+    class _Table(Table):
+        table_name: ClassVar[str] = "workspace"
+        table_display_name: ClassVar[str] = "Workspace"
+        table_description: ClassVar[str | None] = "Single-row workspace state (tab layout, active tab, ...)."
+        table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
         id: Annotated[int, Field(db_type="INTEGER", description="Row ID")] = 1
         state: Annotated[str, Field(db_type="VARCHAR", description="Workspace state JSON", db_default="'{}'")] = "{}"

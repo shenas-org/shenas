@@ -12,7 +12,7 @@ from typing import Any, ClassVar
 from shenas_plugins.core.introspect import table_metadata
 
 
-class DataclassStore:
+class TableStore:
     """Single-row dataclass-backed table store in a named DuckDB schema."""
 
     _ensured_by_schema: ClassVar[dict[str, set[str]]] = {}
@@ -33,7 +33,7 @@ class DataclassStore:
         return cursor()
 
     def ensure_table(self, cls: type) -> None:
-        table = cls.__table__
+        table = cls.table_name
         if table in self._ensured:
             return
 
@@ -46,7 +46,7 @@ class DataclassStore:
 
     def get(self, cls: type) -> dict[str, Any] | None:
         self.ensure_table(cls)
-        table = cls.__table__
+        table = cls.table_name
         cols = [f.name for f in dataclasses.fields(cls)]
         col_list = ", ".join(cols)
         with self._cursor() as cur:
@@ -63,7 +63,7 @@ class DataclassStore:
 
     def set(self, cls: type, **kwargs: Any) -> None:
         self.ensure_table(cls)
-        table = cls.__table__
+        table = cls.table_name
 
         existing = self.get(cls)
         if existing:
@@ -89,7 +89,7 @@ class DataclassStore:
 
     def delete(self, cls: type) -> None:
         self.ensure_table(cls)
-        table = cls.__table__
+        table = cls.table_name
         with self._cursor() as cur:
             cur.execute(f"DELETE FROM {self.schema}.{table}")
 
