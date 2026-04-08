@@ -6,8 +6,8 @@ __pycache__/
 packages/
 dist/
 node_modules/
-plugins/components/*/shenas_components/*/static/
-plugins/uis/*/shenas_ui/*/static/
+plugins/dashboards/*/shenas_dashboards/*/static/
+plugins/frontends/*/shenas_frontends/*/static/
 app/vendor/dist/
 htmlcov/
 .coverage
