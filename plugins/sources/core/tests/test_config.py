@@ -5,10 +5,10 @@ from unittest.mock import patch
 import duckdb
 import pytest
 
-from shenas_plugins.core.table import Field, Table
+from shenas_plugins.core.table import Field, SingletonTable
 
 
-class SampleConfig(Table):
+class SampleConfig(SingletonTable):
     class _Meta:
         name = "test_pkg"
         display_name = "Sample Config"
