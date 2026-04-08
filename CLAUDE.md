@@ -72,34 +72,43 @@ Sources, datasets, dashboards, UIs, and themes under `plugins/` are auto-discove
 
 ### Plugin discovery via entry points
 
-Pipes register `[project.entry-points."shenas.sources"]`, schemas register `shenas.schemas`, and components register `shenas.components`. The CLI and UI server discover them at runtime via `importlib.metadata.entry_points()`. Nothing is hardcoded to specific pipes or components.
+Sources register `[project.entry-points."shenas.sources"]`, datasets register `shenas.datasets`, dashboards register `shenas.dashboards`, frontends register `shenas.frontends`, themes register `shenas.themes`. The CLI and UI server discover them at runtime via `importlib.metadata.entry_points()`. Nothing is hardcoded to specific sources or dashboards.
 
 All plugins are uv workspace members. `uv sync` installs everything for development. For production, users install plugins separately via `shenasctl source add`.
 
+### Raw table semantics: `__kind__`
+
+Every raw source-table dataclass declares a `__kind__: ClassVar[TableKind]` (defined in `shenas_plugins.core.field`):
+
+- **`event`** — discrete, immutable occurrence with its own native timestamp (activity, transaction, email). PK is the natural id; dlt strategy is merge on id.
+- **`snapshot`** — current state with no temporal axis (profile, current zones, current top tracks). dlt strategy is replace.
+- **`aggregate`** — per-window summary that can be re-emitted as new data arrives (daily HRV, daily sleep, daily XP). dlt strategy is merge on `(window_key, ...)`.
+- **`counter`** — monotonically growing scalar where deltas matter (gear distance). dlt strategy is merge on entity id.
+
 ### Data flow: raw -> canonical
 
-1. **Sync**: Pipe fetches from API, dlt loads into source-specific schema (`garmin.*`, `lunchmoney.*`)
+1. **Sync**: Source fetches from API, dlt loads into source-specific schema (`garmin.*`, `lunchmoney.*`, `strava.*`, ...)
 2. **Transform**: Configurable SQL transforms stored in DuckDB (`shenas_system.transforms`): DELETE by source, INSERT into `metrics.*` (runs automatically after sync)
 3. **Visualize**: Frontend queries `metrics.*` via Arrow IPC
 
 ### Shared core packages
 
-- **`shenas-source-core`** (`plugins/sources/core/`) — shared pipe utilities: `resolve_start_date`, `date_range`, `is_empty_response`, `create_pipe_app`, `run_sync`, `print_load_info`
-- **`shenas-dataset-core`** (`plugins/datasets/core/`) — shared schema utilities: `Field` (metadata dataclass), `generate_ddl`, `ensure_schema`, `table_metadata`, `schema_metadata`, `MetricProvider` protocol
+- **`shenas-source-core`** (`plugins/sources/core/`) — shared source utilities: `resolve_start_date`, `date_range`, `is_empty_response`, `create_pipe_app`, `run_sync`, `print_load_info`
+- **`shenas-dataset-core`** (`plugins/datasets/core/`) — shared dataset utilities: `Field` (metadata dataclass), `generate_ddl`, `ensure_schema`, `table_metadata`, `schema_metadata`, `MetricProvider` protocol
 
-Both are internal packages — hidden from `list`/`add`/`remove` commands. Pipes depend on `shenas-source-core`, schemas depend on `shenas-dataset-core`.
+Both are internal packages — hidden from `list`/`add`/`remove` commands. Sources depend on `shenas-source-core`, datasets depend on `shenas-dataset-core`.
 
-### Canonical schema is dataclass-driven
+### Canonical dataset is dataclass-driven
 
-Each schema package (e.g. `plugins/datasets/fitness/`) contains only a `metrics.py` with dataclasses. Fields use `Annotated[type, Field(...)]` for structured metadata (description, unit, value_range, interpretation). DDL is generated from these by `shenas-dataset-core` — no hand-written SQL.
+Each dataset package (e.g. `plugins/datasets/fitness/`) contains only a `metrics.py` with dataclasses. Fields use `Annotated[type, Field(...)]` for structured metadata (description, unit, value_range, interpretation). DDL is generated from these by `shenas-dataset-core` — no hand-written SQL.
 
 ### Package distribution
 
-All artifacts (pipes, components, schemas) are Python wheels distributed as GitHub releases. Wheels are Ed25519-signed in CI. `shenas source add <name>` verifies the signature before installing.
+All artifacts (sources, dashboards, datasets, frontends, themes) are Python wheels distributed as GitHub releases. Wheels are Ed25519-signed in CI. `shenas source add <name>` verifies the signature before installing.
 
-### Component packaging workaround
+### Dashboard packaging workaround
 
-`plugins/dashboards/*/pyproject.build.toml` is renamed to `pyproject.toml` only during build (by the Makefile), then removed. This prevents uv from auto-discovering components as workspace members.
+`plugins/dashboards/*/pyproject.build.toml` is renamed to `pyproject.toml` only during build (by the Makefile), then removed. This prevents uv from auto-discovering dashboards as workspace members.
 
 ## Key conventions
 
@@ -110,7 +119,8 @@ All artifacts (pipes, components, schemas) are Python wheels distributed as GitH
 - **Plugin kinds**: source, dataset, dashboard, frontend, theme (all in `plugins/`)
 - **Themes**: exclusive (only one enabled at a time), CSS custom properties pierce Shadow DOM
 - **Python namespaces**: `shenas_sources.*`, `shenas_datasets.*`, `shenas_dashboards.*` (not `pipes.*` — conflicts with stdlib)
-- **DuckDB schemas**: raw data in source-specific schemas (`garmin.*`, `lunchmoney.*`), canonical in `metrics.*`
+- **DuckDB schemas**: raw data in source-specific schemas (`garmin.*`, `lunchmoney.*`, `strava.*`, ...), canonical in `metrics.*`
+- **Raw table semantics**: every table dataclass declares a `__kind__` ClassVar (`event` | `snapshot` | `aggregate` | `counter`) — see "Raw table semantics" above
 
 ## Modules
 
@@ -125,15 +135,16 @@ All artifacts (pipes, components, schemas) are Python wheels distributed as GitH
 - `server/fl/` — federated learning coordinator (Flower server + REST API); runs in its own venv
 - `scripts/` — build helpers (version bumping, pre-commit hook)
 - `plugins/core/` — shared plugin utilities (shenas-plugin-core)
-- `plugins/sources/core/` — shared pipe utilities (shenas-source-core)
-- `plugins/sources/garmin/` — Garmin Connect dlt connector
-- `plugins/sources/gcalendar/` — Google Calendar dlt connector
-- `plugins/sources/gtakeout/` — Google Takeout import
-- `plugins/sources/lunchmoney/` — Lunch Money dlt connector
+- `plugins/sources/core/` — shared source utilities (shenas-source-core)
+- `plugins/sources/garmin/` — Garmin Connect (activities, daily stats, sleep, HRV, SpO2, body composition)
+- `plugins/sources/gcalendar/` — Google Calendar (events with attendees + colors palette)
+- `plugins/sources/gtakeout/` — Google Takeout import (photos, location, YouTube history)
+- `plugins/sources/lunchmoney/` — Lunch Money (transactions, transaction_tags, categories, budgets, recurring, assets, plaid, user, crypto)
 - `plugins/sources/obsidian/` — Obsidian daily notes (frontmatter extraction)
-- `plugins/sources/gmail/` — Gmail (OAuth2, embedded client credentials)
-- `plugins/sources/duolingo/` — Duolingo (JWT browser auth)
-- `plugins/sources/spotify/` — Spotify (PKCE OAuth + history import)
+- `plugins/sources/gmail/` — Gmail (messages, labels, profile, filters, vacation, send_as)
+- `plugins/sources/duolingo/` — Duolingo (XP, courses, profile, achievements, league, friends)
+- `plugins/sources/spotify/` — Spotify (recently played, top tracks/artists for all 3 time ranges, saved tracks/albums/shows/episodes, playlists, followed artists, audio_features, user_profile)
+- `plugins/sources/strava/` — Strava (activities with detail, laps, kudos, comments, athlete, athlete_stats, athlete_zones, gear)
 - `plugins/datasets/core/` — shared schema utilities (shenas-dataset-core)
 - `plugins/datasets/fitness/` — canonical fitness metrics (HRV, sleep, vitals, body)
 - `plugins/datasets/finance/` — canonical finance metrics (transactions, spending, budgets)
