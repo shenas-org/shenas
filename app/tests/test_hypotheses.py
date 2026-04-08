@@ -1,4 +1,4 @@
-"""Tests for app.hypotheses.HypothesisRecord CRUD + (de)serialization."""
+"""Tests for app.hypotheses.Hypothesis CRUD + (de)serialization."""
 
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ def patch_db(db_con: duckdb.DuckDBPyConnection) -> Iterator[None]:
         finally:
             cur.close()
 
-    with patch("app.db.cursor", _fake_cursor), patch("app.hypotheses.cursor", _fake_cursor):
+    with patch("app.db.cursor", _fake_cursor):
         yield
 
 
@@ -63,25 +63,26 @@ def _recipe() -> Recipe:
 
 
 def test_create_and_find():
-    from app.hypotheses import HypothesisRecord
+    from app.hypotheses import Hypothesis
 
-    h = HypothesisRecord.create("does caffeine affect mood?", _recipe(), plan="join then correlate", model="anthropic@x@0")
-    assert h["question"] == "does caffeine affect mood?"
-    assert h["plan"] == "join then correlate"
-    assert h["model"] == "anthropic@x@0"
-    assert "metrics.daily_intake" in h["inputs"]
-    assert "metrics.daily_outcomes" in h["inputs"]
+    h = Hypothesis.create("does caffeine affect mood?", _recipe(), plan="join then correlate", model="anthropic@x@0")
+    assert h.question == "does caffeine affect mood?"
+    assert h.plan == "join then correlate"
+    assert h.model == "anthropic@x@0"
+    assert "metrics.daily_intake" in h.inputs
+    assert "metrics.daily_outcomes" in h.inputs
+    assert h.id > 0  # populated from sequence
 
-    found = HypothesisRecord.find(h["id"])
+    found = Hypothesis.find(h.id)
     assert found is not None
-    assert found["question"] == h["question"]
+    assert found.question == h.question
 
 
 def test_recipe_round_trip():
-    from app.hypotheses import HypothesisRecord
+    from app.hypotheses import Hypothesis
 
-    h = HypothesisRecord.create("q", _recipe())
-    recovered = HypothesisRecord.find(h["id"]).recipe()
+    h = Hypothesis.create("q", _recipe())
+    recovered = Hypothesis.find(h.id).recipe()
     assert recovered.final == "r"
     assert isinstance(recovered.nodes["a"], SourceRef)
     assert recovered.nodes["a"].table == "metrics.daily_intake"
@@ -91,86 +92,88 @@ def test_recipe_round_trip():
     assert recovered.nodes["r"].params == {"x": "caffeine_mg", "y": "mood"}
 
 
-def test_all_orders_recent_first():
-    from app.hypotheses import HypothesisRecord
+def test_all_returns_instances():
+    from app.hypotheses import Hypothesis
 
-    HypothesisRecord.create("q1", _recipe())
-    HypothesisRecord.create("q2", _recipe())
-    rows = HypothesisRecord.all()
+    Hypothesis.create("q1", _recipe())
+    Hypothesis.create("q2", _recipe())
+    rows = Hypothesis.all(order_by="created_at DESC")
     assert len(rows) == 2
-    assert {r["question"] for r in rows} == {"q1", "q2"}
+    assert {r.question for r in rows} == {"q1", "q2"}
+    assert all(isinstance(r, Hypothesis) for r in rows)
 
 
 def test_attach_result_scalar():
-    from app.hypotheses import HypothesisRecord
+    from app.hypotheses import Hypothesis
 
-    h = HypothesisRecord.create("q", _recipe())
-    HypothesisRecord.attach_result(h["id"], ScalarResult(value=-0.95, column="corr", elapsed_ms=12.0, sql="SELECT 1"))
-    res = HypothesisRecord.find(h["id"]).result()
+    h = Hypothesis.create("q", _recipe())
+    h.attach_result(ScalarResult(value=-0.95, column="corr", elapsed_ms=12.0, sql="SELECT 1"))
+    res = Hypothesis.find(h.id).result()
     assert isinstance(res, ScalarResult)
     assert res.value == -0.95
     assert res.column == "corr"
 
 
 def test_attach_result_table():
-    from app.hypotheses import HypothesisRecord
+    from app.hypotheses import Hypothesis
 
-    h = HypothesisRecord.create("q", _recipe())
-    HypothesisRecord.attach_result(
-        h["id"],
+    h = Hypothesis.create("q", _recipe())
+    h.attach_result(
         TableResult(rows=[{"a": 1}], columns=["a"], row_count=1, truncated=False, elapsed_ms=1.0, sql="SELECT a"),
     )
-    res = HypothesisRecord.find(h["id"]).result()
+    res = Hypothesis.find(h.id).result()
     assert isinstance(res, TableResult)
     assert res.rows == [{"a": 1}]
     assert res.columns == ["a"]
 
 
 def test_attach_result_error():
-    from app.hypotheses import HypothesisRecord
+    from app.hypotheses import Hypothesis
 
-    h = HypothesisRecord.create("q", _recipe())
-    HypothesisRecord.attach_result(h["id"], ErrorResult(message="boom", kind="execution", elapsed_ms=2.0, sql=""))
-    res = HypothesisRecord.find(h["id"]).result()
+    h = Hypothesis.create("q", _recipe())
+    h.attach_result(ErrorResult(message="boom", kind="execution", elapsed_ms=2.0, sql=""))
+    res = Hypothesis.find(h.id).result()
     assert isinstance(res, ErrorResult)
     assert res.message == "boom"
     assert res.kind == "execution"
 
 
 def test_result_none_when_unset():
-    from app.hypotheses import HypothesisRecord
+    from app.hypotheses import Hypothesis
 
-    h = HypothesisRecord.create("q", _recipe())
-    assert HypothesisRecord.find(h["id"]).result() is None
+    h = Hypothesis.create("q", _recipe())
+    assert Hypothesis.find(h.id).result() is None
 
 
 def test_attach_interpretation():
-    from app.hypotheses import HypothesisRecord
+    from app.hypotheses import Hypothesis
 
-    h = HypothesisRecord.create("q", _recipe())
-    HypothesisRecord.attach_interpretation(h["id"], "strong negative correlation")
-    assert HypothesisRecord.find(h["id"])["interpretation"] == "strong negative correlation"
+    h = Hypothesis.create("q", _recipe())
+    h.attach_interpretation("strong negative correlation")
+    assert Hypothesis.find(h.id).interpretation == "strong negative correlation"
 
 
 def test_mark_promoted():
-    from app.hypotheses import HypothesisRecord
+    from app.hypotheses import Hypothesis
 
-    h = HypothesisRecord.create("q", _recipe())
-    HypothesisRecord.mark_promoted(h["id"], "metrics.caffeine_mood_corr")
-    assert HypothesisRecord.find(h["id"])["promoted_to"] == "metrics.caffeine_mood_corr"
+    h = Hypothesis.create("q", _recipe())
+    h.mark_promoted("metrics.caffeine_mood_corr")
+    assert Hypothesis.find(h.id).promoted_to == "metrics.caffeine_mood_corr"
 
 
 def test_delete_idempotent():
-    from app.hypotheses import HypothesisRecord
+    from app.hypotheses import Hypothesis
 
-    h = HypothesisRecord.create("q", _recipe())
-    HypothesisRecord.delete(h["id"])
-    assert HypothesisRecord.find(h["id"]) is None
-    HypothesisRecord.delete(h["id"])  # no error
+    h = Hypothesis.create("q", _recipe())
+    hid = h.id
+    h.delete()
+    assert Hypothesis.find(hid) is None
+    h.delete()  # no error
 
 
-def test_attach_to_missing_raises():
-    from app.hypotheses import HypothesisRecord
+def test_save_missing_raises():
+    from app.hypotheses import Hypothesis
 
-    with pytest.raises(ValueError, match="not found"):
-        HypothesisRecord.attach_interpretation(999999, "x")
+    ghost = Hypothesis(id=999999, question="never inserted")
+    with pytest.raises(ValueError, match="found no row"):
+        ghost.attach_interpretation("x")
