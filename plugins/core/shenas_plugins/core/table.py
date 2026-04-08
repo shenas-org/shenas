@@ -361,10 +361,6 @@ class Table:
                 col_type = cls._duckdb_type(hints[f.name])
                 con.execute(f"ALTER TABLE {schema}.{cls._Meta.name} ADD COLUMN {f.name} {col_type}")
 
-    # ------------------------------------------------------------------
-    # Single-row CRUD (replaces the old TableStore wrapper)
-    # ------------------------------------------------------------------
-
     @classmethod
     def _resolve_schema(cls, schema: str | None) -> str:
         s = schema or cls._Meta.schema
@@ -385,59 +381,6 @@ class Table:
             cur.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
             cls.ensure(cur, schema=schema)
         cls._ensured.add(key)
-
-    @classmethod
-    def read_row(cls, *, schema: str | None = None) -> dict[str, Any] | None:
-        """Read the single row from this table as a dict, or None if empty."""
-        from app.db import cursor
-
-        s = cls._resolve_schema(schema)
-        cls._ensure_once(s)
-        cols = [f.name for f in dataclasses.fields(cls)]
-        col_list = ", ".join(cols)
-        with cursor() as cur:
-            row = cur.execute(f"SELECT {col_list} FROM {s}.{cls._Meta.name} LIMIT 1").fetchone()
-        if row is None:
-            return None
-        return dict(zip(cols, row, strict=False))
-
-    @classmethod
-    def read_value(cls, key: str, *, schema: str | None = None) -> Any | None:
-        """Read a single column value from the row, or None."""
-        row = cls.read_row(schema=schema)
-        if row is None:
-            return None
-        return row.get(key)
-
-    @classmethod
-    def write_row(cls, *, schema: str | None = None, **kwargs: Any) -> None:
-        """Upsert the single row: merge with existing values, then DELETE + INSERT."""
-        from app.db import cursor
-
-        s = cls._resolve_schema(schema)
-        cls._ensure_once(s)
-
-        existing = cls.read_row(schema=s)
-        if existing:
-            merged = {**existing, **kwargs}
-        else:
-            defaults: dict[str, Any] = {}
-            for f in dataclasses.fields(cls):
-                if f.default is not dataclasses.MISSING:
-                    defaults[f.name] = f.default
-                elif f.default_factory is not dataclasses.MISSING:  # type: ignore[misc]
-                    defaults[f.name] = f.default_factory()  # type: ignore[misc]
-                else:
-                    defaults[f.name] = None
-            merged = {**defaults, **kwargs}
-
-        cols = [f.name for f in dataclasses.fields(cls)]
-        placeholders = ", ".join(["?"] * len(cols))
-        col_names = ", ".join(cols)
-        values = [merged.get(c) for c in cols]
-        with cursor() as cur:
-            cur.execute(f"DELETE FROM {s}.{cls._Meta.name}")
-            cur.execute(f"INSERT INTO {s}.{cls._Meta.name} ({col_names}) VALUES ({placeholders})", values)
 
     # ------------------------------------------------------------------
     # Multi-row CRUD (find / all / insert / save / delete)
@@ -667,6 +610,79 @@ class Table:
         con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
         for t in all_tables:
             t.ensure(con, schema=schema)
+
+
+class SingletonTable(Table):
+    """Base for system tables that hold exactly one row.
+
+    Replaces ad-hoc single-row read/write across the codebase. Concrete
+    subclasses (``SourceConfig``, ``SourceAuth``, ``SystemSettings``,
+    ``LocalSession``, ...) declare their dataclass fields and ``_Meta`` as
+    usual; the singleton semantics live here:
+
+    - :meth:`read_row` -- SELECT the single row as a dict, or ``None``.
+    - :meth:`read_value` -- pluck one column from the row.
+    - :meth:`write_row` -- merge with existing values, then DELETE + INSERT.
+
+    The merge-on-write means callers can pass partial kwargs and only the
+    named fields will be updated; everything else is preserved (or filled
+    in from the dataclass defaults on first write).
+    """
+
+    _abstract: ClassVar[bool] = True
+
+    @classmethod
+    def read_row(cls, *, schema: str | None = None) -> dict[str, Any] | None:
+        """Read the single row from this table as a dict, or None if empty."""
+        from app.db import cursor
+
+        s = cls._resolve_schema(schema)
+        cls._ensure_once(s)
+        cols = [f.name for f in dataclasses.fields(cls)]
+        col_list = ", ".join(cols)
+        with cursor() as cur:
+            row = cur.execute(f"SELECT {col_list} FROM {s}.{cls._Meta.name} LIMIT 1").fetchone()
+        if row is None:
+            return None
+        return dict(zip(cols, row, strict=False))
+
+    @classmethod
+    def read_value(cls, key: str, *, schema: str | None = None) -> Any | None:
+        """Read a single column value from the row, or None."""
+        row = cls.read_row(schema=schema)
+        if row is None:
+            return None
+        return row.get(key)
+
+    @classmethod
+    def write_row(cls, *, schema: str | None = None, **kwargs: Any) -> None:
+        """Upsert the single row: merge with existing values, then DELETE + INSERT."""
+        from app.db import cursor
+
+        s = cls._resolve_schema(schema)
+        cls._ensure_once(s)
+
+        existing = cls.read_row(schema=s)
+        if existing:
+            merged = {**existing, **kwargs}
+        else:
+            defaults: dict[str, Any] = {}
+            for f in dataclasses.fields(cls):
+                if f.default is not dataclasses.MISSING:
+                    defaults[f.name] = f.default
+                elif f.default_factory is not dataclasses.MISSING:  # type: ignore[misc]
+                    defaults[f.name] = f.default_factory()  # type: ignore[misc]
+                else:
+                    defaults[f.name] = None
+            merged = {**defaults, **kwargs}
+
+        cols = [f.name for f in dataclasses.fields(cls)]
+        placeholders = ", ".join(["?"] * len(cols))
+        col_names = ", ".join(cols)
+        values = [merged.get(c) for c in cols]
+        with cursor() as cur:
+            cur.execute(f"DELETE FROM {s}.{cls._Meta.name}")
+            cur.execute(f"INSERT INTO {s}.{cls._Meta.name} ({col_names}) VALUES ({placeholders})", values)
 
 
 class UserTable(Table):

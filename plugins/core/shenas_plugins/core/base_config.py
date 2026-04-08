@@ -9,11 +9,11 @@ their custom fields and a ``table_name`` (set dynamically by
 from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
-from shenas_plugins.core.table import Field, Table
+from shenas_plugins.core.table import Field, SingletonTable
 
 
 @dataclass
-class SourceConfig(Table):
+class SourceConfig(SingletonTable):
     """Base configuration for all pipes.
 
     Same deferred-validation pattern as ``SourceAuth`` -- ``table_name``
@@ -24,7 +24,7 @@ class SourceConfig(Table):
 
     _abstract: ClassVar[bool] = True
 
-    class _Meta(Table._Meta):
+    class _Meta(SingletonTable._Meta):
         display_name = "Source Config"
         description = "Per-source configuration storage."
         pk = ("id",)
