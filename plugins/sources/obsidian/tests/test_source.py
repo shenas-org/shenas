@@ -1,12 +1,12 @@
 from pathlib import Path
 
-from shenas_sources.obsidian.resources import (
+from shenas_sources.obsidian.tables import (
+    DailyNotes,
+    Habits,
     _date_from_filename,
     _extract_habits,
     _parse_frontmatter,
     _parse_habit_line,
-    daily_notes,
-    habits,
 )
 
 # A representative diary chunk based on the user's real template.
@@ -44,7 +44,7 @@ class TestParseFrontmatter:
 
     def test_empty_frontmatter(self) -> None:
         result = _parse_frontmatter("---\n---\nContent.")
-        assert result is None  # yaml.safe_load returns None for empty
+        assert result is None
 
     def test_nested_values(self) -> None:
         text = "---\nmood: great\ntags:\n  - fitness\n  - journal\n---\n"
@@ -68,12 +68,12 @@ class TestDateFromFilename:
         assert _date_from_filename(Path("random-note.md")) is None
 
 
-class TestDailyNotes:
+class TestDailyNotesExtract:
     def test_reads_frontmatter(self, tmp_path: Path) -> None:
         (tmp_path / "2026-03-15.md").write_text("---\nmood: good\nenergy: 8\n---\nContent.")
         (tmp_path / "2026-03-16.md").write_text("---\nmood: ok\nenergy: 5\n---\nMore content.")
 
-        rows = list(daily_notes(str(tmp_path)))
+        rows = list(DailyNotes.extract(str(tmp_path)))
         assert len(rows) == 2
         assert rows[0]["date"] == "2026-03-15"
         assert rows[0]["mood"] == "good"
@@ -82,33 +82,29 @@ class TestDailyNotes:
 
     def test_skips_no_frontmatter(self, tmp_path: Path) -> None:
         (tmp_path / "2026-03-15.md").write_text("No frontmatter here.")
-        rows = list(daily_notes(str(tmp_path)))
-        assert len(rows) == 0
+        assert list(DailyNotes.extract(str(tmp_path))) == []
 
     def test_skips_non_date_files(self, tmp_path: Path) -> None:
         (tmp_path / "random-note.md").write_text("---\nmood: good\n---\n")
-        rows = list(daily_notes(str(tmp_path)))
-        assert len(rows) == 0
+        assert list(DailyNotes.extract(str(tmp_path))) == []
 
     def test_lists_joined(self, tmp_path: Path) -> None:
         (tmp_path / "2026-03-15.md").write_text("---\ntags:\n  - a\n  - b\n---\n")
-        rows = list(daily_notes(str(tmp_path)))
+        rows = list(DailyNotes.extract(str(tmp_path)))
         assert rows[0]["tags"] == "a, b"
 
     def test_nonexistent_dir(self) -> None:
-        rows = list(daily_notes("/nonexistent/path"))
-        assert len(rows) == 0
+        assert list(DailyNotes.extract("/nonexistent/path")) == []
 
     def test_empty_dir(self, tmp_path: Path) -> None:
-        rows = list(daily_notes(str(tmp_path)))
-        assert len(rows) == 0
+        assert list(DailyNotes.extract(str(tmp_path))) == []
 
 
 class TestParseHabitLine:
     def test_unchecked(self) -> None:
         row = _parse_habit_line("- [ ] Brilliant [scheduled:: 2026-04-03]", "2026-04-03")
         assert row is not None
-        assert row["name"] == "Brilliant"
+        assert row["habit_name"] == "Brilliant"
         assert row["completed"] is False
         assert row["scheduled"] == "2026-04-03"
         assert row["completion"] is None
@@ -122,7 +118,7 @@ class TestParseHabitLine:
         assert row is not None
         assert row["completed"] is True
         assert row["completion"] == "2026-04-03"
-        assert row["name"] == "Duolingo"
+        assert row["habit_name"] == "Duolingo"
 
     def test_strips_markdown_link_keeps_url(self) -> None:
         row = _parse_habit_line(
@@ -130,11 +126,10 @@ class TestParseHabitLine:
             "2026-04-03",
         )
         assert row is not None
-        assert row["name"] == "Shoulder mobility"
+        assert row["habit_name"] == "Shoulder mobility"
         assert row["url"] == "https://youtu.be/abc"
 
     def test_skips_indented_lines(self) -> None:
-        # Sub-tasks of "Morning Routine" are nested -- they must NOT be parsed.
         assert _parse_habit_line("    - [x] Toothbrush [scheduled:: 2026-04-03]", "2026-04-03") is None
         assert _parse_habit_line("\t- [ ] Anything", "2026-04-03") is None
 
@@ -154,7 +149,7 @@ class TestParseHabitLine:
 class TestExtractHabitsFromRealDiary:
     def test_extracts_only_top_level_under_plan_for_the_day(self) -> None:
         rows = list(_extract_habits(_REAL_DIARY, "2026-04-03", "Plan for the day"))
-        names = [r["name"] for r in rows]
+        names = [r["habit_name"] for r in rows]
         assert names == [
             "Brilliant",
             "Duolingo",
@@ -166,13 +161,12 @@ class TestExtractHabitsFromRealDiary:
             "Shower",
             "Break",
         ]
-        # Sub-tasks under Morning Routine must NOT be included.
         assert "Toothbrush" not in names
         assert "Clean face" not in names
 
     def test_completion_state(self) -> None:
         rows = list(_extract_habits(_REAL_DIARY, "2026-04-03", "Plan for the day"))
-        by_name = {r["name"]: r for r in rows}
+        by_name = {r["habit_name"]: r for r in rows}
         assert by_name["Duolingo"]["completed"] is True
         assert by_name["Duolingo"]["completion"] == "2026-04-03"
         assert by_name["Brilliant"]["completed"] is False
@@ -180,19 +174,17 @@ class TestExtractHabitsFromRealDiary:
 
     def test_url_extracted_from_link(self) -> None:
         rows = list(_extract_habits(_REAL_DIARY, "2026-04-03", "Plan for the day"))
-        by_name = {r["name"]: r for r in rows}
+        by_name = {r["habit_name"]: r for r in rows}
         assert by_name["Shoulder mobility"]["url"] == "https://youtu.be/35lIPoZdJNs"
 
     def test_section_ends_at_horizontal_rule(self) -> None:
-        # Everything after the `---` separator must NOT be included.
         rows = list(_extract_habits(_REAL_DIARY, "2026-04-03", "Plan for the day"))
-        # 9 top-level habits, no sub-tasks.
         assert len(rows) == 9
 
     def test_section_ends_at_next_heading(self) -> None:
         text = "# Plan for the day\n- [ ] One\n# Other heading\n- [ ] Two\n"
         rows = list(_extract_habits(text, "2026-04-03", "Plan for the day"))
-        assert [r["name"] for r in rows] == ["One"]
+        assert [r["habit_name"] for r in rows] == ["One"]
 
     def test_no_matching_heading_yields_nothing(self) -> None:
         text = "# Some other section\n- [ ] Nope\n"
@@ -211,28 +203,37 @@ class TestExtractHabitsFromRealDiary:
     def test_configurable_heading(self) -> None:
         text = "# Daily Habits\n- [ ] Hydrate\n- [x] Vitamins\n"
         rows = list(_extract_habits(text, "2026-04-03", "Daily Habits"))
-        assert {r["name"] for r in rows} == {"Hydrate", "Vitamins"}
+        assert {r["habit_name"] for r in rows} == {"Hydrate", "Vitamins"}
 
 
-class TestHabitsResource:
+class TestHabitsExtract:
     def test_yields_one_row_per_checkbox_per_day(self, tmp_path: Path) -> None:
         (tmp_path / "2026-04-03.md").write_text(_REAL_DIARY)
         (tmp_path / "2026-04-04.md").write_text(_REAL_DIARY.replace("2026-04-03", "2026-04-04"))
 
-        rows = list(habits(str(tmp_path)))
-        # 9 top-level habits per day x 2 days = 18.
+        rows = list(Habits.extract(str(tmp_path)))
         assert len(rows) == 18
         dates = {r["date"] for r in rows}
         assert dates == {"2026-04-03", "2026-04-04"}
 
     def test_skips_files_without_date(self, tmp_path: Path) -> None:
         (tmp_path / "random.md").write_text(_REAL_DIARY)
-        assert list(habits(str(tmp_path))) == []
+        assert list(Habits.extract(str(tmp_path))) == []
 
     def test_nonexistent_dir(self) -> None:
-        assert list(habits("/nonexistent/path")) == []
+        assert list(Habits.extract("/nonexistent/path")) == []
 
     def test_custom_heading(self, tmp_path: Path) -> None:
         (tmp_path / "2026-04-03.md").write_text("# Daily Habits\n- [x] Read\n- [ ] Sleep early\n")
-        rows = list(habits(str(tmp_path), heading="Daily Habits"))
-        assert {r["name"] for r in rows} == {"Read", "Sleep early"}
+        rows = list(Habits.extract(str(tmp_path), heading="Daily Habits"))
+        assert {r["habit_name"] for r in rows} == {"Read", "Sleep early"}
+
+
+class TestKindsAndDispositions:
+    def test_daily_notes_is_aggregate(self) -> None:
+        assert DailyNotes.kind == "aggregate"
+        assert DailyNotes.time_at == "date"
+
+    def test_habits_is_event(self) -> None:
+        assert Habits.kind == "event"
+        assert Habits.time_at == "date"
