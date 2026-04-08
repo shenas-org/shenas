@@ -13,7 +13,8 @@ install:
 dev:
 	@uv sync --group fl --quiet 2>/dev/null; \
 	for pkg in plugins/frontends/* plugins/dashboards/*; do \
-		if [ -f "$$pkg/package.json" ] && [ ! -d "$$pkg/shenas_frontends" ] && [ ! -d "$$pkg/shenas_dashboards" ]; then continue; fi; \
+		[ -f "$$pkg/package.json" ] || continue; \
+		[ -f "$$pkg/vite.config.js" ] || continue; \
 		static=$$(find "$$pkg" -path '*/static' -type d 2>/dev/null | head -1); \
 		if [ -z "$$static" ] || [ -z "$$(ls -A $$static 2>/dev/null)" ]; then \
 			echo "Building $$pkg (missing static/)..."; \
@@ -168,9 +169,15 @@ android-emulator:
 	$(ANDROID_SDK_ROOT)/emulator/emulator -avd shenas &
 
 android-dev:
-	cd app/mobile && \
-	if [ ! -d src-tauri/gen/android ]; then npx tauri android init; fi && \
-	bash build-ui.sh && cd src-tauri && cargo clean && cd .. && npx tauri android dev
+	@cd app/mobile && if [ ! -d src-tauri/gen/android ]; then npx tauri android init; fi
+	moon run mobile:build-frontend
+	cd app/mobile && npx tauri android dev
+
+# Force a clean rebuild of mobile frontend + Rust
+android-dev-clean:
+	rm -rf app/mobile/mobile-dist
+	cd app/mobile/src-tauri && cargo clean
+	$(MAKE) android-dev
 
 # Tag a desktop release (version auto-computed from conventional commits)
 release-desktop:
