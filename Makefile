@@ -12,6 +12,14 @@ install:
 
 dev:
 	@uv sync --group fl --quiet 2>/dev/null; \
+	for pkg in plugins/frontends/* plugins/dashboards/*; do \
+		if [ -f "$$pkg/package.json" ] && [ ! -d "$$pkg/shenas_frontends" ] && [ ! -d "$$pkg/shenas_dashboards" ]; then continue; fi; \
+		static=$$(find "$$pkg" -path '*/static' -type d 2>/dev/null | head -1); \
+		if [ -z "$$static" ] || [ -z "$$(ls -A $$static 2>/dev/null)" ]; then \
+			echo "Building $$pkg (missing static/)..."; \
+			(cd "$$pkg" && npm install --silent && npm run build); \
+		fi; \
+	done; \
 	trap 'kill 0' EXIT; \
 	uv run shenas --reload --no-tls & \
 	while ! curl -s http://127.0.0.1:7280/api/health > /dev/null 2>&1; do sleep 0.2; done; \
