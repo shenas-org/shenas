@@ -363,6 +363,33 @@ class Mutation:
             "cached": False,
         }
 
+    # -- Forking --
+
+    @strawberry.mutation
+    def fork_hypothesis(self, hypothesis_id: int) -> JSON:
+        """Create a new hypothesis that copies the parent's question + recipe.
+
+        The fork has its own id, its own result history, and its own
+        cost / latency tracking. Use this to try a different recipe
+        against the same question without losing the original.
+        """
+        from app.hypotheses import Hypothesis
+
+        parent = Hypothesis.find(hypothesis_id)
+        if parent is None:
+            return {"error": f"hypothesis {hypothesis_id} not found"}
+
+        fork = Hypothesis(
+            question=parent.question,
+            plan=parent.plan or "",
+            recipe_json=parent.recipe_json or "",
+            inputs=parent.inputs or "",
+            model=parent.model or "",
+            parent_id=parent.id,
+        )
+        fork.insert()
+        return {"id": fork.id, "parent_id": parent.id, "question": fork.question}
+
     # -- Promotion --
 
     @strawberry.mutation

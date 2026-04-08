@@ -407,6 +407,7 @@ def _hypothesis_to_dict(h: Any) -> dict[str, Any]:
         "interpretation": h.interpretation or "",
         "model": h.model or "",
         "promoted_to": h.promoted_to,
+        "parent_id": getattr(h, "parent_id", None),
         "created_at": str(h.created_at) if h.created_at else None,
         "recipe": _safe_json_load(h.recipe_json),
         "result": result.to_dict() if result is not None else None,
