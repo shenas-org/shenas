@@ -155,7 +155,8 @@ class SleepSummary(AggregateTable):
         **_: Any,
     ) -> Iterator[dict[str, Any]]:
         last = (cursor.last_value if cursor is not None else None) or start_date
-        start = resolve_start_date(str(last)[:10])
+        last_str = str(last)
+        start = resolve_start_date(last_str[:10] if len(last_str) > 10 else last_str)
         end = pendulum.now().to_date_string()
         for row in client.get_sleep_summary(start, end):
             yield {
@@ -221,7 +222,8 @@ class DailyActivity(AggregateTable):
         **_: Any,
     ) -> Iterator[dict[str, Any]]:
         last = (cursor.last_value if cursor is not None else None) or start_date
-        start = resolve_start_date(str(last)[:10])
+        last_str = str(last)
+        start = resolve_start_date(last_str[:10] if len(last_str) > 10 else last_str)
         end = pendulum.now().to_date_string()
         for row in client.get_activity(start, end):
             yield {
