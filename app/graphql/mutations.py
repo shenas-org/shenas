@@ -242,41 +242,37 @@ class Mutation:
     # -- Hotkeys --
 
     @strawberry.mutation
-    def set_hotkey(self, action_id: str, binding: str, info: strawberry.types.Info) -> OkType:
+    def set_hotkey(self, action_id: str, binding: str, info: strawberry.types.Info) -> OkType:  # noqa: ARG002
         from app.hotkeys import Hotkey
         from app.models import OkResponse
 
-        user_id: int = (info.context or {}).get("user_id", 0) or 0
-        Hotkey(action_id=action_id, user_id=user_id).set_binding(binding)
+        Hotkey(action_id=action_id).set_binding(binding)
         return OkType.from_pydantic(OkResponse(ok=True))
 
     @strawberry.mutation
-    def delete_hotkey(self, action_id: str, info: strawberry.types.Info) -> OkType:
+    def delete_hotkey(self, action_id: str, info: strawberry.types.Info) -> OkType:  # noqa: ARG002
         from app.hotkeys import Hotkey
         from app.models import OkResponse
 
-        user_id: int = (info.context or {}).get("user_id", 0) or 0
-        Hotkey(action_id=action_id, user_id=user_id).delete()
+        Hotkey(action_id=action_id).delete()
         return OkType.from_pydantic(OkResponse(ok=True))
 
     @strawberry.mutation
-    def reset_hotkeys(self, info: strawberry.types.Info) -> OkType:
+    def reset_hotkeys(self, info: strawberry.types.Info) -> OkType:  # noqa: ARG002
         from app.hotkeys import Hotkey
         from app.models import OkResponse
 
-        user_id: int = (info.context or {}).get("user_id", 0) or 0
-        Hotkey.reset(user_id=user_id)
+        Hotkey.reset()
         return OkType.from_pydantic(OkResponse(ok=True))
 
     # -- Workspace --
 
     @strawberry.mutation
-    def save_workspace(self, data: JSON, info: strawberry.types.Info) -> OkType:
+    def save_workspace(self, data: JSON, info: strawberry.types.Info) -> OkType:  # noqa: ARG002
         from app.models import OkResponse
         from app.workspace import Workspace
 
-        user_id: int = (info.context or {}).get("user_id", 0) or 0
-        Workspace.put(data, user_id=user_id)
+        Workspace.put(data)
         return OkType.from_pydantic(OkResponse(ok=True))
 
     # -- Hypotheses --

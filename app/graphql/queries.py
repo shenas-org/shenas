@@ -257,18 +257,16 @@ class Query:
     # -- App-level --
 
     @strawberry.field
-    def hotkeys(self, info: strawberry.types.Info) -> JSON:
+    def hotkeys(self, info: strawberry.types.Info) -> JSON:  # noqa: ARG002
         from app.hotkeys import Hotkey
 
-        user_id: int = (info.context or {}).get("user_id", 0) or 0
-        return Hotkey.get_all(user_id=user_id)
+        return Hotkey.get_all()
 
     @strawberry.field
-    def workspace(self, info: strawberry.types.Info) -> JSON:
+    def workspace(self, info: strawberry.types.Info) -> JSON:  # noqa: ARG002
         from app.workspace import Workspace
 
-        user_id: int = (info.context or {}).get("user_id", 0) or 0
-        return Workspace.get(user_id=user_id)
+        return Workspace.get()
 
     @strawberry.field
     def dashboards(self) -> JSON:
