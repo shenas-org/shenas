@@ -16,14 +16,18 @@ if TYPE_CHECKING:
 @pytest.fixture
 def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
     """In-memory DuckDB with system tables initialized."""
+    import app.db
+
     con = duckdb.connect()
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
     con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
-    from app.db import _ensure_system_tables
-
-    _ensure_system_tables(con)
+    # Set _con before _ensure_system_tables so that cursor() calls inside
+    # (e.g. Hotkey.seed via UserTable.read_rows) use this test connection.
+    app.db._con = con
+    app.db._ensure_system_tables(con)
     yield con
+    app.db._con = None
     con.close()
 
 

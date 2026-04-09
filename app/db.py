@@ -146,7 +146,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
         LocalSession,
     ]
     Table.ensure_schema(con, tables, schema="shenas_system")
-    Hotkey.seed(con)
+    Hotkey.seed()
     from shenas_datasets.core.dataset import Dataset
 
     Dataset.ensure_all(con)
