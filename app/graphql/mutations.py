@@ -18,6 +18,13 @@ from app.graphql.types import (
 )
 
 
+def _source_entry_point_names() -> list[str]:
+    """Return names of all installed source plugins."""
+    from importlib.metadata import entry_points
+
+    return [ep.name for ep in entry_points(group="shenas.sources")]
+
+
 def _build_catalog() -> dict[str, dict]:
     """Return ``{qualified_table: table_metadata}`` for the recipe runner.
 
@@ -124,68 +131,71 @@ class Mutation:
 
     @strawberry.mutation
     def enable_plugin(self, kind: str, name: str) -> OkType:
-        from app.api.sources import _load_plugin
         from app.models import OkResponse
+        from shenas_plugins.core.plugin import PluginInstance
 
-        cls = _load_plugin(kind, name)
-        if not cls:
-            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))
-        msg = cls().enable()
+        inst = PluginInstance.get_or_create(kind, name)
+        msg = inst.enable()
         return OkType.from_pydantic(OkResponse(ok=True, message=msg))
 
     @strawberry.mutation
     def disable_plugin(self, kind: str, name: str) -> OkType:
-        from app.api.sources import _load_plugin
         from app.models import OkResponse
+        from shenas_plugins.core.plugin import PluginInstance
 
-        cls = _load_plugin(kind, name)
-        if not cls:
-            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))
-        msg = cls().disable()
+        inst = PluginInstance.find(kind, name)
+        if not inst:
+            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not tracked: {kind}/{name}"))
+        try:
+            msg = inst.disable()
+        except ValueError as exc:
+            return OkType.from_pydantic(OkResponse(ok=False, message=str(exc)))
         return OkType.from_pydantic(OkResponse(ok=True, message=msg))
 
     # -- Transforms --
 
     @strawberry.mutation
     def create_transform(self, transform_input: TransformCreateInput) -> TransformType:
-        from app.transforms import Transform
+        from shenas_transformations.core.instance import TransformInstance
 
-        t = Transform.create(
+        t = TransformInstance.create(
+            transform_type=transform_input.transform_type,
             source_duckdb_schema=transform_input.source_duckdb_schema,
             source_duckdb_table=transform_input.source_duckdb_table,
             target_duckdb_schema=transform_input.target_duckdb_schema,
             target_duckdb_table=transform_input.target_duckdb_table,
             source_plugin=transform_input.source_plugin,
-            sql=transform_input.sql,
+            params=transform_input.params,
             description=transform_input.description,
         )
         return _transform_to_gql(t)
 
     @strawberry.mutation
-    def update_transform(self, transform_id: int, sql: str) -> TransformType | None:
-        from app.transforms import Transform
+    def update_transform(self, transform_id: int, params: str) -> TransformType | None:
+        from shenas_transformations.core.instance import TransformInstance
 
-        existing = Transform.find(transform_id)
+        existing = TransformInstance.find(transform_id)
         if not existing:
             return None
-        t = existing.update(sql)
+        t = existing.update_params(params)
         return _transform_to_gql(t) if t else None
 
     @strawberry.mutation
     def delete_transform(self, transform_id: int) -> OkType:
-        from app.models import OkResponse
-        from app.transforms import Transform
+        from shenas_transformations.core.instance import TransformInstance
 
-        t = Transform.find(transform_id)
+        from app.models import OkResponse
+
+        t = TransformInstance.find(transform_id)
         if t:
             t.delete()
         return OkType.from_pydantic(OkResponse(ok=True))
 
     @strawberry.mutation
     def enable_transform(self, transform_id: int) -> TransformType | None:
-        from app.transforms import Transform
+        from shenas_transformations.core.instance import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         if not t:
             return None
         updated = t.set_enabled(True)
@@ -193,9 +203,9 @@ class Mutation:
 
     @strawberry.mutation
     def disable_transform(self, transform_id: int) -> TransformType | None:
-        from app.transforms import Transform
+        from shenas_transformations.core.instance import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         if not t:
             return None
         updated = t.set_enabled(False)
@@ -203,40 +213,44 @@ class Mutation:
 
     @strawberry.mutation
     def test_transform(self, transform_id: int, limit: int = 10) -> JSON:
-        from app.transforms import Transform
+        from shenas_transformations.core.instance import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         return t.test(limit) if t else []
 
     @strawberry.mutation
     def seed_transforms(self) -> JSON:
-        from importlib.metadata import entry_points
+        from shenas_transformations.core import Transform
 
-        from app.transforms import Transform
-        from shenas_sources.core.transform import load_transform_defaults
+        from app.api.sources import _load_plugins
 
         seeded: list[str] = []
-        for ep in entry_points(group="shenas.sources"):
-            defaults = load_transform_defaults(ep.name)
-            if defaults:
-                Transform.seed_defaults(ep.name, defaults)
-                seeded.append(ep.name)
+        plugins = _load_plugins("transformation", base=Transform, include_internal=True)
+        for ep_name in _source_entry_point_names():
+            for cls in plugins:
+                plugin = cls()
+                inst = plugin.instance()
+                if not inst or inst.enabled:
+                    plugin.seed_defaults_for_source(ep_name)
+            seeded.append(ep_name)
         return {"seeded": seeded, "count": len(seeded)}
 
     @strawberry.mutation
     def run_pipe_transforms(self, pipe: str) -> JSON:
-        from app.db import connect
-        from app.transforms import Transform
+        from shenas_transformations.core.instance import TransformInstance
 
-        count = Transform.run_for_source(connect(), pipe)
+        from app.db import connect
+
+        count = TransformInstance.run_for_source(connect(), pipe)
         return {"source": pipe, "count": count}
 
     @strawberry.mutation
     def run_schema_transforms(self, schema: str) -> JSON:
-        from app.db import connect
-        from app.transforms import Transform
+        from shenas_transformations.core.instance import TransformInstance
 
-        count = Transform.run_for_target(connect(), schema)
+        from app.db import connect
+
+        count = TransformInstance.run_for_target(connect(), schema)
         return {"schema": schema, "count": count}
 
     # -- Hotkeys --
@@ -284,14 +298,14 @@ class Mutation:
     # lands on top of these.
 
     @strawberry.mutation
-    def create_hypothesis(self, question: str, plan: str = "", model: str = "") -> JSON:
+    def create_hypothesis(self, question: str, plan: str = "", model: str = "", mode: str = "hypothesis") -> JSON:
         """Create an empty hypothesis row from a question. No recipe yet."""
         from app.hypotheses import Hypothesis
         from shenas_plugins.core.analytics import Recipe
 
         empty = Recipe(nodes={}, final="")
-        h = Hypothesis.create(question, empty, plan=plan, model=model)
-        return {"id": h.id, "question": h.question}
+        h = Hypothesis.create(question, empty, plan=plan, model=model, mode=mode)
+        return {"id": h.id, "question": h.question, "mode": h.mode}
 
     @strawberry.mutation
     def run_recipe(self, hypothesis_id: int, recipe_json: str) -> JSON:
@@ -351,10 +365,10 @@ class Mutation:
         result = run_recipe(recipe, catalog, backend=analytics_backend())
         h.attach_result(result)
         if not isinstance(result, ErrorResult):
-            RecipeCache.put(cache_key, result.to_dict())
+            RecipeCache.put(cache_key, result.model_dump())
         return {
             "id": h.id,
-            "result": result.to_dict(),
+            "result": result.model_dump(),
             "ok": not isinstance(result, ErrorResult),
             "cached": False,
         }
@@ -381,6 +395,7 @@ class Mutation:
             recipe_json=parent.recipe_json or "",
             inputs=parent.inputs or "",
             model=parent.model or "",
+            mode=parent.mode or "hypothesis",
             parent_id=parent.id,
         )
         fork.insert()
@@ -410,70 +425,51 @@ class Mutation:
         return {
             "id": h.id,
             "promoted_to": h.promoted_to,
-            "qualified": record["qualified"],
+            "qualified": record.qualified,
         }
-
-    # -- Literature --
-
-    @strawberry.mutation
-    def refresh_findings(self) -> JSON:
-        """Fetch papers from OpenAlex for all installed category pairs and extract findings."""
-        from app.analytics_catalog import catalog_by_qualified_name
-        from app.graphql.llm_provider import get_llm_provider
-        from app.literature_fetch import refresh_findings
-
-        catalog = catalog_by_qualified_name()
-        provider = get_llm_provider()
-        return refresh_findings(catalog, provider)
 
     # -- LLM-driven hypothesis --
 
     @strawberry.mutation
-    def ask_hypothesis(self, question: str) -> JSON:  # noqa: PLR0915 -- linear narrative is clearer than splitting
+    def ask_hypothesis(self, question: str, mode: str = "hypothesis") -> JSON:  # noqa: PLR0915 -- linear narrative is clearer than splitting
         """End-to-end: create a hypothesis, ask the LLM for a recipe, run it, persist.
 
         The LLM provider is constructed from environment / settings; the
         default is :class:`AnthropicProvider` which reads
-        ``ANTHROPIC_API_KEY``. Returns the hypothesis id, the LLM's plan,
+        ``ANTHROPIC_API_KEY``. The ``mode`` parameter selects which
+        analysis strategy the LLM uses (operation vocabulary, system
+        prompt framing). Returns the hypothesis id, the LLM's plan,
         the recipe payload, the run result, and a per-turn cost block
         (input/output tokens, llm/query/wall_clock elapsed ms).
-
-        Literature findings are automatically injected into the LLM prompt
-        to inform recipe design with evidence-based temporal lags and
-        effect directions. After execution, a second LLM call compares
-        the result against published literature.
         """
         import time
 
+        from app.api.sources import _discover_analyses
         from app.db import analytics_backend
         from app.graphql.llm_provider import get_llm_provider
         from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
-        from app.literature import Finding
         from shenas_plugins.core.analytics import (
             ErrorResult,
             OpCall,
             Recipe,
             SourceRef,
-            ask_for_interpretation,
             ask_for_recipe_with_retry,
             run_recipe,
         )
+        from shenas_plugins.core.analytics.mode import get_mode
+
+        _discover_analyses()
+        try:
+            analysis_mode = get_mode(mode)
+        except KeyError as exc:
+            return {"ok": False, "error": {"message": str(exc)}}
 
         provider = get_llm_provider()
         wall_start = time.monotonic()
 
         # Step 1: create empty hypothesis row so we can persist failures.
         empty = Recipe(nodes={}, final="")
-        h = Hypothesis.create(question, empty, model=provider.name)
-
-        # Step 1.5: gather literature findings for the LLM prompt.
-        catalog = _build_catalog()
-        all_findings = Finding.for_categories(
-            *{cat for meta in catalog.values() for col in meta.get("columns", []) if (cat := col.get("category"))}
-        )
-        all_finding_lines = [f.to_prompt_line() for f in all_findings[:50]]
-        question_findings = Finding.for_question(question, catalog)
-        question_finding_lines = [f.to_prompt_line() for f in question_findings[:15]]
+        h = Hypothesis.create(question, empty, model=provider.name, mode=mode)
 
         # Step 2: ask the LLM for a recipe with one validation retry.
         def _validate_payload(p: dict) -> None:
@@ -489,16 +485,16 @@ class Mutation:
                     )
             Recipe(nodes=tmp_nodes, final=p.get("final", "")).validate()
 
+        catalog = _build_catalog()
         llm_start = time.monotonic()
         try:
             payload, retry_errors = ask_for_recipe_with_retry(
                 provider,
                 question,
                 catalog,
+                mode=analysis_mode,
                 validate=_validate_payload,
                 max_attempts=2,
-                findings=all_finding_lines or None,
-                relevant_findings=question_finding_lines or None,
             )
             if retry_errors and not payload.get("nodes"):
                 msg = f"validation failed after retries: {retry_errors[-1]}"
@@ -546,19 +542,6 @@ class Mutation:
         result = run_recipe(recipe, catalog, backend=analytics_backend())
         query_elapsed_ms = (time.monotonic() - query_start) * 1000.0
         h.attach_result(result)
-
-        # Step 4.5: interpretation -- compare result to literature.
-        interpretation = ""
-        if not isinstance(result, ErrorResult) and question_finding_lines:
-            interpretation = ask_for_interpretation(
-                provider,
-                question,
-                result.to_dict(),
-                findings=question_finding_lines,
-            )
-            if interpretation:
-                h.attach_interpretation(interpretation)
-
         # Step 5: persist cost / latency.
         h.llm_input_tokens = getattr(provider, "last_input_tokens", 0)
         h.llm_output_tokens = getattr(provider, "last_output_tokens", 0)
@@ -569,9 +552,9 @@ class Mutation:
         return {
             "id": h.id,
             "plan": plan,
+            "mode": mode,
             "recipe": payload,
-            "result": result.to_dict(),
-            "interpretation": interpretation,
+            "result": result.model_dump(),
             "ok": not isinstance(result, ErrorResult),
             "cost": {
                 "llm_input_tokens": h.llm_input_tokens,
@@ -581,3 +564,16 @@ class Mutation:
                 "wall_clock_ms": h.wall_clock_ms,
             },
         }
+
+    # -- Literature --
+
+    @strawberry.mutation
+    def refresh_literature(self, papers_per_pair: int = 5, min_citations: int = 50) -> JSON:
+        """Fetch papers from OpenAlex and extract structured findings via LLM."""
+        from app.analytics_catalog import catalog_by_qualified_name
+        from app.graphql.llm_provider import get_llm_provider
+        from app.literature_fetch import refresh_findings
+
+        provider = get_llm_provider()
+        catalog = catalog_by_qualified_name()
+        return refresh_findings(catalog, provider, papers_per_pair=papers_per_pair, min_citations=min_citations)

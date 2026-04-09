@@ -95,6 +95,7 @@ class LocalUser(Table):
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_instance_seq START 1")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.finding_seq START 1")
 
         seen: set[type[Table]] = set()
 
