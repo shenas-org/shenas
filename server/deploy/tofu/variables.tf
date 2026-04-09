@@ -27,3 +27,19 @@ variable "db_password" {
   description = "Cloud SQL password for the shenas user"
   sensitive   = true
 }
+
+variable "arc_app_id" {
+  description = "GitHub App ID for ARC runner registration"
+  type        = string
+}
+
+variable "arc_app_installation_id" {
+  description = "GitHub App installation ID for ARC"
+  type        = string
+}
+
+variable "arc_app_private_key" {
+  description = "GitHub App private key (PEM) for ARC"
+  type        = string
+  sensitive   = true
+}
