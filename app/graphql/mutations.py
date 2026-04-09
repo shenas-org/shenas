@@ -163,9 +163,9 @@ class Mutation:
 
     @strawberry.mutation
     def update_transform(self, transform_id: int, sql: str) -> TransformType | None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        existing = Transform.find(transform_id)
+        existing = TransformInstance.find(transform_id)
         if not existing:
             return None
         t = existing.update(sql)
@@ -174,18 +174,18 @@ class Mutation:
     @strawberry.mutation
     def delete_transform(self, transform_id: int) -> OkType:
         from app.models import OkResponse
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         if t:
             t.delete()
         return OkType.from_pydantic(OkResponse(ok=True))
 
     @strawberry.mutation
     def enable_transform(self, transform_id: int) -> TransformType | None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         if not t:
             return None
         updated = t.set_enabled(True)
@@ -193,9 +193,9 @@ class Mutation:
 
     @strawberry.mutation
     def disable_transform(self, transform_id: int) -> TransformType | None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         if not t:
             return None
         updated = t.set_enabled(False)
@@ -203,9 +203,9 @@ class Mutation:
 
     @strawberry.mutation
     def test_transform(self, transform_id: int, limit: int = 10) -> JSON:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         return t.test(limit) if t else []
 
     @strawberry.mutation
