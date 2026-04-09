@@ -69,9 +69,9 @@ export class ShenasTimeline extends LitElement {
 
     .nav button,
     .nav input[type="date"] {
-      background: var(--shenas-surface, #22222f);
-      border: 1px solid var(--shenas-border, #2a2a3a);
-      color: var(--shenas-text, #e8e8ef);
+      background: var(--shenas-bg-secondary, #f3f0eb);
+      border: 1px solid var(--shenas-border, #d8d4cc);
+      color: var(--shenas-text, #2c2c28);
       padding: 0.3rem 0.6rem;
       border-radius: 6px;
       cursor: pointer;
@@ -79,9 +79,8 @@ export class ShenasTimeline extends LitElement {
     }
 
     .nav button:hover {
-      background: var(--shenas-accent, #6c5ce7);
-      border-color: var(--shenas-accent, #6c5ce7);
-      color: white;
+      background: var(--shenas-bg-hover, #edeae4);
+      border-color: var(--shenas-border, #d8d4cc);
     }
 
     .nav input[type="date"] {
