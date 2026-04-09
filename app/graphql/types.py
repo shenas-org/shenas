@@ -105,36 +105,6 @@ class ThemeInfo:
 
 
 @strawberry.type
-class GeofenceType:
-    id: int
-    name: str
-    latitude: float
-    longitude: float
-    radius_m: float
-    category: str
-    added_at: str | None
-    updated_at: str | None
-
-
-@strawberry.input
-class GeofenceCreateInput:
-    name: str
-    latitude: float
-    longitude: float
-    radius_m: float = 200.0
-    category: str = ""
-
-
-@strawberry.input
-class GeofenceUpdateInput:
-    name: str | None = None
-    latitude: float | None = None
-    longitude: float | None = None
-    radius_m: float | None = None
-    category: str | None = None
-
-
-@strawberry.type
 class TransformType:
     id: int
     transform_type: str
@@ -174,9 +144,6 @@ __all__ = [
     "AuthResponseType",
     "ConfigEntryType",
     "DBStatusType",
-    "GeofenceCreateInput",
-    "GeofenceType",
-    "GeofenceUpdateInput",
     "InstallResponseType",
     "InstallResultType",
     "OkType",

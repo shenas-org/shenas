@@ -186,9 +186,7 @@ class TestSeedDefaults:
 class TestExecution:
     def _setup_target(self, db_con: duckdb.DuckDBPyConnection) -> None:
         db_con.execute("CREATE SCHEMA IF NOT EXISTS metrics")
-        db_con.execute(
-            "CREATE TABLE IF NOT EXISTS metrics.daily_activities (id INTEGER, source VARCHAR)"
-        )
+        db_con.execute("CREATE TABLE IF NOT EXISTS metrics.daily_activities (id INTEGER, source VARCHAR)")
 
     def test_run_for_source_no_transforms(self, db_con: duckdb.DuckDBPyConnection) -> None:
         from shenas_transformations.core.instance import TransformInstance

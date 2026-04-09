@@ -9,7 +9,37 @@ from __future__ import annotations
 
 import strawberry
 
-from app.graphql.types import GeofenceCreateInput, GeofenceType, GeofenceUpdateInput, OkType
+from app.graphql.types import OkType
+
+
+@strawberry.type
+class GeofenceType:
+    id: int
+    name: str
+    latitude: float
+    longitude: float
+    radius_m: float
+    category: str
+    added_at: str | None
+    updated_at: str | None
+
+
+@strawberry.input
+class GeofenceCreateInput:
+    name: str
+    latitude: float
+    longitude: float
+    radius_m: float = 200.0
+    category: str = ""
+
+
+@strawberry.input
+class GeofenceUpdateInput:
+    name: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    radius_m: float | None = None
+    category: str | None = None
 
 
 def _geofence_to_gql(g: object) -> GeofenceType:
@@ -28,13 +58,13 @@ def _geofence_to_gql(g: object) -> GeofenceType:
 class QueryMixin:
     @strawberry.field
     def geofences(self) -> list[GeofenceType]:
-        from app.geofences import Geofence
+        from shenas_transformations.geofence.model import Geofence
 
         return [_geofence_to_gql(g) for g in Geofence.all(order_by="name")]
 
     @strawberry.field
     def geofence(self, geofence_id: int) -> GeofenceType | None:
-        from app.geofences import Geofence
+        from shenas_transformations.geofence.model import Geofence
 
         g = Geofence.find(geofence_id)
         return _geofence_to_gql(g) if g else None
@@ -43,7 +73,7 @@ class QueryMixin:
 class MutationMixin:
     @strawberry.mutation
     def create_geofence(self, geofence_input: GeofenceCreateInput) -> GeofenceType:
-        from app.geofences import Geofence
+        from shenas_transformations.geofence.model import Geofence
 
         g = Geofence.create(
             name=geofence_input.name,
@@ -56,7 +86,7 @@ class MutationMixin:
 
     @strawberry.mutation
     def update_geofence(self, geofence_id: int, geofence_input: GeofenceUpdateInput) -> GeofenceType | None:
-        from app.geofences import Geofence
+        from shenas_transformations.geofence.model import Geofence
 
         g = Geofence.find(geofence_id)
         if not g:
@@ -72,7 +102,8 @@ class MutationMixin:
 
     @strawberry.mutation
     def delete_geofence(self, geofence_id: int) -> OkType:
-        from app.geofences import Geofence
+        from shenas_transformations.geofence.model import Geofence
+
         from app.models import OkResponse
 
         g = Geofence.find(geofence_id)

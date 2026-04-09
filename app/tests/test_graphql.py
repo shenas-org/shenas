@@ -761,7 +761,7 @@ class TestGraphQLMutations:
         tid = row[0]
         result = _gql(
             client,
-            'mutation($id: Int!, $params: String!) { updateTransform(transformId: $id, params: $params) { id params } }',
+            "mutation($id: Int!, $params: String!) { updateTransform(transformId: $id, params: $params) { id params } }",
             {"id": tid, "params": '{"sql": "SELECT 2 AS new_col"}'},
         )
         assert "errors" not in result

@@ -216,7 +216,7 @@ def cursor(*, database: str | None = None) -> Generator[duckdb.DuckDBPyConnectio
 
 
 def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:  # noqa: ARG001
-    """Back-compat shim: return the current user's underlying connection."""
+    """Return the current user's underlying DuckDB connection."""
     from app.databases import resolve_db
 
     return resolve_db(None).connect()
@@ -272,22 +272,15 @@ def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) ->
 
 
 # ----------------------------------------------------------------------
-# Test back-compat shim
+# Test helper
 # ----------------------------------------------------------------------
 
 
 def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
-    """Back-compat shim for test fixtures that pass a single in-memory connection.
-
-    Older test fixtures construct ``con = duckdb.connect(":memory:")``,
-    ATTACH ``:memory:`` AS db, USE db, and call this. The new design
-    splits state across two DBs, but tests that exercise either side
-    can run both bootstraps against the same connection so the legacy
-    fixture pattern keeps working.
-    """
+    """Create all system + user tables on a single in-memory connection for tests."""
     from shenas_transformations.core.instance import TransformInstance
+    from shenas_transformations.geofence.model import Geofence
 
-    from app.geofences import Geofence
     from app.hotkeys import Hotkey
     from app.hypotheses import Hypothesis
     from app.local_sessions import LocalSession
@@ -321,7 +314,3 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     from shenas_datasets.core.dataset import Dataset
 
     Dataset.ensure_all(con)
-
-
-# Compatibility re-export for legacy callers.
-DB_PATH = SHENAS_DB_PATH

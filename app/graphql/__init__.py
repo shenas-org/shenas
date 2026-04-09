@@ -30,15 +30,8 @@ async def _get_context(request: Request) -> dict[str, Any]:
 def _build_schema() -> strawberry.Schema:
     query_mixins, mutation_mixins = _discover_mixins()
 
-    if query_mixins:
-        Query = strawberry.type(type("Query", (*query_mixins, CoreQuery), {}))
-    else:
-        Query = CoreQuery
-
-    if mutation_mixins:
-        Mutation = strawberry.type(type("Mutation", (*mutation_mixins, CoreMutation), {}))
-    else:
-        Mutation = CoreMutation
+    Query = strawberry.type(type("Query", (*query_mixins, CoreQuery), {})) if query_mixins else CoreQuery
+    Mutation = strawberry.type(type("Mutation", (*mutation_mixins, CoreMutation), {})) if mutation_mixins else CoreMutation
 
     return strawberry.Schema(query=Query, mutation=Mutation)
 
