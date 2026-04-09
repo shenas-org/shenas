@@ -875,9 +875,7 @@ class ShenasApp extends LitElement {
               id: `sync:${p.name}`,
               category: "Pipe",
               label: `Sync ${name}`,
-              action: () => {
-                fetch(`${this.apiBase}/sync/${p.name}`, { method: "POST" });
-              },
+              action: () => this._runSyncJob(`sync-${p.name}`, `Syncing ${name}`, `${this.apiBase}/sync/${p.name}`),
             });
             commands.push({
               id: `transform:pipe:${p.name}`,
@@ -894,9 +892,7 @@ class ShenasApp extends LitElement {
         id: "sync:all",
         category: "Pipe",
         label: "Sync All Pipes",
-        action: () => {
-          fetch(`${this.apiBase}/sync`, { method: "POST" });
-        },
+        action: () => this._runSyncJob("sync-all", "Syncing All Pipes", `${this.apiBase}/sync`),
       });
       commands.push({
         id: "seed:transforms",
@@ -1603,6 +1599,46 @@ class ShenasApp extends LitElement {
           finishJob: (id: string, ok: boolean, message: string) => void;
         })
       | null;
+  }
+
+  async _runSyncJob(id: string, label: string, url: string): Promise<void> {
+    const jobId = `${id}-${Date.now()}`;
+    const panel = this._getJobPanel();
+    panel?.addJob(jobId, label);
+    try {
+      const resp = await fetch(url, { method: "POST" });
+      if (!resp.ok || !resp.body) {
+        panel?.finishJob(jobId, false, `Request failed (${resp.status})`);
+        return;
+      }
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.event === "done") {
+              panel?.finishJob(jobId, evt.ok !== false, evt.message || label);
+            } else if (evt.event === "error") {
+              panel?.appendLine(jobId, evt.message || "error");
+            } else {
+              panel?.appendLine(jobId, evt.message || evt.text || "");
+            }
+          } catch {
+            /* ignore parse errors */
+          }
+        }
+      }
+    } catch (err) {
+      panel?.finishJob(jobId, false, String(err));
+    }
   }
 
   _renderSettings(kind: string) {

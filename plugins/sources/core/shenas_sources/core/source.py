@@ -306,6 +306,16 @@ class Source(Plugin):
             yield ("error", msg)
             return
 
+        # Pre-check: try building the client to catch config errors early
+        # without a full traceback in the logs.
+        try:
+            self.build_client()
+        except Exception as exc:
+            msg = str(exc)
+            logger.warning("Sync skipped: %s -- %s", self.name, msg)
+            yield ("error", msg)
+            return
+
         # ContextVars don't propagate across threading.Thread boundaries -- capture
         # the parent's job_id and rebind inside the worker so logs emitted from the
         # sync thread also carry it.
