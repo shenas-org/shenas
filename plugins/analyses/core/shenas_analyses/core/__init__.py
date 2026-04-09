@@ -39,6 +39,7 @@ class Analysis(Plugin):
     """
 
     _kind = "analysis"
+    display_name_plural: ClassVar[str | None] = "Analyses"
 
     mode_cls: ClassVar[type[AnalysisMode]]
     extra_operations: ClassVar[tuple[type[Operation], ...]] = ()

@@ -259,6 +259,7 @@ class Plugin(abc.ABC):
 
     name: ClassVar[str]
     display_name: ClassVar[str]
+    display_name_plural: ClassVar[str | None] = None
     description: ClassVar[str] = ""
     internal: ClassVar[bool] = False
     enabled_by_default: ClassVar[bool] = True
