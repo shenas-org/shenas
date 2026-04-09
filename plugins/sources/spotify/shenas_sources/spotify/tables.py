@@ -70,10 +70,12 @@ TIME_RANGES = ("short_term", "medium_term", "long_term")
 class RecentlyPlayed(EventTable):
     """A single track play."""
 
-    table_name: ClassVar[str] = "recently_played"
-    table_display_name: ClassVar[str] = "Recently Played"
-    table_description: ClassVar[str | None] = "Track plays from the Spotify recent-listens feed."
-    table_pk: ClassVar[tuple[str, ...]] = ("played_at",)
+    class _Meta:
+        name = "recently_played"
+        display_name = "Recently Played"
+        description = "Track plays from the Spotify recent-listens feed."
+        pk = ("played_at",)
+
     time_at: ClassVar[str] = "played_at"
     cursor_column: ClassVar[str] = "played_at"
 
@@ -123,10 +125,11 @@ class RecentlyPlayed(EventTable):
 class TopTracks(SnapshotTable):
     """Top tracks per time range. SCD2 closes a row when a track drops out."""
 
-    table_name: ClassVar[str] = "top_tracks"
-    table_display_name: ClassVar[str] = "Top Tracks"
-    table_description: ClassVar[str | None] = "Top tracks for short / medium / long-term ranges."
-    table_pk: ClassVar[tuple[str, ...]] = ("track_id", "time_range")
+    class _Meta:
+        name = "top_tracks"
+        display_name = "Top Tracks"
+        description = "Top tracks for short / medium / long-term ranges."
+        pk = ("track_id", "time_range")
 
     track_id: Annotated[str, Field(db_type="VARCHAR", description="Spotify track ID")]
     time_range: Annotated[str, Field(db_type="VARCHAR", description="short_term / medium_term / long_term")]
@@ -168,10 +171,11 @@ class TopTracks(SnapshotTable):
 class TopArtists(SnapshotTable):
     """Top artists per time range. SCD2 closes a row when an artist drops out."""
 
-    table_name: ClassVar[str] = "top_artists"
-    table_display_name: ClassVar[str] = "Top Artists"
-    table_description: ClassVar[str | None] = "Top artists for short / medium / long-term ranges."
-    table_pk: ClassVar[tuple[str, ...]] = ("artist_id", "time_range")
+    class _Meta:
+        name = "top_artists"
+        display_name = "Top Artists"
+        description = "Top artists for short / medium / long-term ranges."
+        pk = ("artist_id", "time_range")
 
     artist_id: Annotated[str, Field(db_type="VARCHAR", description="Spotify artist ID")]
     time_range: Annotated[str, Field(db_type="VARCHAR", description="short_term / medium_term / long_term")]
@@ -208,10 +212,11 @@ class TopArtists(SnapshotTable):
 class SavedTracks(SnapshotTable):
     """Tracks the user has saved (liked). SCD2 closes a row when unsaved."""
 
-    table_name: ClassVar[str] = "saved_tracks"
-    table_display_name: ClassVar[str] = "Saved Tracks"
-    table_description: ClassVar[str | None] = "Liked songs in the user's library."
-    table_pk: ClassVar[tuple[str, ...]] = ("track_id",)
+    class _Meta:
+        name = "saved_tracks"
+        display_name = "Saved Tracks"
+        description = "Liked songs in the user's library."
+        pk = ("track_id",)
 
     track_id: Annotated[str, Field(db_type="VARCHAR", description="Spotify track ID")]
     added_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="When the track was saved")] = None
@@ -256,10 +261,11 @@ class AudioFeatures(SnapshotTable):
     of 100 ids.
     """
 
-    table_name: ClassVar[str] = "audio_features"
-    table_display_name: ClassVar[str] = "Audio Features"
-    table_description: ClassVar[str | None] = "Per-track danceability / energy / valence / tempo / etc."
-    table_pk: ClassVar[tuple[str, ...]] = ("track_id",)
+    class _Meta:
+        name = "audio_features"
+        display_name = "Audio Features"
+        description = "Per-track danceability / energy / valence / tempo / etc."
+        pk = ("track_id",)
 
     track_id: Annotated[str, Field(db_type="VARCHAR", description="Spotify track ID")]
     danceability: Annotated[float | None, Field(db_type="DOUBLE", description="Danceability (0..1)")] = None
@@ -309,10 +315,11 @@ class AudioFeatures(SnapshotTable):
 class UserProfile(SnapshotTable):
     """The authenticated Spotify user profile."""
 
-    table_name: ClassVar[str] = "user_profile"
-    table_display_name: ClassVar[str] = "User Profile"
-    table_description: ClassVar[str | None] = "Authenticated Spotify user profile."
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    class _Meta:
+        name = "user_profile"
+        display_name = "User Profile"
+        description = "Authenticated Spotify user profile."
+        pk = ("id",)
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Spotify user ID")]
     display_name_: Annotated[str | None, Field(db_type="VARCHAR", description="Display name")] = None
@@ -342,10 +349,11 @@ class UserProfile(SnapshotTable):
 class FollowedArtists(SnapshotTable):
     """Artists the user follows. SCD2 closes a row when the user unfollows."""
 
-    table_name: ClassVar[str] = "followed_artists"
-    table_display_name: ClassVar[str] = "Followed Artists"
-    table_description: ClassVar[str | None] = "Artists the user is currently following."
-    table_pk: ClassVar[tuple[str, ...]] = ("artist_id",)
+    class _Meta:
+        name = "followed_artists"
+        display_name = "Followed Artists"
+        description = "Artists the user is currently following."
+        pk = ("artist_id",)
 
     artist_id: Annotated[str, Field(db_type="VARCHAR", description="Spotify artist ID")]
     artist_name: Annotated[str | None, Field(db_type="VARCHAR", description="Artist name")] = None
@@ -379,10 +387,11 @@ class FollowedArtists(SnapshotTable):
 class SavedAlbums(SnapshotTable):
     """Albums saved to the user's library. SCD2 closes a row when removed."""
 
-    table_name: ClassVar[str] = "saved_albums"
-    table_display_name: ClassVar[str] = "Saved Albums"
-    table_description: ClassVar[str | None] = "Albums in the user's library."
-    table_pk: ClassVar[tuple[str, ...]] = ("album_id",)
+    class _Meta:
+        name = "saved_albums"
+        display_name = "Saved Albums"
+        description = "Albums in the user's library."
+        pk = ("album_id",)
 
     album_id: Annotated[str, Field(db_type="VARCHAR", description="Spotify album ID")]
     added_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="When the album was saved")] = None
@@ -421,10 +430,11 @@ class SavedAlbums(SnapshotTable):
 class Playlists(SnapshotTable):
     """The user's playlists (metadata only). SCD2 closes a row when deleted."""
 
-    table_name: ClassVar[str] = "playlists"
-    table_display_name: ClassVar[str] = "Playlists"
-    table_description: ClassVar[str | None] = "User playlists -- metadata only, not contents."
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    class _Meta:
+        name = "playlists"
+        display_name = "Playlists"
+        description = "User playlists -- metadata only, not contents."
+        pk = ("id",)
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Playlist ID")]
     playlist_name: Annotated[str | None, Field(db_type="VARCHAR", description="Playlist name")] = None
@@ -468,10 +478,11 @@ class Playlists(SnapshotTable):
 class SavedShows(SnapshotTable):
     """Podcast shows in the user's library. SCD2 closes a row when removed."""
 
-    table_name: ClassVar[str] = "saved_shows"
-    table_display_name: ClassVar[str] = "Saved Shows"
-    table_description: ClassVar[str | None] = "Podcast shows in the user's library."
-    table_pk: ClassVar[tuple[str, ...]] = ("show_id",)
+    class _Meta:
+        name = "saved_shows"
+        display_name = "Saved Shows"
+        description = "Podcast shows in the user's library."
+        pk = ("show_id",)
 
     show_id: Annotated[str, Field(db_type="VARCHAR", description="Spotify show ID")]
     added_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="When the show was saved")] = None
@@ -511,10 +522,11 @@ class SavedShows(SnapshotTable):
 class SavedEpisodes(SnapshotTable):
     """Saved podcast episodes. SCD2 closes a row when removed."""
 
-    table_name: ClassVar[str] = "saved_episodes"
-    table_display_name: ClassVar[str] = "Saved Episodes"
-    table_description: ClassVar[str | None] = "Saved podcast episodes."
-    table_pk: ClassVar[tuple[str, ...]] = ("episode_id",)
+    class _Meta:
+        name = "saved_episodes"
+        display_name = "Saved Episodes"
+        description = "Saved podcast episodes."
+        pk = ("episode_id",)
 
     episode_id: Annotated[str, Field(db_type="VARCHAR", description="Spotify episode ID")]
     added_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="When saved")] = None

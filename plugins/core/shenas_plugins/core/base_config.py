@@ -23,10 +23,12 @@ class SourceConfig(Table):
     """
 
     _abstract: ClassVar[bool] = True
-    table_display_name: ClassVar[str] = "Source Config"
-    table_description: ClassVar[str | None] = "Per-source configuration storage."
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
-    table_schema: ClassVar[str | None] = "config"
+
+    class _Meta(Table._Meta):
+        display_name = "Source Config"
+        description = "Per-source configuration storage."
+        pk = ("id",)
+        schema = "config"
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         # Defer validation: see SourceAuth.__init_subclass__ for the rationale.

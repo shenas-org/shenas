@@ -20,10 +20,12 @@ class Event(EventMetricTable):
     fields capture duration, location, category, and source-specific metadata.
     """
 
-    table_name: ClassVar[str] = "events"
-    table_display_name: ClassVar[str] = "Events"
-    table_description: ClassVar[str | None] = "Unified timeline of events from all sources."
-    table_pk: ClassVar[tuple[str, ...]] = ("source", "source_id")
+    class _Meta:
+        name = "events"
+        display_name = "Events"
+        description = "Unified timeline of events from all sources."
+        pk = ("source", "source_id")
+
     time_at: ClassVar[str] = "start_at"
 
     source: Source

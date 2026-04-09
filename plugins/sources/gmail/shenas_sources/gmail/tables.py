@@ -172,10 +172,12 @@ def message_pages(service: Any, query: str = "") -> Iterator[list[dict[str, Any]
 class Messages(EventTable):
     """A Gmail message (metadata + derived state flags)."""
 
-    table_name: ClassVar[str] = "messages"
-    table_display_name: ClassVar[str] = "Gmail Messages"
-    table_description: ClassVar[str | None] = "Email metadata, headers, and label-derived state flags."
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    class _Meta:
+        name = "messages"
+        display_name = "Gmail Messages"
+        description = "Email metadata, headers, and label-derived state flags."
+        pk = ("id",)
+
     time_at: ClassVar[str] = "internal_date"
     cursor_column: ClassVar[str] = "internal_date"
 
@@ -220,10 +222,11 @@ class Messages(EventTable):
 class Labels(DimensionTable):
     """Gmail label. SCD2 captures rename history."""
 
-    table_name: ClassVar[str] = "labels"
-    table_display_name: ClassVar[str] = "Gmail Labels"
-    table_description: ClassVar[str | None] = "Labels defined on the user's mailbox."
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    class _Meta:
+        name = "labels"
+        display_name = "Gmail Labels"
+        description = "Labels defined on the user's mailbox."
+        pk = ("id",)
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Label ID")]
     label_name: Annotated[str | None, Field(db_type="VARCHAR", description="Label name")] = None
@@ -243,10 +246,11 @@ class Labels(DimensionTable):
 class Profile(SnapshotTable):
     """Gmail account profile -- mailbox totals."""
 
-    table_name: ClassVar[str] = "profile"
-    table_display_name: ClassVar[str] = "Gmail Profile"
-    table_description: ClassVar[str | None] = "Per-account mailbox totals snapshot."
-    table_pk: ClassVar[tuple[str, ...]] = ("email_address",)
+    class _Meta:
+        name = "profile"
+        display_name = "Gmail Profile"
+        description = "Per-account mailbox totals snapshot."
+        pk = ("email_address",)
 
     email_address: Annotated[str, Field(db_type="VARCHAR", description="Account email")]
     messages_total: Annotated[int | None, Field(db_type="BIGINT", description="Total messages in mailbox")] = None
@@ -267,10 +271,11 @@ class Profile(SnapshotTable):
 class Filters(SnapshotTable):
     """Gmail server-side filter rule."""
 
-    table_name: ClassVar[str] = "filters"
-    table_display_name: ClassVar[str] = "Gmail Filters"
-    table_description: ClassVar[str | None] = "Server-side filter rules."
-    table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    class _Meta:
+        name = "filters"
+        display_name = "Gmail Filters"
+        description = "Server-side filter rules."
+        pk = ("id",)
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Filter ID")]
     from_criteria: Annotated[str | None, Field(db_type="VARCHAR", description="Match: from")] = None
@@ -312,10 +317,11 @@ class Filters(SnapshotTable):
 class Vacation(SnapshotTable):
     """Gmail vacation responder configuration (single row)."""
 
-    table_name: ClassVar[str] = "vacation"
-    table_display_name: ClassVar[str] = "Vacation Responder"
-    table_description: ClassVar[str | None] = "Vacation responder configuration."
-    table_pk: ClassVar[tuple[str, ...]] = ("singleton",)
+    class _Meta:
+        name = "vacation"
+        display_name = "Vacation Responder"
+        description = "Vacation responder configuration."
+        pk = ("singleton",)
 
     singleton: Annotated[int, Field(db_type="INTEGER", description="Always 1 -- single-row table")] = 1
     enabled: Annotated[bool, Field(db_type="BOOLEAN", description="Vacation responder enabled")] = False
@@ -347,10 +353,11 @@ class Vacation(SnapshotTable):
 class SendAs(SnapshotTable):
     """A 'Send mail as' identity configured on the account."""
 
-    table_name: ClassVar[str] = "send_as"
-    table_display_name: ClassVar[str] = "Send-As Identities"
-    table_description: ClassVar[str | None] = "Send-mail-as identities configured on the account."
-    table_pk: ClassVar[tuple[str, ...]] = ("send_as_email",)
+    class _Meta:
+        name = "send_as"
+        display_name = "Send-As Identities"
+        description = "Send-mail-as identities configured on the account."
+        pk = ("send_as_email",)
 
     send_as_email: Annotated[str, Field(db_type="VARCHAR", description="The email address to send as")]
     display_name_: Annotated[str | None, Field(db_type="VARCHAR", description="Display name")] = None
