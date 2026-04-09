@@ -537,6 +537,70 @@ class TestGraphQLMutations:
         assert "errors" not in result
         assert "error" in result["data"]["runRecipe"]
 
+    # -- LLM-driven hypothesis (PR 2.3) --
+
+    def test_ask_hypothesis_with_fake_provider(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
+        from shenas_plugins.core.analytics import FakeProvider
+
+        test_con.execute("DROP TABLE IF EXISTS metrics.daily_intake")
+        test_con.execute("CREATE TABLE metrics.daily_intake (date DATE, source VARCHAR, caffeine_mg DOUBLE)")
+        test_con.execute(
+            "INSERT INTO metrics.daily_intake VALUES ('2026-01-01', 'manual', 100), ('2026-01-02', 'manual', 200)"
+        )
+
+        canned = {
+            "plan": "Read daily caffeine intake.",
+            "nodes": {"a": {"type": "source", "table": "metrics.daily_intake"}},
+            "final": "a",
+        }
+        fake_catalog = {
+            "metrics.daily_intake": {
+                "table": "daily_intake",
+                "schema": "metrics",
+                "primary_key": ["date", "source"],
+                "kind": "daily_metric",
+                "columns": [
+                    {"name": "date", "db_type": "DATE"},
+                    {"name": "source", "db_type": "VARCHAR"},
+                    {"name": "caffeine_mg", "db_type": "DOUBLE"},
+                ],
+            }
+        }
+        with (
+            patch("app.graphql.llm_provider.get_llm_provider", return_value=FakeProvider(canned)),
+            patch("app.graphql.mutations._build_catalog", return_value=fake_catalog),
+        ):
+            result = _gql(
+                client,
+                'mutation { askHypothesis(question: "what does my caffeine look like?") }',
+            )
+        assert "errors" not in result
+        body = result["data"]["askHypothesis"]
+        assert body["plan"] == "Read daily caffeine intake."
+        assert body["recipe"] == canned
+        assert body["result"] is not None
+        assert body["id"] >= 1
+
+    def test_ask_hypothesis_llm_failure_persists_error(self, client: TestClient) -> None:
+        class _BoomProvider:
+            name = "boom@v0"
+
+            def ask(self, **_):
+                raise RuntimeError("rate limited")
+
+        with (
+            patch("app.graphql.llm_provider.get_llm_provider", return_value=_BoomProvider()),
+            patch("app.graphql.mutations._build_catalog", return_value={}),
+        ):
+            result = _gql(
+                client,
+                'mutation { askHypothesis(question: "anything") }',
+            )
+        assert "errors" not in result
+        body = result["data"]["askHypothesis"]
+        assert body["ok"] is False
+        assert "rate limited" in body["error"]["message"]
+
     def test_create_transform(self, client: TestClient) -> None:
         result = _gql(
             client,
