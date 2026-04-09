@@ -1,0 +1,9 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'source-cronometer'
+
+language: 'python'
+stack: 'data'
+tags: ['source']
+
+dependsOn:
+  - 'source-core'

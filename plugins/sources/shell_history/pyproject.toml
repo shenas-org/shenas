@@ -1,0 +1,25 @@
+[project]
+name = "shenas-source-shell-history"
+dynamic = ["version"]
+description = "Shell command history (bash/zsh/fish) dlt connector for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "shenas-source-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.sources"]
+shell_history = "shenas_sources.shell_history.source:ShellHistorySource"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-shell-history/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-shell-history/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]
