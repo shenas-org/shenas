@@ -36,6 +36,14 @@ async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:
 
     set_loop(_asyncio.get_running_loop())
 
+    # Attach any users who opted in to background sync via the keyring.
+    try:
+        from app.local_users import LocalUser
+
+        LocalUser.attach_remembered()
+    except Exception:
+        pass
+
     # Start mesh daemon in background (device sync)
     mesh_task = None
     try:

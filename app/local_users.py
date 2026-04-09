@@ -118,6 +118,32 @@ class LocalUser(Table):
                 cls._attached[self.id] = db
             return db
 
+    @classmethod
+    def attach_remembered(cls) -> list[int]:
+        """Attach every user whose derived key is stored in the OS keyring.
+
+        Called at server startup so the scheduler can drive syncs for
+        users who have opted in to background sync while logged out.
+        Returns the list of user_ids that were successfully attached.
+        """
+        from app.user_keys import get_remembered_user_key
+
+        attached: list[int] = []
+        for row in cls.list_all():
+            user_id = int(row["id"])
+            key = get_remembered_user_key(user_id)
+            if not key:
+                continue
+            user = cls.get_by_id(user_id)
+            if user is None:
+                continue
+            try:
+                user.attach(key)
+                attached.append(user_id)
+            except Exception:
+                continue
+        return attached
+
     def detach(self) -> None:
         """Close and forget this user's DB. Idempotent."""
         cls = type(self)
