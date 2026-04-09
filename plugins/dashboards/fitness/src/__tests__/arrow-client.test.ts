@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { tableFromArrays } from "apache-arrow";
-import { arrowToColumns, arrowDatesToUnix } from "../arrow-client.ts";
+import { arrowToColumns, arrowDatesToUnix } from "shenas-frontends";
 
 describe("arrowToColumns", () => {
   it("converts arrow table to column dict", () => {
