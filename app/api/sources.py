@@ -43,9 +43,12 @@ def _clear_caches() -> None:
     importlib.invalidate_caches()
 
 
+_EP_GROUP_OVERRIDES: dict[str, str] = {"analysis": "shenas.analyses"}
+
+
 def _ep_group(kind: str) -> str:
     """Entry point group name for a plugin kind."""
-    return f"shenas.{kind}s"
+    return _EP_GROUP_OVERRIDES.get(kind, f"shenas.{kind}s")
 
 
 def _load_plugins(kind: str, *, base: type[T], include_internal: bool = True) -> list[type[T]]:

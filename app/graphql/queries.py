@@ -121,11 +121,21 @@ class Query:
     @strawberry.field
     def plugin_kinds(self) -> JSON:
         """Return all discovered plugin kinds with display labels, ordered by label."""
-        from shenas_plugins.core.plugin import VALID_KINDS
+        from app.api.sources import _load_plugins
+        from shenas_plugins.core.plugin import VALID_KINDS, Plugin
 
-        _PLURAL: dict[str, str] = {"analysis": "Analyses"}
+        plural_map: dict[str, str] = {}
+        for kind in VALID_KINDS:
+            try:
+                for cls in _load_plugins(kind, base=Plugin):
+                    plural = getattr(cls, "display_name_plural", None)
+                    if plural:
+                        plural_map[kind] = plural
+                        break
+            except Exception:
+                pass
 
-        kinds = [{"id": k, "label": _PLURAL.get(k, f"{k.title()}s")} for k in sorted(VALID_KINDS)]
+        kinds = [{"id": k, "label": plural_map.get(k, f"{k.title()}s")} for k in sorted(VALID_KINDS)]
         return sorted(kinds, key=lambda x: x["label"])
 
     @strawberry.field
