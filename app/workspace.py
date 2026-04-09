@@ -1,4 +1,7 @@
-"""Workspace state persistence: a JSON blob per (user, workspace)."""
+"""Workspace state persistence: a JSON blob per named workspace.
+
+Lives in each user's encrypted DB; not keyed by user_id.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from shenas_plugins.core.table import Field, UserTable
+from shenas_plugins.core.table import Field, Table
 
 
 def _now_iso() -> str:
@@ -15,32 +18,26 @@ def _now_iso() -> str:
 
 
 @dataclass
-class Workspace(UserTable):
-    """Per-user workspace state (tab layout, active tab, ...).
-
-    Composite PK is ``(workspace_id, user_id)`` -- a single user can own
-    multiple named workspaces; ``user_id`` is 0 in single-user mode.
-    The state itself is JSON-encoded into the ``state`` column.
-    """
+class Workspace(Table):
+    """Workspace state (tab layout, active tab, ...)."""
 
     class _Meta:
         name = "workspace"
         display_name = "Workspace"
-        description = "Per-user workspace state (tab layout, active tab, ...)."
+        description = "Per-workspace state (tab layout, active tab, ...)."
         schema = "shenas_system"
-        pk = ("workspace_id", "user_id")
+        pk = ("workspace_id",)
 
     workspace_id: Annotated[int, Field(db_type="INTEGER", description="Workspace ID")] = 1
-    user_id: Annotated[int, Field(db_type="INTEGER", description="Local user ID (0 = single-user mode)")] = 0
     state: Annotated[str, Field(db_type="VARCHAR", description="Workspace state JSON", db_default="'{}'")] = "{}"
     updated_at: (
         Annotated[str, Field(db_type="TIMESTAMP", description="When last updated", db_default="current_timestamp")] | None
     ) = None
 
     @classmethod
-    def get(cls, user_id: int = 0, workspace_id: int = 1) -> dict[str, Any]:
-        """Return the JSON-decoded state for ``(workspace_id, user_id)``, or empty."""
-        row = cls.find(workspace_id, user_id)
+    def get(cls, workspace_id: int = 1) -> dict[str, Any]:
+        """Return the JSON-decoded state for ``workspace_id``, or empty."""
+        row = cls.find(workspace_id)
         if row is None or not row.state:
             return {}
         try:
@@ -49,11 +46,10 @@ class Workspace(UserTable):
             return {}
 
     @classmethod
-    def put(cls, state: dict[str, Any], user_id: int = 0, workspace_id: int = 1) -> None:
-        """Upsert the JSON-encoded state for ``(workspace_id, user_id)``."""
+    def put(cls, state: dict[str, Any], workspace_id: int = 1) -> None:
+        """Upsert the JSON-encoded state for ``workspace_id``."""
         cls(
             workspace_id=workspace_id,
-            user_id=user_id,
             state=json.dumps(state),
             updated_at=_now_iso(),
         ).upsert()
