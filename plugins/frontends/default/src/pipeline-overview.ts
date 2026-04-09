@@ -275,8 +275,16 @@ class PipelineOverview extends LitElement {
       }
     }
 
-    this._elements = elements;
-    this._empty = elements.filter((e) => e.data.source).length === 0;
+    // Hide non-source nodes that have no edges (no relationships).
+    const connectedNodes = new Set<string>();
+    for (const el of elements) {
+      if (el.data.source) connectedNodes.add(el.data.source);
+      if (el.data.target) connectedNodes.add(el.data.target);
+    }
+    this._elements = elements.filter(
+      (el) => el.data.source || el.data.kind === "source" || connectedNodes.has(el.data.id),
+    );
+    this._empty = this._elements.filter((e) => e.data.source).length === 0;
   }
 
   _initCytoscape(): void {
