@@ -14,6 +14,9 @@ build-backend = "hatchling.build"
 [project.entry-points."shenas.transformations"]
 geofence = "shenas_transformations.geofence:GeofenceTransformation"
 
+[project.entry-points."shenas.graphql"]
+geofence = "shenas_transformations.geofence.graphql"
+
 [tool.hatch.version]
 source = "vcs"
 tag-pattern = "transformation-geofence/v(?P<version>[^+]+)"

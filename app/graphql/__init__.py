@@ -1,4 +1,13 @@
-"""GraphQL schema assembly and FastAPI router."""
+"""GraphQL schema assembly and FastAPI router.
+
+The schema is composed dynamically from:
+1. Core Query/Mutation classes (always present, ``@strawberry.type``)
+2. Plugin-contributed mixins discovered via ``shenas.graphql`` entry points
+
+Plugins register a module with ``QueryMixin`` and/or ``MutationMixin``
+classes. These are collected at import time and merged into the final
+schema via multiple inheritance.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +17,9 @@ import strawberry
 from fastapi import Request  # noqa: TC002 - runtime type for context_getter
 from strawberry.fastapi import GraphQLRouter
 
-from app.graphql.mutations import Mutation
-from app.graphql.queries import Query
+from app.graphql.extensions import _discover_mixins
+from app.graphql.mutations import Mutation as CoreMutation
+from app.graphql.queries import Query as CoreQuery
 
 
 async def _get_context(request: Request) -> dict[str, Any]:
@@ -17,5 +27,21 @@ async def _get_context(request: Request) -> dict[str, Any]:
     return {"user_id": user_id}
 
 
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+def _build_schema() -> strawberry.Schema:
+    query_mixins, mutation_mixins = _discover_mixins()
+
+    if query_mixins:
+        Query = strawberry.type(type("Query", (*query_mixins, CoreQuery), {}))
+    else:
+        Query = CoreQuery
+
+    if mutation_mixins:
+        Mutation = strawberry.type(type("Mutation", (*mutation_mixins, CoreMutation), {}))
+    else:
+        Mutation = CoreMutation
+
+    return strawberry.Schema(query=Query, mutation=Mutation)
+
+
+schema = _build_schema()
 graphql_app = GraphQLRouter(schema, context_getter=_get_context)
