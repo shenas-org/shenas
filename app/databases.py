@@ -73,7 +73,7 @@ class DB:
         with self._lock:
             if self._con is not None:
                 try:
-                    self._con.execute("SELECT 1")
+                    self._con.execute("USE db")
                 except Exception:
                     self._con = None
             if self._con is None:
