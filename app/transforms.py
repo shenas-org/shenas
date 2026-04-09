@@ -1,4 +1,4 @@
-"""Transform management: CRUD, seeding defaults, and execution.
+"""Transform: SQL transforms bridging raw source tables to canonical metrics.
 
 Note: The ``sql`` field in transforms is user-supplied SQL that is executed
 directly against DuckDB. Any user who can create or edit transforms can run
@@ -8,7 +8,10 @@ canonical schemas and require full SQL expressiveness.
 
 from __future__ import annotations
 
+import dataclasses
 import logging
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Annotated, Any, ClassVar
 
 import duckdb
@@ -18,102 +21,72 @@ from shenas_plugins.core.table import Field, Table
 
 log = logging.getLogger(f"shenas.{__name__}")
 
-_COLS = (
-    "id, source_duckdb_schema, source_duckdb_table, target_duckdb_schema,"
-    " target_duckdb_table, source_plugin, description, sql, is_default,"
-    " enabled, added_at, updated_at, status_changed_at"
-)
+
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat()
 
 
-def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
-    return {
-        "id": row[0],
-        "source_duckdb_schema": row[1],
-        "source_duckdb_table": row[2],
-        "target_duckdb_schema": row[3],
-        "target_duckdb_table": row[4],
-        "source_plugin": row[5],
-        "description": row[6] or "",
-        "sql": row[7],
-        "is_default": row[8],
-        "enabled": row[9],
-        "added_at": str(row[10]) if row[10] else None,
-        "updated_at": str(row[11]) if row[11] else None,
-        "status_changed_at": str(row[12]) if row[12] else None,
-    }
+@dataclass
+class Transform(Table):
+    """A SQL transform stored in ``shenas_system.transforms``.
 
+    The class itself is the dataclass for the row -- there's no separate
+    wrapper. Generic CRUD comes from :class:`Table`. Domain-specific
+    methods (``update``, ``set_enabled``, ``test``, ``seed_defaults``,
+    ``run_for_source``, ``run_for_target``) are added on top.
+    """
 
-class Transform:
-    """Represents a SQL transform stored in shenas_system.transforms."""
+    table_name: ClassVar[str] = "transforms"
+    table_schema: ClassVar[str | None] = "shenas_system"
+    table_display_name: ClassVar[str] = "Transforms"
+    table_description: ClassVar[str | None] = "User-supplied SQL transforms bridging source data to canonical metric tables."
+    table_pk: ClassVar[tuple[str, ...]] = ("id",)
 
-    class _Table(Table):
-        table_name: ClassVar[str] = "transforms"
-        table_schema: ClassVar[str | None] = "shenas_system"
-        table_display_name: ClassVar[str] = "Transforms"
-        table_description: ClassVar[str | None] = (
-            "User-supplied SQL transforms bridging source data to canonical metric tables."
-        )
-        table_pk: ClassVar[tuple[str, ...]] = ("id",)
+    id: Annotated[
+        int,
+        Field(db_type="INTEGER", description="Transform ID", db_default="nextval('shenas_system.transform_seq')"),
+    ] = 0
+    source_duckdb_schema: Annotated[str, Field(db_type="VARCHAR", description="Source schema")] = ""
+    source_duckdb_table: Annotated[str, Field(db_type="VARCHAR", description="Source table")] = ""
+    target_duckdb_schema: Annotated[str, Field(db_type="VARCHAR", description="Target schema")] = ""
+    target_duckdb_table: Annotated[str, Field(db_type="VARCHAR", description="Target table")] = ""
+    source_plugin: Annotated[str, Field(db_type="VARCHAR", description="Source plugin name")] = ""
+    description: Annotated[str, Field(db_type="VARCHAR", description="Transform description", db_default="''")] | None = None
+    sql: Annotated[str, Field(db_type="TEXT", description="Transform SQL")] = ""
+    is_default: Annotated[bool, Field(db_type="BOOLEAN", description="Is a default transform", db_default="FALSE")] | None = (
+        None
+    )
+    enabled: Annotated[bool, Field(db_type="BOOLEAN", description="Is enabled", db_default="TRUE")] | None = None
+    added_at: Annotated[str, Field(db_type="TIMESTAMP", description="When added", db_default="current_timestamp")] | None = (
+        None
+    )
+    updated_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last updated")] | None = None
+    status_changed_at: Annotated[str, Field(db_type="TIMESTAMP", description="When status changed")] | None = None
 
-        id: Annotated[
-            int,
-            Field(db_type="INTEGER", description="Transform ID", db_default="nextval('shenas_system.transform_seq')"),
-        ] = 0
-        source_duckdb_schema: Annotated[str, Field(db_type="VARCHAR", description="Source schema")] = ""
-        source_duckdb_table: Annotated[str, Field(db_type="VARCHAR", description="Source table")] = ""
-        target_duckdb_schema: Annotated[str, Field(db_type="VARCHAR", description="Target schema")] = ""
-        target_duckdb_table: Annotated[str, Field(db_type="VARCHAR", description="Target table")] = ""
-        source_plugin: Annotated[str, Field(db_type="VARCHAR", description="Source plugin name")] = ""
-        description: Annotated[str, Field(db_type="VARCHAR", description="Transform description", db_default="''")] | None = (
-            None
-        )
-        sql: Annotated[str, Field(db_type="TEXT", description="Transform SQL")] = ""
-        is_default: (
-            Annotated[bool, Field(db_type="BOOLEAN", description="Is a default transform", db_default="FALSE")] | None
-        ) = None
-        enabled: Annotated[bool, Field(db_type="BOOLEAN", description="Is enabled", db_default="TRUE")] | None = None
-        added_at: (
-            Annotated[str, Field(db_type="TIMESTAMP", description="When added", db_default="current_timestamp")] | None
-        ) = None
-        updated_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last updated")] | None = None
-        status_changed_at: Annotated[str, Field(db_type="TIMESTAMP", description="When status changed")] | None = None
-
-    def __init__(self, data: dict[str, Any]) -> None:
-        self._data = data
-
-    def __getitem__(self, key: str) -> Any:
-        return self._data[key]
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return self._data.get(key, default)
+    # ------------------------------------------------------------------
+    # Convenience helpers
+    # ------------------------------------------------------------------
 
     def to_dict(self) -> dict[str, Any]:
-        return dict(self._data)
+        """Return all column values as a dict (for GraphQL serialization etc.)."""
+        return dataclasses.asdict(self)
 
-    # -- Queries --
+    # ------------------------------------------------------------------
+    # Queries (filter helper -- generic .all/.find come from the ABC)
+    # ------------------------------------------------------------------
 
-    @staticmethod
-    def all(source_plugin: str | None = None) -> list[Transform]:
-        with cursor() as cur:
-            if source_plugin:
-                rows = cur.execute(
-                    f"SELECT {_COLS} FROM shenas_system.transforms WHERE source_plugin = ? ORDER BY id",
-                    [source_plugin],
-                ).fetchall()
-            else:
-                rows = cur.execute(f"SELECT {_COLS} FROM shenas_system.transforms ORDER BY id").fetchall()
-        return [Transform(_row_to_dict(r)) for r in rows]
+    @classmethod
+    def for_plugin(cls, source_plugin: str) -> list[Transform]:
+        """All transforms registered against one source plugin, ordered by id."""
+        return cls.all(where="source_plugin = ?", params=[source_plugin], order_by="id")
 
-    @staticmethod
-    def find(transform_id: int) -> Transform | None:
-        with cursor() as cur:
-            row = cur.execute(f"SELECT {_COLS} FROM shenas_system.transforms WHERE id = ?", [transform_id]).fetchone()
-        return Transform(_row_to_dict(row)) if row else None
+    # ------------------------------------------------------------------
+    # Mutations
+    # ------------------------------------------------------------------
 
-    # -- Mutations --
-
-    @staticmethod
+    @classmethod
     def create(
+        cls,
         source_duckdb_schema: str,
         source_duckdb_table: str,
         target_duckdb_schema: str,
@@ -123,64 +96,48 @@ class Transform:
         description: str = "",
         is_default: bool = False,
     ) -> Transform:
-        with cursor() as cur:
-            row = cur.execute(
-                "INSERT INTO shenas_system.transforms "
-                "(source_duckdb_schema, source_duckdb_table, target_duckdb_schema,"
-                " target_duckdb_table, source_plugin, description, sql, is_default) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
-                [
-                    source_duckdb_schema,
-                    source_duckdb_table,
-                    target_duckdb_schema,
-                    target_duckdb_table,
-                    source_plugin,
-                    description,
-                    sql,
-                    is_default,
-                ],
-            ).fetchone()
-        if not row:
-            msg = "Failed to create transform"
-            raise RuntimeError(msg)
-        t = Transform.find(row[0])
-        if not t:
-            msg = "Failed to create transform"
-            raise RuntimeError(msg)
-        return t
+        t = cls(
+            source_duckdb_schema=source_duckdb_schema,
+            source_duckdb_table=source_duckdb_table,
+            target_duckdb_schema=target_duckdb_schema,
+            target_duckdb_table=target_duckdb_table,
+            source_plugin=source_plugin,
+            sql=sql,
+            description=description,
+            is_default=is_default,
+        )
+        return t.insert()
 
-    def update(self, sql: str) -> Transform | None:
-        with cursor() as cur:
-            cur.execute(
-                "UPDATE shenas_system.transforms SET sql = ?, updated_at = current_timestamp WHERE id = ?",
-                [sql, self["id"]],
-            )
-        return Transform.find(self["id"])
+    def update(self, sql: str) -> Transform:
+        """Update the SQL and bump ``updated_at``."""
+        self.sql = sql
+        self.updated_at = _now_iso()
+        return self.save()
 
-    def delete(self) -> bool:
-        if self["is_default"]:
-            return False
-        with cursor() as cur:
-            cur.execute("DELETE FROM shenas_system.transforms WHERE id = ?", [self["id"]])
-        return True
+    def set_enabled(self, enabled: bool) -> Transform:
+        """Toggle ``enabled`` and bump both ``status_changed_at`` and ``updated_at``."""
+        now = _now_iso()
+        self.enabled = enabled
+        self.status_changed_at = now
+        self.updated_at = now
+        return self.save()
 
-    def set_enabled(self, enabled: bool) -> Transform | None:
-        with cursor() as cur:
-            cur.execute(
-                "UPDATE shenas_system.transforms SET enabled = ?,"
-                " status_changed_at = current_timestamp,"
-                " updated_at = current_timestamp WHERE id = ?",
-                [enabled, self["id"]],
-            )
-        return Transform.find(self["id"])
+    def delete(self) -> None:  # type: ignore[override]
+        """Delete this transform. Default transforms are protected (no-op)."""
+        if self.is_default:
+            return
+        super().delete()
 
     def test(self, limit: int = 10) -> list[dict[str, Any]]:
+        """Run the transform's SQL with a LIMIT, return rows as dicts."""
         with cursor() as cur:
-            rows = cur.execute(f"SELECT * FROM ({self['sql']}) AS _preview LIMIT {limit}").fetchall()
+            rows = cur.execute(f"SELECT * FROM ({self.sql}) AS _preview LIMIT {limit}").fetchall()
             cols = [desc[0] for desc in cur.description]
         return [dict(zip(cols, row, strict=False)) for row in rows]
 
-    # -- Seeding --
+    # ------------------------------------------------------------------
+    # Seeding
+    # ------------------------------------------------------------------
 
     @staticmethod
     def seed_defaults(source_plugin: str, defaults: list[dict[str, str]]) -> None:
@@ -219,23 +176,25 @@ class Transform:
                 is_default=True,
             )
 
-    # -- Execution --
+    # ------------------------------------------------------------------
+    # Execution
+    # ------------------------------------------------------------------
 
     @staticmethod
     def run_for_source(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
-        transforms = Transform.all(source_plugin)
+        transforms = Transform.for_plugin(source_plugin)
         log.info("Running transforms for %s (%d total)", source_plugin, len(transforms))
         device_id = _get_device_id()
         count = 0
         for t in transforms:
-            if not t["enabled"]:
+            if not t.enabled:
                 continue
             count += _execute_transform(con, t, device_id)
         return count
 
     @staticmethod
     def run_for_target(con: duckdb.DuckDBPyConnection, target_table: str) -> int:
-        matching = [t for t in Transform.all() if t["target_duckdb_table"] == target_table and t["enabled"]]
+        matching = [t for t in Transform.all(order_by="id") if t.target_duckdb_table == target_table and t.enabled]
         log.info("Running transforms targeting %s (%d total)", target_table, len(matching))
         device_id = _get_device_id()
         count = 0
@@ -261,18 +220,18 @@ def _ensure_source_device_column(con: duckdb.DuckDBPyConnection, target: str) ->
 
 
 def _execute_transform(con: duckdb.DuckDBPyConnection, t: Transform, device_id: str) -> int:
-    target = f'"{t["target_duckdb_schema"]}"."{t["target_duckdb_table"]}"'
+    target = f'"{t.target_duckdb_schema}"."{t.target_duckdb_table}"'
     try:
-        con.execute(f"DELETE FROM {target} WHERE source = ?", [t["source_plugin"]])
+        con.execute(f"DELETE FROM {target} WHERE source = ?", [t.source_plugin])
         with cursor() as cur:
-            cur.execute(f"SELECT * FROM ({t['sql']}) _t LIMIT 0")
+            cur.execute(f"SELECT * FROM ({t.sql}) _t LIMIT 0")
             cols = [d[0] for d in cur.description]
         col_names = ", ".join(f'"{c}"' for c in cols)
         _ensure_source_device_column(con, target)
         col_names_with_device = col_names + ', "source_device"'
-        sql_with_device = f"SELECT *, '{device_id}' as source_device FROM ({t['sql']}) _t"
+        sql_with_device = f"SELECT *, '{device_id}' as source_device FROM ({t.sql}) _t"
         con.execute(f"INSERT INTO {target} ({col_names_with_device}) {sql_with_device}")
         return 1
     except Exception:
-        log.exception("Transform #%d failed (%s -> %s)", t["id"], t["source_plugin"], target)
+        log.exception("Transform #%d failed (%s -> %s)", t.id, t.source_plugin, target)
         return 0
