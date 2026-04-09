@@ -229,35 +229,39 @@ class Mutation:
     # -- Hotkeys --
 
     @strawberry.mutation
-    def set_hotkey(self, action_id: str, binding: str) -> OkType:
+    def set_hotkey(self, action_id: str, binding: str, info: strawberry.types.Info) -> OkType:
         from app.hotkeys import Hotkey
         from app.models import OkResponse
 
-        Hotkey(action_id).set(binding)
+        user_id: int = (info.context or {}).get("user_id", 0) or 0
+        Hotkey(action_id=action_id, user_id=user_id).set_binding(binding)
         return OkType.from_pydantic(OkResponse(ok=True))
 
     @strawberry.mutation
-    def delete_hotkey(self, action_id: str) -> OkType:
+    def delete_hotkey(self, action_id: str, info: strawberry.types.Info) -> OkType:
         from app.hotkeys import Hotkey
         from app.models import OkResponse
 
-        Hotkey(action_id).delete()
+        user_id: int = (info.context or {}).get("user_id", 0) or 0
+        Hotkey(action_id=action_id, user_id=user_id).delete()
         return OkType.from_pydantic(OkResponse(ok=True))
 
     @strawberry.mutation
-    def reset_hotkeys(self) -> OkType:
+    def reset_hotkeys(self, info: strawberry.types.Info) -> OkType:
         from app.hotkeys import Hotkey
         from app.models import OkResponse
 
-        Hotkey.reset()
+        user_id: int = (info.context or {}).get("user_id", 0) or 0
+        Hotkey.reset(user_id=user_id)
         return OkType.from_pydantic(OkResponse(ok=True))
 
     # -- Workspace --
 
     @strawberry.mutation
-    def save_workspace(self, data: JSON) -> OkType:
+    def save_workspace(self, data: JSON, info: strawberry.types.Info) -> OkType:
         from app.models import OkResponse
         from app.workspace import Workspace
 
-        Workspace.put(data)
+        user_id: int = (info.context or {}).get("user_id", 0) or 0
+        Workspace.put(data, user_id=user_id)
         return OkType.from_pydantic(OkResponse(ok=True))

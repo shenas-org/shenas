@@ -29,11 +29,19 @@ def test_con() -> duckdb.DuckDBPyConnection:
     con.execute("CREATE TABLE garmin.activities (id INTEGER, start_time_local DATE)")
     con.execute("INSERT INTO garmin.activities VALUES (1, '2026-03-15')")
     con.execute("CREATE SCHEMA shenas_system")
-    con.execute("CREATE TABLE shenas_system.hotkeys (action_id VARCHAR PRIMARY KEY, binding VARCHAR, updated_at TIMESTAMP)")
-    con.execute("INSERT INTO shenas_system.hotkeys VALUES ('command-palette', 'Ctrl+P', NULL)")
-    con.execute("INSERT INTO shenas_system.hotkeys VALUES ('close-tab', 'Ctrl+W', NULL)")
-    con.execute("CREATE TABLE shenas_system.workspace (id INTEGER PRIMARY KEY, state TEXT, updated_at TIMESTAMP)")
-    con.execute("INSERT INTO shenas_system.workspace VALUES (1, '{}', NULL)")
+    con.execute(
+        "CREATE TABLE shenas_system.hotkeys ("
+        "action_id VARCHAR, user_id INTEGER DEFAULT 0, binding VARCHAR DEFAULT '', updated_at TIMESTAMP, "
+        "PRIMARY KEY (action_id, user_id))"
+    )
+    con.execute("INSERT INTO shenas_system.hotkeys VALUES ('command-palette', 0, 'Ctrl+P', NULL)")
+    con.execute("INSERT INTO shenas_system.hotkeys VALUES ('close-tab', 0, 'Ctrl+W', NULL)")
+    con.execute(
+        "CREATE TABLE shenas_system.workspace ("
+        "workspace_id INTEGER DEFAULT 1, user_id INTEGER DEFAULT 0, state VARCHAR DEFAULT '{}', updated_at TIMESTAMP, "
+        "PRIMARY KEY (workspace_id, user_id))"
+    )
+    con.execute("INSERT INTO shenas_system.workspace VALUES (1, 0, '{}', NULL)")
     con.execute(
         "CREATE TABLE shenas_system.plugins ("
         "kind VARCHAR, name VARCHAR, enabled BOOLEAN DEFAULT TRUE, "
@@ -70,7 +78,6 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
         patch("app.db.connect", return_value=test_con),
         patch("app.api.query.cursor", _fake_cursor),
         patch("app.api.db.cursor", _fake_cursor),
-        patch("app.hotkeys.cursor", _fake_cursor),
         patch("app.transforms.cursor", _fake_cursor),
     ):
         yield TestClient(app)
@@ -134,7 +141,10 @@ class TestGraphQLQueries:
     def test_workspace_with_data(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         import json
 
-        test_con.execute("UPDATE shenas_system.workspace SET state = ? WHERE id = 1", [json.dumps({"tabs": [1, 2]})])
+        test_con.execute(
+            "UPDATE shenas_system.workspace SET state = ? WHERE workspace_id = 1 AND user_id = 0",
+            [json.dumps({"tabs": [1, 2]})],
+        )
         result = _gql(client, "{ workspace }")
         assert result["data"]["workspace"] == {"tabs": [1, 2]}
 
@@ -351,7 +361,7 @@ class TestGraphQLQueries:
 
 class TestGraphQLMutations:
     def test_set_hotkey(self, client: TestClient) -> None:
-        with patch("app.hotkeys.Hotkey.set"):
+        with patch("app.hotkeys.Hotkey.set_binding"):
             result = _gql(
                 client,
                 'mutation { setHotkey(actionId: "test-action", binding: "Ctrl+X") { ok } }',

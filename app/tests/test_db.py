@@ -171,26 +171,26 @@ class TestHotkeys:
     def test_set_new(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.hotkeys import Hotkey
 
-        Hotkey("custom-action").set("Ctrl+Shift+X")
+        Hotkey(action_id="custom-action").set_binding("Ctrl+Shift+X")
         assert Hotkey.get_all()["custom-action"] == "Ctrl+Shift+X"
 
     def test_set_overwrite(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.hotkeys import Hotkey
 
-        Hotkey("command-palette").set("Ctrl+Shift+P")
+        Hotkey(action_id="command-palette").set_binding("Ctrl+Shift+P")
         assert Hotkey.get_all()["command-palette"] == "Ctrl+Shift+P"
 
     def test_delete(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.hotkeys import Hotkey
 
-        Hotkey("command-palette").delete()
+        Hotkey(action_id="command-palette").delete()
         assert "command-palette" not in Hotkey.get_all()
 
     def test_reset(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         from app.hotkeys import Hotkey
 
-        Hotkey("command-palette").set("Ctrl+Shift+P")
-        Hotkey("custom-action").set("Ctrl+X")
+        Hotkey(action_id="command-palette").set_binding("Ctrl+Shift+P")
+        Hotkey(action_id="custom-action").set_binding("Ctrl+X")
         Hotkey.reset()
         hotkeys = Hotkey.get_all()
         assert hotkeys["command-palette"] == "Ctrl+P"

@@ -18,8 +18,8 @@ if getattr(_sys, "_MEIPASS", None):
         if str(_p) not in _sys.path:
             _sys.path.insert(0, str(_p))
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
@@ -60,6 +60,24 @@ _telemetry.init_telemetry("shenas-server")
 # Global env-based settings
 app.state.ui_name = _os.environ.get("SHENAS_UI", "default")
 app.state.default_theme = _os.environ.get("SHENAS_DEFAULT_THEME", "default")
+
+
+@app.middleware("http")
+async def session_middleware(request: Request, call_next):
+    """Inject user_id into request.state from the X-Shenas-Session header."""
+    request.state.user_id = 0  # default: single-user mode
+    token = request.headers.get("X-Shenas-Session")
+    if token:
+        try:
+            from app.local_sessions import LocalSession
+
+            user_id = LocalSession.validate_token(token)
+            if user_id is not None:
+                request.state.user_id = user_id
+        except Exception:
+            pass
+    return await call_next(request)
+
 
 # Register API routes (includes GraphQL at /api/graphql)
 app.include_router(api_router)
@@ -281,6 +299,30 @@ def remote_me() -> dict:
         return resp.json()
     except Exception:
         return {"user": None}
+
+
+# ---------------------------------------------------------------------------
+# System settings endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/settings/system")
+def get_system_settings() -> JSONResponse:
+    """Return system-wide settings (e.g. multiuser_enabled)."""
+    from app.system_settings import SystemSettings
+
+    return JSONResponse(content=SystemSettings.get())
+
+
+@app.put("/api/settings/system")
+async def update_system_settings(request: Request) -> JSONResponse:
+    """Update system-wide settings."""
+    from app.system_settings import SystemSettings
+
+    body = await request.json()
+    multiuser_enabled = bool(body.get("multiuser_enabled", False))
+    SystemSettings.put(multiuser_enabled=multiuser_enabled)
+    return JSONResponse(content=SystemSettings.get())
 
 
 # ---------------------------------------------------------------------------
