@@ -25,7 +25,7 @@ members = [
     "shenas-dashboard-core",
     "shenas-dashboard-data-table",
     "shenas-dashboard-event-gantt",
-    "shenas-dashboard-fitness-dashboard",
+    "shenas-dashboard-fitness",
     "shenas-dataset-core",
     "shenas-dataset-events",
     "shenas-dataset-finance",
@@ -3109,8 +3109,8 @@ requires-dist = [
 ]
 
 [[package]]
-name = "shenas-dashboard-fitness-dashboard"
-source = { editable = "plugins/dashboards/fitness-dashboard" }
+name = "shenas-dashboard-fitness"
+source = { editable = "plugins/dashboards/fitness" }
 dependencies = [
     { name = "shenas-dashboard-core" },
     { name = "shenas-dataset-fitness" },
@@ -3784,7 +3784,7 @@ dev = [
     { name = "shenas-app" },
     { name = "shenas-cli" },
     { name = "shenas-dashboard-data-table" },
-    { name = "shenas-dashboard-fitness-dashboard" },
+    { name = "shenas-dashboard-fitness" },
     { name = "shenas-dataset-finance" },
     { name = "shenas-dataset-fitness" },
     { name = "shenas-dataset-habits" },
@@ -3845,7 +3845,7 @@ dev = [
     { name = "shenas-app", editable = "app" },
     { name = "shenas-cli", editable = "shenasctl" },
     { name = "shenas-dashboard-data-table", editable = "plugins/dashboards/data-table" },
-    { name = "shenas-dashboard-fitness-dashboard", editable = "plugins/dashboards/fitness-dashboard" },
+    { name = "shenas-dashboard-fitness", editable = "plugins/dashboards/fitness" },
     { name = "shenas-dataset-finance", editable = "plugins/datasets/finance" },
     { name = "shenas-dataset-fitness", editable = "plugins/datasets/fitness" },
     { name = "shenas-dataset-habits", editable = "plugins/datasets/habits" },

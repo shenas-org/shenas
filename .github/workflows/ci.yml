@@ -84,7 +84,7 @@ jobs:
           - app/vendor
           - plugins/dashboards/data-table
           - plugins/dashboards/event-gantt
-          - plugins/dashboards/fitness-dashboard
+          - plugins/dashboards/fitness
           - plugins/frontends/default
           - plugins/frontends/focus
     steps:

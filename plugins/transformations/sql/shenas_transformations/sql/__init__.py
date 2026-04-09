@@ -8,13 +8,13 @@ import logging
 from typing import Any
 
 import duckdb
-from shenas_transformations.core import Transformation
+from shenas_transformations.core import Transform
 from shenas_transformations.core.instance import TransformInstance
 
 log = logging.getLogger(f"shenas.{__name__}")
 
 
-class SqlTransformation(Transformation):
+class SqlTransform(Transform):
     """Execute arbitrary SQL to transform source data into target tables."""
 
     name = "sql"
@@ -88,4 +88,4 @@ class SqlTransformation(Transformation):
         TransformInstance.seed_defaults(source_name, "sql", seed_rows)
 
 
-__all__ = ["SqlTransformation"]
+__all__ = ["SqlTransform"]

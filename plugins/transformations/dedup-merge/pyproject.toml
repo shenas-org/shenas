@@ -12,7 +12,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project.entry-points."shenas.transformations"]
-dedup-merge = "shenas_transformations.dedup_merge:DedupMergeTransformation"
+dedup-merge = "shenas_transformations.dedup_merge:DedupMergeTransform"
 
 [tool.hatch.version]
 source = "vcs"

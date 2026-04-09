@@ -12,7 +12,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project.entry-points."shenas.transformations"]
-regex-extract = "shenas_transformations.regex_extract:RegexExtractTransformation"
+regex-extract = "shenas_transformations.regex_extract:RegexExtractTransform"
 
 [tool.hatch.version]
 source = "vcs"

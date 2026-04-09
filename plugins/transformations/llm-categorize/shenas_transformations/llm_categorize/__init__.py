@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any
 
 import duckdb
-from shenas_transformations.core import Transformation, TransformationConfig
+from shenas_transformations.core import Transform, TransformConfig
 
 from shenas_plugins.core.table import Field
 
@@ -20,7 +20,7 @@ log = logging.getLogger(f"shenas.{__name__}")
 
 
 @dataclass
-class _LlmConfig(TransformationConfig):
+class _LlmConfig(TransformConfig):
     api_key: Annotated[
         str | None,
         Field(
@@ -40,7 +40,7 @@ class _LlmConfig(TransformationConfig):
     ] = "claude-sonnet-4-20250514"
 
 
-class LlmCategorizeTransformation(Transformation):
+class LlmCategorizeTransform(Transform):
     """Use an LLM to categorize or enrich data."""
 
     name = "llm-categorize"
@@ -212,4 +212,4 @@ def _batch_categorize(
     return results
 
 
-__all__ = ["LlmCategorizeTransformation"]
+__all__ = ["LlmCategorizeTransform"]

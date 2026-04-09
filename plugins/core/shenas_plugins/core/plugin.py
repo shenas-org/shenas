@@ -90,7 +90,8 @@ class PluginInstance(Table):
         """Disable this plugin. For single-active kinds, re-enables the default."""
         if self._is_single_active:
             if self.name == "default":
-                return f"Cannot deselect the default {self.kind}"
+                msg = f"Cannot deselect the default {self.kind}"
+                raise ValueError(msg)
             self.set_enabled(False)
             now = _now_iso()
             default = PluginInstance.find(self.kind, "default")
@@ -259,6 +260,7 @@ class Plugin(abc.ABC):
 
     name: ClassVar[str]
     display_name: ClassVar[str]
+    display_name_plural: ClassVar[str | None] = None
     description: ClassVar[str] = ""
     internal: ClassVar[bool] = False
     enabled_by_default: ClassVar[bool] = True
@@ -315,8 +317,12 @@ class Plugin(abc.ABC):
 
     # -- Instance lookup (get-or-create) --
 
-    def instance(self) -> PluginInstance:
-        """The :class:`PluginInstance` row for this (kind, name). Created on first access."""
+    def instance(self) -> PluginInstance | None:
+        """The :class:`PluginInstance` row for this (kind, name), or None."""
+        return PluginInstance.find(self._kind, self.name)
+
+    def get_or_create_instance(self) -> PluginInstance:
+        """Get or create the :class:`PluginInstance` row. Use for mutations."""
         return PluginInstance.get_or_create(self._kind, self.name, enabled=self.enabled_by_default)
 
     def get_info(self) -> dict[str, Any]:
@@ -330,11 +336,11 @@ class Plugin(abc.ABC):
             "has_config": self.has_config,
             "has_data": self.has_data,
             "has_auth": self.has_auth,
-            "enabled": s.enabled,
-            "added_at": str(s.added_at) if s.added_at else None,
-            "updated_at": str(s.updated_at) if s.updated_at else None,
-            "status_changed_at": str(s.status_changed_at) if s.status_changed_at else None,
-            "synced_at": str(s.synced_at) if s.synced_at else None,
+            "enabled": s.enabled if s else self.enabled_by_default,
+            "added_at": str(s.added_at) if s and s.added_at else None,
+            "updated_at": str(s.updated_at) if s and s.updated_at else None,
+            "status_changed_at": str(s.status_changed_at) if s and s.status_changed_at else None,
+            "synced_at": str(s.synced_at) if s and s.synced_at else None,
         }
 
     # -- Package management (classmethods) --

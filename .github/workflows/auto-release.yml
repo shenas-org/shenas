@@ -42,7 +42,7 @@ jobs:
             "dataset-finance:plugins/datasets/finance/"
             "dataset-outcomes:plugins/datasets/outcomes/"
             "dataset-habits:plugins/datasets/habits/"
-            "dashboard-fitness-dashboard:plugins/dashboards/fitness-dashboard/"
+            "dashboard-fitness:plugins/dashboards/fitness/"
             "dashboard-data-table:plugins/dashboards/data-table/"
           )
 

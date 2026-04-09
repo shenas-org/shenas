@@ -26,7 +26,7 @@ def list_cmd() -> None:
 
 @app.command("add")
 def add_cmd(
-    names: list[str] = typer.Argument(help="Dashboard names, e.g. 'fitness-dashboard'"),
+    names: list[str] = typer.Argument(help="Dashboard names, e.g. 'fitness'"),
     index_url: str = typer.Option(DEFAULT_INDEX, "--index-url", help="Repository server URL"),
     skip_verify: bool = typer.Option(False, "--skip-verify", help="Skip signature verification"),
 ) -> None:
@@ -37,7 +37,7 @@ def add_cmd(
 
 @app.command("remove")
 def remove_cmd(
-    names: list[str] = typer.Argument(help="Dashboard names, e.g. 'fitness-dashboard'"),
+    names: list[str] = typer.Argument(help="Dashboard names, e.g. 'fitness'"),
 ) -> None:
     """Remove one or more component plugins."""
     for name in names:
