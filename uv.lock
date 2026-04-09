@@ -48,6 +48,7 @@ members = [
     "shenas-source-obsidian",
     "shenas-source-spotify",
     "shenas-source-strava",
+    "shenas-source-tile",
     "shenas-theme-core",
     "shenas-theme-dark",
     "shenas-theme-default",
@@ -3284,6 +3285,22 @@ requires-dist = [
 ]
 
 [[package]]
+name = "shenas-source-tile"
+source = { editable = "plugins/sources/tile" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "httpx" },
+    { name = "shenas-source-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "shenas-source-core", editable = "plugins/sources/core" },
+]
+
+[[package]]
 name = "shenas-theme-core"
 source = { editable = "plugins/themes/core" }
 dependencies = [
@@ -3351,6 +3368,7 @@ dev = [
     { name = "shenas-source-obsidian" },
     { name = "shenas-source-spotify" },
     { name = "shenas-source-strava" },
+    { name = "shenas-source-tile" },
     { name = "shenas-theme-dark" },
     { name = "shenas-theme-default" },
     { name = "ty" },
@@ -3394,6 +3412,7 @@ dev = [
     { name = "shenas-source-obsidian", editable = "plugins/sources/obsidian" },
     { name = "shenas-source-spotify", editable = "plugins/sources/spotify" },
     { name = "shenas-source-strava", editable = "plugins/sources/strava" },
+    { name = "shenas-source-tile", editable = "plugins/sources/tile" },
     { name = "shenas-theme-dark", editable = "plugins/themes/dark" },
     { name = "shenas-theme-default", editable = "plugins/themes/default" },
     { name = "ty", specifier = "==0.0.27" },
