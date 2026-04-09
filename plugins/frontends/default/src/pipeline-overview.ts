@@ -196,9 +196,9 @@ class PipelineOverview extends LitElement {
       });
     }
 
-    // Component nodes
+    // Dashboard nodes
     for (const c of components) {
-      const id = `component:${c.name}`;
+      const id = `dashboard:${c.name}`;
       nodeIds.add(id);
       elements.push({
         data: { id, label: c.displayName || c.name, kind: "dashboard", enabled: c.enabled !== false ? "yes" : "no" },
