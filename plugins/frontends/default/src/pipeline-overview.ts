@@ -13,6 +13,7 @@ interface PluginInfo {
 
 interface Transform {
   id: number;
+  transformType: string;
   sourceDuckdbSchema: string;
   sourceDuckdbTable: string;
   targetDuckdbSchema: string;
@@ -138,7 +139,7 @@ class PipelineOverview extends LitElement {
       const data = await gql(
         this.apiBase,
         `{
-        transforms { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin enabled }
+        transforms { id transformType sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin enabled }
         dependencies
       }`,
       );
@@ -220,8 +221,10 @@ class PipelineOverview extends LitElement {
       const ownerPlugin = tableToPlugin[t.targetDuckdbTable];
       const targetId = ownerPlugin ? `dataset:${ownerPlugin}` : null;
       if (!targetId || !nodeIds.has(sourceId) || !nodeIds.has(targetId)) continue;
+      const typeTag = t.transformType ? `[${t.transformType}] ` : "";
       const desc = t.description || `${t.sourceDuckdbTable} -> ${t.targetDuckdbTable}`;
-      const label = desc.length > 30 ? desc.slice(0, 28) + "..." : desc;
+      const full = `${typeTag}${desc}`;
+      const label = full.length > 35 ? full.slice(0, 33) + "..." : full;
       elements.push({
         data: {
           id: `transform:${t.id}`,
