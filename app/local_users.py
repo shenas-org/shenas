@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import threading
 from dataclasses import dataclass
@@ -80,7 +81,18 @@ class LocalUser(Table):
         ``app`` package ensures the user-scoped Table subclasses have been
         loaded before discovery runs.
         """
-        import app  # noqa: F401  -- ensure user-scoped Table classes are imported
+        import app.hotkeys
+        import app.hypotheses
+        import app.recipe_cache
+        import app.transforms
+        import app.workspace  # noqa: F401
+
+        with contextlib.suppress(ImportError):
+            import shenas_datasets.promoted  # noqa: F401
+
+        con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
 
         seen: set[type[Table]] = set()
 
