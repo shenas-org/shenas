@@ -118,6 +118,33 @@ def _bootstrap_shenas_db(con: duckdb.DuckDBPyConnection) -> None:
     for tbl in (LocalUser, LocalSession, SystemSettings, PluginInstance):
         tbl.ensure(con, schema=tbl._Meta.schema or "shenas_system")
 
+    # Seed PluginInstance rows for all discovered plugins so they appear
+    # in the UI with the correct default enabled state on first startup.
+    try:
+        from app.api.sources import _load_plugins
+        from shenas_plugins.core.plugin import VALID_KINDS, Plugin
+
+        for kind in VALID_KINDS:
+            try:
+                for cls in _load_plugins(kind, base=Plugin):
+                    if cls.internal:
+                        continue
+                    row = con.execute(
+                        "SELECT 1 FROM shenas_system.plugins WHERE kind = ? AND name = ?",
+                        [cls()._kind, cls.name],
+                    ).fetchone()
+                    if not row:
+                        # For single-active kinds, enable the "default" variant.
+                        enabled = cls.enabled_by_default or (getattr(cls, "single_active", False) and cls.name == "default")
+                        con.execute(
+                            "INSERT INTO shenas_system.plugins (kind, name, enabled) VALUES (?, ?, ?)",
+                            [cls()._kind, cls.name, enabled],
+                        )
+            except Exception:
+                pass
+    except Exception:
+        pass
+
 
 def shenas_db() -> DB:
     """Return the device-wide registry DB, lazily constructed."""
