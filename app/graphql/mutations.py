@@ -407,7 +407,7 @@ class Mutation:
             OpCall,
             Recipe,
             SourceRef,
-            ask_for_recipe,
+            ask_for_recipe_with_retry,
             run_recipe,
         )
 
@@ -417,10 +417,32 @@ class Mutation:
         empty = Recipe(nodes={}, final="")
         h = Hypothesis.create(question, empty, model=provider.name)
 
-        # Step 2: ask the LLM for a recipe.
+        # Step 2: ask the LLM for a recipe with one validation retry.
+        def _validate_payload(p: dict) -> None:
+            tmp_nodes: dict = {}
+            for nm, nd in p.get("nodes", {}).items():
+                if nd.get("type") == "source":
+                    tmp_nodes[nm] = SourceRef(table=nd["table"])
+                else:
+                    tmp_nodes[nm] = OpCall(
+                        op_name=nd.get("op_name", ""),
+                        params=nd.get("params", {}),
+                        inputs=tuple(nd.get("inputs", ())),
+                    )
+            Recipe(nodes=tmp_nodes, final=p.get("final", "")).validate()
+
         catalog = _build_catalog()
         try:
-            payload = ask_for_recipe(provider, question, catalog)
+            payload, retry_errors = ask_for_recipe_with_retry(
+                provider,
+                question,
+                catalog,
+                validate=_validate_payload,
+                max_attempts=2,
+            )
+            if retry_errors and not payload.get("nodes"):
+                msg = f"validation failed after retries: {retry_errors[-1]}"
+                raise RuntimeError(msg)  # noqa: TRY301 -- inner func indirection isn't worth it here
         except Exception as exc:
             err = {
                 "type": "error",
