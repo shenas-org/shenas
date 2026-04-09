@@ -3,34 +3,42 @@
 from __future__ import annotations
 
 import hashlib
-import os
-from typing import Annotated, Any, ClassVar
+import threading
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 from shenas_plugins.core.table import Field, Table
 
+if TYPE_CHECKING:
+    import duckdb
 
-def _hash_password(password: str) -> str:
-    """Hash a password using scrypt (stdlib, no extra dependencies)."""
-    salt = os.urandom(16)
+    from app.databases import DB
+
+
+def _hash_password(password: str, salt_hex: str) -> str:
+    """Hash a password using scrypt with the given hex salt."""
+    salt = bytes.fromhex(salt_hex)
     dk = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1)
-    return salt.hex() + ":" + dk.hex()
+    return dk.hex()
 
 
-def _verify_password(stored_hash: str, password: str) -> bool:
+def _verify_password(stored_hash: str, salt_hex: str, password: str) -> bool:
     """Verify a password against a stored scrypt hash."""
     try:
-        salt_hex, hash_hex = stored_hash.split(":", 1)
-        salt = bytes.fromhex(salt_hex)
-        dk = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1)
-        return dk.hex() == hash_hex
+        return _hash_password(password, salt_hex) == stored_hash
     except Exception:
         return False
 
 
+@dataclass
 class LocalUser(Table):
     """Local user registry -- one row per registered user."""
 
     database: ClassVar[str] = "system"
+
+    # Per-process registry of attached user DBs and the contextvar override.
+    _attached: ClassVar[dict[int, Any]] = {}
+    _attached_lock: ClassVar[Any] = threading.RLock()
 
     class _Meta:
         name = "local_users"
@@ -45,6 +53,7 @@ class LocalUser(Table):
     ] = 0
     username: Annotated[str, Field(db_type="VARCHAR", description="Unique display name")] = ""
     password_hash: Annotated[str, Field(db_type="VARCHAR", description="scrypt password hash")] = ""
+    key_salt: Annotated[str, Field(db_type="VARCHAR", description="Salt for deriving DB encryption key")] = ""
     remote_token: Annotated[str | None, Field(db_type="VARCHAR", description="shenas.net JWT (optional)")] = None
     created_at: Annotated[
         str | None,
@@ -52,71 +61,155 @@ class LocalUser(Table):
     ] = None
     last_login: Annotated[str | None, Field(db_type="TIMESTAMP", description="Last login timestamp")] = None
 
-    @classmethod
-    def create(cls, username: str, password: str) -> dict[str, Any]:
-        """Create a new local user and return {id, username}."""
-        from app.db import cursor
+    # ------------------------------------------------------------------
+    # Per-user DB lifecycle
+    # ------------------------------------------------------------------
 
-        password_hash = _hash_password(password)
-        with cursor() as cur:
+    @property
+    def db_path(self):
+        from app.db import DATA_DIR
+
+        return DATA_DIR / "users" / f"{self.id}.duckdb"
+
+    @classmethod
+    def _bootstrap_user_db(cls, con: duckdb.DuckDBPyConnection) -> None:
+        """Create all user-scoped tables in a freshly attached user DB.
+
+        Walks ``Table.__subclasses__()`` recursively, picking every concrete
+        subclass that is NOT marked ``database = "system"``. Importing the
+        ``app`` package ensures the user-scoped Table subclasses have been
+        loaded before discovery runs.
+        """
+        import app  # noqa: F401  -- ensure user-scoped Table classes are imported
+
+        seen: set[type[Table]] = set()
+
+        def walk(parent: type[Table]) -> None:
+            for sub in parent.__subclasses__():
+                if sub in seen:
+                    continue
+                seen.add(sub)
+                walk(sub)
+                if getattr(sub, "database", "user") == "system":
+                    continue
+                meta = getattr(sub, "_Meta", None)
+                if meta is None or not getattr(meta, "name", None):
+                    continue
+                schema = getattr(meta, "schema", None) or "main"
+                con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+                sub.ensure(con, schema=schema)
+
+        walk(Table)
+
+    def attach(self, key: str) -> DB:
+        """Open and attach this user's encrypted DB. Idempotent."""
+        from app.databases import DB
+
+        cls = type(self)
+        with cls._attached_lock:
+            db = cls._attached.get(self.id)
+            if db is None:
+                db = DB(
+                    path=self.db_path,
+                    key=key,
+                    bootstrap=cls._bootstrap_user_db,
+                )
+                db.connect()
+                cls._attached[self.id] = db
+            return db
+
+    def detach(self) -> None:
+        """Close and forget this user's DB. Idempotent."""
+        cls = type(self)
+        with cls._attached_lock:
+            db = cls._attached.pop(self.id, None)
+        if db is not None:
+            db.close()
+
+    @classmethod
+    def current_db(cls) -> DB:
+        """Return the active user's DB based on the ``current_user_id`` contextvar."""
+        from app.db import current_user_id
+
+        user_id = current_user_id.get()
+        with cls._attached_lock:
+            db = cls._attached.get(user_id)
+        if db is None:
+            msg = f"no user DB attached for user_id={user_id}; call LocalUser.attach() first"
+            raise RuntimeError(msg)
+        return db
+
+    # ------------------------------------------------------------------
+    # CRUD (all on the device-wide registry DB)
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def create(cls, username: str, password: str) -> LocalUser:
+        """Create a new local user and return the row."""
+        from app.db import cursor
+        from app.user_keys import gen_salt
+
+        salt = gen_salt()
+        password_hash = _hash_password(password, salt)
+        with cursor(database="shenas") as cur:
             row = cur.execute(
-                "INSERT INTO shenas_system.local_users (username, password_hash, created_at) "
-                "VALUES (?, ?, now()) RETURNING id, username",
-                [username, password_hash],
+                "INSERT INTO shenas_system.local_users (username, password_hash, key_salt, created_at) "
+                "VALUES (?, ?, ?, now()) RETURNING id, username, key_salt",
+                [username, password_hash, salt],
             ).fetchone()
         if not row:
             msg = "Failed to create user"
             raise RuntimeError(msg)
-        return {"id": row[0], "username": row[1]}
+        return cls(id=row[0], username=row[1], password_hash=password_hash, key_salt=row[2])
 
     @classmethod
-    def authenticate(cls, username: str, password: str) -> dict[str, Any] | None:
-        """Verify credentials. Returns {id, username} or None on failure."""
+    def authenticate(cls, username: str, password: str) -> LocalUser | None:
+        """Verify credentials. Returns the user row or None on failure."""
         from app.db import cursor
 
-        with cursor() as cur:
+        with cursor(database="shenas") as cur:
             row = cur.execute(
-                "SELECT id, username, password_hash FROM shenas_system.local_users WHERE username = ?",
+                "SELECT id, username, password_hash, key_salt FROM shenas_system.local_users WHERE username = ?",
                 [username],
             ).fetchone()
         if not row:
             return None
-        if not _verify_password(row[2], password):
+        if not _verify_password(row[2], row[3], password):
             return None
-        with cursor() as cur:
+        with cursor(database="shenas") as cur:
             cur.execute(
                 "UPDATE shenas_system.local_users SET last_login = now() WHERE id = ?",
                 [row[0]],
             )
-        return {"id": row[0], "username": row[1]}
+        return cls(id=row[0], username=row[1], password_hash=row[2], key_salt=row[3])
 
     @classmethod
     def list_all(cls) -> list[dict[str, Any]]:
         """Return all users as [{id, username}] (no hashes)."""
         from app.db import cursor
 
-        with cursor() as cur:
+        with cursor(database="shenas") as cur:
             rows = cur.execute("SELECT id, username FROM shenas_system.local_users ORDER BY username").fetchall()
         return [{"id": r[0], "username": r[1]} for r in rows]
 
     @classmethod
-    def get_by_id(cls, user_id: int) -> dict[str, Any] | None:
-        """Return {id, username} for a user ID, or None if not found."""
+    def get_by_id(cls, user_id: int) -> LocalUser | None:
+        """Return the user row for a user ID, or None if not found."""
         from app.db import cursor
 
-        with cursor() as cur:
+        with cursor(database="shenas") as cur:
             row = cur.execute(
-                "SELECT id, username FROM shenas_system.local_users WHERE id = ?",
+                "SELECT id, username, password_hash, key_salt FROM shenas_system.local_users WHERE id = ?",
                 [user_id],
             ).fetchone()
-        return {"id": row[0], "username": row[1]} if row else None
+        return cls(id=row[0], username=row[1], password_hash=row[2], key_salt=row[3]) if row else None
 
     @classmethod
     def set_remote_token(cls, user_id: int, token: str) -> None:
         """Store a shenas.net JWT for an existing local user."""
         from app.db import cursor
 
-        with cursor() as cur:
+        with cursor(database="shenas") as cur:
             cur.execute(
                 "UPDATE shenas_system.local_users SET remote_token = ? WHERE id = ?",
                 [token, user_id],
@@ -127,7 +220,7 @@ class LocalUser(Table):
         """Find a user by their shenas.net JWT."""
         from app.db import cursor
 
-        with cursor() as cur:
+        with cursor(database="shenas") as cur:
             row = cur.execute(
                 "SELECT id, username FROM shenas_system.local_users WHERE remote_token = ?",
                 [token],

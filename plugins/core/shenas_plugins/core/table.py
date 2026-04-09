@@ -401,10 +401,8 @@ class Table:
         ``user_0`` and the same code path covers both modes.
         """
         if cls.database == "system":
-            return "system"
-        from app.db import current_user_id
-
-        return f"user_{current_user_id.get()}"
+            return "shenas"
+        return None  # type: ignore[return-value]
 
     @classmethod
     def _ensure_once(cls, schema: str) -> None:

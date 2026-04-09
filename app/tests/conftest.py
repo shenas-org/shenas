@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from typing import TYPE_CHECKING
-from unittest.mock import patch
 
 import duckdb
 import pytest
@@ -13,29 +12,53 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
+class _StubDB:
+    """Test DB wrapper that yields a single shared in-memory connection."""
+
+    def __init__(self, con: duckdb.DuckDBPyConnection) -> None:
+        self._con = con
+
+    def connect(self) -> duckdb.DuckDBPyConnection:
+        return self._con
+
+    def cursor(self):
+        import contextlib
+
+        @contextlib.contextmanager
+        def _cm():
+            yield self._con
+
+        return _cm()
+
+    def close(self) -> None:
+        pass
+
+
 @pytest.fixture
 def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
     """In-memory DuckDB with system tables initialized."""
+    import app.databases
     import app.db
 
     con = duckdb.connect()
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
     con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
-    # Set _con before _ensure_system_tables so that cursor() calls inside
-    # (e.g. Hotkey.seed via UserTable.read_rows) use this test connection.
-    app.db._con = con
+    stub = _StubDB(con)
+    saved = dict(app.databases._resolvers)
+    app.databases._resolvers["shenas"] = lambda: stub
+    app.databases._resolvers[None] = lambda: stub
     app.db._ensure_system_tables(con)
     yield con
-    app.db._con = None
+    app.databases._resolvers.clear()
+    app.databases._resolvers.update(saved)
     con.close()
 
 
 @pytest.fixture
 def patch_db(db_con: duckdb.DuckDBPyConnection) -> Iterator[None]:
-    """Patch app.db.connect and app.db._con to use the test connection."""
-    with patch("app.db.connect", return_value=db_con), patch("app.db._con", db_con):
-        yield
+    """Back-compat alias -- db_con already wires the resolvers."""
+    return
 
 
 def parse_sse(text: str) -> list[dict]:

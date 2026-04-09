@@ -1,18 +1,22 @@
-"""Centralized DuckDB connection with encryption at rest.
+"""Centralized DuckDB connection state.
 
-Single shared connection for all reads, writes, and pipeline flushes.
-Serialized via a threading RLock. Pipeline data flows from dlt's
-in-memory connection through Arrow table registration into the
-encrypted database -- no second file ATTACH needed.
+Two flavors of database in shenas:
 
-The ``current_user_id`` contextvar and the ``database`` parameter on
-``cursor()`` are the seam through which per-user data isolation is
-threaded. Concrete ``Table`` subclasses set ``database = "system"`` or
-``database = "user"`` (the default) and the ABC's CRUD methods route
-through ``cursor(database=cls._resolve_database())``. Today both
-routes resolve to the same legacy ``db`` ATTACH alias; the routing
-becomes meaningful when the ConnectionManager grows to handle real
-per-user encrypted files.
+- The **device-wide registry** -- one DuckDB file holding the local
+  user table, sessions, system settings, plugin install state. Lives
+  at ``data/shenas.duckdb`` and is accessed via :func:`shenas_db`.
+
+- The **per-user data** -- one DuckDB file per local user, encrypted
+  with a key derived from the user's password. Created by
+  ``LocalUser.attach()`` on login, closed by ``LocalUser.detach()``
+  on logout. The "current" user comes from a contextvar set per
+  request.
+
+Both flavors are wrapped in the generic :class:`app.databases.DB`
+class. The ``Table`` ABC routes CRUD calls through registered
+resolvers (see :mod:`app.databases`); ``Table.db = "shenas"`` goes to
+the registry, ``Table.db is None`` (the default) goes to the current
+user's DB.
 """
 
 from __future__ import annotations
@@ -27,60 +31,47 @@ from typing import TYPE_CHECKING, Any
 
 import duckdb
 
+from app.databases import DB, register_db_resolver
+
 if TYPE_CHECKING:
     from collections.abc import Generator
+
+
+# ----------------------------------------------------------------------
+# Path resolution
+# ----------------------------------------------------------------------
+
+
+def _resolve_data_dir() -> Path:
+    """Resolve the data directory. Uses ~/.shenas/data/ in PyInstaller bundles."""
+    import sys
+
+    if getattr(sys, "_MEIPASS", None):
+        return Path.home() / ".shenas" / "data"
+    return Path("data")
+
+
+DATA_DIR = _resolve_data_dir()
+SHENAS_DB_PATH = DATA_DIR / "shenas.duckdb"
 
 
 # ----------------------------------------------------------------------
 # Current user contextvar
 # ----------------------------------------------------------------------
 
-# Set per-request by the GraphQL context-getter (and any other
-# middleware that knows the user). Defaults to 0 = single-user mode.
-# Read by ``Table._resolve_database()`` to choose which logical
-# database name the cursor should pin to.
+# Set per-request by the GraphQL context-getter (and any middleware
+# that knows the user). Defaults to 0 = single-user mode. Read by the
+# Table ABC's resolver indirectly via :func:`LocalUser.current_db`.
 current_user_id: contextvars.ContextVar[int] = contextvars.ContextVar("current_user_id", default=0)
 
 
-def _resolve_db_path() -> Path:
-    """Resolve database path. Uses ~/.shenas/data/ in PyInstaller bundles."""
-    import sys
-
-    if getattr(sys, "_MEIPASS", None):
-        return Path.home() / ".shenas" / "data" / "shenas.duckdb"
-    return Path("data") / "shenas.duckdb"
-
-
-DB_PATH = _resolve_db_path()
-
-
-_con: duckdb.DuckDBPyConnection | None = None
-_lock = threading.RLock()
-
-
-@contextlib.contextmanager
-def cursor(*, database: str | None = None) -> Generator[duckdb.DuckDBPyConnection, None, None]:
-    """Get a cursor on the shared connection.
-
-    The ``database`` argument is the per-user-isolation seam: callers
-    (notably ``Table._resolve_database()``) pass ``"system"`` for
-    device-wide registry tables and ``f"user_{<id>}"`` for everything
-    else. Today every value routes to the legacy ``db`` ATTACH alias;
-    real per-user routing is plumbed through this single function so
-    no call site has to change when the ConnectionManager grows.
-    """
-    del database  # routing not yet active
-    con = connect()
-    cur = con.cursor()
-    try:
-        cur.execute("USE db")
-        yield cur
-    finally:
-        cur.close()
+# ----------------------------------------------------------------------
+# Encryption key (device-wide for the registry; per-user for users)
+# ----------------------------------------------------------------------
 
 
 def get_db_key() -> str:
-    """Get the database encryption key from env var or OS keyring."""
+    """Get the device-wide encryption key from env var or OS keyring."""
     key = os.environ.get("SHENAS_DB_KEY")
     if key:
         return key
@@ -89,11 +80,12 @@ def get_db_key() -> str:
     key = keyring.get_password("shenas", "db_key")
     if key:
         return key
-    raise RuntimeError("No database key found. Run 'shenasctl db keygen' or set SHENAS_DB_KEY.")
+    msg = "No database key found. Run 'shenasctl db keygen' or set SHENAS_DB_KEY."
+    raise RuntimeError(msg)
 
 
 def set_db_key(key: str) -> None:
-    """Store the database encryption key in the OS keyring."""
+    """Store the device-wide encryption key in the OS keyring."""
     import keyring
 
     with contextlib.suppress(Exception):
@@ -106,55 +98,172 @@ def generate_db_key() -> str:
     return secrets.token_hex(32)
 
 
-def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:  # noqa: ARG001
-    """Get the shared DuckDB connection.
+# ----------------------------------------------------------------------
+# The shenas (registry) DB singleton
+# ----------------------------------------------------------------------
 
-    Uses a single long-lived connection for all operations.
-    The read_only parameter is accepted for API compatibility but ignored --
-    all operations use the same read-write connection.
+_shenas_db: DB | None = None
+_shenas_lock = threading.RLock()
 
-    Callers should NOT close the returned connection.
-    For concurrent queries, use con.cursor() to get a per-request cursor.
+
+def _bootstrap_shenas_db(con: duckdb.DuckDBPyConnection) -> None:
+    """Create the device-wide registry tables."""
+    from app.local_sessions import LocalSession
+    from app.local_users import LocalUser
+    from app.system_settings import SystemSettings
+    from shenas_plugins.core.plugin import PluginInstance
+
+    con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
+    con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.local_user_seq START 1")
+    for tbl in (LocalUser, LocalSession, SystemSettings, PluginInstance):
+        tbl.ensure(con, schema=tbl._Meta.schema or "shenas_system")
+
+
+def shenas_db() -> DB:
+    """Return the device-wide registry DB, lazily constructed."""
+    global _shenas_db
+    with _shenas_lock:
+        if _shenas_db is None:
+            _shenas_db = DB(
+                path=SHENAS_DB_PATH,
+                key=get_db_key(),
+                bootstrap=_bootstrap_shenas_db,
+            )
+            _shenas_db.connect()
+        return _shenas_db
+
+
+# ----------------------------------------------------------------------
+# Resolver registration
+# ----------------------------------------------------------------------
+#
+# Wires the Table ABC to our DB instances. ``Table.db = "shenas"``
+# tables (LocalUser, etc.) route to ``shenas_db()``. The default
+# (``Table.db is None``) routes to the current user's DB via
+# ``LocalUser.current_db()``.
+
+
+def _current_user_db() -> DB:
+    """Resolver for tables that live in the current user's DB."""
+    from app.local_users import LocalUser
+
+    return LocalUser.current_db()
+
+
+register_db_resolver("shenas", shenas_db)
+register_db_resolver(None, _current_user_db)
+
+
+# ----------------------------------------------------------------------
+# Test hook
+# ----------------------------------------------------------------------
+
+
+def _reset_for_tests() -> None:
+    """Drop the cached registry DB so tests can re-init against a tmp path."""
+    global _shenas_db
+    with _shenas_lock:
+        if _shenas_db is not None:
+            _shenas_db.close()
+        _shenas_db = None
+
+
+# ----------------------------------------------------------------------
+# Convenience: cursor() and connect() shims
+# ----------------------------------------------------------------------
+#
+# Existing call sites import ``cursor`` from ``app.db``. Today the
+# default routes to the current user's DB; pass ``database="shenas"``
+# (or future tags) to route elsewhere. The ``connect()`` shim exists
+# only for back-compat with legacy code that wants the underlying
+# DuckDB connection -- new code should use ``shenas_db()`` /
+# ``LocalUser.current_db()`` directly.
+
+
+@contextlib.contextmanager
+def cursor(*, database: str | None = None) -> Generator[duckdb.DuckDBPyConnection, None, None]:
+    """Open a cursor on the named database (default: current user's DB).
+
+    ``database="shenas"`` -> the registry DB.
+    ``database=None`` (default) -> the current user's DB.
     """
-    global _con
-    with _lock:
-        if _con is None:
-            key = get_db_key()
-            DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-            _con = duckdb.connect()
-            _con.execute(f"ATTACH '{DB_PATH}' AS db (ENCRYPTION_KEY '{key}')")
-            _con.execute("USE db")
-            _ensure_system_tables(_con)
-        return _con
+    from app.databases import resolve_db
+
+    db = resolve_db(database)
+    with db.cursor() as cur:
+        yield cur
+
+
+def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:  # noqa: ARG001
+    """Back-compat shim: return the current user's underlying connection."""
+    from app.databases import resolve_db
+
+    return resolve_db(None).connect()
+
+
+# ----------------------------------------------------------------------
+# Analytics backend (Ibis) -- runs against the current user's DB
+# ----------------------------------------------------------------------
 
 
 def analytics_backend() -> Any:
-    """Return an Ibis Backend wrapping a child cursor of the shared connection.
-
-    Used by the analytics runner (``shenas_plugins.core.analytics.runner``)
-    to compile + execute LLM-authored recipes against the encrypted DB
-    via Ibis. Each call returns a fresh child cursor, so concurrent
-    analytics runs don't step on each other.
-
-    **Soft-guarantee read-only**: the underlying connection is the same
-    read-write one used by syncs and writes. The "read-only" property
-    comes from the fact that the analytics layer (operations + recipe
-    compiler) only emits SELECT-shaped Ibis expressions; no INSERT /
-    UPDATE / DELETE / DDL flows through this path. A future hardening
-    pass (Phase 4) can enforce this at the connection level by spawning
-    a separate read-only DuckDB process or using ``con.interrupt()`` to
-    cancel runaway queries.
-    """
+    """Return an Ibis Backend wrapping a child cursor of the current user's DB."""
     import ibis
 
-    parent = connect()
-    cur = parent.cursor()
+    cur = connect().cursor()
     cur.execute("USE db")
     return ibis.duckdb.from_connection(cur)
 
 
+# ----------------------------------------------------------------------
+# dlt destination + flush
+# ----------------------------------------------------------------------
+
+
+def dlt_destination() -> tuple[Any, duckdb.DuckDBPyConnection]:
+    """Return a dlt DuckDB destination backed by an in-memory connection."""
+    import dlt
+
+    mem_con = duckdb.connect(":memory:")
+    return dlt.destinations.duckdb(credentials=mem_con), mem_con
+
+
+def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) -> None:
+    """Copy tables from the in-memory dlt connection into the current user's DB."""
+    server_con = connect()
+
+    all_schemas = [r[0] for r in mem_con.execute("SELECT schema_name FROM information_schema.schemata").fetchall()]
+    schemas_to_copy = [s for s in all_schemas if s in (dataset_name, f"{dataset_name}_staging")]
+
+    for schema in schemas_to_copy:
+        server_con.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
+        tables = mem_con.execute(
+            f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}' AND table_catalog = 'memory'"
+        ).fetchall()
+        for (table_name,) in tables:
+            tmp_name = f"_flush_{schema}_{table_name}".replace("-", "_")
+            arrow_tbl = mem_con.execute(f'SELECT * FROM memory."{schema}"."{table_name}"').arrow()
+            server_con.register(tmp_name, arrow_tbl)
+            server_con.execute(f'CREATE OR REPLACE TABLE "{schema}"."{table_name}" AS SELECT * FROM {tmp_name}')
+            server_con.unregister(tmp_name)
+
+    mem_con.close()
+
+
+# ----------------------------------------------------------------------
+# Test back-compat shim
+# ----------------------------------------------------------------------
+
+
 def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
-    """Create system tables and canonical schema tables if they don't exist."""
+    """Back-compat shim for test fixtures that pass a single in-memory connection.
+
+    Older test fixtures construct ``con = duckdb.connect(":memory:")``,
+    ATTACH ``:memory:`` AS db, USE db, and call this. The new design
+    splits state across two DBs, but tests that exercise either side
+    can run both bootstraps against the same connection so the legacy
+    fixture pattern keeps working.
+    """
     from app.hotkeys import Hotkey
     from app.hypotheses import Hypothesis
     from app.local_sessions import LocalSession
@@ -170,7 +279,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.local_user_seq START 1")
-    tables = [
+    tables: list[type[Table]] = [
         Transform,
         PluginInstance,
         Workspace,
@@ -189,41 +298,5 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     Dataset.ensure_all(con)
 
 
-def dlt_destination() -> tuple[Any, duckdb.DuckDBPyConnection]:
-    """Return a dlt DuckDB destination backed by an in-memory connection.
-
-    dlt writes to memory (nothing on disk unencrypted). After pipeline.run(),
-    call flush_to_encrypted() to copy the data into the encrypted DB.
-    """
-    import dlt
-
-    mem_con = duckdb.connect(":memory:")
-    return dlt.destinations.duckdb(credentials=mem_con), mem_con
-
-
-def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) -> None:
-    """Copy tables from an in-memory dlt connection into the encrypted DB.
-
-    Uses Arrow table registration to transfer data through the server's
-    existing connection. No second ATTACH needed -- avoids file lock conflicts.
-    """
-    with _lock:
-        server_con = connect()
-
-        all_schemas = [r[0] for r in mem_con.execute("SELECT schema_name FROM information_schema.schemata").fetchall()]
-        schemas_to_copy = [s for s in all_schemas if s in (dataset_name, f"{dataset_name}_staging")]
-
-        for schema in schemas_to_copy:
-            server_con.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
-            tables = mem_con.execute(
-                "SELECT table_name FROM information_schema.tables"
-                f" WHERE table_schema = '{schema}' AND table_catalog = 'memory'"
-            ).fetchall()
-            for (table_name,) in tables:
-                tmp_name = f"_flush_{schema}_{table_name}".replace("-", "_")
-                arrow_tbl = mem_con.execute(f'SELECT * FROM memory."{schema}"."{table_name}"').arrow()
-                server_con.register(tmp_name, arrow_tbl)
-                server_con.execute(f'CREATE OR REPLACE TABLE "{schema}"."{table_name}" AS SELECT * FROM {tmp_name}')
-                server_con.unregister(tmp_name)
-
-    mem_con.close()
+# Compatibility re-export for legacy callers.
+DB_PATH = SHENAS_DB_PATH
