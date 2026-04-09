@@ -1,4 +1,4 @@
-"""Promoted hypothesis metrics dataset (PR 3.1, Alt 1).
+"""Promoted hypothesis metrics dataset.
 
 This package owns the ``PromotedMetric`` row class plus the
 ``PromotedSchema`` dataset that fronts it. Promoted metrics are

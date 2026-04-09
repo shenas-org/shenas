@@ -67,6 +67,12 @@ def test_con() -> duckdb.DuckDBPyConnection:
         "created_at TIMESTAMP DEFAULT current_timestamp, "
         "PRIMARY KEY (name, metric_schema))"
     )
+    con.execute(
+        "CREATE TABLE shenas_system.recipe_cache ("
+        "cache_key VARCHAR, result_json TEXT, "
+        "created_at TIMESTAMP DEFAULT current_timestamp, "
+        "PRIMARY KEY (cache_key))"
+    )
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
     con.execute(
         "CREATE TABLE shenas_system.transforms ("
@@ -471,7 +477,7 @@ class TestGraphQLMutations:
         assert result["data"]["saveWorkspace"]["ok"] is True
         mock_save.assert_called_once()
 
-    # -- Hypotheses (PR 2.2) --
+    # -- Hypotheses --
 
     def test_create_hypothesis(self, client: TestClient) -> None:
         result = _gql(
@@ -546,7 +552,7 @@ class TestGraphQLMutations:
         assert "errors" not in result
         assert "error" in result["data"]["runRecipe"]
 
-    # -- LLM-driven hypothesis (PR 2.3) --
+    # -- LLM-driven hypothesis --
 
     def test_ask_hypothesis_with_fake_provider(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         from shenas_plugins.core.analytics import FakeProvider
@@ -590,7 +596,7 @@ class TestGraphQLMutations:
         assert body["result"] is not None
         assert body["id"] >= 1
 
-    # -- Promotion (PR 3.1) --
+    # -- Promotion --
 
     def test_promote_hypothesis(self, client: TestClient) -> None:
         from app.hypotheses import Hypothesis

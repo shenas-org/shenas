@@ -277,13 +277,13 @@ class Mutation:
         Workspace.put(data, user_id=user_id)
         return OkType.from_pydantic(OkResponse(ok=True))
 
-    # -- Hypotheses (PR 2.2) --
+    # -- Hypotheses --
     #
     # CRUD-shaped mutations over the Hypothesis system table. The recipe
     # is supplied as a JSON DAG (the same format Hypothesis._serialize_recipe
     # produces) so this layer is LLM-agnostic -- a curl request or test
-    # can drive it directly. The LLM-driven askHypothesis mutation lands
-    # in PR 2.3 on top of these.
+    # can drive it directly. askHypothesis (the LLM-driven mutation)
+    # lands on top of these.
 
     @strawberry.mutation
     def create_hypothesis(self, question: str, plan: str = "", model: str = "") -> JSON:
@@ -338,15 +338,30 @@ class Mutation:
         h.save()
 
         catalog = _build_catalog()
+
+        # Cache lookup: hash recipe + freshness of inputs.
+        from app.recipe_cache import RecipeCache
+
+        cache_key = RecipeCache.key_for(h.recipe_json, _extract_input_tables(recipe))
+        cached_row = RecipeCache.find(cache_key)
+        if cached_row is not None and cached_row.payload is not None:
+            cached = cached_row.payload
+            h.result_json = json.dumps(cached)
+            h.save()
+            return {"id": h.id, "result": cached, "ok": cached.get("type") != "error", "cached": True}
+
         result = run_recipe(recipe, catalog, backend=analytics_backend())
         h.attach_result(result)
+        if not isinstance(result, ErrorResult):
+            RecipeCache.put(cache_key, result.to_dict())
         return {
             "id": h.id,
             "result": result.to_dict(),
             "ok": not isinstance(result, ErrorResult),
+            "cached": False,
         }
 
-    # -- Promotion (PR 3.1) --
+    # -- Promotion --
 
     @strawberry.mutation
     def promote_hypothesis(self, hypothesis_id: int, name: str, metric_schema: str = "metrics") -> JSON:
@@ -373,7 +388,7 @@ class Mutation:
             "qualified": record["qualified"],
         }
 
-    # -- LLM-driven hypothesis (PR 2.3) --
+    # -- LLM-driven hypothesis --
 
     @strawberry.mutation
     def ask_hypothesis(self, question: str) -> JSON:

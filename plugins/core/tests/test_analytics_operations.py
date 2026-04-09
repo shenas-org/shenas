@@ -1,4 +1,4 @@
-"""Tests for the curated operation library (PR 1.2).
+"""Tests for the curated operation library.
 
 End-to-end against a real in-memory DuckDB via Ibis. The tests cover:
 

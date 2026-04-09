@@ -353,7 +353,7 @@ class Query:
             return None
         return cls().predict()
 
-    # -- Analytics catalog (PR 2.1) --
+    # -- Analytics catalog --
     #
     # Single read-only query that returns the structured metadata for every
     # source-side raw table and every dataset-side metric table that is
@@ -374,7 +374,7 @@ class Query:
 
         return walk_catalog()
 
-    # -- Hypotheses (PR 2.2) --
+    # -- Hypotheses --
     #
     # Read-only listing + single fetch over the Hypothesis system table.
     # The mutations that create / run / promote hypotheses live in
