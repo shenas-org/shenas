@@ -256,16 +256,8 @@ def _serialize_recipe(recipe: Recipe) -> str:
 
 
 def _serialize_result(result: Result) -> str:
-    """Serialize a Result tagged union to JSON.
-
-    The Result dataclasses are already JSON-friendly (their ``type``
-    field is the discriminator); this just turns them into a dict and
-    dumps it.
-    """
-    from dataclasses import asdict
-
-    payload = asdict(result)
-    return json.dumps(payload)
+    """Serialize a Result tagged union to JSON via its ``to_dict()``."""
+    return json.dumps(result.to_dict())
 
 
 def _extract_input_tables(recipe: Recipe) -> list[str]:
