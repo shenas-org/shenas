@@ -4,11 +4,21 @@ Single shared connection for all reads, writes, and pipeline flushes.
 Serialized via a threading RLock. Pipeline data flows from dlt's
 in-memory connection through Arrow table registration into the
 encrypted database -- no second file ATTACH needed.
+
+The ``current_user_id`` contextvar and the ``database`` parameter on
+``cursor()`` are the seam through which per-user data isolation is
+threaded. Concrete ``Table`` subclasses set ``database = "system"`` or
+``database = "user"`` (the default) and the ABC's CRUD methods route
+through ``cursor(database=cls._resolve_database())``. Today both
+routes resolve to the same legacy ``db`` ATTACH alias; the routing
+becomes meaningful when the ConnectionManager grows to handle real
+per-user encrypted files.
 """
 
 from __future__ import annotations
 
 import contextlib
+import contextvars
 import os
 import secrets
 import threading
@@ -19,6 +29,17 @@ import duckdb
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+
+
+# ----------------------------------------------------------------------
+# Current user contextvar
+# ----------------------------------------------------------------------
+
+# Set per-request by the GraphQL context-getter (and any other
+# middleware that knows the user). Defaults to 0 = single-user mode.
+# Read by ``Table._resolve_database()`` to choose which logical
+# database name the cursor should pin to.
+current_user_id: contextvars.ContextVar[int] = contextvars.ContextVar("current_user_id", default=0)
 
 
 def _resolve_db_path() -> Path:
@@ -38,8 +59,17 @@ _lock = threading.RLock()
 
 
 @contextlib.contextmanager
-def cursor() -> Generator[duckdb.DuckDBPyConnection, None, None]:
-    """Get a cursor on the shared connection with USE db set."""
+def cursor(*, database: str | None = None) -> Generator[duckdb.DuckDBPyConnection, None, None]:
+    """Get a cursor on the shared connection.
+
+    The ``database`` argument is the per-user-isolation seam: callers
+    (notably ``Table._resolve_database()``) pass ``"system"`` for
+    device-wide registry tables and ``f"user_{<id>}"`` for everything
+    else. Today every value routes to the legacy ``db`` ATTACH alias;
+    real per-user routing is plumbed through this single function so
+    no call site has to change when the ConnectionManager grows.
+    """
+    del database  # routing not yet active
     con = connect()
     cur = con.cursor()
     try:
