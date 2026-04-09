@@ -146,7 +146,10 @@ class Mutation:
         inst = PluginInstance.find(kind, name)
         if not inst:
             return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not tracked: {kind}/{name}"))
-        msg = inst.disable()
+        try:
+            msg = inst.disable()
+        except ValueError as exc:
+            return OkType.from_pydantic(OkResponse(ok=False, message=str(exc)))
         return OkType.from_pydantic(OkResponse(ok=True, message=msg))
 
     # -- Transforms --

@@ -90,7 +90,8 @@ class PluginInstance(Table):
         """Disable this plugin. For single-active kinds, re-enables the default."""
         if self._is_single_active:
             if self.name == "default":
-                return f"Cannot deselect the default {self.kind}"
+                msg = f"Cannot deselect the default {self.kind}"
+                raise ValueError(msg)
             self.set_enabled(False)
             now = _now_iso()
             default = PluginInstance.find(self.kind, "default")
