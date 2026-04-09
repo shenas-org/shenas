@@ -109,10 +109,23 @@ class Table:
         description: ClassVar[str | None] = None
         schema: ClassVar[str | None] = None
 
-    # Cache of (schema, table_name) tuples that have already had their
-    # CREATE TABLE + ALTER TABLE migrations applied this process. Read /
-    # written by ``ensure``.
-    _ensured: ClassVar[set[tuple[str, str]]] = set()
+    # Per-user data isolation: each Table subclass declares which
+    # logical database it lives in. ``"system"`` = the device-wide
+    # registry DB (local_users, plugin install state, etc.).
+    # ``"user"`` = the current user's encrypted DB (workspace,
+    # hotkeys, source data, metrics, hypotheses). The default is
+    # ``"user"`` because the vast majority of tables are user-scoped;
+    # system tables explicitly opt in. Resolved at query time via
+    # :meth:`_resolve_database`.
+    database: ClassVar[str] = "user"
+
+    # Cache of (database, schema, table_name) tuples that have already
+    # had their CREATE TABLE + ALTER TABLE migrations applied this
+    # process. Read / written by ``_ensure_once``. The database
+    # component is included so per-user databases (which share the same
+    # schema/table names across users) get re-ensured for each new
+    # logged-in user.
+    _ensured: ClassVar[set[tuple[str, str, str]]] = set()
 
     # Map of kind base class names to the kind string. Used by ``table_kind()``
     # to walk the MRO without importing the SourceTable / MetricTable subclasses
@@ -375,17 +388,36 @@ class Table:
         return s
 
     @classmethod
+    def _resolve_database(cls) -> str:
+        """Return the ATTACH alias the cursor should USE for this table.
+
+        ``"system"`` for tables marked ``database = "system"`` (the
+        device-wide registry: local users, sessions, plugin install
+        state). ``f"user_{<current user id>}"`` for everything else.
+
+        The current user id comes from the ``current_user_id``
+        contextvar set by the request middleware. In single-user mode
+        the contextvar defaults to 0, so user-scoped tables resolve to
+        ``user_0`` and the same code path covers both modes.
+        """
+        if cls.database == "system":
+            return "system"
+        from app.db import current_user_id
+
+        return f"user_{current_user_id.get()}"
+
+    @classmethod
     def _ensure_once(cls, schema: str) -> None:
         """Idempotent CREATE SCHEMA + CREATE TABLE; memoized per process."""
-        key = (schema, cls._Meta.name)
+        key = (cls._resolve_database(), schema, cls._Meta.name)
         if key in cls._ensured:
             return
         from app.db import cursor
 
-        with cursor() as cur:
+        with cursor(database=cls._resolve_database()) as cur:
             cur.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
             cls.ensure(cur, schema=schema)
-        cls._ensured.add(key)
+        cls._ensured.add(key)  # type: ignore[arg-type]
 
     # ------------------------------------------------------------------
     # Multi-row CRUD (find / all / insert / save / delete)
@@ -425,7 +457,7 @@ class Table:
             raise TypeError(msg)
         cols = ", ".join(cls._column_names())
         where = " AND ".join(f"{c} = ?" for c in cls._Meta.pk)
-        with cursor() as cur:
+        with cursor(database=cls._resolve_database()) as cur:
             row = cur.execute(f"SELECT {cols} FROM {cls._qualified()} WHERE {where}", list(pk_values)).fetchone()
         return cls.from_row(row) if row else None
 
@@ -449,7 +481,7 @@ class Table:
             sql += f" ORDER BY {order_by}"
         if limit is not None:
             sql += f" LIMIT {int(limit)}"
-        with cursor() as cur:
+        with cursor(database=cls._resolve_database()) as cur:
             rows = cur.execute(sql, params or []).fetchall()
         return [cls.from_row(r) for r in rows]
 
@@ -482,7 +514,7 @@ class Table:
         placeholders = ", ".join(["?"] * len(insert_cols))
         return_cols = ", ".join(cls._column_names())
         sql = f"INSERT INTO {cls._qualified()} ({col_list}) VALUES ({placeholders}) RETURNING {return_cols}"
-        with cursor() as cur:
+        with cursor(database=cls._resolve_database()) as cur:
             row = cur.execute(sql, insert_vals).fetchone()
         if row is None:
             msg = f"INSERT into {cls._qualified()} returned no row"
@@ -505,7 +537,7 @@ class Table:
         set_vals = [getattr(self, c) for c in set_cols]
         pk_vals = [getattr(self, c) for c in cls._Meta.pk]
         sql = f"UPDATE {cls._qualified()} SET {set_clause} WHERE {where} RETURNING {return_cols}"
-        with cursor() as cur:
+        with cursor(database=cls._resolve_database()) as cur:
             row = cur.execute(sql, [*set_vals, *pk_vals]).fetchone()
         if row is None:
             msg = f"UPDATE in {cls._qualified()} found no row matching pk={pk_vals}"
@@ -521,7 +553,7 @@ class Table:
         cls = type(self)
         where = " AND ".join(f"{c} = ?" for c in cls._Meta.pk)
         pk_vals = [getattr(self, c) for c in cls._Meta.pk]
-        with cursor() as cur:
+        with cursor(database=cls._resolve_database()) as cur:
             cur.execute(f"DELETE FROM {cls._qualified()} WHERE {where}", pk_vals)
 
     def upsert(self) -> Self:
@@ -544,7 +576,7 @@ class Table:
 
         s = cls._resolve_schema(schema)
         cls._ensure_once(s)
-        with cursor() as cur:
+        with cursor(database=cls._resolve_database()) as cur:
             cur.execute(f"DELETE FROM {s}.{cls._Meta.name}")
 
     # ------------------------------------------------------------------
@@ -645,7 +677,7 @@ class SingletonTable(Table):
         cls._ensure_once(s)
         cols = [f.name for f in dataclasses.fields(cls)]
         col_list = ", ".join(cols)
-        with cursor() as cur:
+        with cursor(database=cls._resolve_database()) as cur:
             row = cur.execute(f"SELECT {col_list} FROM {s}.{cls._Meta.name} LIMIT 1").fetchone()
         if row is None:
             return None
@@ -685,7 +717,7 @@ class SingletonTable(Table):
         placeholders = ", ".join(["?"] * len(cols))
         col_names = ", ".join(cols)
         values = [merged.get(c) for c in cols]
-        with cursor() as cur:
+        with cursor(database=cls._resolve_database()) as cur:
             cur.execute(f"DELETE FROM {s}.{cls._Meta.name}")
             cur.execute(f"INSERT INTO {s}.{cls._Meta.name} ({col_names}) VALUES ({placeholders})", values)
 
@@ -728,7 +760,7 @@ class UserTable(Table):
         cls._ensure_once(s)
         cols = [f.name for f in dataclasses.fields(cls)]
         col_list = ", ".join(cols)
-        with cursor() as cur:
+        with cursor(database=cls._resolve_database()) as cur:
             rows = cur.execute(
                 f"SELECT {col_list} FROM {s}.{cls._Meta.name} WHERE user_id = ?",
                 [user_id],
@@ -787,7 +819,7 @@ class UserTable(Table):
         else:
             sql += f" ON CONFLICT ({conflict_target}) DO NOTHING"
 
-        with cursor() as cur:
+        with cursor(database=cls._resolve_database()) as cur:
             cur.execute(sql, values)
 
     @classmethod
@@ -800,7 +832,7 @@ class UserTable(Table):
         pk_vals = {**pk_kwargs, "user_id": user_id}
         where = " AND ".join(f"{col} = ?" for col in cls._Meta.pk)
         values = [pk_vals.get(col) for col in cls._Meta.pk]
-        with cursor() as cur:
+        with cursor(database=cls._resolve_database()) as cur:
             cur.execute(f"DELETE FROM {s}.{cls._Meta.name} WHERE {where}", values)
 
     @classmethod
@@ -810,5 +842,5 @@ class UserTable(Table):
 
         s = cls._resolve_schema(schema)
         cls._ensure_once(s)
-        with cursor() as cur:
+        with cursor(database=cls._resolve_database()) as cur:
             cur.execute(f"DELETE FROM {s}.{cls._Meta.name} WHERE user_id = ?", [user_id])

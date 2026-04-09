@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import secrets
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from shenas_plugins.core.table import Field, SingletonTable
 
@@ -14,6 +14,8 @@ class LocalSession(SingletonTable):
     Always a single row (id=1). ``token`` is a random URL-safe string stored
     in the browser's localStorage and validated here on every request.
     """
+
+    database: ClassVar[str] = "system"
 
     class _Meta:
         name = "local_sessions"

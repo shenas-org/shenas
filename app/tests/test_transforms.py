@@ -33,7 +33,7 @@ def patch_db(db_con: duckdb.DuckDBPyConnection) -> Iterator[None]:
     """Route app.db.cursor through db_con for the duration of each test."""
 
     @contextlib.contextmanager
-    def _fake_cursor() -> Generator[duckdb.DuckDBPyConnection, None, None]:
+    def _fake_cursor(**_kwargs) -> Generator[duckdb.DuckDBPyConnection, None, None]:
         cur = db_con.cursor()
         try:
             cur.execute("USE db")

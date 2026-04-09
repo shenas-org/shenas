@@ -38,7 +38,7 @@ def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
 @pytest.fixture(autouse=True)
 def patch_db(db_con: duckdb.DuckDBPyConnection) -> Iterator[None]:
     @contextlib.contextmanager
-    def _fake_cursor() -> Generator[duckdb.DuckDBPyConnection, None, None]:
+    def _fake_cursor(**_kwargs) -> Generator[duckdb.DuckDBPyConnection, None, None]:
         cur = db_con.cursor()
         try:
             cur.execute("USE db")

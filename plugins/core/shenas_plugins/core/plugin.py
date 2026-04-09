@@ -34,6 +34,8 @@ class PluginInstance(Table):
     :class:`Plugin` free of dataclass / row-shape concerns.
     """
 
+    database: ClassVar[str] = "system"
+
     class _Meta:
         name = "plugins"
         display_name = "Installed Plugins"
