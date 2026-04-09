@@ -43,11 +43,14 @@ members = [
     "shenas-source-garmin",
     "shenas-source-gcalendar",
     "shenas-source-gmail",
+    "shenas-source-goodreads",
     "shenas-source-gtakeout",
     "shenas-source-lunchmoney",
     "shenas-source-obsidian",
     "shenas-source-spotify",
     "shenas-source-strava",
+    "shenas-source-tile",
+    "shenas-source-withings",
     "shenas-theme-core",
     "shenas-theme-dark",
     "shenas-theme-default",
@@ -776,6 +779,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f7/e6/7adb4c5fa231e82c35b8f5741a9f2d055f520c29af5546fd70d3e8e1cd2e/fastapi-0.135.3.tar.gz", hash = "sha256:bd6d7caf1a2bdd8d676843cdcd2287729572a1ef524fc4d65c17ae002a1be654", size = 396524, upload-time = "2026-04-01T16:23:58.188Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/84/a4/5caa2de7f917a04ada20018eccf60d6cc6145b0199d55ca3711b0fc08312/fastapi-0.135.3-py3-none-any.whl", hash = "sha256:9b0f590c813acd13d0ab43dd8494138eb58e484bfac405db1f3187cfc5810d98", size = 117734, upload-time = "2026-04-01T16:23:59.328Z" },
+]
+
+[[package]]
+name = "feedparser"
+version = "6.0.12"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sgmllib3k" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/dc/79/db7edb5e77d6dfbc54d7d9df72828be4318275b2e580549ff45a962f6461/feedparser-6.0.12.tar.gz", hash = "sha256:64f76ce90ae3e8ef5d1ede0f8d3b50ce26bcce71dd8ae5e82b1cd2d4a5f94228", size = 286579, upload-time = "2025-09-10T13:33:59.486Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4e/eb/c96d64137e29ae17d83ad2552470bafe3a7a915e85434d9942077d7fd011/feedparser-6.0.12-py3-none-any.whl", hash = "sha256:6bbff10f5a52662c00a2e3f86a38928c37c48f77b3c511aedcd51de933549324", size = 81480, upload-time = "2025-09-10T13:33:58.022Z" },
 ]
 
 [[package]]
@@ -2801,6 +2816,12 @@ wheels = [
 ]
 
 [[package]]
+name = "sgmllib3k"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9e/bd/3704a8c3e0942d711c1299ebf7b9091930adae6675d7c8f476a7ce48653c/sgmllib3k-1.0.0.tar.gz", hash = "sha256:7868fb1c8bfa764c1ac563d3cf369c381d1325d36124933a726f29fcdaa812e9", size = 5750, upload-time = "2010-08-24T14:33:52.445Z" }
+
+[[package]]
 name = "shellingham"
 version = "1.5.4"
 source = { registry = "https://pypi.org/simple" }
@@ -3192,6 +3213,26 @@ dependencies = [
 requires-dist = [{ name = "shenas-source-core", extras = ["google"], editable = "plugins/sources/core" }]
 
 [[package]]
+name = "shenas-source-goodreads"
+source = { editable = "plugins/sources/goodreads" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "feedparser" },
+    { name = "httpx" },
+    { name = "shenas-dataset-events" },
+    { name = "shenas-source-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "feedparser", specifier = ">=6.0.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "shenas-dataset-events", editable = "plugins/datasets/events" },
+    { name = "shenas-source-core", editable = "plugins/sources/core" },
+]
+
+[[package]]
 name = "shenas-source-gtakeout"
 source = { editable = "plugins/sources/gtakeout" }
 dependencies = [
@@ -3284,6 +3325,42 @@ requires-dist = [
 ]
 
 [[package]]
+name = "shenas-source-tile"
+source = { editable = "plugins/sources/tile" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "httpx" },
+    { name = "shenas-source-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "shenas-source-core", editable = "plugins/sources/core" },
+]
+
+[[package]]
+name = "shenas-source-withings"
+source = { editable = "plugins/sources/withings" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "httpx" },
+    { name = "pendulum" },
+    { name = "shenas-dataset-fitness" },
+    { name = "shenas-source-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "pendulum", specifier = ">=3.0.0" },
+    { name = "shenas-dataset-fitness", editable = "plugins/datasets/fitness" },
+    { name = "shenas-source-core", editable = "plugins/sources/core" },
+]
+
+[[package]]
 name = "shenas-theme-core"
 source = { editable = "plugins/themes/core" }
 dependencies = [
@@ -3346,11 +3423,14 @@ dev = [
     { name = "shenas-source-garmin" },
     { name = "shenas-source-gcalendar" },
     { name = "shenas-source-gmail" },
+    { name = "shenas-source-goodreads" },
     { name = "shenas-source-gtakeout" },
     { name = "shenas-source-lunchmoney" },
     { name = "shenas-source-obsidian" },
     { name = "shenas-source-spotify" },
     { name = "shenas-source-strava" },
+    { name = "shenas-source-tile" },
+    { name = "shenas-source-withings" },
     { name = "shenas-theme-dark" },
     { name = "shenas-theme-default" },
     { name = "ty" },
@@ -3389,11 +3469,14 @@ dev = [
     { name = "shenas-source-garmin", editable = "plugins/sources/garmin" },
     { name = "shenas-source-gcalendar", editable = "plugins/sources/gcalendar" },
     { name = "shenas-source-gmail", editable = "plugins/sources/gmail" },
+    { name = "shenas-source-goodreads", editable = "plugins/sources/goodreads" },
     { name = "shenas-source-gtakeout", editable = "plugins/sources/gtakeout" },
     { name = "shenas-source-lunchmoney", editable = "plugins/sources/lunchmoney" },
     { name = "shenas-source-obsidian", editable = "plugins/sources/obsidian" },
     { name = "shenas-source-spotify", editable = "plugins/sources/spotify" },
     { name = "shenas-source-strava", editable = "plugins/sources/strava" },
+    { name = "shenas-source-tile", editable = "plugins/sources/tile" },
+    { name = "shenas-source-withings", editable = "plugins/sources/withings" },
     { name = "shenas-theme-dark", editable = "plugins/themes/dark" },
     { name = "shenas-theme-default", editable = "plugins/themes/default" },
     { name = "ty", specifier = "==0.0.27" },
