@@ -158,14 +158,15 @@ def _make_transform(record: PromotedMetric):
         result = run_recipe(recipe, catalog_by_qualified_name(), backend=analytics_backend())
         if not isinstance(result, TableResult):
             return 0
-        con.execute(f"DELETE FROM {cls._Meta.schema}.{cls._Meta.name}")
+        qualified = f'"{cls._Meta.schema}"."{cls._Meta.name}"'
+        con.execute(f"DELETE FROM {qualified}")
         if not result.rows:
             return 0
-        col_list = ", ".join(result.columns)
+        col_list = ", ".join('"' + c.replace('"', '""') + '"' for c in result.columns)
         placeholders = ", ".join(["?"] * len(result.columns))
         for row in result.rows:
             con.execute(
-                f"INSERT INTO {cls._Meta.schema}.{cls._Meta.name} ({col_list}) VALUES ({placeholders})",
+                f"INSERT INTO {qualified} ({col_list}) VALUES ({placeholders})",
                 [row.get(c) for c in result.columns],
             )
         return len(result.rows)
