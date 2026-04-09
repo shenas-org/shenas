@@ -32,7 +32,7 @@ def _default_profile_dir() -> str:
 
 class ChromeSource(Source):
     name = "chrome"
-    display_name = "Chrome"
+    display_name = "Google Chrome"
     primary_table = "visits"
     description = (
         "Extracts browsing history, downloads, and search terms from a local "
