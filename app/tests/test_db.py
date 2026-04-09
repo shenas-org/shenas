@@ -61,10 +61,10 @@ class TestPluginState:
         p.save_state(enabled=True)
         state = p.state
         assert state is not None
-        assert state["kind"] == "source"
-        assert state["name"] == "garmin"
-        assert state["enabled"] is True
-        assert state["added_at"] is not None
+        assert state.kind == "source"
+        assert state.name == "garmin"
+        assert state.enabled is True
+        assert state.added_at is not None
 
     def test_save_state_updates_existing_same_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         p = _FakePlugin()
@@ -75,7 +75,7 @@ class TestPluginState:
         p.save_state(enabled=True)
         second = p.state
         assert second is not None
-        assert second["enabled"] is True
+        assert second.enabled is True
 
     def test_save_state_toggles_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         p = _FakePlugin()
@@ -83,8 +83,8 @@ class TestPluginState:
         p.save_state(enabled=False)
         state = p.state
         assert state is not None
-        assert state["enabled"] is False
-        assert state["status_changed_at"] is not None
+        assert state.enabled is False
+        assert state.status_changed_at is not None
 
     def test_remove_state(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         p = _FakePlugin()
@@ -113,14 +113,14 @@ class TestPluginState:
         p.mark_synced()
         state = p.state
         assert state is not None
-        assert state["synced_at"] is not None
+        assert state.synced_at is not None
 
     def test_mark_synced_creates_missing_state(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         p = _FakePlugin()
         p.mark_synced()
         state = p.state
         assert state is not None
-        assert state["synced_at"] is not None
+        assert state.synced_at is not None
 
     def test_multiple_kinds(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         class _DatasetPlugin(Plugin):
