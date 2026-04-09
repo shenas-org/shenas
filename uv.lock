@@ -38,6 +38,7 @@ members = [
     "shenas-model-sleep-forecast",
     "shenas-plugin-core",
     "shenas-scheduler",
+    "shenas-source-chrome",
     "shenas-source-core",
     "shenas-source-duolingo",
     "shenas-source-garmin",
@@ -3110,6 +3111,20 @@ requires-dist = [
 ]
 
 [[package]]
+name = "shenas-source-chrome"
+source = { editable = "plugins/sources/chrome" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "shenas-source-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "shenas-source-core", editable = "plugins/sources/core" },
+]
+
+[[package]]
 name = "shenas-source-core"
 source = { editable = "plugins/sources/core" }
 dependencies = [
@@ -3419,6 +3434,7 @@ dev = [
     { name = "shenas-frontend-focus" },
     { name = "shenas-model-core" },
     { name = "shenas-scheduler" },
+    { name = "shenas-source-chrome" },
     { name = "shenas-source-duolingo" },
     { name = "shenas-source-garmin" },
     { name = "shenas-source-gcalendar" },
@@ -3465,6 +3481,7 @@ dev = [
     { name = "shenas-frontend-focus", editable = "plugins/frontends/focus" },
     { name = "shenas-model-core", editable = "plugins/models/core" },
     { name = "shenas-scheduler", editable = "scheduler" },
+    { name = "shenas-source-chrome", editable = "plugins/sources/chrome" },
     { name = "shenas-source-duolingo", editable = "plugins/sources/duolingo" },
     { name = "shenas-source-garmin", editable = "plugins/sources/garmin" },
     { name = "shenas-source-gcalendar", editable = "plugins/sources/gcalendar" },
