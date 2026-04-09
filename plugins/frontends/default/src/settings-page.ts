@@ -369,7 +369,7 @@ class SettingsPage extends LitElement {
     if (kind === "theme") {
       await this._applyActiveTheme();
     }
-    if (kind === "ui") {
+    if (kind === "frontend") {
       window.location.replace(window.location.pathname + "?_switch=" + Date.now());
       return;
     }
