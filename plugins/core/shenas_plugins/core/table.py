@@ -341,9 +341,10 @@ class Table:
             meta = cls._get_field_obj(hints[f.name])
             if meta and meta.db_default:
                 db_default = f" DEFAULT {meta.db_default}"
-            lines.append(f"    {f.name} {col_type}{not_null}{db_default}")
-        lines.append(f"    PRIMARY KEY ({', '.join(cls._Meta.pk)})")
-        return f"CREATE TABLE IF NOT EXISTS {schema}.{cls._Meta.name} (\n" + ",\n".join(lines) + "\n)"
+            lines.append(f'    "{f.name}" {col_type}{not_null}{db_default}')
+        pk_cols = ", ".join(f'"{c}"' for c in cls._Meta.pk)
+        lines.append(f"    PRIMARY KEY ({pk_cols})")
+        return f'CREATE TABLE IF NOT EXISTS "{schema}"."{cls._Meta.name}" (\n' + ",\n".join(lines) + "\n)"
 
     @classmethod
     def ensure(cls, con: duckdb.DuckDBPyConnection, *, schema: str = "metrics") -> None:
@@ -369,7 +370,7 @@ class Table:
         for f in dataclasses.fields(cls):
             if f.name not in existing:
                 col_type = cls._duckdb_type(hints[f.name])
-                con.execute(f"ALTER TABLE {schema}.{cls._Meta.name} ADD COLUMN {f.name} {col_type}")
+                con.execute(f'ALTER TABLE "{schema}"."{cls._Meta.name}" ADD COLUMN "{f.name}" {col_type}')
 
     @classmethod
     def _resolve_schema(cls, schema: str | None) -> str:
