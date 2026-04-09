@@ -16,6 +16,17 @@ from app.graphql.types import (
 )
 
 
+def _build_catalog() -> dict[str, dict]:
+    """Return ``{qualified_table: table_metadata}`` for the recipe runner.
+
+    Thin wrapper over :func:`app.analytics_catalog.catalog_by_qualified_name`,
+    which is the shared walk used by the GraphQL ``catalog`` query too.
+    """
+    from app.analytics_catalog import catalog_by_qualified_name
+
+    return catalog_by_qualified_name()
+
+
 @strawberry.type
 class Mutation:
     # -- Auth --
@@ -265,3 +276,72 @@ class Mutation:
         user_id: int = (info.context or {}).get("user_id", 0) or 0
         Workspace.put(data, user_id=user_id)
         return OkType.from_pydantic(OkResponse(ok=True))
+
+    # -- Hypotheses (PR 2.2) --
+    #
+    # CRUD-shaped mutations over the Hypothesis system table. The recipe
+    # is supplied as a JSON DAG (the same format Hypothesis._serialize_recipe
+    # produces) so this layer is LLM-agnostic -- a curl request or test
+    # can drive it directly. The LLM-driven askHypothesis mutation lands
+    # in PR 2.3 on top of these.
+
+    @strawberry.mutation
+    def create_hypothesis(self, question: str, plan: str = "", model: str = "") -> JSON:
+        """Create an empty hypothesis row from a question. No recipe yet."""
+        from app.hypotheses import Hypothesis
+        from shenas_plugins.core.analytics import Recipe
+
+        empty = Recipe(nodes={}, final="")
+        h = Hypothesis.create(question, empty, plan=plan, model=model)
+        return {"id": h.id, "question": h.question}
+
+    @strawberry.mutation
+    def run_recipe(self, hypothesis_id: int, recipe_json: str) -> JSON:
+        """Attach a recipe DAG (JSON) to a hypothesis, run it, persist the result.
+
+        ``recipe_json`` is the same shape Hypothesis._serialize_recipe
+        emits: ``{"nodes": {name: {type, ...}}, "final": str}``.
+        """
+        import json
+
+        from app.db import analytics_backend
+        from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
+        from shenas_plugins.core.analytics import (
+            ErrorResult,
+            OpCall,
+            Recipe,
+            SourceRef,
+            run_recipe,
+        )
+
+        h = Hypothesis.find(hypothesis_id)
+        if h is None:
+            return {"error": f"hypothesis {hypothesis_id} not found"}
+
+        payload = json.loads(recipe_json)
+        nodes: dict[str, SourceRef | OpCall] = {}
+        for name, node in payload.get("nodes", {}).items():
+            if node.get("type") == "source":
+                nodes[name] = SourceRef(table=node["table"])
+            else:
+                nodes[name] = OpCall(
+                    op_name=node["op_name"],
+                    params=node.get("params", {}),
+                    inputs=tuple(node.get("inputs", ())),
+                )
+        recipe = Recipe(nodes=nodes, final=payload.get("final", ""))
+
+        # Persist the new recipe + inputs *before* running so even a runner
+        # crash leaves a recoverable record of what was attempted.
+        h.recipe_json = _serialize_recipe(recipe)
+        h.inputs = ",".join(sorted(_extract_input_tables(recipe)))
+        h.save()
+
+        catalog = _build_catalog()
+        result = run_recipe(recipe, catalog, backend=analytics_backend())
+        h.attach_result(result)
+        return {
+            "id": h.id,
+            "result": result.to_dict(),
+            "ok": not isinstance(result, ErrorResult),
+        }
