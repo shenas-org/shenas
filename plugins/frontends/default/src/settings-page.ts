@@ -294,6 +294,7 @@ class SettingsPage extends LitElement {
   declare _availablePlugins: string[] | null;
   declare _selectedPlugin: string;
   declare _menuOpen: boolean;
+  declare _pluginKinds: PluginKind[];
 
   constructor() {
     super();
@@ -317,6 +318,7 @@ class SettingsPage extends LitElement {
     this._availablePlugins = null;
     this._selectedPlugin = "";
     this._menuOpen = false;
+    this._pluginKinds = PLUGIN_KINDS;
   }
 
   connectedCallback(): void {
@@ -331,25 +333,21 @@ class SettingsPage extends LitElement {
 
   async _fetchAll(_options?: { force?: boolean }): Promise<void> {
     this._loading = true;
-    const data = await gql(
-      this.apiBase,
-      `{
-      sources: plugins(kind: "source") { name displayName package version enabled description syncedAt hasAuth isAuthenticated }
-      datasets: plugins(kind: "dataset") { name displayName package version enabled description }
-      dashboardPlugins: plugins(kind: "dashboard") { name displayName package version enabled description }
-      frontends: plugins(kind: "frontend") { name displayName package version enabled description }
-      themes: plugins(kind: "theme") { name displayName package version enabled description }
-      models: plugins(kind: "model") { name displayName package version enabled description }
-    }`,
-    );
-    const result: Record<string, PluginSummary[]> = {
-      source: (data?.sources as PluginSummary[]) || [],
-      dataset: (data?.datasets as PluginSummary[]) || [],
-      dashboard: (data?.dashboardPlugins as PluginSummary[]) || [],
-      frontend: (data?.frontends as PluginSummary[]) || [],
-      theme: (data?.themes as PluginSummary[]) || [],
-      model: (data?.models as PluginSummary[]) || [],
-    };
+    // Fetch available plugin kinds from the API, fall back to hardcoded list.
+    const kindsData = await gql(this.apiBase, `{ pluginKinds }`);
+    if (kindsData?.pluginKinds) {
+      this._pluginKinds = (kindsData.pluginKinds as PluginKind[]).sort((a, b) => a.label.localeCompare(b.label));
+    }
+    // Build a single GraphQL query for all discovered kinds.
+    const fields = `name displayName package version enabled description syncedAt hasAuth isAuthenticated`;
+    const kindQueries = this._pluginKinds
+      .map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`)
+      .join("\n      ");
+    const data = await gql(this.apiBase, `{ ${kindQueries} }`);
+    const result: Record<string, PluginSummary[]> = {};
+    for (const { id } of this._pluginKinds) {
+      result[id] = (data?.[`p_${id}`] as PluginSummary[]) || [];
+    }
     this._plugins = result;
     this._loading = false;
     if (this.onPluginsChanged) this.onPluginsChanged(result);
@@ -556,7 +554,7 @@ class SettingsPage extends LitElement {
                 `,
               )}
               <span class="sidebar-section">Plugins</span>
-              ${PLUGIN_KINDS.map(
+              ${this._pluginKinds.map(
                 ({ id, label }) => html`
                   <a
                     href="/settings/${id}"

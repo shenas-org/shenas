@@ -119,6 +119,14 @@ class Query:
     # -- Plugins --
 
     @strawberry.field
+    def plugin_kinds(self) -> JSON:
+        """Return all discovered plugin kinds with display labels, ordered by label."""
+        from shenas_plugins.core.plugin import VALID_KINDS
+
+        kinds = [{"id": k, "label": f"{k.title()}s"} for k in sorted(VALID_KINDS)]
+        return sorted(kinds, key=lambda x: x["label"])
+
+    @strawberry.field
     def plugins(self, kind: str) -> list[PluginInfoType]:
         from app.models import ConfigEntry, PluginInfo
         from shenas_plugins.core.plugin import Plugin
@@ -214,7 +222,7 @@ class Query:
             if freq is None:
                 continue
             s = src.instance()
-            if not s.enabled:
+            if not s or not s.enabled:
                 continue
             result.append(
                 ScheduleInfoType.from_pydantic(

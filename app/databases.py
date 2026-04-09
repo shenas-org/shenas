@@ -73,10 +73,8 @@ class DB:
         with self._lock:
             if self._con is not None:
                 try:
-                    self._con.execute("SELECT 1 FROM db.information_schema.schemata LIMIT 1")
+                    self._con.execute("SELECT 1")
                 except Exception:
-                    with contextlib.suppress(Exception):
-                        self._con.close()
                     self._con = None
             if self._con is None:
                 self.path.parent.mkdir(parents=True, exist_ok=True)

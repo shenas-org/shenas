@@ -133,7 +133,7 @@ class Source(Plugin):
         if freq is None:
             return False
         s = self.instance()
-        if not s.enabled:
+        if not s or not s.enabled:
             return False
         synced_at = s.synced_at
         if not synced_at:
@@ -249,7 +249,7 @@ class Source(Plugin):
     def _mark_synced(self) -> None:
         """Update the synced_at timestamp in the plugin state table."""
         try:
-            self.instance().mark_synced()
+            self.get_or_create_instance().mark_synced()
         except Exception:
             logger.exception("Failed to update synced_at for %s", self.name)
 
