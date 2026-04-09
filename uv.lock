@@ -40,14 +40,19 @@ members = [
     "shenas-scheduler",
     "shenas-source-chrome",
     "shenas-source-core",
+    "shenas-source-cronometer",
     "shenas-source-duolingo",
+    "shenas-source-firefox",
     "shenas-source-garmin",
     "shenas-source-gcalendar",
+    "shenas-source-github",
     "shenas-source-gmail",
     "shenas-source-goodreads",
     "shenas-source-gtakeout",
     "shenas-source-lunchmoney",
     "shenas-source-obsidian",
+    "shenas-source-rescuetime",
+    "shenas-source-shell-history",
     "shenas-source-spotify",
     "shenas-source-strava",
     "shenas-source-tile",
@@ -3156,6 +3161,20 @@ requires-dist = [
 provides-extras = ["cli", "google"]
 
 [[package]]
+name = "shenas-source-cronometer"
+source = { editable = "plugins/sources/cronometer" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "shenas-source-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "shenas-source-core", editable = "plugins/sources/core" },
+]
+
+[[package]]
 name = "shenas-source-duolingo"
 source = { editable = "plugins/sources/duolingo" }
 dependencies = [
@@ -3174,6 +3193,20 @@ requires-dist = [
     { name = "pendulum", specifier = ">=3.0.0" },
     { name = "shenas-dataset-habits", editable = "plugins/datasets/habits" },
     { name = "shenas-dataset-outcomes", editable = "plugins/datasets/outcomes" },
+    { name = "shenas-source-core", editable = "plugins/sources/core" },
+]
+
+[[package]]
+name = "shenas-source-firefox"
+source = { editable = "plugins/sources/firefox" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "shenas-source-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "shenas-source-core", editable = "plugins/sources/core" },
 ]
 
@@ -3215,6 +3248,22 @@ requires-dist = [
     { name = "pendulum", specifier = ">=3.0.0" },
     { name = "shenas-dataset-events", editable = "plugins/datasets/events" },
     { name = "shenas-source-core", extras = ["google"], editable = "plugins/sources/core" },
+]
+
+[[package]]
+name = "shenas-source-github"
+source = { editable = "plugins/sources/github" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "httpx" },
+    { name = "shenas-source-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "shenas-source-core", editable = "plugins/sources/core" },
 ]
 
 [[package]]
@@ -3298,6 +3347,36 @@ requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "shenas-dataset-outcomes", editable = "plugins/datasets/outcomes" },
+    { name = "shenas-source-core", editable = "plugins/sources/core" },
+]
+
+[[package]]
+name = "shenas-source-rescuetime"
+source = { editable = "plugins/sources/rescuetime" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "httpx" },
+    { name = "shenas-source-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "shenas-source-core", editable = "plugins/sources/core" },
+]
+
+[[package]]
+name = "shenas-source-shell-history"
+source = { editable = "plugins/sources/shell_history" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "shenas-source-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "shenas-source-core", editable = "plugins/sources/core" },
 ]
 
@@ -3435,14 +3514,19 @@ dev = [
     { name = "shenas-model-core" },
     { name = "shenas-scheduler" },
     { name = "shenas-source-chrome" },
+    { name = "shenas-source-cronometer" },
     { name = "shenas-source-duolingo" },
+    { name = "shenas-source-firefox" },
     { name = "shenas-source-garmin" },
     { name = "shenas-source-gcalendar" },
+    { name = "shenas-source-github" },
     { name = "shenas-source-gmail" },
     { name = "shenas-source-goodreads" },
     { name = "shenas-source-gtakeout" },
     { name = "shenas-source-lunchmoney" },
     { name = "shenas-source-obsidian" },
+    { name = "shenas-source-rescuetime" },
+    { name = "shenas-source-shell-history" },
     { name = "shenas-source-spotify" },
     { name = "shenas-source-strava" },
     { name = "shenas-source-tile" },
@@ -3482,14 +3566,19 @@ dev = [
     { name = "shenas-model-core", editable = "plugins/models/core" },
     { name = "shenas-scheduler", editable = "scheduler" },
     { name = "shenas-source-chrome", editable = "plugins/sources/chrome" },
+    { name = "shenas-source-cronometer", editable = "plugins/sources/cronometer" },
     { name = "shenas-source-duolingo", editable = "plugins/sources/duolingo" },
+    { name = "shenas-source-firefox", editable = "plugins/sources/firefox" },
     { name = "shenas-source-garmin", editable = "plugins/sources/garmin" },
     { name = "shenas-source-gcalendar", editable = "plugins/sources/gcalendar" },
+    { name = "shenas-source-github", editable = "plugins/sources/github" },
     { name = "shenas-source-gmail", editable = "plugins/sources/gmail" },
     { name = "shenas-source-goodreads", editable = "plugins/sources/goodreads" },
     { name = "shenas-source-gtakeout", editable = "plugins/sources/gtakeout" },
     { name = "shenas-source-lunchmoney", editable = "plugins/sources/lunchmoney" },
     { name = "shenas-source-obsidian", editable = "plugins/sources/obsidian" },
+    { name = "shenas-source-rescuetime", editable = "plugins/sources/rescuetime" },
+    { name = "shenas-source-shell-history", editable = "plugins/sources/shell_history" },
     { name = "shenas-source-spotify", editable = "plugins/sources/spotify" },
     { name = "shenas-source-strava", editable = "plugins/sources/strava" },
     { name = "shenas-source-tile", editable = "plugins/sources/tile" },

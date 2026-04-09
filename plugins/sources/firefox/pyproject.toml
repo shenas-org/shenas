@@ -1,0 +1,25 @@
+[project]
+name = "shenas-source-firefox"
+dynamic = ["version"]
+description = "Firefox local browsing data dlt connector for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "shenas-source-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.sources"]
+firefox = "shenas_sources.firefox.source:FirefoxSource"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-firefox/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-firefox/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]
