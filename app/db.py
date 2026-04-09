@@ -144,10 +144,31 @@ def shenas_db() -> DB:
 
 
 def _current_user_db() -> DB:
-    """Resolver for tables that live in the current user's DB."""
+    """Resolver for tables that live in the current user's DB.
+
+    In single-user mode (current_user_id == 0 with no attached user)
+    we lazily attach the default user_0 backed by the device key. This
+    keeps the existing single-user codepaths working without forcing a
+    login flow.
+    """
+    from app.databases import DB
     from app.local_users import LocalUser
 
-    return LocalUser.current_db()
+    user_id = current_user_id.get()
+    with LocalUser._attached_lock:
+        db = LocalUser._attached.get(user_id)
+        if db is None and user_id == 0:
+            db = DB(
+                path=DATA_DIR / "users" / "0.duckdb",
+                key=get_db_key(),
+                bootstrap=LocalUser._bootstrap_user_db,
+            )
+            db.connect()
+            LocalUser._attached[0] = db
+    if db is None:
+        msg = f"no user DB attached for user_id={user_id}; call user.attach() first"
+        raise RuntimeError(msg)
+    return db
 
 
 register_db_resolver("shenas", shenas_db)
