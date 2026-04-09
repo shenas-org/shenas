@@ -299,6 +299,22 @@ infra-output:
 infra-destroy:
 	cd server/deploy/tofu && tofu destroy
 
+# Discord (OpenTofu)
+discord-init:
+	cd server/deploy/tofu-discord && tofu init
+
+discord-plan:
+	cd server/deploy/tofu-discord && tofu plan
+
+discord-apply:
+	cd server/deploy/tofu-discord && tofu apply
+
+discord-output:
+	cd server/deploy/tofu-discord && tofu output
+
+discord-destroy:
+	cd server/deploy/tofu-discord && tofu destroy
+
 # Set GitHub repo variables from tofu outputs (requires gh CLI)
 infra-gh-vars:
 	@WIF=$$(cd server/deploy/tofu && tofu output -raw wif_provider) && \
