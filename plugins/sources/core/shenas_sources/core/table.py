@@ -168,8 +168,8 @@ class SourceTable(Table):
         cursor_column = cls.cursor_column
 
         common = {
-            "name": cls.table_name,
-            "primary_key": list(cls.table_pk),
+            "name": cls._Meta.name,
+            "primary_key": list(cls._Meta.pk),
             "write_disposition": cls.write_disposition(),
             "columns": cls.to_dlt_columns(),
         }
@@ -340,9 +340,9 @@ class M2MTable(SourceTable):
     @classmethod
     def _validate(cls) -> None:
         super()._validate()
-        if len(cls.table_pk) < 2:
+        if len(cls._Meta.pk) < 2:
             msg = (
                 f"{cls.__name__}: M2MTable requires a composite PK with at least 2 "
-                f"columns (the two foreign keys); got {cls.table_pk!r}"
+                f"columns (the two foreign keys); got {cls._Meta.pk!r}"
             )
             raise TypeError(msg)

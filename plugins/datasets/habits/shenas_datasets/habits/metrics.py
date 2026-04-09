@@ -1,4 +1,4 @@
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar  # noqa: F401 - used in inherited class annotations
 
 from shenas_datasets.core import DailyMetricTable
 from shenas_plugins.core.table import Field
@@ -10,10 +10,11 @@ Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identi
 class DailyHabits(DailyMetricTable):
     """Daily habit tracking -- one row per (date, source)."""
 
-    table_name: ClassVar[str] = "daily_habits"
-    table_display_name: ClassVar[str] = "Daily Habits"
-    table_description: ClassVar[str | None] = "Per-day boolean / counter signals from habit-tracking sources."
-    table_pk: ClassVar[tuple[str, ...]] = ("date", "source")
+    class _Meta:
+        name = "daily_habits"
+        display_name = "Daily Habits"
+        description = "Per-day boolean / counter signals from habit-tracking sources."
+        pk = ("date", "source")
 
     date: Date
     source: Source

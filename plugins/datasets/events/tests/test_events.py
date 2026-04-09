@@ -13,10 +13,10 @@ class TestSchema:
         assert len(ALL_TABLES) == 1
 
     def test_table_names(self) -> None:
-        assert Event.table_name == "events"
+        assert Event._Meta.name == "events"
 
     def test_pk(self) -> None:
-        assert Event.table_pk == ("source", "source_id")
+        assert Event._Meta.pk == ("source", "source_id")
 
     def test_schema_class(self) -> None:
         assert EventsSchema.name == "events"
