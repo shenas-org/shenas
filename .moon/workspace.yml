@@ -8,6 +8,7 @@ projects:
   - 'plugins/sources/*'
   - 'plugins/datasets/*'
   - 'plugins/dashboards/*'
+  - 'plugins/transformations/*'
   - 'plugins/frontends/*'
   - 'app/vendor'
 

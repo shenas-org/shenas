@@ -9,7 +9,8 @@ from typing import Any
 import duckdb
 from fastapi import APIRouter, HTTPException
 
-from app.db import DB_PATH, cursor
+from app.db import SHENAS_DB_PATH as DB_PATH
+from app.db import cursor
 from app.models import DBStatusResponse, OkResponse, SchemaInfo, TableStats
 
 router = APIRouter(prefix="/db", tags=["db"])

@@ -1,0 +1,10 @@
+[
+  {
+    "source_duckdb_schema": "gtakeout",
+    "source_duckdb_table": "youtube_watch_history",
+    "target_duckdb_schema": "metrics",
+    "target_duckdb_table": "events",
+    "description": "Map YouTube watch history to unified events timeline",
+    "sql": "SELECT 'gtakeout' as source, title_url || '_' || time as source_id, time::TIMESTAMP as start_at, NULL as end_at, NULL as duration_min, title, NULL as event_description, NULL as location, CASE WHEN product = 'YouTube Music' THEN 'music' ELSE 'video' END as category, false as all_day, json_object('channel', channel_name, 'channel_url', channel_url, 'video_url', title_url, 'product', product) as metadata FROM gtakeout.youtube_watch_history WHERE time IS NOT NULL"
+  }
+]

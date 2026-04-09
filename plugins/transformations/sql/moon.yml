@@ -1,0 +1,9 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'transformation-sql'
+
+language: 'python'
+stack: 'data'
+tags: ['transformation']
+
+dependsOn:
+  - 'transformation-core'
