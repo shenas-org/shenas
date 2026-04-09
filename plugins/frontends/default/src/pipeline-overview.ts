@@ -178,18 +178,18 @@ class PipelineOverview extends LitElement {
       }
     }
 
-    // Pipe nodes
+    // Source nodes
     for (const p of pipes) {
-      const id = `pipe:${p.name}`;
+      const id = `source:${p.name}`;
       nodeIds.add(id);
       elements.push({
         data: { id, label: p.displayName || p.name, kind: "source", enabled: p.enabled !== false ? "yes" : "no" },
       });
     }
 
-    // Schema nodes
+    // Dataset nodes
     for (const s of schemas) {
-      const id = `schema:${s.name}`;
+      const id = `dataset:${s.name}`;
       nodeIds.add(id);
       elements.push({
         data: { id, label: s.displayName || s.name, kind: "dataset", enabled: s.enabled !== false ? "yes" : "no" },
@@ -216,9 +216,9 @@ class PipelineOverview extends LitElement {
 
     // Transform edges (pipe -> schema via data)
     for (const t of transforms) {
-      const sourceId = `pipe:${t.sourcePlugin}`;
+      const sourceId = `source:${t.sourcePlugin}`;
       const ownerPlugin = tableToPlugin[t.targetDuckdbTable];
-      const targetId = ownerPlugin ? `schema:${ownerPlugin}` : null;
+      const targetId = ownerPlugin ? `dataset:${ownerPlugin}` : null;
       if (!targetId || !nodeIds.has(sourceId) || !nodeIds.has(targetId)) continue;
       const desc = t.description || `${t.sourceDuckdbTable} -> ${t.targetDuckdbTable}`;
       const label = desc.length > 30 ? desc.slice(0, 28) + "..." : desc;
