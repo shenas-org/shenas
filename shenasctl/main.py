@@ -8,6 +8,7 @@ from shenasctl.commands import (
     dataset_cmd,
     db_cmd,
     frontend_cmd,
+    geofence_cmd,
     service,
     source,
     theme_cmd,
@@ -23,6 +24,7 @@ app.add_typer(dataset_cmd.app, name="dataset")
 app.add_typer(config_cmd.app, name="config")
 app.add_typer(db_cmd.app, name="db")
 app.add_typer(transform_cmd.app, name="transform")
+app.add_typer(geofence_cmd.app, name="geofence")
 app.add_typer(service.app, name="service")
 
 

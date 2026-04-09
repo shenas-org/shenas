@@ -7,9 +7,12 @@ import json
 import strawberry
 from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawberry
 
-from app.graphql.queries import _transform_to_gql
+from app.graphql.queries import _geofence_to_gql, _transform_to_gql
 from app.graphql.types import (
     AuthResponseType,
+    GeofenceCreateInput,
+    GeofenceType,
+    GeofenceUpdateInput,
     InstallResponseType,
     OkType,
     RemoveResponseType,
@@ -141,6 +144,47 @@ class Mutation:
             return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not tracked: {kind}/{name}"))
         msg = inst.disable()
         return OkType.from_pydantic(OkResponse(ok=True, message=msg))
+
+    # -- Geofences --
+
+    @strawberry.mutation
+    def create_geofence(self, geofence_input: GeofenceCreateInput) -> GeofenceType:
+        from app.geofences import Geofence
+
+        g = Geofence.create(
+            name=geofence_input.name,
+            latitude=geofence_input.latitude,
+            longitude=geofence_input.longitude,
+            radius_m=geofence_input.radius_m,
+            category=geofence_input.category,
+        )
+        return _geofence_to_gql(g)
+
+    @strawberry.mutation
+    def update_geofence(self, geofence_id: int, geofence_input: GeofenceUpdateInput) -> GeofenceType | None:
+        from app.geofences import Geofence
+
+        g = Geofence.find(geofence_id)
+        if not g:
+            return None
+        updated = g.update(
+            name=geofence_input.name,
+            latitude=geofence_input.latitude,
+            longitude=geofence_input.longitude,
+            radius_m=geofence_input.radius_m,
+            category=geofence_input.category,
+        )
+        return _geofence_to_gql(updated)
+
+    @strawberry.mutation
+    def delete_geofence(self, geofence_id: int) -> OkType:
+        from app.geofences import Geofence
+        from app.models import OkResponse
+
+        g = Geofence.find(geofence_id)
+        if g:
+            g.delete()
+        return OkType.from_pydantic(OkResponse(ok=True))
 
     # -- Transforms --
 

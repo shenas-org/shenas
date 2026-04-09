@@ -1,0 +1,10 @@
+[
+  {
+    "source_duckdb_schema": "gtakeout",
+    "source_duckdb_table": "location_visits",
+    "target_duckdb_schema": "metrics",
+    "target_duckdb_table": "location_visits",
+    "description": "Categorize Google Takeout location visits using geofences",
+    "sql": "SELECT 'gtakeout' AS source, v.start_timestamp || '_' || REPLACE(v.place_name, ' ', '_') AS source_id, v.start_timestamp::TIMESTAMP AS arrived_at, v.end_timestamp::TIMESTAMP AS left_at, CASE WHEN v.start_timestamp IS NOT NULL AND v.end_timestamp IS NOT NULL THEN EXTRACT(EPOCH FROM (v.end_timestamp::TIMESTAMP - v.start_timestamp::TIMESTAMP)) / 60.0 ELSE NULL END AS duration_min, v.latitude, v.longitude, g.name AS geofence, g.category AS geofence_category, v.place_name, v.confidence FROM gtakeout.location_visits v LEFT JOIN shenas_system.geofences g ON shenas_system.haversine_m(v.latitude, v.longitude, g.latitude, g.longitude) <= g.radius_m AND v.latitude != 0 AND v.longitude != 0 WHERE v.type = 'visit' AND v.start_timestamp IS NOT NULL"
+  }
+]

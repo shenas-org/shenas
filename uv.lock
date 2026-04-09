@@ -29,6 +29,7 @@ members = [
     "shenas-dataset-finance",
     "shenas-dataset-fitness",
     "shenas-dataset-habits",
+    "shenas-dataset-location",
     "shenas-dataset-outcomes",
     "shenas-dataset-promoted",
     "shenas-frontend-core",
@@ -3007,6 +3008,20 @@ dependencies = [
 requires-dist = [{ name = "shenas-dataset-core", editable = "plugins/datasets/core" }]
 
 [[package]]
+name = "shenas-dataset-location"
+source = { editable = "plugins/datasets/location" }
+dependencies = [
+    { name = "shenas-dataset-core" },
+    { name = "shenas-plugin-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "shenas-dataset-core", editable = "plugins/datasets/core" },
+    { name = "shenas-plugin-core", editable = "plugins/core" },
+]
+
+[[package]]
 name = "shenas-dataset-outcomes"
 source = { editable = "plugins/datasets/outcomes" }
 dependencies = [
@@ -3507,6 +3522,7 @@ dev = [
     { name = "shenas-dataset-finance" },
     { name = "shenas-dataset-fitness" },
     { name = "shenas-dataset-habits" },
+    { name = "shenas-dataset-location" },
     { name = "shenas-dataset-outcomes" },
     { name = "shenas-dataset-promoted" },
     { name = "shenas-frontend-default" },
@@ -3559,6 +3575,7 @@ dev = [
     { name = "shenas-dataset-finance", editable = "plugins/datasets/finance" },
     { name = "shenas-dataset-fitness", editable = "plugins/datasets/fitness" },
     { name = "shenas-dataset-habits", editable = "plugins/datasets/habits" },
+    { name = "shenas-dataset-location", editable = "plugins/datasets/location" },
     { name = "shenas-dataset-outcomes", editable = "plugins/datasets/outcomes" },
     { name = "shenas-dataset-promoted", editable = "plugins/datasets/promoted" },
     { name = "shenas-frontend-default", editable = "plugins/frontends/default" },

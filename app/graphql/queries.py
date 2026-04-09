@@ -10,6 +10,7 @@ from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawb
 from app.graphql.types import (
     AuthFieldsType,
     DBStatusType,
+    GeofenceType,
     PluginInfoType,
     ScheduleInfoType,
     TableEntry,
@@ -226,6 +227,21 @@ class Query:
                 )
             )
         return sorted(result, key=lambda x: x.name)
+
+    # -- Geofences --
+
+    @strawberry.field
+    def geofences(self) -> list[GeofenceType]:
+        from app.geofences import Geofence
+
+        return [_geofence_to_gql(g) for g in Geofence.all(order_by="name")]
+
+    @strawberry.field
+    def geofence(self, geofence_id: int) -> GeofenceType | None:
+        from app.geofences import Geofence
+
+        g = Geofence.find(geofence_id)
+        return _geofence_to_gql(g) if g else None
 
     # -- Transforms --
 
