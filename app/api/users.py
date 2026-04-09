@@ -16,6 +16,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+    remember: bool = False
 
 
 @router.get("")
@@ -59,7 +60,12 @@ def login_user(req: LoginRequest) -> dict:
     if user is None:
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-    user.attach(derive_user_key(req.password, user.key_salt))
+    derived = derive_user_key(req.password, user.key_salt)
+    user.attach(derived)
+    if req.remember:
+        from app.user_keys import remember_user_key
+
+        remember_user_key(user.id, derived)
     token = LocalSession.set_user(user.id)
     return {"id": user.id, "username": user.username, "token": token}
 
@@ -72,9 +78,13 @@ def logout_user() -> dict:
 
     session = LocalSession.get_current()
     if session and session.get("user_id") is not None:
-        user = LocalUser.get_by_id(int(session["user_id"]))
+        user_id = int(session["user_id"])
+        user = LocalUser.get_by_id(user_id)
         if user is not None:
             user.detach()
+        from app.user_keys import forget_user_key
+
+        forget_user_key(user_id)
     LocalSession.clear()
     return {"ok": True}
 
