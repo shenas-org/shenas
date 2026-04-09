@@ -73,7 +73,7 @@ class LocalUser(Table):
         return DATA_DIR / "users" / f"{self.id}.duckdb"
 
     @classmethod
-    def _bootstrap_user_db(cls, con: duckdb.DuckDBPyConnection) -> None:
+    def _bootstrap_user_db(cls, con: duckdb.DuckDBPyConnection) -> None:  # noqa: PLR0915
         """Create all user-scoped tables in a freshly attached user DB.
 
         Walks ``Table.__subclasses__()`` recursively, picking every concrete
@@ -83,6 +83,7 @@ class LocalUser(Table):
         """
         import app.hotkeys
         import app.hypotheses
+        import app.literature
         import app.recipe_cache
         import app.transforms
         import app.workspace  # noqa: F401
@@ -95,6 +96,7 @@ class LocalUser(Table):
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_instance_seq START 1")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.finding_seq START 1")
 
         seen: set[type[Table]] = set()
 

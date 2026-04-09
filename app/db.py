@@ -313,6 +313,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
 
     from app.hotkeys import Hotkey
     from app.hypotheses import Hypothesis
+    from app.literature import Finding
     from app.local_sessions import LocalSession
     from app.local_users import LocalUser
     from app.recipe_cache import RecipeCache
@@ -324,6 +325,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
 
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_instance_seq START 1")
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
+    con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.finding_seq START 1")
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.local_user_seq START 1")
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.geofence_seq START 1")
     tables: list[type[Table]] = [
@@ -334,6 +336,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
         Hypothesis,
         PromotedMetric,
         RecipeCache,
+        Finding,
         SystemSettings,
         LocalUser,
         LocalSession,
