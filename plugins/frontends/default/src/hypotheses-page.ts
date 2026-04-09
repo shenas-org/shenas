@@ -204,6 +204,20 @@ class HypothesesPage extends LitElement {
     }
   }
 
+  async _fork(): Promise<void> {
+    if (!this._selectedId) return;
+    const data = await gqlFull(this.apiBase, `mutation($id: Int!) { forkHypothesis(hypothesisId: $id) }`, {
+      id: this._selectedId,
+    });
+    const body = (data?.data?.["forkHypothesis"] ?? {}) as { id?: number; error?: string };
+    if (body?.error) {
+      this._error = body.error;
+    } else if (body?.id) {
+      this._selectedId = body.id;
+      await this._load();
+    }
+  }
+
   _select(id: number): void {
     this._selectedId = id;
     this._error = "";
@@ -289,9 +303,14 @@ class HypothesesPage extends LitElement {
                 }}
               />
               <button @click=${this._promote} ?disabled=${!this._promoteName}>Promote</button>
+              <button @click=${this._fork} title="Branch a copy of this hypothesis">Fork</button>
             </div>
           `
-        : ""}
+        : html`
+            <div class="promote-bar">
+              <button @click=${this._fork} title="Branch a copy of this hypothesis">Fork</button>
+            </div>
+          `}
     `;
   }
 
