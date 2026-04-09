@@ -19,6 +19,25 @@ class LoginRequest(BaseModel):
     remember: bool = False
 
 
+class UserResponse(BaseModel):
+    id: int
+    username: str
+
+
+class AuthResponse(BaseModel):
+    id: int
+    username: str
+    token: str
+
+
+class OkResponse(BaseModel):
+    ok: bool = True
+
+
+class CurrentUserResponse(BaseModel):
+    user: UserResponse
+
+
 @router.get("")
 def list_users() -> list[dict]:
     """List all registered local users (id + username only, no hashes)."""
@@ -28,8 +47,8 @@ def list_users() -> list[dict]:
 
 
 @router.post("/register")
-def register_user(req: RegisterRequest) -> dict:
-    """Register a new local user and activate a session. Returns {id, username, token}."""
+def register_user(req: RegisterRequest) -> AuthResponse:
+    """Register a new local user and activate a session."""
     if not req.username.strip():
         raise HTTPException(status_code=400, detail="Username cannot be empty")
     if not req.password:
@@ -46,12 +65,12 @@ def register_user(req: RegisterRequest) -> dict:
 
     user.attach(derive_user_key(req.password, user.key_salt))
     token = LocalSession.set_user(user.id)
-    return {"id": user.id, "username": user.username, "token": token}
+    return AuthResponse(id=user.id, username=user.username, token=token)
 
 
 @router.post("/login")
-def login_user(req: LoginRequest) -> dict:
-    """Authenticate an existing local user and activate a session. Returns {id, username, token}."""
+def login_user(req: LoginRequest) -> AuthResponse:
+    """Authenticate an existing local user and activate a session."""
     from app.local_sessions import LocalSession
     from app.local_users import LocalUser
     from app.user_keys import derive_user_key
@@ -67,11 +86,11 @@ def login_user(req: LoginRequest) -> dict:
 
         remember_user_key(user.id, derived)
     token = LocalSession.set_user(user.id)
-    return {"id": user.id, "username": user.username, "token": token}
+    return AuthResponse(id=user.id, username=user.username, token=token)
 
 
 @router.post("/logout")
-def logout_user() -> dict:
+def logout_user() -> OkResponse:
     """Deselect the current user session."""
     from app.local_sessions import LocalSession
     from app.local_users import LocalUser
@@ -86,11 +105,11 @@ def logout_user() -> dict:
 
         forget_user_key(user_id)
     LocalSession.clear()
-    return {"ok": True}
+    return OkResponse()
 
 
 @router.get("/current")
-def current_user() -> dict:
+def current_user() -> CurrentUserResponse:
     """Return the currently active session user, or 401 if none."""
     from app.local_sessions import LocalSession
     from app.local_users import LocalUser
@@ -102,4 +121,4 @@ def current_user() -> dict:
     user = LocalUser.get_by_id(int(session["user_id"]))
     if user is None:
         raise HTTPException(status_code=401, detail="Session user not found")
-    return {"user": {"id": user.id, "username": user.username}}
+    return CurrentUserResponse(user=UserResponse(id=user.id, username=user.username))

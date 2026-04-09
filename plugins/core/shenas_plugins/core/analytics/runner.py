@@ -27,12 +27,12 @@ hardening pass can spawn a separate read-only DuckDB connection if the
 soft guarantee turns out not to be enough.
 """
 
-from __future__ import annotations
-
 import logging
 import threading
 import time
-from typing import Any, ClassVar
+from typing import Annotated, Any, Literal
+
+from pydantic import BaseModel, Field
 
 from shenas_plugins.core.analytics.operations import OperationError
 from shenas_plugins.core.analytics.recipe import Recipe, RecipeError
@@ -45,57 +45,34 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------------
 
 
-class Result:
-    """Common base for the three result shapes a recipe run can produce.
+class _ResultBase(BaseModel):
+    """Common fields for all result shapes."""
 
-    Subclasses set a ``type`` ClassVar that doubles as the JSON
-    discriminator. Every Result carries ``elapsed_ms`` (wall-clock cost
-    of the run, including compilation) and ``sql`` (the rendered query,
-    for "show your work"). The shape-specific fields are set by each
-    subclass's ``__init__``. ``to_dict()`` produces the JSON-friendly
-    payload that ``Hypothesis`` persists.
-    """
+    elapsed_ms: float = 0.0
+    sql: str = ""
+    warnings: list[str] = Field(default_factory=list)
 
-    type: ClassVar[str]
-
-    def __init__(self, *, elapsed_ms: float = 0.0, sql: str = "") -> None:
-        self.elapsed_ms = elapsed_ms
-        self.sql = sql
-
-    def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-serializable dict tagged with this result's ``type``.
-
-        Includes a ``warnings`` list populated by :func:`sanity_check` so
-        consumers see "this is not load-bearing" flags inline with the data.
-        """
+    def with_warnings(self):
+        """Populate warnings from sanity checks and return self."""
         from shenas_plugins.core.analytics.sanity import sanity_check
 
-        return {"type": self.type, **self.__dict__, "warnings": sanity_check(self)}
+        self.warnings = sanity_check(self)
+        return self
 
 
-class ScalarResult(Result):
+class ScalarResult(_ResultBase):
     """A single value (one-row, one-column result).
 
     Returned for recipes whose final node is a scalar aggregation
     (correlate, an aggregate.count, etc).
     """
 
-    type: ClassVar[str] = "scalar"
-
-    def __init__(
-        self,
-        *,
-        value: float | str | bool | None,
-        column: str,
-        elapsed_ms: float = 0.0,
-        sql: str = "",
-    ) -> None:
-        super().__init__(elapsed_ms=elapsed_ms, sql=sql)
-        self.value = value
-        self.column = column
+    type: Literal["scalar"] = "scalar"
+    value: float | str | bool | None = None
+    column: str = ""
 
 
-class TableResult(Result):
+class TableResult(_ResultBase):
     """A multi-row result.
 
     Returned for recipes whose final node is anything other than a
@@ -103,26 +80,14 @@ class TableResult(Result):
     callers can check ``truncated`` to know whether to warn the user.
     """
 
-    type: ClassVar[str] = "table"
-
-    def __init__(
-        self,
-        *,
-        rows: list[dict[str, Any]] | None = None,
-        columns: list[str] | None = None,
-        row_count: int = 0,
-        truncated: bool = False,
-        elapsed_ms: float = 0.0,
-        sql: str = "",
-    ) -> None:
-        super().__init__(elapsed_ms=elapsed_ms, sql=sql)
-        self.rows = rows if rows is not None else []
-        self.columns = columns if columns is not None else []
-        self.row_count = row_count
-        self.truncated = truncated
+    type: Literal["table"] = "table"
+    rows: list[dict[str, Any]] = Field(default_factory=list)
+    columns: list[str] = Field(default_factory=list)
+    row_count: int = 0
+    truncated: bool = False
 
 
-class ErrorResult(Result):
+class ErrorResult(_ResultBase):
     """Something went wrong during compilation or execution.
 
     ``kind`` lets the LLM iteration loop distinguish failures it might
@@ -138,19 +103,15 @@ class ErrorResult(Result):
     - ``"timeout"`` -- exceeded ``timeout_seconds``. Surface to user.
     """
 
-    type: ClassVar[str] = "error"
+    type: Literal["error"] = "error"
+    message: str = ""
+    kind: str = "execution"
 
-    def __init__(
-        self,
-        *,
-        message: str,
-        kind: str,
-        elapsed_ms: float = 0.0,
-        sql: str = "",
-    ) -> None:
-        super().__init__(elapsed_ms=elapsed_ms, sql=sql)
-        self.message = message
-        self.kind = kind
+
+Result = Annotated[
+    ScalarResult | TableResult | ErrorResult,
+    Field(discriminator="type"),
+]
 
 
 # ----------------------------------------------------------------------
@@ -276,7 +237,7 @@ def run_recipe(
         raw = df.iloc[0, 0]
         # Convert numpy / pandas scalars to native Python for JSON.
         value = _coerce_scalar(raw)
-        return ScalarResult(value=value, column=str(col), elapsed_ms=elapsed_ms, sql=sql)
+        return ScalarResult(value=value, column=str(col), elapsed_ms=elapsed_ms, sql=sql).with_warnings()
 
     full_count = len(df)
     truncated = full_count > max_rows
@@ -292,7 +253,7 @@ def run_recipe(
         truncated=truncated,
         elapsed_ms=elapsed_ms,
         sql=sql,
-    )
+    ).with_warnings()
 
 
 def _coerce_scalar(value: Any) -> Any:
