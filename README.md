@@ -12,6 +12,11 @@
 
 A federated quantified-self platform where ML and AI coaches you without you ever giving up your data. Collects health, finance, and lifestyle metrics from multiple sources, normalizes them into canonical schemas, trains models locally via federated learning, and visualizes insights through pluggable web components.
 
+## Community
+
+- [Discourse forum](https://shenas.discourse.group/) -- questions, feature requests, show-and-tell
+- [Discord server](https://discord.gg/VKsUVT9q) -- real-time chat and support
+
 ## Quick start
 
 ```bash
