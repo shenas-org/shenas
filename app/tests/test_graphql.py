@@ -58,6 +58,15 @@ def test_con() -> duckdb.DuckDBPyConnection:
         "model VARCHAR DEFAULT '', promoted_to VARCHAR, "
         "PRIMARY KEY (id))"
     )
+    con.execute(
+        "CREATE TABLE shenas_system.promoted_metrics ("
+        "name VARCHAR, metric_schema VARCHAR DEFAULT 'metrics', "
+        "recipe_json TEXT, inputs VARCHAR DEFAULT '', "
+        "columns_json TEXT DEFAULT '[]', pk_json TEXT DEFAULT '[]', "
+        "hypothesis_id INTEGER, question TEXT DEFAULT '', "
+        "created_at TIMESTAMP DEFAULT current_timestamp, "
+        "PRIMARY KEY (name, metric_schema))"
+    )
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
     con.execute(
         "CREATE TABLE shenas_system.transforms ("
@@ -580,6 +589,39 @@ class TestGraphQLMutations:
         assert body["recipe"] == canned
         assert body["result"] is not None
         assert body["id"] >= 1
+
+    # -- Promotion (PR 3.1) --
+
+    def test_promote_hypothesis(self, client: TestClient) -> None:
+        from app.hypotheses import Hypothesis
+        from shenas_datasets.promoted import PromotedMetric
+        from shenas_plugins.core.analytics import Recipe, SourceRef
+
+        recipe = Recipe(
+            nodes={"a": SourceRef(table="metrics.daily_intake")},
+            final="a",
+        )
+        h = Hypothesis.create("q", recipe)
+
+        result = _gql(
+            client,
+            f'mutation {{ promoteHypothesis(hypothesisId: {h.id}, name: "my_metric") }}',
+        )
+        assert "errors" not in result
+        body = result["data"]["promoteHypothesis"]
+        assert body["promoted_to"] == "metrics.my_metric"
+        # Row landed in shenas_system.promoted_metrics
+        row = PromotedMetric.find("my_metric", "metrics")
+        assert row is not None
+        assert row.hypothesis_id == h.id
+
+    def test_promote_hypothesis_not_found(self, client: TestClient) -> None:
+        result = _gql(
+            client,
+            'mutation { promoteHypothesis(hypothesisId: 999999, name: "x") }',
+        )
+        assert "errors" not in result
+        assert "error" in result["data"]["promoteHypothesis"]
 
     def test_ask_hypothesis_llm_failure_persists_error(self, client: TestClient) -> None:
         class _BoomProvider:

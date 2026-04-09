@@ -1,0 +1,24 @@
+[project]
+name = "shenas-dataset-promoted"
+dynamic = ["version"]
+description = "Promoted hypothesis metrics for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-dataset-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.datasets"]
+promoted = "shenas_datasets.promoted:PromotedSchema"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "dataset-promoted/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "dataset-promoted/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_datasets"]
