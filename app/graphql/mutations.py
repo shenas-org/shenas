@@ -351,10 +351,10 @@ class Mutation:
         result = run_recipe(recipe, catalog, backend=analytics_backend())
         h.attach_result(result)
         if not isinstance(result, ErrorResult):
-            RecipeCache.put(cache_key, result.to_dict())
+            RecipeCache.put(cache_key, result.model_dump())
         return {
             "id": h.id,
-            "result": result.to_dict(),
+            "result": result.model_dump(),
             "ok": not isinstance(result, ErrorResult),
             "cached": False,
         }
@@ -410,7 +410,7 @@ class Mutation:
         return {
             "id": h.id,
             "promoted_to": h.promoted_to,
-            "qualified": record["qualified"],
+            "qualified": record.qualified,
         }
 
     # -- LLM-driven hypothesis --
@@ -527,7 +527,7 @@ class Mutation:
             "id": h.id,
             "plan": plan,
             "recipe": payload,
-            "result": result.to_dict(),
+            "result": result.model_dump(),
             "ok": not isinstance(result, ErrorResult),
             "cost": {
                 "llm_input_tokens": h.llm_input_tokens,

@@ -36,8 +36,22 @@ import json
 import re
 from typing import TYPE_CHECKING
 
+from pydantic import BaseModel
+
 if TYPE_CHECKING:
     from app.hypotheses import Hypothesis
+
+
+class ColumnSpec(BaseModel):
+    name: str
+    db_type: str
+
+
+class PromotionResult(BaseModel):
+    name: str
+    schema_: str
+    hypothesis_id: int
+    qualified: str
 
 
 def _validate_name(name: str) -> str:
@@ -47,31 +61,31 @@ def _validate_name(name: str) -> str:
     return name
 
 
-def _columns_from_result(hypothesis: Hypothesis) -> tuple[list[dict], list[str]]:
+def _columns_from_result(hypothesis: Hypothesis) -> tuple[list[ColumnSpec], list[str]]:
     """Derive (columns, pk) from the hypothesis's cached result.
 
-    Returns ``([{"name": ..., "db_type": ...}, ...], [pk_col, ...])``.
+    Returns ``([ColumnSpec, ...], [pk_col, ...])``.
     Falls back to a single ``value`` column when the hypothesis has
     never been run or the result shape is opaque. The dataclass fields
     on the eventual ``MetricTable`` subclass are derived from this.
     """
-    columns: list[dict] = []
+    columns: list[ColumnSpec] = []
     pk: list[str] = []
     result = hypothesis.result()
     if result is not None:
         kind = getattr(result, "type", None)
         if kind == "table":
             for col in getattr(result, "columns", []) or []:
-                columns.append({"name": col, "db_type": "VARCHAR"})
+                columns.append(ColumnSpec(name=col, db_type="VARCHAR"))
                 if col in ("date", "source"):
                     pk.append(col)
         elif kind == "scalar":
-            columns.append({"name": "value", "db_type": "DOUBLE"})
+            columns.append(ColumnSpec(name="value", db_type="DOUBLE"))
     if not columns:
-        columns.append({"name": "value", "db_type": "VARCHAR"})
+        columns.append(ColumnSpec(name="value", db_type="VARCHAR"))
     if not pk:
         pk = ["id"]
-        columns.insert(0, {"name": "id", "db_type": "INTEGER"})
+        columns.insert(0, ColumnSpec(name="id", db_type="INTEGER"))
     return columns, pk
 
 
@@ -80,7 +94,7 @@ def promote_hypothesis(
     *,
     name: str,
     metric_schema: str = "metrics",
-) -> dict:
+) -> PromotionResult:
     """Insert a row into ``shenas_system.promoted_metrics``.
 
     Returns the persisted row as a dict so callers (the GraphQL
@@ -105,16 +119,16 @@ def promote_hypothesis(
         metric_schema=metric_schema,
         recipe_json=hypothesis.recipe_json,
         inputs=hypothesis.inputs or "",
-        columns_json=json.dumps(columns),
+        columns_json=json.dumps([c.model_dump() for c in columns]),
         pk_json=json.dumps(pk),
         hypothesis_id=hypothesis.id,
         question=hypothesis.question or "",
     )
     record.insert()
     hypothesis.mark_promoted(f"{metric_schema}.{name}")
-    return {
-        "name": record.name,
-        "schema": record.metric_schema,
-        "hypothesis_id": record.hypothesis_id,
-        "qualified": f"{record.metric_schema}.{record.name}",
-    }
+    return PromotionResult(
+        name=record.name,
+        schema_=record.metric_schema,
+        hypothesis_id=record.hypothesis_id,
+        qualified=f"{record.metric_schema}.{record.name}",
+    )

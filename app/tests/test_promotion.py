@@ -105,8 +105,8 @@ def test_inserts_row_with_provenance():
         )
     )
     record = promote_hypothesis(h, name="caffeine_mood")
-    assert record["qualified"] == "metrics.caffeine_mood"
-    assert record["hypothesis_id"] == h.id
+    assert record.qualified == "metrics.caffeine_mood"
+    assert record.hypothesis_id == h.id
 
     row = PromotedMetric.find("caffeine_mood", "metrics")
     assert row is not None
