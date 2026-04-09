@@ -54,12 +54,12 @@ class TestCourses:
     def test_yields_courses(self) -> None:
         client = MagicMock()
         client.get_courses.return_value = [
-            {"language": "German", "language_code": "de", "from_language": "en", "xp": 5000, "crowns": 50, "level": 12},
+            {"id": "en-de", "title": "German", "from_language": "en", "learning_language": "de", "xp": 5000, "crowns": 50},
         ]
 
         results = list(Courses.extract(client))
         assert len(results) == 1
-        assert results[0]["language"] == "German"
+        assert results[0]["id"] == "en-de"
 
 
 class TestUserProfile:
