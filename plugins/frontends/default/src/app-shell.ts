@@ -166,6 +166,10 @@ class ShenasApp extends LitElement {
     },
     { path: "/logs", render: () => html`<shenas-logs api-base="${this.apiBase}"></shenas-logs>` },
     {
+      path: "/hypotheses",
+      render: () => html`<shenas-hypotheses api-base="${this.apiBase}"></shenas-hypotheses>`,
+    },
+    {
       path: "/:tab",
       render: (params: { [key: string]: string | undefined }) => this._renderDynamicTab(params?.tab ?? ""),
     },
@@ -1423,6 +1427,22 @@ class ShenasApp extends LitElement {
                 </a>
               `,
             )}
+            <a
+              class="nav-item"
+              href="/hypotheses"
+              @click=${(e: MouseEvent) => {
+                e.preventDefault();
+                this._navigateTo("/hypotheses");
+              }}
+              aria-selected=${active === "hypotheses"}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <span>Hypotheses</span>
+            </a>
             <a
               class="nav-item"
               href="/logs"
