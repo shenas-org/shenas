@@ -108,11 +108,13 @@ def test_visits_extract(tmp_path: Path) -> None:
     assert first["transition"] == "typed"
     assert first["visit_duration_s"] == 5.0
     assert first["visit_time"] is not None
+    assert first["end_time"] is not None  # start + 5s duration
 
     second = rows[1]
     assert second["id"] == 2
     assert second["transition"] == "link"
     assert second["visit_duration_s"] is None  # 0 -> None
+    assert second["end_time"] is None  # no duration -> no end
 
 
 def test_downloads_extract(tmp_path: Path) -> None:

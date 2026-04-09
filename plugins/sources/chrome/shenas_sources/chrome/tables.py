@@ -4,8 +4,9 @@ Each table reads from Chrome's local SQLite ``History`` database. The
 ``client`` argument to ``extract()`` is the path to a temporary copy of
 that database (copied to avoid Chrome's file lock).
 
-- ``Visits`` is an ``EventTable`` keyed on Chrome's ``visits.id``.
-  Joins ``visits`` + ``urls`` to include URL and title.
+- ``Visits`` is an ``IntervalTable`` keyed on Chrome's ``visits.id``.
+  Joins ``visits`` + ``urls`` to include URL and title. End time is
+  computed from visit_time + visit_duration.
 - ``Downloads`` is an ``IntervalTable`` with start/end times.
 - ``SearchTerms`` is an ``EventTable`` keyed on ``(url_id, term)``.
   Joins ``keyword_search_terms`` + ``urls`` for URL context.
@@ -72,8 +73,13 @@ _DOWNLOAD_STATE: dict[int, str] = {
 # ---------------------------------------------------------------------------
 
 
-class Visits(EventTable):
-    """Individual page visit from Chrome browsing history."""
+class Visits(IntervalTable):
+    """Individual page visit from Chrome browsing history.
+
+    Chrome stores ``visit_time`` and ``visit_duration`` (microseconds).
+    We compute ``end_time`` as ``visit_time + visit_duration`` so the row
+    has both ends of the interval.
+    """
 
     class _Meta:
         name = "visits"
@@ -81,13 +87,18 @@ class Visits(EventTable):
         description = "Individual page visits from Chrome browsing history."
         pk = ("id",)
 
-    time_at: ClassVar[str] = "visit_time"
+    time_start: ClassVar[str] = "visit_time"
+    time_end: ClassVar[str] = "end_time"
     cursor_column: ClassVar[str] = "visit_time"
 
     id: Annotated[int, Field(db_type="BIGINT", description="Chrome visit ID")] = 0
     url: Annotated[str, Field(db_type="VARCHAR", description="Full URL of the visited page")] = ""
     title: Annotated[str | None, Field(db_type="VARCHAR", description="Page title")] = None
-    visit_time: Annotated[str | None, Field(db_type="TIMESTAMP", description="Visit timestamp (UTC)")] = None
+    visit_time: Annotated[str | None, Field(db_type="TIMESTAMP", description="Visit start timestamp (UTC)")] = None
+    end_time: Annotated[
+        str | None,
+        Field(db_type="TIMESTAMP", description="Visit end timestamp (start + duration, UTC)"),
+    ] = None
     visit_duration_s: Annotated[
         float | None,
         Field(db_type="DOUBLE", description="Time spent on page", unit="s"),
@@ -122,11 +133,13 @@ class Visits(EventTable):
 
             for row in con.execute(sql, params):
                 duration_us = row["visit_duration"]
+                visit_time_us = row["visit_time"]
                 yield {
                     "id": row["id"],
                     "url": row["url"],
                     "title": row["title"] or None,
-                    "visit_time": _chrome_time(row["visit_time"]),
+                    "visit_time": _chrome_time(visit_time_us),
+                    "end_time": _chrome_time(visit_time_us + duration_us) if duration_us else None,
                     "visit_duration_s": round(duration_us / 1_000_000, 3) if duration_us else None,
                     "transition": _TRANSITION_CORE.get(row["transition"] & 0xFF, "other"),
                     "from_visit_id": row["from_visit"] or None,
