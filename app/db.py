@@ -291,7 +291,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     from app.local_users import LocalUser
     from app.recipe_cache import RecipeCache
     from app.system_settings import SystemSettings
-    from app.transforms import Transform
+    from app.transforms import TransformInstance
     from app.workspace import Workspace
     from shenas_datasets.promoted import PromotedMetric
     from shenas_plugins.core.plugin import PluginInstance
@@ -301,7 +301,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.local_user_seq START 1")
     tables: list[type[Table]] = [
-        Transform,
+        TransformInstance,
         PluginInstance,
         Workspace,
         Hotkey,

@@ -124,24 +124,22 @@ class Mutation:
 
     @strawberry.mutation
     def enable_plugin(self, kind: str, name: str) -> OkType:
-        from app.api.sources import _load_plugin
         from app.models import OkResponse
+        from shenas_plugins.core.plugin import PluginInstance
 
-        cls = _load_plugin(kind, name)
-        if not cls:
-            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))
-        msg = cls().enable()
+        inst = PluginInstance.get_or_create(kind, name)
+        msg = inst.enable()
         return OkType.from_pydantic(OkResponse(ok=True, message=msg))
 
     @strawberry.mutation
     def disable_plugin(self, kind: str, name: str) -> OkType:
-        from app.api.sources import _load_plugin
         from app.models import OkResponse
+        from shenas_plugins.core.plugin import PluginInstance
 
-        cls = _load_plugin(kind, name)
-        if not cls:
-            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))
-        msg = cls().disable()
+        inst = PluginInstance.find(kind, name)
+        if not inst:
+            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not tracked: {kind}/{name}"))
+        msg = inst.disable()
         return OkType.from_pydantic(OkResponse(ok=True, message=msg))
 
     # -- Transforms --
@@ -163,9 +161,9 @@ class Mutation:
 
     @strawberry.mutation
     def update_transform(self, transform_id: int, sql: str) -> TransformType | None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        existing = Transform.find(transform_id)
+        existing = TransformInstance.find(transform_id)
         if not existing:
             return None
         t = existing.update(sql)
@@ -174,18 +172,18 @@ class Mutation:
     @strawberry.mutation
     def delete_transform(self, transform_id: int) -> OkType:
         from app.models import OkResponse
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         if t:
             t.delete()
         return OkType.from_pydantic(OkResponse(ok=True))
 
     @strawberry.mutation
     def enable_transform(self, transform_id: int) -> TransformType | None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         if not t:
             return None
         updated = t.set_enabled(True)
@@ -193,9 +191,9 @@ class Mutation:
 
     @strawberry.mutation
     def disable_transform(self, transform_id: int) -> TransformType | None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         if not t:
             return None
         updated = t.set_enabled(False)
@@ -203,9 +201,9 @@ class Mutation:
 
     @strawberry.mutation
     def test_transform(self, transform_id: int, limit: int = 10) -> JSON:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         return t.test(limit) if t else []
 
     @strawberry.mutation

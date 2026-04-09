@@ -18,10 +18,10 @@ from app.graphql.types import (
 )
 
 if TYPE_CHECKING:
-    from app.transforms import Transform
+    from app.transforms import TransformInstance
 
 
-def _transform_to_gql(t: Transform) -> TransformType:
+def _transform_to_gql(t: TransformInstance) -> TransformType:
     return TransformType(
         id=t.id,
         source_duckdb_schema=t.source_duckdb_schema,
@@ -212,15 +212,15 @@ class Query:
             freq = src.sync_frequency
             if freq is None:
                 continue
-            if not src.enabled:
+            s = src.instance()
+            if not s.enabled:
                 continue
-            s = src.state
             result.append(
                 ScheduleInfoType.from_pydantic(
                     ScheduleInfo(
                         name=src.name,
                         sync_frequency=freq,
-                        synced_at=s["synced_at"] if s else None,
+                        synced_at=s.synced_at,
                         is_due=src.is_due_for_sync,
                     )
                 )
@@ -231,16 +231,16 @@ class Query:
 
     @strawberry.field
     def transforms(self, source: str | None = None) -> list[TransformType]:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        rows = Transform.for_plugin(source) if source else Transform.all(order_by="id")
+        rows = TransformInstance.for_plugin(source) if source else TransformInstance.all(order_by="id")
         return [_transform_to_gql(t) for t in rows]
 
     @strawberry.field
     def transform(self, transform_id: int) -> TransformType | None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         return _transform_to_gql(t) if t else None
 
     # -- Theme --
@@ -271,18 +271,23 @@ class Query:
     @strawberry.field
     def dashboards(self) -> JSON:
         from app.api.sources import _load_dashboards
+        from shenas_plugins.core.plugin import PluginInstance
 
-        return [
-            {
-                "name": c.name,
-                "display_name": c.display_name,
-                "tag": c.tag,
-                "js": f"/dashboards/{c.name}/{c.entrypoint}",
-                "description": c.description,
-            }
-            for c in _load_dashboards(include_internal=False)
-            if c().enabled
-        ]
+        result = []
+        for c in _load_dashboards(include_internal=False):
+            inst = PluginInstance.find("dashboard", c.name)
+            if inst is not None and not inst.enabled:
+                continue
+            result.append(
+                {
+                    "name": c.name,
+                    "display_name": c.display_name,
+                    "tag": c.tag,
+                    "js": f"/dashboards/{c.name}/{c.entrypoint}",
+                    "description": c.description,
+                }
+            )
+        return result
 
     @strawberry.field
     def dependencies(self) -> JSON:

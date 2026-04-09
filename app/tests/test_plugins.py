@@ -334,6 +334,7 @@ class TestInstallPlugin:
         with (
             patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
             patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.PluginInstance.get_or_create"),
             patch("app.api.sources._load_plugin", return_value=None),
             patch("app.api.sources._load_plugin_fresh", return_value=None),
             patch("app.api.sources._clear_caches"),
@@ -399,6 +400,7 @@ class TestUninstallPlugin:
         with (
             patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
             patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.PluginInstance.find", return_value=None),
             patch("app.api.sources._load_plugin", return_value=None),
             patch("app.api.sources._clear_caches"),
         ):
@@ -411,6 +413,7 @@ class TestUninstallPlugin:
         with (
             patch("shenas_plugins.core.plugin.subprocess.run", return_value=proc),
             patch("shenas_plugins.core.plugin._python_executable", return_value="/usr/bin/python3"),
+            patch("shenas_plugins.core.plugin.PluginInstance.find", return_value=None),
             patch("app.api.sources._load_plugin", return_value=None),
         ):
             ok, message = Plugin.uninstall("source", "nonexistent")
@@ -456,6 +459,7 @@ class TestInstallStream:
             patch("app.api.sources._load_plugin_fresh", return_value=None),
             patch("app.api.plugins._run_subprocess", return_value=proc),
             patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("app.api.plugins.PluginInstance.get_or_create"),
             patch("app.api.sources._clear_caches"),
         ):
             resp = client.post(
@@ -498,6 +502,7 @@ class TestInstallStream:
             patch("app.api.sources._load_plugin_fresh", return_value=None),
             patch("app.api.plugins._run_subprocess", return_value=proc),
             patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
+            patch("app.api.plugins.PluginInstance.get_or_create"),
             patch("app.api.sources._clear_caches"),
         ):
             resp = client.post(
@@ -527,6 +532,7 @@ class TestRemoveStream:
         proc = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="Uninstalled\n")
         with (
             patch("app.api.sources._load_plugin", return_value=None),
+            patch("app.api.plugins.PluginInstance.find", return_value=None),
             patch("app.api.plugins._run_subprocess", return_value=proc),
             patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
             patch("app.api.sources._clear_caches"),
@@ -541,6 +547,7 @@ class TestRemoveStream:
         proc = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="Not found\n")
         with (
             patch("app.api.sources._load_plugin", return_value=None),
+            patch("app.api.plugins.PluginInstance.find", return_value=None),
             patch("app.api.plugins._run_subprocess", return_value=proc),
             patch("app.api.plugins._python_executable", return_value="/usr/bin/python3"),
         ):

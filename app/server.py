@@ -134,8 +134,11 @@ def _get_active_theme() -> type[Theme] | None:
 
     themes = _load_themes()
     try:
+        from shenas_plugins.core.plugin import PluginInstance
+
         for t in themes:
-            if t().enabled:
+            inst = PluginInstance.find("theme", t.name)
+            if inst and inst.enabled:
                 return t
     except Exception:
         pass
@@ -154,8 +157,11 @@ def _serve_ui_html() -> HTMLResponse:
     # Check for enabled frontend, fall back to CLI/env setting
     ui_name = app.state.ui_name
     try:
+        from shenas_plugins.core.plugin import PluginInstance
+
         for u in uis:
-            if u().enabled:
+            inst = PluginInstance.find("frontend", u.name)
+            if inst and inst.enabled:
                 ui_name = u.name
                 break
     except Exception:

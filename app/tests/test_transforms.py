@@ -67,17 +67,17 @@ def _make(
 
 class TestTransformCRUD:
     def test_all_empty(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        assert Transform.all() == []
+        assert TransformInstance.all() == []
 
     def test_find_none(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        assert Transform.find(9999) is None
+        assert TransformInstance.find(9999) is None
 
     def test_create_and_find(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
         t = _make(description="hello")
         assert t.id >= 1
@@ -88,17 +88,17 @@ class TestTransformCRUD:
         assert t.source_plugin == "garmin"
         assert t.to_dict()["sql"] == "SELECT 1 AS id"
 
-        found = Transform.find(t.id)
+        found = TransformInstance.find(t.id)
         assert found is not None
         assert found.id == t.id
 
     def test_all_filter_by_plugin(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
         _make(plugin="garmin", src_table="a", tgt_table="ta")
         _make(plugin="lunchmoney", src_table="b", tgt_table="tb")
-        assert len(Transform.all()) == 2
-        only_g = Transform.for_plugin("garmin")
+        assert len(TransformInstance.all()) == 2
+        only_g = TransformInstance.for_plugin("garmin")
         assert len(only_g) == 1
         assert only_g[0].source_plugin == "garmin"
 
@@ -109,18 +109,18 @@ class TestTransformCRUD:
         assert updated.updated_at is not None
 
     def test_delete_user_transform(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
         t = _make()
         t.delete()
-        assert Transform.find(t.id) is None
+        assert TransformInstance.find(t.id) is None
 
     def test_delete_default_blocked(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
         t = _make(is_default=True)
         t.delete()
-        assert Transform.find(t.id) is not None
+        assert TransformInstance.find(t.id) is not None
 
     def test_set_enabled_toggle(self, db_con: duckdb.DuckDBPyConnection) -> None:
         t = _make()
@@ -138,7 +138,7 @@ class TestTransformCRUD:
 
 class TestSeedDefaults:
     def test_seed_inserts(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform
+        from app.transforms import Transform, TransformInstance
 
         defaults = [
             {
@@ -151,13 +151,13 @@ class TestSeedDefaults:
             }
         ]
         Transform.seed_defaults("garmin", defaults)
-        all_t = Transform.for_plugin("garmin")
+        all_t = TransformInstance.for_plugin("garmin")
         assert len(all_t) == 1
         assert all_t[0].is_default is True
         assert all_t[0].description == "d"
 
     def test_seed_idempotent_updates(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform
+        from app.transforms import Transform, TransformInstance
 
         defaults = [
             {
@@ -174,7 +174,7 @@ class TestSeedDefaults:
         defaults[0]["description"] = "v2"
         Transform.seed_defaults("garmin", defaults)
 
-        all_t = Transform.for_plugin("garmin")
+        all_t = TransformInstance.for_plugin("garmin")
         assert len(all_t) == 1
         assert all_t[0].sql == "SELECT 2"
         assert all_t[0].description == "v2"

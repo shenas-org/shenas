@@ -15,6 +15,7 @@ from shenas_plugins.core.plugin import (
     PUBLIC_KEY_PATH,
     VALID_KINDS,
     Plugin,
+    PluginInstance,
     _load_public_key,
     _python_executable,
     _verify_from_index,
@@ -101,10 +102,7 @@ async def _install_stream(name: str, kind: str, skip_verify: bool = False) -> As
     if result.returncode == 0:
         _clear_caches()
         cls = _load_plugin(kind, name) or _load_plugin_fresh(kind, name)
-        if cls:
-            cls().save_state(enabled=True)
-        else:
-            log.warning("Could not load plugin %s/%s after install to save state", kind, name)
+        PluginInstance.get_or_create(kind, name, enabled=True)
         yield _sse("done", ok=True, message=f"Added {display} {kind_label}")
     else:
         yield _sse("done", ok=False, message=result.stderr.strip() or f"Failed to add {pkg}")
@@ -118,10 +116,9 @@ async def _remove_stream(name: str, kind: str) -> AsyncIterator[str]:
         yield _sse("done", ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
         return
 
-    if cls:
-        cls().remove_state()
-    else:
-        log.warning("Could not load plugin %s/%s before uninstall to remove state", kind, name)
+    record = PluginInstance.find(kind, name)
+    if record:
+        record.delete()
 
     pkg = Plugin.pkg(kind, name)
     display = name.replace("-", " ").title()

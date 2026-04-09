@@ -54,8 +54,12 @@ def _installed_source_names() -> list[str]:
             continue
         name = p["name"].removeprefix(SOURCE_PREFIX)
         cls = _load_plugin("source", name)
-        if cls and not cls.internal and name != "core" and cls().enabled:
-            names.append(name)
+        if cls and not cls.internal and name != "core":
+            from shenas_plugins.core.plugin import PluginInstance
+
+            inst = PluginInstance.find("source", name)
+            if inst is None or inst.enabled:
+                names.append(name)
     return names
 
 
