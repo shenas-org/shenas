@@ -73,6 +73,9 @@ shenas-transformation-sql = { workspace = true }
 shenas-transformation-geofence = { workspace = true }
 shenas-transformation-geocode = { workspace = true }
 shenas-transformation-llm-categorize = { workspace = true }
+shenas-transformation-reverse-geocode = { workspace = true }
+shenas-transformation-regex-extract = { workspace = true }
+shenas-transformation-dedup-merge = { workspace = true }
 shenas-frontend-core = { workspace = true }
 shenas-frontend-default = { workspace = true }
 shenas-frontend-focus = { workspace = true }
@@ -120,6 +123,9 @@ dev = [
     "shenas-transformation-geofence",
     "shenas-transformation-geocode",
     "shenas-transformation-llm-categorize",
+    "shenas-transformation-reverse-geocode",
+    "shenas-transformation-regex-extract",
+    "shenas-transformation-dedup-merge",
     "commitizen>=4.13.9",
     "httpx>=0.28.1",
     "pytest>=9.0.2",

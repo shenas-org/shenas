@@ -1,0 +1,10 @@
+[
+  {
+    "source_duckdb_schema": "gmail",
+    "source_duckdb_table": "messages",
+    "target_duckdb_schema": "metrics",
+    "target_duckdb_table": "events",
+    "description": "Map Gmail sent messages to unified events timeline",
+    "sql": "SELECT 'gmail' as source, id as source_id, epoch_ms(internal_date)::TIMESTAMP as start_at, NULL as end_at, NULL as duration_min, subject as title, snippet as event_description, NULL as location, CASE WHEN is_sent THEN 'email-sent' WHEN category IS NOT NULL THEN 'email-' || LOWER(category) ELSE 'email' END as category, false as all_day, json_object('from', from_address, 'to', to_address, 'category', category, 'is_read', is_read, 'is_starred', is_starred, 'labels', labels, 'thread_id', thread_id) as metadata FROM gmail.messages WHERE internal_date IS NOT NULL AND NOT is_draft AND NOT is_spam AND NOT is_trash AND NOT is_chat"
+  }
+]

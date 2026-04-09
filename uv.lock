@@ -62,9 +62,12 @@ members = [
     "shenas-theme-dark",
     "shenas-theme-default",
     "shenas-transformation-core",
+    "shenas-transformation-dedup-merge",
     "shenas-transformation-geocode",
     "shenas-transformation-geofence",
     "shenas-transformation-llm-categorize",
+    "shenas-transformation-regex-extract",
+    "shenas-transformation-reverse-geocode",
     "shenas-transformation-sql",
     "shenas-workspace",
 ]
@@ -3658,6 +3661,16 @@ dependencies = [
 requires-dist = [{ name = "shenas-plugin-core", editable = "plugins/core" }]
 
 [[package]]
+name = "shenas-transformation-dedup-merge"
+source = { editable = "plugins/transformations/dedup-merge" }
+dependencies = [
+    { name = "shenas-transformation-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "shenas-transformation-core", editable = "plugins/transformations/core" }]
+
+[[package]]
 name = "shenas-transformation-geocode"
 source = { editable = "plugins/transformations/geocode" }
 dependencies = [
@@ -3692,6 +3705,30 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.50.0" },
+    { name = "shenas-transformation-core", editable = "plugins/transformations/core" },
+]
+
+[[package]]
+name = "shenas-transformation-regex-extract"
+source = { editable = "plugins/transformations/regex-extract" }
+dependencies = [
+    { name = "shenas-transformation-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "shenas-transformation-core", editable = "plugins/transformations/core" }]
+
+[[package]]
+name = "shenas-transformation-reverse-geocode"
+source = { editable = "plugins/transformations/reverse-geocode" }
+dependencies = [
+    { name = "geopy" },
+    { name = "shenas-transformation-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "geopy", specifier = ">=2.4.0" },
     { name = "shenas-transformation-core", editable = "plugins/transformations/core" },
 ]
 
@@ -3755,9 +3792,12 @@ dev = [
     { name = "shenas-source-withings" },
     { name = "shenas-theme-dark" },
     { name = "shenas-theme-default" },
+    { name = "shenas-transformation-dedup-merge" },
     { name = "shenas-transformation-geocode" },
     { name = "shenas-transformation-geofence" },
     { name = "shenas-transformation-llm-categorize" },
+    { name = "shenas-transformation-regex-extract" },
+    { name = "shenas-transformation-reverse-geocode" },
     { name = "shenas-transformation-sql" },
     { name = "ty" },
 ]
@@ -3812,9 +3852,12 @@ dev = [
     { name = "shenas-source-withings", editable = "plugins/sources/withings" },
     { name = "shenas-theme-dark", editable = "plugins/themes/dark" },
     { name = "shenas-theme-default", editable = "plugins/themes/default" },
+    { name = "shenas-transformation-dedup-merge", editable = "plugins/transformations/dedup-merge" },
     { name = "shenas-transformation-geocode", editable = "plugins/transformations/geocode" },
     { name = "shenas-transformation-geofence", editable = "plugins/transformations/geofence" },
     { name = "shenas-transformation-llm-categorize", editable = "plugins/transformations/llm-categorize" },
+    { name = "shenas-transformation-regex-extract", editable = "plugins/transformations/regex-extract" },
+    { name = "shenas-transformation-reverse-geocode", editable = "plugins/transformations/reverse-geocode" },
     { name = "shenas-transformation-sql", editable = "plugins/transformations/sql" },
     { name = "ty", specifier = "==0.0.27" },
 ]
