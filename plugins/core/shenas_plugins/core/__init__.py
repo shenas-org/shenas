@@ -27,6 +27,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "Theme": ("shenas_themes.core", "Theme"),
     "Frontend": ("shenas_frontends.core", "Frontend"),
     "Dashboard": ("shenas_dashboards.core", "Dashboard"),
+    "Analysis": ("shenas_analyses.core", "Analysis"),
 }
 
 

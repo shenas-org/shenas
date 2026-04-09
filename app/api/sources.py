@@ -25,7 +25,9 @@ def _clear_caches() -> None:
     import importlib.metadata
     import sys
 
+    global _analyses_discovered
     _source_cache.clear()
+    _analyses_discovered = False
 
     # Clear the FastPath lru_cache used by importlib.metadata to discover
     # .dist-info directories -- without this, entry_points() returns stale data.
@@ -57,6 +59,27 @@ def _load_plugins(kind: str, *, base: type[T], include_internal: bool = True) ->
         except Exception:
             pass
     return result
+
+
+_analyses_discovered = False
+
+
+def _discover_analyses() -> None:
+    """Load all analysis plugins via entry points.
+
+    Importing an analysis plugin class triggers ``__init_subclass__``
+    which auto-registers its mode and operations. This function is
+    idempotent -- subsequent calls are no-ops.
+    """
+    global _analyses_discovered
+    if _analyses_discovered:
+        return
+    _analyses_discovered = True
+    import contextlib
+
+    for ep in entry_points(group=_ep_group("analysis")):
+        with contextlib.suppress(Exception):
+            ep.load()
 
 
 def _load_plugin(kind: str, name: str) -> type[Plugin] | None:

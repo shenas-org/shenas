@@ -126,7 +126,7 @@ log = logging.getLogger("shenas.plugins")
 DEFAULT_INDEX = "https://repo.shenas.net"
 PACKAGES_DIR = Path("packages")
 PUBLIC_KEY_PATH = Path(".shenas") / "shenas.pub"
-VALID_KINDS = frozenset({"source", "dataset", "dashboard", "frontend", "theme", "model", "transformation"})
+VALID_KINDS = frozenset({"source", "dataset", "dashboard", "frontend", "theme", "model", "transformation", "analysis"})
 _PLUGIN_VENV = Path.home() / ".shenas" / "plugins"
 
 

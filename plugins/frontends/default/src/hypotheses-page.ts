@@ -6,6 +6,12 @@
 import { LitElement, html, css } from "lit";
 import { gql, gqlFull, buttonStyles, messageStyles, utilityStyles } from "shenas-frontends";
 
+interface AnalysisModeInfo {
+  name: string;
+  display_name: string;
+  description: string;
+}
+
 interface HypothesisRow {
   id: number;
   question: string;
@@ -13,6 +19,7 @@ interface HypothesisRow {
   inputs: string[];
   interpretation: string;
   model: string;
+  mode: string;
   promoted_to: string | null;
   created_at: string | null;
   recipe: unknown;
@@ -28,6 +35,8 @@ class HypothesesPage extends LitElement {
     _busy: { state: true },
     _error: { state: true },
     _promoteName: { state: true },
+    _modes: { state: true },
+    _selectedMode: { state: true },
   };
 
   declare apiBase: string;
@@ -37,6 +46,8 @@ class HypothesesPage extends LitElement {
   declare _busy: boolean;
   declare _error: string;
   declare _promoteName: string;
+  declare _modes: AnalysisModeInfo[];
+  declare _selectedMode: string;
 
   static styles = [
     buttonStyles,
@@ -139,6 +150,29 @@ class HypothesesPage extends LitElement {
         border: 1px solid var(--shenas-border-input, #ddd);
         border-radius: 4px;
       }
+      .ask-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        align-self: stretch;
+      }
+      .ask-controls select {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.8rem;
+        border: 1px solid var(--shenas-border-input, #ddd);
+        border-radius: 4px;
+        background: var(--shenas-bg, #fff);
+        color: var(--shenas-text, #222);
+      }
+      .mode-badge {
+        display: inline-block;
+        padding: 0.1rem 0.4rem;
+        font-size: 0.7rem;
+        border-radius: 3px;
+        background: var(--shenas-bg-accent, #eef);
+        color: var(--shenas-text, #222);
+        text-transform: lowercase;
+      }
     `,
   ];
 
@@ -151,11 +185,14 @@ class HypothesesPage extends LitElement {
     this._busy = false;
     this._error = "";
     this._promoteName = "";
+    this._modes = [];
+    this._selectedMode = "hypothesis";
   }
 
   connectedCallback(): void {
     super.connectedCallback();
     this._load();
+    this._loadModes();
   }
 
   async _load(): Promise<void> {
@@ -166,13 +203,25 @@ class HypothesesPage extends LitElement {
     }
   }
 
+  async _loadModes(): Promise<void> {
+    const data = await gql(this.apiBase, `{ analysisModes }`);
+    this._modes = (data?.analysisModes as AnalysisModeInfo[]) || [];
+    if (this._modes.length > 0 && !this._modes.find((m) => m.name === this._selectedMode)) {
+      this._selectedMode = this._modes[0].name;
+    }
+  }
+
   async _ask(): Promise<void> {
     const q = this._question.trim();
     if (!q) return;
     this._busy = true;
     this._error = "";
     try {
-      const data = await gqlFull(this.apiBase, `mutation($q: String!) { askHypothesis(question: $q) }`, { q });
+      const data = await gqlFull(
+        this.apiBase,
+        `mutation($q: String!, $mode: String!) { askHypothesis(question: $q, mode: $mode) }`,
+        { q, mode: this._selectedMode },
+      );
       const body = (data?.data?.["askHypothesis"] ?? {}) as { id?: number; error?: { message?: string } };
       if (body?.error) {
         this._error = body.error.message || "LLM call failed";
@@ -264,8 +313,9 @@ class HypothesesPage extends LitElement {
     return html`
       <h2>${h.question}</h2>
       <p class="meta">
-        ${h.created_at || ""} · ${h.model || "—"}
-        ${h.promoted_to ? html` · <span class="promoted">→ ${h.promoted_to}</span>` : ""}
+        ${h.created_at || ""} · ${h.model || "---"}
+        · <span class="mode-badge">${h.mode || "hypothesis"}</span>
+        ${h.promoted_to ? html` · <span class="promoted">-> ${h.promoted_to}</span>` : ""}
       </p>
 
       ${h.plan
@@ -324,7 +374,9 @@ class HypothesesPage extends LitElement {
                 <div class="row ${h.id === this._selectedId ? "selected" : ""}" @click=${() => this._select(h.id)}>
                   <div class="question">${h.question}</div>
                   <div class="meta">
-                    #${h.id} ${h.promoted_to ? html`<span class="promoted">· promoted</span>` : ""}
+                    #${h.id}
+                    <span class="mode-badge">${h.mode || "hypothesis"}</span>
+                    ${h.promoted_to ? html`<span class="promoted">· promoted</span>` : ""}
                   </div>
                 </div>
               `,
@@ -345,9 +397,24 @@ class HypothesesPage extends LitElement {
               }
             }}
           ></textarea>
-          <button @click=${this._ask} ?disabled=${this._busy || !this._question.trim()}>
-            ${this._busy ? "Asking..." : "Ask"}
-          </button>
+          <div class="ask-controls">
+            ${this._modes.length > 1
+              ? html`
+                  <select
+                    .value=${this._selectedMode}
+                    @change=${(e: Event) => {
+                      this._selectedMode = (e.target as HTMLSelectElement).value;
+                    }}
+                    title="Analysis mode"
+                  >
+                    ${this._modes.map((m) => html`<option value=${m.name}>${m.display_name}</option>`)}
+                  </select>
+                `
+              : ""}
+            <button @click=${this._ask} ?disabled=${this._busy || !this._question.trim()}>
+              ${this._busy ? "Asking..." : "Ask"}
+            </button>
+          </div>
         </div>
         ${this._error ? html`<p class="error">${this._error}</p>` : ""} ${this._renderSelected()}
       </div>

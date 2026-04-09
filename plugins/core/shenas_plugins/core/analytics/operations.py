@@ -325,13 +325,13 @@ class JoinAsOf(Operation):
             msg = f"join_as_of: `{self.on}` not in right side ({right.table_ref})"
             raise OperationError(msg)
 
-        # PR 4.6: detect the case where the right side is an SCD2 dimension
+        # Detect the case where the right side is an SCD2 dimension
         # with a pre-built `<schema>.<table>_as_of(ts)` macro -- the kind
         # check below answers "could we substitute the macro for Ibis's
         # asof_join derivation?". The actual substitution is deferred:
         # implementing it requires either raw-SQL escape from Ibis or a
         # per-row scalar subquery, neither of which is worth the perf win
-        # the plan describes as "tiny" until real usage shows it matters.
+        # until real usage shows it matters.
         # Leaving the seam here so the next iteration can hook in.
         _ = self._can_substitute_as_of_macro(right)
 
@@ -350,8 +350,8 @@ class JoinAsOf(Operation):
     def _can_substitute_as_of_macro(right: RecipeNode) -> bool:
         """Return True iff the right side has a pre-built AS-OF macro available.
 
-        Used by PR 4.6 to identify substitution candidates. The actual
-        substitution lives behind this seam and is deferred per the plan.
+        Identifies substitution candidates. The actual substitution lives
+        behind this seam and is deferred.
         """
         return right.kind in _SCD2_KINDS
 
@@ -410,9 +410,30 @@ class Correlate(Operation):
 
 
 # ----------------------------------------------------------------------
-# Registry of operations available to the LLM. Adding to this list is
-# the only way to expand the vocabulary -- the LLM cannot invent new
-# operations at runtime.
+# Dynamic operation registry. Analysis plugins call register_operation()
+# to make new operations available to the recipe compiler and the LLM.
+# The five built-in ops are registered at module load below.
 # ----------------------------------------------------------------------
 
-OPERATIONS: tuple[type[Operation], ...] = (Lag, Rolling, Resample, JoinAsOf, Correlate)
+_OPERATION_REGISTRY: dict[str, type[Operation]] = {}
+
+
+def register_operation(op_cls: type[Operation]) -> type[Operation]:
+    """Register an operation class by its ``name``. Idempotent.
+
+    Called at import time by analysis plugins that introduce new
+    operations. The recipe compiler and mode system-prompt builder
+    both read from this registry.
+    """
+    _OPERATION_REGISTRY[op_cls.name] = op_cls
+    return op_cls
+
+
+def get_operations() -> dict[str, type[Operation]]:
+    """Return a snapshot of all registered operations, keyed by name."""
+    return dict(_OPERATION_REGISTRY)
+
+
+# Register the five built-in operations.
+for _op in (Lag, Rolling, Resample, JoinAsOf, Correlate):
+    register_operation(_op)

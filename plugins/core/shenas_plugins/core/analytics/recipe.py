@@ -21,7 +21,7 @@ shape is load-bearing from day one.
 
 Recipes are JSON-serializable: ``SourceRef`` / ``OpCall`` are frozen
 dataclasses with primitive fields, and the operation lookup happens by
-``op_name`` against the curated ``OPERATIONS`` registry. This is what
+``op_name`` against the dynamic operation registry. This is what
 makes recipes durable as part of the ``HypothesisRecord`` artifact.
 """
 
@@ -30,19 +30,26 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel
 
 from shenas_plugins.core.analytics.node import RecipeNode
-from shenas_plugins.core.analytics.operations import OPERATIONS, Operation, OperationError
+from shenas_plugins.core.analytics.operations import Operation, OperationError, get_operations
 
 if TYPE_CHECKING:
     import ibis.backends.duckdb as ibd
 
 
 # ----------------------------------------------------------------------
-# Operation registry by name -- the curated vocabulary the recipe
-# compiler is allowed to instantiate. Adding to this is the *only* way
-# to expand the LLM's vocabulary at runtime.
+# Operation lookup -- reads from the dynamic registry each time so
+# plugin-contributed operations are visible to the compiler.
 # ----------------------------------------------------------------------
 
-_OPS_BY_NAME: dict[str, type[Operation]] = {op.name: op for op in OPERATIONS}
+
+def _ops_by_name() -> dict[str, type[Operation]]:
+    """Return all registered operations keyed by name.
+
+    Called by :meth:`Recipe.validate` and :meth:`Recipe._evaluate_op`
+    instead of a static module-level dict so that operations registered
+    by analysis plugins after initial import are visible.
+    """
+    return get_operations()
 
 
 class RecipeError(Exception):
@@ -74,7 +81,7 @@ class OpCall(BaseModel, frozen=True):
     Attributes
     ----------
     op_name
-        One of the curated operation names registered in ``OPERATIONS``
+        One of the operation names in the dynamic registry
         (e.g. ``"lag"``, ``"join_as_of"``).
     params
         Scalar parameters for the operation's constructor (e.g.
@@ -129,12 +136,13 @@ class Recipe(BaseModel, frozen=True):
         Checks:
             - ``final`` exists in ``nodes``
             - every ``SourceRef.table`` exists in the catalog
-            - every ``OpCall.op_name`` is in the curated ``OPERATIONS`` registry
+            - every ``OpCall.op_name`` is in the operation registry
             - every ``OpCall.inputs`` reference an existing node
             - the DAG has no cycles
             - each ``OpCall``'s arity matches its number of inputs
         """
         errors: list[str] = []
+        ops = _ops_by_name()
 
         if self.final not in self.nodes:
             errors.append(f"final node `{self.final}` not in recipe")
@@ -144,9 +152,9 @@ class Recipe(BaseModel, frozen=True):
                 if node.table not in catalog:
                     errors.append(f"node `{name}`: source table `{node.table}` not in catalog")
             elif isinstance(node, OpCall):
-                op_cls = _OPS_BY_NAME.get(node.op_name)
+                op_cls = ops.get(node.op_name)
                 if op_cls is None:
-                    errors.append(f"node `{name}`: unknown operation `{node.op_name}` (known: {sorted(_OPS_BY_NAME)})")
+                    errors.append(f"node `{name}`: unknown operation `{node.op_name}` (known: {sorted(ops)})")
                     continue
                 if len(node.inputs) != op_cls.arity:
                     errors.append(
@@ -286,7 +294,7 @@ class Recipe(BaseModel, frozen=True):
     ) -> RecipeNode:
         """Instantiate ``node.op_name`` with its scalar params and apply
         it to the resolved upstream ``RecipeNode``s in declared order."""
-        op_cls = _OPS_BY_NAME[node.op_name]
+        op_cls = _ops_by_name()[node.op_name]
         # Convert any list params to tuples since operations are frozen
         # dataclasses (lists aren't hashable). This lets recipes round-trip
         # cleanly through JSON.
