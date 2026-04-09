@@ -17,6 +17,9 @@ geofence = "shenas_transformations.geofence:GeofenceTransformation"
 [project.entry-points."shenas.graphql"]
 geofence = "shenas_transformations.geofence.graphql"
 
+[project.entry-points."shenas.cli"]
+geofence = "shenas_transformations.geofence.cli:app"
+
 [tool.hatch.version]
 source = "vcs"
 tag-pattern = "transformation-geofence/v(?P<version>[^+]+)"
