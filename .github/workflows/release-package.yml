@@ -15,7 +15,7 @@ permissions:
 jobs:
   build:
     name: Build and sign wheel
-    runs-on: ubuntu-latest
+    runs-on: gcp-runners
 
     steps:
       - uses: actions/checkout@v4

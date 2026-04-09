@@ -25,7 +25,7 @@ jobs:
 
   python-test:
     name: Python test
-    runs-on: ubuntu-latest
+    runs-on: gcp-runners
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,7 +46,7 @@ jobs:
 
   js-lint:
     name: JS lint, format, typecheck
-    runs-on: ubuntu-latest
+    runs-on: gcp-runners
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -76,7 +76,7 @@ jobs:
 
   js-test:
     name: JS test
-    runs-on: ubuntu-latest
+    runs-on: gcp-runners
     strategy:
       fail-fast: false
       matrix:
@@ -105,7 +105,7 @@ jobs:
 
   infra:
     name: Infra Validate
-    runs-on: ubuntu-latest
+    runs-on: gcp-runners
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
@@ -118,7 +118,7 @@ jobs:
 
   coverage:
     name: Coverage
-    runs-on: ubuntu-latest
+    runs-on: gcp-runners
     needs: [python-test, js-test]
     if: github.ref == 'refs/heads/main'
     steps:

@@ -69,6 +69,22 @@ resource "helm_release" "arc_runner_set" {
     value = "0"
   }
 
+  # Runner container spec
+  set {
+    name  = "template.spec.containers[0].name"
+    value = "runner"
+  }
+
+  set {
+    name  = "template.spec.containers[0].image"
+    value = "ghcr.io/actions/actions-runner:latest"
+  }
+
+  set {
+    name  = "template.spec.containers[0].command[0]"
+    value = "/home/runner/run.sh"
+  }
+
   # Request resources appropriate for CI workloads on Autopilot
   set {
     name  = "template.spec.containers[0].resources.requests.cpu"
