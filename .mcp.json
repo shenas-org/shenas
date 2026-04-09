@@ -10,6 +10,18 @@
         "--read-write"
       ],
       "env": {}
+    },
+    "discourse": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@discourse/mcp@latest"
+      ],
+      "env": {
+        "DISCOURSE_URL": "",
+        "DISCOURSE_API_KEY": ""
+      }
     }
   }
 }
