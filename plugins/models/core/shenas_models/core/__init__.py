@@ -31,7 +31,7 @@ class Model(Plugin):
     _kind = "model"
 
     model_cls: ClassVar[type]
-    schemas: ClassVar[list[str]] = []
+    datasets: ClassVar[list[str]] = []
     features: ClassVar[list[str]] = []
     target: ClassVar[str] = ""
     query: ClassVar[str] = ""
@@ -43,7 +43,7 @@ class Model(Plugin):
         info = super().get_info()
         info.update(
             {
-                "schemas": self.schemas,
+                "datasets": self.datasets,
                 "features": self.features,
                 "target": self.target,
                 "epochs": self.epochs,
