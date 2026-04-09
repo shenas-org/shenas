@@ -321,7 +321,7 @@ async def update_system_settings(request: Request) -> JSONResponse:
 
     body = await request.json()
     multiuser_enabled = bool(body.get("multiuser_enabled", False))
-    SystemSettings.save(multiuser_enabled=multiuser_enabled)
+    SystemSettings.put(multiuser_enabled=multiuser_enabled)
     return JSONResponse(content=SystemSettings.get())
 
 
