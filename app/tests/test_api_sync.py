@@ -205,13 +205,13 @@ class TestInstalledPipeNames:
         class _FakeCls:
             internal = False
 
-            @property
-            def enabled(self):
-                return True
+        class _FakeInstance:
+            enabled = True
 
         with (
             patch("app.api.sync.subprocess.run", return_value=mock_result),
             patch("app.api.sources._load_plugin", return_value=_FakeCls),
+            patch("shenas_plugins.core.plugin.PluginInstance.find", return_value=_FakeInstance()),
         ):
             names = _installed_source_names()
         # garmin is included, core is excluded (name == "core")
@@ -241,13 +241,13 @@ class TestInstalledPipeNames:
         class _FakeCls:
             internal = False
 
-            @property
-            def enabled(self):
-                return False
+        class _FakeInstance:
+            enabled = False
 
         with (
             patch("app.api.sync.subprocess.run", return_value=mock_result),
             patch("app.api.sources._load_plugin", return_value=_FakeCls),
+            patch("shenas_plugins.core.plugin.PluginInstance.find", return_value=_FakeInstance()),
         ):
             names = _installed_source_names()
         assert names == []
