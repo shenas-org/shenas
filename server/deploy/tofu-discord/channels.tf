@@ -63,42 +63,6 @@ resource "discord_text_channel" "off_topic" {
 }
 
 # -----------------------------------------------------------------------------
-# Development channels
-# -----------------------------------------------------------------------------
-
-resource "discord_text_channel" "dev_general" {
-  server_id = var.discord_server_id
-  name      = "dev-general"
-  category  = discord_category_channel.development.id
-  topic     = "General development discussion"
-  position  = 0
-}
-
-resource "discord_text_channel" "architecture" {
-  server_id = var.discord_server_id
-  name      = "architecture"
-  category  = discord_category_channel.development.id
-  topic     = "Architecture decisions, RFCs, and design discussions"
-  position  = 1
-}
-
-resource "discord_text_channel" "pull_requests" {
-  server_id = var.discord_server_id
-  name      = "pull-requests"
-  category  = discord_category_channel.development.id
-  topic     = "PR notifications and code review discussion"
-  position  = 2
-}
-
-resource "discord_text_channel" "ci_cd" {
-  server_id = var.discord_server_id
-  name      = "ci-cd"
-  category  = discord_category_channel.development.id
-  topic     = "Build and deployment notifications"
-  position  = 3
-}
-
-# -----------------------------------------------------------------------------
 # Plugin channels
 # -----------------------------------------------------------------------------
 
@@ -154,28 +118,4 @@ resource "discord_text_channel" "bug_reports" {
   position  = 1
 }
 
-resource "discord_text_channel" "self_hosting" {
-  server_id = var.discord_server_id
-  name      = "self-hosting"
-  category  = discord_category_channel.support.id
-  topic     = "Help with self-hosting, Docker, and deployment"
-  position  = 2
-}
 
-# -----------------------------------------------------------------------------
-# Voice channels
-# -----------------------------------------------------------------------------
-
-resource "discord_voice_channel" "general_voice" {
-  server_id = var.discord_server_id
-  name      = "General"
-  category  = discord_category_channel.voice.id
-  position  = 0
-}
-
-resource "discord_voice_channel" "pair_programming" {
-  server_id = var.discord_server_id
-  name      = "Pair Programming"
-  category  = discord_category_channel.voice.id
-  position  = 1
-}

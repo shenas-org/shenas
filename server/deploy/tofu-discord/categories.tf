@@ -14,12 +14,6 @@ resource "discord_category_channel" "community" {
   position  = 1
 }
 
-resource "discord_category_channel" "development" {
-  server_id = var.discord_server_id
-  name      = "Development"
-  position  = 2
-}
-
 resource "discord_category_channel" "plugins" {
   server_id = var.discord_server_id
   name      = "Plugins"
@@ -32,8 +26,3 @@ resource "discord_category_channel" "support" {
   position  = 4
 }
 
-resource "discord_category_channel" "voice" {
-  server_id = var.discord_server_id
-  name      = "Voice"
-  position  = 5
-}

@@ -1,6 +1,0 @@
-# Copy to terraform.tfvars and fill in values.
-# Alternatively, set DISCORD_BOT_TOKEN as an environment variable
-# and pass discord_server_id via -var flag.
-
-# discord_bot_token = "your-bot-token-here"
-discord_server_id = "your-server-id-here"
