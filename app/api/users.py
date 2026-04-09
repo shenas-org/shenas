@@ -36,14 +36,16 @@ def register_user(req: RegisterRequest) -> dict:
 
     from app.local_sessions import LocalSession
     from app.local_users import LocalUser
+    from app.user_keys import derive_user_key
 
     try:
         user = LocalUser.create(req.username.strip(), req.password)
     except Exception as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    token = LocalSession.set_user(user["id"])
-    return {"id": user["id"], "username": user["username"], "token": token}
+    user.attach(derive_user_key(req.password, user.key_salt))
+    token = LocalSession.set_user(user.id)
+    return {"id": user.id, "username": user.username, "token": token}
 
 
 @router.post("/login")
@@ -51,20 +53,28 @@ def login_user(req: LoginRequest) -> dict:
     """Authenticate an existing local user and activate a session. Returns {id, username, token}."""
     from app.local_sessions import LocalSession
     from app.local_users import LocalUser
+    from app.user_keys import derive_user_key
 
     user = LocalUser.authenticate(req.username, req.password)
     if user is None:
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-    token = LocalSession.set_user(user["id"])
-    return {"id": user["id"], "username": user["username"], "token": token}
+    user.attach(derive_user_key(req.password, user.key_salt))
+    token = LocalSession.set_user(user.id)
+    return {"id": user.id, "username": user.username, "token": token}
 
 
 @router.post("/logout")
 def logout_user() -> dict:
     """Deselect the current user session."""
     from app.local_sessions import LocalSession
+    from app.local_users import LocalUser
 
+    session = LocalSession.get_current()
+    if session and session.get("user_id") is not None:
+        user = LocalUser.get_by_id(int(session["user_id"]))
+        if user is not None:
+            user.detach()
     LocalSession.clear()
     return {"ok": True}
 
@@ -82,4 +92,4 @@ def current_user() -> dict:
     user = LocalUser.get_by_id(int(session["user_id"]))
     if user is None:
         raise HTTPException(status_code=401, detail="Session user not found")
-    return {"user": user}
+    return {"user": {"id": user.id, "username": user.username}}
