@@ -93,7 +93,7 @@ def test_con() -> duckdb.DuckDBPyConnection:
 @pytest.fixture
 def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
     @contextlib.contextmanager
-    def _fake_cursor() -> Generator[duckdb.DuckDBPyConnection, None, None]:
+    def _fake_cursor(**_kwargs) -> Generator[duckdb.DuckDBPyConnection, None, None]:
         cur = test_con.cursor()
         try:
             cur.execute("USE db")

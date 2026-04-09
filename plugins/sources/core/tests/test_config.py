@@ -27,12 +27,12 @@ class SampleConfig(SingletonTable):
 
 @pytest.fixture(autouse=True)
 def _mock_cursor():
-    SampleConfig._ensured.discard(("config", "test_pkg"))
+    SampleConfig._ensured.discard(("user_0", "config", "test_pkg"))
     con = duckdb.connect(":memory:")
     con.execute("CREATE SCHEMA IF NOT EXISTS config")
 
     @contextmanager
-    def _fake_cursor():
+    def _fake_cursor(**_kwargs):
         cur = con.cursor()
         try:
             yield cur

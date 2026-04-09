@@ -26,7 +26,7 @@ def fake_db():
     con.execute("INSERT INTO metrics.daily_hrv VALUES ('2026-04-01', 42.0)")
 
     @contextlib.contextmanager
-    def _fake_cursor():
+    def _fake_cursor(**_kwargs):
         cur = con.cursor()
         try:
             cur.execute("USE db")
