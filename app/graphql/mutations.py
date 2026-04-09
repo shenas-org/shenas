@@ -259,5 +259,5 @@ class Mutation:
         from app.models import OkResponse
         from app.workspace import Workspace
 
-        Workspace.save(data)
+        Workspace.put(data)
         return OkType.from_pydantic(OkResponse(ok=True))

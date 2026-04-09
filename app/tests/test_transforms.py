@@ -80,17 +80,17 @@ class TestTransformCRUD:
         from app.transforms import Transform
 
         t = _make(description="hello")
-        assert t["id"] >= 1
-        assert t["sql"] == "SELECT 1 AS id"
-        assert t["enabled"] is True
-        assert t["is_default"] is False
-        assert t["description"] == "hello"
-        assert t.get("source_plugin") == "garmin"
+        assert t.id >= 1
+        assert t.sql == "SELECT 1 AS id"
+        assert t.enabled is True
+        assert t.is_default is False
+        assert t.description == "hello"
+        assert t.source_plugin == "garmin"
         assert t.to_dict()["sql"] == "SELECT 1 AS id"
 
-        found = Transform.find(t["id"])
+        found = Transform.find(t.id)
         assert found is not None
-        assert found["id"] == t["id"]
+        assert found.id == t.id
 
     def test_all_filter_by_plugin(self, db_con: duckdb.DuckDBPyConnection) -> None:
         from app.transforms import Transform
@@ -98,40 +98,37 @@ class TestTransformCRUD:
         _make(plugin="garmin", src_table="a", tgt_table="ta")
         _make(plugin="lunchmoney", src_table="b", tgt_table="tb")
         assert len(Transform.all()) == 2
-        only_g = Transform.all("garmin")
+        only_g = Transform.for_plugin("garmin")
         assert len(only_g) == 1
-        assert only_g[0]["source_plugin"] == "garmin"
+        assert only_g[0].source_plugin == "garmin"
 
     def test_update(self, db_con: duckdb.DuckDBPyConnection) -> None:
         t = _make()
         updated = t.update("SELECT 2 AS new_col")
-        assert updated is not None
-        assert updated["sql"] == "SELECT 2 AS new_col"
-        assert updated["updated_at"] is not None
+        assert updated.sql == "SELECT 2 AS new_col"
+        assert updated.updated_at is not None
 
     def test_delete_user_transform(self, db_con: duckdb.DuckDBPyConnection) -> None:
         from app.transforms import Transform
 
         t = _make()
-        assert t.delete() is True
-        assert Transform.find(t["id"]) is None
+        t.delete()
+        assert Transform.find(t.id) is None
 
     def test_delete_default_blocked(self, db_con: duckdb.DuckDBPyConnection) -> None:
         from app.transforms import Transform
 
         t = _make(is_default=True)
-        assert t.delete() is False
-        assert Transform.find(t["id"]) is not None
+        t.delete()
+        assert Transform.find(t.id) is not None
 
     def test_set_enabled_toggle(self, db_con: duckdb.DuckDBPyConnection) -> None:
         t = _make()
         disabled = t.set_enabled(False)
-        assert disabled is not None
-        assert disabled["enabled"] is False
-        assert disabled["status_changed_at"] is not None
+        assert disabled.enabled is False
+        assert disabled.status_changed_at is not None
         enabled = disabled.set_enabled(True)
-        assert enabled is not None
-        assert enabled["enabled"] is True
+        assert enabled.enabled is True
 
     def test_test_runs_sql(self, db_con: duckdb.DuckDBPyConnection) -> None:
         t = _make(sql="SELECT 1 AS a, 'x' AS b")
@@ -154,10 +151,10 @@ class TestSeedDefaults:
             }
         ]
         Transform.seed_defaults("garmin", defaults)
-        all_t = Transform.all("garmin")
+        all_t = Transform.for_plugin("garmin")
         assert len(all_t) == 1
-        assert all_t[0]["is_default"] is True
-        assert all_t[0]["description"] == "d"
+        assert all_t[0].is_default is True
+        assert all_t[0].description == "d"
 
     def test_seed_idempotent_updates(self, db_con: duckdb.DuckDBPyConnection) -> None:
         from app.transforms import Transform
@@ -177,10 +174,10 @@ class TestSeedDefaults:
         defaults[0]["description"] = "v2"
         Transform.seed_defaults("garmin", defaults)
 
-        all_t = Transform.all("garmin")
+        all_t = Transform.for_plugin("garmin")
         assert len(all_t) == 1
-        assert all_t[0]["sql"] == "SELECT 2"
-        assert all_t[0]["description"] == "v2"
+        assert all_t[0].sql == "SELECT 2"
+        assert all_t[0].description == "v2"
 
 
 class TestExecution:

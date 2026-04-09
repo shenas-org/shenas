@@ -32,8 +32,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 
 from shenas_plugins.core.analytics.operations import OperationError
 from shenas_plugins.core.analytics.recipe import Recipe, RecipeError
@@ -42,28 +41,55 @@ logger = logging.getLogger(__name__)
 
 
 # ----------------------------------------------------------------------
-# Result tagged union
+# Result tagged hierarchy
 # ----------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class ScalarResult:
+class Result:
+    """Common base for the three result shapes a recipe run can produce.
+
+    Subclasses set a ``type`` ClassVar that doubles as the JSON
+    discriminator. Every Result carries ``elapsed_ms`` (wall-clock cost
+    of the run, including compilation) and ``sql`` (the rendered query,
+    for "show your work"). The shape-specific fields are set by each
+    subclass's ``__init__``. ``to_dict()`` produces the JSON-friendly
+    payload that ``Hypothesis`` persists.
+    """
+
+    type: ClassVar[str]
+
+    def __init__(self, *, elapsed_ms: float = 0.0, sql: str = "") -> None:
+        self.elapsed_ms = elapsed_ms
+        self.sql = sql
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable dict tagged with this result's ``type``."""
+        return {"type": self.type, **self.__dict__}
+
+
+class ScalarResult(Result):
     """A single value (one-row, one-column result).
 
     Returned for recipes whose final node is a scalar aggregation
     (correlate, an aggregate.count, etc).
     """
 
-    value: float | int | str | bool | None
-    column: str
-    elapsed_ms: float = 0.0
-    sql: str = ""
+    type: ClassVar[str] = "scalar"
 
-    type: str = "scalar"  # for JSON serialization
+    def __init__(
+        self,
+        *,
+        value: float | str | bool | None,
+        column: str,
+        elapsed_ms: float = 0.0,
+        sql: str = "",
+    ) -> None:
+        super().__init__(elapsed_ms=elapsed_ms, sql=sql)
+        self.value = value
+        self.column = column
 
 
-@dataclass(frozen=True)
-class TableResult:
+class TableResult(Result):
     """A multi-row result.
 
     Returned for recipes whose final node is anything other than a
@@ -71,18 +97,26 @@ class TableResult:
     callers can check ``truncated`` to know whether to warn the user.
     """
 
-    rows: list[dict[str, Any]] = field(default_factory=list)
-    columns: list[str] = field(default_factory=list)
-    row_count: int = 0
-    truncated: bool = False
-    elapsed_ms: float = 0.0
-    sql: str = ""
+    type: ClassVar[str] = "table"
 
-    type: str = "table"  # for JSON serialization
+    def __init__(
+        self,
+        *,
+        rows: list[dict[str, Any]] | None = None,
+        columns: list[str] | None = None,
+        row_count: int = 0,
+        truncated: bool = False,
+        elapsed_ms: float = 0.0,
+        sql: str = "",
+    ) -> None:
+        super().__init__(elapsed_ms=elapsed_ms, sql=sql)
+        self.rows = rows if rows is not None else []
+        self.columns = columns if columns is not None else []
+        self.row_count = row_count
+        self.truncated = truncated
 
 
-@dataclass(frozen=True)
-class ErrorResult:
+class ErrorResult(Result):
     """Something went wrong during compilation or execution.
 
     ``kind`` lets the LLM iteration loop distinguish failures it might
@@ -98,15 +132,19 @@ class ErrorResult:
     - ``"timeout"`` -- exceeded ``timeout_seconds``. Surface to user.
     """
 
-    message: str
-    kind: str  # "validation" | "operation" | "execution" | "timeout"
-    elapsed_ms: float = 0.0
-    sql: str = ""
+    type: ClassVar[str] = "error"
 
-    type: str = "error"  # for JSON serialization
-
-
-Result = ScalarResult | TableResult | ErrorResult
+    def __init__(
+        self,
+        *,
+        message: str,
+        kind: str,
+        elapsed_ms: float = 0.0,
+        sql: str = "",
+    ) -> None:
+        super().__init__(elapsed_ms=elapsed_ms, sql=sql)
+        self.message = message
+        self.kind = kind
 
 
 # ----------------------------------------------------------------------
