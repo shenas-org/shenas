@@ -229,7 +229,8 @@ class Mutation:
         for ep_name in _source_entry_point_names():
             for cls in plugins:
                 plugin = cls()
-                if plugin.enabled:
+                inst = plugin.instance()
+                if not inst or inst.enabled:
                     plugin.seed_defaults_for_source(ep_name)
             seeded.append(ep_name)
         return {"seeded": seeded, "count": len(seeded)}
