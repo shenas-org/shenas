@@ -48,6 +48,16 @@ def test_con() -> duckdb.DuckDBPyConnection:
         "added_at TIMESTAMP, updated_at TIMESTAMP, status_changed_at TIMESTAMP, synced_at TIMESTAMP, "
         "PRIMARY KEY (kind, name))"
     )
+    con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
+    con.execute(
+        "CREATE TABLE shenas_system.hypotheses ("
+        "id INTEGER DEFAULT nextval('shenas_system.hypothesis_seq'), "
+        "question TEXT, plan TEXT DEFAULT '', recipe_json TEXT, "
+        "inputs VARCHAR DEFAULT '', result_json TEXT DEFAULT '', "
+        "interpretation TEXT DEFAULT '', created_at TIMESTAMP DEFAULT current_timestamp, "
+        "model VARCHAR DEFAULT '', promoted_to VARCHAR, "
+        "PRIMARY KEY (id))"
+    )
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
     con.execute(
         "CREATE TABLE shenas_system.transforms ("
@@ -451,6 +461,81 @@ class TestGraphQLMutations:
         assert "errors" not in result
         assert result["data"]["saveWorkspace"]["ok"] is True
         mock_save.assert_called_once()
+
+    # -- Hypotheses (PR 2.2) --
+
+    def test_create_hypothesis(self, client: TestClient) -> None:
+        result = _gql(
+            client,
+            'mutation { createHypothesis(question: "does coffee affect mood?", plan: "join then correlate") }',
+        )
+        assert "errors" not in result
+        data = result["data"]["createHypothesis"]
+        assert data["question"] == "does coffee affect mood?"
+        assert data["id"] >= 1
+
+    def test_list_and_get_hypothesis(self, client: TestClient) -> None:
+        created = _gql(client, 'mutation { createHypothesis(question: "q1") }')["data"]["createHypothesis"]
+        hid = created["id"]
+
+        listed = _gql(client, "{ hypotheses }")
+        assert "errors" not in listed
+        rows = listed["data"]["hypotheses"]
+        assert any(r["id"] == hid and r["question"] == "q1" for r in rows)
+
+        single = _gql(client, f"{{ hypothesis(hypothesisId: {hid}) }}")
+        assert "errors" not in single
+        assert single["data"]["hypothesis"]["question"] == "q1"
+        assert single["data"]["hypothesis"]["result"] is None
+
+    def test_run_recipe_attaches_result(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
+        test_con.execute("DROP TABLE IF EXISTS metrics.daily_intake")
+        test_con.execute("CREATE TABLE metrics.daily_intake (date DATE, source VARCHAR, caffeine_mg DOUBLE)")
+        test_con.execute(
+            "INSERT INTO metrics.daily_intake VALUES "
+            "('2026-01-01', 'manual', 100), ('2026-01-02', 'manual', 200), ('2026-01-03', 'manual', 0)"
+        )
+
+        created = _gql(client, 'mutation { createHypothesis(question: "what is mean caffeine?") }')
+        hid = created["data"]["createHypothesis"]["id"]
+
+        # Mock _build_catalog so this test doesn't depend on every installed
+        # plugin loading cleanly under get_type_hints. The runner only
+        # consults the catalog for kind / time-axis hints.
+        fake_catalog = {
+            "metrics.daily_intake": {
+                "table": "daily_intake",
+                "schema": "metrics",
+                "primary_key": ["date", "source"],
+                "kind": "daily_metric",
+                "columns": [
+                    {"name": "date", "db_type": "DATE"},
+                    {"name": "source", "db_type": "VARCHAR"},
+                    {"name": "caffeine_mg", "db_type": "DOUBLE"},
+                ],
+            }
+        }
+        recipe_json = ('{"nodes": {"a": {"type": "source", "table": "metrics.daily_intake"}}, "final": "a"}').replace(
+            '"', '\\"'
+        )
+        with patch("app.graphql.mutations._build_catalog", return_value=fake_catalog):
+            result = _gql(
+                client,
+                f'mutation {{ runRecipe(hypothesisId: {hid}, recipeJson: "{recipe_json}") }}',
+            )
+        assert "errors" not in result
+        body = result["data"]["runRecipe"]
+        assert body["id"] == hid
+        assert "result" in body
+        assert body["result"] is not None
+
+    def test_run_recipe_missing_hypothesis(self, client: TestClient) -> None:
+        result = _gql(
+            client,
+            'mutation { runRecipe(hypothesisId: 999999, recipeJson: "{}") }',
+        )
+        assert "errors" not in result
+        assert "error" in result["data"]["runRecipe"]
 
     def test_create_transform(self, client: TestClient) -> None:
         result = _gql(

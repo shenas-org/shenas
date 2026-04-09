@@ -367,28 +367,58 @@ class Query:
     def catalog(self) -> JSON:
         """Return ``[table_metadata]`` for every queryable source / metric table.
 
-        Walks installed source plugins (importing each one's
-        ``shenas_sources.<name>.tables`` module to find its ``TABLES``
-        tuple) and installed dataset plugins (using their ``all_tables``
-        ClassVar). Calls :meth:`Table.table_metadata` on each.
+        Thin wrapper over :func:`app.analytics_catalog.walk_catalog`,
+        which both this query and the recipe runner share.
         """
-        import importlib
+        from app.analytics_catalog import walk_catalog
 
-        from app.api.sources import _load_datasets, _load_plugins
-        from shenas_plugins.core.plugin import Plugin
+        return walk_catalog()
 
-        catalog: list[dict[str, Any]] = []
+    # -- Hypotheses (PR 2.2) --
+    #
+    # Read-only listing + single fetch over the Hypothesis system table.
+    # The mutations that create / run / promote hypotheses live in
+    # app/graphql/mutations.py.
 
-        # Source-side raw tables.
-        for src_cls in _load_plugins("source", base=Plugin, include_internal=False):
-            try:
-                tables_mod = importlib.import_module(f"shenas_sources.{src_cls.name}.tables")
-            except ImportError:
-                continue
-            catalog.extend(t.table_metadata() for t in getattr(tables_mod, "TABLES", ()))
+    @strawberry.field
+    def hypotheses(self, limit: int | None = None) -> JSON:
+        """Return every hypothesis row, most recent first."""
+        from app.hypotheses import Hypothesis
 
-        # Dataset-side canonical metric tables.
-        for dataset_cls in _load_datasets():
-            catalog.extend(t.table_metadata() for t in getattr(dataset_cls, "all_tables", ()))
+        return [_hypothesis_to_dict(h) for h in Hypothesis.all(order_by="created_at DESC", limit=limit)]
 
-        return catalog
+    @strawberry.field
+    def hypothesis(self, hypothesis_id: int) -> JSON:
+        """Return one hypothesis by id, or ``None`` if not found."""
+        from app.hypotheses import Hypothesis
+
+        h = Hypothesis.find(hypothesis_id)
+        return _hypothesis_to_dict(h) if h else None
+
+
+def _hypothesis_to_dict(h: Any) -> dict[str, Any]:
+    """Serialize a Hypothesis row to a JSON-friendly dict for GraphQL."""
+    result = h.result()
+    return {
+        "id": h.id,
+        "question": h.question,
+        "plan": h.plan or "",
+        "inputs": (h.inputs or "").split(",") if h.inputs else [],
+        "interpretation": h.interpretation or "",
+        "model": h.model or "",
+        "promoted_to": h.promoted_to,
+        "created_at": str(h.created_at) if h.created_at else None,
+        "recipe": _safe_json_load(h.recipe_json),
+        "result": result.to_dict() if result is not None else None,
+    }
+
+
+def _safe_json_load(s: str) -> Any:
+    import json
+
+    if not s:
+        return None
+    try:
+        return json.loads(s)
+    except Exception:
+        return None
