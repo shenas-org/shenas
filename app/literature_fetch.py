@@ -23,11 +23,66 @@ Privacy: only published paper abstracts go to the LLM. No personal data.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Literal
 
 import httpx
+from pydantic import BaseModel
 
 log = logging.getLogger(__name__)
+
+
+class OpenAlexPaper(BaseModel):
+    openalex_id: str = ""
+    title: str = ""
+    abstract: str = ""
+    doi: str = ""
+    citation_count: int = 0
+    publication_year: int | None = None
+    type: str = ""
+
+
+class SemanticScholarPaper(BaseModel):
+    paper_id: str = ""
+    title: str = ""
+    abstract: str = ""
+    tldr: str = ""
+    doi: str = ""
+    citation_count: int = 0
+    year: int | None = None
+
+
+class ExtractedFinding(BaseModel):
+    """Structured finding extracted by the LLM from a paper abstract."""
+
+    exposure: str
+    outcome: str
+    direction: Literal["positive", "negative", "u_shaped", "null"]
+    effect_size: float | None = None
+    effect_size_type: Literal["r", "d", "odds_ratio", "risk_ratio"] | None = None
+    lag_hours: float | None = None
+    lag_max_hours: float | None = None
+    evidence_level: Literal["meta_analysis", "rct", "longitudinal", "cross_sectional", "case_report"]
+    sample_size: int | None = None
+    population: Literal["healthy_adults", "athletes", "clinical", "elderly", "mixed"] | None = None
+    mechanism: str | None = None
+    exposure_categories: str = ""
+    outcome_categories: str = ""
+    skip: bool = False
+
+
+class HypothesisSuggestion(BaseModel):
+    """A hypothesis suggestion derived from a literature finding."""
+
+    question: str
+    finding_id: int
+    exposure: str
+    outcome: str
+    direction: str
+    effect_size: float | None = None
+    evidence_level: str = ""
+    citation: str = ""
+    evidence_rank: int = 0
+
 
 # Map Field.category values to search-friendly terms for academic APIs.
 CATEGORY_SEARCH_TERMS: dict[str, list[str]] = {
@@ -60,14 +115,8 @@ def search_openalex(
     min_citations: int = 50,
     per_page: int = 10,
     filter_type: str | None = "review",
-) -> list[dict[str, Any]]:
-    """Search OpenAlex for papers matching a query.
-
-    Returns a list of work dicts with keys: openalex_id, title,
-    abstract, doi, citation_count, publication_year, type.
-
-    Filters to highly-cited papers and optionally to reviews/meta-analyses.
-    """
+) -> list[OpenAlexPaper]:
+    """Search OpenAlex for papers matching a query."""
     params: dict[str, Any] = {
         "search": query,
         "per_page": per_page,
@@ -86,21 +135,21 @@ def search_openalex(
         log.warning("OpenAlex search failed for query: %s", query, exc_info=True)
         return []
 
-    results: list[dict[str, Any]] = []
+    results: list[OpenAlexPaper] = []
     for work in resp.json().get("results", []):
         abstract = _reconstruct_abstract(work.get("abstract_inverted_index"))
         if not abstract:
             continue
         results.append(
-            {
-                "openalex_id": work.get("id", ""),
-                "title": work.get("title", ""),
-                "abstract": abstract,
-                "doi": work.get("doi", ""),
-                "citation_count": work.get("cited_by_count", 0),
-                "publication_year": work.get("publication_year"),
-                "type": work.get("type", ""),
-            }
+            OpenAlexPaper(
+                openalex_id=work.get("id", ""),
+                title=work.get("title", ""),
+                abstract=abstract,
+                doi=work.get("doi", ""),
+                citation_count=work.get("cited_by_count", 0),
+                publication_year=work.get("publication_year"),
+                type=work.get("type", ""),
+            )
         )
     return results
 
@@ -126,12 +175,8 @@ def search_semantic_scholar(
     *,
     limit: int = 10,
     min_citations: int = 50,
-) -> list[dict[str, Any]]:
-    """Search Semantic Scholar for papers matching a query.
-
-    Returns a list of paper dicts with keys: paper_id, title, abstract,
-    tldr, doi, citation_count, year.
-    """
+) -> list[SemanticScholarPaper]:
+    """Search Semantic Scholar for papers matching a query."""
     params: dict[str, str | int] = {
         "query": query,
         "limit": limit,
@@ -146,7 +191,7 @@ def search_semantic_scholar(
         log.warning("Semantic Scholar search failed for query: %s", query, exc_info=True)
         return []
 
-    results: list[dict[str, Any]] = []
+    results: list[SemanticScholarPaper] = []
     for paper in resp.json().get("data", []):
         abstract = paper.get("abstract") or ""
         tldr = paper.get("tldr", {})
@@ -156,15 +201,15 @@ def search_semantic_scholar(
             continue
         external = paper.get("externalIds") or {}
         results.append(
-            {
-                "paper_id": paper.get("paperId", ""),
-                "title": paper.get("title", ""),
-                "abstract": text,
-                "tldr": tldr_text,
-                "doi": external.get("DOI", ""),
-                "citation_count": paper.get("citationCount", 0),
-                "year": paper.get("year"),
-            }
+            SemanticScholarPaper(
+                paper_id=paper.get("paperId", ""),
+                title=paper.get("title", ""),
+                abstract=text,
+                tldr=tldr_text,
+                doi=external.get("DOI", ""),
+                citation_count=paper.get("citationCount", 0),
+                year=paper.get("year"),
+            )
         )
     return results
 
@@ -184,88 +229,7 @@ def extract_finding_tool() -> dict[str, Any]:
             "the direction and magnitude of the effect, any temporal lag, and the "
             "study design / evidence level."
         ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "exposure": {
-                    "type": "string",
-                    "description": "Causal/exposure variable in snake_case (e.g. alcohol_consumption, sleep_duration)",
-                },
-                "outcome": {
-                    "type": "string",
-                    "description": "Outcome/effect variable in snake_case (e.g. heart_rate_variability, mood)",
-                },
-                "direction": {
-                    "type": "string",
-                    "enum": ["positive", "negative", "u_shaped", "null"],
-                    "description": "Direction of the effect",
-                },
-                "effect_size": {
-                    "type": "number",
-                    "description": "Standardized effect size (correlation r, Cohen's d, etc.). Null if not reported.",
-                },
-                "effect_size_type": {
-                    "type": "string",
-                    "enum": ["r", "d", "odds_ratio", "risk_ratio"],
-                    "description": "Type of effect size reported",
-                },
-                "lag_hours": {
-                    "type": "number",
-                    "description": (
-                        "Minimum temporal delay between exposure and outcome in hours. Null if not reported or concurrent."
-                    ),
-                },
-                "lag_max_hours": {
-                    "type": "number",
-                    "description": "Maximum temporal delay in hours. Null if point estimate or not reported.",
-                },
-                "evidence_level": {
-                    "type": "string",
-                    "enum": ["meta_analysis", "rct", "longitudinal", "cross_sectional", "case_report"],
-                    "description": "Study design / evidence level",
-                },
-                "sample_size": {
-                    "type": "integer",
-                    "description": "Total sample size (across studies for meta-analyses). Null if not reported.",
-                },
-                "population": {
-                    "type": "string",
-                    "enum": ["healthy_adults", "athletes", "clinical", "elderly", "mixed"],
-                    "description": "Study population",
-                },
-                "mechanism": {
-                    "type": "string",
-                    "description": "One-sentence causal mechanism explanation",
-                },
-                "exposure_categories": {
-                    "type": "string",
-                    "description": (
-                        "Comma-separated categories from: cardiovascular, sleep, activity,"
-                        " body_composition, wellbeing, performance, social, growth, spending, income, health"
-                    ),
-                },
-                "outcome_categories": {
-                    "type": "string",
-                    "description": "Comma-separated categories from the same list",
-                },
-                "skip": {
-                    "type": "boolean",
-                    "description": (
-                        "Set to true if the paper doesn't contain a clear exposure->outcome"
-                        " finding suitable for personal health/behavioral data analysis"
-                    ),
-                },
-            },
-            "required": [
-                "exposure",
-                "outcome",
-                "direction",
-                "evidence_level",
-                "exposure_categories",
-                "outcome_categories",
-                "skip",
-            ],
-        },
+        "input_schema": ExtractedFinding.model_json_schema(),
     }
 
 
@@ -275,11 +239,10 @@ def extract_finding_from_abstract(
     abstract: str,
     *,
     citation: str = "",
-) -> dict[str, Any] | None:
+) -> ExtractedFinding | None:
     """Use the LLM to extract a structured finding from a paper abstract.
 
-    Returns a dict matching the Finding dataclass fields, or None if
-    the paper should be skipped (not relevant / no clear finding).
+    Returns an ExtractedFinding, or None if the paper should be skipped.
     """
     system = (
         "You are a research literature analyst. Extract structured findings "
@@ -296,27 +259,16 @@ def extract_finding_from_abstract(
         log.warning("LLM extraction failed for: %s", title, exc_info=True)
         return None
 
-    if payload.get("skip"):
+    try:
+        finding = ExtractedFinding.model_validate(payload)
+    except Exception:
+        log.warning("LLM returned invalid finding for: %s", title, exc_info=True)
         return None
 
-    return {
-        "exposure": payload.get("exposure", ""),
-        "outcome": payload.get("outcome", ""),
-        "direction": payload.get("direction", ""),
-        "effect_size": payload.get("effect_size"),
-        "effect_size_type": payload.get("effect_size_type"),
-        "ci_low": None,
-        "ci_high": None,
-        "lag_hours": payload.get("lag_hours"),
-        "lag_max_hours": payload.get("lag_max_hours"),
-        "evidence_level": payload.get("evidence_level", "cross_sectional"),
-        "sample_size": payload.get("sample_size"),
-        "population": payload.get("population"),
-        "mechanism": payload.get("mechanism"),
-        "citation": citation,
-        "exposure_categories": payload.get("exposure_categories", ""),
-        "outcome_categories": payload.get("outcome_categories", ""),
-    }
+    if finding.skip:
+        return None
+
+    return finding
 
 
 # ------------------------------------------------------------------
@@ -379,18 +331,16 @@ def refresh_findings(
         stats["papers_fetched"] += len(papers)
 
         for paper in papers:
-            # Dedup by OpenAlex ID.
-            oa_id = paper.get("openalex_id", "")
+            oa_id = paper.openalex_id
             if oa_id and Finding.by_openalex_id(oa_id) is not None:
                 stats["duplicates"] += 1
                 continue
 
-            year = paper.get("publication_year", "")
-            citation = f"{paper['title']}, {year}" if year else paper["title"]
+            citation = f"{paper.title}, {paper.publication_year}" if paper.publication_year else paper.title
             result = extract_finding_from_abstract(
                 provider,
-                title=paper["title"],
-                abstract=paper["abstract"],
+                title=paper.title,
+                abstract=paper.abstract,
                 citation=citation,
             )
 
@@ -399,24 +349,22 @@ def refresh_findings(
                 continue
 
             finding = Finding(
-                exposure=result["exposure"],
-                outcome=result["outcome"],
-                direction=result["direction"],
-                effect_size=result.get("effect_size"),
-                effect_size_type=result.get("effect_size_type"),
-                ci_low=result.get("ci_low"),
-                ci_high=result.get("ci_high"),
-                lag_hours=result.get("lag_hours"),
-                lag_max_hours=result.get("lag_max_hours"),
-                evidence_level=result["evidence_level"],
-                sample_size=result.get("sample_size"),
-                population=result.get("population"),
-                mechanism=result.get("mechanism"),
-                citation=result.get("citation", ""),
-                doi=paper.get("doi", ""),
+                exposure=result.exposure,
+                outcome=result.outcome,
+                direction=result.direction,
+                effect_size=result.effect_size,
+                effect_size_type=result.effect_size_type,
+                lag_hours=result.lag_hours,
+                lag_max_hours=result.lag_max_hours,
+                evidence_level=result.evidence_level,
+                sample_size=result.sample_size,
+                population=result.population,
+                mechanism=result.mechanism,
+                citation=citation,
+                doi=paper.doi or "",
                 source_api="openalex",
-                exposure_categories=result.get("exposure_categories", f"{cat_a}"),
-                outcome_categories=result.get("outcome_categories", f"{cat_b}"),
+                exposure_categories=result.exposure_categories or f"{cat_a}",
+                outcome_categories=result.outcome_categories or f"{cat_b}",
                 openalex_id=oa_id,
             )
             finding.insert()

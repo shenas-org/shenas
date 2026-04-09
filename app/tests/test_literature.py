@@ -212,9 +212,9 @@ def test_suggest_hypotheses():
     suggestions = suggest_hypotheses(catalog, limit=10)
     assert len(suggestions) == 2
     # Meta-analysis should rank first
-    assert suggestions[0]["evidence_level"] == "meta_analysis"
-    assert suggestions[1]["evidence_level"] == "rct"
-    assert "sleep" in suggestions[0]["question"].lower()
+    assert suggestions[0].evidence_level == "meta_analysis"
+    assert suggestions[1].evidence_level == "rct"
+    assert "sleep" in suggestions[0].question.lower()
 
 
 def test_suggest_hypotheses_filters_unavailable_data():

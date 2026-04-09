@@ -213,42 +213,37 @@ def suggest_hypotheses(
     catalog: dict[str, dict[str, Any]],
     *,
     limit: int = 10,
-) -> list[dict[str, Any]]:
-    """Generate hypothesis suggestions from findings cross-referenced with installed data.
+) -> list[Any]:
+    """Generate hypothesis suggestions from findings cross-referenced with installed data."""
+    from app.literature_fetch import HypothesisSuggestion
 
-    For each high-evidence finding where both exposure and outcome
-    categories are present in the catalog, produce a candidate question.
-    Ranked by evidence level and effect size.
-    """
     categories = extract_catalog_categories(catalog)
     if not categories:
         return []
 
     findings = Finding.for_categories(*categories)
-    suggestions: list[dict[str, Any]] = []
+    suggestions: list[HypothesisSuggestion] = []
 
     for f in findings:
         exp_cats = set(f.exposure_categories.split(",")) if f.exposure_categories else set()
         out_cats = set(f.outcome_categories.split(",")) if f.outcome_categories else set()
-        # Both sides must map to something in the user's installed data.
         if not (exp_cats & categories) or not (out_cats & categories):
             continue
-        question = _finding_to_question(f)
         suggestions.append(
-            {
-                "question": question,
-                "finding_id": f.id,
-                "exposure": f.exposure,
-                "outcome": f.outcome,
-                "direction": f.direction,
-                "effect_size": f.effect_size,
-                "evidence_level": f.evidence_level,
-                "citation": f.citation,
-                "evidence_rank": EVIDENCE_RANK.get(f.evidence_level, 0),
-            }
+            HypothesisSuggestion(
+                question=_finding_to_question(f),
+                finding_id=f.id,
+                exposure=f.exposure,
+                outcome=f.outcome,
+                direction=f.direction,
+                effect_size=f.effect_size,
+                evidence_level=f.evidence_level,
+                citation=f.citation,
+                evidence_rank=EVIDENCE_RANK.get(f.evidence_level, 0),
+            )
         )
 
-    suggestions.sort(key=lambda s: (-s["evidence_rank"], -(abs(s["effect_size"] or 0))))
+    suggestions.sort(key=lambda s: (-s.evidence_rank, -(abs(s.effect_size or 0))))
     return suggestions[:limit]
 
 

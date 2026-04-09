@@ -388,7 +388,7 @@ class Query:
         from app.literature import suggest_hypotheses
 
         catalog = catalog_by_qualified_name()
-        return suggest_hypotheses(catalog, limit=limit)
+        return [s.model_dump() for s in suggest_hypotheses(catalog, limit=limit)]
 
     # -- Hypotheses --
     #

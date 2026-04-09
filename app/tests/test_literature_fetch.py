@@ -82,9 +82,9 @@ def test_search_openalex_success():
         results = search_openalex("sleep heart rate variability")
 
     assert len(results) == 1
-    assert results[0]["title"] == "Sleep and HRV: A Meta-Analysis"
-    assert results[0]["abstract"] == "Sleep affects HRV"
-    assert results[0]["openalex_id"] == "https://openalex.org/W1234"
+    assert results[0].title == "Sleep and HRV: A Meta-Analysis"
+    assert results[0].abstract == "Sleep affects HRV"
+    assert results[0].openalex_id == "https://openalex.org/W1234"
 
 
 def test_search_openalex_filters_no_abstract():
@@ -139,8 +139,8 @@ def test_search_semantic_scholar_success():
         results = search_semantic_scholar("exercise mood")
 
     assert len(results) == 1
-    assert results[0]["title"] == "Exercise and mood"
-    assert results[0]["doi"] == "10.5678/test"
+    assert results[0].title == "Exercise and mood"
+    assert results[0].doi == "10.5678/test"
 
 
 # ------------------------------------------------------------------
@@ -177,10 +177,10 @@ def test_extract_finding_from_abstract():
     )
 
     assert result is not None
-    assert result["exposure"] == "sleep_duration"
-    assert result["outcome"] == "cognitive_performance"
-    assert result["direction"] == "positive"
-    assert result["effect_size"] == 0.35
+    assert result.exposure == "sleep_duration"
+    assert result.outcome == "cognitive_performance"
+    assert result.direction == "positive"
+    assert result.effect_size == 0.35
 
 
 def test_extract_finding_skip():
@@ -189,10 +189,10 @@ def test_extract_finding_skip():
     provider = MagicMock()
     provider.ask.return_value = {
         "skip": True,
-        "exposure": "",
-        "outcome": "",
-        "direction": "",
-        "evidence_level": "",
+        "exposure": "x",
+        "outcome": "y",
+        "direction": "null",
+        "evidence_level": "cross_sectional",
         "exposure_categories": "",
         "outcome_categories": "",
     }
@@ -250,18 +250,18 @@ def test_build_search_query():
 
 def test_refresh_findings():
     from app.literature import Finding
-    from app.literature_fetch import refresh_findings
+    from app.literature_fetch import OpenAlexPaper, refresh_findings
 
     mock_papers = [
-        {
-            "openalex_id": "W001",
-            "title": "Sleep and HRV",
-            "abstract": "Sleep affects HRV significantly.",
-            "doi": "10.1/test",
-            "citation_count": 100,
-            "publication_year": 2023,
-            "type": "review",
-        }
+        OpenAlexPaper(
+            openalex_id="W001",
+            title="Sleep and HRV",
+            abstract="Sleep affects HRV significantly.",
+            doi="10.1/test",
+            citation_count=100,
+            publication_year=2023,
+            type="review",
+        )
     ]
 
     provider = MagicMock()
@@ -307,16 +307,18 @@ def test_refresh_findings_dedup():
         citation="existing",
     ).insert()
 
+    from app.literature_fetch import OpenAlexPaper
+
     mock_papers = [
-        {
-            "openalex_id": "W001",
-            "title": "Sleep and HRV",
-            "abstract": "Duplicate paper.",
-            "doi": "",
-            "citation_count": 50,
-            "publication_year": 2023,
-            "type": "review",
-        }
+        OpenAlexPaper(
+            openalex_id="W001",
+            title="Sleep and HRV",
+            abstract="Duplicate paper.",
+            doi="",
+            citation_count=50,
+            publication_year=2023,
+            type="review",
+        )
     ]
 
     provider = MagicMock()
