@@ -97,9 +97,11 @@ class RecipeCache(Table):
         schema, _, table = qualified_table.partition(".")
         if not table:
             return "unknown"
+        safe_schema = schema.replace('"', '""')
+        safe_table = table.replace('"', '""')
         try:
             with cursor() as cur:
-                row = cur.execute(f'SELECT max("_dlt_loaded_at")::VARCHAR FROM "{schema}"."{table}"').fetchone()
+                row = cur.execute(f'SELECT max("_dlt_loaded_at")::VARCHAR FROM "{safe_schema}"."{safe_table}"').fetchone()
             return (row[0] if row and row[0] else "empty") or "empty"
         except Exception:
             return "static"
