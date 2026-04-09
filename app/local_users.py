@@ -138,6 +138,16 @@ class LocalUser(Table):
         except Exception:
             pass
 
+        # Dataset plugins define MetricTable subclasses (metrics.daily_sleep,
+        # metrics.events, etc.) that transforms write into. Ensure them so
+        # the first sync doesn't fail with "table does not exist".
+        try:
+            from shenas_datasets.core.dataset import Dataset
+
+            Dataset.ensure_all(con)
+        except Exception:
+            pass
+
         from app.hotkeys import Hotkey
 
         Hotkey.seed(con)
