@@ -163,8 +163,10 @@ def _current_user_db() -> DB:
                 key=get_db_key(),
                 bootstrap=LocalUser._bootstrap_user_db,
             )
-            db.connect()
+            # Store before connect() so re-entrant calls during bootstrap
+            # find the DB instead of trying to create a second one.
             LocalUser._attached[0] = db
+            db.connect()
     if db is None:
         msg = f"no user DB attached for user_id={user_id}; call user.attach() first"
         raise RuntimeError(msg)
