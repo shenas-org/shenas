@@ -1,0 +1,26 @@
+[
+  {
+    "source_duckdb_schema": "withings",
+    "source_duckdb_table": "measurements",
+    "target_duckdb_schema": "metrics",
+    "target_duckdb_table": "daily_body",
+    "description": "Extract latest daily weight and body composition from Withings measurements",
+    "sql": "SELECT created_at::DATE as date, 'withings' as source, last(weight_kg ORDER BY created_at) as weight_kg, last(fat_ratio_pct ORDER BY created_at) as body_fat_pct, last(muscle_mass_kg ORDER BY created_at) as muscle_mass_kg FROM withings.measurements WHERE weight_kg IS NOT NULL GROUP BY 1"
+  },
+  {
+    "source_duckdb_schema": "withings",
+    "source_duckdb_table": "sleep_summary",
+    "target_duckdb_schema": "metrics",
+    "target_duckdb_table": "daily_sleep",
+    "description": "Map Withings sleep summary to canonical sleep metrics",
+    "sql": "SELECT date::DATE as date, 'withings' as source, total_sleep_duration_s / 3600.0 as total_hours, sleep_score as score, deep_sleep_duration_s / 60 as deep_min, rem_sleep_duration_s / 60 as rem_min, light_sleep_duration_s / 60 as light_min, wakeup_duration_s / 60 as awake_min FROM withings.sleep_summary WHERE total_sleep_duration_s IS NOT NULL"
+  },
+  {
+    "source_duckdb_schema": "withings",
+    "source_duckdb_table": "daily_activity",
+    "target_duckdb_schema": "metrics",
+    "target_duckdb_table": "daily_vitals",
+    "description": "Map Withings daily activity to canonical vitals metrics",
+    "sql": "SELECT date::DATE as date, 'withings' as source, steps, active_calories_kcal::INTEGER as active_kcal FROM withings.daily_activity WHERE steps IS NOT NULL"
+  }
+]

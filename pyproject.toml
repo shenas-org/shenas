@@ -45,6 +45,8 @@ shenas-source-duolingo = { workspace = true }
 shenas-source-spotify = { workspace = true }
 shenas-source-strava = { workspace = true }
 shenas-source-tile = { workspace = true }
+shenas-source-withings = { workspace = true }
+shenas-source-goodreads = { workspace = true }
 shenas-dataset-core = { workspace = true }
 shenas-dataset-fitness = { workspace = true }
 shenas-dataset-events = { workspace = true }
@@ -80,6 +82,8 @@ dev = [
     "shenas-source-spotify",
     "shenas-source-strava",
     "shenas-source-tile",
+    "shenas-source-withings",
+    "shenas-source-goodreads",
     "shenas-dataset-fitness",
     "shenas-dataset-finance",
     "shenas-dataset-outcomes",
@@ -107,7 +111,7 @@ fl = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["shenasctl/tests", "app/tests", "app/fl/tests", "scheduler/tests", "server/repository/repository/tests", "app/telemetry/tests", "plugins/core/tests", "plugins/sources/core/tests", "plugins/sources/garmin/tests", "plugins/sources/gmail/tests", "plugins/sources/gcalendar/tests", "plugins/sources/gtakeout/tests", "plugins/sources/lunchmoney/tests", "plugins/sources/obsidian/tests", "plugins/sources/duolingo/tests", "plugins/sources/spotify/tests", "plugins/sources/tile/tests", "plugins/datasets/fitness/tests", "plugins/datasets/finance/tests", "plugins/datasets/outcomes/tests", "plugins/datasets/habits/tests", "plugins/datasets/events/tests"]
+testpaths = ["shenasctl/tests", "app/tests", "app/fl/tests", "scheduler/tests", "server/repository/repository/tests", "app/telemetry/tests", "plugins/core/tests", "plugins/sources/core/tests", "plugins/sources/garmin/tests", "plugins/sources/gmail/tests", "plugins/sources/gcalendar/tests", "plugins/sources/gtakeout/tests", "plugins/sources/lunchmoney/tests", "plugins/sources/obsidian/tests", "plugins/sources/duolingo/tests", "plugins/sources/spotify/tests", "plugins/sources/tile/tests", "plugins/sources/withings/tests", "plugins/sources/goodreads/tests", "plugins/datasets/fitness/tests", "plugins/datasets/finance/tests", "plugins/datasets/outcomes/tests", "plugins/datasets/habits/tests", "plugins/datasets/events/tests"]
 addopts = "--import-mode=importlib"
 pythonpath = [".", "server/repository"]
 
