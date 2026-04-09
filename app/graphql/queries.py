@@ -378,6 +378,17 @@ class Query:
 
         return walk_catalog()
 
+    # -- Analysis modes --
+
+    @strawberry.field
+    def analysis_modes(self) -> JSON:
+        """Return metadata for all registered analysis modes."""
+        # Ensure built-in modes are registered.
+        import shenas_plugins.core.analytics.modes  # noqa: F401
+        from shenas_plugins.core.analytics.mode import list_modes
+
+        return list_modes()
+
     # -- Hypotheses --
     #
     # Read-only listing + single fetch over the Hypothesis system table.
@@ -410,6 +421,7 @@ def _hypothesis_to_dict(h: Any) -> dict[str, Any]:
         "inputs": (h.inputs or "").split(",") if h.inputs else [],
         "interpretation": h.interpretation or "",
         "model": h.model or "",
+        "mode": h.mode or "hypothesis",
         "promoted_to": h.promoted_to,
         "parent_id": getattr(h, "parent_id", None),
         "created_at": str(h.created_at) if h.created_at else None,

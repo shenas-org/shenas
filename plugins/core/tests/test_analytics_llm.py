@@ -149,3 +149,48 @@ def test_operation_vocabulary_is_valid_json_in_prompt():
     for line in prompt.splitlines():
         if line.startswith("params: "):
             json.loads(line.removeprefix("params: "))  # raises if malformed
+
+
+def test_ask_for_recipe_with_mode():
+    """ask_for_recipe accepts an explicit mode and uses its prompt/tool."""
+    from shenas_plugins.core.analytics import FakeProvider, ask_for_recipe, get_mode
+
+    mode = get_mode("hypothesis")
+    canned = {
+        "plan": "test plan",
+        "nodes": {"a": {"type": "source", "table": "metrics.x"}},
+        "final": "a",
+    }
+    provider = FakeProvider(canned)
+    result = ask_for_recipe(provider, "test question", {}, mode=mode)
+    assert result == canned
+    # The system prompt used should be the mode's prompt
+    system, _ = provider.calls[0]
+    assert "lag" in system
+    assert "correlate" in system
+
+
+def test_ask_for_recipe_with_retry_passes_mode():
+    """ask_for_recipe_with_retry forwards the mode to the provider."""
+    from shenas_plugins.core.analytics import FakeProvider, ask_for_recipe_with_retry, get_mode
+
+    mode = get_mode("hypothesis")
+    canned = {
+        "plan": "p",
+        "nodes": {"a": {"type": "source", "table": "x"}},
+        "final": "a",
+    }
+    provider = FakeProvider(canned)
+    payload, errors = ask_for_recipe_with_retry(provider, "q", {}, mode=mode)
+    assert payload == canned
+    assert errors == []
+
+
+def test_build_system_prompt_with_mode():
+    """build_system_prompt delegates to the mode when provided."""
+    from shenas_plugins.core.analytics import build_system_prompt, get_mode
+
+    mode = get_mode("hypothesis")
+    prompt = build_system_prompt(mode=mode)
+    for op in mode.operations:
+        assert op.name in prompt

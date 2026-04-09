@@ -294,14 +294,14 @@ class Mutation:
     # lands on top of these.
 
     @strawberry.mutation
-    def create_hypothesis(self, question: str, plan: str = "", model: str = "") -> JSON:
+    def create_hypothesis(self, question: str, plan: str = "", model: str = "", mode: str = "hypothesis") -> JSON:
         """Create an empty hypothesis row from a question. No recipe yet."""
         from app.hypotheses import Hypothesis
         from shenas_plugins.core.analytics import Recipe
 
         empty = Recipe(nodes={}, final="")
-        h = Hypothesis.create(question, empty, plan=plan, model=model)
-        return {"id": h.id, "question": h.question}
+        h = Hypothesis.create(question, empty, plan=plan, model=model, mode=mode)
+        return {"id": h.id, "question": h.question, "mode": h.mode}
 
     @strawberry.mutation
     def run_recipe(self, hypothesis_id: int, recipe_json: str) -> JSON:
@@ -391,6 +391,7 @@ class Mutation:
             recipe_json=parent.recipe_json or "",
             inputs=parent.inputs or "",
             model=parent.model or "",
+            mode=parent.mode or "hypothesis",
             parent_id=parent.id,
         )
         fork.insert()
@@ -426,17 +427,21 @@ class Mutation:
     # -- LLM-driven hypothesis --
 
     @strawberry.mutation
-    def ask_hypothesis(self, question: str) -> JSON:  # noqa: PLR0915 -- linear narrative is clearer than splitting
+    def ask_hypothesis(self, question: str, mode: str = "hypothesis") -> JSON:  # noqa: PLR0915 -- linear narrative is clearer than splitting
         """End-to-end: create a hypothesis, ask the LLM for a recipe, run it, persist.
 
         The LLM provider is constructed from environment / settings; the
         default is :class:`AnthropicProvider` which reads
-        ``ANTHROPIC_API_KEY``. Returns the hypothesis id, the LLM's plan,
+        ``ANTHROPIC_API_KEY``. The ``mode`` parameter selects which
+        analysis strategy the LLM uses (operation vocabulary, system
+        prompt framing). Returns the hypothesis id, the LLM's plan,
         the recipe payload, the run result, and a per-turn cost block
         (input/output tokens, llm/query/wall_clock elapsed ms).
         """
         import time
 
+        # Ensure built-in modes are registered.
+        import shenas_plugins.core.analytics.modes  # noqa: F401
         from app.db import analytics_backend
         from app.graphql.llm_provider import get_llm_provider
         from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
@@ -448,13 +453,19 @@ class Mutation:
             ask_for_recipe_with_retry,
             run_recipe,
         )
+        from shenas_plugins.core.analytics.mode import get_mode
+
+        try:
+            analysis_mode = get_mode(mode)
+        except KeyError as exc:
+            return {"ok": False, "error": {"message": str(exc)}}
 
         provider = get_llm_provider()
         wall_start = time.monotonic()
 
         # Step 1: create empty hypothesis row so we can persist failures.
         empty = Recipe(nodes={}, final="")
-        h = Hypothesis.create(question, empty, model=provider.name)
+        h = Hypothesis.create(question, empty, model=provider.name, mode=mode)
 
         # Step 2: ask the LLM for a recipe with one validation retry.
         def _validate_payload(p: dict) -> None:
@@ -477,6 +488,7 @@ class Mutation:
                 provider,
                 question,
                 catalog,
+                mode=analysis_mode,
                 validate=_validate_payload,
                 max_attempts=2,
             )
@@ -536,6 +548,7 @@ class Mutation:
         return {
             "id": h.id,
             "plan": plan,
+            "mode": mode,
             "recipe": payload,
             "result": result.model_dump(),
             "ok": not isinstance(result, ErrorResult),

@@ -128,6 +128,18 @@ class Hypothesis(Table):
     wall_clock_ms: (
         Annotated[float, Field(db_type="DOUBLE", description="End-to-end wall clock for the whole askHypothesis turn")] | None
     ) = None
+    # Analysis mode used for this hypothesis (e.g. "hypothesis", "rca", "forecast").
+    mode: (
+        Annotated[
+            str,
+            Field(
+                db_type="VARCHAR",
+                description="Analysis mode used (e.g. hypothesis, rca, forecast)",
+                db_default="'hypothesis'",
+            ),
+        ]
+        | None
+    ) = None
     # Forking: parent_id is the hypothesis this one was branched from.
     # Forks share the question + initial recipe but iterate independently.
     parent_id: Annotated[int, Field(db_type="INTEGER", description="Parent hypothesis id if this is a fork")] | None = None
@@ -144,6 +156,7 @@ class Hypothesis(Table):
         *,
         plan: str = "",
         model: str = "",
+        mode: str = "hypothesis",
     ) -> Hypothesis:
         """Create a new hypothesis row from a question + a Recipe.
 
@@ -157,6 +170,7 @@ class Hypothesis(Table):
             recipe_json=_serialize_recipe(recipe),
             inputs=",".join(sorted(_extract_input_tables(recipe))),
             model=model,
+            mode=mode,
         )
         return h.insert()
 

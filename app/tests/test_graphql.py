@@ -58,6 +58,7 @@ def test_con() -> duckdb.DuckDBPyConnection:
         "model VARCHAR DEFAULT '', promoted_to VARCHAR, "
         "llm_input_tokens INTEGER, llm_output_tokens INTEGER, "
         "llm_elapsed_ms DOUBLE, query_elapsed_ms DOUBLE, wall_clock_ms DOUBLE, "
+        "mode VARCHAR DEFAULT 'hypothesis', "
         "parent_id INTEGER, "
         "PRIMARY KEY (id))"
     )
@@ -489,6 +490,19 @@ class TestGraphQLMutations:
         assert result["data"]["saveWorkspace"]["ok"] is True
         mock_save.assert_called_once()
 
+    # -- Analysis modes --
+
+    def test_analysis_modes_query(self, client: TestClient) -> None:
+        result = _gql(client, "{ analysisModes }")
+        assert "errors" not in result
+        modes = result["data"]["analysisModes"]
+        assert isinstance(modes, list)
+        names = [m["name"] for m in modes]
+        assert "hypothesis" in names
+        hyp = next(m for m in modes if m["name"] == "hypothesis")
+        assert hyp["display_name"] == "Hypothesis Testing"
+        assert len(hyp["description"]) > 0
+
     # -- Hypotheses --
 
     def test_create_hypothesis(self, client: TestClient) -> None:
@@ -500,6 +514,16 @@ class TestGraphQLMutations:
         data = result["data"]["createHypothesis"]
         assert data["question"] == "does coffee affect mood?"
         assert data["id"] >= 1
+        assert data["mode"] == "hypothesis"
+
+    def test_create_hypothesis_with_mode(self, client: TestClient) -> None:
+        result = _gql(
+            client,
+            'mutation { createHypothesis(question: "q", mode: "hypothesis") }',
+        )
+        assert "errors" not in result
+        data = result["data"]["createHypothesis"]
+        assert data["mode"] == "hypothesis"
 
     def test_list_and_get_hypothesis(self, client: TestClient) -> None:
         created = _gql(client, 'mutation { createHypothesis(question: "q1") }')["data"]["createHypothesis"]
@@ -513,6 +537,7 @@ class TestGraphQLMutations:
         single = _gql(client, f"{{ hypothesis(hypothesisId: {hid}) }}")
         assert "errors" not in single
         assert single["data"]["hypothesis"]["question"] == "q1"
+        assert single["data"]["hypothesis"]["mode"] == "hypothesis"
         assert single["data"]["hypothesis"]["result"] is None
 
     def test_run_recipe_attaches_result(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
@@ -704,6 +729,16 @@ class TestGraphQLMutations:
         )
         assert "errors" not in result
         assert "error" in result["data"]["promoteHypothesis"]
+
+    def test_ask_hypothesis_unknown_mode_returns_error(self, client: TestClient) -> None:
+        result = _gql(
+            client,
+            'mutation { askHypothesis(question: "q", mode: "nonexistent") }',
+        )
+        assert "errors" not in result
+        body = result["data"]["askHypothesis"]
+        assert body["ok"] is False
+        assert "unknown analysis mode" in body["error"]["message"]
 
     def test_ask_hypothesis_llm_failure_persists_error(self, client: TestClient) -> None:
         class _BoomProvider:
