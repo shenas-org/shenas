@@ -1,4 +1,4 @@
-.PHONY: install dev setup-hooks coverage clean logos dev-desktop dev-website dev-postgres dev-api k8s-secrets-web-api release-desktop release-fl-server release-shenas-net release-web-api setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs
+.PHONY: install dev setup-hooks coverage clean logos dev-desktop dev-website dev-postgres dev-api k8s-secrets-web-api release-desktop release-fl-server release-shenas-net release-web-api setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs flush-db
 
 # Set up Android SDK, NDK, and Rust targets for mobile development
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
@@ -100,6 +100,11 @@ k8s-secrets-web-api:
 		--from-literal=GOOGLE_CLIENT_SECRET=$$GSEC \
 		--dry-run=client -o yaml | kubectl apply -f -
 	@echo "Secret web-api-secrets created/updated in namespace shenas"
+
+flush-db:
+	rm -f data/shenas.duckdb data/shenas.duckdb.wal
+	rm -rf data/users/
+	@echo "Flushed registry DB and all user DBs."
 
 clean:
 	moon run :clean

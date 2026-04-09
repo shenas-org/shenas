@@ -27,7 +27,6 @@ class SampleConfig(SingletonTable):
 
 @pytest.fixture(autouse=True)
 def _mock_cursor():
-    SampleConfig._ensured.discard(("user_0", "config", "test_pkg"))
     con = duckdb.connect(":memory:")
     con.execute("CREATE SCHEMA IF NOT EXISTS config")
 

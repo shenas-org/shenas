@@ -119,14 +119,6 @@ class Table:
     # :meth:`_resolve_database`.
     database: ClassVar[str] = "user"
 
-    # Cache of (database, schema, table_name) tuples that have already
-    # had their CREATE TABLE + ALTER TABLE migrations applied this
-    # process. Read / written by ``_ensure_once``. The database
-    # component is included so per-user databases (which share the same
-    # schema/table names across users) get re-ensured for each new
-    # logged-in user.
-    _ensured: ClassVar[set[tuple[str, str, str]]] = set()
-
     # Map of kind base class names to the kind string. Used by ``table_kind()``
     # to walk the MRO without importing the SourceTable / MetricTable subclasses
     # (which would create a circular dep). Inspecting class names instead of
@@ -404,19 +396,6 @@ class Table:
             return "shenas"
         return None  # type: ignore[return-value]
 
-    @classmethod
-    def _ensure_once(cls, schema: str) -> None:
-        """Idempotent CREATE SCHEMA + CREATE TABLE; memoized per process."""
-        key = (cls._resolve_database(), schema, cls._Meta.name)
-        if key in cls._ensured:
-            return
-        from app.db import cursor
-
-        with cursor(database=cls._resolve_database()) as cur:
-            cur.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-            cls.ensure(cur, schema=schema)
-        cls._ensured.add(key)  # type: ignore[arg-type]
-
     # ------------------------------------------------------------------
     # Multi-row CRUD (find / all / insert / save / delete)
     #
@@ -453,6 +432,7 @@ class Table:
         if len(pk_values) != len(cls._Meta.pk):
             msg = f"{cls.__name__}.find expects {len(cls._Meta.pk)} pk value(s), got {len(pk_values)}"
             raise TypeError(msg)
+
         cols = ", ".join(cls._column_names())
         where = " AND ".join(f"{c} = ?" for c in cls._Meta.pk)
         with cursor(database=cls._resolve_database()) as cur:
@@ -491,6 +471,7 @@ class Table:
         from app.db import cursor
 
         cls = type(self)
+
         hints: dict[str, Any] = get_type_hints(cls, include_extras=True)
         insert_cols: list[str] = []
         insert_vals: list[Any] = []
@@ -526,6 +507,7 @@ class Table:
         from app.db import cursor
 
         cls = type(self)
+
         set_cols = [c for c in cls._column_names() if c not in cls._Meta.pk]
         if not set_cols:
             return self
@@ -549,6 +531,7 @@ class Table:
         from app.db import cursor
 
         cls = type(self)
+
         where = " AND ".join(f"{c} = ?" for c in cls._Meta.pk)
         pk_vals = [getattr(self, c) for c in cls._Meta.pk]
         with cursor(database=cls._resolve_database()) as cur:
@@ -573,7 +556,7 @@ class Table:
         from app.db import cursor
 
         s = cls._resolve_schema(schema)
-        cls._ensure_once(s)
+
         with cursor(database=cls._resolve_database()) as cur:
             cur.execute(f"DELETE FROM {s}.{cls._Meta.name}")
 
@@ -672,7 +655,7 @@ class SingletonTable(Table):
         from app.db import cursor
 
         s = cls._resolve_schema(schema)
-        cls._ensure_once(s)
+
         cols = [f.name for f in dataclasses.fields(cls)]
         col_list = ", ".join(cols)
         with cursor(database=cls._resolve_database()) as cur:
@@ -695,7 +678,6 @@ class SingletonTable(Table):
         from app.db import cursor
 
         s = cls._resolve_schema(schema)
-        cls._ensure_once(s)
 
         existing = cls.read_row(schema=s)
         if existing:
