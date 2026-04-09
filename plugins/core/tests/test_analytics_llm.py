@@ -1,4 +1,4 @@
-"""Tests for the LLM integration module (PR 2.3)."""
+"""Tests for the LLM integration module."""
 
 from __future__ import annotations
 

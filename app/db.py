@@ -129,6 +129,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     from app.hypotheses import Hypothesis
     from app.local_sessions import LocalSession
     from app.local_users import LocalUser
+    from app.recipe_cache import RecipeCache
     from app.system_settings import SystemSettings
     from app.transforms import Transform
     from app.workspace import Workspace
@@ -146,6 +147,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
         Hotkey,
         Hypothesis,
         PromotedMetric,
+        RecipeCache,
         SystemSettings,
         LocalUser,
         LocalSession,

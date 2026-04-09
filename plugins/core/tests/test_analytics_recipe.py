@@ -1,4 +1,4 @@
-"""Tests for the Recipe DAG + topological compiler (PR 1.3).
+"""Tests for the Recipe DAG + topological compiler.
 
 End-to-end against a real in-memory DuckDB via Ibis. Covers:
 
