@@ -21,7 +21,7 @@ shape is load-bearing from day one.
 
 Recipes are JSON-serializable: ``SourceRef`` / ``OpCall`` are frozen
 dataclasses with primitive fields, and the operation lookup happens by
-``op_name`` against the curated ``OPERATIONS`` registry. This is what
+``op_name`` against the dynamic operation registry. This is what
 makes recipes durable as part of the ``HypothesisRecord`` artifact.
 """
 
@@ -81,7 +81,7 @@ class OpCall(BaseModel, frozen=True):
     Attributes
     ----------
     op_name
-        One of the curated operation names registered in ``OPERATIONS``
+        One of the operation names in the dynamic registry
         (e.g. ``"lag"``, ``"join_as_of"``).
     params
         Scalar parameters for the operation's constructor (e.g.
@@ -136,7 +136,7 @@ class Recipe(BaseModel, frozen=True):
         Checks:
             - ``final`` exists in ``nodes``
             - every ``SourceRef.table`` exists in the catalog
-            - every ``OpCall.op_name`` is in the curated ``OPERATIONS`` registry
+            - every ``OpCall.op_name`` is in the operation registry
             - every ``OpCall.inputs`` reference an existing node
             - the DAG has no cycles
             - each ``OpCall``'s arity matches its number of inputs

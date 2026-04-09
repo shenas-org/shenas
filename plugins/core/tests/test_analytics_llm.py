@@ -7,13 +7,13 @@ import json
 import pytest
 
 from shenas_plugins.core.analytics import (
-    OPERATIONS,
     FakeProvider,
     ask_for_recipe,
     build_system_prompt,
     build_user_prompt,
+    get_mode,
+    get_operations,
     operation_param_schema,
-    submit_recipe_tool,
 )
 
 
@@ -36,8 +36,9 @@ def test_operation_param_schema_lag():
     assert "column" in schema["required"]
 
 
-def test_submit_recipe_tool_shape():
-    tool = submit_recipe_tool()
+def test_submit_tool_shape():
+    mode = get_mode("hypothesis")
+    tool = mode.submit_tool()
     assert tool["name"] == "submit_recipe"
     assert "input_schema" in tool
     schema = tool["input_schema"]
@@ -46,9 +47,10 @@ def test_submit_recipe_tool_shape():
 
 
 def test_system_prompt_lists_every_operation():
-    prompt = build_system_prompt()
-    for op in OPERATIONS:
-        assert op.name in prompt
+    mode = get_mode("hypothesis")
+    prompt = build_system_prompt(mode)
+    for op_cls in get_operations().values():
+        assert op_cls.name in prompt
 
 
 def test_user_prompt_includes_question_and_catalog():
@@ -77,8 +79,9 @@ def test_ask_for_recipe_round_trip_via_fake_provider():
         },
         "final": "r",
     }
+    mode = get_mode("hypothesis")
     provider = FakeProvider(canned)
-    result = ask_for_recipe(provider, "does coffee affect mood?", {})
+    result = ask_for_recipe(provider, "does coffee affect mood?", {}, mode=mode)
     assert result == canned
     assert len(provider.calls) == 1
     system, user = provider.calls[0]
@@ -125,8 +128,9 @@ def test_iteration_loop_retries_once_on_validation_error():
         if not p.get("nodes"):
             raise ValueError("recipe has no nodes")
 
+    mode = get_mode("hypothesis")
     provider = _SeqProvider()
-    payload, errors = ask_for_recipe_with_retry(provider, "q", {}, validate=_validate, max_attempts=2)
+    payload, errors = ask_for_recipe_with_retry(provider, "q", {}, mode=mode, validate=_validate, max_attempts=2)
     assert payload["plan"] == "second"
     assert len(errors) == 1
     # Second user prompt includes the error from attempt 1
@@ -145,63 +149,20 @@ def test_iteration_loop_gives_up_after_max_attempts():
     def _validate(_):
         raise ValueError("always invalid")
 
-    payload, errors = ask_for_recipe_with_retry(_AlwaysBad(), "q", {}, validate=_validate, max_attempts=2)
+    mode = get_mode("hypothesis")
+    payload, errors = ask_for_recipe_with_retry(_AlwaysBad(), "q", {}, mode=mode, validate=_validate, max_attempts=2)
     assert len(errors) == 2
     assert payload["plan"] == "x"
 
 
 def test_operation_vocabulary_is_valid_json_in_prompt():
     """Each operation's params schema embedded in the prompt is valid JSON."""
-    prompt = build_system_prompt()
+    mode = get_mode("hypothesis")
+    prompt = build_system_prompt(mode)
     # Each operation block has a `params: {...}` line.
     for line in prompt.splitlines():
         if line.startswith("params: "):
             json.loads(line.removeprefix("params: "))  # raises if malformed
-
-
-def test_ask_for_recipe_with_mode():
-    """ask_for_recipe accepts an explicit mode and uses its prompt/tool."""
-    from shenas_plugins.core.analytics import FakeProvider, ask_for_recipe, get_mode
-
-    mode = get_mode("hypothesis")
-    canned = {
-        "plan": "test plan",
-        "nodes": {"a": {"type": "source", "table": "metrics.x"}},
-        "final": "a",
-    }
-    provider = FakeProvider(canned)
-    result = ask_for_recipe(provider, "test question", {}, mode=mode)
-    assert result == canned
-    # The system prompt used should be the mode's prompt
-    system, _ = provider.calls[0]
-    assert "lag" in system
-    assert "correlate" in system
-
-
-def test_ask_for_recipe_with_retry_passes_mode():
-    """ask_for_recipe_with_retry forwards the mode to the provider."""
-    from shenas_plugins.core.analytics import FakeProvider, ask_for_recipe_with_retry, get_mode
-
-    mode = get_mode("hypothesis")
-    canned = {
-        "plan": "p",
-        "nodes": {"a": {"type": "source", "table": "x"}},
-        "final": "a",
-    }
-    provider = FakeProvider(canned)
-    payload, errors = ask_for_recipe_with_retry(provider, "q", {}, mode=mode)
-    assert payload == canned
-    assert errors == []
-
-
-def test_build_system_prompt_with_mode():
-    """build_system_prompt delegates to the mode when provided."""
-    from shenas_plugins.core.analytics import build_system_prompt, get_mode
-
-    mode = get_mode("hypothesis")
-    prompt = build_system_prompt(mode=mode)
-    for op in mode.operations:
-        assert op.name in prompt
 
 
 def test_dynamic_operation_registry():

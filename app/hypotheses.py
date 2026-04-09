@@ -118,7 +118,7 @@ class Hypothesis(Table):
         ]
         | None
     ) = None
-    # PR 4.5 -- cost / latency tracking
+    # Cost / latency tracking
     llm_input_tokens: Annotated[int, Field(db_type="INTEGER", description="LLM input tokens consumed")] | None = None
     llm_output_tokens: Annotated[int, Field(db_type="INTEGER", description="LLM output tokens generated")] | None = None
     llm_elapsed_ms: Annotated[float, Field(db_type="DOUBLE", description="Total wall-clock LLM time in ms")] | None = None
@@ -213,8 +213,8 @@ class Hypothesis(Table):
     def mark_promoted(self, qualified_metric_name: str) -> Hypothesis:
         """Record that this hypothesis was promoted to a canonical metric table.
 
-        The actual class generation + materialization happens elsewhere
-        (Phase 3, PR 3.1). This is just the breadcrumb on the row.
+        The actual class generation + materialization happens elsewhere.
+        This is just the breadcrumb on the row.
         """
         self.promoted_to = qualified_metric_name
         return self.save()

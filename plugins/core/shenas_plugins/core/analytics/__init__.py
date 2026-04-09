@@ -32,7 +32,6 @@ from shenas_plugins.core.analytics.llm import (
     build_system_prompt,
     build_user_prompt,
     operation_param_schema,
-    submit_recipe_tool,
 )
 from shenas_plugins.core.analytics.mode import (
     AnalysisMode,
@@ -42,7 +41,6 @@ from shenas_plugins.core.analytics.mode import (
 )
 from shenas_plugins.core.analytics.node import RecipeNode
 from shenas_plugins.core.analytics.operations import (
-    OPERATIONS,
     Correlate,
     JoinAsOf,
     Lag,
@@ -63,7 +61,6 @@ from shenas_plugins.core.analytics.runner import (
 )
 
 __all__ = [
-    "OPERATIONS",
     "AnalysisMode",
     "AnthropicProvider",
     "Correlate",
@@ -95,5 +92,4 @@ __all__ = [
     "register_mode",
     "register_operation",
     "run_recipe",
-    "submit_recipe_tool",
 ]

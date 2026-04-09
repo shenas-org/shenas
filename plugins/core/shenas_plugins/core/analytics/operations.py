@@ -325,13 +325,13 @@ class JoinAsOf(Operation):
             msg = f"join_as_of: `{self.on}` not in right side ({right.table_ref})"
             raise OperationError(msg)
 
-        # PR 4.6: detect the case where the right side is an SCD2 dimension
+        # Detect the case where the right side is an SCD2 dimension
         # with a pre-built `<schema>.<table>_as_of(ts)` macro -- the kind
         # check below answers "could we substitute the macro for Ibis's
         # asof_join derivation?". The actual substitution is deferred:
         # implementing it requires either raw-SQL escape from Ibis or a
         # per-row scalar subquery, neither of which is worth the perf win
-        # the plan describes as "tiny" until real usage shows it matters.
+        # until real usage shows it matters.
         # Leaving the seam here so the next iteration can hook in.
         _ = self._can_substitute_as_of_macro(right)
 
@@ -350,8 +350,8 @@ class JoinAsOf(Operation):
     def _can_substitute_as_of_macro(right: RecipeNode) -> bool:
         """Return True iff the right side has a pre-built AS-OF macro available.
 
-        Used by PR 4.6 to identify substitution candidates. The actual
-        substitution lives behind this seam and is deferred per the plan.
+        Identifies substitution candidates. The actual substitution lives
+        behind this seam and is deferred.
         """
         return right.kind in _SCD2_KINDS
 
@@ -437,8 +437,3 @@ def get_operations() -> dict[str, type[Operation]]:
 # Register the five built-in operations.
 for _op in (Lag, Rolling, Resample, JoinAsOf, Correlate):
     register_operation(_op)
-
-
-# Backward-compat: OPERATIONS as a module-level tuple. Code that imports
-# this should prefer get_operations() for a live view.
-OPERATIONS: tuple[type[Operation], ...] = (Lag, Rolling, Resample, JoinAsOf, Correlate)

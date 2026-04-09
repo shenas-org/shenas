@@ -1,10 +1,10 @@
-"""LLM integration for analysis modes (PR 2.3, extended for multi-mode).
+"""LLM integration for analysis modes.
 
 This module is the bridge between the curated analytics vocabulary
-(``OPERATIONS``, the catalog, the Recipe DAG) and an LLM. The LLM never
-sees raw SQL, raw Ibis, or any operation that isn't in the vocabulary.
-Its only job is to translate a natural-language question into a Recipe
-JSON payload that the existing runner can execute.
+(the operation registry, the catalog, the Recipe DAG) and an LLM.
+The LLM never sees raw SQL, raw Ibis, or any operation that isn't in
+the vocabulary. Its only job is to translate a natural-language question
+into a Recipe JSON payload that the existing runner can execute.
 
 Architecture
 ------------
@@ -18,8 +18,7 @@ Architecture
    the LLM must respond by calling that tool with a recipe payload.
 
 3. :func:`build_system_prompt` -- delegates to the active
-   :class:`AnalysisMode` for mode-specific framing. Falls back to a
-   default prompt when no mode is supplied (backwards compatibility).
+   :class:`AnalysisMode` for mode-specific framing.
 
 4. :func:`build_user_prompt` -- assembles the per-question payload:
    the user's question + the current catalog dump. Shared across all
@@ -64,7 +63,7 @@ class LLMProvider(Protocol):
         model passed as the tool's input -- caller is responsible for
         validating it against ``Recipe``. Implementations should also
         update ``last_input_tokens`` / ``last_output_tokens`` so the
-        caller can record cost (PR 4.5).
+        caller can record cost.
         """
         ...
 
@@ -191,37 +190,13 @@ def operation_param_schema(op_cls: type[Operation]) -> dict[str, Any]:
     return schema
 
 
-def submit_recipe_tool() -> dict[str, Any]:
-    """Build the default Anthropic tool-use definition for ``submit_recipe``.
-
-    Prefer :meth:`AnalysisMode.submit_tool` for mode-aware callers.
-    Kept for backwards compatibility with code that doesn't use modes.
-    """
-    return _default_mode().submit_tool()
-
-
 # ----------------------------------------------------------------------
 # Prompt assembly
 # ----------------------------------------------------------------------
 
 
-def _operation_vocabulary() -> str:
-    """Render the curated operation library as a system-prompt section.
-
-    Kept for backwards compatibility. Prefer
-    :meth:`AnalysisMode._operation_vocabulary`.
-    """
-    return _default_mode()._operation_vocabulary()
-
-
-def build_system_prompt(mode: AnalysisMode | None = None) -> str:
-    """Build the system prompt, delegating to the active mode.
-
-    When ``mode`` is ``None``, falls back to the default hypothesis mode
-    for backwards compatibility with existing callers.
-    """
-    if mode is None:
-        mode = _default_mode()
+def build_system_prompt(mode: AnalysisMode) -> str:
+    """Build the system prompt, delegating to the active mode."""
     return mode.build_system_prompt()
 
 
@@ -244,15 +219,13 @@ def ask_for_recipe(
     question: str,
     catalog: dict[str, dict[str, Any]],
     *,
-    mode: AnalysisMode | None = None,
+    mode: AnalysisMode,
 ) -> dict[str, Any]:
     """Ask the LLM for a recipe payload. Returns the raw tool-input dict.
 
     Caller is responsible for converting the payload into a ``Recipe``
     instance and validating it.
     """
-    if mode is None:
-        mode = _default_mode()
     system = mode.build_system_prompt()
     user = build_user_prompt(question, catalog)
     return provider.ask(system=system, user=user, tools=[mode.submit_tool()])
@@ -263,11 +236,11 @@ def ask_for_recipe_with_retry(
     question: str,
     catalog: dict[str, dict[str, Any]],
     *,
-    mode: AnalysisMode | None = None,
+    mode: AnalysisMode,
     validate: Any = None,
     max_attempts: int = 2,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Iteration loop (PR 4.4): retry once if the recipe doesn't validate.
+    """Retry once if the recipe doesn't validate.
 
     Calls ``validate(payload)`` after each attempt; if it raises, the
     exception message is appended to the user prompt and the LLM is
@@ -280,8 +253,6 @@ def ask_for_recipe_with_retry(
     Recipe imports; pass ``Recipe.from_payload_and_validate`` (or
     similar) from the call site.
     """
-    if mode is None:
-        mode = _default_mode()
     system = mode.build_system_prompt()
     user = build_user_prompt(question, catalog)
     tools = [mode.submit_tool()]
@@ -304,19 +275,3 @@ def ask_for_recipe_with_retry(
                 f"Error: {exc}\n\nFix the recipe and call submit_recipe again."
             )
     return payload, errors
-
-
-# ----------------------------------------------------------------------
-# Default mode helper
-# ----------------------------------------------------------------------
-
-
-def _default_mode() -> AnalysisMode:
-    """Return the hypothesis mode as the default.
-
-    Requires the ``shenas-analysis-hypothesis`` plugin to be installed
-    (or another plugin that registers a ``"hypothesis"`` mode).
-    """
-    from shenas_plugins.core.analytics.mode import get_mode
-
-    return get_mode("hypothesis")
