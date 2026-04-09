@@ -1,0 +1,25 @@
+[project]
+name = "shenas-transformation-llm-categorize"
+dynamic = ["version"]
+description = "LLM categorization transformation plugin for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-transformation-core",
+    "anthropic>=0.50.0",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.transformations"]
+llm-categorize = "shenas_transformations.llm_categorize:LlmCategorizeTransformation"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "transformation-llm-categorize/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "transformation-llm-categorize/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_transformations"]

@@ -285,20 +285,21 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     can run both bootstraps against the same connection so the legacy
     fixture pattern keeps working.
     """
-    from app.geofences import Geofence, ensure_haversine_macro
+    from shenas_transformations.core.instance import TransformInstance
+
+    from app.geofences import Geofence
     from app.hotkeys import Hotkey
     from app.hypotheses import Hypothesis
     from app.local_sessions import LocalSession
     from app.local_users import LocalUser
     from app.recipe_cache import RecipeCache
     from app.system_settings import SystemSettings
-    from app.transforms import TransformInstance
     from app.workspace import Workspace
     from shenas_datasets.promoted import PromotedMetric
     from shenas_plugins.core.plugin import PluginInstance
     from shenas_plugins.core.table import Table
 
-    con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
+    con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_instance_seq START 1")
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.local_user_seq START 1")
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.geofence_seq START 1")
@@ -317,7 +318,6 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     ]
     Table.ensure_schema(con, tables, schema="shenas_system")
     Hotkey.seed(con)
-    ensure_haversine_macro(con)
     from shenas_datasets.core.dataset import Dataset
 
     Dataset.ensure_all(con)

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -11,8 +13,8 @@ console = Console()
 app = typer.Typer(help="Transform commands.", invoke_without_command=True)
 
 _TRANSFORM_FIELDS = (
-    "id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable "
-    "sourcePlugin description sql isDefault enabled addedAt updatedAt"
+    "id transformType sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable "
+    "sourcePlugin description params isDefault enabled addedAt updatedAt"
 )
 
 
@@ -58,6 +60,7 @@ def list_cmd(
 
     table = Table(show_lines=False)
     table.add_column("ID", justify="right")
+    table.add_column("Type")
     table.add_column("Source")
     table.add_column("Target")
     table.add_column("Description")
@@ -70,6 +73,7 @@ def list_cmd(
         default = " [dim](default)[/dim]" if t.get("isDefault") else ""
         table.add_row(
             str(t["id"]),
+            t.get("transformType", "sql"),
             source_label,
             target_label,
             (t.get("description") or "") + default,
@@ -82,7 +86,7 @@ def list_cmd(
 def show_cmd(
     transform_id: int = typer.Argument(help="Transform ID"),
 ) -> None:
-    """Show a transform's details and SQL."""
+    """Show a transform's details and params."""
     try:
         query = f"query($id: Int!) {{ transform(transformId: $id) {{ {_TRANSFORM_FIELDS} }} }}"
         data = ShenasClient()._graphql(query, {"id": transform_id})
@@ -102,6 +106,7 @@ def show_cmd(
     table = Table(show_header=False, show_lines=False, box=None, padding=(0, 2))
     table.add_column(style="dim")
     table.add_column()
+    table.add_row("Type", t.get("transformType", "sql"))
     table.add_row("Source", f"{t['sourceDuckdbSchema']}.{t['sourceDuckdbTable']}")
     table.add_row("Target", f"{t['targetDuckdbSchema']}.{t['targetDuckdbTable']}")
     table.add_row("Plugin", t["sourcePlugin"])
@@ -112,7 +117,13 @@ def show_cmd(
     if t.get("updatedAt"):
         table.add_row("Updated", t["updatedAt"][:19])
     console.print(table)
-    console.print(f"\n[bold]SQL:[/bold]\n{t['sql']}\n")
+
+    params = t.get("params", "{}")
+    try:
+        parsed = json.loads(params)
+        console.print(f"\n[bold]Params:[/bold]\n{json.dumps(parsed, indent=2)}\n")
+    except (json.JSONDecodeError, TypeError):
+        console.print(f"\n[bold]Params:[/bold]\n{params}\n")
 
 
 @app.command("test")
@@ -179,7 +190,7 @@ def disable_cmd(
 def edit_cmd(
     transform_id: int = typer.Argument(help="Transform ID"),
 ) -> None:
-    """Edit a transform's SQL in $EDITOR."""
+    """Edit a transform's params in $EDITOR."""
     import os
     import shlex
     import subprocess
@@ -202,27 +213,33 @@ def edit_cmd(
         console.print("[red]Default transforms cannot be edited[/red]")
         raise typer.Exit(code=1)
 
+    import contextlib
+
     editor = os.environ.get("EDITOR", "vi")
-    with tempfile.NamedTemporaryFile(suffix=".sql", mode="w", delete=False) as f:
-        f.write(t["sql"])
+    params_str = t.get("params", "{}")
+    with contextlib.suppress(json.JSONDecodeError, TypeError):
+        params_str = json.dumps(json.loads(params_str), indent=2)
+
+    with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
+        f.write(params_str)
         f.flush()
         tmp_path = f.name
 
     subprocess.run([*shlex.split(editor), tmp_path], check=False)
 
     with open(tmp_path) as f:
-        new_sql = f.read().strip()
+        new_params = f.read().strip()
 
     Path(tmp_path).unlink()
 
-    if new_sql == t["sql"]:
+    if new_params == params_str:
         console.print("[dim]No changes[/dim]")
         return
 
     try:
         ShenasClient()._graphql(
-            "mutation($id: Int!, $sql: String!) { updateTransform(transformId: $id, sql: $sql) { id } }",
-            {"id": transform_id, "sql": new_sql},
+            "mutation($id: Int!, $params: String!) { updateTransform(transformId: $id, params: $params) { id } }",
+            {"id": transform_id, "params": new_params},
         )
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")

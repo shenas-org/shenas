@@ -19,19 +19,20 @@ from app.graphql.types import (
 )
 
 if TYPE_CHECKING:
-    from app.transforms import TransformInstance
+    from shenas_transformations.core.instance import TransformInstance
 
 
 def _transform_to_gql(t: TransformInstance) -> TransformType:
     return TransformType(
         id=t.id,
+        transform_type=t.transform_type,
         source_duckdb_schema=t.source_duckdb_schema,
         source_duckdb_table=t.source_duckdb_table,
         target_duckdb_schema=t.target_duckdb_schema,
         target_duckdb_table=t.target_duckdb_table,
         source_plugin=t.source_plugin,
+        params=t.params or "{}",
         description=t.description or "",
-        sql=t.sql,
         is_default=bool(t.is_default),
         enabled=bool(t.enabled),
         added_at=t.added_at,
@@ -247,14 +248,14 @@ class Query:
 
     @strawberry.field
     def transforms(self, source: str | None = None) -> list[TransformType]:
-        from app.transforms import TransformInstance
+        from shenas_transformations.core.instance import TransformInstance
 
         rows = TransformInstance.for_plugin(source) if source else TransformInstance.all(order_by="id")
         return [_transform_to_gql(t) for t in rows]
 
     @strawberry.field
     def transform(self, transform_id: int) -> TransformType | None:
-        from app.transforms import TransformInstance
+        from shenas_transformations.core.instance import TransformInstance
 
         t = TransformInstance.find(transform_id)
         return _transform_to_gql(t) if t else None

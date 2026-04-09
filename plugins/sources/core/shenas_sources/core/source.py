@@ -363,18 +363,21 @@ class Source(Plugin):
             pass  # mesh not initialized yet
 
     def _auto_transform(self) -> None:
-        """Run transforms if this pipe has a transforms.json."""
-        from shenas_sources.core.db import connect
-        from shenas_sources.core.transform import load_transform_defaults
+        """Seed and run transforms via the Transformation plugin system."""
+        from shenas_transformations.core import Transformation
+        from shenas_transformations.core.instance import TransformInstance
 
-        defaults = load_transform_defaults(self.name)
-        if not defaults:
-            return
-        from app.transforms import Transform
+        from app.api.sources import _load_plugins
+        from shenas_sources.core.db import connect
 
         con = connect()
-        Transform.seed_defaults(self.name, defaults)
-        count = Transform.run_for_source(con, self.name)
+
+        for cls in _load_plugins("transformation", base=Transformation, include_internal=True):
+            plugin = cls()
+            if plugin.enabled:
+                plugin.seed_defaults_for_source(self.name)
+
+        count = TransformInstance.run_for_source(con, self.name)
         logger.info("Transforms done: %s (%d)", self.name, count)
 
     # -- Auth flow ------------------------------------------------------------

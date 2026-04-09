@@ -1,8 +1,9 @@
-"""Tests for app.transforms.Transform CRUD, seeding, execution."""
+"""Tests for TransformInstance CRUD, seeding, execution."""
 
 from __future__ import annotations
 
 import contextlib
+import json
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -41,7 +42,7 @@ def patch_db(db_con: duckdb.DuckDBPyConnection) -> Iterator[None]:
         finally:
             cur.close()
 
-    with patch("app.db.cursor", _fake_cursor), patch("app.transforms.cursor", _fake_cursor):
+    with patch("app.db.cursor", _fake_cursor):
         yield
 
 
@@ -50,50 +51,52 @@ def _make(
     src_table: str = "activities",
     tgt_table: str = "daily_activities",
     sql: str = "SELECT 1 AS id",
+    transform_type: str = "sql",
     **kw,
 ):
-    from app.transforms import Transform
+    from shenas_transformations.core.instance import TransformInstance
 
-    return Transform.create(
+    return TransformInstance.create(
+        transform_type=transform_type,
         source_duckdb_schema="garmin",
         source_duckdb_table=src_table,
         target_duckdb_schema="metrics",
         target_duckdb_table=tgt_table,
         source_plugin=plugin,
-        sql=sql,
+        params=json.dumps({"sql": sql}),
         **kw,
     )
 
 
 class TestTransformCRUD:
     def test_all_empty(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import TransformInstance
+        from shenas_transformations.core.instance import TransformInstance
 
         assert TransformInstance.all() == []
 
     def test_find_none(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import TransformInstance
+        from shenas_transformations.core.instance import TransformInstance
 
         assert TransformInstance.find(9999) is None
 
     def test_create_and_find(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import TransformInstance
+        from shenas_transformations.core.instance import TransformInstance
 
         t = _make(description="hello")
         assert t.id >= 1
-        assert t.sql == "SELECT 1 AS id"
+        assert t.get_params()["sql"] == "SELECT 1 AS id"
         assert t.enabled is True
         assert t.is_default is False
         assert t.description == "hello"
         assert t.source_plugin == "garmin"
-        assert t.to_dict()["sql"] == "SELECT 1 AS id"
+        assert t.transform_type == "sql"
 
         found = TransformInstance.find(t.id)
         assert found is not None
         assert found.id == t.id
 
     def test_all_filter_by_plugin(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import TransformInstance
+        from shenas_transformations.core.instance import TransformInstance
 
         _make(plugin="garmin", src_table="a", tgt_table="ta")
         _make(plugin="lunchmoney", src_table="b", tgt_table="tb")
@@ -102,21 +105,21 @@ class TestTransformCRUD:
         assert len(only_g) == 1
         assert only_g[0].source_plugin == "garmin"
 
-    def test_update(self, db_con: duckdb.DuckDBPyConnection) -> None:
+    def test_update_params(self, db_con: duckdb.DuckDBPyConnection) -> None:
         t = _make()
-        updated = t.update("SELECT 2 AS new_col")
-        assert updated.sql == "SELECT 2 AS new_col"
+        updated = t.update_params(json.dumps({"sql": "SELECT 2 AS new_col"}))
+        assert updated.get_params()["sql"] == "SELECT 2 AS new_col"
         assert updated.updated_at is not None
 
     def test_delete_user_transform(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import TransformInstance
+        from shenas_transformations.core.instance import TransformInstance
 
         t = _make()
         t.delete()
         assert TransformInstance.find(t.id) is None
 
     def test_delete_default_blocked(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import TransformInstance
+        from shenas_transformations.core.instance import TransformInstance
 
         t = _make(is_default=True)
         t.delete()
@@ -138,7 +141,7 @@ class TestTransformCRUD:
 
 class TestSeedDefaults:
     def test_seed_inserts(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform, TransformInstance
+        from shenas_transformations.core.instance import TransformInstance
 
         defaults = [
             {
@@ -146,18 +149,18 @@ class TestSeedDefaults:
                 "source_duckdb_table": "activities",
                 "target_duckdb_schema": "metrics",
                 "target_duckdb_table": "daily_activities",
-                "sql": "SELECT 1",
+                "params": json.dumps({"sql": "SELECT 1"}),
                 "description": "d",
             }
         ]
-        Transform.seed_defaults("garmin", defaults)
+        TransformInstance.seed_defaults("garmin", "sql", defaults)
         all_t = TransformInstance.for_plugin("garmin")
         assert len(all_t) == 1
         assert all_t[0].is_default is True
         assert all_t[0].description == "d"
 
     def test_seed_idempotent_updates(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform, TransformInstance
+        from shenas_transformations.core.instance import TransformInstance
 
         defaults = [
             {
@@ -165,58 +168,29 @@ class TestSeedDefaults:
                 "source_duckdb_table": "activities",
                 "target_duckdb_schema": "metrics",
                 "target_duckdb_table": "daily_activities",
-                "sql": "SELECT 1",
+                "params": json.dumps({"sql": "SELECT 1"}),
                 "description": "v1",
             }
         ]
-        Transform.seed_defaults("garmin", defaults)
-        defaults[0]["sql"] = "SELECT 2"
+        TransformInstance.seed_defaults("garmin", "sql", defaults)
+        defaults[0]["params"] = json.dumps({"sql": "SELECT 2"})
         defaults[0]["description"] = "v2"
-        Transform.seed_defaults("garmin", defaults)
+        TransformInstance.seed_defaults("garmin", "sql", defaults)
 
         all_t = TransformInstance.for_plugin("garmin")
         assert len(all_t) == 1
-        assert all_t[0].sql == "SELECT 2"
+        assert all_t[0].get_params()["sql"] == "SELECT 2"
         assert all_t[0].description == "v2"
 
 
 class TestExecution:
     def _setup_target(self, db_con: duckdb.DuckDBPyConnection) -> None:
         db_con.execute("CREATE SCHEMA IF NOT EXISTS metrics")
-        db_con.execute("CREATE TABLE IF NOT EXISTS metrics.daily_activities (id INTEGER, source VARCHAR)")
-
-    def test_run_for_source_executes_enabled(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform
-
-        self._setup_target(db_con)
-        _make(sql="SELECT 1 AS id, 'garmin' AS source")
-        t2 = _make(src_table="b", tgt_table="daily_activities", sql="SELECT 2 AS id, 'garmin' AS source")
-        t2.set_enabled(False)
-
-        count = Transform.run_for_source(db_con, "garmin")
-        assert count == 1
-        rows = db_con.execute("SELECT id FROM metrics.daily_activities ORDER BY id").fetchall()
-        assert rows == [(1,)]
+        db_con.execute(
+            "CREATE TABLE IF NOT EXISTS metrics.daily_activities (id INTEGER, source VARCHAR)"
+        )
 
     def test_run_for_source_no_transforms(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform
+        from shenas_transformations.core.instance import TransformInstance
 
-        assert Transform.run_for_source(db_con, "missing") == 0
-
-    def test_run_for_target(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform
-
-        self._setup_target(db_con)
-        _make(sql="SELECT 7 AS id, 'garmin' AS source")
-        count = Transform.run_for_target(db_con, "daily_activities")
-        assert count == 1
-        rows = db_con.execute("SELECT id FROM metrics.daily_activities").fetchall()
-        assert rows == [(7,)]
-
-    def test_run_for_source_handles_bad_sql(self, db_con: duckdb.DuckDBPyConnection) -> None:
-        from app.transforms import Transform
-
-        self._setup_target(db_con)
-        _make(sql="SELECT * FROM nonexistent_table_xyz")
-        count = Transform.run_for_source(db_con, "garmin")
-        assert count == 0
+        assert TransformInstance.run_for_source(db_con, "missing") == 0

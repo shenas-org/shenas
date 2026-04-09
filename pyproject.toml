@@ -24,6 +24,7 @@ members = [
     "plugins/datasets/*",
     "plugins/dashboards/*",
     "plugins/models/*",
+    "plugins/transformations/*",
     "plugins/frontends/*",
     "plugins/themes/*",
 ]
@@ -67,6 +68,11 @@ shenas-dashboard-data-table = { workspace = true }
 shenas-dashboard-event-gantt = { workspace = true }
 shenas-model-core = { workspace = true }
 shenas-model-sleep-forecast = { workspace = true }
+shenas-transformation-core = { workspace = true }
+shenas-transformation-sql = { workspace = true }
+shenas-transformation-geofence = { workspace = true }
+shenas-transformation-geocode = { workspace = true }
+shenas-transformation-llm-categorize = { workspace = true }
 shenas-frontend-core = { workspace = true }
 shenas-frontend-default = { workspace = true }
 shenas-frontend-focus = { workspace = true }
@@ -110,6 +116,10 @@ dev = [
     "shenas-theme-default",
     "shenas-theme-dark",
     "shenas-model-core",
+    "shenas-transformation-sql",
+    "shenas-transformation-geofence",
+    "shenas-transformation-geocode",
+    "shenas-transformation-llm-categorize",
     "commitizen>=4.13.9",
     "httpx>=0.28.1",
     "pytest>=9.0.2",

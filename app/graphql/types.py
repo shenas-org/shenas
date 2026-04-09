@@ -137,13 +137,14 @@ class GeofenceUpdateInput:
 @strawberry.type
 class TransformType:
     id: int
+    transform_type: str
     source_duckdb_schema: str
     source_duckdb_table: str
     target_duckdb_schema: str
     target_duckdb_table: str
     source_plugin: str
+    params: str
     description: str
-    sql: str
     is_default: bool
     enabled: bool
     added_at: str | None
@@ -156,12 +157,13 @@ class TransformType:
 
 @strawberry.input
 class TransformCreateInput:
+    transform_type: str
     source_duckdb_schema: str
     source_duckdb_table: str
     target_duckdb_schema: str
     target_duckdb_table: str
     source_plugin: str
-    sql: str
+    params: str = "{}"
     description: str = ""
 
 

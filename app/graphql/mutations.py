@@ -21,6 +21,13 @@ from app.graphql.types import (
 )
 
 
+def _source_entry_point_names() -> list[str]:
+    """Return names of all installed source plugins."""
+    from importlib.metadata import entry_points
+
+    return [ep.name for ep in entry_points(group="shenas.sources")]
+
+
 def _build_catalog() -> dict[str, dict]:
     """Return ``{qualified_table: table_metadata}`` for the recipe runner.
 
@@ -190,33 +197,35 @@ class Mutation:
 
     @strawberry.mutation
     def create_transform(self, transform_input: TransformCreateInput) -> TransformType:
-        from app.transforms import Transform
+        from shenas_transformations.core.instance import TransformInstance
 
-        t = Transform.create(
+        t = TransformInstance.create(
+            transform_type=transform_input.transform_type,
             source_duckdb_schema=transform_input.source_duckdb_schema,
             source_duckdb_table=transform_input.source_duckdb_table,
             target_duckdb_schema=transform_input.target_duckdb_schema,
             target_duckdb_table=transform_input.target_duckdb_table,
             source_plugin=transform_input.source_plugin,
-            sql=transform_input.sql,
+            params=transform_input.params,
             description=transform_input.description,
         )
         return _transform_to_gql(t)
 
     @strawberry.mutation
-    def update_transform(self, transform_id: int, sql: str) -> TransformType | None:
-        from app.transforms import TransformInstance
+    def update_transform(self, transform_id: int, params: str) -> TransformType | None:
+        from shenas_transformations.core.instance import TransformInstance
 
         existing = TransformInstance.find(transform_id)
         if not existing:
             return None
-        t = existing.update(sql)
+        t = existing.update_params(params)
         return _transform_to_gql(t) if t else None
 
     @strawberry.mutation
     def delete_transform(self, transform_id: int) -> OkType:
+        from shenas_transformations.core.instance import TransformInstance
+
         from app.models import OkResponse
-        from app.transforms import TransformInstance
 
         t = TransformInstance.find(transform_id)
         if t:
@@ -225,7 +234,7 @@ class Mutation:
 
     @strawberry.mutation
     def enable_transform(self, transform_id: int) -> TransformType | None:
-        from app.transforms import TransformInstance
+        from shenas_transformations.core.instance import TransformInstance
 
         t = TransformInstance.find(transform_id)
         if not t:
@@ -235,7 +244,7 @@ class Mutation:
 
     @strawberry.mutation
     def disable_transform(self, transform_id: int) -> TransformType | None:
-        from app.transforms import TransformInstance
+        from shenas_transformations.core.instance import TransformInstance
 
         t = TransformInstance.find(transform_id)
         if not t:
@@ -245,40 +254,43 @@ class Mutation:
 
     @strawberry.mutation
     def test_transform(self, transform_id: int, limit: int = 10) -> JSON:
-        from app.transforms import TransformInstance
+        from shenas_transformations.core.instance import TransformInstance
 
         t = TransformInstance.find(transform_id)
         return t.test(limit) if t else []
 
     @strawberry.mutation
     def seed_transforms(self) -> JSON:
-        from importlib.metadata import entry_points
+        from shenas_transformations.core import Transformation
 
-        from app.transforms import Transform
-        from shenas_sources.core.transform import load_transform_defaults
+        from app.api.sources import _load_plugins
 
         seeded: list[str] = []
-        for ep in entry_points(group="shenas.sources"):
-            defaults = load_transform_defaults(ep.name)
-            if defaults:
-                Transform.seed_defaults(ep.name, defaults)
-                seeded.append(ep.name)
+        plugins = _load_plugins("transformation", base=Transformation, include_internal=True)
+        for ep_name in _source_entry_point_names():
+            for cls in plugins:
+                plugin = cls()
+                if plugin.enabled:
+                    plugin.seed_defaults_for_source(ep_name)
+            seeded.append(ep_name)
         return {"seeded": seeded, "count": len(seeded)}
 
     @strawberry.mutation
     def run_pipe_transforms(self, pipe: str) -> JSON:
-        from app.db import connect
-        from app.transforms import Transform
+        from shenas_transformations.core.instance import TransformInstance
 
-        count = Transform.run_for_source(connect(), pipe)
+        from app.db import connect
+
+        count = TransformInstance.run_for_source(connect(), pipe)
         return {"source": pipe, "count": count}
 
     @strawberry.mutation
     def run_schema_transforms(self, schema: str) -> JSON:
-        from app.db import connect
-        from app.transforms import Transform
+        from shenas_transformations.core.instance import TransformInstance
 
-        count = Transform.run_for_target(connect(), schema)
+        from app.db import connect
+
+        count = TransformInstance.run_for_target(connect(), schema)
         return {"schema": schema, "count": count}
 
     # -- Hotkeys --

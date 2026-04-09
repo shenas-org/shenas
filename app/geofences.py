@@ -1,22 +1,19 @@
 """Geofence: named circular regions for categorizing location data.
 
 A geofence defines a center (latitude, longitude) and a radius in meters.
-Location records and visits that fall within the circle are tagged with
-the geofence's ``name`` by the gtakeout -> metrics.location_visits
-transform. Users manage geofences via the CLI or GraphQL.
+The geofence transformation plugin matches location records against these
+regions using DuckDB's spatial extension. Users manage geofences via
+the CLI or GraphQL.
 """
 
 from __future__ import annotations
 
 import dataclasses
-import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from shenas_plugins.core.table import Field, Table
-
-log = logging.getLogger(f"shenas.{__name__}")
 
 
 def _now_iso() -> str:
@@ -115,21 +112,3 @@ class Geofence(Table):
             self.category = category
         self.updated_at = _now_iso()
         return self.save()
-
-
-def ensure_haversine_macro(con: Any) -> None:
-    """Create a DuckDB macro that computes haversine distance in meters.
-
-    ``shenas_system.haversine_m(lat1, lon1, lat2, lon2)`` returns the
-    great-circle distance between two points in **meters**.
-    """
-    con.execute("""
-        CREATE OR REPLACE MACRO shenas_system.haversine_m(lat1, lon1, lat2, lon2) AS
-            6371000.0 * 2 * ASIN(
-                SQRT(
-                    POW(SIN(RADIANS(lat2 - lat1) / 2), 2)
-                    + COS(RADIANS(lat1)) * COS(RADIANS(lat2))
-                      * POW(SIN(RADIANS(lon2 - lon1) / 2), 2)
-                )
-            )
-    """)
