@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import strawberry
 from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawberry
@@ -352,3 +352,43 @@ class Query:
         if not cls:
             return None
         return cls().predict()
+
+    # -- Analytics catalog (PR 2.1) --
+    #
+    # Single read-only query that returns the structured metadata for every
+    # source-side raw table and every dataset-side metric table that is
+    # currently installed. The LLM uses this to know what columns exist,
+    # what kind each table is (so it can pick the right operation), and
+    # which AS-OF macros to call for SCD2 lookups. System tables (Hypothesis,
+    # Transform, Hotkey, Workspace, PluginInstance) are intentionally
+    # excluded -- they are not joinable analytical inputs.
+
+    @strawberry.field
+    def catalog(self) -> JSON:
+        """Return ``[table_metadata]`` for every queryable source / metric table.
+
+        Walks installed source plugins (importing each one's
+        ``shenas_sources.<name>.tables`` module to find its ``TABLES``
+        tuple) and installed dataset plugins (using their ``all_tables``
+        ClassVar). Calls :meth:`Table.table_metadata` on each.
+        """
+        import importlib
+
+        from app.api.sources import _load_datasets, _load_plugins
+        from shenas_plugins.core.plugin import Plugin
+
+        catalog: list[dict[str, Any]] = []
+
+        # Source-side raw tables.
+        for src_cls in _load_plugins("source", base=Plugin, include_internal=False):
+            try:
+                tables_mod = importlib.import_module(f"shenas_sources.{src_cls.name}.tables")
+            except ImportError:
+                continue
+            catalog.extend(t.table_metadata() for t in getattr(tables_mod, "TABLES", ()))
+
+        # Dataset-side canonical metric tables.
+        for dataset_cls in _load_datasets():
+            catalog.extend(t.table_metadata() for t in getattr(dataset_cls, "all_tables", ()))
+
+        return catalog
