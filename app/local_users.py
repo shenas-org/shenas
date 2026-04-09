@@ -101,6 +101,10 @@ class LocalUser(Table):
 
         walk(Table)
 
+        from app.hotkeys import Hotkey
+
+        Hotkey.seed(con)
+
     def attach(self, key: str) -> DB:
         """Open and attach this user's encrypted DB. Idempotent."""
         from app.databases import DB
