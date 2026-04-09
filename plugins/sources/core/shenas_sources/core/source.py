@@ -363,8 +363,8 @@ class Source(Plugin):
             pass  # mesh not initialized yet
 
     def _auto_transform(self) -> None:
-        """Seed and run transforms via the Transformation plugin system."""
-        from shenas_transformations.core import Transformation
+        """Seed and run transforms via the Transform plugin system."""
+        from shenas_transformations.core import Transform
         from shenas_transformations.core.instance import TransformInstance
 
         from app.api.sources import _load_plugins
@@ -372,9 +372,10 @@ class Source(Plugin):
 
         con = connect()
 
-        for cls in _load_plugins("transformation", base=Transformation, include_internal=True):
+        for cls in _load_plugins("transformation", base=Transform, include_internal=True):
             plugin = cls()
-            if plugin.enabled:
+            inst = plugin.instance()
+            if not inst or inst.enabled:
                 plugin.seed_defaults_for_source(self.name)
 
         count = TransformInstance.run_for_source(con, self.name)

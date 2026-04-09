@@ -2,7 +2,7 @@
 
 Each row is one configured transform -- a binding between a source table,
 a target table, a transformation type, and type-specific params. The
-``transform_type`` column selects which Transformation plugin executes it.
+``transform_type`` column selects which Transform plugin executes it.
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ class TransformInstance(Table):
             db_default="nextval('shenas_system.transform_instance_seq')",
         ),
     ] = 0
-    transform_type: Annotated[str, Field(db_type="VARCHAR", description="Transformation plugin name")] = "sql"
+    transform_type: Annotated[str, Field(db_type="VARCHAR", description="Transform plugin name")] = "sql"
     source_duckdb_schema: Annotated[str, Field(db_type="VARCHAR", description="Source schema")] = ""
     source_duckdb_table: Annotated[str, Field(db_type="VARCHAR", description="Source table")] = ""
     target_duckdb_schema: Annotated[str, Field(db_type="VARCHAR", description="Target schema")] = ""
@@ -202,7 +202,7 @@ class TransformInstance(Table):
             )
 
     # ------------------------------------------------------------------
-    # Execution (dispatches to Transformation plugins)
+    # Execution (dispatches to Transform plugins)
     # ------------------------------------------------------------------
 
     @staticmethod

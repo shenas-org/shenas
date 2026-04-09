@@ -12,7 +12,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project.entry-points."shenas.transformations"]
-sql = "shenas_transformations.sql:SqlTransformation"
+sql = "shenas_transformations.sql:SqlTransform"
 
 [tool.hatch.version]
 source = "vcs"
