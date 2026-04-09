@@ -114,23 +114,24 @@ class AnthropicProvider:
             raise RuntimeError(msg)
 
         client = anthropic.Anthropic(api_key=api_key)
+        # Force the LLM to call the first tool in the list.
+        tool_name = tools[0]["name"] if tools else "submit_recipe"
         resp = client.messages.create(
             model=self.model,
             max_tokens=self.max_tokens,
             system=system,
             messages=[{"role": "user", "content": user}],
             tools=tools,
-            tool_choice={"type": "tool", "name": "submit_recipe"},
+            tool_choice={"type": "tool", "name": tool_name},
         )
         usage = getattr(resp, "usage", None)
         if usage is not None:
             self.last_input_tokens = int(getattr(usage, "input_tokens", 0))
             self.last_output_tokens = int(getattr(usage, "output_tokens", 0))
-        # Find the tool_use block; the model is forced to call submit_recipe.
         for block in resp.content:
-            if getattr(block, "type", None) == "tool_use" and block.name == "submit_recipe":
+            if getattr(block, "type", None) == "tool_use":
                 return dict(block.input)
-        msg = f"LLM did not call submit_recipe; got {resp.content!r}"
+        msg = f"LLM did not call any tool; got {resp.content!r}"
         raise RuntimeError(msg)
 
 
