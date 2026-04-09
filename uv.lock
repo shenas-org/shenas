@@ -26,6 +26,7 @@ members = [
     "shenas-dashboard-data-table",
     "shenas-dashboard-event-gantt",
     "shenas-dashboard-fitness",
+    "shenas-dashboard-timeline",
     "shenas-dataset-core",
     "shenas-dataset-events",
     "shenas-dataset-finance",
@@ -3123,6 +3124,28 @@ requires-dist = [
 ]
 
 [[package]]
+name = "shenas-dashboard-timeline"
+source = { editable = "plugins/dashboards/timeline" }
+dependencies = [
+    { name = "shenas-dashboard-core" },
+    { name = "shenas-dataset-events" },
+    { name = "shenas-dataset-finance" },
+    { name = "shenas-dataset-fitness" },
+    { name = "shenas-dataset-habits" },
+    { name = "shenas-dataset-outcomes" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "shenas-dashboard-core", editable = "plugins/dashboards/core" },
+    { name = "shenas-dataset-events", editable = "plugins/datasets/events" },
+    { name = "shenas-dataset-finance", editable = "plugins/datasets/finance" },
+    { name = "shenas-dataset-fitness", editable = "plugins/datasets/fitness" },
+    { name = "shenas-dataset-habits", editable = "plugins/datasets/habits" },
+    { name = "shenas-dataset-outcomes", editable = "plugins/datasets/outcomes" },
+]
+
+[[package]]
 name = "shenas-dataset-core"
 source = { editable = "plugins/datasets/core" }
 dependencies = [
@@ -3785,6 +3808,7 @@ dev = [
     { name = "shenas-cli" },
     { name = "shenas-dashboard-data-table" },
     { name = "shenas-dashboard-fitness" },
+    { name = "shenas-dashboard-timeline" },
     { name = "shenas-dataset-finance" },
     { name = "shenas-dataset-fitness" },
     { name = "shenas-dataset-habits" },
@@ -3846,6 +3870,7 @@ dev = [
     { name = "shenas-cli", editable = "shenasctl" },
     { name = "shenas-dashboard-data-table", editable = "plugins/dashboards/data-table" },
     { name = "shenas-dashboard-fitness", editable = "plugins/dashboards/fitness" },
+    { name = "shenas-dashboard-timeline", editable = "plugins/dashboards/timeline" },
     { name = "shenas-dataset-finance", editable = "plugins/datasets/finance" },
     { name = "shenas-dataset-fitness", editable = "plugins/datasets/fitness" },
     { name = "shenas-dataset-habits", editable = "plugins/datasets/habits" },
