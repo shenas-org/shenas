@@ -31,7 +31,8 @@ class ShenasNetProvider:
         self.last_input_tokens: int = 0
         self.last_output_tokens: int = 0
 
-    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
+    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]], tool_name: str | None = None) -> dict[str, Any]:
+        forced_name = tool_name or (tools[0]["name"] if tools else None)
         payload = json.dumps(
             {
                 "model": self.model,
@@ -39,7 +40,7 @@ class ShenasNetProvider:
                 "system": system,
                 "messages": [{"role": "user", "content": user}],
                 "tools": tools,
-                "tool_choice": {"type": "tool", "name": tools[0]["name"]} if tools else {"type": "auto"},
+                "tool_choice": {"type": "tool", "name": forced_name} if forced_name else {"type": "auto"},
             }
         ).encode()
 
@@ -65,10 +66,10 @@ class ShenasNetProvider:
         self.last_output_tokens = int(usage.get("output_tokens", 0))
 
         for block in data.get("content", []):
-            if block.get("type") == "tool_use":
+            if block.get("type") == "tool_use" and (not forced_name or block.get("name") == forced_name):
                 return dict(block.get("input", {}))
 
-        msg = f"LLM did not call any tool; got {data.get('content', [])!r}"
+        msg = f"LLM did not call {forced_name}; got {data.get('content', [])!r}"
         raise RuntimeError(msg)
 
 

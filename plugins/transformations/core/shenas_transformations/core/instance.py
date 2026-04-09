@@ -57,6 +57,9 @@ class TransformInstance(Table):
         None
     )
     enabled: Annotated[bool, Field(db_type="BOOLEAN", description="Is enabled", db_default="TRUE")] | None = None
+    is_suggested: (
+        Annotated[bool, Field(db_type="BOOLEAN", description="LLM-suggested, not yet accepted", db_default="FALSE")] | None
+    ) = None
     added_at: Annotated[str, Field(db_type="TIMESTAMP", description="When added", db_default="current_timestamp")] | None = (
         None
     )
@@ -84,6 +87,61 @@ class TransformInstance(Table):
     @classmethod
     def for_plugin(cls, source_plugin: str) -> list[TransformInstance]:
         return cls.all(where="source_plugin = ?", params=[source_plugin], order_by="id")
+
+    @classmethod
+    def suggested(cls, source_plugin: str | None = None) -> list[TransformInstance]:
+        """List suggested (not yet accepted) transform instances."""
+        if source_plugin:
+            return cls.all(
+                where="is_suggested = TRUE AND source_plugin = ?",
+                params=[source_plugin],
+                order_by="id",
+            )
+        return cls.all(where="is_suggested = TRUE", order_by="id")
+
+    # ------------------------------------------------------------------
+    # Suggestion lifecycle
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def create_suggested(
+        cls,
+        *,
+        transform_type: str = "sql",
+        source_duckdb_schema: str,
+        source_duckdb_table: str,
+        target_duckdb_schema: str,
+        target_duckdb_table: str,
+        source_plugin: str,
+        params: str = "{}",
+        description: str = "",
+    ) -> TransformInstance:
+        """Create a suggested transform instance (disabled until accepted)."""
+        t = cls(
+            transform_type=transform_type,
+            source_duckdb_schema=source_duckdb_schema,
+            source_duckdb_table=source_duckdb_table,
+            target_duckdb_schema=target_duckdb_schema,
+            target_duckdb_table=target_duckdb_table,
+            source_plugin=source_plugin,
+            params=params,
+            description=description,
+            is_suggested=True,
+            enabled=False,
+        )
+        return t.insert()
+
+    def accept_suggestion(self) -> TransformInstance:
+        """Accept: flip is_suggested, enable the transform."""
+        now = _now_iso()
+        self.is_suggested = False
+        self.enabled = True
+        self.updated_at = now
+        return self.save()
+
+    def dismiss_suggestion(self) -> None:
+        """Dismiss: delete the suggested transform."""
+        super().delete()
 
     # ------------------------------------------------------------------
     # Mutations

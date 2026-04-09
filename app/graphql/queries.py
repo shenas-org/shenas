@@ -434,6 +434,66 @@ class Query:
     # The mutations that create / run / promote hypotheses live in
     # app/graphql/mutations.py.
 
+    # -- Suggestions --
+    #
+    # Read-only listing of LLM-suggested datasets, transforms, and analyses.
+
+    @strawberry.field
+    def suggested_datasets(self) -> JSON:
+        """Return all suggested (not yet accepted) datasets."""
+        from shenas_plugins.core.plugin import PluginInstance
+
+        return [
+            {
+                "name": pi.name,
+                "is_suggested": pi.is_suggested,
+                "enabled": pi.enabled,
+                **(pi.metadata or {}),
+            }
+            for pi in PluginInstance.suggested("dataset")
+        ]
+
+    @strawberry.field
+    def suggested_transforms(self, source: str | None = None) -> JSON:
+        """Return all suggested (not yet accepted) transforms."""
+        from shenas_transformations.core.instance import TransformInstance
+
+        rows = TransformInstance.suggested(source)
+        return [
+            {
+                "id": t.id,
+                "source": f"{t.source_duckdb_schema}.{t.source_duckdb_table}",
+                "target": f"{t.target_duckdb_schema}.{t.target_duckdb_table}",
+                "source_plugin": t.source_plugin,
+                "description": t.description or "",
+                "params": t.get_params(),
+            }
+            for t in rows
+        ]
+
+    @strawberry.field
+    def suggested_analyses(self) -> JSON:
+        """Return all suggested (not yet accepted) analysis hypotheses."""
+        from app.hypotheses import Hypothesis
+
+        return [
+            {
+                "id": h.id,
+                "question": h.question,
+                "rationale": h.plan or "",
+                "datasets_involved": (h.inputs or "").split(",") if h.inputs else [],
+                "complexity": h.mode or "",
+                "created_at": str(h.created_at) if h.created_at else None,
+            }
+            for h in Hypothesis.suggested()
+        ]
+
+    # -- Hypotheses --
+    #
+    # Read-only listing + single fetch over the Hypothesis system table.
+    # The mutations that create / run / promote hypotheses live in
+    # app/graphql/mutations.py.
+
     @strawberry.field
     def hypotheses(self, limit: int | None = None) -> JSON:
         """Return every hypothesis row, most recent first."""

@@ -80,6 +80,7 @@ shenas-transformation-regex-extract = { workspace = true }
 shenas-transformation-dedup-merge = { workspace = true }
 shenas-analysis-core = { workspace = true }
 shenas-analysis-hypothesis = { workspace = true }
+shenas-analysis-suggestion = { workspace = true }
 shenas-frontend-core = { workspace = true }
 shenas-frontend-default = { workspace = true }
 shenas-frontend-focus = { workspace = true }
@@ -132,6 +133,7 @@ dev = [
     "shenas-transformation-regex-extract",
     "shenas-transformation-dedup-merge",
     "shenas-analysis-hypothesis",
+    "shenas-analysis-suggestion",
     "commitizen>=4.13.9",
     "httpx>=0.28.1",
     "pytest>=9.0.2",

@@ -53,6 +53,35 @@ class PluginInstance(Table):
     updated_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last updated")] | None = None
     status_changed_at: Annotated[str, Field(db_type="TIMESTAMP", description="When status changed")] | None = None
     synced_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last synced")] | None = None
+    is_suggested: (
+        Annotated[bool, Field(db_type="BOOLEAN", description="LLM-suggested, not yet accepted", db_default="FALSE")] | None
+    ) = None
+    metadata_json: (
+        Annotated[
+            str,
+            Field(db_type="TEXT", description="Kind-specific metadata for data-defined plugins (JSON)", db_default="''"),
+        ]
+        | None
+    ) = None
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """Parse ``metadata_json`` into a dict. Returns empty dict if absent."""
+        import json
+
+        if not self.metadata_json:
+            return {}
+        try:
+            return json.loads(self.metadata_json)
+        except (json.JSONDecodeError, TypeError):
+            return {}
+
+    @classmethod
+    def suggested(cls, kind: str | None = None) -> list[PluginInstance]:
+        """List suggested (not yet accepted) plugin instances."""
+        if kind:
+            return cls.all(where="is_suggested = TRUE AND kind = ?", params=[kind], order_by="added_at DESC")
+        return cls.all(where="is_suggested = TRUE", order_by="added_at DESC")
 
     def set_enabled(self, enabled: bool) -> None:
         """Toggle enabled and bump timestamps."""
