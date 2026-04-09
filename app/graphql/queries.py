@@ -18,20 +18,19 @@ from app.graphql.types import (
 )
 
 if TYPE_CHECKING:
-    from shenas_transformations.core.instance import TransformInstance
+    from app.transforms import Transform
 
 
-def _transform_to_gql(t: TransformInstance) -> TransformType:
+def _transform_to_gql(t: Transform) -> TransformType:
     return TransformType(
         id=t.id,
-        transform_type=t.transform_type,
         source_duckdb_schema=t.source_duckdb_schema,
         source_duckdb_table=t.source_duckdb_table,
         target_duckdb_schema=t.target_duckdb_schema,
         target_duckdb_table=t.target_duckdb_table,
         source_plugin=t.source_plugin,
-        params=t.params or "{}",
         description=t.description or "",
+        sql=t.sql,
         is_default=bool(t.is_default),
         enabled=bool(t.enabled),
         added_at=t.added_at,
@@ -117,26 +116,6 @@ class Query:
         return schema_plugin_ownership()
 
     # -- Plugins --
-
-    @strawberry.field
-    def plugin_kinds(self) -> JSON:
-        """Return all discovered plugin kinds with display labels, ordered by label."""
-        from app.api.sources import _load_plugins
-        from shenas_plugins.core.plugin import VALID_KINDS, Plugin
-
-        plural_map: dict[str, str] = {}
-        for kind in VALID_KINDS:
-            try:
-                for cls in _load_plugins(kind, base=Plugin):
-                    plural = getattr(cls, "display_name_plural", None)
-                    if plural:
-                        plural_map[kind] = plural
-                        break
-            except Exception:
-                pass
-
-        kinds = [{"id": k, "label": plural_map.get(k, f"{k.title()}s")} for k in sorted(VALID_KINDS)]
-        return sorted(kinds, key=lambda x: x["label"])
 
     @strawberry.field
     def plugins(self, kind: str) -> list[PluginInfoType]:
@@ -233,15 +212,15 @@ class Query:
             freq = src.sync_frequency
             if freq is None:
                 continue
-            s = src.instance()
-            if not s or not s.enabled:
+            if not src.enabled:
                 continue
+            s = src.state
             result.append(
                 ScheduleInfoType.from_pydantic(
                     ScheduleInfo(
                         name=src.name,
                         sync_frequency=freq,
-                        synced_at=s.synced_at,
+                        synced_at=s["synced_at"] if s else None,
                         is_due=src.is_due_for_sync,
                     )
                 )
@@ -252,16 +231,16 @@ class Query:
 
     @strawberry.field
     def transforms(self, source: str | None = None) -> list[TransformType]:
-        from shenas_transformations.core.instance import TransformInstance
+        from app.transforms import Transform
 
-        rows = TransformInstance.for_plugin(source) if source else TransformInstance.all(order_by="id")
+        rows = Transform.for_plugin(source) if source else Transform.all(order_by="id")
         return [_transform_to_gql(t) for t in rows]
 
     @strawberry.field
     def transform(self, transform_id: int) -> TransformType | None:
-        from shenas_transformations.core.instance import TransformInstance
+        from app.transforms import Transform
 
-        t = TransformInstance.find(transform_id)
+        t = Transform.find(transform_id)
         return _transform_to_gql(t) if t else None
 
     # -- Theme --
@@ -292,23 +271,18 @@ class Query:
     @strawberry.field
     def dashboards(self) -> JSON:
         from app.api.sources import _load_dashboards
-        from shenas_plugins.core.plugin import PluginInstance
 
-        result = []
-        for c in _load_dashboards(include_internal=False):
-            inst = PluginInstance.find("dashboard", c.name)
-            if inst is not None and not inst.enabled:
-                continue
-            result.append(
-                {
-                    "name": c.name,
-                    "display_name": c.display_name,
-                    "tag": c.tag,
-                    "js": f"/dashboards/{c.name}/{c.entrypoint}",
-                    "description": c.description,
-                }
-            )
-        return result
+        return [
+            {
+                "name": c.name,
+                "display_name": c.display_name,
+                "tag": c.tag,
+                "js": f"/dashboards/{c.name}/{c.entrypoint}",
+                "description": c.description,
+            }
+            for c in _load_dashboards(include_internal=False)
+            if c().enabled
+        ]
 
     @strawberry.field
     def dependencies(self) -> JSON:
@@ -398,16 +372,23 @@ class Query:
 
         return walk_catalog()
 
-    # -- Analysis modes --
+    # -- Literature findings --
 
     @strawberry.field
-    def analysis_modes(self) -> JSON:
-        """Return metadata for all registered analysis modes."""
-        from app.api.sources import _discover_analyses
-        from shenas_plugins.core.analytics.mode import list_modes
+    def findings(self, limit: int | None = None) -> JSON:
+        """Return all literature findings, most recent first."""
+        from app.literature import Finding
 
-        _discover_analyses()
-        return list_modes()
+        return [_finding_to_dict(f) for f in Finding.all(order_by="created_at DESC", limit=limit)]
+
+    @strawberry.field
+    def suggested_hypotheses(self, limit: int = 10) -> JSON:
+        """Return proactive hypothesis suggestions from literature cross-referenced with installed data."""
+        from app.analytics_catalog import catalog_by_qualified_name
+        from app.literature import suggest_hypotheses
+
+        catalog = catalog_by_qualified_name()
+        return suggest_hypotheses(catalog, limit=limit)
 
     # -- Hypotheses --
     #
@@ -431,6 +412,32 @@ class Query:
         return _hypothesis_to_dict(h) if h else None
 
 
+def _finding_to_dict(f: Any) -> dict[str, Any]:
+    """Serialize a Finding row to a JSON-friendly dict for GraphQL."""
+    return {
+        "id": f.id,
+        "exposure": f.exposure,
+        "outcome": f.outcome,
+        "direction": f.direction,
+        "effect_size": f.effect_size,
+        "effect_size_type": f.effect_size_type,
+        "ci_low": f.ci_low,
+        "ci_high": f.ci_high,
+        "lag_hours": f.lag_hours,
+        "lag_max_hours": f.lag_max_hours,
+        "evidence_level": f.evidence_level,
+        "sample_size": f.sample_size,
+        "population": f.population,
+        "mechanism": f.mechanism,
+        "citation": f.citation,
+        "doi": f.doi,
+        "source_api": f.source_api,
+        "exposure_categories": f.exposure_categories,
+        "outcome_categories": f.outcome_categories,
+        "created_at": str(f.created_at) if f.created_at else None,
+    }
+
+
 def _hypothesis_to_dict(h: Any) -> dict[str, Any]:
     """Serialize a Hypothesis row to a JSON-friendly dict for GraphQL."""
     result = h.result()
@@ -441,12 +448,11 @@ def _hypothesis_to_dict(h: Any) -> dict[str, Any]:
         "inputs": (h.inputs or "").split(",") if h.inputs else [],
         "interpretation": h.interpretation or "",
         "model": h.model or "",
-        "mode": h.mode or "hypothesis",
         "promoted_to": h.promoted_to,
         "parent_id": getattr(h, "parent_id", None),
         "created_at": str(h.created_at) if h.created_at else None,
         "recipe": _safe_json_load(h.recipe_json),
-        "result": result.model_dump() if result is not None else None,
+        "result": result.to_dict() if result is not None else None,
     }
 
 
