@@ -37,9 +37,10 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
-from typing import Any, ClassVar, Protocol
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
-from shenas_plugins.core.analytics.operations import OPERATIONS, Operation
+if TYPE_CHECKING:
+    from shenas_plugins.core.analytics.operations import Operation
 
 # ----------------------------------------------------------------------
 # Provider interface
@@ -236,7 +237,9 @@ def submit_recipe_tool() -> dict[str, Any]:
 def _operation_vocabulary() -> str:
     """Render the curated operation library as a system-prompt section."""
     out: list[str] = ["## Operation vocabulary", ""]
-    for op in OPERATIONS:
+    from shenas_plugins.core.analytics.operations import get_operations
+
+    for op in get_operations().values():
         params = operation_param_schema(op)
         out.append(f"### `{op.name}` (arity {op.arity})")
         out.append((op.__doc__ or "").strip())

@@ -906,8 +906,20 @@ class ShenasApp extends LitElement {
         id: "literature:refresh",
         category: "Literature",
         label: "Refresh Literature Findings",
-        action: () => {
-          gqlFull(this.apiBase, `mutation { refreshLiterature }`);
+        action: async () => {
+          const jobId = `literature-refresh-${Date.now()}`;
+          const panel = this._getJobPanel();
+          panel?.addJob(jobId, "Refreshing Literature Findings");
+          try {
+            const { data } = await gqlFull(this.apiBase, `mutation { refreshLiterature }`);
+            const stats = data?.refreshLiterature as Record<string, number> | undefined;
+            const msg = stats
+              ? `${stats.findings_extracted || 0} findings from ${stats.papers_fetched || 0} papers`
+              : "Done";
+            panel?.finishJob(jobId, true, msg);
+          } catch (err) {
+            panel?.finishJob(jobId, false, String(err));
+          }
         },
       });
       // Per-schema transform commands
