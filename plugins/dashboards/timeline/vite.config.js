@@ -17,22 +17,22 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: "shenas_dashboards/data_table/static",
+    outDir: "shenas_dashboards/timeline/static",
     emptyOutDir: true,
     cssCodeSplit: false,
     rollupOptions: {
       input: "src/index.ts",
       external: ["lit", /^lit\//, "apache-arrow", "shenas-frontends"],
       output: {
-        entryFileNames: "data-table.js",
-        assetFileNames: "data-table.[ext]",
+        entryFileNames: "timeline.js",
+        assetFileNames: "timeline.[ext]",
         format: "es",
       },
     },
   },
   server: {
     proxy: {
-      "/api": "https://127.0.0.1:7280",
+      "/api": "http://127.0.0.1:7280",
     },
   },
 });

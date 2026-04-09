@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing } from "lit";
 import type { TemplateResult, CSSResult } from "lit";
-import { query, arrowToRows } from "./arrow-client.ts";
-import type { RowData } from "./arrow-client.ts";
+import { query, arrowToRows } from "shenas-frontends";
+import type { RowData } from "shenas-frontends";
 
 interface EventData extends RowData {
   source?: string;

@@ -1,15 +1,11 @@
-import { tableFromIPC } from "apache-arrow";
-import type { Table } from "apache-arrow";
 import { LitElement, html, css } from "lit";
 import type { TemplateResult, CSSResult } from "lit";
+import { query as arrowQuery, arrowToRows } from "shenas-frontends";
+import type { RowData } from "shenas-frontends";
 
 interface TableInfo {
   schema: string;
   table: string;
-}
-
-interface RowData {
-  [key: string]: unknown;
 }
 
 export class ShenasDataTable extends LitElement {
@@ -225,22 +221,10 @@ export class ShenasDataTable extends LitElement {
     this._error = null;
     try {
       const sql = `SELECT * FROM ${this._selectedTable}`;
-      const res = await fetch(`${this.apiBase}/query?sql=${encodeURIComponent(sql)}`);
-      if (!res.ok) throw new Error(await res.text());
-      const buf = await res.arrayBuffer();
-      const table: Table = tableFromIPC(buf);
+      const table = await arrowQuery(this.apiBase, sql);
 
       this._columns = table.schema.fields.map((f) => f.name);
-
-      const rows: RowData[] = [];
-      for (let i = 0; i < table.numRows; i++) {
-        const row: RowData = {};
-        for (const col of this._columns) {
-          row[col] = table.getChild(col)!.get(i);
-        }
-        rows.push(row);
-      }
-      this._data = rows;
+      this._data = arrowToRows(table);
       this._page = 0;
       this._filters = {};
       this._sortCol = null;
