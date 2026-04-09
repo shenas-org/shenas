@@ -902,6 +902,14 @@ class ShenasApp extends LitElement {
           gqlFull(this.apiBase, `mutation { seedTransforms }`);
         },
       });
+      commands.push({
+        id: "literature:refresh",
+        category: "Literature",
+        label: "Refresh Literature Findings",
+        action: () => {
+          gqlFull(this.apiBase, `mutation { refreshLiterature }`);
+        },
+      });
       // Per-schema transform commands
       for (const s of this._allPlugins.schema || []) {
         const schemaTables = schemaOwnership[s.name] || [];
