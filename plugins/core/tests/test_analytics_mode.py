@@ -42,8 +42,8 @@ def test_get_unknown_raises():
 
 
 def test_list_modes_includes_hypothesis():
-    # hypothesis is auto-registered via modes/__init__
-    import shenas_plugins.core.analytics.modes  # noqa: F401
+    # hypothesis is registered by the shenas-analysis-hypothesis plugin
+    import shenas_analyses.hypothesis  # noqa: F401
 
     modes = list_modes()
     names = [m["name"] for m in modes]
@@ -61,7 +61,7 @@ def test_list_modes_includes_registered():
 
 
 def test_hypothesis_mode_operations():
-    import shenas_plugins.core.analytics.modes  # noqa: F401
+    import shenas_analyses.hypothesis  # noqa: F401
 
     mode = get_mode("hypothesis")
     op_names = {op.name for op in mode.operations}

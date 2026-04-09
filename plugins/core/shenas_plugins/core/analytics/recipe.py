@@ -30,19 +30,26 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel
 
 from shenas_plugins.core.analytics.node import RecipeNode
-from shenas_plugins.core.analytics.operations import OPERATIONS, Operation, OperationError
+from shenas_plugins.core.analytics.operations import Operation, OperationError, get_operations
 
 if TYPE_CHECKING:
     import ibis.backends.duckdb as ibd
 
 
 # ----------------------------------------------------------------------
-# Operation registry by name -- the curated vocabulary the recipe
-# compiler is allowed to instantiate. Adding to this is the *only* way
-# to expand the LLM's vocabulary at runtime.
+# Operation lookup -- reads from the dynamic registry each time so
+# plugin-contributed operations are visible to the compiler.
 # ----------------------------------------------------------------------
 
-_OPS_BY_NAME: dict[str, type[Operation]] = {op.name: op for op in OPERATIONS}
+
+def _ops_by_name() -> dict[str, type[Operation]]:
+    """Return all registered operations keyed by name.
+
+    Called by :meth:`Recipe.validate` and :meth:`Recipe._evaluate_op`
+    instead of a static module-level dict so that operations registered
+    by analysis plugins after initial import are visible.
+    """
+    return get_operations()
 
 
 class RecipeError(Exception):
@@ -135,6 +142,7 @@ class Recipe(BaseModel, frozen=True):
             - each ``OpCall``'s arity matches its number of inputs
         """
         errors: list[str] = []
+        ops = _ops_by_name()
 
         if self.final not in self.nodes:
             errors.append(f"final node `{self.final}` not in recipe")
@@ -144,9 +152,9 @@ class Recipe(BaseModel, frozen=True):
                 if node.table not in catalog:
                     errors.append(f"node `{name}`: source table `{node.table}` not in catalog")
             elif isinstance(node, OpCall):
-                op_cls = _OPS_BY_NAME.get(node.op_name)
+                op_cls = ops.get(node.op_name)
                 if op_cls is None:
-                    errors.append(f"node `{name}`: unknown operation `{node.op_name}` (known: {sorted(_OPS_BY_NAME)})")
+                    errors.append(f"node `{name}`: unknown operation `{node.op_name}` (known: {sorted(ops)})")
                     continue
                 if len(node.inputs) != op_cls.arity:
                     errors.append(
@@ -286,7 +294,7 @@ class Recipe(BaseModel, frozen=True):
     ) -> RecipeNode:
         """Instantiate ``node.op_name`` with its scalar params and apply
         it to the resolved upstream ``RecipeNode``s in declared order."""
-        op_cls = _OPS_BY_NAME[node.op_name]
+        op_cls = _ops_by_name()[node.op_name]
         # Convert any list params to tuples since operations are frozen
         # dataclasses (lists aren't hashable). This lets recipes round-trip
         # cleanly through JSON.

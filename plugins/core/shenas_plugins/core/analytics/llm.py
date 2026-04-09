@@ -312,10 +312,11 @@ def ask_for_recipe_with_retry(
 
 
 def _default_mode() -> AnalysisMode:
-    """Return the hypothesis mode as the default. Lazy import to avoid
-    circular dependencies at module load time."""
-    # Ensure built-in modes are registered.
-    import shenas_plugins.core.analytics.modes  # noqa: F401
+    """Return the hypothesis mode as the default.
+
+    Requires the ``shenas-analysis-hypothesis`` plugin to be installed
+    (or another plugin that registers a ``"hypothesis"`` mode).
+    """
     from shenas_plugins.core.analytics.mode import get_mode
 
     return get_mode("hypothesis")

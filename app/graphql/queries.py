@@ -383,10 +383,10 @@ class Query:
     @strawberry.field
     def analysis_modes(self) -> JSON:
         """Return metadata for all registered analysis modes."""
-        # Ensure built-in modes are registered.
-        import shenas_plugins.core.analytics.modes  # noqa: F401
+        from app.api.sources import _discover_analyses
         from shenas_plugins.core.analytics.mode import list_modes
 
+        _discover_analyses()
         return list_modes()
 
     # -- Hypotheses --

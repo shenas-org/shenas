@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from shenas_plugins.core.analytics import (
     OPERATIONS,
     FakeProvider,
@@ -13,6 +15,12 @@ from shenas_plugins.core.analytics import (
     operation_param_schema,
     submit_recipe_tool,
 )
+
+
+@pytest.fixture(autouse=True)
+def _ensure_hypothesis_mode():
+    """Import the hypothesis plugin so the default mode is registered."""
+    import shenas_analyses.hypothesis  # noqa: F401
 
 
 def test_operation_param_schema_lag():
@@ -194,3 +202,28 @@ def test_build_system_prompt_with_mode():
     prompt = build_system_prompt(mode=mode)
     for op in mode.operations:
         assert op.name in prompt
+
+
+def test_dynamic_operation_registry():
+    """register_operation makes new ops visible to get_operations."""
+    from dataclasses import dataclass
+    from typing import ClassVar
+
+    from shenas_plugins.core.analytics.operations import (
+        _OPERATION_REGISTRY,
+        Operation,
+        get_operations,
+        register_operation,
+    )
+
+    @dataclass(frozen=True)
+    class _FakeOp(Operation):
+        name: ClassVar[str] = "_test_fake_op"
+        arity: ClassVar[int] = 1
+
+    register_operation(_FakeOp)
+    try:
+        assert "_test_fake_op" in get_operations()
+        assert get_operations()["_test_fake_op"] is _FakeOp
+    finally:
+        _OPERATION_REGISTRY.pop("_test_fake_op", None)

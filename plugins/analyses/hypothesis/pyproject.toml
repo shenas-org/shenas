@@ -1,0 +1,24 @@
+[project]
+name = "shenas-analysis-hypothesis"
+dynamic = ["version"]
+description = "Hypothesis testing analysis mode: explore correlations and trends"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-analysis-core",
+]
+
+[project.entry-points."shenas.analyses"]
+hypothesis = "shenas_analyses.hypothesis:HypothesisAnalysis"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "analysis-hypothesis/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "analysis-hypothesis/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_analyses"]

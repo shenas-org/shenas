@@ -440,8 +440,7 @@ class Mutation:
         """
         import time
 
-        # Ensure built-in modes are registered.
-        import shenas_plugins.core.analytics.modes  # noqa: F401
+        from app.api.sources import _discover_analyses
         from app.db import analytics_backend
         from app.graphql.llm_provider import get_llm_provider
         from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
@@ -455,6 +454,7 @@ class Mutation:
         )
         from shenas_plugins.core.analytics.mode import get_mode
 
+        _discover_analyses()
         try:
             analysis_mode = get_mode(mode)
         except KeyError as exc:

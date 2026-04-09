@@ -14,8 +14,8 @@ A small, curated layer between an LLM and the underlying DuckDB data:
 
 - :class:`AnalysisMode` -- the extension point for different analysis
   strategies. Each mode owns its operation subset, system prompt, and
-  tool definition. The default mode is ``"hypothesis"`` (correlation /
-  trend exploration).
+  tool definition. Modes are registered by analysis plugins via entry
+  points.
 
 This module is intentionally narrow. New operations are added by humans,
 not by the LLM. The vocabulary is small enough to fit in one Anthropic
@@ -23,8 +23,6 @@ system prompt and large enough to express the most common analysis
 shapes (lag this, window that, join AS-OF, correlate the two).
 """
 
-# Ensure built-in modes are registered on first import.
-from shenas_plugins.core.analytics import modes  # noqa: F401
 from shenas_plugins.core.analytics.llm import (
     AnthropicProvider,
     FakeProvider,
@@ -52,6 +50,8 @@ from shenas_plugins.core.analytics.operations import (
     OperationError,
     Resample,
     Rolling,
+    get_operations,
+    register_operation,
 )
 from shenas_plugins.core.analytics.recipe import OpCall, Recipe, RecipeError, SourceRef
 from shenas_plugins.core.analytics.runner import (
@@ -89,9 +89,11 @@ __all__ = [
     "build_system_prompt",
     "build_user_prompt",
     "get_mode",
+    "get_operations",
     "list_modes",
     "operation_param_schema",
     "register_mode",
+    "register_operation",
     "run_recipe",
     "submit_recipe_tool",
 ]

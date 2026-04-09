@@ -11,6 +11,9 @@ if TYPE_CHECKING:
 
 import duckdb
 import pytest
+
+# Ensure hypothesis mode is registered for all tests that need it.
+import shenas_analyses.hypothesis  # noqa: F401
 from fastapi.testclient import TestClient
 
 from app.server import app

@@ -410,9 +410,35 @@ class Correlate(Operation):
 
 
 # ----------------------------------------------------------------------
-# Registry of operations available to the LLM. Adding to this list is
-# the only way to expand the vocabulary -- the LLM cannot invent new
-# operations at runtime.
+# Dynamic operation registry. Analysis plugins call register_operation()
+# to make new operations available to the recipe compiler and the LLM.
+# The five built-in ops are registered at module load below.
 # ----------------------------------------------------------------------
 
+_OPERATION_REGISTRY: dict[str, type[Operation]] = {}
+
+
+def register_operation(op_cls: type[Operation]) -> type[Operation]:
+    """Register an operation class by its ``name``. Idempotent.
+
+    Called at import time by analysis plugins that introduce new
+    operations. The recipe compiler and mode system-prompt builder
+    both read from this registry.
+    """
+    _OPERATION_REGISTRY[op_cls.name] = op_cls
+    return op_cls
+
+
+def get_operations() -> dict[str, type[Operation]]:
+    """Return a snapshot of all registered operations, keyed by name."""
+    return dict(_OPERATION_REGISTRY)
+
+
+# Register the five built-in operations.
+for _op in (Lag, Rolling, Resample, JoinAsOf, Correlate):
+    register_operation(_op)
+
+
+# Backward-compat: OPERATIONS as a module-level tuple. Code that imports
+# this should prefer get_operations() for a live view.
 OPERATIONS: tuple[type[Operation], ...] = (Lag, Rolling, Resample, JoinAsOf, Correlate)
