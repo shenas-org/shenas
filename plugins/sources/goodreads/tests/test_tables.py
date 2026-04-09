@@ -1,96 +1,112 @@
-import tempfile
-from pathlib import Path
+from unittest.mock import MagicMock
 
-from shenas_sources.goodreads.tables import Books, Readings, Shelves, _strip_isbn
+from shenas_sources.goodreads.client import GoodreadsClient
+from shenas_sources.goodreads.tables import Books, Readings, Shelves
 
-CSV_HEADER = (
-    "Book Id,Title,Author,Author l-f,Additional Authors,ISBN,ISBN13,"
-    "My Rating,Average Rating,Publisher,Binding,Number of Pages,"
-    "Year Published,Original Publication Year,Date Read,Date Added,"
-    "Bookshelves,Bookshelves with positions,Exclusive Shelf,My Review,"
-    "Spoiler,Private Notes,Read Count,Owned Copies\n"
-)
+SAMPLE_ENTRY = {
+    "book_id": "12345",
+    "title": "The Great Gatsby",
+    "author_name": "F. Scott Fitzgerald",
+    "isbn": "0743273567",
+    "book": {"num_pages": "180"},
+    "book_published": "1925",
+    "average_rating": "3.93",
+    "user_rating": "5",
+    "user_read_at": "Sun, 15 Mar 2026 00:00:00 +0000",
+    "user_date_added": "Sat, 10 Jan 2026 12:00:00 +0000",
+    "user_shelves": "read, fiction, classics",
+    "_shelf": "read",
+    "user_review": "A timeless classic",
+}
 
-ROW_READ = (
-    '12345,The Great Gatsby,F. Scott Fitzgerald,"Fitzgerald, F. Scott",,'
-    '="0743273567",="9780743273565",5,3.93,Scribner,Paperback,180,'
-    "1925,1925,2026/03/15,2026/01/10,fiction classics,,read,"
-    "A timeless classic,,private note,1,0\n"
-)
-
-ROW_TO_READ = (
-    '67890,Dune,Frank Herbert,"Herbert, Frank",,="0441172717",="9780441172719",'
-    "0,4.25,Ace Books,Paperback,688,1990,1965,,2026/02/20,sci-fi,,to-read,,,,0,0\n"
-)
-
-
-def _write_csv(*rows: str) -> Path:
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False, encoding="utf-8") as f:
-        f.write(CSV_HEADER)
-        for r in rows:
-            f.write(r)
-    return Path(f.name)
+SAMPLE_TO_READ = {
+    "book_id": "67890",
+    "title": "Dune",
+    "author_name": "Frank Herbert",
+    "isbn": "0441172717",
+    "book": {"num_pages": "688"},
+    "book_published": "1965",
+    "average_rating": "4.25",
+    "user_rating": "0",
+    "user_read_at": "",
+    "user_date_added": "Sat, 20 Feb 2026 00:00:00 +0000",
+    "user_shelves": "to-read",
+    "_shelf": "to-read",
+    "user_review": "",
+}
 
 
-class TestStripIsbn:
-    def test_strips_wrapper(self) -> None:
-        assert _strip_isbn('="0743273567"') == "0743273567"
+class TestParseEntry:
+    def test_parses_complete_entry(self) -> None:
+        parsed = GoodreadsClient.parse_entry(SAMPLE_ENTRY)
+        assert parsed["book_id"] == "12345"
+        assert parsed["title"] == "The Great Gatsby"
+        assert parsed["author"] == "F. Scott Fitzgerald"
+        assert parsed["isbn"] == "0743273567"
+        assert parsed["num_pages"] == 180
+        assert parsed["year_published"] == 1925
+        assert parsed["average_rating"] == 3.93
+        assert parsed["my_rating"] == 5
+        assert parsed["date_read"] == "2026-03-15"
+        assert parsed["date_added"] == "2026-01-10"
+        assert parsed["exclusive_shelf"] == "read"
+        assert parsed["my_review"] == "A timeless classic"
 
-    def test_none_input(self) -> None:
-        assert _strip_isbn(None) is None
-
-    def test_empty_string(self) -> None:
-        assert _strip_isbn("") is None
-
-    def test_plain_isbn(self) -> None:
-        assert _strip_isbn("0743273567") == "0743273567"
+    def test_parses_to_read_entry(self) -> None:
+        parsed = GoodreadsClient.parse_entry(SAMPLE_TO_READ)
+        assert parsed["book_id"] == "67890"
+        assert parsed["date_read"] is None
+        assert parsed["my_rating"] == 0
+        assert parsed["exclusive_shelf"] == "to-read"
 
 
 class TestBooks:
     def test_extract_yields_book_metadata(self) -> None:
-        csv_path = _write_csv(ROW_READ)
-        rows = list(Books.extract(csv_path))
+        client = MagicMock()
+        rows = list(Books.extract(client, entries=[SAMPLE_ENTRY]))
         assert len(rows) == 1
         assert rows[0]["book_id"] == "12345"
         assert rows[0]["title"] == "The Great Gatsby"
         assert rows[0]["author"] == "F. Scott Fitzgerald"
-        assert rows[0]["isbn"] == "0743273567"
         assert rows[0]["num_pages"] == 180
         assert rows[0]["year_published"] == 1925
 
     def test_extract_multiple_books(self) -> None:
-        csv_path = _write_csv(ROW_READ, ROW_TO_READ)
-        rows = list(Books.extract(csv_path))
+        client = MagicMock()
+        rows = list(Books.extract(client, entries=[SAMPLE_ENTRY, SAMPLE_TO_READ]))
         assert len(rows) == 2
+
+    def test_extract_empty(self) -> None:
+        client = MagicMock()
+        assert list(Books.extract(client, entries=[])) == []
 
 
 class TestReadings:
     def test_extract_yields_only_read_books(self) -> None:
-        csv_path = _write_csv(ROW_READ, ROW_TO_READ)
-        rows = list(Readings.extract(csv_path))
-        # Only the read book has Date Read set
+        client = MagicMock()
+        rows = list(Readings.extract(client, entries=[SAMPLE_ENTRY, SAMPLE_TO_READ]))
         assert len(rows) == 1
         assert rows[0]["book_id"] == "12345"
-        assert rows[0]["date_read"] == "2026/03/15"
+        assert rows[0]["date_read"] == "2026-03-15"
         assert rows[0]["my_rating"] == 5
         assert rows[0]["exclusive_shelf"] == "read"
 
     def test_extract_skips_to_read(self) -> None:
-        csv_path = _write_csv(ROW_TO_READ)
-        rows = list(Readings.extract(csv_path))
+        client = MagicMock()
+        rows = list(Readings.extract(client, entries=[SAMPLE_TO_READ]))
         assert rows == []
 
 
 class TestShelves:
     def test_extract_yields_all_books(self) -> None:
-        csv_path = _write_csv(ROW_READ, ROW_TO_READ)
-        rows = list(Shelves.extract(csv_path))
+        client = MagicMock()
+        rows = list(Shelves.extract(client, entries=[SAMPLE_ENTRY, SAMPLE_TO_READ]))
         assert len(rows) == 2
         shelves = {r["book_id"]: r["exclusive_shelf"] for r in rows}
         assert shelves["12345"] == "read"
         assert shelves["67890"] == "to-read"
 
-    def test_extract_captures_custom_shelves(self) -> None:
-        csv_path = _write_csv(ROW_READ)
-        rows = list(Shelves.extract(csv_path))
-        assert rows[0]["bookshelves"] == "fiction classics"
+    def test_extract_captures_user_shelves(self) -> None:
+        client = MagicMock()
+        rows = list(Shelves.extract(client, entries=[SAMPLE_ENTRY]))
+        assert rows[0]["user_shelves"] == "read, fiction, classics"
