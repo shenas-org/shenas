@@ -63,8 +63,14 @@ class Result:
         self.sql = sql
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a JSON-serializable dict tagged with this result's ``type``."""
-        return {"type": self.type, **self.__dict__}
+        """Return a JSON-serializable dict tagged with this result's ``type``.
+
+        Includes a ``warnings`` list populated by :func:`sanity_check` so
+        consumers see "this is not load-bearing" flags inline with the data.
+        """
+        from shenas_plugins.core.analytics.sanity import sanity_check
+
+        return {"type": self.type, **self.__dict__, "warnings": sanity_check(self)}
 
 
 class ScalarResult(Result):
