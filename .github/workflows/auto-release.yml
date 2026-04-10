@@ -42,16 +42,7 @@ jobs:
           PACKAGES[shenasctl]="shenasctl/"
           PACKAGES[scheduler]="scheduler/"
 
-          # Server packages
-          for dir in server/*/; do
-            [ -f "$dir/pyproject.toml" ] || continue
-            name=$(basename "$dir")
-            case "$name" in
-              repository) PACKAGES[repo-server]="$dir" ;;
-              fl)         PACKAGES[fl-server]="$dir" ;;
-              *)          PACKAGES[server-$name]="$dir" ;;
-            esac
-          done
+          # Server packages are deployed separately, not auto-released.
 
           # Plugin core (top-level)
           if [ -f "plugins/core/pyproject.toml" ]; then
