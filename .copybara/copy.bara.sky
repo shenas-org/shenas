@@ -20,12 +20,8 @@ core.workflow(
     origin_files = glob(
         include = ["**"],
         exclude = [
-            # Server-side backends
-            "server/api/**",
-            "server/fl/**",
-            "server/deploy/**",
-            "server/repository/**",
-            "server/shenas.net/**",
+            # Server-side (API, FL, deploy, repository, websites)
+            "server/**",
 
             # Federated learning client
             "app/fl/**",
