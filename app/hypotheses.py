@@ -118,7 +118,7 @@ class Hypothesis(Table):
         ]
         | None
     ) = None
-    # PR 4.5 -- cost / latency tracking
+    # Cost / latency tracking
     llm_input_tokens: Annotated[int, Field(db_type="INTEGER", description="LLM input tokens consumed")] | None = None
     llm_output_tokens: Annotated[int, Field(db_type="INTEGER", description="LLM output tokens generated")] | None = None
     llm_elapsed_ms: Annotated[float, Field(db_type="DOUBLE", description="Total wall-clock LLM time in ms")] | None = None
@@ -127,6 +127,18 @@ class Hypothesis(Table):
     ) = None
     wall_clock_ms: (
         Annotated[float, Field(db_type="DOUBLE", description="End-to-end wall clock for the whole askHypothesis turn")] | None
+    ) = None
+    # Analysis mode used for this hypothesis (e.g. "hypothesis", "rca", "forecast").
+    mode: (
+        Annotated[
+            str,
+            Field(
+                db_type="VARCHAR",
+                description="Analysis mode used (e.g. hypothesis, rca, forecast)",
+                db_default="'hypothesis'",
+            ),
+        ]
+        | None
     ) = None
     # Forking: parent_id is the hypothesis this one was branched from.
     # Forks share the question + initial recipe but iterate independently.
@@ -144,6 +156,7 @@ class Hypothesis(Table):
         *,
         plan: str = "",
         model: str = "",
+        mode: str = "hypothesis",
     ) -> Hypothesis:
         """Create a new hypothesis row from a question + a Recipe.
 
@@ -157,6 +170,7 @@ class Hypothesis(Table):
             recipe_json=_serialize_recipe(recipe),
             inputs=",".join(sorted(_extract_input_tables(recipe))),
             model=model,
+            mode=mode,
         )
         return h.insert()
 
@@ -199,8 +213,8 @@ class Hypothesis(Table):
     def mark_promoted(self, qualified_metric_name: str) -> Hypothesis:
         """Record that this hypothesis was promoted to a canonical metric table.
 
-        The actual class generation + materialization happens elsewhere
-        (Phase 3, PR 3.1). This is just the breadcrumb on the row.
+        The actual class generation + materialization happens elsewhere.
+        This is just the breadcrumb on the row.
         """
         self.promoted_to = qualified_metric_name
         return self.save()

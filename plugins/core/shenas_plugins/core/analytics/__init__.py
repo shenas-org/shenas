@@ -1,4 +1,4 @@
-"""Analytics primitives for LLM-driven hypothesis testing.
+"""Analytics primitives for LLM-driven analysis.
 
 A small, curated layer between an LLM and the underlying DuckDB data:
 
@@ -12,9 +12,14 @@ A small, curated layer between an LLM and the underlying DuckDB data:
   The LLM never writes SQL or raw Ibis; it picks operations and
   parameters from this fixed vocabulary.
 
+- :class:`AnalysisMode` -- the extension point for different analysis
+  strategies. Each mode owns its operation subset, system prompt, and
+  tool definition. Modes are registered by analysis plugins via entry
+  points.
+
 This module is intentionally narrow. New operations are added by humans,
 not by the LLM. The vocabulary is small enough to fit in one Anthropic
-system prompt and large enough to express the most common hypothesis
+system prompt and large enough to express the most common analysis
 shapes (lag this, window that, join AS-OF, correlate the two).
 """
 
@@ -27,11 +32,15 @@ from shenas_plugins.core.analytics.llm import (
     build_system_prompt,
     build_user_prompt,
     operation_param_schema,
-    submit_recipe_tool,
+)
+from shenas_plugins.core.analytics.mode import (
+    AnalysisMode,
+    get_mode,
+    list_modes,
+    register_mode,
 )
 from shenas_plugins.core.analytics.node import RecipeNode
 from shenas_plugins.core.analytics.operations import (
-    OPERATIONS,
     Correlate,
     JoinAsOf,
     Lag,
@@ -39,6 +48,8 @@ from shenas_plugins.core.analytics.operations import (
     OperationError,
     Resample,
     Rolling,
+    get_operations,
+    register_operation,
 )
 from shenas_plugins.core.analytics.recipe import OpCall, Recipe, RecipeError, SourceRef
 from shenas_plugins.core.analytics.runner import (
@@ -50,7 +61,7 @@ from shenas_plugins.core.analytics.runner import (
 )
 
 __all__ = [
-    "OPERATIONS",
+    "AnalysisMode",
     "AnthropicProvider",
     "Correlate",
     "ErrorResult",
@@ -74,7 +85,11 @@ __all__ = [
     "ask_for_recipe_with_retry",
     "build_system_prompt",
     "build_user_prompt",
+    "get_mode",
+    "get_operations",
+    "list_modes",
     "operation_param_schema",
+    "register_mode",
+    "register_operation",
     "run_recipe",
-    "submit_recipe_tool",
 ]

@@ -4,15 +4,23 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from shenas_plugins.core.analytics import (
-    OPERATIONS,
     FakeProvider,
     ask_for_recipe,
     build_system_prompt,
     build_user_prompt,
+    get_mode,
+    get_operations,
     operation_param_schema,
-    submit_recipe_tool,
 )
+
+
+@pytest.fixture(autouse=True)
+def _ensure_hypothesis_mode():
+    """Import the hypothesis plugin so the default mode is registered."""
+    import shenas_analyses.hypothesis  # noqa: F401
 
 
 def test_operation_param_schema_lag():
@@ -28,8 +36,9 @@ def test_operation_param_schema_lag():
     assert "column" in schema["required"]
 
 
-def test_submit_recipe_tool_shape():
-    tool = submit_recipe_tool()
+def test_submit_tool_shape():
+    mode = get_mode("hypothesis")
+    tool = mode.submit_tool()
     assert tool["name"] == "submit_recipe"
     assert "input_schema" in tool
     schema = tool["input_schema"]
@@ -38,9 +47,10 @@ def test_submit_recipe_tool_shape():
 
 
 def test_system_prompt_lists_every_operation():
-    prompt = build_system_prompt()
-    for op in OPERATIONS:
-        assert op.name in prompt
+    mode = get_mode("hypothesis")
+    prompt = build_system_prompt(mode)
+    for op_cls in get_operations().values():
+        assert op_cls.name in prompt
 
 
 def test_user_prompt_includes_question_and_catalog():
@@ -69,8 +79,9 @@ def test_ask_for_recipe_round_trip_via_fake_provider():
         },
         "final": "r",
     }
+    mode = get_mode("hypothesis")
     provider = FakeProvider(canned)
-    result = ask_for_recipe(provider, "does coffee affect mood?", {})
+    result = ask_for_recipe(provider, "does coffee affect mood?", {}, mode=mode)
     assert result == canned
     assert len(provider.calls) == 1
     system, user = provider.calls[0]
@@ -117,8 +128,9 @@ def test_iteration_loop_retries_once_on_validation_error():
         if not p.get("nodes"):
             raise ValueError("recipe has no nodes")
 
+    mode = get_mode("hypothesis")
     provider = _SeqProvider()
-    payload, errors = ask_for_recipe_with_retry(provider, "q", {}, validate=_validate, max_attempts=2)
+    payload, errors = ask_for_recipe_with_retry(provider, "q", {}, mode=mode, validate=_validate, max_attempts=2)
     assert payload["plan"] == "second"
     assert len(errors) == 1
     # Second user prompt includes the error from attempt 1
@@ -137,15 +149,42 @@ def test_iteration_loop_gives_up_after_max_attempts():
     def _validate(_):
         raise ValueError("always invalid")
 
-    payload, errors = ask_for_recipe_with_retry(_AlwaysBad(), "q", {}, validate=_validate, max_attempts=2)
+    mode = get_mode("hypothesis")
+    payload, errors = ask_for_recipe_with_retry(_AlwaysBad(), "q", {}, mode=mode, validate=_validate, max_attempts=2)
     assert len(errors) == 2
     assert payload["plan"] == "x"
 
 
 def test_operation_vocabulary_is_valid_json_in_prompt():
     """Each operation's params schema embedded in the prompt is valid JSON."""
-    prompt = build_system_prompt()
+    mode = get_mode("hypothesis")
+    prompt = build_system_prompt(mode)
     # Each operation block has a `params: {...}` line.
     for line in prompt.splitlines():
         if line.startswith("params: "):
             json.loads(line.removeprefix("params: "))  # raises if malformed
+
+
+def test_dynamic_operation_registry():
+    """register_operation makes new ops visible to get_operations."""
+    from dataclasses import dataclass
+    from typing import ClassVar
+
+    from shenas_plugins.core.analytics.operations import (
+        _OPERATION_REGISTRY,
+        Operation,
+        get_operations,
+        register_operation,
+    )
+
+    @dataclass(frozen=True)
+    class _FakeOp(Operation):
+        name: ClassVar[str] = "_test_fake_op"
+        arity: ClassVar[int] = 1
+
+    register_operation(_FakeOp)
+    try:
+        assert "_test_fake_op" in get_operations()
+        assert get_operations()["_test_fake_op"] is _FakeOp
+    finally:
+        _OPERATION_REGISTRY.pop("_test_fake_op", None)

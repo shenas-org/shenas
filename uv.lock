@@ -18,6 +18,8 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "shenas-analysis-core",
+    "shenas-analysis-hypothesis",
     "shenas-app",
     "shenas-cli",
     "shenas-dashboard-core",
@@ -2989,6 +2991,26 @@ wheels = [
 ]
 
 [[package]]
+name = "shenas-analysis-core"
+source = { editable = "plugins/analyses/core" }
+dependencies = [
+    { name = "shenas-plugin-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "shenas-plugin-core", editable = "plugins/core" }]
+
+[[package]]
+name = "shenas-analysis-hypothesis"
+source = { editable = "plugins/analyses/hypothesis" }
+dependencies = [
+    { name = "shenas-analysis-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "shenas-analysis-core", editable = "plugins/analyses/core" }]
+
+[[package]]
 name = "shenas-app"
 source = { editable = "app" }
 dependencies = [
@@ -3758,6 +3780,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "shenas-analysis-hypothesis" },
     { name = "shenas-app" },
     { name = "shenas-cli" },
     { name = "shenas-dashboard-data-table" },
@@ -3818,6 +3841,7 @@ dev = [
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "ruff", specifier = ">=0.15.8" },
+    { name = "shenas-analysis-hypothesis", editable = "plugins/analyses/hypothesis" },
     { name = "shenas-app", editable = "app" },
     { name = "shenas-cli", editable = "shenasctl" },
     { name = "shenas-dashboard-data-table", editable = "plugins/dashboards/data-table" },

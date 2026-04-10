@@ -1,10 +1,10 @@
-"""LLM integration for hypothesis-driven analysis (PR 2.3).
+"""LLM integration for analysis modes.
 
 This module is the bridge between the curated analytics vocabulary
-(`OPERATIONS`, the catalog, the Recipe DAG) and an LLM. The LLM never
-sees raw SQL, raw Ibis, or any operation that isn't in the vocabulary.
-Its only job is to translate a natural-language question into a Recipe
-JSON payload that the existing runner can execute.
+(the operation registry, the catalog, the Recipe DAG) and an LLM.
+The LLM never sees raw SQL, raw Ibis, or any operation that isn't in
+the vocabulary. Its only job is to translate a natural-language question
+into a Recipe JSON payload that the existing runner can execute.
 
 Architecture
 ------------
@@ -17,16 +17,16 @@ Architecture
    single tool-use request whose tool is a ``submit_recipe`` schema;
    the LLM must respond by calling that tool with a recipe payload.
 
-3. :func:`build_system_prompt` -- assembles a static system prompt
-   describing the operation vocabulary and the catalog format.
+3. :func:`build_system_prompt` -- delegates to the active
+   :class:`AnalysisMode` for mode-specific framing.
 
 4. :func:`build_user_prompt` -- assembles the per-question payload:
-   the user's question + the current catalog dump.
+   the user's question + the current catalog dump. Shared across all
+   modes.
 
-5. :func:`operation_tool_schema` -- derives an Anthropic tool-use
-   ``input_schema`` from the curated ``OPERATIONS`` registry by walking
-   each Operation dataclass's fields. The shape is intentionally
-   permissive (recipe nodes are validated post-hoc by ``Recipe.validate``).
+5. :func:`operation_param_schema` -- derives an Anthropic tool-use
+   ``input_schema`` from an Operation dataclass's fields. Used by
+   :class:`AnalysisMode` to render its operation vocabulary.
 
 The LLM-driven mutation ``askHypothesis`` lives in
 ``app/graphql/mutations.py`` and uses :func:`ask_for_recipe` here.
@@ -37,9 +37,11 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
-from typing import Any, ClassVar, Protocol
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
-from shenas_plugins.core.analytics.operations import OPERATIONS, Operation
+if TYPE_CHECKING:
+    from shenas_plugins.core.analytics.mode import AnalysisMode
+    from shenas_plugins.core.analytics.operations import Operation
 
 # ----------------------------------------------------------------------
 # Provider interface
@@ -61,7 +63,7 @@ class LLMProvider(Protocol):
         model passed as the tool's input -- caller is responsible for
         validating it against ``Recipe``. Implementations should also
         update ``last_input_tokens`` / ``last_output_tokens`` so the
-        caller can record cost (PR 4.5).
+        caller can record cost.
         """
         ...
 
@@ -188,84 +190,18 @@ def operation_param_schema(op_cls: type[Operation]) -> dict[str, Any]:
     return schema
 
 
-def submit_recipe_tool() -> dict[str, Any]:
-    """Build the Anthropic tool-use definition for ``submit_recipe``.
-
-    The tool's input_schema describes the recipe DAG shape. Operations
-    are NOT enumerated as a strict ``oneOf`` -- the LLM gets a freeform
-    ``params`` object per node, and we validate post-hoc with
-    ``Recipe.validate``. This keeps the schema simple and lets us add
-    operations without churning the tool definition.
-    """
-    return {
-        "name": "submit_recipe",
-        "description": (
-            "Submit a Recipe DAG that answers the user's question. Each node is "
-            "either a SourceRef (`type: source`, `table: <qualified.name>`) or "
-            "an OpCall (`type: op`, `op_name: <name>`, `params: {...}`, "
-            "`inputs: [<node_name>...]`). The `final` field names the node "
-            "whose result the user sees."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "plan": {
-                    "type": "string",
-                    "description": "One-paragraph natural-language plan for how this recipe answers the question.",
-                },
-                "nodes": {
-                    "type": "object",
-                    "description": "Map of node name -> node definition (source or op).",
-                    "additionalProperties": True,
-                },
-                "final": {
-                    "type": "string",
-                    "description": "Name of the node whose result is the answer.",
-                },
-            },
-            "required": ["plan", "nodes", "final"],
-        },
-    }
-
-
 # ----------------------------------------------------------------------
 # Prompt assembly
 # ----------------------------------------------------------------------
 
 
-def _operation_vocabulary() -> str:
-    """Render the curated operation library as a system-prompt section."""
-    out: list[str] = ["## Operation vocabulary", ""]
-    for op in OPERATIONS:
-        params = operation_param_schema(op)
-        out.append(f"### `{op.name}` (arity {op.arity})")
-        out.append((op.__doc__ or "").strip())
-        out.append("")
-        out.append(f"params: {json.dumps(params)}")
-        if op.accepts:
-            out.append(f"accepts kinds: {sorted(op.accepts)}")
-        out.append("")
-    return "\n".join(out)
-
-
-def build_system_prompt() -> str:
-    """Static system prompt: vocabulary + recipe shape + guardrails."""
-    return (
-        "You are a data analyst translating natural-language questions about a "
-        "personal-data warehouse into structured Recipe DAGs.\n\n"
-        "You MUST respond by calling the `submit_recipe` tool. Use only the "
-        "operations listed below; do not invent new ones. Do not write SQL.\n\n"
-        + _operation_vocabulary()
-        + "\n\nRecipe nodes are either:\n"
-        '- `{"type": "source", "table": "<schema>.<name>"}` for a raw input\n'
-        '- `{"type": "op", "op_name": "<name>", "params": {...}, "inputs": [...]}` for an operation call\n'
-        "The `inputs` array names other nodes by key. The `final` field names the node "
-        "whose result is the answer.\n"
-    )
+def build_system_prompt(mode: AnalysisMode) -> str:
+    """Build the system prompt, delegating to the active mode."""
+    return mode.build_system_prompt()
 
 
 def build_user_prompt(question: str, catalog: dict[str, dict[str, Any]]) -> str:
-    """Per-question prompt: catalog dump + question."""
+    """Per-question prompt: catalog dump + question. Shared across all modes."""
     catalog_str = json.dumps(list(catalog.values()), indent=2, default=str)
     return (
         f"## Available tables\n\n{catalog_str}\n\n## Question\n\n{question}\n\n"
@@ -274,7 +210,7 @@ def build_user_prompt(question: str, catalog: dict[str, dict[str, Any]]) -> str:
 
 
 # ----------------------------------------------------------------------
-# High-level entry point
+# High-level entry points
 # ----------------------------------------------------------------------
 
 
@@ -282,15 +218,17 @@ def ask_for_recipe(
     provider: LLMProvider,
     question: str,
     catalog: dict[str, dict[str, Any]],
+    *,
+    mode: AnalysisMode,
 ) -> dict[str, Any]:
     """Ask the LLM for a recipe payload. Returns the raw tool-input dict.
 
     Caller is responsible for converting the payload into a ``Recipe``
     instance and validating it.
     """
-    system = build_system_prompt()
+    system = mode.build_system_prompt()
     user = build_user_prompt(question, catalog)
-    return provider.ask(system=system, user=user, tools=[submit_recipe_tool()])
+    return provider.ask(system=system, user=user, tools=[mode.submit_tool()])
 
 
 def ask_for_recipe_with_retry(
@@ -298,10 +236,11 @@ def ask_for_recipe_with_retry(
     question: str,
     catalog: dict[str, dict[str, Any]],
     *,
+    mode: AnalysisMode,
     validate: Any = None,
     max_attempts: int = 2,
 ) -> tuple[dict[str, Any], list[str]]:
-    """Iteration loop (PR 4.4): retry once if the recipe doesn't validate.
+    """Retry once if the recipe doesn't validate.
 
     Calls ``validate(payload)`` after each attempt; if it raises, the
     exception message is appended to the user prompt and the LLM is
@@ -314,9 +253,9 @@ def ask_for_recipe_with_retry(
     Recipe imports; pass ``Recipe.from_payload_and_validate`` (or
     similar) from the call site.
     """
-    system = build_system_prompt()
+    system = mode.build_system_prompt()
     user = build_user_prompt(question, catalog)
-    tools = [submit_recipe_tool()]
+    tools = [mode.submit_tool()]
 
     errors: list[str] = []
     payload: dict[str, Any] = {}
