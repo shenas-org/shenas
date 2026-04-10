@@ -67,6 +67,7 @@ shenas-dashboard-core = { workspace = true }
 shenas-dashboard-fitness = { workspace = true }
 shenas-dashboard-data-table = { workspace = true }
 shenas-dashboard-event-gantt = { workspace = true }
+shenas-dashboard-timeline = { workspace = true }
 shenas-model-core = { workspace = true }
 shenas-model-sleep-forecast = { workspace = true }
 shenas-transformation-core = { workspace = true }
@@ -117,6 +118,7 @@ dev = [
     "shenas-dataset-location",
     "shenas-dashboard-fitness",
     "shenas-dashboard-data-table",
+    "shenas-dashboard-timeline",
     "shenas-frontend-default",
     "shenas-frontend-focus",
     "shenas-theme-default",
