@@ -1,6 +1,7 @@
 name: OSS Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       # App-level release
