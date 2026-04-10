@@ -44,8 +44,12 @@ core.workflow(
             "CLAUDE.md",
             "DESIGN.md",
             "DISCOURSE.md",
-            "moon.yml",
+            "**/moon.yml",
             "scripts/**",
+
+            # Lock files (generated, large)
+            "uv.lock",
+            "**/package-lock.json",
 
             # Desktop / mobile (not ready for OSS yet)
             "app/desktop/**",
