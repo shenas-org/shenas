@@ -27,8 +27,8 @@ uv run shenasctl --help
 ## Development setup
 
 ```bash
-make setup-hooks    # install pre-commit hook (ruff + ty)
-make install        # install shenas + shenasctl to ~/.local/bin/
+make hooks-setup    # install pre-commit hook (ruff + ty)
+make app-install    # install shenas + shenasctl to ~/.local/bin/
 ```
 
 ## Data pipeline
@@ -113,40 +113,70 @@ make clean          # remove all build artifacts
 ## Architecture
 
 ```
-app/                 FastAPI UI server (Arrow IPC queries)
-app/telemetry/       OpenTelemetry exporters, DuckDB spans/logs, SSE dispatcher
-app/vendor/          shared frontend deps (Lit, Arrow, uPlot, Cytoscape)
-app/desktop/         Tauri desktop app with bundled PyInstaller sidecars
-shenasctl/           lightweight CLI client (httpx + typer)
-scheduler/           background sync daemon sidecar
-server/repository/   PEP 503 package server + Ed25519 signing
+app/                   FastAPI UI server (Arrow IPC queries, GraphQL)
+app/graphql/           Strawberry GraphQL schema, mutations, LLM provider routing
+app/telemetry/         OpenTelemetry exporters, DuckDB spans/logs, SSE dispatcher
+app/mesh/              peer-to-peer mesh daemon, identity, relay sync
+app/fl/                Flower FL client, PyTorch training, inference engine
+app/vendor/            shared frontend deps (Lit, Arrow, uPlot, Cytoscape)
+app/desktop/           Tauri desktop app with bundled PyInstaller sidecars
+app/mobile/            Tauri mobile app (Rust core: axum + DuckDB, no Python)
+shenasctl/             lightweight CLI client (httpx + typer + cryptography)
+scheduler/             background sync daemon sidecar
+server/api/            shenas.net web API (LLM proxy, literature gateway, packages)
+server/fl/             federated learning coordinator (Flower server + REST API)
+server/deploy/         Kubernetes, Terraform/OpenTofu, Docker deployment configs
 plugins/
-  core/                shared plugin utilities (shenas-plugin-core)
-  sources/core/        shared source utilities (shenas-source-core)
-  sources/garmin/      Garmin Connect connector
-  sources/gcalendar/   Google Calendar (events, attendees, colors)
-  sources/gtakeout/    Google Takeout import
-  sources/lunchmoney/  Lunch Money (transactions, tags, user, crypto, ...)
-  sources/obsidian/    Obsidian daily notes (frontmatter)
-  sources/gmail/       Gmail (messages, labels, profile, filters, vacation, send_as)
-  sources/duolingo/    Duolingo (XP, streak, achievements, league, friends)
-  sources/spotify/     Spotify (recently played, top, library, audio features, podcasts)
-  sources/strava/      Strava (activities, laps, kudos, comments, gear, stats, zones)
-  datasets/core/       shared dataset utilities (shenas-dataset-core)
-  datasets/fitness/    HRV, sleep, vitals, body metrics
-  datasets/finance/    transactions, spending, budgets
-  datasets/events/     unified event timeline
-  datasets/outcomes/   mood, stress, productivity, exercise
-  datasets/habits/     daily habits
-  dashboards/          Lit web components (built as wheels)
-  themes/              CSS custom properties (default + dark)
-  frontends/default/   default frontend shell (Lit SPA with tabs, command palette)
+  core/                  shared plugin utilities (shenas-plugin-core)
+  sources/core/          shared source utilities (shenas-source-core)
+  sources/chrome/        Chrome browser history
+  sources/cronometer/    Cronometer nutrition tracking
+  sources/duolingo/      Duolingo (XP, streak, achievements, league, friends)
+  sources/firefox/       Firefox browser history
+  sources/garmin/        Garmin Connect (activities, daily stats, sleep, HRV, SpO2)
+  sources/gcalendar/     Google Calendar (events, attendees, colors)
+  sources/github/        GitHub activity
+  sources/gmail/         Gmail (messages, labels, profile, filters, vacation, send_as)
+  sources/goodreads/     Goodreads reading history
+  sources/gtakeout/      Google Takeout import (photos, location, YouTube history)
+  sources/lunchmoney/    Lunch Money (transactions, tags, user, crypto, ...)
+  sources/obsidian/      Obsidian daily notes (frontmatter)
+  sources/rescuetime/    RescueTime productivity tracking
+  sources/shell_history/ shell command history
+  sources/spotify/       Spotify (recently played, top, library, audio features, podcasts)
+  sources/strava/        Strava (activities, laps, kudos, comments, gear, stats, zones)
+  sources/tile/          Tile location tracking
+  sources/withings/      Withings health devices
+  datasets/core/         shared dataset utilities (shenas-dataset-core)
+  datasets/fitness/      HRV, sleep, vitals, body metrics
+  datasets/finance/      transactions, spending, budgets
+  datasets/events/       unified event timeline
+  datasets/outcomes/     mood, stress, productivity, exercise
+  datasets/habits/       daily habits
+  datasets/location/     location metrics
+  datasets/promoted/     dynamically promoted hypothesis-to-metric tables
+  analyses/core/         shared analysis utilities
+  analyses/hypothesis/   hypothesis-driven analysis (Recipe DAG runner)
+  transformations/core/  shared transformation utilities
+  transformations/*/     sql, dedup-merge, geocode, geofence, reverse-geocode, ...
+  models/core/           shared ML model utilities
+  models/sleep-forecast/ sleep quality forecasting model
+  dashboards/core/       shared dashboard utilities
+  dashboards/fitness/    Lit + uPlot fitness charts
+  dashboards/data-table/ Lit data table with sorting/filtering/pagination
+  dashboards/event-gantt/ event Gantt chart visualization
+  dashboards/timeline/   timeline visualization
+  frontends/core/        shared frontend utilities
+  frontends/default/     default frontend shell (Lit SPA with tabs, command palette)
+  frontends/focus/       focus mode frontend
+  themes/core/           shared theme utilities
+  themes/                CSS custom properties (default + dark)
 ```
 
 **Data flow**: Source API -> dlt -> raw DuckDB tables -> SQL transform -> canonical `metrics.*` tables -> Arrow IPC -> web component
 
 **Plugin system**: Sources register via `shenas.sources` entry points, datasets via `shenas.datasets`, dashboards via `shenas.dashboards`, frontends via `shenas.frontends`, themes via `shenas.themes`. The CLI and UI discover them at runtime via `importlib.metadata`.
 
-**Table kinds**: every raw source table declares a `__kind__` ClassVar (`event` | `snapshot` | `aggregate` | `counter`) so the temporal nature of each table is explicit and matches the dlt strategy in use.
+**Table kinds**: every raw source table inherits from a kind base class (`EventTable`, `IntervalTable`, `SnapshotTable`, `DimensionTable`, `AggregateTable`, `CounterTable`, `M2MTable`). The kind is encoded in the inheritance chain and determines the dlt write_disposition automatically.
 
 **Core packages**: `shenas-source-core` and `shenas-dataset-core` provide shared utilities. They are internal dependencies, not user-facing.
