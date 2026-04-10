@@ -28,6 +28,7 @@ jobs:
       - name: Configure SSH key
         run: |
           mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
           echo "${{ secrets.OSS_DEPLOY_KEY }}" > ~/.ssh/oss_deploy_key
           chmod 600 ~/.ssh/oss_deploy_key
           cat >> ~/.ssh/config <<'EOF'
@@ -35,7 +36,6 @@ jobs:
             HostName github.com
             User git
             IdentityFile ~/.ssh/oss_deploy_key
-            StrictHostKeyChecking no
           EOF
 
       - name: Configure Git
