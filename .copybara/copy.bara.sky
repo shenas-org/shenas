@@ -1,0 +1,98 @@
+"""Copybara config: sync shenas/shenas-net (private) -> shenas/shenas (public OSS).
+
+Strips premium features (LLM, literature, FL, mesh, models, analyses,
+server infra) so the public repo contains only the free local-first
+data pipeline.
+"""
+
+core.workflow(
+    name = "default",
+    origin = git.origin(
+        url = "git@github.com:shenas-net/shenas.git",
+        ref = "main",
+    ),
+    destination = git.github_destination(
+        url = "git@github.com:shenas-org/shenas.git",
+        push = "main",
+    ),
+    authoring = authoring.overwrite("Alexander Funcke <funcke@shenas.net>"),
+    mode = "SQUASH",
+    origin_files = glob(
+        include = ["**"],
+        exclude = [
+            # Server-side backends
+            "server/api/**",
+            "server/fl/**",
+            "server/deploy/**",
+            "server/repository/**",
+            "server/shenas.net/**",
+
+            # Federated learning client
+            "app/fl/**",
+
+            # Mesh / device sync
+            "app/mesh/**",
+
+            # Literature integration (LLM-powered)
+            "app/literature.py",
+            "app/literature_fetch.py",
+            "app/tests/test_literature.py",
+            "app/tests/test_literature_fetch.py",
+
+            # LLM provider routing
+            "app/graphql/llm_provider.py",
+
+            # Analysis plugins (LLM-driven hypothesis modes)
+            "plugins/analyses/**",
+
+            # ML model plugins
+            "plugins/models/**",
+
+            # Google OAuth secrets (should be env vars, not in source)
+            "plugins/sources/core/shenas_sources/core/google_auth.py",
+
+            # Copybara config itself
+            ".copybara/**",
+
+            # CI/CD, monorepo tooling, internal docs
+            ".github/**",
+            ".moon/**",
+            ".mcp.json",
+            "Makefile",
+            "README.md",
+            "CLAUDE.md",
+            "DESIGN.md",
+            "DISCOURSE.md",
+            "moon.yml",
+            "scripts/**",
+
+            # Desktop / mobile (not ready for OSS yet)
+            "app/desktop/**",
+            "app/mobile/**",
+        ],
+    ),
+    transformations = [
+        # Use OSS-specific README and .gitignore.
+        core.transform(
+            [
+                core.move("README-oss.md", "README.md"),
+                core.move("Makefile-oss", "Makefile"),
+            ],
+            noop_behavior = "IGNORE_NOOP",
+        ),
+        # Strip private-only section from .gitignore.
+        core.replace(
+            before = "# PRIVATE-ONLY (stripped by Copybara)${x}",
+            after = "",
+            regex_groups = {"x": "[\\s\\S]*"},
+            multiline = True,
+            paths = glob([".gitignore"]),
+        ),
+        # Replace LLM-dependent mutations with upgrade stubs.
+        core.replace(
+            before = "from app.graphql.llm_provider import get_llm_provider",
+            after = "",
+            paths = glob(["app/graphql/mutations.py"]),
+        ),
+    ],
+)
