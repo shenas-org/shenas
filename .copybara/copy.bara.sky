@@ -82,7 +82,7 @@ core.workflow(
                 core.move("README-oss.md", "README.md"),
                 core.move("Makefile-oss", "Makefile"),
             ],
-            noop_behavior = "IGNORE_NOOP",
+            ignore_noop = True,
         ),
         # Strip private-only section from .gitignore.
         core.replace(
