@@ -7,6 +7,11 @@ on:
       - 'dataset-*/v*'
       - 'dashboard-*/v*'
       - 'plugin-core/v*'
+      - 'frontend-*/v*'
+      - 'theme-*/v*'
+      - 'transformation-*/v*'
+      - 'analysis-*/v*'
+      - 'model-*/v*'
 
 permissions:
   contents: read
@@ -49,13 +54,18 @@ jobs:
           PREFIX="${TAG%/v*}"
 
           # Map tag prefix to directory
-          SIGN=false
+          SIGN=true
           case "$PREFIX" in
-            source-*)      NAME="${PREFIX#pipe-}"; DIR="plugins/sources/$NAME"; SIGN=true ;;
-            dataset-*)    NAME="${PREFIX#schema-}"; DIR="plugins/datasets/$NAME"; SIGN=true ;;
-            dashboard-*) NAME="${PREFIX#component-}"; DIR="plugins/dashboards/$NAME"; SIGN=true ;;
-            plugin-core) DIR="plugins/core"; SIGN=true ;;
-            *)           echo "Unknown tag prefix: $PREFIX"; exit 1 ;;
+            source-*)         NAME="${PREFIX#source-}";         DIR="plugins/sources/$NAME" ;;
+            dataset-*)        NAME="${PREFIX#dataset-}";        DIR="plugins/datasets/$NAME" ;;
+            dashboard-*)      NAME="${PREFIX#dashboard-}";      DIR="plugins/dashboards/$NAME" ;;
+            frontend-*)       NAME="${PREFIX#frontend-}";       DIR="plugins/frontends/$NAME" ;;
+            theme-*)          NAME="${PREFIX#theme-}";          DIR="plugins/themes/$NAME" ;;
+            transformation-*) NAME="${PREFIX#transformation-}"; DIR="plugins/transformations/$NAME" ;;
+            analysis-*)       NAME="${PREFIX#analysis-}";       DIR="plugins/analyses/$NAME" ;;
+            model-*)          NAME="${PREFIX#model-}";          DIR="plugins/models/$NAME" ;;
+            plugin-core)      NAME="core";                     DIR="plugins/core" ;;
+            *)                echo "Unknown tag prefix: $PREFIX"; exit 1 ;;
           esac
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -65,15 +75,14 @@ jobs:
           echo "sign=$SIGN" >> "$GITHUB_OUTPUT"
           echo "Building $PREFIX v$VERSION from $DIR (sign=$SIGN)"
 
-      - name: Build component frontend
-        if: startsWith(steps.parse.outputs.prefix, 'component-')
+      - name: Build frontend assets
+        if: startsWith(steps.parse.outputs.prefix, 'dashboard-') || startsWith(steps.parse.outputs.prefix, 'frontend-')
         shell: bash
         run: |
           DIR="${{ steps.parse.outputs.dir }}"
-          NAME="${{ steps.parse.outputs.name }}"
-          PKG=$(echo "$NAME" | tr '-' '_')
-          cd "$DIR" && npm install && npm run build && cd -
-          cp "$DIR/$NAME.html" "$DIR/shenas_dashboards/$PKG/static/$NAME.html"
+          if [ -f "$DIR/package.json" ]; then
+            cd "$DIR" && npm install && npm run build
+          fi
 
       - name: Build wheel
         run: cd "${{ steps.parse.outputs.dir }}" && uv build --out-dir "$GITHUB_WORKSPACE/dist"
