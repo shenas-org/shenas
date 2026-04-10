@@ -34,7 +34,7 @@ class SleepForecast(Model):
     display_name = "Sleep Forecast"
     description = "Predict tomorrow's sleep score from HRV, activity, and vitals"
     model_cls = SleepForecastNet
-    schemas: ClassVar[list[str]] = ["fitness"]
+    datasets: ClassVar[list[str]] = ["fitness"]
     features: ClassVar[list[str]] = ["rmssd", "sdnn", "resting_hr", "steps", "active_kcal"]
     target = "score"
     query = """
