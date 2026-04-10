@@ -113,6 +113,30 @@ class LocalUser(Table):
 
         walk(Table)
 
+        # Source plugins have Config/Auth SingletonTable subclasses with
+        # dynamic names (pipe_<source>) created by Source.__init_subclass__.
+        # The MRO walk above misses them because they are generated at
+        # class-creation time, not declared as top-level classes. Discover
+        # them by walking installed Source subclasses.
+        try:
+            from app.api.sources import _load_plugins
+            from shenas_sources.core.source import Source, SourceAuth
+
+            def _ensure_singleton(tbl_cls: Any) -> None:
+                meta = getattr(tbl_cls, "_Meta", None)
+                if meta is None or not getattr(meta, "name", None):
+                    return
+                schema = getattr(meta, "schema", None) or "config"
+                con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+                tbl_cls.ensure(con, schema=schema)
+
+            for source_cls in _load_plugins("source", base=Source):
+                _ensure_singleton(source_cls.Config)
+                if source_cls.Auth is not SourceAuth:
+                    _ensure_singleton(source_cls.Auth)
+        except Exception:
+            pass
+
         from app.hotkeys import Hotkey
 
         Hotkey.seed(con)
