@@ -1,8 +1,8 @@
 """Copybara config: sync shenas/shenas-net (private) -> shenas/shenas (public OSS).
 
-Strips premium features (LLM, literature, FL, mesh, models, analyses,
-server infra) so the public repo contains only the free local-first
-data pipeline.
+Strips server infra, FL, mesh, and desktop/mobile paths.
+The OSS repo includes the full local app with LLM/literature/analysis
+support (users provide their own API key or sign up for premium).
 """
 
 core.workflow(
@@ -32,21 +32,6 @@ core.workflow(
 
             # Mesh / device sync
             "app/mesh/**",
-
-            # Literature integration (LLM-powered)
-            "app/literature.py",
-            "app/literature_fetch.py",
-            "app/tests/test_literature.py",
-            "app/tests/test_literature_fetch.py",
-
-            # LLM provider routing
-            "app/graphql/llm_provider.py",
-
-            # Analysis plugins (LLM-driven hypothesis modes)
-            "plugins/analyses/**",
-
-            # ML model plugins
-            "plugins/models/**",
 
             # Google OAuth secrets (should be env vars, not in source)
             "plugins/sources/core/shenas_sources/core/google_auth.py",
@@ -87,12 +72,6 @@ core.workflow(
             regex_groups = {"x": "[\\s\\S]*"},
             multiline = True,
             paths = glob([".gitignore"]),
-        ),
-        # Replace LLM-dependent mutations with upgrade stubs.
-        core.replace(
-            before = "from app.graphql.llm_provider import get_llm_provider",
-            after = "",
-            paths = glob(["app/graphql/mutations.py"]),
         ),
     ],
 )

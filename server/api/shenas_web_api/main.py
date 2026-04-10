@@ -13,6 +13,8 @@ from shenas_web_api.auth import router as auth_router
 from shenas_web_api.config import FRONTEND_URL, SESSION_SECRET
 from shenas_web_api.db import ensure_schema
 from shenas_web_api.devices import router as devices_router
+from shenas_web_api.literature import router as literature_router
+from shenas_web_api.llm import router as llm_router
 from shenas_web_api.packages import router as packages_router
 from shenas_web_api.relay import router as relay_router
 
@@ -40,6 +42,8 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(devices_router, prefix="/api")
+app.include_router(literature_router, prefix="/api")
+app.include_router(llm_router, prefix="/api")
 app.include_router(relay_router, prefix="/api")
 app.include_router(packages_router)
 

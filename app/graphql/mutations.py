@@ -569,11 +569,9 @@ class Mutation:
 
     @strawberry.mutation
     def refresh_literature(self, papers_per_pair: int = 5, min_citations: int = 50) -> JSON:
-        """Fetch papers from OpenAlex and extract structured findings via LLM."""
+        """Fetch papers and extract structured findings via the API gateway."""
         from app.analytics_catalog import catalog_by_qualified_name
-        from app.graphql.llm_provider import get_llm_provider
         from app.literature_fetch import refresh_findings
 
-        provider = get_llm_provider()
         catalog = catalog_by_qualified_name()
-        return refresh_findings(catalog, provider, papers_per_pair=papers_per_pair, min_citations=min_citations)
+        return refresh_findings(catalog, papers_per_pair=papers_per_pair, min_citations=min_citations)
