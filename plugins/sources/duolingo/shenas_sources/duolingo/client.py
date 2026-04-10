@@ -77,12 +77,12 @@ class DuolingoClient:
         courses = data.get("courses", [])
         return [
             {
-                "language": c.get("title", ""),
-                "language_code": c.get("learningLanguage", ""),
+                "id": c.get("id", f"{c.get('fromLanguage', '')}-{c.get('learningLanguage', '')}"),
+                "title": c.get("title", ""),
                 "from_language": c.get("fromLanguage", ""),
+                "learning_language": c.get("learningLanguage", ""),
                 "xp": c.get("xp", 0),
                 "crowns": c.get("crowns", 0),
-                "level": c.get("level", 0),
             }
             for c in courses
         ]

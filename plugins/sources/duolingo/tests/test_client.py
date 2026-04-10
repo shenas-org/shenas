@@ -24,12 +24,12 @@ class TestGetCourses:
             return_value={
                 "courses": [
                     {
+                        "id": "DUOLINGO_DE_EN",
                         "title": "German",
                         "learningLanguage": "de",
                         "fromLanguage": "en",
                         "xp": 5000,
                         "crowns": 50,
-                        "level": 12,
                     },
                 ],
             }
@@ -37,6 +37,7 @@ class TestGetCourses:
 
         result = client.get_courses()
         assert len(result) == 1
-        assert result[0]["language"] == "German"
+        assert result[0]["id"] == "DUOLINGO_DE_EN"
+        assert result[0]["title"] == "German"
         assert result[0]["xp"] == 5000
         client.close()
