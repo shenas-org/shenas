@@ -19,9 +19,9 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run ty check app/ --exclude "**/vendor/**" --exclude "**/fl/**" --exclude "**/telemetry/**" --exclude "**/graphql/**" --exclude "**/tests/**"
+      - run: make python-lint
+      - run: make python-format-check
+      - run: make python-typecheck
 
   python-test:
     name: Python test
@@ -42,7 +42,7 @@ jobs:
         run: |
           cd app/vendor && npm ci --silent && npm run build && cd "$GITHUB_WORKSPACE"
           cd plugins/frontends/default && npm ci --silent && npm run build
-      - run: uv run --no-sync pytest
+      - run: make python-test
 
   js-lint:
     name: JS lint, format, typecheck
@@ -54,25 +54,10 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci --silent
-      - name: Install per-package deps
-        run: |
-          for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
-            dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
-            if [ -f "$dir/package.json" ]; then
-              (cd "$dir" && npm ci --silent)
-            fi
-          done
-      - name: TypeScript check
-        run: |
-          for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
-            dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
-            if [ -f "$dir/tsconfig.json" ]; then
-              echo "Type checking $dir"
-              (cd "$dir" && npx --no-install tsc --noEmit) || exit 1
-            fi
-          done
-      - run: npm run lint
-      - run: npm run format:check
+      - run: make js-deps
+      - run: make js-typecheck
+      - run: make js-lint
+      - run: make js-format-check
 
   js-test:
     name: JS test
