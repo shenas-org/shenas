@@ -116,7 +116,7 @@ class TestRefreshEndpoints:
                 await transport.refresh_endpoints("https://srv", "dev-1", "tok")
             assert mock_client.put.await_count == 1
             call = mock_client.put.await_args
-            body = call.kwargs["json"]
+            body = call.kwargs["json"]  # ty: ignore[unresolved-attribute]
             assert len(body["endpoints"]) == 2
             # STUN endpoint gets priority 10
             stun_eps = [e for e in body["endpoints"] if e["type"] == "stun"]

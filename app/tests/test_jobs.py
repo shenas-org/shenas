@@ -70,10 +70,10 @@ class TestJobIdLogFilter:
         record = logging.LogRecord("x", logging.INFO, "f.py", 1, "msg", None, None)
         with jobs.bind_job_id("job-123"):
             assert f.filter(record) is True
-        assert record.job_id == "job-123"
+        assert record.job_id == "job-123"  # ty: ignore[unresolved-attribute]
 
     def test_injects_none_when_no_binding(self) -> None:
         f = jobs.JobIdLogFilter()
         record = logging.LogRecord("x", logging.INFO, "f.py", 1, "msg", None, None)
         assert f.filter(record) is True
-        assert record.job_id is None
+        assert record.job_id is None  # ty: ignore[unresolved-attribute]

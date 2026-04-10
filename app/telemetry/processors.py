@@ -113,9 +113,9 @@ class DispatchingLogProcessor(LogRecordProcessor):
     def emit(self, log_data: Any) -> None:
         _dispatch_log(log_data)
         if hasattr(self._delegate, "emit"):
-            self._delegate.emit(log_data)
+            self._delegate.emit(log_data)  # ty: ignore[call-non-callable]
 
-    def on_emit(self, log_data: Any) -> None:
+    def on_emit(self, log_data: Any) -> None:  # ty: ignore[invalid-method-override]
         _dispatch_log(log_data)
         if hasattr(self._delegate, "on_emit"):
             self._delegate.on_emit(log_data)

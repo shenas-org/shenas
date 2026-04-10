@@ -313,8 +313,7 @@ class HypothesesPage extends LitElement {
     return html`
       <h2>${h.question}</h2>
       <p class="meta">
-        ${h.created_at || ""} · ${h.model || "---"}
-        · <span class="mode-badge">${h.mode || "hypothesis"}</span>
+        ${h.created_at || ""} · ${h.model || "---"} · <span class="mode-badge">${h.mode || "hypothesis"}</span>
         ${h.promoted_to ? html` · <span class="promoted">-> ${h.promoted_to}</span>` : ""}
       </p>
 

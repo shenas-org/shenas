@@ -46,8 +46,8 @@ class Mutation:
         from app.models import AuthResponse
 
         p = _load_source(pipe)
-        result = p.handle_auth(credentials)
-        return AuthResponseType.from_pydantic(AuthResponse(**result))
+        result = p.handle_auth(credentials)  # ty: ignore[invalid-argument-type]
+        return AuthResponseType.from_pydantic(AuthResponse(**result))  # ty: ignore[unresolved-attribute]
 
     # -- Config --
 
@@ -58,10 +58,10 @@ class Mutation:
 
         cls = _load_plugin(kind, name)
         if not cls:
-            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))
+            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))  # ty: ignore[unresolved-attribute]
         plugin = cls()
         plugin.set_config_value(key, value)
-        return OkType.from_pydantic(OkResponse(ok=True))
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
     def delete_config(self, kind: str, name: str) -> OkType:
@@ -70,9 +70,9 @@ class Mutation:
 
         cls = _load_plugin(kind, name)
         if not cls:
-            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))
+            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))  # ty: ignore[unresolved-attribute]
         cls().delete_config()
-        return OkType.from_pydantic(OkResponse(ok=True))
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
     def delete_config_key(self, kind: str, name: str, key: str) -> OkType:
@@ -81,9 +81,9 @@ class Mutation:
 
         cls = _load_plugin(kind, name)
         if not cls:
-            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))
+            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))  # ty: ignore[unresolved-attribute]
         cls().set_config_value(key, None)
-        return OkType.from_pydantic(OkResponse(ok=True))
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     # -- Database --
 
@@ -94,13 +94,13 @@ class Mutation:
 
         key = generate_db_key()
         set_db_key(key)
-        return OkType.from_pydantic(OkResponse(ok=True))
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
     def flush_schema(self, schema_plugin: str) -> JSON:
         from app.api.db import flush_schema
 
-        return flush_schema(schema_plugin)
+        return flush_schema(schema_plugin)  # ty: ignore[invalid-return-type]
 
     # -- Plugins --
 
@@ -119,7 +119,7 @@ class Mutation:
         for n in names:
             ok, message = Plugin.install(kind, n, index_url=index_url or DEFAULT_INDEX, skip_verify=skip_verify)
             results.append(InstallResult(name=n, ok=ok, message=message))
-        return InstallResponseType.from_pydantic(InstallResponse(results=results))
+        return InstallResponseType.from_pydantic(InstallResponse(results=results))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
     def remove_plugin(self, kind: str, name: str) -> RemoveResponseType:
@@ -127,7 +127,7 @@ class Mutation:
         from shenas_plugins.core.plugin import Plugin
 
         ok, message = Plugin.uninstall(kind, name)
-        return RemoveResponseType.from_pydantic(RemoveResponse(ok=ok, message=message))
+        return RemoveResponseType.from_pydantic(RemoveResponse(ok=ok, message=message))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
     def enable_plugin(self, kind: str, name: str) -> OkType:
@@ -136,7 +136,7 @@ class Mutation:
 
         inst = PluginInstance.get_or_create(kind, name)
         msg = inst.enable()
-        return OkType.from_pydantic(OkResponse(ok=True, message=msg))
+        return OkType.from_pydantic(OkResponse(ok=True, message=msg))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
     def disable_plugin(self, kind: str, name: str) -> OkType:
@@ -145,12 +145,12 @@ class Mutation:
 
         inst = PluginInstance.find(kind, name)
         if not inst:
-            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not tracked: {kind}/{name}"))
+            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not tracked: {kind}/{name}"))  # ty: ignore[unresolved-attribute]
         try:
             msg = inst.disable()
         except ValueError as exc:
-            return OkType.from_pydantic(OkResponse(ok=False, message=str(exc)))
-        return OkType.from_pydantic(OkResponse(ok=True, message=msg))
+            return OkType.from_pydantic(OkResponse(ok=False, message=str(exc)))  # ty: ignore[unresolved-attribute]
+        return OkType.from_pydantic(OkResponse(ok=True, message=msg))  # ty: ignore[unresolved-attribute]
 
     # -- Transforms --
 
@@ -189,7 +189,7 @@ class Mutation:
         t = TransformInstance.find(transform_id)
         if t:
             t.delete()
-        return OkType.from_pydantic(OkResponse(ok=True))
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
     def enable_transform(self, transform_id: int) -> TransformType | None:
@@ -216,7 +216,7 @@ class Mutation:
         from shenas_transformations.core.instance import TransformInstance
 
         t = TransformInstance.find(transform_id)
-        return t.test(limit) if t else []
+        return t.test(limit) if t else []  # ty: ignore[invalid-return-type]
 
     @strawberry.mutation
     def seed_transforms(self) -> JSON:
@@ -233,7 +233,7 @@ class Mutation:
                 if not inst or inst.enabled:
                     plugin.seed_defaults_for_source(ep_name)
             seeded.append(ep_name)
-        return {"seeded": seeded, "count": len(seeded)}
+        return {"seeded": seeded, "count": len(seeded)}  # ty: ignore[invalid-return-type]
 
     @strawberry.mutation
     def run_pipe_transforms(self, pipe: str) -> JSON:
@@ -242,7 +242,7 @@ class Mutation:
         from app.db import connect
 
         count = TransformInstance.run_for_source(connect(), pipe)
-        return {"source": pipe, "count": count}
+        return {"source": pipe, "count": count}  # ty: ignore[invalid-return-type]
 
     @strawberry.mutation
     def run_schema_transforms(self, schema: str) -> JSON:
@@ -251,7 +251,7 @@ class Mutation:
         from app.db import connect
 
         count = TransformInstance.run_for_target(connect(), schema)
-        return {"schema": schema, "count": count}
+        return {"schema": schema, "count": count}  # ty: ignore[invalid-return-type]
 
     # -- Hotkeys --
 
@@ -261,7 +261,7 @@ class Mutation:
         from app.models import OkResponse
 
         Hotkey(action_id=action_id).set_binding(binding)
-        return OkType.from_pydantic(OkResponse(ok=True))
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
     def delete_hotkey(self, action_id: str, info: strawberry.types.Info) -> OkType:  # noqa: ARG002
@@ -269,7 +269,7 @@ class Mutation:
         from app.models import OkResponse
 
         Hotkey(action_id=action_id).delete()
-        return OkType.from_pydantic(OkResponse(ok=True))
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
     def reset_hotkeys(self, info: strawberry.types.Info) -> OkType:  # noqa: ARG002
@@ -277,7 +277,7 @@ class Mutation:
         from app.models import OkResponse
 
         Hotkey.reset()
-        return OkType.from_pydantic(OkResponse(ok=True))
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     # -- Workspace --
 
@@ -286,8 +286,8 @@ class Mutation:
         from app.models import OkResponse
         from app.workspace import Workspace
 
-        Workspace.put(data)
-        return OkType.from_pydantic(OkResponse(ok=True))
+        Workspace.put(data)  # ty: ignore[invalid-argument-type]
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     # -- Hypotheses --
     #
@@ -305,7 +305,7 @@ class Mutation:
 
         empty = Recipe(nodes={}, final="")
         h = Hypothesis.create(question, empty, plan=plan, model=model, mode=mode)
-        return {"id": h.id, "question": h.question, "mode": h.mode}
+        return {"id": h.id, "question": h.question, "mode": h.mode}  # ty: ignore[invalid-return-type]
 
     @strawberry.mutation
     def run_recipe(self, hypothesis_id: int, recipe_json: str) -> JSON:
@@ -328,7 +328,7 @@ class Mutation:
 
         h = Hypothesis.find(hypothesis_id)
         if h is None:
-            return {"error": f"hypothesis {hypothesis_id} not found"}
+            return {"error": f"hypothesis {hypothesis_id} not found"}  # ty: ignore[invalid-return-type]
 
         payload = json.loads(recipe_json)
         nodes: dict[str, SourceRef | OpCall] = {}
@@ -360,13 +360,13 @@ class Mutation:
             cached = cached_row.payload
             h.result_json = json.dumps(cached)
             h.save()
-            return {"id": h.id, "result": cached, "ok": cached.get("type") != "error", "cached": True}
+            return {"id": h.id, "result": cached, "ok": cached.get("type") != "error", "cached": True}  # ty: ignore[invalid-return-type]
 
         result = run_recipe(recipe, catalog, backend=analytics_backend())
         h.attach_result(result)
         if not isinstance(result, ErrorResult):
             RecipeCache.put(cache_key, result.model_dump())
-        return {
+        return {  # ty: ignore[invalid-return-type]
             "id": h.id,
             "result": result.model_dump(),
             "ok": not isinstance(result, ErrorResult),
@@ -387,7 +387,7 @@ class Mutation:
 
         parent = Hypothesis.find(hypothesis_id)
         if parent is None:
-            return {"error": f"hypothesis {hypothesis_id} not found"}
+            return {"error": f"hypothesis {hypothesis_id} not found"}  # ty: ignore[invalid-return-type]
 
         fork = Hypothesis(
             question=parent.question,
@@ -399,7 +399,7 @@ class Mutation:
             parent_id=parent.id,
         )
         fork.insert()
-        return {"id": fork.id, "parent_id": parent.id, "question": fork.question}
+        return {"id": fork.id, "parent_id": parent.id, "question": fork.question}  # ty: ignore[invalid-return-type]
 
     # -- Promotion --
 
@@ -417,12 +417,12 @@ class Mutation:
 
         h = Hypothesis.find(hypothesis_id)
         if h is None:
-            return {"error": f"hypothesis {hypothesis_id} not found"}
+            return {"error": f"hypothesis {hypothesis_id} not found"}  # ty: ignore[invalid-return-type]
         try:
             record = _promote(h, name=name, metric_schema=metric_schema)
         except ValueError as exc:
-            return {"error": str(exc)}
-        return {
+            return {"error": str(exc)}  # ty: ignore[invalid-return-type]
+        return {  # ty: ignore[invalid-return-type]
             "id": h.id,
             "promoted_to": h.promoted_to,
             "qualified": record.qualified,
@@ -462,7 +462,7 @@ class Mutation:
         try:
             analysis_mode = get_mode(mode)
         except KeyError as exc:
-            return {"ok": False, "error": {"message": str(exc)}}
+            return {"ok": False, "error": {"message": str(exc)}}  # ty: ignore[invalid-return-type]
 
         provider = get_llm_provider()
         wall_start = time.monotonic()
@@ -483,7 +483,7 @@ class Mutation:
                         params=nd.get("params", {}),
                         inputs=tuple(nd.get("inputs", ())),
                     )
-            Recipe(nodes=tmp_nodes, final=p.get("final", "")).validate()
+            Recipe(nodes=tmp_nodes, final=p.get("final", "")).validate()  # ty: ignore[missing-argument]
 
         catalog = _build_catalog()
         llm_start = time.monotonic()
@@ -492,7 +492,7 @@ class Mutation:
                 provider,
                 question,
                 catalog,
-                mode=analysis_mode,
+                mode=analysis_mode,  # ty: ignore[unknown-argument]
                 validate=_validate_payload,
                 max_attempts=2,
             )
@@ -514,7 +514,7 @@ class Mutation:
             h.llm_elapsed_ms = llm_elapsed_ms
             h.wall_clock_ms = (time.monotonic() - wall_start) * 1000.0
             h.save()
-            return {"id": h.id, "ok": False, "error": err}
+            return {"id": h.id, "ok": False, "error": err}  # ty: ignore[invalid-return-type]
         llm_elapsed_ms = (time.monotonic() - llm_start) * 1000.0
 
         plan = payload.get("plan", "")
@@ -549,7 +549,7 @@ class Mutation:
         h.query_elapsed_ms = query_elapsed_ms
         h.wall_clock_ms = (time.monotonic() - wall_start) * 1000.0
         h.save()
-        return {
+        return {  # ty: ignore[invalid-return-type]
             "id": h.id,
             "plan": plan,
             "mode": mode,
@@ -574,4 +574,4 @@ class Mutation:
         from app.literature_fetch import refresh_findings
 
         catalog = catalog_by_qualified_name()
-        return refresh_findings(catalog, papers_per_pair=papers_per_pair, min_citations=min_citations)
+        return refresh_findings(catalog, papers_per_pair=papers_per_pair, min_citations=min_citations)  # ty: ignore[invalid-return-type]

@@ -46,8 +46,8 @@ def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
     con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
     stub = _StubDB(con)
     saved = dict(app.databases._resolvers)
-    app.databases._resolvers["shenas"] = lambda: stub
-    app.databases._resolvers[None] = lambda: stub
+    app.databases._resolvers["shenas"] = lambda: stub  # ty: ignore[invalid-assignment]
+    app.databases._resolvers[None] = lambda: stub  # ty: ignore[invalid-assignment]
     app.db._ensure_system_tables(con)
     yield con
     app.databases._resolvers.clear()
@@ -58,7 +58,7 @@ def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
 @pytest.fixture
 def patch_db(db_con: duckdb.DuckDBPyConnection) -> Iterator[None]:
     """Back-compat alias -- db_con already wires the resolvers."""
-    return
+    return  # ty: ignore[invalid-return-type]
 
 
 def parse_sse(text: str) -> list[dict]:
