@@ -33,7 +33,8 @@ EXCLUDE_PATHS = [
 
 PROMPT = (
     "Summarize these git commits for a public open-source release changelog. "
-    "Write 2-5 bullet points covering the user-visible changes. "
+    "Write first a one-line summary, then start the next line by summing up "
+    "the commits with 2-5 bullet points, covering the user-visible changes. "
     "Omit any references to: internal infrastructure, CI/CD fixes, Copybara, "
     "private repos, server-side code, premium features, LLM integration, "
     "literature fetching, federated learning, mesh sync. "
@@ -114,7 +115,7 @@ def main() -> None:
     commits = get_commits()
 
     if not commits:
-        summary = "Release sync"
+        summary = "No commits seen, just bump"
     else:
         summary = ask_claude(commits)
         if not summary:
@@ -122,7 +123,7 @@ def main() -> None:
                 "ANTHROPIC_API_KEY not set or API failed, using raw commit log",
                 file=sys.stderr,
             )
-            summary = f"Release sync\n\n{commits}"
+            summary = "Commit message missing"
 
     with open(OUTPUT, "w") as f:
         f.write(summary)
