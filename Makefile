@@ -277,6 +277,15 @@ oss-init:
 	@rm -f /tmp/oss_deploy_key /tmp/oss_deploy_key.pub
 	@echo "Running initial Copybara sync..."
 	copybara .copybara/copy.bara.sky --init-history --force
+	@echo "Generating release summary..."
+	python3 scripts/oss-release-summary.py /tmp/release_summary.txt
+	@git clone git@github.com:shenas-org/shenas.git /tmp/oss-repo
+	@cd /tmp/oss-repo && \
+		git config user.name "shenas" && \
+		git config user.email "noreply@shenas.net" && \
+		git commit --amend -m "$$(cat /tmp/release_summary.txt)" && \
+		git push --force-with-lease
+	@rm -rf /tmp/oss-repo /tmp/release_summary.txt
 
 oss-sync:
 	@gh workflow run "OSS Release" --repo shenas-net/shenas
