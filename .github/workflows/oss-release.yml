@@ -59,16 +59,17 @@ jobs:
             EXTRA_FLAGS="--init-history --force"
           fi
 
-          cat > /tmp/run-copybara.sh <<SCRIPT
-          #!/bin/bash
-          set -e
-          cp -r /tmp/host-ssh /root/.ssh
-          chmod 700 /root/.ssh
-          chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key
-          sed -i 's|~/.ssh/|/root/.ssh/|g' /root/.ssh/config
-          copybara copy.bara.sky --work-dir /tmp/copybara $EXTRA_FLAGS
-          SCRIPT
+          printf '%s\n' \
+            '#!/bin/bash' \
+            'set -e' \
+            'cp -r /tmp/host-ssh /root/.ssh' \
+            'chmod 700 /root/.ssh' \
+            'chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key' \
+            "sed -i 's|~/.ssh/|/root/.ssh/|g' /root/.ssh/config" \
+            "copybara copy.bara.sky --work-dir /tmp/copybara $EXTRA_FLAGS" \
+            > /tmp/run-copybara.sh
           chmod +x /tmp/run-copybara.sh
+          cat /tmp/run-copybara.sh
 
           docker run --rm \
             -v "$HOME/.ssh:/tmp/host-ssh:ro" \
