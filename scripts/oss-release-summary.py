@@ -81,7 +81,7 @@ def ask_claude(commits: str) -> str | None:
 
     payload = json.dumps(
         {
-            "model": "claude-sonnet-4-6-20250514",
+            "model": "claude-sonnet-4-20250514",
             "max_tokens": 300,
             "messages": [{"role": "user", "content": f"{PROMPT}\n\nCommits:\n{commits}"}],
         }
