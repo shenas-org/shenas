@@ -1,0 +1,25 @@
+[project]
+name = "shenas-source-chrome"
+dynamic = ["version"]
+description = "Google Chrome local browsing data dlt connector for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "shenas-source-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.sources"]
+chrome = "shenas_sources.chrome.source:ChromeSource"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-chrome/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-chrome/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]

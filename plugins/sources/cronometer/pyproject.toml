@@ -1,0 +1,25 @@
+[project]
+name = "shenas-source-cronometer"
+dynamic = ["version"]
+description = "Cronometer CSV nutrition data dlt connector for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "shenas-source-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.sources"]
+cronometer = "shenas_sources.cronometer.source:CronometerSource"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-cronometer/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-cronometer/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]
