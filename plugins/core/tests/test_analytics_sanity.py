@@ -69,10 +69,10 @@ def test_error_result_no_warnings():
     assert sanity_check(r) == []
 
 
-def test_to_dict_includes_warnings():
-    """Result.to_dict() flows warnings out for GraphQL consumers."""
-    r = ScalarResult(value=float("nan"), column="x")
-    d = r.to_dict()
+def test_model_dump_includes_warnings():
+    """Result.model_dump() flows warnings out for GraphQL consumers."""
+    r = ScalarResult(value=float("nan"), column="x").with_warnings()
+    d = r.model_dump()
     assert "warnings" in d
     assert any("NaN" in w for w in d["warnings"])
     # Sanity check imports at runtime

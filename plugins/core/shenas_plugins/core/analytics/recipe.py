@@ -25,10 +25,9 @@ dataclasses with primitive fields, and the operation lookup happens by
 makes recipes durable as part of the ``HypothesisRecord`` artifact.
 """
 
-from __future__ import annotations
+from typing import TYPE_CHECKING, Any, Literal
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from pydantic import BaseModel
 
 from shenas_plugins.core.analytics.node import RecipeNode
 from shenas_plugins.core.analytics.operations import OPERATIONS, Operation, OperationError
@@ -58,21 +57,18 @@ class RecipeError(Exception):
 # ----------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class SourceRef:
+class SourceRef(BaseModel, frozen=True):
     """Leaf node: a reference to an existing table by qualified name.
 
     The ``table`` is a ``"<schema>.<name>"`` string that the catalog
     resolves to a kind + time_columns + ibis.Table on compile.
     """
 
+    type: Literal["source"] = "source"
     table: str
 
-    type: str = "source"  # for JSON serialization disambiguation
 
-
-@dataclass(frozen=True)
-class OpCall:
+class OpCall(BaseModel, frozen=True):
     """Inner node: invoke an operation on one or more named upstream nodes.
 
     Attributes
@@ -92,10 +88,9 @@ class OpCall:
     """
 
     op_name: str
-    params: dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = {}
     inputs: tuple[str, ...] = ()
-
-    type: str = "op"  # for JSON serialization disambiguation
+    type: Literal["op"] = "op"
 
 
 # ----------------------------------------------------------------------
@@ -103,8 +98,7 @@ class OpCall:
 # ----------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class Recipe:
+class Recipe(BaseModel, frozen=True):
     """A named-node DAG of ``SourceRef``s and ``OpCall``s.
 
     Attributes
@@ -222,7 +216,7 @@ class Recipe:
 
     def compile(
         self,
-        con: ibd.Backend,
+        con: "ibd.Backend",
         catalog: dict[str, dict[str, Any]],
     ) -> RecipeNode:
         """Walk the DAG and produce the final ``RecipeNode``.
@@ -265,7 +259,7 @@ class Recipe:
     def _resolve_source(
         self,
         node: SourceRef,
-        con: ibd.Backend,
+        con: "ibd.Backend",
         catalog: dict[str, dict[str, Any]],
     ) -> RecipeNode:
         """Materialise a source-ref into a ``RecipeNode`` via the catalog."""
@@ -313,7 +307,7 @@ class Recipe:
 
     def to_sql(
         self,
-        con: ibd.Backend,
+        con: "ibd.Backend",
         catalog: dict[str, dict[str, Any]],
         *,
         dialect: str = "duckdb",

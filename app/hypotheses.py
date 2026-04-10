@@ -22,9 +22,8 @@ promotion, every analytical transformation is transient.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated
 
 from shenas_plugins.core.table import Field, Table
 
@@ -167,55 +166,21 @@ class Hypothesis(Table):
 
     def recipe(self) -> Recipe:
         """Reconstruct the :class:`Recipe` from ``recipe_json``."""
-        from shenas_plugins.core.analytics import OpCall, Recipe, SourceRef
+        from shenas_plugins.core.analytics import Recipe
 
-        payload = json.loads(self.recipe_json)
-        nodes: dict[str, SourceRef | OpCall] = {}
-        for name, node in payload["nodes"].items():
-            if node.get("type") == "source":
-                nodes[name] = SourceRef(table=node["table"])
-            else:
-                nodes[name] = OpCall(
-                    op_name=node["op_name"],
-                    params=node.get("params", {}),
-                    inputs=tuple(node.get("inputs", ())),
-                )
-        return Recipe(nodes=nodes, final=payload["final"])
+        return Recipe.model_validate_json(self.recipe_json)
 
     def result(self) -> Result | None:
         """Reconstruct the most recent :class:`Result` from ``result_json``,
         or ``None`` if the recipe hasn't been executed yet."""
-        from shenas_plugins.core.analytics import ErrorResult, ScalarResult, TableResult
+        from pydantic import TypeAdapter
+
+        from shenas_plugins.core.analytics.runner import Result
 
         raw = self.result_json
         if not raw:
             return None
-        payload = json.loads(raw)
-        kind = payload.get("type")
-        if kind == "scalar":
-            return ScalarResult(
-                value=payload.get("value"),
-                column=payload.get("column", ""),
-                elapsed_ms=payload.get("elapsed_ms", 0.0),
-                sql=payload.get("sql", ""),
-            )
-        if kind == "table":
-            return TableResult(
-                rows=payload.get("rows", []),
-                columns=payload.get("columns", []),
-                row_count=payload.get("row_count", 0),
-                truncated=payload.get("truncated", False),
-                elapsed_ms=payload.get("elapsed_ms", 0.0),
-                sql=payload.get("sql", ""),
-            )
-        if kind == "error":
-            return ErrorResult(
-                message=payload.get("message", ""),
-                kind=payload.get("kind", "execution"),
-                elapsed_ms=payload.get("elapsed_ms", 0.0),
-                sql=payload.get("sql", ""),
-            )
-        return None
+        return TypeAdapter(Result).validate_json(raw)
 
     # ------------------------------------------------------------------
     # Convenience mutators -- thin wrappers over .save()
@@ -247,31 +212,13 @@ class Hypothesis(Table):
 
 
 def _serialize_recipe(recipe: Recipe) -> str:
-    """Serialize a Recipe DAG to JSON.
-
-    Lives here rather than on Recipe so the analytics package stays
-    free of "how to persist" concerns. Format mirrors what
-    :meth:`Hypothesis.recipe` deserializes.
-    """
-    from shenas_plugins.core.analytics import OpCall, SourceRef
-
-    nodes: dict[str, dict[str, Any]] = {}
-    for name, node in recipe.nodes.items():
-        if isinstance(node, SourceRef):
-            nodes[name] = {"type": "source", "table": node.table}
-        elif isinstance(node, OpCall):
-            nodes[name] = {
-                "type": "op",
-                "op_name": node.op_name,
-                "params": dict(node.params),
-                "inputs": list(node.inputs),
-            }
-    return json.dumps({"nodes": nodes, "final": recipe.final})
+    """Serialize a Recipe DAG to JSON."""
+    return recipe.model_dump_json()
 
 
 def _serialize_result(result: Result) -> str:
-    """Serialize a Result tagged union to JSON via its ``to_dict()``."""
-    return json.dumps(result.to_dict())
+    """Serialize a Result tagged union to JSON."""
+    return result.model_dump_json()
 
 
 def _extract_input_tables(recipe: Recipe) -> list[str]:
