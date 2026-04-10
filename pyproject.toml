@@ -122,7 +122,6 @@ dev = [
     "shenas-theme-default",
     "shenas-theme-dark",
     "shenas-model-core",
-<<<<<<< HEAD
     "shenas-transformation-sql",
     "shenas-transformation-geofence",
     "shenas-transformation-geocode",
