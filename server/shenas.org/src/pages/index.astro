@@ -1,0 +1,457 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+  title="shenas community -- build plugins, share insights"
+  description="The open-source community hub for shenas. Write plugins, share dashboards, and help others understand their data."
+>
+  <!-- Nav -->
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">shenas<span class="nav-org">.org</span></a>
+      <div class="nav-links">
+        <a href="#start">Get started</a>
+        <a href="#source-plugin">Source plugins</a>
+        <a href="#other-plugins">Other plugins</a>
+        <a href="#share">Share</a>
+        <a href="https://shenas.net">shenas.net</a>
+        <a href="https://github.com/shenas-org/shenas">GitHub</a>
+        <a href="https://discord.gg/mY74eRU7MV">Discord</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero">
+    <div class="container">
+      <h1>Build something<br /><span class="accent">people can feel.</span></h1>
+      <p class="hero-sub">
+        shenas is an open-source personal analytics platform. Source plugins
+        bring data in, transforms shape it, dashboards make it visible. Every
+        piece is a plugin you can write, share, and improve.
+      </p>
+      <div class="hero-actions">
+        <a href="#source-plugin" class="btn btn-primary">Write your first plugin</a>
+        <a href="https://github.com/shenas-org/shenas" class="btn btn-secondary">Browse the code</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Get started -->
+  <section id="start" class="section">
+    <div class="container">
+      <h2>Welcome</h2>
+      <p>
+        shenas connects to the services people already use -- Garmin, Strava,
+        Spotify, Lunch Money, Google Calendar -- and syncs the data into a
+        local encrypted database. Transforms normalize it into canonical
+        metrics. Dashboards visualize it. The LLM coach asks questions of it.
+      </p>
+      <p>
+        Everything is a plugin. If there's a data source you care about,
+        you can write a connector in an afternoon. If there's a way to
+        visualize it, you can build a dashboard in a weekend.
+      </p>
+      <div class="card-grid">
+        <div class="card">
+          <h3>Source plugins</h3>
+          <p>Connect a new API or local file to shenas. dlt handles the pipeline; you define the tables.</p>
+          <a href="#source-plugin">Write one in 30 minutes &rarr;</a>
+        </div>
+        <div class="card">
+          <h3>Transform plugins</h3>
+          <p>SQL, geofence, geocode, regex -- or write your own transform type.</p>
+          <a href="#other-plugins">Learn more &rarr;</a>
+        </div>
+        <div class="card">
+          <h3>Dashboard plugins</h3>
+          <p>Lit web components that query Arrow IPC and render charts.</p>
+          <a href="#other-plugins">Learn more &rarr;</a>
+        </div>
+        <div class="card">
+          <h3>Dataset plugins</h3>
+          <p>Define canonical metric schemas that transforms write into.</p>
+          <a href="#other-plugins">Learn more &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Source plugin tutorial -->
+  <section id="source-plugin" class="section section-alt">
+    <div class="container">
+      <h2>Write a source plugin in 30 minutes</h2>
+      <p class="section-intro">
+        A source plugin is a Python package that defines tables as dataclasses
+        and extracts data from an API. dlt handles incremental loading,
+        schema migration, and encryption. You focus on the API.
+      </p>
+
+      <div class="step">
+        <span class="step-num">1</span>
+        <div>
+          <h3>Scaffold the package</h3>
+          <pre><code>mkdir -p plugins/sources/myapi/shenas_sources/myapi
+cd plugins/sources/myapi
+
+# pyproject.toml
+cat &gt; pyproject.toml &lt;&lt;'EOF'
+[project]
+name = "shenas-source-myapi"
+dependencies = ["dlt[duckdb]>=1.24.0", "shenas-source-core"]
+
+[project.entry-points."shenas.sources"]
+myapi = "shenas_sources.myapi.source:MyApiSource"
+EOF</code></pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-num">2</span>
+        <div>
+          <h3>Define your tables</h3>
+          <pre><code>from shenas_sources.core.table import EventTable, Field
+from typing import Annotated, Any, Iterator
+
+class Activities(EventTable):
+    class _Meta:
+        name = "activities"
+        display_name = "Activities"
+        pk = ("id",)
+
+    id: Annotated[str, Field(db_type="VARCHAR")] = ""
+    name: Annotated[str, Field(db_type="VARCHAR")] = ""
+    duration_s: Annotated[int, Field(db_type="INTEGER", unit="s")] = 0
+    time_at: Annotated[str, Field(db_type="TIMESTAMP")] = ""
+
+    @classmethod
+    def extract(cls, client: Any, **ctx) -> Iterator[dict]:
+        yield from client.get_activities()</code></pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-num">3</span>
+        <div>
+          <h3>Create the source class</h3>
+          <pre><code>from shenas_sources.core.source import Source
+
+class MyApiSource(Source):
+    name = "myapi"
+    display_name = "My API"
+    primary_table = "activities"
+
+    def build_client(self):
+        return MyApiClient(self.get_config_value("api_key"))
+
+    def resources(self, client):
+        from .tables import TABLES
+        return [t.to_resource(client) for t in TABLES]</code></pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-num">4</span>
+        <div>
+          <h3>Install and sync</h3>
+          <pre><code>uv sync  # installs your plugin as a workspace member
+shenasctl source myapi sync</code></pre>
+          <p>Your data is now in a local encrypted DuckDB, queryable from dashboards and the LLM coach.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Other plugins -->
+  <section id="other-plugins" class="section">
+    <div class="container">
+      <h2>Other plugin types</h2>
+      <p class="section-intro">
+        Sources are the most common, but shenas has six plugin kinds.
+        Each follows the same pattern: a Python package with an entry point.
+      </p>
+
+      <div class="plugin-table">
+        <div class="plugin-row">
+          <strong>Dataset</strong>
+          <span>Define canonical metric schemas (daily_hrv, transactions, events). Transforms write into these.</span>
+        </div>
+        <div class="plugin-row">
+          <strong>Transform</strong>
+          <span>SQL, geofence, geocode, regex extract, LLM categorize. Write your own by subclassing Transform.</span>
+        </div>
+        <div class="plugin-row">
+          <strong>Dashboard</strong>
+          <span>Lit web components that query via Arrow IPC. Charts, tables, timelines -- anything visual.</span>
+        </div>
+        <div class="plugin-row">
+          <strong>Frontend</strong>
+          <span>The entire UI shell is a plugin. Write your own minimal frontend or extend the default.</span>
+        </div>
+        <div class="plugin-row">
+          <strong>Theme</strong>
+          <span>CSS custom properties that pierce Shadow DOM. Ship a .css file and a Python class.</span>
+        </div>
+        <div class="plugin-row">
+          <strong>Analysis</strong>
+          <span>LLM-driven hypothesis modes. Define a system prompt, operation vocabulary, and recipe strategy.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Share -->
+  <section id="share" class="section section-alt">
+    <div class="container">
+      <h2>Share your plugin</h2>
+      <p class="section-intro">
+        Plugins are standard Python wheels. Publish to PyPI and anyone can
+        install with <code>shenasctl source add myapi</code>.
+      </p>
+
+      <div class="step">
+        <span class="step-num">1</span>
+        <div>
+          <h3>Build the wheel</h3>
+          <pre><code>cd plugins/sources/myapi
+hatchling build</code></pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-num">2</span>
+        <div>
+          <h3>Publish to PyPI</h3>
+          <pre><code>twine upload dist/shenas_source_myapi-*.whl</code></pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <span class="step-num">3</span>
+        <div>
+          <h3>Users install it</h3>
+          <pre><code>shenasctl source add myapi</code></pre>
+          <p>
+            The CLI verifies the Ed25519 signature (if you sign it), installs
+            the wheel, and the plugin appears in the UI automatically.
+          </p>
+        </div>
+      </div>
+
+      <h3 class="mt-2">Plugin certification</h3>
+      <p>
+        Plugins that meet our quality bar -- tests, documentation, no
+        credential leaks, clean table schemas -- can apply for
+        <strong>certified</strong> status. Certified plugins get a badge
+        in the UI and are listed in the official plugin directory.
+      </p>
+      <p>
+        <a href="https://github.com/shenas-org/shenas/issues/new?template=plugin-certification.md">Apply for certification &rarr;</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://shenas.net">shenas.net</a>
+        <a href="https://github.com/shenas-org/shenas">GitHub</a>
+        <a href="https://discord.gg/mY74eRU7MV">Discord</a>
+        <a href="https://shenas.discourse.group/">Forum</a>
+      </div>
+      <p class="footer-copy">shenas is open source under the MIT license.</p>
+    </div>
+  </footer>
+</Base>
+
+<style>
+  /* Nav */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(253, 252, 250, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .nav-inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0.8rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-logo {
+    font-family: var(--font-heading);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--color-text);
+    text-decoration: none;
+  }
+  .nav-org { color: var(--color-accent); }
+  .nav-links {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.9rem;
+  }
+  .nav-links a { color: var(--color-text-muted); }
+  .nav-links a:hover { color: var(--color-accent); text-decoration: none; }
+
+  /* Hero */
+  .hero {
+    padding: 6rem 0 4rem;
+    text-align: center;
+  }
+  .hero h1 {
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 1.5rem;
+  }
+  .accent { color: var(--color-accent); }
+  .hero-sub {
+    max-width: 600px;
+    margin: 0 auto 2rem;
+    color: var(--color-text-muted);
+    font-size: 1.1rem;
+  }
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+  }
+
+  /* Sections */
+  .section {
+    padding: 4rem 0;
+  }
+  .section-alt {
+    background: var(--color-bg-elevated);
+  }
+  .section h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+  .section-intro {
+    color: var(--color-text-muted);
+    margin-bottom: 2rem;
+    max-width: 700px;
+  }
+
+  /* Cards */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+  }
+  .card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+  }
+  .card h3 {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+  .card p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Steps */
+  .step {
+    display: flex;
+    gap: 1.5rem;
+    margin: 2rem 0;
+    align-items: flex-start;
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 2.2rem;
+    height: 2.2rem;
+    background: var(--color-accent);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1rem;
+    margin-top: 0.2rem;
+  }
+  .step h3 {
+    font-family: var(--font-heading);
+    margin-bottom: 0.5rem;
+  }
+
+  /* Code */
+  pre {
+    background: #2c2c28;
+    color: #e8e5df;
+    padding: 1rem 1.2rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    margin: 0.5rem 0;
+  }
+  code {
+    font-family: var(--font-mono);
+  }
+  p code {
+    background: var(--color-surface);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+
+  /* Plugin table */
+  .plugin-table {
+    margin-top: 1.5rem;
+  }
+  .plugin-row {
+    display: flex;
+    gap: 1.5rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--color-border);
+    align-items: baseline;
+  }
+  .plugin-row strong {
+    flex-shrink: 0;
+    width: 120px;
+    font-family: var(--font-heading);
+    color: var(--color-accent);
+  }
+  .plugin-row span {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  /* Footer */
+  footer {
+    padding: 3rem 0;
+    text-align: center;
+    border-top: 1px solid var(--color-border);
+  }
+  .footer-links {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+  }
+  .footer-copy {
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+  }
+
+  .mt-2 { margin-top: 2rem; }
+</style>
