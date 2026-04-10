@@ -74,9 +74,16 @@ jobs:
 
       - name: Run Copybara
         run: |
+          # Detect if destination has a main branch (empty repo needs --init-history --force)
+          EXTRA_FLAGS=""
+          if ! git ls-remote --heads git@github.com-oss:shenas-org/shenas.git main | grep -q main; then
+            echo "Destination has no main branch, using --init-history --force"
+            EXTRA_FLAGS="--init-history --force"
+          fi
+
           docker run --rm \
             -v "$HOME/.ssh:/root/.ssh:ro" \
             -v "$GITHUB_WORKSPACE:/workspace" \
             -w /workspace \
             sharelatex/copybara:latest \
-            copybara copy.bara.sky --work-dir /tmp/copybara
+            copybara copy.bara.sky --work-dir /tmp/copybara $EXTRA_FLAGS

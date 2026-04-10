@@ -347,11 +347,13 @@ oss-init:
 	@echo "Adding private key as secret OSS_DEPLOY_KEY on shenas-net/shenas..."
 	@gh secret set OSS_DEPLOY_KEY --repo shenas-net/shenas < /tmp/oss_deploy_key
 	@rm -f /tmp/oss_deploy_key /tmp/oss_deploy_key.pub
-	@echo "Running initial Copybara sync..."
-	copybara .copybara/copy.bara.sky --init-history --force
+	@echo "Triggering OSS Release workflow..."
+	@gh workflow run "OSS Release" --repo shenas-net/shenas
+	@echo "Done. Monitor at: https://github.com/shenas-net/shenas/actions/workflows/oss-release.yml"
 
 oss-sync:
-	copybara .copybara/copy.bara.sky
+	@gh workflow run "OSS Release" --repo shenas-net/shenas
+	@echo "OSS Release triggered. Monitor at: https://github.com/shenas-net/shenas/actions/workflows/oss-release.yml"
 
 # Set GitHub repo variables from tofu outputs (requires gh CLI)
 infra-gh-vars:
