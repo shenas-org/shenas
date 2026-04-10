@@ -15,7 +15,7 @@ core.workflow(
         url = "git@github.com:shenas-org/shenas.git",
         push = "main",
     ),
-    authoring = authoring.overwrite("Alexander Funcke <funcke@shenas.net>"),
+    authoring = authoring.pass_thru("shenas <noreply@shenas.net>"),
     mode = "SQUASH",
     origin_files = glob(
         include = ["**"],
@@ -72,7 +72,11 @@ core.workflow(
         ],
     ),
     transformations = [
-        # Use OSS-specific README and .gitignore.
+        metadata.squash_notes(
+            prefix = "Release sync\n\n",
+            show_author = False,
+        ),
+        # Use OSS-specific README and Makefile.
         core.transform(
             [
                 core.move("README-oss.md", "README.md"),
