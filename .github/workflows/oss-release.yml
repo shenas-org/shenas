@@ -4,7 +4,9 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - 'v*'
+      - 'app/v*'
+      - 'shenasctl/v*'
+      - 'scheduler/v*'
       - 'source-*/v*'
       - 'dataset-*/v*'
       - 'schema-*/v*'
@@ -13,6 +15,8 @@ on:
       - 'transformation-*/v*'
       - 'frontend-*/v*'
       - 'theme-*/v*'
+      - 'analysis-*/v*'
+      - 'model-*/v*'
 
 jobs:
   copybara:
@@ -85,8 +89,10 @@ jobs:
           OSS_HEAD=$(cd /tmp/oss-repo && git rev-parse HEAD)
 
           # Collect all version tags from the private repo, skip server-only prefixes.
-          git tag -l 'source-*/v*' 'dataset-*/v*' 'schema-*/v*' 'dashboard-*/v*' \
-                     'plugin-core/v*' 'frontend-*/v*' 'theme-*/v*' | while read -r TAG; do
+          git tag -l 'app/v*' 'shenasctl/v*' 'scheduler/v*' \
+                     'source-*/v*' 'dataset-*/v*' 'schema-*/v*' 'dashboard-*/v*' \
+                     'plugin-core/v*' 'frontend-*/v*' 'theme-*/v*' \
+                     'transformation-*/v*' 'analysis-*/v*' 'model-*/v*' | while read -r TAG; do
             # Check if the tag already exists on OSS
             if cd /tmp/oss-repo && git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
               continue

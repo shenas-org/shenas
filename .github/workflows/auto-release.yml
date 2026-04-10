@@ -24,33 +24,67 @@ jobs:
 
       - name: Detect changes and create tags
         run: |
-          # Desktop is excluded -- use `make desktop-release` manually.
-          PACKAGES=(
-            "repo-server:server/repository/"
-            "fl-server:server/fl/"
-            "source-core:plugins/sources/core/"
-            "source-garmin:plugins/sources/garmin/"
-            "source-lunchmoney:plugins/sources/lunchmoney/"
-            "source-obsidian:plugins/sources/obsidian/"
-            "source-gmail:plugins/sources/gmail/"
-            "source-gcalendar:plugins/sources/gcalendar/"
-            "source-gtakeout:plugins/sources/gtakeout/"
-            "source-duolingo:plugins/sources/duolingo/"
-            "source-spotify:plugins/sources/spotify/"
-            "schema-core:plugins/datasets/core/"
-            "dataset-fitness:plugins/datasets/fitness/"
-            "dataset-finance:plugins/datasets/finance/"
-            "dataset-outcomes:plugins/datasets/outcomes/"
-            "dataset-habits:plugins/datasets/habits/"
-            "dashboard-fitness:plugins/dashboards/fitness/"
-            "dashboard-data-table:plugins/dashboards/data-table/"
-          )
+          # Discover all releasable packages from pyproject.toml files.
+          # Tag prefix is derived from the directory structure:
+          #   plugins/<kind>/<name>/ -> <singular-kind>-<name>
+          #   plugins/core/          -> plugin-core
+          #   plugins/datasets/core/ -> schema-core  (special case)
+          #   app/                   -> app
+          #   shenasctl/             -> shenasctl
+          #   scheduler/             -> scheduler
+          #   server/repository/     -> repo-server
+          #   server/fl/             -> fl-server
+
+          declare -A PACKAGES
+
+          # Top-level packages
+          PACKAGES[app]="app/"
+          PACKAGES[shenasctl]="shenasctl/"
+          PACKAGES[scheduler]="scheduler/"
+
+          # Server packages
+          for dir in server/*/; do
+            [ -f "$dir/pyproject.toml" ] || continue
+            name=$(basename "$dir")
+            case "$name" in
+              repository) PACKAGES[repo-server]="$dir" ;;
+              fl)         PACKAGES[fl-server]="$dir" ;;
+              *)          PACKAGES[server-$name]="$dir" ;;
+            esac
+          done
+
+          # Plugin core (top-level)
+          if [ -f "plugins/core/pyproject.toml" ]; then
+            PACKAGES[plugin-core]="plugins/core/"
+          fi
+
+          # Plugin packages: plugins/<kind>/<name>/
+          for kind_dir in plugins/*/; do
+            kind=$(basename "$kind_dir")
+            [ "$kind" = "core" ] && continue
+
+            # Singular form of kind for tag prefix
+            singular="${kind%s}"
+            # Special case: transformations -> transformation
+            [ "$kind" = "transformations" ] && singular="transformation"
+
+            for pkg_dir in "$kind_dir"*/; do
+              [ -f "$pkg_dir/pyproject.toml" ] || continue
+              name=$(basename "$pkg_dir")
+
+              # Special case: datasets/core -> schema-core
+              if [ "$kind" = "datasets" ] && [ "$name" = "core" ]; then
+                PACKAGES[schema-core]="$pkg_dir"
+              else
+                PACKAGES[$singular-$name]="$pkg_dir"
+              fi
+            done
+          done
 
           TAGS_CREATED=0
 
-          for entry in "${PACKAGES[@]}"; do
-            PREFIX="${entry%%:*}"
-            DIRS="${entry#*:}"
+          for PREFIX in $(echo "${!PACKAGES[@]}" | tr ' ' '\n' | sort); do
+            DIRS="${PACKAGES[$PREFIX]}"
 
             OUTPUT=$(bash scripts/bump-tag.sh "$PREFIX" $DIRS)
             [ -z "$OUTPUT" ] && continue
