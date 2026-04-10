@@ -257,13 +257,16 @@ class TestServeUiHtml:
         default_ui = self._make_fake_ui(tmp_path, "default")
         custom_ui = self._make_fake_ui(tmp_path, "custom")
 
-        def _fake_enabled(self):
-            return self.name == "custom"
+        class _FakeInstance:
+            def __init__(self, enabled: bool) -> None:
+                self.enabled = enabled
+
+        def _fake_find(kind: str, name: str):
+            return _FakeInstance(enabled=(name == "custom"))
 
         with (
             patch("app.api.sources._load_frontends", return_value=[default_ui, custom_ui]),
-            patch.object(custom_ui, "enabled_by_default", False),
-            patch("shenas_plugins.core.plugin.Plugin.enabled", new_callable=lambda: property(_fake_enabled)),
+            patch("shenas_plugins.core.plugin.PluginInstance.find", side_effect=_fake_find),
             patch("app.server._get_active_theme", return_value=None),
         ):
             resp = client.get("/")

@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     import duckdb
 
 from shenas_plugins.core import Plugin
+from shenas_plugins.core.plugin import PluginInstance
 
 
 class _FakePlugin(Plugin):
@@ -53,86 +54,40 @@ def _count_states() -> int:
 
 
 class TestPluginState:
-    def test_no_state_when_not_tracked(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        assert _FakePlugin().state is None
+    def test_instance_creates_on_first_access(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        inst = _FakePlugin().instance()
+        assert inst.kind == "source"
+        assert inst.name == "garmin"
+        assert inst.enabled is True
 
-    def test_save_state_creates_new_plugin(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        p = _FakePlugin()
-        p.save_state(enabled=True)
-        state = p.state
-        assert state is not None
-        assert state.kind == "source"
-        assert state.name == "garmin"
-        assert state.enabled is True
-        assert state.added_at is not None
+    def test_set_enabled_toggles(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        inst = _FakePlugin().instance()
+        inst.set_enabled(False)
+        assert PluginInstance.find("source", "garmin").enabled is False
+        inst.set_enabled(True)
+        assert PluginInstance.find("source", "garmin").enabled is True
 
-    def test_save_state_updates_existing_same_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        p = _FakePlugin()
-        p.save_state(enabled=True)
-        first = p.state
-        assert first is not None
-        # update again with same enabled -- should just touch updated_at
-        p.save_state(enabled=True)
-        second = p.state
-        assert second is not None
-        assert second.enabled is True
-
-    def test_save_state_toggles_enabled(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        p = _FakePlugin()
-        p.save_state(enabled=True)
-        p.save_state(enabled=False)
-        state = p.state
-        assert state is not None
-        assert state.enabled is False
-        assert state.status_changed_at is not None
-
-    def test_remove_state(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        p = _FakePlugin()
-        p.save_state(enabled=True)
-        assert p.state is not None
-        p.remove_state()
-        assert p.state is None
-
-    def test_remove_state_nonexistent_is_noop(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        # should not raise
-        _FakePlugin().remove_state()
-
-    def test_enabled_property_from_db(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        p = _FakePlugin()
-        p.save_state(enabled=False)
-        assert p.enabled is False
-        p.save_state(enabled=True)
-        assert p.enabled is True
-
-    def test_enabled_property_default_when_no_state(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        assert _FakePlugin().enabled is True  # enabled_by_default = True
+    def test_enable_disable(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        inst = _FakePlugin().instance()
+        inst.disable()
+        assert PluginInstance.find("source", "garmin").enabled is False
+        inst.enable()
+        assert PluginInstance.find("source", "garmin").enabled is True
 
     def test_mark_synced(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        p = _FakePlugin()
-        p.save_state(enabled=True)
-        p.mark_synced()
-        state = p.state
-        assert state is not None
-        assert state.synced_at is not None
+        inst = _FakePlugin().instance()
+        inst.mark_synced()
+        row = PluginInstance.find("source", "garmin")
+        assert row.synced_at is not None
 
-    def test_mark_synced_creates_missing_state(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        p = _FakePlugin()
-        p.mark_synced()
-        state = p.state
-        assert state is not None
-        assert state.synced_at is not None
+    def test_delete(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
+        inst = _FakePlugin().instance()
+        inst.delete()
+        assert PluginInstance.find("source", "garmin") is None
 
     def test_multiple_kinds(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
-        class _DatasetPlugin(Plugin):
-            name = "fitness"
-            display_name = "Fitness"
-
-            @property
-            def _kind(self) -> str:
-                return "dataset"
-
-        _FakePlugin().save_state(enabled=True)
-        _DatasetPlugin().save_state(enabled=True)
+        _FakePlugin().instance()
+        PluginInstance.get_or_create("dataset", "fitness")
         assert _count_states() == 2
         assert _query_state("source", "garmin") is not None
         assert _query_state("dataset", "fitness") is not None

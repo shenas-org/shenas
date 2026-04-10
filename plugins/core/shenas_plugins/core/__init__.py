@@ -1,6 +1,6 @@
 from shenas_plugins.core.base_auth import SourceAuth
 from shenas_plugins.core.base_config import SourceConfig
-from shenas_plugins.core.plugin import Plugin, _SelectOneMixin
+from shenas_plugins.core.plugin import Plugin
 from shenas_plugins.core.static import StaticPlugin
 from shenas_plugins.core.table import Field, SingletonTable, Table
 
@@ -17,7 +17,6 @@ __all__ = [
     "StaticPlugin",
     "Table",
     "Theme",
-    "_SelectOneMixin",
     "ensure_schema",
 ]
 

@@ -124,24 +124,22 @@ class Mutation:
 
     @strawberry.mutation
     def enable_plugin(self, kind: str, name: str) -> OkType:
-        from app.api.sources import _load_plugin
         from app.models import OkResponse
+        from shenas_plugins.core.plugin import PluginInstance
 
-        cls = _load_plugin(kind, name)
-        if not cls:
-            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))
-        msg = cls().enable()
+        inst = PluginInstance.get_or_create(kind, name)
+        msg = inst.enable()
         return OkType.from_pydantic(OkResponse(ok=True, message=msg))
 
     @strawberry.mutation
     def disable_plugin(self, kind: str, name: str) -> OkType:
-        from app.api.sources import _load_plugin
         from app.models import OkResponse
+        from shenas_plugins.core.plugin import PluginInstance
 
-        cls = _load_plugin(kind, name)
-        if not cls:
-            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))
-        msg = cls().disable()
+        inst = PluginInstance.find(kind, name)
+        if not inst:
+            return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not tracked: {kind}/{name}"))
+        msg = inst.disable()
         return OkType.from_pydantic(OkResponse(ok=True, message=msg))
 
     # -- Transforms --

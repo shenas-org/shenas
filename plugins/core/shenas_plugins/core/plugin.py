@@ -1,4 +1,4 @@
-"""Base Plugin ABC and _SelectOneMixin."""
+"""Base Plugin ABC and PluginInstance."""
 
 from __future__ import annotations
 
@@ -52,6 +52,73 @@ class PluginInstance(Table):
     updated_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last updated")] | None = None
     status_changed_at: Annotated[str, Field(db_type="TIMESTAMP", description="When status changed")] | None = None
     synced_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last synced")] | None = None
+
+    def set_enabled(self, enabled: bool) -> None:
+        """Toggle enabled and bump timestamps."""
+        now = _now_iso()
+        if enabled != self.enabled:
+            self.enabled = enabled
+            self.status_changed_at = now
+        self.updated_at = now
+        self.save()
+
+    @property
+    def _is_single_active(self) -> bool:
+        """Check if this kind uses single-active selection (only one enabled at a time)."""
+        from app.api.sources import _load_plugin
+
+        cls = _load_plugin(self.kind, self.name)
+        return getattr(cls, "single_active", False) if cls else False
+
+    def enable(self) -> str:
+        """Enable this plugin. For single-active kinds, disables all others first."""
+        if self._is_single_active:
+            now = _now_iso()
+            for other in PluginInstance.all(
+                where="kind = ? AND name != ? AND enabled = TRUE",
+                params=[self.kind, self.name],
+            ):
+                other.enabled = False
+                other.status_changed_at = now
+                other.updated_at = now
+                other.save()
+        self.set_enabled(True)
+        label = "Selected" if self._is_single_active else "Enabled"
+        return f"{label} {self.kind} {self.name}"
+
+    def disable(self) -> str:
+        """Disable this plugin. For single-active kinds, re-enables the default."""
+        if self._is_single_active:
+            if self.name == "default":
+                return f"Cannot deselect the default {self.kind}"
+            self.set_enabled(False)
+            now = _now_iso()
+            default = PluginInstance.find(self.kind, "default")
+            if default is not None:
+                default.enabled = True
+                default.status_changed_at = now
+                default.updated_at = now
+                default.save()
+            else:
+                PluginInstance(kind=self.kind, name="default", enabled=True, status_changed_at=now).insert()
+            return f"Switched {self.kind} to default"
+        self.set_enabled(False)
+        return f"Disabled {self.kind} {self.name}"
+
+    def mark_synced(self) -> None:
+        """Stamp synced_at and updated_at."""
+        now = _now_iso()
+        self.synced_at = now
+        self.updated_at = now
+        self.save()
+
+    @classmethod
+    def get_or_create(cls, kind: str, name: str, *, enabled: bool = True) -> PluginInstance:
+        """Find or create the row for (kind, name)."""
+        existing = cls.find(kind, name)
+        if existing is not None:
+            return existing
+        return PluginInstance(kind=kind, name=name, enabled=enabled, status_changed_at=_now_iso()).insert()
 
 
 log = logging.getLogger("shenas.plugins")
@@ -195,6 +262,7 @@ class Plugin(abc.ABC):
     description: ClassVar[str] = ""
     internal: ClassVar[bool] = False
     enabled_by_default: ClassVar[bool] = True
+    single_active: ClassVar[bool] = False
 
     @staticmethod
     def pkg(kind: str, name: str) -> str:
@@ -245,65 +313,14 @@ class Plugin(abc.ABC):
     def commands(self) -> list[str]:
         return []
 
-    # -- State management (delegates to PluginInstance) --
+    # -- Instance lookup (get-or-create) --
 
-    @property
-    def state(self) -> PluginInstance | None:
-        """The :class:`PluginInstance` row for this (kind, name), or ``None``."""
-        return PluginInstance.find(self._kind, self.name)
-
-    @property
-    def enabled(self) -> bool:
-        s = self.state
-        return s.enabled if s else self.enabled_by_default
-
-    def save_state(self, *, enabled: bool) -> None:
-        """Upsert the row for this plugin: bumps timestamps, toggles enabled."""
-        record = self.state
-        now = _now_iso()
-        if record is not None:
-            if enabled != record.enabled:
-                record.enabled = enabled
-                record.status_changed_at = now
-            record.updated_at = now
-            record.save()
-        else:
-            PluginInstance(
-                kind=self._kind,
-                name=self.name,
-                enabled=enabled,
-                status_changed_at=now,
-            ).insert()
-
-    def remove_state(self) -> None:
-        """Delete this plugin's row. Idempotent."""
-        record = self.state
-        if record is not None:
-            record.delete()
-
-    def mark_synced(self) -> None:
-        """Stamp ``synced_at`` (and ``updated_at``); creates the row if missing."""
-        record = self.state
-        if record is None:
-            self.save_state(enabled=True)
-            record = self.state
-        if record is None:
-            return
-        now = _now_iso()
-        record.synced_at = now
-        record.updated_at = now
-        record.save()
-
-    def enable(self) -> str:
-        self.save_state(enabled=True)
-        return f"Enabled {self._kind} {self.name}"
-
-    def disable(self) -> str:
-        self.save_state(enabled=False)
-        return f"Disabled {self._kind} {self.name}"
+    def instance(self) -> PluginInstance:
+        """The :class:`PluginInstance` row for this (kind, name). Created on first access."""
+        return PluginInstance.get_or_create(self._kind, self.name, enabled=self.enabled_by_default)
 
     def get_info(self) -> dict[str, Any]:
-        s = self.state
+        s = self.instance()
         return {
             "name": self.name,
             "display_name": self.display_name,
@@ -313,11 +330,11 @@ class Plugin(abc.ABC):
             "has_config": self.has_config,
             "has_data": self.has_data,
             "has_auth": self.has_auth,
-            "enabled": s.enabled if s else self.enabled_by_default,
-            "added_at": str(s.added_at) if s and s.added_at else None,
-            "updated_at": str(s.updated_at) if s and s.updated_at else None,
-            "status_changed_at": str(s.status_changed_at) if s and s.status_changed_at else None,
-            "synced_at": str(s.synced_at) if s and s.synced_at else None,
+            "enabled": s.enabled,
+            "added_at": str(s.added_at) if s.added_at else None,
+            "updated_at": str(s.updated_at) if s.updated_at else None,
+            "status_changed_at": str(s.status_changed_at) if s.status_changed_at else None,
+            "synced_at": str(s.synced_at) if s.synced_at else None,
         }
 
     # -- Package management (classmethods) --
@@ -416,10 +433,7 @@ class Plugin(abc.ABC):
 
             _clear_caches()
             cls = _load_plugin(kind, name) or _load_plugin_fresh(kind, name)
-            if cls:
-                cls().save_state(enabled=True)
-            else:
-                log.warning("Could not load plugin %s/%s after install to save state", kind, name)
+            PluginInstance.get_or_create(kind, name, enabled=True)
             display = name.replace("-", " ").title()
             return True, f"Added {display} {kind.title()}"
         return False, result.stderr.strip() or f"Failed to add {pkg}"
@@ -434,10 +448,9 @@ class Plugin(abc.ABC):
         if (cls and cls.internal) or name == "core":
             return False, f"{pkg} is an internal plugin"
 
-        if cls:
-            cls().remove_state()
-        else:
-            log.warning("Could not load plugin %s/%s before uninstall to remove state", kind, name)
+        record = PluginInstance.find(kind, name)
+        if record:
+            record.delete()
         result = subprocess.run(
             ["uv", "pip", "uninstall", pkg, "--python", _python_executable()],
             capture_output=True,
@@ -451,41 +464,3 @@ class Plugin(abc.ABC):
             display = name.replace("-", " ").title()
             return True, f"Removed {display} {kind.title()}"
         return False, result.stderr.strip() or f"Failed to uninstall {pkg}"
-
-
-class _SelectOneMixin:
-    """Mixin for plugin kinds where only one can be active at a time."""
-
-    enabled_by_default: ClassVar[bool] = False
-
-    def enable(self) -> str:
-        # Disable every other currently-enabled plugin of this kind.
-        now = _now_iso()
-        for other in PluginInstance.all(where="kind = ? AND name != ? AND enabled = TRUE", params=[self._kind, self.name]):
-            other.enabled = False
-            other.status_changed_at = now
-            other.updated_at = now
-            other.save()
-        self.save_state(enabled=True)
-        return f"Selected {self._kind} {self.name}"
-
-    def disable(self) -> str:
-        if self.name == "default":
-            return f"Cannot deselect the default {self._kind}"
-        self.save_state(enabled=False)
-        # Re-enable (or create) the kind's "default" plugin.
-        now = _now_iso()
-        default = PluginInstance.find(self._kind, "default")
-        if default is not None:
-            default.enabled = True
-            default.status_changed_at = now
-            default.updated_at = now
-            default.save()
-        else:
-            PluginInstance(
-                kind=self._kind,
-                name="default",
-                enabled=True,
-                status_changed_at=now,
-            ).insert()
-        return f"Switched {self._kind} to default"

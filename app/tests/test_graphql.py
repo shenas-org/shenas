@@ -360,8 +360,14 @@ class TestGraphQLQueries:
         mock_cls.tag = "fitness-dashboard"
         mock_cls.entrypoint = "index.js"
         mock_cls.description = "Charts"
-        mock_cls.return_value.enabled = False
-        with patch("app.api.sources._load_dashboards", return_value=[mock_cls]):
+
+        class _DisabledInstance:
+            enabled = False
+
+        with (
+            patch("app.api.sources._load_dashboards", return_value=[mock_cls]),
+            patch("shenas_plugins.core.plugin.PluginInstance.find", return_value=_DisabledInstance()),
+        ):
             result = _gql(client, "{ dashboards }")
         assert "errors" not in result
         assert result["data"]["dashboards"] == []
@@ -411,15 +417,14 @@ class TestGraphQLQueries:
             def resources(self, client):
                 return []
 
+        class _FakeInstance:
+            enabled = True
+            synced_at = "2026-03-15 10:00:00"
+
         with (
             patch("app.api.sources._load_plugins", return_value=[FakeSource]),
             patch.object(FakeSource, "sync_frequency", new_callable=lambda: property(lambda self: 60)),
-            patch.object(FakeSource, "enabled", new_callable=lambda: property(lambda self: True)),
-            patch.object(
-                FakeSource,
-                "state",
-                new_callable=lambda: property(lambda self: {"synced_at": "2026-03-15 10:00:00", "enabled": True}),
-            ),
+            patch.object(FakeSource, "instance", return_value=_FakeInstance()),
             patch.object(FakeSource, "is_due_for_sync", new_callable=lambda: property(lambda self: True)),
         ):
             result = _gql(client, "{ syncSchedule { name syncFrequency isDue } }")
@@ -844,16 +849,13 @@ class TestGraphQLMutations:
         assert "errors" not in result
         assert result["data"]["enablePlugin"]["ok"] is True
 
-    def test_disable_plugin(self, client: TestClient) -> None:
-        class FakePlugin:
-            def disable(self):
-                return "disabled"
-
-        with patch("app.api.sources._load_plugin", return_value=FakePlugin):
-            result = _gql(
-                client,
-                'mutation { disablePlugin(kind: "source", name: "garmin") { ok } }',
-            )
+    def test_disable_plugin(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
+        # Ensure the PluginInstance row exists so disable can find it.
+        test_con.execute("INSERT INTO shenas_system.plugins (kind, name, enabled) VALUES ('source', 'garmin', TRUE)")
+        result = _gql(
+            client,
+            'mutation { disablePlugin(kind: "source", name: "garmin") { ok } }',
+        )
         assert "errors" not in result
         assert result["data"]["disablePlugin"]["ok"] is True
 
@@ -1008,13 +1010,13 @@ class TestGraphQLMutationsExtra:
         assert result["data"]["removePlugin"]["ok"] is True
         assert result["data"]["removePlugin"]["message"] == "removed"
 
-    def test_enable_plugin_not_found(self, client: TestClient) -> None:
-        with patch("app.api.sources._load_plugin", return_value=None):
-            result = _gql(
-                client,
-                'mutation { enablePlugin(kind: "source", name: "missing") { ok message } }',
-            )
-        assert result["data"]["enablePlugin"]["ok"] is False
+    def test_enable_plugin_creates_if_missing(self, client: TestClient) -> None:
+        """Enabling a plugin that has no row yet creates one via get_or_create."""
+        result = _gql(
+            client,
+            'mutation { enablePlugin(kind: "source", name: "missing") { ok } }',
+        )
+        assert result["data"]["enablePlugin"]["ok"] is True
 
     def test_disable_plugin_not_found(self, client: TestClient) -> None:
         with patch("app.api.sources._load_plugin", return_value=None):

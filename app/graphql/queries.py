@@ -212,15 +212,15 @@ class Query:
             freq = src.sync_frequency
             if freq is None:
                 continue
-            if not src.enabled:
+            s = src.instance()
+            if not s.enabled:
                 continue
-            s = src.state
             result.append(
                 ScheduleInfoType.from_pydantic(
                     ScheduleInfo(
                         name=src.name,
                         sync_frequency=freq,
-                        synced_at=s["synced_at"] if s else None,
+                        synced_at=s.synced_at,
                         is_due=src.is_due_for_sync,
                     )
                 )
@@ -271,18 +271,23 @@ class Query:
     @strawberry.field
     def dashboards(self) -> JSON:
         from app.api.sources import _load_dashboards
+        from shenas_plugins.core.plugin import PluginInstance
 
-        return [
-            {
-                "name": c.name,
-                "display_name": c.display_name,
-                "tag": c.tag,
-                "js": f"/dashboards/{c.name}/{c.entrypoint}",
-                "description": c.description,
-            }
-            for c in _load_dashboards(include_internal=False)
-            if c().enabled
-        ]
+        result = []
+        for c in _load_dashboards(include_internal=False):
+            inst = PluginInstance.find("dashboard", c.name)
+            if inst is not None and not inst.enabled:
+                continue
+            result.append(
+                {
+                    "name": c.name,
+                    "display_name": c.display_name,
+                    "tag": c.tag,
+                    "js": f"/dashboards/{c.name}/{c.entrypoint}",
+                    "description": c.description,
+                }
+            )
+        return result
 
     @strawberry.field
     def dependencies(self) -> JSON:
