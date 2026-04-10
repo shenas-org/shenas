@@ -28,7 +28,7 @@ jobs:
           # Tag prefix is derived from the directory structure:
           #   plugins/<kind>/<name>/ -> <singular-kind>-<name>
           #   plugins/core/          -> plugin-core
-          #   plugins/datasets/core/ -> schema-core  (special case)
+          #   plugins/datasets/core/ -> dataset-core
           #   app/                   -> app
           #   shenasctl/             -> shenasctl
           #   scheduler/             -> scheduler
@@ -63,12 +63,7 @@ jobs:
               [ -f "$pkg_dir/pyproject.toml" ] || continue
               name=$(basename "$pkg_dir")
 
-              # Special case: datasets/core -> schema-core
-              if [ "$kind" = "datasets" ] && [ "$name" = "core" ]; then
-                PACKAGES[schema-core]="$pkg_dir"
-              else
-                PACKAGES[$singular-$name]="$pkg_dir"
-              fi
+              PACKAGES[$singular-$name]="$pkg_dir"
             done
           done
 

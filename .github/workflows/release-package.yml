@@ -51,9 +51,9 @@ jobs:
           # Map tag prefix to directory
           SIGN=false
           case "$PREFIX" in
-            source-*)      NAME="${PREFIX#pipe-}"; DIR="plugins/sources/$NAME"; SIGN=true ;;
-            dataset-*)    NAME="${PREFIX#schema-}"; DIR="plugins/datasets/$NAME"; SIGN=true ;;
-            dashboard-*) NAME="${PREFIX#component-}"; DIR="plugins/dashboards/$NAME"; SIGN=true ;;
+            source-*)     NAME="${PREFIX#source-}"; DIR="plugins/sources/$NAME"; SIGN=true ;;
+            dataset-*)    NAME="${PREFIX#dataset-}"; DIR="plugins/datasets/$NAME"; SIGN=true ;;
+            dashboard-*)  NAME="${PREFIX#dashboard-}"; DIR="plugins/dashboards/$NAME"; SIGN=true ;;
             plugin-core) DIR="plugins/core"; SIGN=true ;;
             *)           echo "Unknown tag prefix: $PREFIX"; exit 1 ;;
           esac

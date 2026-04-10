@@ -9,7 +9,6 @@ on:
       - 'scheduler/v*'
       - 'source-*/v*'
       - 'dataset-*/v*'
-      - 'schema-*/v*'
       - 'dashboard-*/v*'
       - 'plugin-core/v*'
       - 'transformation-*/v*'
@@ -90,7 +89,7 @@ jobs:
 
           # Collect all version tags from the private repo, skip server-only prefixes.
           git tag -l 'app/v*' 'shenasctl/v*' 'scheduler/v*' \
-                     'source-*/v*' 'dataset-*/v*' 'schema-*/v*' 'dashboard-*/v*' \
+                     'source-*/v*' 'dataset-*/v*' 'dashboard-*/v*' \
                      'plugin-core/v*' 'frontend-*/v*' 'theme-*/v*' \
                      'transformation-*/v*' 'analysis-*/v*' 'model-*/v*' | while read -r TAG; do
             # Check if the tag already exists on OSS
