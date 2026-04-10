@@ -44,16 +44,13 @@ jobs:
       - name: Prepare Copybara config
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           sed -i "s|git@github.com:shenas-net/shenas.git|https://x-access-token:${GITHUB_TOKEN}@github.com/shenas-net/shenas.git|" .copybara/copy.bara.sky
           sed -i 's|git@github.com:shenas-org/shenas.git|git@github.com-oss:shenas-org/shenas.git|' .copybara/copy.bara.sky
-          python3 scripts/oss-release-summary.py /tmp/release_summary.txt --patch-copybara
           cp .copybara/copy.bara.sky copy.bara.sky
 
       - name: Run Copybara
         run: |
-          # Detect if destination has a main branch (empty repo needs --init-history --force)
           EXTRA_FLAGS=""
           if ! git ls-remote --heads git@github.com-oss:shenas-org/shenas.git main | grep -q main; then
             echo "Destination has no main branch, using --init-history --force"
@@ -66,3 +63,18 @@ jobs:
             -w /workspace \
             sharelatex/copybara:latest \
             copybara copy.bara.sky --work-dir /tmp/copybara $EXTRA_FLAGS
+
+      - name: Generate LLM summary and amend commit
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 scripts/oss-release-summary.py /tmp/release_summary.txt
+
+          git clone git@github.com-oss:shenas-org/shenas.git /tmp/oss-repo
+          cd /tmp/oss-repo
+          git config user.name "Alexander Funcke"
+          git config user.email "funcke@shenas.net"
+
+          SUMMARY=$(cat /tmp/release_summary.txt)
+          git commit --amend -m "$SUMMARY" --no-edit 2>/dev/null || git commit --amend -m "$SUMMARY"
+          git push --force-with-lease
