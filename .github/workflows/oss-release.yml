@@ -46,4 +46,4 @@ jobs:
       - name: Run Copybara
         run: |
           sed -i 's|git@github.com:shenas-org/shenas.git|git@github.com-oss:shenas-org/shenas.git|' .copybara/copy.bara.sky
-          copybara .copybara/copy.bara.sky
+          copybara $GITHUB_WORKSPACE/.copybara/copy.bara.sky --git-destination-url git@github.com-oss:shenas-org/shenas.git
