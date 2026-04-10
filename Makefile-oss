@@ -1,11 +1,9 @@
-.PHONY: install dev setup-hooks coverage clean flush-db
+.PHONY: app-clean app-dev app-install db-flush hooks-setup tests-coverage
 
-install:
-	uv tool install --editable app/ --force
-	@echo "Installed shenas and shenasctl to ~/.local/bin/"
-	@echo "Run 'shenasctl --install-completion' for tab completion"
+app-clean:
+	rm -rf .ruff_cache/ .pytest_cache/ dist/ packages/ htmlcov/ .coverage coverage/ coverage.json
 
-dev:
+app-dev:
 	@fuser -k 7280/tcp 5173/tcp 2>/dev/null; sleep 0.3; \
 	uv sync --quiet; \
 	(cd app/vendor && npm install --silent && npm run build --silent); \
@@ -24,19 +22,21 @@ dev:
 	cd plugins/frontends/default && npx vite & \
 	wait
 
-setup-hooks:
-	cp scripts/pre-commit .git/hooks/pre-commit
-	chmod +x .git/hooks/pre-commit
-	@echo "Pre-commit hook installed."
+app-install:
+	uv tool install --editable app/ --force
+	@echo "Installed shenas and shenasctl to ~/.local/bin/"
+	@echo "Run 'shenasctl --install-completion' for tab completion"
 
-coverage:
-	uv run --no-sync pytest --cov=app \
-		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
-
-flush-db:
+db-flush:
 	rm -f data/shenas.duckdb data/shenas.duckdb.wal
 	rm -rf data/users/
 	@echo "Flushed registry DB and all user DBs."
 
-clean:
-	rm -rf .ruff_cache/ .pytest_cache/ dist/ packages/ htmlcov/ .coverage coverage/ coverage.json
+hooks-setup:
+	cp scripts/pre-commit .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
+	@echo "Pre-commit hook installed."
+
+tests-coverage:
+	uv run --no-sync pytest --cov=app \
+		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json

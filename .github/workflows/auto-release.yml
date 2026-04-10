@@ -24,7 +24,7 @@ jobs:
 
       - name: Detect changes and create tags
         run: |
-          # Desktop is excluded -- use `make release-desktop` manually.
+          # Desktop is excluded -- use `make desktop-release` manually.
           PACKAGES=(
             "repo-server:server/repository/"
             "fl-server:server/fl/"
