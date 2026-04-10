@@ -1,4 +1,4 @@
-.PHONY: install dev setup-hooks coverage clean logos dev-desktop dev-website dev-postgres dev-api k8s-secrets-web-api release-desktop release-fl-server release-shenas-net release-web-api setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs flush-db
+.PHONY: install dev setup-hooks coverage clean logos dev-desktop dev-website dev-postgres dev-api k8s-secrets-web-api release-desktop release-fl-server release-shenas-net release-web-api setup-android android-emulator android-dev infra-init infra-import infra-plan infra-apply infra-output infra-destroy infra-gh-vars k8s-apply k8s-status k8s-logs flush-db github-init github-plan github-apply github-output github-destroy oss-init oss-sync
 
 # Set up Android SDK, NDK, and Rust targets for mobile development
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
@@ -320,6 +320,38 @@ discord-output:
 
 discord-destroy:
 	cd server/deploy/tofu-discord && tofu destroy
+
+# GitHub (OpenTofu)
+github-init:
+	cd server/deploy/tofu-github && tofu init
+
+github-plan:
+	cd server/deploy/tofu-github && tofu plan
+
+github-apply:
+	cd server/deploy/tofu-github && tofu apply
+
+github-output:
+	cd server/deploy/tofu-github && tofu output
+
+github-destroy:
+	cd server/deploy/tofu-github && tofu destroy
+
+# Copybara (OSS release sync)
+oss-init:
+	@echo "Generating deploy key for OSS sync..."
+	@rm -f /tmp/oss_deploy_key /tmp/oss_deploy_key.pub
+	@ssh-keygen -t ed25519 -f /tmp/oss_deploy_key -N "" -C "copybara-oss-sync" -q
+	@echo "Adding deploy key to shenas-org/shenas (write access)..."
+	@gh repo deploy-key add /tmp/oss_deploy_key.pub --repo shenas-org/shenas --title "Copybara OSS Sync" --allow-write
+	@echo "Adding private key as secret OSS_DEPLOY_KEY on shenas-net/shenas..."
+	@gh secret set OSS_DEPLOY_KEY --repo shenas-net/shenas < /tmp/oss_deploy_key
+	@rm -f /tmp/oss_deploy_key /tmp/oss_deploy_key.pub
+	@echo "Running initial Copybara sync..."
+	copybara .copybara/copy.bara.sky --init-history --force
+
+oss-sync:
+	copybara .copybara/copy.bara.sky
 
 # Set GitHub repo variables from tofu outputs (requires gh CLI)
 infra-gh-vars:

@@ -1,3 +1,4 @@
+# OSS-shared (included in public repo)
 data/
 .venv/
 __pycache__/
@@ -14,8 +15,12 @@ htmlcov/
 coverage/
 coverage.json
 .cache
-build/_pyinstaller_work/
 *.egg-info/
+.vite/
+
+# PRIVATE-ONLY (stripped by Copybara)
+keys/
+build/_pyinstaller_work/
 server/api/uv.lock
 .moon/cache/
 .moon/docker/
@@ -34,4 +39,3 @@ app/desktop/src-tauri/gen/
 app/desktop/src-tauri/Cargo.lock
 app/desktop/pkg/
 app/desktop/*.pkg.tar.zst
-.vite/
