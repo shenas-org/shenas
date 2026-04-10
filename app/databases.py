@@ -64,8 +64,18 @@ class DB:
         self._lock = threading.RLock()
 
     def connect(self) -> duckdb.DuckDBPyConnection:
-        """Return the underlying connection, lazily initializing it."""
+        """Return the underlying connection, lazily initializing it.
+
+        Detects a stale (closed) connection and re-opens it, which can
+        happen when the uvicorn reloader restarts the process while a
+        cached DB instance survives in module-level state.
+        """
         with self._lock:
+            if self._con is not None:
+                try:
+                    self._con.execute("SELECT 1")
+                except duckdb.ConnectionException:
+                    self._con = None
             if self._con is None:
                 self.path.parent.mkdir(parents=True, exist_ok=True)
                 self._con = duckdb.connect()
