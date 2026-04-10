@@ -1,5 +1,17 @@
 """Transform: SQL transforms bridging raw source tables to canonical metrics.
 
+Two classes:
+
+- :class:`TransformInstance` -- the row in ``shenas_system.transforms``.
+  One row per SQL transform, keyed by auto-increment ``id``. Carries the
+  SQL, source/target mapping, enabled state, and lifecycle timestamps.
+  Row-level CRUD comes from :class:`Table`.
+
+- :class:`Transform` -- the behavior class (a :class:`Plugin` kind).
+  Classmethods/staticmethods that operate across ``TransformInstance``
+  rows: creating, seeding defaults from a source's ``transforms.json``,
+  and executing transforms after a sync.
+
 Note: The ``sql`` field in transforms is user-supplied SQL that is executed
 directly against DuckDB. Any user who can create or edit transforms can run
 arbitrary queries. This is by design -- transforms bridge raw pipe data to
@@ -17,6 +29,7 @@ from typing import Annotated, Any
 import duckdb
 
 from app.db import cursor
+from shenas_plugins.core.plugin import Plugin
 from shenas_plugins.core.table import Field, Table
 
 log = logging.getLogger(f"shenas.{__name__}")
@@ -26,15 +39,14 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
-@dataclass
-class Transform(Table):
-    """A SQL transform stored in ``shenas_system.transforms``.
+# ----------------------------------------------------------------------
+# TransformInstance -- the row
+# ----------------------------------------------------------------------
 
-    The class itself is the dataclass for the row -- there's no separate
-    wrapper. Generic CRUD comes from :class:`Table`. Domain-specific
-    methods (``update``, ``set_enabled``, ``test``, ``seed_defaults``,
-    ``run_for_source``, ``run_for_target``) are added on top.
-    """
+
+@dataclass
+class TransformInstance(Table):
+    """A single SQL transform row in ``shenas_system.transforms``."""
 
     class _Meta:
         name = "transforms"
@@ -64,59 +76,22 @@ class Transform(Table):
     updated_at: Annotated[str, Field(db_type="TIMESTAMP", description="When last updated")] | None = None
     status_changed_at: Annotated[str, Field(db_type="TIMESTAMP", description="When status changed")] | None = None
 
-    # ------------------------------------------------------------------
-    # Convenience helpers
-    # ------------------------------------------------------------------
-
     def to_dict(self) -> dict[str, Any]:
-        """Return all column values as a dict (for GraphQL serialization etc.)."""
         return dataclasses.asdict(self)
 
-    # ------------------------------------------------------------------
-    # Queries (filter helper -- generic .all/.find come from the ABC)
-    # ------------------------------------------------------------------
-
     @classmethod
-    def for_plugin(cls, source_plugin: str) -> list[Transform]:
+    def for_plugin(cls, source_plugin: str) -> list[TransformInstance]:
         """All transforms registered against one source plugin, ordered by id."""
         return cls.all(where="source_plugin = ?", params=[source_plugin], order_by="id")
 
-    # ------------------------------------------------------------------
-    # Mutations
-    # ------------------------------------------------------------------
-
-    @classmethod
-    def create(
-        cls,
-        source_duckdb_schema: str,
-        source_duckdb_table: str,
-        target_duckdb_schema: str,
-        target_duckdb_table: str,
-        source_plugin: str,
-        sql: str,
-        description: str = "",
-        is_default: bool = False,
-    ) -> Transform:
-        t = cls(
-            source_duckdb_schema=source_duckdb_schema,
-            source_duckdb_table=source_duckdb_table,
-            target_duckdb_schema=target_duckdb_schema,
-            target_duckdb_table=target_duckdb_table,
-            source_plugin=source_plugin,
-            sql=sql,
-            description=description,
-            is_default=is_default,
-        )
-        return t.insert()
-
-    def update(self, sql: str) -> Transform:
+    def update(self, sql: str) -> TransformInstance:
         """Update the SQL and bump ``updated_at``."""
         self.sql = sql
         self.updated_at = _now_iso()
         return self.save()
 
-    def set_enabled(self, enabled: bool) -> Transform:
-        """Toggle ``enabled`` and bump both ``status_changed_at`` and ``updated_at``."""
+    def set_enabled(self, enabled: bool) -> TransformInstance:
+        """Toggle ``enabled`` and bump timestamps."""
         now = _now_iso()
         self.enabled = enabled
         self.status_changed_at = now
@@ -136,9 +111,51 @@ class Transform(Table):
             cols = [desc[0] for desc in cur.description]
         return [dict(zip(cols, row, strict=False)) for row in rows]
 
-    # ------------------------------------------------------------------
-    # Seeding
-    # ------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# Transform -- the behavior (Plugin kind)
+# ----------------------------------------------------------------------
+
+
+class Transform(Plugin):
+    """The transform subsystem as a Plugin kind.
+
+    Provides classmethods that operate across :class:`TransformInstance`
+    rows: creating new transforms, seeding defaults from a source's
+    ``transforms.json``, and executing enabled transforms after a sync.
+    """
+
+    name = "transform"
+    display_name = "Transforms"
+    description = "SQL transforms bridging raw source tables to canonical metrics."
+    internal = True
+
+    @property
+    def _kind(self) -> str:
+        return "transform"
+
+    @staticmethod
+    def create(
+        source_duckdb_schema: str,
+        source_duckdb_table: str,
+        target_duckdb_schema: str,
+        target_duckdb_table: str,
+        source_plugin: str,
+        sql: str,
+        description: str = "",
+        is_default: bool = False,
+    ) -> TransformInstance:
+        t = TransformInstance(
+            source_duckdb_schema=source_duckdb_schema,
+            source_duckdb_table=source_duckdb_table,
+            target_duckdb_schema=target_duckdb_schema,
+            target_duckdb_table=target_duckdb_table,
+            source_plugin=source_plugin,
+            sql=sql,
+            description=description,
+            is_default=is_default,
+        )
+        return t.insert()
 
     @staticmethod
     def seed_defaults(source_plugin: str, defaults: list[dict[str, str]]) -> None:
@@ -177,13 +194,9 @@ class Transform(Table):
                 is_default=True,
             )
 
-    # ------------------------------------------------------------------
-    # Execution
-    # ------------------------------------------------------------------
-
     @staticmethod
     def run_for_source(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
-        transforms = Transform.for_plugin(source_plugin)
+        transforms = TransformInstance.for_plugin(source_plugin)
         log.info("Running transforms for %s (%d total)", source_plugin, len(transforms))
         device_id = _get_device_id()
         count = 0
@@ -195,13 +208,18 @@ class Transform(Table):
 
     @staticmethod
     def run_for_target(con: duckdb.DuckDBPyConnection, target_table: str) -> int:
-        matching = [t for t in Transform.all(order_by="id") if t.target_duckdb_table == target_table and t.enabled]
+        matching = [t for t in TransformInstance.all(order_by="id") if t.target_duckdb_table == target_table and t.enabled]
         log.info("Running transforms targeting %s (%d total)", target_table, len(matching))
         device_id = _get_device_id()
         count = 0
         for t in matching:
             count += _execute_transform(con, t, device_id)
         return count
+
+
+# ----------------------------------------------------------------------
+# Module-level helpers
+# ----------------------------------------------------------------------
 
 
 def _get_device_id() -> str:
@@ -220,7 +238,7 @@ def _ensure_source_device_column(con: duckdb.DuckDBPyConnection, target: str) ->
         con.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
 
 
-def _execute_transform(con: duckdb.DuckDBPyConnection, t: Transform, device_id: str) -> int:
+def _execute_transform(con: duckdb.DuckDBPyConnection, t: TransformInstance, device_id: str) -> int:
     target = f'"{t.target_duckdb_schema}"."{t.target_duckdb_table}"'
     try:
         con.execute(f"DELETE FROM {target} WHERE source = ?", [t.source_plugin])

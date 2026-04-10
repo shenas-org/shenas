@@ -18,10 +18,10 @@ from app.graphql.types import (
 )
 
 if TYPE_CHECKING:
-    from app.transforms import Transform
+    from app.transforms import TransformInstance
 
 
-def _transform_to_gql(t: Transform) -> TransformType:
+def _transform_to_gql(t: TransformInstance) -> TransformType:
     return TransformType(
         id=t.id,
         source_duckdb_schema=t.source_duckdb_schema,
@@ -231,16 +231,16 @@ class Query:
 
     @strawberry.field
     def transforms(self, source: str | None = None) -> list[TransformType]:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        rows = Transform.for_plugin(source) if source else Transform.all(order_by="id")
+        rows = TransformInstance.for_plugin(source) if source else TransformInstance.all(order_by="id")
         return [_transform_to_gql(t) for t in rows]
 
     @strawberry.field
     def transform(self, transform_id: int) -> TransformType | None:
-        from app.transforms import Transform
+        from app.transforms import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         return _transform_to_gql(t) if t else None
 
     # -- Theme --
