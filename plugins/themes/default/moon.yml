@@ -1,0 +1,9 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'theme-default'
+
+language: 'python'
+tags: ['theme']
+
+workspace:
+  inheritedTasks:
+    exclude: ['test']
