@@ -91,6 +91,7 @@ class LocalUser(Table):
             import shenas_datasets.promoted  # noqa: F401
 
         con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
+        con.execute("CREATE SCHEMA IF NOT EXISTS metrics")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
 
