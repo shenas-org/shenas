@@ -93,6 +93,7 @@ class LocalUser(Table):
         con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
         con.execute("CREATE SCHEMA IF NOT EXISTS metrics")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_instance_seq START 1")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
 
         seen: set[type[Table]] = set()
@@ -165,8 +166,8 @@ class LocalUser(Table):
                     key=key,
                     bootstrap=cls._bootstrap_user_db,
                 )
-                db.connect()
                 cls._attached[self.id] = db
+                db.connect()
             return db
 
     @classmethod
