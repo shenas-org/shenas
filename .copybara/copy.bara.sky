@@ -77,13 +77,8 @@ core.workflow(
             show_author = False,
         ),
         # Use OSS-specific README and Makefile.
-        core.transform(
-            [
-                core.move("README-oss.md", "README.md"),
-                core.move("Makefile-oss", "Makefile"),
-            ],
-            ignore_noop = True,
-        ),
+        core.move("README-oss.md", "README.md"),
+        core.move("Makefile-oss", "Makefile"),
         # Strip private-only section from .gitignore.
         core.replace(
             before = "# PRIVATE-ONLY (stripped by Copybara)${x}",
