@@ -1,6 +1,13 @@
 import { defineConfig } from "vite";
+import { resolve } from "path";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "shenas-frontends": resolve(__dirname, "../../../app/vendor/src/shenas-frontends/arrow.ts"),
+      "apache-arrow": resolve(__dirname, "node_modules/apache-arrow"),
+    },
+  },
   test: {
     environment: "happy-dom",
     coverage: {
@@ -15,7 +22,7 @@ export default defineConfig({
     cssCodeSplit: false,
     rollupOptions: {
       input: "src/index.ts",
-      external: ["lit", /^lit\//, "apache-arrow", "uplot"],
+      external: ["lit", /^lit\//, "apache-arrow", "uplot", "shenas-frontends"],
       output: {
         entryFileNames: "fitness-dashboard.js",
         assetFileNames: "fitness-dashboard.[ext]",

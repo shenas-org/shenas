@@ -1,7 +1,7 @@
 import { LitElement, html, css } from "lit";
 import type { TemplateResult, CSSResult } from "lit";
-import type { Table } from "apache-arrow";
-import { query, arrowToColumns, arrowDatesToUnix } from "./arrow-client.ts";
+import { query, arrowToColumns, arrowDatesToUnix } from "shenas-frontends";
+import type { Table } from "shenas-frontends";
 import "./chart-panel.ts";
 
 type TimeSeries = (Float64Array | number[])[];
