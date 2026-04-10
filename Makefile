@@ -275,8 +275,6 @@ oss-init:
 	@echo "Adding private key as secret OSS_DEPLOY_KEY on shenas-net/shenas..."
 	@gh secret set OSS_DEPLOY_KEY --repo shenas-net/shenas < /tmp/oss_deploy_key
 	@rm -f /tmp/oss_deploy_key /tmp/oss_deploy_key.pub
-	@echo "Running initial Copybara sync..."
-	copybara .copybara/copy.bara.sky --init-history --force
 
 oss-sync:
 	@gh workflow run "OSS Release" --repo shenas-net/shenas
