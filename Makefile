@@ -1,4 +1,4 @@
-.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan hooks-setup infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish postgres-dev shenas-net-release shenas-org-release tests-coverage web-api-release website-dev
+.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install coverage db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan hooks-setup lint infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish postgres-dev shenas-net-release shenas-org-release test web-api-release website-dev
 
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
 NDK_VERSION = 27.2.12479018
@@ -169,10 +169,14 @@ hooks-setup:
 	chmod +x .git/hooks/pre-commit
 	@echo "Pre-commit hook installed."
 
-tests-coverage:
-	uv run --no-sync pytest --cov=repo_server --cov=app \
-		--cov=shenas_pipes --cov=shenas_schemas \
-		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
+lint:
+	moon run :lint
+
+test:
+	moon run :test
+
+coverage:
+	moon run :coverage
 
 # ---------------------------------------------------------------------------
 # Infrastructure (OpenTofu - GCP)

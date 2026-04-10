@@ -17,166 +17,132 @@ A federated quantified-self platform where ML and AI coaches you without you eve
 - [Discourse forum](https://shenas.discourse.group/) -- questions, feature requests, show-and-tell
 - [Discord server](https://discord.gg/VKsUVT9q) -- real-time chat and support
 
-## Quick start
+## Getting started
 
 ```bash
-uv sync
-uv run shenasctl --help
+uv sync                              # install all workspace packages
+make hooks-setup                     # install pre-commit hook (ruff + ty)
 ```
 
-## Development setup
+Then install globally:
 
 ```bash
-make hooks-setup    # install pre-commit hook (ruff + ty)
-make app-install    # install shenas + shenasctl to ~/.local/bin/
+make app-install                     # puts shenasctl + shenas on your PATH
 ```
 
-## Data pipeline
+## Stack
 
-```bash
-# Authenticate
-shenasctl source garmin auth
-shenasctl source lunchmoney auth
-shenasctl source gmail auth
-shenasctl source gcalendar auth
-
-# Configure obsidian vault path
-shenasctl config set source obsidian vault_path /path/to/vault
-
-# Sync raw data into DuckDB (also runs transform automatically)
-shenasctl source sync          # sync all installed sources
-shenasctl source garmin sync   # sync a single source
-
-# Check what's loaded
-shenasctl db status
-```
-
-## Package management
-
-```bash
-shenasctl source list                # list installed sources
-shenasctl source add garmin          # install from repository
-shenasctl source remove garmin       # uninstall
-shenasctl dataset list               # list installed datasets
-shenasctl dashboard list             # list installed dashboards
-```
-
-## Visualization
-
-```bash
-# Install the dashboard component from the repository
-shenasctl dashboard add fitness-dashboard
-
-# Start the UI
-shenas
-# Open https://127.0.0.1:7280
-```
-
-## Package distribution
-
-All sources, datasets, and dashboards are distributed as Ed25519-signed Python wheels. Signing happens in CI via GitHub Actions.
-
-```bash
-# Build packages
-moon run :build
-
-# Install a source
-shenasctl source add garmin
-```
-
-## Testing
-
-```bash
-# Python
-uv run pytest                                     # run Python tests
-uv run ruff check . && uv run ruff format --check .   # lint + format check
-uv run ty check app/                              # type check
-make coverage                                     # Python coverage report
-
-# JavaScript / TypeScript
-npm install                                       # root: install eslint + prettier + typescript
-npm run lint                                      # eslint
-npm run format                                    # prettier write
-npm run format:check                              # prettier check
-cd app/vendor && npm test                         # vendor unit tests
-cd plugins/dashboards/data-table && npm test      # dashboard tests
-cd plugins/frontends/default && npm test          # frontend tests
-cd app/vendor && npm run coverage                 # coverage for one package
-cd plugins/frontends/default && npx tsc --noEmit  # type check one package
-
-# All tests via moon
-moon run :test
-moon run :lint
-make clean          # remove all build artifacts
-```
+| Layer | Tools |
+|-------|-------|
+| Package management | uv (workspace), moon (task runner), hatchling (wheel builds) |
+| Data ingestion | dlt (`@dlt.source`, `@dlt.resource`, incremental cursors) |
+| Storage | DuckDB (local, per-user) |
+| Server | FastAPI, Strawberry GraphQL, Arrow IPC |
+| Frontend | Lit, uPlot, Cytoscape, Vite |
+| Desktop / mobile | Tauri v2 (desktop: PyInstaller sidecars, mobile: Rust + axum) |
+| ML | Flower (federated learning), PyTorch |
+| Observability | OpenTelemetry (spans + logs to DuckDB, real-time SSE) |
+| Distribution | Ed25519-signed Python wheels via GitHub Releases |
 
 ## Architecture
 
+### Data flow
+
 ```
-app/                   FastAPI UI server (Arrow IPC queries, GraphQL)
-app/graphql/           Strawberry GraphQL schema, mutations, LLM provider routing
-app/telemetry/         OpenTelemetry exporters, DuckDB spans/logs, SSE dispatcher
-app/mesh/              peer-to-peer mesh daemon, identity, relay sync
-app/fl/                Flower FL client, PyTorch training, inference engine
-app/vendor/            shared frontend deps (Lit, Arrow, uPlot, Cytoscape)
-app/desktop/           Tauri desktop app with bundled PyInstaller sidecars
-app/mobile/            Tauri mobile app (Rust core: axum + DuckDB, no Python)
-shenasctl/             lightweight CLI client (httpx + typer + cryptography)
-scheduler/             background sync daemon sidecar
-server/api/            shenas.net web API (LLM proxy, literature gateway, packages)
-server/fl/             federated learning coordinator (Flower server + REST API)
-server/deploy/         Kubernetes, Terraform/OpenTofu, Docker deployment configs
+Source API --> dlt --> raw DuckDB tables --> SQL transforms --> metrics.* --> Arrow IPC --> web components
+               |          (garmin.*)         (idempotent)       (canonical)
+               |          (strava.*)
+               v
+          source-specific schemas
+```
+
+### Workspace packages
+
+The repo is a uv workspace. Each directory is a separate Python package with its own `pyproject.toml`:
+
+| Package | Path | Role |
+|---------|------|------|
+| `shenas-cli` | `shenasctl/` | Lightweight CLI client (httpx, typer, cryptography). No server deps. |
+| `shenas-app` | `app/` | FastAPI UI server, GraphQL API, Arrow IPC queries |
+| `shenas-scheduler` | `scheduler/` | Background sync daemon sidecar |
+| `shenas-plugin-core` | `plugins/core/` | Shared plugin utilities, Table ABC |
+| `shenas-source-core` | `plugins/sources/core/` | Source table utilities, kind base classes |
+| `shenas-dataset-core` | `plugins/datasets/core/` | MetricTable, Dataset ABC, DDL generation |
+
+### Plugin system
+
+Everything in `plugins/` is a plugin. Each plugin kind registers via a Python entry point group and is discovered at runtime with `importlib.metadata.entry_points()`.
+
+| Kind | Entry point group | Examples |
+|------|-------------------|---------|
+| Source | `shenas.sources` | garmin, spotify, strava, lunchmoney, gmail, ... |
+| Dataset | `shenas.datasets` | fitness, finance, events, outcomes, habits, location |
+| Dashboard | `shenas.dashboards` | fitness, data-table, event-gantt, timeline |
+| Frontend | `shenas.frontends` | default, focus |
+| Theme | `shenas.themes` | default, dark |
+| Transformation | `shenas.transformations` | sql, dedup-merge, geocode, llm-categorize, ... |
+| Analysis | `shenas.analyses` | hypothesis |
+| Model | `shenas.models` | sleep-forecast |
+
+Each plugin has its own `pyproject.toml`, `VERSION` file, and `moon.yml`. Plugins are distributed as Ed25519-signed wheels. Users install them with `shenasctl source add <name>`.
+
+### Table kinds
+
+Every raw source table inherits from a kind base class in `shenas_sources.core.table`. The kind determines the dlt write_disposition automatically:
+
+| Kind | Semantics | dlt strategy |
+|------|-----------|-------------|
+| `EventTable` | Immutable occurrence at a point in time | merge on id |
+| `IntervalTable` | Occurrence with start + end timestamps | merge on id |
+| `SnapshotTable` | Current self-state, no temporal axis | SCD2 |
+| `DimensionTable` | Reference/lookup data other tables join against | SCD2 |
+| `AggregateTable` | Per-window summary, re-emitted as data arrives | merge on window key |
+| `CounterTable` | Monotonically growing scalar, deltas matter | append |
+| `M2MTable` | Many-to-many bridge between two entities | SCD2 |
+
+### Directory layout
+
+```
+app/                   FastAPI server, GraphQL, Arrow IPC, telemetry, mesh, FL
+shenasctl/             CLI client
+scheduler/             Background sync daemon
+server/
+  api/                 shenas.net web API (LLM proxy, literature gateway)
+  fl/                  Federated learning coordinator
+  deploy/              Kubernetes, OpenTofu, Docker configs
 plugins/
-  core/                  shared plugin utilities (shenas-plugin-core)
-  sources/core/          shared source utilities (shenas-source-core)
-  sources/chrome/        Chrome browser history
-  sources/cronometer/    Cronometer nutrition tracking
-  sources/duolingo/      Duolingo (XP, streak, achievements, league, friends)
-  sources/firefox/       Firefox browser history
-  sources/garmin/        Garmin Connect (activities, daily stats, sleep, HRV, SpO2)
-  sources/gcalendar/     Google Calendar (events, attendees, colors)
-  sources/github/        GitHub activity
-  sources/gmail/         Gmail (messages, labels, profile, filters, vacation, send_as)
-  sources/goodreads/     Goodreads reading history
-  sources/gtakeout/      Google Takeout import (photos, location, YouTube history)
-  sources/lunchmoney/    Lunch Money (transactions, tags, user, crypto, ...)
-  sources/obsidian/      Obsidian daily notes (frontmatter)
-  sources/rescuetime/    RescueTime productivity tracking
-  sources/shell_history/ shell command history
-  sources/spotify/       Spotify (recently played, top, library, audio features, podcasts)
-  sources/strava/        Strava (activities, laps, kudos, comments, gear, stats, zones)
-  sources/tile/          Tile location tracking
-  sources/withings/      Withings health devices
-  datasets/core/         shared dataset utilities (shenas-dataset-core)
-  datasets/fitness/      HRV, sleep, vitals, body metrics
-  datasets/finance/      transactions, spending, budgets
-  datasets/events/       unified event timeline
-  datasets/outcomes/     mood, stress, productivity, exercise
-  datasets/habits/       daily habits
-  datasets/location/     location metrics
-  datasets/promoted/     dynamically promoted hypothesis-to-metric tables
-  analyses/core/         shared analysis utilities
-  analyses/hypothesis/   hypothesis-driven analysis (Recipe DAG runner)
-  transformations/core/  shared transformation utilities
-  transformations/*/     sql, dedup-merge, geocode, geofence, reverse-geocode, ...
-  models/core/           shared ML model utilities
-  models/sleep-forecast/ sleep quality forecasting model
-  dashboards/core/       shared dashboard utilities
-  dashboards/fitness/    Lit + uPlot fitness charts
-  dashboards/data-table/ Lit data table with sorting/filtering/pagination
-  dashboards/event-gantt/ event Gantt chart visualization
-  dashboards/timeline/   timeline visualization
-  frontends/core/        shared frontend utilities
-  frontends/default/     default frontend shell (Lit SPA with tabs, command palette)
-  frontends/focus/       focus mode frontend
-  themes/core/           shared theme utilities
-  themes/                CSS custom properties (default + dark)
+  core/                Shared plugin utilities
+  sources/             Source connectors (garmin, spotify, strava, ...)
+  datasets/            Canonical metric schemas (fitness, finance, ...)
+  dashboards/          Lit web components (fitness, data-table, ...)
+  frontends/           UI shells (default, focus)
+  themes/              CSS custom properties (default, dark)
+  analyses/            Analysis modes (hypothesis)
+  transformations/     Transform plugins (sql, geocode, llm-categorize, ...)
+  models/              ML models (sleep-forecast)
+scripts/               Build helpers (version bumping, pre-commit)
+prompts/               Guiding documents for LLMs (tone of voice, design system)
 ```
 
-**Data flow**: Source API -> dlt -> raw DuckDB tables -> SQL transform -> canonical `metrics.*` tables -> Arrow IPC -> web component
+## Development
 
-**Plugin system**: Sources register via `shenas.sources` entry points, datasets via `shenas.datasets`, dashboards via `shenas.dashboards`, frontends via `shenas.frontends`, themes via `shenas.themes`. The CLI and UI discover them at runtime via `importlib.metadata`.
+### Common commands
 
-**Table kinds**: every raw source table inherits from a kind base class (`EventTable`, `IntervalTable`, `SnapshotTable`, `DimensionTable`, `AggregateTable`, `CounterTable`, `M2MTable`). The kind is encoded in the inheritance chain and determines the dlt write_disposition automatically.
+```bash
+# Run
+shenasctl --help                     # CLI
+shenasctl source garmin sync         # sync a source
 
-**Core packages**: `shenas-source-core` and `shenas-dataset-core` provide shared utilities. They are internal dependencies, not user-facing.
+# Lint, test, build (same commands as CI)
+moon run :lint                       # all lints: Python + JS lint, format, typecheck
+moon run :test                       # all tests
+moon run :coverage                   # tests with coverage report
+moon run app:test                    # single project
+moon run :build                      # build all wheels
+moon run source-garmin:build         # build one package
+moon run desktop:tauri               # build desktop app
+```
+
+### Pre-commit hooks
+
+The pre-commit hook runs `ruff check`, `ruff format --check`, and `ty check` before every commit. Install with `make hooks-setup`.
