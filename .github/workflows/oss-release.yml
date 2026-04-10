@@ -1,0 +1,63 @@
+name: OSS Release
+
+on:
+  push:
+    tags:
+      # App-level release
+      - 'v*'
+      # Source plugins
+      - 'source-*/v*'
+      # Dataset / schema plugins
+      - 'dataset-*/v*'
+      - 'schema-*/v*'
+      # Dashboard plugins
+      - 'dashboard-*/v*'
+      # Core packages
+      - 'plugin-core/v*'
+      # Transformation plugins
+      - 'transformation-*/v*'
+      # Frontend / theme plugins
+      - 'frontend-*/v*'
+      - 'theme-*/v*'
+
+jobs:
+  copybara:
+    name: Sync to shenas-org/shenas
+    runs-on: gcp-runners
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Copybara
+        run: |
+          if ! command -v copybara &> /dev/null; then
+            echo "Copybara not found, installing..."
+            curl -sL -o /usr/local/bin/copybara \
+              https://github.com/google/copybara/releases/latest/download/copybara_deploy.jar
+            chmod +x /usr/local/bin/copybara
+          fi
+
+      - name: Configure SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.OSS_DEPLOY_KEY }}" > ~/.ssh/oss_deploy_key
+          chmod 600 ~/.ssh/oss_deploy_key
+          cat >> ~/.ssh/config << EOF
+          Host github.com-oss
+            HostName github.com
+            User git
+            IdentityFile ~/.ssh/oss_deploy_key
+            StrictHostKeyChecking no
+          EOF
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "Alexander Funcke"
+          git config --global user.email "funcke@shenas.net"
+
+      - name: Run Copybara
+        run: |
+          # Rewrite destination URL to use the SSH alias for the deploy key.
+          sed -i 's|git@github.com:shenas-org/shenas.git|git@github.com-oss:shenas-org/shenas.git|' .copybara/copy.bara.sky
+          copybara .copybara/copy.bara.sky
