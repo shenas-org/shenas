@@ -121,7 +121,7 @@ class TestSyncSource:
 
     def test_sync_pipe_lock_conflict(self) -> None:
         pipe = _FakeSource(pipe_name="garmin")
-        pipe.acquire_sync_lock = lambda: False  # type: ignore[assignment]
+        pipe.acquire_sync_lock = lambda: False  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         with (
             patch("app.api.sync._installed_source_names", return_value=["garmin"]),
             patch("app.api.sync._load_source", return_value=pipe),
@@ -295,7 +295,7 @@ class TestInstalledPipeNames:
 class TestSyncAllLockSkip:
     def test_sync_all_skips_locked_pipe(self) -> None:
         pipe = _FakeSource(pipe_name="locked")
-        pipe.acquire_sync_lock = lambda: False  # type: ignore[assignment]
+        pipe.acquire_sync_lock = lambda: False  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         with (
             patch("app.api.sync._installed_source_names", return_value=["locked"]),
             patch("app.api.sync._load_source", return_value=pipe),

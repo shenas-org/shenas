@@ -11,6 +11,8 @@ import {
   messageStyles,
 } from "shenas-frontends";
 
+type PluginKind = { id: string; label: string };
+
 interface PluginSummary {
   name: string;
   displayName?: string;

@@ -125,7 +125,7 @@ class Recipe(BaseModel, frozen=True):
     # Validation
     # ------------------------------------------------------------------
 
-    def validate(self, catalog: dict[str, dict[str, Any]]) -> list[str]:
+    def validate(self, catalog: dict[str, dict[str, Any]]) -> list[str]:  # ty: ignore[invalid-method-override]
         """Return a list of human-readable error messages.
 
         Empty list means the recipe is structurally sound and *should*

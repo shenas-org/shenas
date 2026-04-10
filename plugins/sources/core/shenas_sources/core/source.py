@@ -51,13 +51,13 @@ class Source(Plugin):
             # Source uses base SourceConfig -- create a per-pipe subclass so the table name is unique.
             per_pipe_meta = type("_Meta", (SourceConfig._Meta,), {"name": per_pipe_name})
             cls.Config = type(f"{cls.name.title()}Config", (SourceConfig,), {"_Meta": per_pipe_meta})
-        elif getattr(cls.Config._Meta, "name", None) in (None, ""):
-            cls.Config._Meta = type("_Meta", (cls.Config._Meta,), {"name": per_pipe_name})
-        cls.Config._finalize()
+        elif getattr(cls.Config._Meta, "name", None) in (None, ""):  # ty: ignore[unresolved-attribute]
+            cls.Config._Meta = type("_Meta", (cls.Config._Meta,), {"name": per_pipe_name})  # ty: ignore[invalid-assignment, unresolved-attribute]
+        cls.Config._finalize()  # ty: ignore[unresolved-attribute]
         if cls.Auth is not SourceAuth:
-            if getattr(cls.Auth._Meta, "name", None) in (None, ""):
-                cls.Auth._Meta = type("_Meta", (cls.Auth._Meta,), {"name": per_pipe_name})
-            cls.Auth._finalize()
+            if getattr(cls.Auth._Meta, "name", None) in (None, ""):  # ty: ignore[unresolved-attribute]
+                cls.Auth._Meta = type("_Meta", (cls.Auth._Meta,), {"name": per_pipe_name})  # ty: ignore[invalid-assignment, unresolved-attribute]
+            cls.Auth._finalize()  # ty: ignore[unresolved-attribute]
         # Auto-set _Meta.schema on every SourceTable in this source's TABLES
         # tuple so the catalog can qualify references like `strava.activities`.
         # Discovery is by convention: each source's tables module is at
@@ -86,7 +86,7 @@ class Source(Plugin):
         if self.Auth is SourceAuth:
             return []
 
-        meta = self.Auth.table_metadata()
+        meta = self.Auth.table_metadata()  # ty: ignore[unresolved-attribute]
         fields: list[dict[str, str | bool]] = []
         for col in meta["columns"]:
             if col["name"] == "id":
@@ -110,7 +110,7 @@ class Source(Plugin):
         if not self.has_auth:
             return True
         try:
-            row = self.Auth.read_row()
+            row = self.Auth.read_row()  # ty: ignore[unresolved-attribute]
             return bool(row and any(v for k, v in row.items() if k != "id"))
         except Exception:
             return None
@@ -121,7 +121,7 @@ class Source(Plugin):
         if self.Config is SourceConfig:
             return None
         try:
-            row = self.Config.read_row()
+            row = self.Config.read_row()  # ty: ignore[unresolved-attribute]
             return row.get("sync_frequency") if row else None
         except Exception:
             return None
@@ -167,8 +167,8 @@ class Source(Plugin):
         if not self.has_config:
             return []
 
-        row = self.Config.read_row()
-        meta = self.Config.table_metadata()
+        row = self.Config.read_row()  # ty: ignore[unresolved-attribute]
+        meta = self.Config.table_metadata()  # ty: ignore[unresolved-attribute]
         entries = []
         for col in meta["columns"]:
             if col["name"] == "id":
@@ -191,25 +191,25 @@ class Source(Plugin):
         if not self.has_config:
             return
         if value is not None:
-            meta = self.Config.table_metadata()
+            meta = self.Config.table_metadata()  # ty: ignore[unresolved-attribute]
             for col in meta["columns"]:
                 if col["name"] == key:
                     db_type = col.get("db_type", "").upper()
                     if db_type == "INTEGER":
-                        value = int(value)  # type: ignore[assignment]
+                        value = int(value)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
                     elif db_type in ("FLOAT", "DOUBLE", "REAL"):
-                        value = float(value)  # type: ignore[assignment]
+                        value = float(value)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
                     break
-        self.Config.write_row(**{key: value})
+        self.Config.write_row(**{key: value})  # ty: ignore[unresolved-attribute]
 
     def get_config_value(self, key: str) -> Any | None:
         """Get a single config value."""
-        return self.Config.read_value(key) if self.has_config else None
+        return self.Config.read_value(key) if self.has_config else None  # ty: ignore[unresolved-attribute]
 
     def delete_config(self) -> None:
         """Delete all config."""
         if self.has_config:
-            self.Config.clear_rows()
+            self.Config.clear_rows()  # ty: ignore[unresolved-attribute]
 
     def get_info(self) -> dict[str, Any]:
         return {
@@ -411,8 +411,8 @@ class Source(Plugin):
         if not self.has_auth:
             return []
         try:
-            row = self.Auth.read_row()
-            meta = self.Auth.table_metadata()
+            row = self.Auth.read_row()  # ty: ignore[unresolved-attribute]
+            meta = self.Auth.table_metadata()  # ty: ignore[unresolved-attribute]
             return [
                 col["name"].replace("_", " ").title()
                 for col in meta["columns"]
@@ -476,7 +476,7 @@ def _get_field_meta(f: dataclasses.Field) -> dict[str, Any]:  # type: ignore[typ
     hints = getattr(f.type, "__metadata__", ()) if hasattr(f.type, "__metadata__") else ()
     # Unwrap Optional[Annotated[...]]
     if not hints and hasattr(f.type, "__args__"):
-        for arg in f.type.__args__:
+        for arg in f.type.__args__:  # ty: ignore[not-iterable]
             if hasattr(arg, "__metadata__"):
                 hints = arg.__metadata__
                 break

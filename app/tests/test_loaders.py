@@ -181,7 +181,7 @@ class TestLoadSource:
 
     def test_returns_cached(self) -> None:
         sentinel = _FakeSource()
-        _source_cache["testpipe"] = sentinel  # type: ignore[assignment]
+        _source_cache["testpipe"] = sentinel  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         result = _load_source("testpipe")
         assert result is sentinel
 
@@ -224,7 +224,7 @@ class TestClearCaches:
         _source_cache.clear()
 
     def test_clears_source_cache(self) -> None:
-        _source_cache["x"] = "dummy"  # type: ignore[assignment]
+        _source_cache["x"] = "dummy"  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         _clear_caches()
         assert _source_cache == {}
 
@@ -240,8 +240,8 @@ class TestClearCaches:
         class FakeFastPath:
             pass
 
-        FakeFastPath.__new__ = MagicMock()  # type: ignore[assignment]
-        FakeFastPath.__new__.cache_clear = cache_clear  # type: ignore[attr-defined]
+        FakeFastPath.__new__ = MagicMock()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        FakeFastPath.__new__.cache_clear = cache_clear  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         with (
             patch("importlib.metadata.FastPath", FakeFastPath, create=True),
             patch("importlib.invalidate_caches"),
