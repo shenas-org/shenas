@@ -110,7 +110,7 @@ class LocalUser(Table):
                 if meta is None or not getattr(meta, "name", None):
                     continue
                 schema = getattr(meta, "schema", None) or "main"
-                con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+                con.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
                 sub.ensure(con, schema=schema)
 
         walk(Table)
