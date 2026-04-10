@@ -23,12 +23,12 @@ EXCLUDE_PATHS = [
     ":!server/",
     ":!app/fl/",
     ":!app/mesh/",
-    ":!app/literature*",
-    ":!plugins/analyses/",
-    ":!plugins/models/",
+    ":!app/desktop/",
+    ":!app/mobile/",
     ":!.copybara/",
     ":!.github/",
-    ":!scripts/oss-release-summary.py",
+    ":!.moon/",
+    ":!scripts/",
 ]
 
 PROMPT = (
