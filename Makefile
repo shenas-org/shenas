@@ -13,6 +13,7 @@ install:
 dev:
 	@fuser -k 7280/tcp 5173/tcp 2>/dev/null; sleep 0.3; \
 	uv sync --group fl --quiet; \
+	(cd app/vendor && npm install --silent && npm run build --silent); \
 	for pkg in plugins/frontends/* plugins/dashboards/*; do \
 		[ -f "$$pkg/package.json" ] || continue; \
 		[ -f "$$pkg/vite.config.js" ] || continue; \
