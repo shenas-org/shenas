@@ -348,9 +348,13 @@ oss-init:
 	@gh secret set OSS_DEPLOY_KEY --repo shenas-net/shenas < /tmp/oss_deploy_key
 	@rm -f /tmp/oss_deploy_key /tmp/oss_deploy_key.pub
 	@echo "Running initial Copybara sync..."
+	@python3 scripts/oss-release-summary.py /tmp/release_summary.txt
+	@python3 scripts/oss-patch-copybara.py /tmp/release_summary.txt
 	copybara .copybara/copy.bara.sky --init-history --force
 
 oss-sync:
+	@python3 scripts/oss-release-summary.py /tmp/release_summary.txt
+	@python3 scripts/oss-patch-copybara.py /tmp/release_summary.txt
 	copybara .copybara/copy.bara.sky
 
 # Set GitHub repo variables from tofu outputs (requires gh CLI)
