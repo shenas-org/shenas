@@ -409,6 +409,25 @@ class Query:
         _discover_analyses()
         return list_modes()
 
+    # -- Literature --
+
+    @strawberry.field
+    def literature_findings(self, limit: int | None = None) -> JSON:
+        """Return stored literature findings."""
+        from app.literature import Finding
+
+        rows = Finding.all(order_by="id DESC", limit=limit)
+        return [f.to_prompt_line() for f in rows]
+
+    @strawberry.field
+    def suggested_hypotheses(self, limit: int = 10) -> JSON:
+        """Return proactive hypothesis suggestions from literature cross-referenced with installed data."""
+        from app.analytics_catalog import catalog_by_qualified_name
+        from app.literature import suggest_hypotheses
+
+        catalog = catalog_by_qualified_name()
+        return [s.model_dump() for s in suggest_hypotheses(catalog, limit=limit)]
+
     # -- Hypotheses --
     #
     # Read-only listing + single fetch over the Hypothesis system table.
