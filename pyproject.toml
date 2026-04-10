@@ -24,6 +24,7 @@ members = [
     "plugins/datasets/*",
     "plugins/dashboards/*",
     "plugins/models/*",
+    "plugins/transformations/*",
     "plugins/frontends/*",
     "plugins/themes/*",
 ]
@@ -60,12 +61,21 @@ shenas-dataset-finance = { workspace = true }
 shenas-dataset-outcomes = { workspace = true }
 shenas-dataset-habits = { workspace = true }
 shenas-dataset-promoted = { workspace = true }
+shenas-dataset-location = { workspace = true }
 shenas-dashboard-core = { workspace = true }
 shenas-dashboard-fitness-dashboard = { workspace = true }
 shenas-dashboard-data-table = { workspace = true }
 shenas-dashboard-event-gantt = { workspace = true }
 shenas-model-core = { workspace = true }
 shenas-model-sleep-forecast = { workspace = true }
+shenas-transformation-core = { workspace = true }
+shenas-transformation-sql = { workspace = true }
+shenas-transformation-geofence = { workspace = true }
+shenas-transformation-geocode = { workspace = true }
+shenas-transformation-llm-categorize = { workspace = true }
+shenas-transformation-reverse-geocode = { workspace = true }
+shenas-transformation-regex-extract = { workspace = true }
+shenas-transformation-dedup-merge = { workspace = true }
 shenas-frontend-core = { workspace = true }
 shenas-frontend-default = { workspace = true }
 shenas-frontend-focus = { workspace = true }
@@ -101,6 +111,7 @@ dev = [
     "shenas-dataset-outcomes",
     "shenas-dataset-habits",
     "shenas-dataset-promoted",
+    "shenas-dataset-location",
     "shenas-dashboard-fitness-dashboard",
     "shenas-dashboard-data-table",
     "shenas-frontend-default",
@@ -108,6 +119,13 @@ dev = [
     "shenas-theme-default",
     "shenas-theme-dark",
     "shenas-model-core",
+    "shenas-transformation-sql",
+    "shenas-transformation-geofence",
+    "shenas-transformation-geocode",
+    "shenas-transformation-llm-categorize",
+    "shenas-transformation-reverse-geocode",
+    "shenas-transformation-regex-extract",
+    "shenas-transformation-dedup-merge",
     "commitizen>=4.13.9",
     "httpx>=0.28.1",
     "pytest>=9.0.2",

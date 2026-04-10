@@ -216,7 +216,7 @@ def cursor(*, database: str | None = None) -> Generator[duckdb.DuckDBPyConnectio
 
 
 def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:  # noqa: ARG001
-    """Back-compat shim: return the current user's underlying connection."""
+    """Return the current user's underlying DuckDB connection."""
     from app.databases import resolve_db
 
     return resolve_db(None).connect()
@@ -272,34 +272,30 @@ def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) ->
 
 
 # ----------------------------------------------------------------------
-# Test back-compat shim
+# Test helper
 # ----------------------------------------------------------------------
 
 
 def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
-    """Back-compat shim for test fixtures that pass a single in-memory connection.
+    """Create all system + user tables on a single in-memory connection for tests."""
+    from shenas_transformations.core.instance import TransformInstance
+    from shenas_transformations.geofence.model import Geofence
 
-    Older test fixtures construct ``con = duckdb.connect(":memory:")``,
-    ATTACH ``:memory:`` AS db, USE db, and call this. The new design
-    splits state across two DBs, but tests that exercise either side
-    can run both bootstraps against the same connection so the legacy
-    fixture pattern keeps working.
-    """
     from app.hotkeys import Hotkey
     from app.hypotheses import Hypothesis
     from app.local_sessions import LocalSession
     from app.local_users import LocalUser
     from app.recipe_cache import RecipeCache
     from app.system_settings import SystemSettings
-    from app.transforms import TransformInstance
     from app.workspace import Workspace
     from shenas_datasets.promoted import PromotedMetric
     from shenas_plugins.core.plugin import PluginInstance
     from shenas_plugins.core.table import Table
 
-    con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
+    con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_instance_seq START 1")
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
     con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.local_user_seq START 1")
+    con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.geofence_seq START 1")
     tables: list[type[Table]] = [
         TransformInstance,
         PluginInstance,
@@ -311,13 +307,10 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
         SystemSettings,
         LocalUser,
         LocalSession,
+        Geofence,
     ]
     Table.ensure_schema(con, tables, schema="shenas_system")
     Hotkey.seed(con)
     from shenas_datasets.core.dataset import Dataset
 
     Dataset.ensure_all(con)
-
-
-# Compatibility re-export for legacy callers.
-DB_PATH = SHENAS_DB_PATH
