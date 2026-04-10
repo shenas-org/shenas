@@ -13,7 +13,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project.entry-points."shenas.transformations"]
-geocode = "shenas_transformations.geocode:GeocodeTransformation"
+geocode = "shenas_transformations.geocode:GeocodeTransform"
 
 [tool.hatch.version]
 source = "vcs"

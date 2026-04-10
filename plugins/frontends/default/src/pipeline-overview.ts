@@ -13,6 +13,7 @@ interface PluginInfo {
 
 interface Transform {
   id: number;
+  transformType: string;
   sourceDuckdbSchema: string;
   sourceDuckdbTable: string;
   targetDuckdbSchema: string;
@@ -138,7 +139,7 @@ class PipelineOverview extends LitElement {
       const data = await gql(
         this.apiBase,
         `{
-        transforms { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin enabled }
+        transforms { id transformType sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin enabled }
         dependencies
       }`,
       );
@@ -178,27 +179,27 @@ class PipelineOverview extends LitElement {
       }
     }
 
-    // Pipe nodes
+    // Source nodes
     for (const p of pipes) {
-      const id = `pipe:${p.name}`;
+      const id = `source:${p.name}`;
       nodeIds.add(id);
       elements.push({
         data: { id, label: p.displayName || p.name, kind: "source", enabled: p.enabled !== false ? "yes" : "no" },
       });
     }
 
-    // Schema nodes
+    // Dataset nodes
     for (const s of schemas) {
-      const id = `schema:${s.name}`;
+      const id = `dataset:${s.name}`;
       nodeIds.add(id);
       elements.push({
         data: { id, label: s.displayName || s.name, kind: "dataset", enabled: s.enabled !== false ? "yes" : "no" },
       });
     }
 
-    // Component nodes
+    // Dashboard nodes
     for (const c of components) {
-      const id = `component:${c.name}`;
+      const id = `dashboard:${c.name}`;
       nodeIds.add(id);
       elements.push({
         data: { id, label: c.displayName || c.name, kind: "dashboard", enabled: c.enabled !== false ? "yes" : "no" },
@@ -216,12 +217,14 @@ class PipelineOverview extends LitElement {
 
     // Transform edges (pipe -> schema via data)
     for (const t of transforms) {
-      const sourceId = `pipe:${t.sourcePlugin}`;
+      const sourceId = `source:${t.sourcePlugin}`;
       const ownerPlugin = tableToPlugin[t.targetDuckdbTable];
-      const targetId = ownerPlugin ? `schema:${ownerPlugin}` : null;
+      const targetId = ownerPlugin ? `dataset:${ownerPlugin}` : null;
       if (!targetId || !nodeIds.has(sourceId) || !nodeIds.has(targetId)) continue;
+      const typeTag = t.transformType ? `[${t.transformType}] ` : "";
       const desc = t.description || `${t.sourceDuckdbTable} -> ${t.targetDuckdbTable}`;
-      const label = desc.length > 30 ? desc.slice(0, 28) + "..." : desc;
+      const full = `${typeTag}${desc}`;
+      const label = full.length > 35 ? full.slice(0, 33) + "..." : full;
       elements.push({
         data: {
           id: `transform:${t.id}`,
@@ -275,8 +278,16 @@ class PipelineOverview extends LitElement {
       }
     }
 
-    this._elements = elements;
-    this._empty = elements.filter((e) => e.data.source).length === 0;
+    // Hide non-source nodes that have no edges (no relationships).
+    const connectedNodes = new Set<string>();
+    for (const el of elements) {
+      if (el.data.source) connectedNodes.add(el.data.source);
+      if (el.data.target) connectedNodes.add(el.data.target);
+    }
+    this._elements = elements.filter(
+      (el) => el.data.source || el.data.kind === "source" || connectedNodes.has(el.data.id),
+    );
+    this._empty = this._elements.filter((e) => e.data.source).length === 0;
   }
 
   _initCytoscape(): void {

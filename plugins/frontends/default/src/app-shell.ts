@@ -126,6 +126,7 @@ class ShenasApp extends LitElement {
   private _registeredCommands = new Map<string, Command[]>();
   private _keyHandler: ((e: KeyboardEvent) => void) | null = null;
   private _schemaPlugins: Record<string, string[]> = {};
+  private _pluginKinds: { id: string; label: string }[] = PLUGIN_KINDS;
   private _deviceName = "";
   private _hotkeys: Record<string, string> = {};
   private _pluginDisplayNames: Record<string, string> = {};
@@ -802,14 +803,14 @@ class ShenasApp extends LitElement {
       commands.push({ id: `nav:${c.name}`, category: "Page", label: c.display_name || c.name, path: `/${c.name}` });
     }
 
-    // Settings sections from shared PLUGIN_KINDS
+    // Settings sections from dynamically fetched plugin kinds
     commands.push({ id: "nav:dataflow", category: "Settings", label: "Flow", path: "/settings/flow" });
-    for (const k of PLUGIN_KINDS) {
+    for (const k of this._pluginKinds) {
       commands.push({ id: `nav:settings:${k.id}`, category: "Settings", label: k.label, path: `/settings/${k.id}` });
     }
 
     // Use cached plugin data for detail page navigation
-    const allPlugins = PLUGIN_KINDS.flatMap((k) =>
+    const allPlugins = this._pluginKinds.flatMap((k) =>
       (this._allPlugins[k.id] || []).map((p) => ({ ...p, kind: k.id, kindLabel: k.label })),
     );
 
@@ -831,7 +832,7 @@ class ShenasApp extends LitElement {
     try {
       const schemaOwnership = this._schemaPlugins || {};
 
-      for (const k of PLUGIN_KINDS) {
+      for (const k of this._pluginKinds) {
         const plugins = this._allPlugins[k.id] || [];
         for (const p of plugins) {
           const name = p.displayName || p.name;
@@ -1071,7 +1072,7 @@ class ShenasApp extends LitElement {
     const parts = p.split("/");
     if (parts[0] === "settings") {
       if (parts.length === 2) {
-        const kind = PLUGIN_KINDS.find((k) => k.id === parts[1]);
+        const kind = this._pluginKinds.find((k) => k.id === parts[1]);
         return kind ? kind.label : parts[1];
       }
       if (parts.length >= 3) {
@@ -1115,6 +1116,13 @@ class ShenasApp extends LitElement {
   async _fetchData(): Promise<void> {
     this._loading = true;
     try {
+      // Fetch available plugin kinds first, then build the main query dynamically.
+      const kindsData = await gql(this.apiBase, `{ pluginKinds }`);
+      const kinds: { id: string; label: string }[] =
+        (kindsData?.pluginKinds as { id: string; label: string }[]) || PLUGIN_KINDS;
+      this._pluginKinds = kinds;
+      const fields = `name displayName enabled syncedAt hasAuth isAuthenticated`;
+      const kindQueries = kinds.map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`).join("\n        ");
       const data = await gql(
         this.apiBase,
         `{
@@ -1122,12 +1130,7 @@ class ShenasApp extends LitElement {
         hotkeys
         workspace
         dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } }
-        sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth isAuthenticated }
-        datasets: plugins(kind: "dataset") { name displayName enabled }
-        dashboardPlugins: plugins(kind: "dashboard") { name displayName enabled }
-        frontends: plugins(kind: "frontend") { name displayName enabled }
-        themes: plugins(kind: "theme") { name displayName enabled }
-        models: plugins(kind: "model") { name displayName enabled }
+        ${kindQueries}
         theme { css }
         deviceName
         schemaPlugins
@@ -1137,14 +1140,11 @@ class ShenasApp extends LitElement {
       this._dbStatus = data?.dbStatus as DbStatus | null;
       this._deviceName = (data?.deviceName as string) || "";
       this._hotkeys = (data?.hotkeys as Record<string, string>) || {};
-      this._allPlugins = {
-        source: (data?.sources as PluginSummary[]) || [],
-        dataset: (data?.datasets as PluginSummary[]) || [],
-        dashboard: (data?.dashboardPlugins as PluginSummary[]) || [],
-        frontend: (data?.frontends as PluginSummary[]) || [],
-        theme: (data?.themes as PluginSummary[]) || [],
-        model: (data?.models as PluginSummary[]) || [],
-      };
+      const allPlugins: Record<string, PluginSummary[]> = {};
+      for (const { id } of kinds) {
+        allPlugins[id] = (data?.[`p_${id}`] as PluginSummary[]) || [];
+      }
+      this._allPlugins = allPlugins;
       this._schemaPlugins = (data?.schemaPlugins as Record<string, string[]>) || {};
       // Apply theme if not already injected by the server
       const themeData = data?.theme as Record<string, string> | undefined;
@@ -1318,7 +1318,7 @@ class ShenasApp extends LitElement {
                   <div class="settings-sub">
                     ${SETTINGS_NAV_ITEMS.map((item) => this._settingsNavItem(item.id, item.label, activePath))}
                     <span class="sub-heading">Plugins</span>
-                    ${PLUGIN_KINDS.map(
+                    ${this._pluginKinds.map(
                       ({ id, label }) => html`
                         ${this._settingsNavItem(id, `${label} (${(this._allPlugins[id] || []).length})`, activePath)}
                       `,

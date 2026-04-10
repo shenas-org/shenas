@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any
 
 import duckdb
-from shenas_transformations.core import Transformation, TransformationConfig
+from shenas_transformations.core import Transform, TransformConfig
 
 from shenas_plugins.core.table import Field
 
@@ -20,7 +20,7 @@ log = logging.getLogger(f"shenas.{__name__}")
 
 
 @dataclass
-class _GeocodeConfig(TransformationConfig):
+class _GeocodeConfig(TransformConfig):
     provider: Annotated[
         str,
         Field(
@@ -42,7 +42,7 @@ class _GeocodeConfig(TransformationConfig):
     ] = None
 
 
-class GeocodeTransformation(Transformation):
+class GeocodeTransform(Transform):
     """Convert address strings to latitude/longitude using a geocoding API."""
 
     name = "geocode"
@@ -195,4 +195,4 @@ def _batch_geocode(
     return results
 
 
-__all__ = ["GeocodeTransformation"]
+__all__ = ["GeocodeTransform"]

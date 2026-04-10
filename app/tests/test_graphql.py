@@ -347,9 +347,9 @@ class TestGraphQLQueries:
 
     def test_dashboards(self, client: TestClient) -> None:
         mock_cls = MagicMock()
-        mock_cls.name = "fitness-dashboard"
+        mock_cls.name = "fitness"
         mock_cls.display_name = "Fitness Dashboard"
-        mock_cls.tag = "fitness-dashboard"
+        mock_cls.tag = "fitness"
         mock_cls.entrypoint = "index.js"
         mock_cls.description = "Charts"
         mock_cls.return_value.enabled = True
@@ -358,14 +358,14 @@ class TestGraphQLQueries:
         assert "errors" not in result
         dashboards = result["data"]["dashboards"]
         assert len(dashboards) == 1
-        assert dashboards[0]["name"] == "fitness-dashboard"
-        assert dashboards[0]["js"] == "/dashboards/fitness-dashboard/index.js"
+        assert dashboards[0]["name"] == "fitness"
+        assert dashboards[0]["js"] == "/dashboards/fitness/index.js"
 
     def test_dashboards_disabled_excluded(self, client: TestClient) -> None:
         mock_cls = MagicMock()
-        mock_cls.name = "fitness-dashboard"
+        mock_cls.name = "fitness"
         mock_cls.display_name = "Fitness Dashboard"
-        mock_cls.tag = "fitness-dashboard"
+        mock_cls.tag = "fitness"
         mock_cls.entrypoint = "index.js"
         mock_cls.description = "Charts"
 

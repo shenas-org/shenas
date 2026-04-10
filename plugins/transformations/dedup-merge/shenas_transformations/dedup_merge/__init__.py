@@ -7,7 +7,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import duckdb
-from shenas_transformations.core import Transformation
+from shenas_transformations.core import Transform
 
 if TYPE_CHECKING:
     from shenas_transformations.core.instance import TransformInstance
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(f"shenas.{__name__}")
 
 
-class DedupMergeTransformation(Transformation):
+class DedupMergeTransform(Transform):
     """Unify records from two sources that represent the same entity.
 
     Matches records by overlapping time windows and configurable key
@@ -149,4 +149,4 @@ class DedupMergeTransformation(Transformation):
             raise ValueError(msg)
 
 
-__all__ = ["DedupMergeTransformation"]
+__all__ = ["DedupMergeTransform"]

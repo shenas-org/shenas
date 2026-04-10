@@ -44,6 +44,23 @@ async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:
     except Exception:
         pass
 
+    # Seed default transforms for all installed sources.
+    try:
+        import contextlib
+        from importlib.metadata import entry_points
+
+        from shenas_transformations.core import Transform
+
+        from app.api.sources import _load_plugins
+
+        for cls in _load_plugins("transformation", base=Transform, include_internal=True):
+            plugin = cls()
+            for ep in entry_points(group="shenas.sources"):
+                with contextlib.suppress(Exception):
+                    plugin.seed_defaults_for_source(ep.name)
+    except Exception:
+        pass
+
     # Start mesh daemon in background (device sync)
     mesh_task = None
     try:

@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 import duckdb
-from shenas_transformations.core import Transformation
+from shenas_transformations.core import Transform
 from shenas_transformations.core.instance import TransformInstance
 
 log = logging.getLogger(f"shenas.{__name__}")
@@ -18,7 +18,7 @@ def _ensure_spatial(con: duckdb.DuckDBPyConnection) -> None:
     con.execute("INSTALL spatial; LOAD spatial;")
 
 
-class GeofenceTransformation(Transformation):
+class GeofenceTransform(Transform):
     """Categorize location data by matching coordinates against user-defined geofences."""
 
     name = "geofence"
@@ -170,4 +170,4 @@ class GeofenceTransformation(Transformation):
         TransformInstance.seed_defaults(source_name, "geofence", defaults)
 
 
-__all__ = ["GeofenceTransformation"]
+__all__ = ["GeofenceTransform"]

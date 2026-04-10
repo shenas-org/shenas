@@ -212,7 +212,7 @@ class FocusApp extends LitElement {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok } }`,
-        variables: { k: "ui", n: name },
+        variables: { k: "frontend", n: name },
       }),
     });
     window.location.replace(window.location.pathname + "?_switch=" + Date.now());

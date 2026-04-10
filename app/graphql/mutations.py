@@ -146,7 +146,10 @@ class Mutation:
         inst = PluginInstance.find(kind, name)
         if not inst:
             return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not tracked: {kind}/{name}"))
-        msg = inst.disable()
+        try:
+            msg = inst.disable()
+        except ValueError as exc:
+            return OkType.from_pydantic(OkResponse(ok=False, message=str(exc)))
         return OkType.from_pydantic(OkResponse(ok=True, message=msg))
 
     # -- Transforms --
@@ -217,16 +220,17 @@ class Mutation:
 
     @strawberry.mutation
     def seed_transforms(self) -> JSON:
-        from shenas_transformations.core import Transformation
+        from shenas_transformations.core import Transform
 
         from app.api.sources import _load_plugins
 
         seeded: list[str] = []
-        plugins = _load_plugins("transformation", base=Transformation, include_internal=True)
+        plugins = _load_plugins("transformation", base=Transform, include_internal=True)
         for ep_name in _source_entry_point_names():
             for cls in plugins:
                 plugin = cls()
-                if plugin.enabled:
+                inst = plugin.instance()
+                if not inst or inst.enabled:
                     plugin.seed_defaults_for_source(ep_name)
             seeded.append(ep_name)
         return {"seeded": seeded, "count": len(seeded)}

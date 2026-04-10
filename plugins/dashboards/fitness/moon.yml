@@ -1,5 +1,5 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
-id: 'dashboard-fitness-dashboard'
+id: 'dashboard-fitness'
 
 language: 'typescript'
 stack: 'frontend'
