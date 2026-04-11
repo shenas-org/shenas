@@ -30,6 +30,7 @@ jobs:
   deploy-fl-server:
     name: Deploy fl-server
     runs-on: gcp-runners
+    timeout-minutes: 10
     if: |
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/fl-server/v')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.service == 'all' || inputs.service == 'fl-server'))
@@ -75,6 +76,7 @@ jobs:
   deploy-shenas-net:
     name: Deploy shenas-net
     runs-on: gcp-runners
+    timeout-minutes: 10
     if: |
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/shenas-net/v')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.service == 'all' || inputs.service == 'shenas-net'))
@@ -119,6 +121,7 @@ jobs:
   deploy-shenas-org:
     name: Deploy shenas-org
     runs-on: gcp-runners
+    timeout-minutes: 10
     if: |
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/shenas-org/v')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.service == 'all' || inputs.service == 'shenas-org'))
@@ -163,6 +166,7 @@ jobs:
   deploy-web-api:
     name: Deploy web-api
     runs-on: gcp-runners
+    timeout-minutes: 10
     if: |
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/web-api/v')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.service == 'all' || inputs.service == 'web-api'))
@@ -208,6 +212,7 @@ jobs:
   deploy-ingress:
     name: Apply ingress
     runs-on: gcp-runners
+    timeout-minutes: 5
     needs: [deploy-fl-server, deploy-shenas-net, deploy-shenas-org, deploy-web-api]
     if: always() && (needs.deploy-fl-server.result == 'success' || needs.deploy-shenas-net.result == 'success' || needs.deploy-shenas-org.result == 'success' || needs.deploy-web-api.result == 'success')
     permissions:

@@ -10,6 +10,7 @@ jobs:
   lint:
     name: Lint
     runs-on: gcp-runners
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,6 +38,7 @@ jobs:
   test:
     name: Test
     runs-on: gcp-runners
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -67,6 +69,7 @@ jobs:
   infra:
     name: Infra Validate
     runs-on: gcp-runners
+    timeout-minutes: 5
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
@@ -80,6 +83,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: gcp-runners
+    timeout-minutes: 20
     needs: [lint, test]
     if: github.ref == 'refs/heads/main'
     steps:
