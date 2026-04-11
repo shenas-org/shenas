@@ -59,7 +59,7 @@ class FakeClient:
 
 
 def test_events_extract() -> None:
-    rows = list(Events.extract(FakeClient(), username="user"))
+    rows = list(Events.extract(FakeClient(), username="user"))  # ty: ignore[invalid-argument-type]
     assert len(rows) == 2
     assert rows[0]["id"] == "12345"
     assert rows[0]["type"] == "PushEvent"
@@ -67,7 +67,7 @@ def test_events_extract() -> None:
 
 
 def test_repositories_extract() -> None:
-    rows = list(Repositories.extract(FakeClient()))
+    rows = list(Repositories.extract(FakeClient()))  # ty: ignore[invalid-argument-type]
     assert len(rows) == 1
     assert rows[0]["name"] == "my-repo"
     assert rows[0]["stargazers_count"] == 42
@@ -75,7 +75,7 @@ def test_repositories_extract() -> None:
 
 
 def test_pull_requests_extract() -> None:
-    rows = list(PullRequests.extract(FakeClient(), username="user"))
+    rows = list(PullRequests.extract(FakeClient(), username="user"))  # ty: ignore[invalid-argument-type]
     assert len(rows) == 1
     assert rows[0]["title"] == "Fix a bug"
     assert rows[0]["state"] == "closed"

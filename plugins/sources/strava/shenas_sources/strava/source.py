@@ -114,7 +114,7 @@ class StravaSource(Source):
         auth_url = client.authorization_url(
             client_id=int(client_id),
             redirect_uri=REDIRECT_URI,
-            scope=SCOPES,
+            scope=SCOPES,  # ty: ignore[invalid-argument-type]
         )
 
         state: dict[str, Any] = {}
@@ -140,7 +140,7 @@ class StravaSource(Source):
                         self.send_response(400)
                         self.end_headers()
 
-                def log_message(self, fmt: str, *args: Any) -> None:
+                def log_message(self, fmt: str, *args: Any) -> None:  # ty: ignore[invalid-method-override]
                     pass
 
             try:

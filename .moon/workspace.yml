@@ -1,22 +1,22 @@
-$schema: 'https://moonrepo.dev/schemas/workspace.json'
+$schema: "https://moonrepo.dev/schemas/workspace.json"
 
 projects:
-  - '.'
-  - 'app'
-  - 'app/desktop'
-  - 'app/mobile'
-  - 'app/vendor'
-  - 'plugins/core'
-  - 'plugins/sources/*'
-  - 'plugins/datasets/*'
-  - 'plugins/dashboards/*'
-  - 'plugins/frontends/*'
-  - 'plugins/themes/*'
-  - 'plugins/analyses/*'
-  - 'plugins/transformations/*'
-  - 'plugins/models/*'
+  - "."
+  - "app"
+  - "app/desktop"
+  - "app/mobile"
+  - "app/vendor"
+  - "plugins/core"
+  - "plugins/sources/*"
+  - "plugins/datasets/*"
+  - "plugins/dashboards/*"
+  - "plugins/frontends/*"
+  - "plugins/themes/*"
+  - "plugins/analyses/*"
+  - "plugins/transformations/*"
+  - "plugins/models/*"
 
 vcs:
-  defaultBranch: 'main'
+  defaultBranch: "main"
 
-versionConstraint: '>=2.1.0'
+versionConstraint: ">=2.1.0"

@@ -204,7 +204,7 @@ def _batch_categorize(
                 max_tokens=50,
                 messages=[{"role": "user", "content": prompt}],
             )
-            result = response.content[0].text.strip()
+            result = response.content[0].text.strip()  # ty: ignore[unresolved-attribute]
             results[text] = result
         except Exception:
             log.warning("LLM categorization failed for '%s'", text[:50])

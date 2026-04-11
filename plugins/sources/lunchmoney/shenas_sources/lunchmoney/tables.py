@@ -19,6 +19,7 @@ from shenas_sources.core.table import (
     EventTable,
     M2MTable,
     SnapshotTable,
+    SourceTable,
 )
 
 if TYPE_CHECKING:
@@ -407,7 +408,7 @@ class Crypto(SnapshotTable):
 
 
 # Tables this source exposes, in sync order.
-TABLES: tuple[type, ...] = (
+TABLES: tuple[type[SourceTable], ...] = (
     Transactions,
     TransactionTags,
     Categories,

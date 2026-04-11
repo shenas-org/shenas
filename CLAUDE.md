@@ -31,20 +31,20 @@ shenasctl source garmin sync           # run pipe (must be installed first)
 # Lint and test (same commands as CI)
 moon run :lint                         # all lints: python + JS lint, format, typecheck
 moon run :test                         # all tests
-moon run :coverage                     # tests with coverage report
+make coverage                          # tests with coverage report
 moon run :python-lint                  # ruff check
 moon run :python-format-check          # ruff format --check
-moon run :python-typecheck             # ty check
+moon run :python-type-check            # ty check
 moon run :python-test                  # pytest
 moon run :js-lint                      # eslint
 moon run :js-format-check              # prettier --check
-moon run :js-typecheck                 # tsc --noEmit (all TS packages)
-moon run app:test                      # tests for a single project
+moon run :js-type-check                # tsc --noEmit (all TS packages)
+moon run app:python-test               # tests for a single project
 
 # Build
 moon run :build                        # build all distributable wheels
 moon run source-garmin:build           # build a single package
-moon run :pyinstaller                  # build standalone binaries (onedir) to dist/
+make pyinstaller                       # build standalone binaries (onedir) to dist/
 moon run desktop:sidecars              # build PyInstaller sidecars for Tauri
 moon run desktop:tauri                 # build desktop app (builds sidecars first)
 

@@ -7,121 +7,14 @@ tasks:
     options:
       cache: false
 
-  # ---------------------------------------------------------------------------
-  # Python
-  # ---------------------------------------------------------------------------
-
-  python-lint:
-    script: 'uv run --no-sync ruff check .'
-    inputs:
-      - '**/*.py'
-      - 'pyproject.toml'
-
-  python-format-check:
-    script: 'uv run --no-sync ruff format --check .'
-    inputs:
-      - '**/*.py'
-      - 'pyproject.toml'
-
-  python-typecheck:
-    script: 'uv run --no-sync ty check app/ --exclude "**/vendor/**" --exclude "**/fl/**"'
-    inputs:
-      - '**/*.py'
-
-  # Run with: uv sync --group fl && moon run :python-typecheck-fl
-  python-typecheck-fl:
-    script: 'uv run --no-sync ty check app/fl/'
-    inputs:
-      - 'app/fl/**/*.py'
-
-  python-test:
-    command: 'uv run --no-sync pytest'
-    inputs:
-      - '**/*.py'
-
-  python-coverage:
-    script: >
-      uv run --no-sync pytest --cov=app
-      --cov=shenas_sources --cov=shenas_datasets
-      --cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
-    inputs:
-      - '**/*.py'
-
-  # ---------------------------------------------------------------------------
-  # JavaScript / TypeScript
-  # ---------------------------------------------------------------------------
-
-  js-deps:
+  lint:
     script: |
-      npm ci --silent
-      for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
-        dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
-        [ -f "$dir/package.json" ] && (cd "$dir" && npm ci --silent)
-      done
+      moon run :python-lint :python-format-check :python-type-check :js-lint :js-format-check :js-type-check
     options:
       cache: false
 
-  js-lint:
-    script: 'npm run lint'
-    inputs:
-      - 'plugins/**/src/**/*.ts'
-      - 'app/vendor/src/**/*.ts'
-      - 'eslint.config.js'
-    deps:
-      - '~:js-deps'
-
-  js-format-check:
-    script: 'npm run format:check'
-    inputs:
-      - 'plugins/**/src/**/*.ts'
-      - 'app/vendor/src/**/*.ts'
-    deps:
-      - '~:js-deps'
-
-  js-typecheck:
-    script: |
-      failed=0
-      for tsconfig in app/vendor/tsconfig.json plugins/dashboards/*/tsconfig.json plugins/frontends/*/tsconfig.json; do
-        [ -f "$tsconfig" ] || continue
-        echo "Typechecking $(dirname $tsconfig)..."
-        npx tsc --noEmit -p "$tsconfig" || failed=1
-      done
-      exit $failed
-    inputs:
-      - 'plugins/**/src/**/*.ts'
-      - 'app/vendor/src/**/*.ts'
-      - '**/tsconfig.json'
-    deps:
-      - '~:js-deps'
-
-  # ---------------------------------------------------------------------------
-  # Convenience aggregates
-  # ---------------------------------------------------------------------------
-
-  lint:
-    script: 'echo "All lint checks passed."'
-    deps:
-      - '~:python-lint'
-      - '~:python-format-check'
-      - '~:python-typecheck'
-      - '~:js-lint'
-      - '~:js-format-check'
-      - '~:js-typecheck'
-
   test:
-    script: 'echo "All tests passed."'
-    deps:
-      - '~:python-test'
-
-  coverage:
-    script: 'echo "Coverage complete."'
-    deps:
-      - '~:python-coverage'
-
-  pyinstaller:
-    command: 'uv run python build/pyinstaller_build.py'
-    inputs:
-      - 'build/**/*.py'
-      - 'app/**/*.py'
-      - 'scheduler/**/*.py'
-      - 'plugins/**/*.py'
+    script: |
+      moon run :python-test :js-test
+    options:
+      cache: false

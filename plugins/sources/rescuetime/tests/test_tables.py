@@ -31,7 +31,7 @@ class FakeClient:
 
 
 def test_daily_summary_extract() -> None:
-    rows = list(DailySummary.extract(FakeClient()))
+    rows = list(DailySummary.extract(FakeClient()))  # ty: ignore[invalid-argument-type]
     assert len(rows) == 1
 
     row = rows[0]
@@ -42,7 +42,7 @@ def test_daily_summary_extract() -> None:
 
 
 def test_activities_extract() -> None:
-    rows = list(Activities.extract(FakeClient(), start_date="30 days ago"))
+    rows = list(Activities.extract(FakeClient(), start_date="30 days ago"))  # ty: ignore[invalid-argument-type]
     assert len(rows) == 3
 
     assert rows[0]["activity"] == "Visual Studio Code"

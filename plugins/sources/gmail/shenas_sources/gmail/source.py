@@ -87,7 +87,7 @@ class GmailSource(Source):
                         yield from _data
 
                     ref = "drop_sources" if full_refresh and page_num == 1 else None
-                    load_info = pipeline.run(_page_data(), refresh=ref)
+                    load_info = pipeline.run(_page_data(), refresh=ref)  # ty: ignore[invalid-argument-type]
                     print_load_info(load_info)
 
                 with tracer.start_as_current_span("pipe.flush", attributes={"resource": "messages", "page": page_num}):

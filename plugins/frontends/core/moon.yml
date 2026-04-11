@@ -1,7 +1,7 @@
-id: uis-core
-language: 'python'
-tags: ['ui', 'core']
+id: dashboards-core
+language: "python"
+tags: ["dashboard", "core"]
 
 workspace:
   inheritedTasks:
-    exclude: ['test']
+    exclude: ["test"]

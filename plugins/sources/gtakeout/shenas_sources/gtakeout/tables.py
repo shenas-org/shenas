@@ -18,6 +18,7 @@ from shenas_plugins.core.table import Field
 from shenas_sources.core.table import (
     EventTable,
     SnapshotTable,
+    SourceTable,
 )
 from shenas_sources.gtakeout.drive import iter_files
 from shenas_sources.gtakeout.parsers.location import parse_location_records, parse_semantic_locations
@@ -182,7 +183,7 @@ class YouTubeSubscriptions(SnapshotTable):
         yield from parse_subscriptions(files)
 
 
-TABLES: tuple[type, ...] = (
+TABLES: tuple[type[SourceTable], ...] = (
     PhotosMetadata,
     LocationRecords,
     LocationVisits,

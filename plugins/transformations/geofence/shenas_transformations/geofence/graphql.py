@@ -44,14 +44,14 @@ class GeofenceUpdateInput:
 
 def _geofence_to_gql(g: object) -> GeofenceType:
     return GeofenceType(
-        id=g.id,  # type: ignore[attr-defined]
-        name=g.name,  # type: ignore[attr-defined]
-        latitude=g.latitude,  # type: ignore[attr-defined]
-        longitude=g.longitude,  # type: ignore[attr-defined]
-        radius_m=g.radius_m,  # type: ignore[attr-defined]
-        category=g.category or "",  # type: ignore[attr-defined]
-        added_at=g.added_at,  # type: ignore[attr-defined]
-        updated_at=g.updated_at,  # type: ignore[attr-defined]
+        id=g.id,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        name=g.name,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        latitude=g.latitude,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        longitude=g.longitude,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        radius_m=g.radius_m,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        category=g.category or "",  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        added_at=g.added_at,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        updated_at=g.updated_at,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     )
 
 
@@ -109,4 +109,4 @@ class MutationMixin:
         g = Geofence.find(geofence_id)
         if g:
             g.delete()
-        return OkType.from_pydantic(OkResponse(ok=True))
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]

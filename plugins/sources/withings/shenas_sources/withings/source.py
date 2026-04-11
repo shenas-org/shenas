@@ -145,7 +145,7 @@ class WithingsSource(Source):
                         self.send_response(400)
                         self.end_headers()
 
-                def log_message(self, fmt: str, *args: Any) -> None:
+                def log_message(self, fmt: str, *args: Any) -> None:  # ty: ignore[invalid-method-override]
                     pass
 
             try:

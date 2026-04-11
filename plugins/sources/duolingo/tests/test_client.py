@@ -20,7 +20,7 @@ class TestUserIdFromJwt:
 class TestGetCourses:
     def test_extracts_course_fields(self) -> None:
         client = DuolingoClient(TEST_JWT)
-        client.get_user = MagicMock(
+        client.get_user = MagicMock(  # ty: ignore[invalid-assignment]
             return_value={
                 "courses": [
                     {

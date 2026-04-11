@@ -92,7 +92,7 @@ def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally 
 
                 def _run(
                     res: Any = resource,
-                    ref: str = refresh if i == 0 else None,
+                    ref: str | None = refresh if i == 0 else None,
                     _load_result: list = load_result,
                     _load_error: list = load_error,
                     _pipeline: Any = pipeline,

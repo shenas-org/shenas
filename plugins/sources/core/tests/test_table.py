@@ -86,7 +86,7 @@ class TestSubclassAutoDataclass:
         assert names == {"id", "occurred_at", "payload"}
 
     def test_can_construct_with_field_values(self) -> None:
-        row = _Sample(id=1, occurred_at="2026-04-07T12:00:00Z", payload="hi")
+        row = _Sample(id=1, occurred_at="2026-04-07T12:00:00Z", payload="hi")  # ty: ignore[unknown-argument]
         assert row.id == 1
         assert row.payload == "hi"
 

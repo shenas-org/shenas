@@ -29,6 +29,7 @@ from shenas_plugins.core.table import Field
 from shenas_sources.core.table import (
     EventTable,
     SnapshotTable,
+    SourceTable,
 )
 
 if TYPE_CHECKING:
@@ -570,7 +571,7 @@ class SavedEpisodes(SnapshotTable):
 
 # Order matters: track-yielding tables run BEFORE AudioFeatures so the
 # _TRACK_IDS cache is populated by the time AudioFeatures iterates.
-TABLES: tuple[type, ...] = (
+TABLES: tuple[type[SourceTable], ...] = (
     RecentlyPlayed,
     TopTracks,
     TopArtists,

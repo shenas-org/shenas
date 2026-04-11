@@ -45,7 +45,7 @@ class RecipeNode:
         carried into the hypothesis record.
     """
 
-    expr: it.Expr
+    expr: it.Table
     kind: str
     time_columns: dict[str, Any] = field(default_factory=dict)
     table_ref: str = ""
@@ -60,7 +60,7 @@ class RecipeNode:
         """
         return self.time_columns.get("time_at")
 
-    def with_expr(self, new_expr: it.Expr, *, kind: str | None = None) -> RecipeNode:
+    def with_expr(self, new_expr: it.Table, *, kind: str | None = None) -> RecipeNode:
         """Return a copy of this node with a new expression and (optionally) a new kind.
 
         Used by operations to produce their output without losing the

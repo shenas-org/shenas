@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 from shenas_plugins.core.table import Field
-from shenas_sources.core.table import DimensionTable, EventTable
+from shenas_sources.core.table import DimensionTable, EventTable, SourceTable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -130,4 +130,4 @@ class PullRequests(EventTable):
             }
 
 
-TABLES: tuple[type, ...] = (Events, Repositories, PullRequests)
+TABLES: tuple[type[SourceTable], ...] = (Events, Repositories, PullRequests)

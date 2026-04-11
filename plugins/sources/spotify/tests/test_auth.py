@@ -12,9 +12,9 @@ import pytest
 # deleted. Create a stub module so the lazy imports inside pipe methods work
 # during tests.
 _fake_auth = types.ModuleType("shenas_sources.spotify.auth")
-_fake_auth.REDIRECT_URI = "http://127.0.0.1:8090/callback"  # type: ignore[attr-defined]
-_fake_auth.SCOPES = "user-read-recently-played user-top-read user-library-read"  # type: ignore[attr-defined]
-_fake_auth._pending_auth = {}  # type: ignore[attr-defined]
+_fake_auth.REDIRECT_URI = "http://127.0.0.1:8090/callback"  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]
+_fake_auth.SCOPES = "user-read-recently-played user-top-read user-library-read"  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]
+_fake_auth._pending_auth = {}  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]
 
 
 class _FakeCache:
@@ -28,7 +28,7 @@ class _FakeCache:
         self.token_info = token_info
 
 
-_fake_auth._MemoryCacheHandler = _FakeCache  # type: ignore[attr-defined]
+_fake_auth._MemoryCacheHandler = _FakeCache  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]
 sys.modules["shenas_sources.spotify.auth"] = _fake_auth
 
 from shenas_sources.spotify.source import SpotifySource  # noqa: E402

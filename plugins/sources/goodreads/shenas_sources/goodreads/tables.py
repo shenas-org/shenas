@@ -20,6 +20,7 @@ from shenas_sources.core.table import (
     DimensionTable,
     EventTable,
     SnapshotTable,
+    SourceTable,
 )
 
 if TYPE_CHECKING:
@@ -142,4 +143,4 @@ class Shelves(SnapshotTable):
             }
 
 
-TABLES: tuple[type, ...] = (Books, Readings, Shelves)
+TABLES: tuple[type[SourceTable], ...] = (Books, Readings, Shelves)
