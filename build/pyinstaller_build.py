@@ -38,8 +38,8 @@ _IMPORTS_SHARED = [
 
 _IMPORTS_SERVER = [
     "app",
-    "app.server",
-    "app.server_cli",
+    "app.main",
+    "app.cli",
     "app.api",
     "app.api.db",
     "app.api.plugins",

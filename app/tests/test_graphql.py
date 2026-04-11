@@ -16,7 +16,7 @@ import pytest
 import shenas_analyses.hypothesis  # noqa: F401
 from fastapi.testclient import TestClient
 
-from app.server import app
+from app.main import app
 
 
 @pytest.fixture
@@ -168,13 +168,13 @@ class TestGraphQLQueries:
         mock_theme = MagicMock()
         mock_theme.name = "dark"
         mock_theme.css = "theme.css"
-        with patch("app.server._get_active_theme", return_value=mock_theme):
+        with patch("app.main._get_active_theme", return_value=mock_theme):
             result = _gql(client, "{ theme { name css } }")
         assert result["data"]["theme"]["name"] == "dark"
         assert result["data"]["theme"]["css"] == "/themes/dark/theme.css"
 
     def test_theme_no_active_theme(self, client: TestClient) -> None:
-        with patch("app.server._get_active_theme", return_value=None):
+        with patch("app.main._get_active_theme", return_value=None):
             result = _gql(client, "{ theme { name css } }")
         assert result["data"]["theme"]["name"] is None
         assert result["data"]["theme"]["css"] is None

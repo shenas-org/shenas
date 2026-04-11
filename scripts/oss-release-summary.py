@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate an LLM-summarized release changelog for the OSS repo.
 
-Reads git commits since the last Copybara sync, sends them to Claude
+Reads git commits since the last OSS release tag, sends them to Claude
 for a user-focused summary that filters out private/internal refs.
 
 Requires: ANTHROPIC_API_KEY env var (falls back to raw log without it)
@@ -18,6 +18,22 @@ import urllib.error
 import urllib.request
 
 OUTPUT = sys.argv[1] if len(sys.argv) > 1 else "/tmp/release_summary.txt"
+
+# Tags that trigger OSS releases (same prefixes as oss-release.yml)
+OSS_TAG_PATTERNS = [
+    "app/v*",
+    "shenasctl/v*",
+    "scheduler/v*",
+    "source-*/v*",
+    "dataset-*/v*",
+    "dashboard-*/v*",
+    "plugin-core/v*",
+    "transformation-*/v*",
+    "frontend-*/v*",
+    "theme-*/v*",
+    "analysis-*/v*",
+    "model-*/v*",
+]
 
 EXCLUDE_PATHS = [
     ":!server/",
@@ -48,30 +64,44 @@ def run_git(*args: str) -> str:
     return result.stdout.strip()
 
 
+def find_previous_oss_tag() -> str | None:
+    """Find the most recent OSS-relevant tag on an older commit than HEAD.
+
+    Lists all tags matching OSS patterns, sorted newest first, and
+    returns the first one that points to a different commit than HEAD.
+    This gives us the tag from the previous release batch.
+    """
+    tag_args = []
+    for pattern in OSS_TAG_PATTERNS:
+        tag_args.extend(["--list", pattern])
+
+    sorted_tags = run_git("tag", *tag_args, "--sort=-creatordate")
+    if not sorted_tags:
+        return None
+
+    head = run_git("rev-parse", "HEAD")
+
+    for tag in sorted_tags.splitlines():
+        tag_commit = run_git("rev-list", "-1", tag)
+        if tag_commit != head:
+            return tag
+    return None
+
+
 def get_commits() -> str:
-    # Find last synced revision from GitOrigin-RevId marker
-    body = run_git("log", "--all", "--grep=GitOrigin-RevId", "--format=%b", "-1")
-    last_rev = ""
-    for line in body.splitlines():
-        if line.startswith("GitOrigin-RevId:"):
-            last_rev = line.split(":", 1)[1].strip()
-            break
+    prev_tag = find_previous_oss_tag()
 
     log_args = ["log", "--pretty=format:- %s"]
 
-    if last_rev:
-        # Verify the rev exists
-        check = subprocess.run(["git", "rev-parse", last_rev], capture_output=True)
-        if check.returncode == 0:
-            log_args.append(f"{last_rev}..HEAD")
-        else:
-            log_args.append("-30")
+    if prev_tag:
+        log_args.append(f"{prev_tag}..HEAD")
+        print(f"Commits since {prev_tag}:", file=sys.stderr)
     else:
         log_args.append("-30")
+        print("No previous OSS tag found, using last 30 commits", file=sys.stderr)
 
     log_args.extend(["--", ".", *EXCLUDE_PATHS])
     output = run_git(*log_args)
-    # Limit to 50 lines
     lines = output.splitlines()[:50]
     return "\n".join(lines)
 

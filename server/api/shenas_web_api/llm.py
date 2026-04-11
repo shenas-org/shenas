@@ -70,7 +70,7 @@ def _record_usage(user_id: str, input_tokens: int, output_tokens: int) -> None:
         )
 
 
-@router.post("/messages")
+@router.post("/messages", response_model=None)
 async def proxy_messages(request: Request) -> StreamingResponse | dict:
     """Proxy a request to Anthropic's /v1/messages endpoint."""
     if not ANTHROPIC_API_KEY:

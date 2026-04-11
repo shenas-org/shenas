@@ -12,7 +12,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from app.api.sources import _load_frontends
-from app.server import app
+from app.main import app
 
 
 class TestDefaultFrontendIntegration:

@@ -3,7 +3,7 @@ id: 'frontend-focus'
 
 language: 'typescript'
 stack: 'frontend'
-tags: ['ui']
+tags: ['plugin', 'ui']
 
 dependsOn:
   - 'vendor'

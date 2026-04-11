@@ -3,7 +3,7 @@ id: 'source-github'
 
 language: 'python'
 stack: 'data'
-tags: ['source']
+tags: ['plugin', 'source']
 
 dependsOn:
   - 'source-core'

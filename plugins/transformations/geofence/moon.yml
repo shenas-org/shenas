@@ -3,7 +3,7 @@ id: 'transformation-geofence'
 
 language: 'python'
 stack: 'data'
-tags: ['transformation']
+tags: ['plugin', 'transformation']
 
 dependsOn:
   - 'transformation-core'

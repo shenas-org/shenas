@@ -3,7 +3,7 @@ id: 'source-shell-history'
 
 language: 'python'
 stack: 'data'
-tags: ['source']
+tags: ['plugin', 'source']
 
 dependsOn:
   - 'source-core'
