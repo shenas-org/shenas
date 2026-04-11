@@ -63,6 +63,26 @@ spec:
                 name: fl-server-grpc
                 port:
                   number: 8080
+    - host: shenas.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shenas-org
+                port:
+                  number: 80
+    - host: www.shenas.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: shenas-org
+                port:
+                  number: 80
 ---
 apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
@@ -75,3 +95,5 @@ spec:
     - www.shenas.net
     - repo.shenas.net
     - fl.shenas.net
+    - shenas.org
+    - www.shenas.org

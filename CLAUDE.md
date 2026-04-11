@@ -18,9 +18,9 @@ uv run pytest                       # run tests
 uv run cz commit                    # conventional commit
 uv add <package>                    # add a dependency
 uv sync                             # install dependencies
-make install                        # install shenas + shenasctl to ~/.local/bin/
-make setup-hooks                    # install git pre-commit hook
-make release-desktop                # tag a desktop release (version from commits)
+make app-install                    # install shenas + shenasctl to ~/.local/bin/
+make hooks-setup                    # install git pre-commit hook
+make desktop-release                # tag a desktop release (version from commits)
 moon run app:test                   # run tests for a single project
 moon run :lint                      # run lint across all projects
 moon run :test                      # run tests across all projects
@@ -209,4 +209,4 @@ All artifacts (sources, dashboards, datasets, frontends, themes) are Python whee
 
 Ruff check, ruff format, and ty check run automatically after every .py file edit via PostToolUse hook — no need to run manually.
 
-Pre-commit hook runs `ruff check`, `ruff format --check`, and `ty check` before every commit. Install with `make setup-hooks`.
+Pre-commit hook runs `ruff check`, `ruff format --check`, and `ty check` before every commit. Install with `make hooks-setup`.
