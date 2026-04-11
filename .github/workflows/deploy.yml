@@ -46,9 +46,6 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure Docker auth
-        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
-
       - uses: google-github-actions/get-gke-credentials@v2
         with:
           cluster_name: ${{ env.CLUSTER_NAME }}
@@ -68,10 +65,8 @@ jobs:
       - name: Build, push, deploy
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-          docker build --build-arg VERSION="${{ steps.version.outputs.version }}" -t "${REGISTRY}/fl-server:${TAG}" \
-                       -t "${REGISTRY}/fl-server:latest" \
-                       -f server/deploy/docker/Dockerfile.fl-server .
-          docker push "${REGISTRY}/fl-server" --all-tags
+          gcloud builds submit --config server/deploy/docker/cloudbuild.yaml \
+                               --substitutions=_TAG="${REGISTRY}/fl-server:${TAG}",_TAG_LATEST="${REGISTRY}/fl-server:latest",_VERSION="${{ steps.version.outputs.version }}",_DOCKERFILE="server/deploy/docker/Dockerfile.fl-server" .
           kubectl apply -f server/deploy/k8s/namespace.yaml
           sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" server/deploy/k8s/fl-server.yaml | \
             sed "s|:latest|:${TAG}|g" | kubectl apply -f -
@@ -96,9 +91,6 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure Docker auth
-        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
-
       - uses: google-github-actions/get-gke-credentials@v2
         with:
           cluster_name: ${{ env.CLUSTER_NAME }}
@@ -113,15 +105,12 @@ jobs:
             TAG="v0.0.0-dev"
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Build, push, deploy
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-          docker build -t "${REGISTRY}/shenas-net:${TAG}" \
-                       -t "${REGISTRY}/shenas-net:latest" \
-                       -f server/deploy/docker/Dockerfile.shenas-net .
-          docker push "${REGISTRY}/shenas-net" --all-tags
+          gcloud builds submit --config server/deploy/docker/cloudbuild.yaml \
+                               --substitutions=_TAG="${REGISTRY}/shenas-net:${TAG}",_TAG_LATEST="${REGISTRY}/shenas-net:latest",_VERSION="0.0.0",_DOCKERFILE="server/deploy/docker/Dockerfile.shenas-net" .
           kubectl apply -f server/deploy/k8s/namespace.yaml
           sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" server/deploy/k8s/shenas-net.yaml | \
             sed "s|:latest|:${TAG}|g" | kubectl apply -f -
@@ -146,9 +135,6 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure Docker auth
-        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
-
       - uses: google-github-actions/get-gke-credentials@v2
         with:
           cluster_name: ${{ env.CLUSTER_NAME }}
@@ -167,10 +153,8 @@ jobs:
       - name: Build, push, deploy
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-          docker build -t "${REGISTRY}/shenas-org:${TAG}" \
-                       -t "${REGISTRY}/shenas-org:latest" \
-                       -f server/deploy/docker/Dockerfile.shenas-org .
-          docker push "${REGISTRY}/shenas-org" --all-tags
+          gcloud builds submit --config server/deploy/docker/cloudbuild.yaml \
+                               --substitutions=_TAG="${REGISTRY}/shenas-org:${TAG}",_TAG_LATEST="${REGISTRY}/shenas-org:latest",_VERSION="0.0.0",_DOCKERFILE="server/deploy/docker/Dockerfile.shenas-org" .
           kubectl apply -f server/deploy/k8s/namespace.yaml
           sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" server/deploy/k8s/shenas-org.yaml | \
             sed "s|:latest|:${TAG}|g" | kubectl apply -f -
@@ -195,9 +179,6 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure Docker auth
-        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
-
       - uses: google-github-actions/get-gke-credentials@v2
         with:
           cluster_name: ${{ env.CLUSTER_NAME }}
@@ -217,10 +198,8 @@ jobs:
       - name: Build, push, deploy
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-          docker build --build-arg VERSION="${{ steps.version.outputs.version }}" -t "${REGISTRY}/web-api:${TAG}" \
-                       -t "${REGISTRY}/web-api:latest" \
-                       -f server/deploy/docker/Dockerfile.web-api .
-          docker push "${REGISTRY}/web-api" --all-tags
+          gcloud builds submit --config server/deploy/docker/cloudbuild.yaml \
+                               --substitutions=_TAG="${REGISTRY}/web-api:${TAG}",_TAG_LATEST="${REGISTRY}/web-api:latest",_VERSION="${{ steps.version.outputs.version }}",_DOCKERFILE="server/deploy/docker/Dockerfile.web-api" .
           kubectl apply -f server/deploy/k8s/namespace.yaml
           sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" server/deploy/k8s/web-api.yaml | \
             sed "s|:latest|:${TAG}|g" | kubectl apply -f -
@@ -251,4 +230,3 @@ jobs:
         run: |
           kubectl apply -f server/deploy/k8s/namespace.yaml
           kubectl apply -f server/deploy/k8s/ingress.yaml
-
