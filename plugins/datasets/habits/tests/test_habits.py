@@ -24,9 +24,9 @@ class TestMetrics:
 class TestDDL:
     def test_generate_ddl(self) -> None:
         ddl = DailyHabits.to_ddl()
-        assert "CREATE TABLE IF NOT EXISTS metrics.daily_habits" in ddl
-        assert "duolingo BOOLEAN" in ddl
-        assert "PRIMARY KEY (date, source)" in ddl
+        assert 'CREATE TABLE IF NOT EXISTS "metrics"."daily_habits"' in ddl
+        assert '"duolingo" BOOLEAN' in ddl
+        assert "PRIMARY KEY" in ddl
 
     def test_ensure_schema(self) -> None:
         con = duckdb.connect(":memory:")

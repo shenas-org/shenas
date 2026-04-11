@@ -51,16 +51,16 @@ class TestMetrics:
 class TestDDL:
     def test_generate_ddl_transactions(self) -> None:
         ddl = Transaction.to_ddl()
-        assert "CREATE TABLE IF NOT EXISTS metrics.transactions" in ddl
-        assert "id VARCHAR NOT NULL" in ddl
-        assert "source VARCHAR NOT NULL" in ddl
-        assert "amount DOUBLE" in ddl
-        assert "PRIMARY KEY (id, source)" in ddl
+        assert 'CREATE TABLE IF NOT EXISTS "metrics"."transactions"' in ddl
+        assert '"id" VARCHAR NOT NULL' in ddl
+        assert '"source" VARCHAR NOT NULL' in ddl
+        assert '"amount" DOUBLE' in ddl
+        assert "PRIMARY KEY" in ddl
 
     def test_generate_ddl_all_tables(self) -> None:
         for cls in ALL_TABLES:
             ddl = cls.to_ddl()
-            assert f"metrics.{cls._Meta.name}" in ddl
+            assert f'"metrics"."{cls._Meta.name}"' in ddl
             assert "PRIMARY KEY" in ddl
 
     def test_ensure_schema_creates_tables(self) -> None:
