@@ -110,6 +110,9 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+      - name: Install system tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq make python-is-python3 >/dev/null
       - run: uv sync
       - name: Build default frontend (for integration tests)
         run: |
@@ -118,9 +121,7 @@ jobs:
       - name: Run Python tests with coverage
         id: coverage
         run: |
-          uv run --no-sync pytest --cov=app \
-            --cov=shenas_sources --cov=shenas_datasets \
-            --cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
+          make coverage
           TOTAL=$(python -c "import json; print(int(json.load(open('coverage.json'))['totals']['percent_covered']))")
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
       - name: Update Python coverage badge
