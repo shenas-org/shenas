@@ -35,7 +35,7 @@ PROMPT = (
     "Summarize these git commits for a public open-source release changelog. "
     "Write first a one-line summary, then start the next line by summing up "
     "the commits with 2-5 bullet points, covering the user-visible changes. "
-    "Omit any references to: internal infrastructure, CI/CD fixes, Copybara, "
+    "Omit any references to: shenas-net, shenas-org, internal infrastructure, CI/CD fixes, Copybara, "
     "private repos, server-side code, premium features, LLM integration, "
     "literature fetching, federated learning, mesh sync. "
     "Keep it concise and user-focused. No preamble, just the bullets."
