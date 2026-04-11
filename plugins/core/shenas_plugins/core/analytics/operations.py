@@ -84,10 +84,8 @@ class Operation:
     def apply(self, *inputs: RecipeNode) -> RecipeNode:
         """Validate against the inputs' kinds and return a new ``RecipeNode``.
 
-        Subclasses override with a fixed-arity signature
-        (``apply(self, node)`` for arity 1, ``apply(self, left, right)``
-        for arity 2). The recipe compiler always calls with positional
-        args, so Python's standard argument binding handles it.
+        The recipe compiler always calls with positional args matching
+        the operation's declared arity. Subclasses unpack from ``*inputs``.
         """
         raise NotImplementedError
 
@@ -123,7 +121,8 @@ class Lag(Operation):
     name: ClassVar[str] = "lag"
     accepts: ClassVar[frozenset[str]] = _TIME_SERIES_KINDS
 
-    def apply(self, node: RecipeNode) -> RecipeNode:
+    def apply(self, *inputs: RecipeNode) -> RecipeNode:
+        (node,) = inputs
         self._check_kind(node)
         order_col = self.order_by or node.time_at()
         if not order_col:
@@ -170,7 +169,8 @@ class Rolling(Operation):
 
     _SUPPORTED_FNS: ClassVar[frozenset[str]] = frozenset({"avg", "sum", "min", "max"})
 
-    def apply(self, node: RecipeNode) -> RecipeNode:
+    def apply(self, *inputs: RecipeNode) -> RecipeNode:
+        (node,) = inputs
         self._check_kind(node)
         if self.fn not in self._SUPPORTED_FNS:
             msg = f"rolling: unsupported fn `{self.fn}`; choose one of {sorted(self._SUPPORTED_FNS)}"
@@ -235,7 +235,8 @@ class Resample(Operation):
     }
     _AGG_FNS: ClassVar[frozenset[str]] = frozenset({"avg", "sum", "min", "max", "count"})
 
-    def apply(self, node: RecipeNode) -> RecipeNode:
+    def apply(self, *inputs: RecipeNode) -> RecipeNode:
+        (node,) = inputs
         self._check_kind(node)
         if self.grain not in self._GRAIN_TO_KIND:
             msg = f"resample: grain must be one of {sorted(self._GRAIN_TO_KIND)}; got `{self.grain}`"
@@ -316,7 +317,8 @@ class JoinAsOf(Operation):
     accepts: ClassVar[frozenset[str]] = _TIME_SERIES_KINDS | _SCD2_KINDS
     arity: ClassVar[int] = 2
 
-    def apply(self, left: RecipeNode, right: RecipeNode) -> RecipeNode:  # type: ignore[override]
+    def apply(self, *inputs: RecipeNode) -> RecipeNode:
+        left, right = inputs
         self._check_kind(left)
         if self.on not in left.expr.columns:
             msg = f"join_as_of: `{self.on}` not in left side ({left.table_ref})"
@@ -384,7 +386,8 @@ class Correlate(Operation):
     # kind doesn't constrain it.
     accepts: ClassVar[frozenset[str]] = frozenset()  # empty = accept anything
 
-    def apply(self, node: RecipeNode) -> RecipeNode:
+    def apply(self, *inputs: RecipeNode) -> RecipeNode:
+        (node,) = inputs
         if self.x not in node.expr.columns:
             msg = f"correlate: `{self.x}` not in {node.table_ref}"
             raise OperationError(msg)

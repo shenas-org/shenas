@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 
@@ -116,11 +117,13 @@ def test_iteration_loop_retries_once_on_validation_error():
 
     class _SeqProvider:
         name = "seq@v0"
+        last_input_tokens = 0
+        last_output_tokens = 0
 
         def __init__(self):
-            self.calls = []
+            self.calls: list[str] = []
 
-        def ask(self, *, system, user, tools):
+        def ask(self, *, system: str, user: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
             self.calls.append(user)
             return next(payloads)
 
@@ -142,8 +145,10 @@ def test_iteration_loop_gives_up_after_max_attempts():
 
     class _AlwaysBad:
         name = "bad@v0"
+        last_input_tokens = 0
+        last_output_tokens = 0
 
-        def ask(self, *, system, user, tools):
+        def ask(self, *, system: str, user: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
             return {"plan": "x", "nodes": {}, "final": ""}
 
     def _validate(_):

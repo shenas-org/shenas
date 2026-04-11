@@ -1,3 +1,5 @@
+import dataclasses
+
 import duckdb
 import pytest
 
@@ -16,7 +18,7 @@ class TestField:
     def test_frozen(self) -> None:
         f = Field(db_type="DOUBLE", description="test")
         with pytest.raises(AttributeError):
-            f.db_type = "INTEGER"  # type: ignore[misc]
+            f.db_type = "INTEGER"  # type: ignore[misc]  # ty: ignore[invalid-assignment]
 
     def test_defaults(self) -> None:
         f = Field(db_type="VARCHAR", description="a field")
@@ -55,29 +57,29 @@ class TestMetrics:
 
     def test_all_tables_have_date_and_source(self) -> None:
         for cls in ALL_TABLES:
-            field_names = [f.name for f in cls.__dataclass_fields__.values()]
+            field_names = [f.name for f in dataclasses.fields(cls)]
             assert "date" in field_names
             assert "source" in field_names
 
     def test_hrv_fields(self) -> None:
-        field_names = [f.name for f in DailyHRV.__dataclass_fields__.values()]
+        field_names = [f.name for f in dataclasses.fields(DailyHRV)]
         assert "rmssd" in field_names
         assert "sdnn" in field_names
 
     def test_sleep_fields(self) -> None:
-        field_names = [f.name for f in DailySleep.__dataclass_fields__.values()]
+        field_names = [f.name for f in dataclasses.fields(DailySleep)]
         assert "total_hours" in field_names
         assert "deep_min" in field_names
         assert "rem_min" in field_names
 
     def test_vitals_fields(self) -> None:
-        field_names = [f.name for f in DailyVitals.__dataclass_fields__.values()]
+        field_names = [f.name for f in dataclasses.fields(DailyVitals)]
         assert "resting_hr" in field_names
         assert "steps" in field_names
         assert "spo2" in field_names
 
     def test_body_fields(self) -> None:
-        field_names = [f.name for f in DailyBody.__dataclass_fields__.values()]
+        field_names = [f.name for f in dataclasses.fields(DailyBody)]
         assert "weight_kg" in field_names
         assert "bmi" in field_names
 

@@ -23,6 +23,7 @@ from shenas_sources.core.table import (
     DimensionTable,
     IntervalTable,
     M2MTable,
+    SourceTable,
 )
 from shenas_sources.core.utils import resolve_start_date
 
@@ -45,7 +46,7 @@ def fetch_all_events(service: Any, start_date: str = "30 days ago") -> list[tupl
     import pendulum
 
     resolved = resolve_start_date(start_date)
-    time_min = pendulum.parse(resolved).start_of("day").isoformat()
+    time_min = pendulum.parse(resolved).start_of("day").isoformat()  # ty: ignore[unresolved-attribute]
 
     out: list[tuple[str, dict[str, Any]]] = []
     cal_list = service.calendarList().list().execute().get("items", [])
@@ -304,4 +305,4 @@ class Colors(DimensionTable):
             }
 
 
-TABLES: tuple[type, ...] = (Events, EventAttendees, Calendars, Colors)
+TABLES: tuple[type[SourceTable], ...] = (Events, EventAttendees, Calendars, Colors)

@@ -1,3 +1,5 @@
+import dataclasses
+
 import duckdb
 
 from shenas_datasets.habits import (
@@ -15,7 +17,7 @@ class TestMetrics:
         assert HabitsSchema.tables == ["daily_habits"]
 
     def test_daily_habits_fields(self) -> None:
-        field_names = [f.name for f in DailyHabits.__dataclass_fields__.values()]
+        field_names = [f.name for f in dataclasses.fields(DailyHabits)]
         assert "duolingo" in field_names
 
 

@@ -18,7 +18,7 @@ class Dataset(Plugin):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         if hasattr(cls, "all_tables"):
-            cls.tables = [t._Meta.name for t in cls.all_tables]
+            cls.tables = [t._Meta.name for t in cls.all_tables]  # ty: ignore[unresolved-attribute]
 
     def get_info(self) -> dict[str, Any]:
         info = super().get_info()
@@ -29,7 +29,7 @@ class Dataset(Plugin):
     def ensure(cls, con: Any) -> None:
         from shenas_plugins.core.table import Table
 
-        Table.ensure_schema(con, all_tables=cls.all_tables)
+        Table.ensure_schema(con, all_tables=cls.all_tables)  # ty: ignore[invalid-argument-type]
 
     @classmethod
     def ensure_all(cls, con: Any) -> None:
@@ -41,4 +41,4 @@ class Dataset(Plugin):
 
     @classmethod
     def metadata(cls) -> list[dict[str, Any]]:
-        return [t.table_metadata() for t in cls.all_tables]
+        return [t.table_metadata() for t in cls.all_tables]  # ty: ignore[unresolved-attribute]

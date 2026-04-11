@@ -24,6 +24,7 @@ from shenas_sources.core.table import (
     AggregateTable,
     EventTable,
     SnapshotTable,
+    SourceTable,
 )
 
 if TYPE_CHECKING:
@@ -63,7 +64,7 @@ class DailyXp(AggregateTable):
 
     @staticmethod
     def _epoch_to_date(epoch: int) -> date:
-        return datetime.fromtimestamp(epoch, tz=UTC).date()
+        return datetime.fromtimestamp(epoch, tz=UTC).date()  # ty: ignore[invalid-return-type]
 
     @classmethod
     def extract(
@@ -289,4 +290,4 @@ class Friends(SnapshotTable):
             }
 
 
-TABLES: tuple[type, ...] = (DailyXp, Courses, UserProfile, Achievements, League, Friends)
+TABLES: tuple[type[SourceTable], ...] = (DailyXp, Courses, UserProfile, Achievements, League, Friends)

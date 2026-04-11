@@ -94,7 +94,7 @@ def _make_promoted_class(record: PromotedMetric) -> type[MetricTable]:
         col_name = col["name"]
         py_type = _DUCKDB_TO_PYTHON.get(col["db_type"].upper(), str)
         annotations[col_name] = Annotated[
-            py_type | None,
+            py_type | None,  # ty: ignore[invalid-type-form]
             Field(db_type=col["db_type"], description=f"Promoted column from recipe (#{record.hypothesis_id})"),
         ]
         defaults[col_name] = None

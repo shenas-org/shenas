@@ -1,3 +1,5 @@
+import dataclasses
+
 import duckdb
 
 from shenas_datasets.outcomes import (
@@ -15,7 +17,7 @@ class TestMetrics:
         assert OutcomesSchema.tables == ["daily_outcomes"]
 
     def test_daily_outcome_fields(self) -> None:
-        field_names = [f.name for f in DailyOutcome.__dataclass_fields__.values()]
+        field_names = [f.name for f in dataclasses.fields(DailyOutcome)]
         assert "mood" in field_names
         assert "stress" in field_names
         assert "productivity" in field_names

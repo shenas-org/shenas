@@ -1,4 +1,4 @@
-.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install coverage db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan hooks-setup lint infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish postgres-dev shenas-net-release shenas-org-release test web-api-release website-dev
+.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install coverage db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan hooks-setup lint infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish postgres-dev pyinstaller shenas-net-release shenas-org-release test web-api-release website-dev
 
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
 NDK_VERSION = 27.2.12479018
@@ -66,7 +66,7 @@ api-dev:
 
 app-clean:
 	moon run :clean
-	rm -rf .moon/cache/ packages/ .ruff_cache/ .pytest_cache/
+	rm -rf dist/ build/_pyinstaller_work/ htmlcov/ .coverage coverage.json packages/ .ruff_cache/ .pytest_cache/
 
 app-dev:
 	@fuser -k 7280/tcp 5173/tcp 2>/dev/null; sleep 0.3; \
@@ -170,13 +170,18 @@ hooks-setup:
 	@echo "Pre-commit hook installed."
 
 lint:
-	moon run :lint
+	moon run :python-lint :python-format-check :python-type-check :js-lint :js-format-check :js-type-check
 
 test:
-	moon run :test
+	moon run :python-test :js-test
 
 coverage:
-	moon run :coverage
+	uv run --no-sync pytest --cov=app \
+		--cov=shenas_sources --cov=shenas_datasets \
+		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
+
+pyinstaller:
+	uv run python build/pyinstaller_build.py
 
 # ---------------------------------------------------------------------------
 # Infrastructure (OpenTofu - GCP)

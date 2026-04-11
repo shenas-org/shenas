@@ -29,6 +29,7 @@ from shenas_plugins.core.table import Field
 from shenas_sources.core.table import (
     AggregateTable,
     IntervalTable,
+    SourceTable,
 )
 from shenas_sources.core.utils import date_range, is_empty_response
 
@@ -77,7 +78,7 @@ class Activities(IntervalTable):
         if not start or duration_seconds is None:
             return None
         try:
-            return pendulum.parse(start).add(seconds=int(duration_seconds)).to_datetime_string()
+            return pendulum.parse(start).add(seconds=int(duration_seconds)).to_datetime_string()  # ty: ignore[unresolved-attribute, unknown-argument]
         except Exception:
             return None
 
@@ -259,4 +260,4 @@ class BodyComposition(AggregateTable):
         yield from entries
 
 
-TABLES: tuple[type, ...] = (Activities, DailyStats, Sleep, Hrv, Spo2, BodyComposition)
+TABLES: tuple[type[SourceTable], ...] = (Activities, DailyStats, Sleep, Hrv, Spo2, BodyComposition)

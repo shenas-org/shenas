@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 from shenas_plugins.core.table import Field
-from shenas_sources.core.table import EventTable, IntervalTable
+from shenas_sources.core.table import EventTable, IntervalTable, SourceTable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -266,4 +266,4 @@ class SearchTerms(EventTable):
             con.close()
 
 
-TABLES: tuple[type, ...] = (Visits, Downloads, SearchTerms)
+TABLES: tuple[type[SourceTable], ...] = (Visits, Downloads, SearchTerms)

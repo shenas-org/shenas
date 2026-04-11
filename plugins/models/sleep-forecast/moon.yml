@@ -7,3 +7,7 @@ tags: ['model']
 
 dependsOn:
   - 'model-core'
+
+workspace:
+  inheritedTasks:
+    exclude: ['python-type-check']

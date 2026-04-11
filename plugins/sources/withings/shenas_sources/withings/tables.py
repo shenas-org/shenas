@@ -23,6 +23,7 @@ from shenas_sources.core.table import (
     AggregateTable,
     EventTable,
     SnapshotTable,
+    SourceTable,
 )
 from shenas_sources.core.utils import resolve_start_date
 
@@ -98,7 +99,7 @@ class Measurements(EventTable):
         **_: Any,
     ) -> Iterator[dict[str, Any]]:
         start = resolve_start_date(start_date)
-        start_epoch = int(pendulum.parse(start).timestamp())
+        start_epoch = int(pendulum.parse(start).timestamp())  # ty: ignore[unresolved-attribute]
         end_epoch = int(pendulum.now().timestamp())
         yield from client.get_measurements(start_epoch, end_epoch)
 
@@ -265,4 +266,4 @@ class Devices(SnapshotTable):
             }
 
 
-TABLES: tuple[type, ...] = (Measurements, SleepSummary, DailyActivity, Devices)
+TABLES: tuple[type[SourceTable], ...] = (Measurements, SleepSummary, DailyActivity, Devices)

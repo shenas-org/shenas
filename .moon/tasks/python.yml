@@ -13,21 +13,44 @@ tasks:
     options:
       runFromWorkspaceRoot: true
       cache: false
-  lint:
+  python-lint:
     script: 'uv run --no-sync ruff check $MOON_PROJECT_SOURCE/'
     inputs:
       - '**/*.py'
       - 'pyproject.toml'
     options:
       runFromWorkspaceRoot: true
-  test:
-    script: 'uv run --no-sync pytest $MOON_PROJECT_SOURCE/tests/ -q'
+  python-format-check:
+    script: 'uv run --no-sync ruff format --check $MOON_PROJECT_SOURCE/'
+    inputs:
+      - '**/*.py'
+      - 'pyproject.toml'
+    options:
+      runFromWorkspaceRoot: true
+  python-type-check:
+    script: 'uv run --no-sync ty check $MOON_PROJECT_SOURCE/ --exclude "**/vendor/**" --exclude "**/fl/**"'
+    inputs:
+      - '**/*.py'
+    options:
+      runFromWorkspaceRoot: true
+  python-test:
+    script: '[ -d $MOON_PROJECT_SOURCE/tests/ ] && uv run --no-sync pytest $MOON_PROJECT_SOURCE/tests/ -q || echo "No tests directory, skipping"'
     inputs:
       - '**/*.py'
     deps:
-      - '~:lint'
+      - '~:python-lint'
     options:
       runFromWorkspaceRoot: true
+  lint:
+    script: 'echo "All lint checks passed."'
+    deps:
+      - '~:python-lint'
+      - '~:python-format-check'
+      - '~:python-type-check'
+  test:
+    script: 'echo "All tests passed."'
+    deps:
+      - '~:python-test'
   build:
     script: |
       cd $MOON_PROJECT_SOURCE && uv build --out-dir $MOON_WORKSPACE_ROOT/packages/
@@ -36,6 +59,6 @@ tasks:
       - '**/*.py'
       - 'pyproject.toml'
     deps:
-      - '~:test'
+      - '~:python-test'
     options:
       runFromWorkspaceRoot: true

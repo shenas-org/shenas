@@ -10,6 +10,8 @@ dist/
 node_modules/
 plugins/dashboards/*/shenas_dashboards/*/static/
 plugins/frontends/*/shenas_frontends/*/static/
+plugins/dashboards/*/src/*.d.ts
+!plugins/dashboards/*/src/shenas-frontends.d.ts
 app/vendor/dist/
 htmlcov/
 .coverage

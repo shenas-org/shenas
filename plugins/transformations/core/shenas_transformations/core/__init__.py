@@ -56,8 +56,8 @@ class Transform(Plugin):
         if cls.Config is not TransformConfig:
             meta = getattr(cls.Config, "_Meta", None)
             if meta and not getattr(meta, "name", None):
-                cls.Config._Meta = type("_Meta", (meta,), {"name": f"transform_{cls.name}"})
-                cls.Config._abstract = False
+                cls.Config._Meta = type("_Meta", (meta,), {"name": f"transform_{cls.name}"})  # ty: ignore[invalid-assignment]
+                cls.Config._abstract = False  # ty: ignore[invalid-assignment]
 
     @property
     def has_config(self) -> bool:

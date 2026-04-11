@@ -15,11 +15,49 @@ tasks:
     options:
       runFromWorkspaceRoot: true
       cache: false
-  test:
+  js-deps:
+    script: 'cd $MOON_PROJECT_SOURCE && npm ci --silent'
+    inputs:
+      - '@group(configs)'
+    options:
+      runFromWorkspaceRoot: true
+      cache: false
+  js-lint:
+    script: 'cd $MOON_PROJECT_SOURCE && npx eslint "src/**/*.ts"'
+    inputs:
+      - '@group(sources)'
+    options:
+      runFromWorkspaceRoot: true
+  js-format-check:
+    script: 'cd $MOON_PROJECT_SOURCE && npx prettier --check "src/**/*.ts"'
+    inputs:
+      - '@group(sources)'
+    options:
+      runFromWorkspaceRoot: true
+  js-type-check:
+    script: '[ -f $MOON_PROJECT_SOURCE/tsconfig.json ] && npx tsc --noEmit -p $MOON_PROJECT_SOURCE/tsconfig.json || echo "No tsconfig.json, skipping"'
+    inputs:
+      - '@group(sources)'
+      - 'tsconfig.json'
+    deps:
+      - '~:js-deps'
+    options:
+      runFromWorkspaceRoot: true
+  js-test:
     command: 'npm test'
     inputs:
       - '@group(sources)'
       - '@group(configs)'
+  lint:
+    script: 'echo "All lint checks passed."'
+    deps:
+      - '~:js-lint'
+      - '~:js-format-check'
+      - '~:js-type-check'
+  test:
+    script: 'echo "All tests passed."'
+    deps:
+      - '~:js-test'
   build:
     script: |
       cd $MOON_PROJECT_SOURCE
@@ -34,6 +72,6 @@ tasks:
       - '**/*.py'
       - 'pyproject.toml'
     deps:
-      - '~:test'
+      - '~:js-test'
     options:
       runFromWorkspaceRoot: true

@@ -22,6 +22,7 @@ from shenas_sources.core.table import (
     DimensionTable,
     EventTable,
     SnapshotTable,
+    SourceTable,
 )
 
 if TYPE_CHECKING:
@@ -170,4 +171,4 @@ class TileState(SnapshotTable):
             }
 
 
-TABLES: tuple[type, ...] = (Tiles, TileLocations, TileState)
+TABLES: tuple[type[SourceTable], ...] = (Tiles, TileLocations, TileState)

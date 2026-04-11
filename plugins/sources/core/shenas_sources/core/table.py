@@ -181,7 +181,7 @@ class SourceTable(Table):
 
         if cursor_column:
 
-            @dlt.resource(**common)
+            @dlt.resource(**common)  # ty: ignore[invalid-argument-type]
             def _gen(
                 cursor: Any = dlt.sources.incremental(cursor_column, initial_value=None),
             ) -> Iterator[dict[str, Any]]:
@@ -191,7 +191,7 @@ class SourceTable(Table):
 
         else:
 
-            @dlt.resource(**common)
+            @dlt.resource(**common)  # ty: ignore[invalid-argument-type]
             def _gen() -> Iterator[dict[str, Any]]:
                 now = datetime.now(UTC).isoformat() if needs_observed_at else None
                 for row in cls.extract(client, **context):
