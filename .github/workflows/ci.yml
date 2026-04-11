@@ -31,6 +31,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
+      - run: npm ci --silent
       - run: moon run :lint
 
   test:
