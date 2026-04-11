@@ -10,7 +10,7 @@ COPY server/fl/ ./fl-server/
 
 # Install dependencies (no .git in Docker context, so fake the version)
 ARG VERSION=0.0.0
-RUN cd server/fl && SETUPTOOLS_SCM_PRETEND_VERSION=$VERSION uv pip install --system --no-cache .
+RUN cd fl-server && SETUPTOOLS_SCM_PRETEND_VERSION=$VERSION uv pip install --system --no-cache .
 
 # Weights persisted to a volume
 VOLUME /app/.shenas-fl
