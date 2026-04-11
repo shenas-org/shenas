@@ -47,6 +47,8 @@ tasks:
     inputs:
       - '@group(sources)'
       - '@group(configs)'
+    deps:
+      - '~:js-deps'
   lint:
     script: 'echo "All lint checks passed."'
     deps:
