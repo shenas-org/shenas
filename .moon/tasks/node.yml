@@ -10,6 +10,13 @@ fileGroups:
     - 'package.json'
 
 tasks:
+  npm-install:
+    script: 'cd $MOON_PROJECT_SOURCE && npm ci --silent'
+    inputs:
+      - 'package.json'
+      - 'package-lock.json'
+    options:
+      runFromWorkspaceRoot: true
   clean:
     script: 'rm -rf $MOON_PROJECT_SOURCE/node_modules/ $MOON_PROJECT_SOURCE/dist/'
     options:
@@ -19,12 +26,16 @@ tasks:
     script: 'cd $MOON_PROJECT_SOURCE && npx eslint "src/**/*.ts"'
     inputs:
       - '@group(sources)'
+    deps:
+      - '~:npm-install'
     options:
       runFromWorkspaceRoot: true
   js-format-check:
     script: 'cd $MOON_PROJECT_SOURCE && npx prettier --check "src/**/*.ts"'
     inputs:
       - '@group(sources)'
+    deps:
+      - '~:npm-install'
     options:
       runFromWorkspaceRoot: true
   js-type-check:
@@ -32,6 +43,8 @@ tasks:
     inputs:
       - '@group(sources)'
       - 'tsconfig.json'
+    deps:
+      - '~:npm-install'
     options:
       runFromWorkspaceRoot: true
   js-test:
@@ -39,6 +52,8 @@ tasks:
     inputs:
       - '@group(sources)'
       - '@group(configs)'
+    deps:
+      - '~:npm-install'
   lint:
     script: 'echo "All lint checks passed."'
     deps:
@@ -63,6 +78,7 @@ tasks:
       - '**/*.py'
       - 'pyproject.toml'
     deps:
+      - '~:npm-install'
       - '~:js-test'
     options:
       runFromWorkspaceRoot: true
