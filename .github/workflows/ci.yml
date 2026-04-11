@@ -15,12 +15,12 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-      - run: npm install -g @moonrepo/cli@latest
+      - name: Install moon
+        run: curl -fsSL https://moonrepo.dev/install/moon.sh | bash && echo "$HOME/.moon/bin" >> $GITHUB_PATH
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-      - run: npm install -g @moonrepo/cli@latest
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -35,11 +35,11 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-      - run: npm install -g @moonrepo/cli@latest
+      - name: Install moon
+        run: curl -fsSL https://moonrepo.dev/install/moon.sh | bash && echo "$HOME/.moon/bin" >> $GITHUB_PATH
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm install -g @moonrepo/cli@latest
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
