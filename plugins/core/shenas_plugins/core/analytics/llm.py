@@ -121,7 +121,7 @@ class AnthropicProvider:
             max_tokens=self.max_tokens,
             system=system,
             messages=[{"role": "user", "content": user}],
-            tools=tools,
+            tools=tools,  # ty: ignore[invalid-argument-type]
             tool_choice={"type": "tool", "name": tool_name},
         )
         usage = getattr(resp, "usage", None)
@@ -287,7 +287,7 @@ def build_system_prompt(*, findings: list[str] | None = None) -> str:
         '- `{"type": "source", "table": "<schema>.<name>"}` for a raw input\n'
         '- `{"type": "op", "op_name": "<name>", "params": {...}, "inputs": [...]}` for an operation call\n'
         "The `inputs` array names other nodes by key. The `final` field names the node "
-        "whose result is the answer.\n" + _research_context(findings)
+        "whose result is the answer.\n" + _research_context(findings)  # ty: ignore[invalid-argument-type]
     )
 
 

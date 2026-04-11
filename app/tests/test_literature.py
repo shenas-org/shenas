@@ -62,7 +62,7 @@ def _make_finding(**overrides):
         "outcome_categories": "cardiovascular",
     }
     defaults.update(overrides)
-    return Finding(**defaults)
+    return Finding(**defaults)  # ty: ignore[invalid-argument-type]
 
 
 def test_insert_and_find():

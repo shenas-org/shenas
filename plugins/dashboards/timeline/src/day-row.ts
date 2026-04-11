@@ -497,8 +497,7 @@ export class ShenasDayRow extends LitElement {
         </div>
         <div class="timeline">
           <div class="hour-grid">${Array.from({ length: 24 }, () => html`<div class="hour-line"></div>`)}</div>
-          ${allDayEvents.map((ev) => this._renderAllDayBar(ev))}
-          ${timedEvents.map((ev) => this._renderEventBar(ev))}
+          ${allDayEvents.map((ev) => this._renderAllDayBar(ev))} ${timedEvents.map((ev) => this._renderEventBar(ev))}
           ${transactions.map((tx, i) => this._renderTransactionDot(tx, i, transactions.length))}
         </div>
       </div>
@@ -544,9 +543,7 @@ export class ShenasDayRow extends LitElement {
               <div class="lane">
                 <div class="lane-label">${src}</div>
                 <div class="lane-timeline">
-                  <div class="hour-grid">
-                    ${Array.from({ length: 24 }, () => html`<div class="hour-line"></div>`)}
-                  </div>
+                  <div class="hour-grid">${Array.from({ length: 24 }, () => html`<div class="hour-line"></div>`)}</div>
                   ${evs.map((ev) => (ev.all_day ? this._renderAllDayBar(ev) : this._renderEventBar(ev)))}
                 </div>
               </div>
@@ -682,9 +679,7 @@ export class ShenasDayRow extends LitElement {
         <div class="tooltip" style="left: ${this._tooltipX}px; top: ${this._tooltipY}px">
           <div class="tooltip-title">${ev.title || "Untitled"}</div>
           <div class="tooltip-meta">
-            <span
-              >${ev._start ? formatTime(ev._start) : ""}${ev._end ? ` - ${formatTime(ev._end)}` : ""}</span
-            >
+            <span>${ev._start ? formatTime(ev._start) : ""}${ev._end ? ` - ${formatTime(ev._end)}` : ""}</span>
             <span>${ev.category || "uncategorized"} / ${ev.source}</span>
             ${ev.location ? html`<span>${ev.location}</span>` : nothing}
             ${ev.duration_min ? html`<span>${Math.round(ev.duration_min)} min</span>` : nothing}
@@ -699,9 +694,7 @@ export class ShenasDayRow extends LitElement {
         <div class="tooltip-title">${tx.payee || "Transaction"}</div>
         <div class="tooltip-meta">
           <span>${tx.category || "uncategorized"}</span>
-          ${tx.amount != null
-            ? html`<span>${tx.amount >= 0 ? "+" : ""}${tx.amount.toFixed(2)}</span>`
-            : nothing}
+          ${tx.amount != null ? html`<span>${tx.amount >= 0 ? "+" : ""}${tx.amount.toFixed(2)}</span>` : nothing}
         </div>
       </div>
     `;

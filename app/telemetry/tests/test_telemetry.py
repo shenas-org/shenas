@@ -143,7 +143,7 @@ class TestLogExporter:
             log_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
             set_logger_provider(log_provider)
 
-            from opentelemetry.instrumentation.logging import LoggingInstrumentor
+            from opentelemetry.instrumentation.logging import LoggingInstrumentor  # ty: ignore[unresolved-import]
 
             LoggingInstrumentor().instrument(set_logging_format=False)
 
@@ -175,7 +175,7 @@ class TestLogExporter:
             log_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
             set_logger_provider(log_provider)
 
-            from opentelemetry.instrumentation.logging import LoggingInstrumentor
+            from opentelemetry.instrumentation.logging import LoggingInstrumentor  # ty: ignore[unresolved-import]
 
             LoggingInstrumentor().instrument(set_logging_format=False)
 
@@ -226,7 +226,7 @@ class TestLogExporter:
             log_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
             set_logger_provider(log_provider)
 
-            from opentelemetry.instrumentation.logging import LoggingInstrumentor
+            from opentelemetry.instrumentation.logging import LoggingInstrumentor  # ty: ignore[unresolved-import]
 
             LoggingInstrumentor().instrument(set_logging_format=False)
 
@@ -303,7 +303,7 @@ class TestDispatchingProcessors:
             def force_flush(self, timeout_millis: int = 30000) -> bool:
                 return True
 
-        proc = DispatchingLogProcessor(Bare())  # type: ignore[arg-type]
+        proc = DispatchingLogProcessor(Bare())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         proc.emit(MagicMock())
         proc.on_emit(MagicMock())
 
@@ -394,7 +394,7 @@ class TestDispatchingProcessors:
             pass
 
         with patch("app.telemetry.dispatcher.notify") as notify:
-            _dispatch_span(span)  # type: ignore[arg-type]
+            _dispatch_span(span)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         assert notify.called
         data = notify.call_args[0][1][0]
         assert data["name"] == "op"

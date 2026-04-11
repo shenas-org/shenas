@@ -50,39 +50,40 @@ def _count_states() -> int:
     from app.db import cursor
 
     with cursor() as cur:
-        return cur.execute("SELECT count(*) FROM shenas_system.plugins").fetchone()[0]  # type: ignore[index]
+        return cur.execute("SELECT count(*) FROM shenas_system.plugins").fetchone()[0]  # ty: ignore[not-subscriptable]
 
 
 class TestPluginState:
     def test_instance_creates_on_first_access(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         inst = _FakePlugin().instance()
-        assert inst.kind == "source"
-        assert inst.name == "garmin"
-        assert inst.enabled is True
+        assert inst.kind == "source"  # ty: ignore[unresolved-attribute]
+        assert inst.name == "garmin"  # ty: ignore[unresolved-attribute]
+        assert inst.enabled is True  # ty: ignore[unresolved-attribute]
 
     def test_set_enabled_toggles(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         inst = _FakePlugin().instance()
-        inst.set_enabled(False)
-        assert PluginInstance.find("source", "garmin").enabled is False
-        inst.set_enabled(True)
-        assert PluginInstance.find("source", "garmin").enabled is True
+        inst.set_enabled(False)  # ty: ignore[unresolved-attribute]
+        assert PluginInstance.find("source", "garmin").enabled is False  # ty: ignore[unresolved-attribute]
+        inst.set_enabled(True)  # ty: ignore[unresolved-attribute]
+        assert PluginInstance.find("source", "garmin").enabled is True  # ty: ignore[unresolved-attribute]
 
     def test_enable_disable(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         inst = _FakePlugin().instance()
-        inst.disable()
-        assert PluginInstance.find("source", "garmin").enabled is False
-        inst.enable()
-        assert PluginInstance.find("source", "garmin").enabled is True
+        inst.disable()  # ty: ignore[unresolved-attribute]
+        assert PluginInstance.find("source", "garmin").enabled is False  # ty: ignore[unresolved-attribute]
+        inst.enable()  # ty: ignore[unresolved-attribute]
+        assert PluginInstance.find("source", "garmin").enabled is True  # ty: ignore[unresolved-attribute]
 
     def test_mark_synced(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         inst = _FakePlugin().instance()
-        inst.mark_synced()
+        inst.mark_synced()  # ty: ignore[unresolved-attribute]
         row = PluginInstance.find("source", "garmin")
-        assert row.synced_at is not None
+        assert row.synced_at is not None  # ty: ignore[unresolved-attribute]
 
     def test_delete(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:
         inst = _FakePlugin().instance()
-        inst.delete()
+        inst.delete()  # ty: ignore[unresolved-attribute]
+
         assert PluginInstance.find("source", "garmin") is None
 
     def test_multiple_kinds(self, db_con: duckdb.DuckDBPyConnection, patch_db: None) -> None:

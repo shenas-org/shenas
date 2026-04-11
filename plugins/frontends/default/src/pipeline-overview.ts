@@ -281,11 +281,11 @@ class PipelineOverview extends LitElement {
     // Hide non-source nodes that have no edges (no relationships).
     const connectedNodes = new Set<string>();
     for (const el of elements) {
-      if (el.data.source) connectedNodes.add(el.data.source);
-      if (el.data.target) connectedNodes.add(el.data.target);
+      if (el.data.source) connectedNodes.add(el.data.source as string);
+      if (el.data.target) connectedNodes.add(el.data.target as string);
     }
     this._elements = elements.filter(
-      (el) => el.data.source || el.data.kind === "source" || connectedNodes.has(el.data.id),
+      (el) => el.data.source || el.data.kind === "source" || connectedNodes.has(el.data.id as string),
     );
     this._empty = this._elements.filter((e) => e.data.source).length === 0;
   }

@@ -64,7 +64,7 @@ class Query:
         from app.api.auth import auth_fields
 
         result = auth_fields(pipe)
-        return AuthFieldsType.from_pydantic(result)
+        return AuthFieldsType.from_pydantic(result)  # ty: ignore[unresolved-attribute]
 
     # -- Config --
 
@@ -87,7 +87,7 @@ class Query:
     def db_status(self) -> DBStatusType:
         from app.api.db import db_status
 
-        return DBStatusType.from_pydantic(db_status())
+        return DBStatusType.from_pydantic(db_status())  # ty: ignore[unresolved-attribute]
 
     @strawberry.field
     def device_name(self) -> str:
@@ -102,19 +102,19 @@ class Query:
     def db_tables(self) -> JSON:
         from app.api.db import db_tables
 
-        return db_tables()
+        return db_tables()  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def schema_tables(self) -> JSON:
         from app.api.db import schema_plugin_tables
 
-        return schema_plugin_tables()
+        return schema_plugin_tables()  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def schema_plugins(self) -> JSON:
         from app.api.db import schema_plugin_ownership
 
-        return schema_plugin_ownership()
+        return schema_plugin_ownership()  # ty: ignore[invalid-return-type]
 
     # -- Plugins --
 
@@ -136,7 +136,7 @@ class Query:
                 pass
 
         kinds = [{"id": k, "label": plural_map.get(k, f"{k.title()}s")} for k in sorted(VALID_KINDS)]
-        return sorted(kinds, key=lambda x: x["label"])
+        return sorted(kinds, key=lambda x: x["label"])  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def plugins(self, kind: str) -> list[PluginInfoType]:
@@ -155,7 +155,7 @@ class Query:
                 for e in pi.get("config_entries", [])
             ]
             items.append(
-                PluginInfoType.from_pydantic(
+                PluginInfoType.from_pydantic(  # ty: ignore[unresolved-attribute]
                     PluginInfo(
                         name=pi.get("name", ""),
                         display_name=pi.get("display_name", ""),
@@ -186,8 +186,8 @@ class Query:
 
         cls = _load_plugin(kind, name) or _load_plugin_fresh(kind, name)
         if not cls:
-            return {"name": name, "kind": kind, "display_name": name.replace("-", " ").title()}
-        return cls().get_info()
+            return {"name": name, "kind": kind, "display_name": name.replace("-", " ").title()}  # ty: ignore[invalid-return-type]
+        return cls().get_info()  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def available_plugins(self, kind: str) -> list[str]:
@@ -237,7 +237,7 @@ class Query:
             if not s or not s.enabled:
                 continue
             result.append(
-                ScheduleInfoType.from_pydantic(
+                ScheduleInfoType.from_pydantic(  # ty: ignore[unresolved-attribute]
                     ScheduleInfo(
                         name=src.name,
                         sync_frequency=freq,
@@ -281,13 +281,13 @@ class Query:
     def hotkeys(self, info: strawberry.types.Info) -> JSON:  # noqa: ARG002
         from app.hotkeys import Hotkey
 
-        return Hotkey.get_all()
+        return Hotkey.get_all()  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def workspace(self, info: strawberry.types.Info) -> JSON:  # noqa: ARG002
         from app.workspace import Workspace
 
-        return Workspace.get()
+        return Workspace.get()  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def dashboards(self) -> JSON:
@@ -308,7 +308,7 @@ class Query:
                     "description": c.description,
                 }
             )
-        return result
+        return result  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def dependencies(self) -> JSON:
@@ -344,17 +344,17 @@ class Query:
                         deps.append(f"{dep_kind}:{req_name.removeprefix(dep_prefix)}")
             if deps:
                 result[f"{kind}:{plugin_name}"] = deps
-        return result
+        return result  # ty: ignore[invalid-return-type]
 
     # -- Models --
 
     @strawberry.field
     def models(self) -> JSON:
-        from shenas_models.core import Model
+        from shenas_models.core import Model  # ty: ignore[unresolved-import]
 
         from app.api.sources import _load_plugins
 
-        return sorted(
+        return sorted(  # ty: ignore[invalid-return-type]
             [cls().get_info() for cls in _load_plugins("model", base=Model, include_internal=False)],
             key=lambda x: x["name"],
         )
@@ -365,8 +365,8 @@ class Query:
 
         cls = _load_plugin("model", name)
         if not cls:
-            return {"name": name, "available": False, "round": None}
-        return cls().training_status
+            return {"name": name, "available": False, "round": None}  # ty: ignore[invalid-return-type]
+        return cls().training_status  # ty: ignore[unresolved-attribute]
 
     @strawberry.field
     def model_predict(self, name: str) -> JSON:
@@ -374,8 +374,8 @@ class Query:
 
         cls = _load_plugin("model", name)
         if not cls:
-            return None
-        return cls().predict()
+            return None  # ty: ignore[invalid-return-type]
+        return cls().predict()  # ty: ignore[unresolved-attribute]
 
     # -- Analytics catalog --
     #
@@ -396,7 +396,7 @@ class Query:
         """
         from app.analytics_catalog import walk_catalog
 
-        return walk_catalog()
+        return walk_catalog()  # ty: ignore[invalid-return-type]
 
     # -- Analysis modes --
 
@@ -407,7 +407,7 @@ class Query:
         from shenas_plugins.core.analytics.mode import list_modes
 
         _discover_analyses()
-        return list_modes()
+        return list_modes()  # ty: ignore[invalid-return-type]
 
     # -- Literature --
 
@@ -417,7 +417,7 @@ class Query:
         from app.literature import Finding
 
         rows = Finding.all(order_by="id DESC", limit=limit)
-        return [f.to_prompt_line() for f in rows]
+        return [f.to_prompt_line() for f in rows]  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def suggested_hypotheses(self, limit: int = 10) -> JSON:
@@ -426,7 +426,7 @@ class Query:
         from app.literature import suggest_hypotheses
 
         catalog = catalog_by_qualified_name()
-        return [s.model_dump() for s in suggest_hypotheses(catalog, limit=limit)]
+        return [s.model_dump() for s in suggest_hypotheses(catalog, limit=limit)]  # ty: ignore[invalid-return-type]
 
     # -- Hypotheses --
     #
@@ -439,7 +439,7 @@ class Query:
         """Return every hypothesis row, most recent first."""
         from app.hypotheses import Hypothesis
 
-        return [_hypothesis_to_dict(h) for h in Hypothesis.all(order_by="created_at DESC", limit=limit)]
+        return [_hypothesis_to_dict(h) for h in Hypothesis.all(order_by="created_at DESC", limit=limit)]  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def hypothesis(self, hypothesis_id: int) -> JSON:
@@ -447,7 +447,7 @@ class Query:
         from app.hypotheses import Hypothesis
 
         h = Hypothesis.find(hypothesis_id)
-        return _hypothesis_to_dict(h) if h else None
+        return _hypothesis_to_dict(h) if h else None  # ty: ignore[invalid-return-type]
 
 
 def _hypothesis_to_dict(h: Any) -> dict[str, Any]:
