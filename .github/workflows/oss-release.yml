@@ -33,7 +33,7 @@ jobs:
           Host github.com-oss
             HostName github.com
             User git
-            IdentityFile /root/.ssh/oss_deploy_key
+            IdentityFile ~/.ssh/oss_deploy_key
             StrictHostKeyChecking no
           EOF
           chmod 600 ~/.ssh/config
@@ -51,11 +51,20 @@ jobs:
           sed -i 's|git@github.com:shenas-org/shenas.git|git@github.com-oss:shenas-org/shenas.git|' .copybara/copy.bara.sky
           cp .copybara/copy.bara.sky copy.bara.sky
 
+      - name: Check destination branch
+        id: dest-check
+        run: |
+          if git ls-remote --heads git@github.com-oss:shenas-org/shenas.git main 2>/dev/null | grep -q main; then
+            echo "init=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Destination has no main branch, will use --init-history"
+            echo "init=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run Copybara
         run: |
           EXTRA_FLAGS=""
-          if ! git ls-remote --heads git@github.com-oss:shenas-org/shenas.git main | grep -q main; then
-            echo "Destination has no main branch, using --init-history --force"
+          if [ "${{ steps.dest-check.outputs.init }}" = "true" ]; then
             EXTRA_FLAGS="--init-history --force"
           fi
 
@@ -63,13 +72,15 @@ jobs:
             -v "$HOME/.ssh:/tmp/host-ssh:ro" \
             -v "$GITHUB_WORKSPACE:/workspace" \
             -w /workspace \
+            -e EXTRA_FLAGS="$EXTRA_FLAGS" \
             sharelatex/copybara:latest \
-            bash -c "
-              cp -r /tmp/host-ssh /root/.ssh && \
-              chmod 700 /root/.ssh && \
-              chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key && \
+            bash -c '
+              cp -r /tmp/host-ssh /root/.ssh &&
+              chmod 700 /root/.ssh &&
+              chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key &&
+              sed -i "s|~/.ssh/|/root/.ssh/|g" /root/.ssh/config &&
               copybara copy.bara.sky --work-dir /tmp/copybara $EXTRA_FLAGS
-            "
+            '
 
       - name: Generate LLM summary and amend commit
         env:
