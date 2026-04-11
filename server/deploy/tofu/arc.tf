@@ -33,6 +33,25 @@ resource "helm_release" "arc_controller" {
   chart            = "gha-runner-scale-set-controller"
   version          = "0.12.1"
   create_namespace = false
+
+  set {
+    name  = "fullnameOverride"
+    value = "arc-gha-rs-controller"
+  }
+
+  values = [
+    <<-EOT
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+        ephemeral-storage: 1Gi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+        ephemeral-storage: 1Gi
+    EOT
+  ]
 }
 
 # Runner scale set
@@ -44,30 +63,74 @@ resource "helm_release" "arc_runner_set" {
   version          = "0.12.1"
   create_namespace = false
 
-  set {
-    name  = "githubConfigUrl"
-    value = "https://github.com/${var.github_repo}"
-  }
-
-  set {
-    name  = "githubConfigSecret"
-    value = kubernetes_secret.arc_github_app.metadata[0].name
-  }
-
-  set {
-    name  = "runnerScaleSetName"
-    value = "gcp-runners"
-  }
-
-  set {
-    name  = "maxRunners"
-    value = "5"
-  }
-
-  set {
-    name  = "minRunners"
-    value = "0"
-  }
+  values = [
+    <<-EOT
+    githubConfigUrl: https://github.com/${var.github_repo}
+    githubConfigSecret: ${kubernetes_secret.arc_github_app.metadata[0].name}
+    runnerScaleSetName: gcp-runners
+    minRunners: 0
+    maxRunners: 5
+    controllerServiceAccount:
+      name: arc-gha-rs-controller
+      namespace: arc-systems
+    template:
+      spec:
+        securityContext:
+          runAsUser: 1001
+          runAsGroup: 1001
+          fsGroup: 1001
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        volumes:
+        - name: work
+          emptyDir: {}
+        containers:
+        - name: runner
+          image: ghcr.io/actions/actions-runner:latest
+          command: ["/home/runner/run.sh"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+          - name: work
+            mountPath: /home/runner/_work
+          resources:
+            requests:
+              cpu: 1
+              memory: 2Gi
+              ephemeral-storage: 2Gi
+            limits:
+              cpu: 1
+              memory: 2Gi
+              ephemeral-storage: 2Gi
+    listenerTemplate:
+      spec:
+        securityContext:
+          runAsUser: 1001
+          runAsGroup: 1001
+          fsGroup: 1001
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        containers:
+        - name: listener
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 1Gi
+    EOT
+  ]
 
   depends_on = [helm_release.arc_controller]
 }
