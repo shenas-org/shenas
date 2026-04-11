@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  python-lint:
-    name: Python lint
+  lint:
+    name: Lint
     runs-on: gcp-runners
     steps:
       - uses: actions/checkout@v4
@@ -16,13 +16,15 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - uses: moonrepo/setup-toolchain@v0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
       - run: uv sync
-      - run: moon run :python-lint
-      - run: moon run :python-format-check
-      - run: moon run :python-type-check
+      - run: moon run :lint
 
   python-test:
     name: Python test
@@ -45,20 +47,6 @@ jobs:
           cd app/vendor && npm ci --silent && npm run build && cd "$GITHUB_WORKSPACE"
           cd plugins/frontends/default && npm ci --silent && npm run build
       - run: moon run :python-test
-
-  js-lint:
-    name: JS lint, format, typecheck
-    runs-on: gcp-runners
-    steps:
-      - uses: actions/checkout@v4
-      - uses: moonrepo/setup-toolchain@v0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-      - run: moon run :js-lint
-      - run: moon run :js-format-check
-      - run: moon run :js-type-check
 
   js-test:
     name: JS test
@@ -105,7 +93,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: gcp-runners
-    needs: [python-test, js-test]
+    needs: [lint, python-test, js-test]
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
