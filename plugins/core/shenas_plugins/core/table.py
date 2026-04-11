@@ -186,7 +186,7 @@ class Table:
                     parent_meta = base.__dict__["_Meta"]
                     break
             if parent_meta is not None and parent_meta not in local_meta.__mro__:
-                cls._Meta = type(
+                cls._Meta = type(  # ty: ignore[invalid-assignment]
                     "_Meta",
                     (local_meta, parent_meta),
                     {k: v for k, v in vars(local_meta).items() if not k.startswith("__")},
@@ -381,7 +381,7 @@ class Table:
         return s
 
     @classmethod
-    def _resolve_database(cls) -> str:
+    def _resolve_database(cls) -> str | None:
         """Return the ATTACH alias the cursor should USE for this table.
 
         ``"system"`` for tables marked ``database = "system"`` (the
@@ -395,7 +395,7 @@ class Table:
         """
         if cls.database == "system":
             return "shenas"
-        return None  # type: ignore[return-value]
+        return None
 
     # ------------------------------------------------------------------
     # Multi-row CRUD (find / all / insert / save / delete)

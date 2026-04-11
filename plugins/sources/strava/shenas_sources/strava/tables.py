@@ -22,6 +22,7 @@ from shenas_sources.core.table import (
     IntervalTable,
     M2MTable,
     SnapshotTable,
+    SourceTable,
 )
 
 if TYPE_CHECKING:
@@ -548,7 +549,7 @@ class Gear(CounterTable):
 # ---------------------------------------------------------------------------
 
 
-TABLES: tuple[type, ...] = (
+TABLES: tuple[type[SourceTable], ...] = (
     Activities,
     Laps,
     Kudos,

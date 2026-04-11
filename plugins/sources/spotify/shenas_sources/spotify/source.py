@@ -107,7 +107,7 @@ class SpotifySource(Source):
             raise RuntimeError(msg)
 
         if token_info["access_token"] != tokens["access_token"]:
-            self._auth_store.set(
+            self._auth_store.set(  # ty: ignore[unresolved-attribute]
                 self.Auth,
                 tokens=json.dumps(
                     {
@@ -175,7 +175,7 @@ class SpotifySource(Source):
                         self.send_response(400)
                         self.end_headers()
 
-                def log_message(self, fmt: str, *args: Any) -> None:
+                def log_message(self, fmt: str, *args: Any) -> None:  # ty: ignore[invalid-method-override]
                     pass
 
             try:

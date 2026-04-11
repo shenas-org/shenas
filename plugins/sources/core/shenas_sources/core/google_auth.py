@@ -17,6 +17,9 @@ from googleapiclient.discovery import build
 if TYPE_CHECKING:
     from googleapiclient.discovery import Resource
 
+    from shenas_plugins.core.table import SingletonTable
+
+
 # Shared state for multi-step OAuth flows (e.g. URL passback).
 # Keys are pipe names, values are dicts with thread + state.
 pending_oauth: dict[str, dict[str, Any]] = {}
@@ -43,7 +46,7 @@ class GoogleAuth:
         api_name: str,
         api_version: str,
         *,
-        auth_cls: type,
+        auth_cls: type[SingletonTable],
         static_discovery: bool = True,
     ) -> None:
         self.name: str = name
@@ -51,7 +54,7 @@ class GoogleAuth:
         self.api_name: str = api_name
         self.api_version: str = api_version
         self.static_discovery: bool = static_discovery
-        self.auth_cls: type = auth_cls
+        self.auth_cls: type[SingletonTable] = auth_cls
 
     def _get_client_config(self) -> dict[str, Any]:
         env_prefix = f"SHENAS_{self.name.upper()}"
@@ -122,7 +125,7 @@ class GoogleAuth:
         store_token = self._store_token
 
         class _UrlCapture(io.TextIOBase):
-            def __init__(self, original: io.TextIOBase) -> None:
+            def __init__(self, original: Any) -> None:
                 self._original = original
 
             def write(self, s: str) -> int:

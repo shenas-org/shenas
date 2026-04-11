@@ -140,5 +140,5 @@ class GTakeoutSource(Source):
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    def resources(self, _client: Any) -> list[Any]:
+    def resources(self, _client: Any) -> list[Any]:  # ty: ignore[invalid-method-override]
         return []  # sync() is overridden

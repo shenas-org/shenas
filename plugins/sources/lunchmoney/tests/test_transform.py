@@ -69,7 +69,7 @@ def _insert_txn(con: duckdb.DuckDBPyConnection, **overrides: object) -> None:
         "recurring_id": None,
         "status": "cleared",
     }
-    defaults.update(overrides)
+    defaults.update(overrides)  # ty: ignore[no-matching-overload]
     cols = ", ".join(defaults.keys())
     placeholders = ", ".join(["?"] * len(defaults))
     con.execute(f"INSERT INTO lunchmoney.transactions ({cols}) VALUES ({placeholders})", list(defaults.values()))
@@ -94,16 +94,16 @@ class TestTransactionsTransform:
         t = TRANSFORM_DEFAULTS[0]
         con.execute(f"INSERT INTO metrics.transactions {t['sql']}")
         row = con.execute("SELECT amount, is_income FROM metrics.transactions").fetchone()
-        assert row[0] == -50.0
-        assert row[1] == 0
+        assert row[0] == -50.0  # ty: ignore[not-subscriptable]
+        assert row[1] == 0  # ty: ignore[not-subscriptable]
 
     def test_income_amount_is_positive(self, con: duckdb.DuckDBPyConnection) -> None:
         _insert_txn(con, id=2, is_income=True, to_base=1000.0)
         t = TRANSFORM_DEFAULTS[0]
         con.execute(f"INSERT INTO metrics.transactions {t['sql']}")
         row = con.execute("SELECT amount, is_income FROM metrics.transactions").fetchone()
-        assert row[0] == 1000.0
-        assert row[1] == 1
+        assert row[0] == 1000.0  # ty: ignore[not-subscriptable]
+        assert row[1] == 1  # ty: ignore[not-subscriptable]
 
     def test_pending_excluded(self, con: duckdb.DuckDBPyConnection) -> None:
         _insert_txn(con, status="pending")
@@ -117,7 +117,7 @@ class TestTransactionsTransform:
         t = TRANSFORM_DEFAULTS[0]
         con.execute(f"INSERT INTO metrics.transactions {t['sql']}")
         row = con.execute("SELECT account FROM metrics.transactions").fetchone()
-        assert row[0] == "Plaid Acct"
+        assert row[0] == "Plaid Acct"  # ty: ignore[not-subscriptable]
 
 
 class TestDailySpendingTransform:
@@ -128,9 +128,9 @@ class TestDailySpendingTransform:
         t = TRANSFORM_DEFAULTS[1]
         con.execute(f"INSERT INTO metrics.daily_spending {t['sql']}")
         row = con.execute("SELECT total_spent, total_income, transaction_count FROM metrics.daily_spending").fetchone()
-        assert row[0] == 50.0
-        assert row[1] == 500.0
-        assert row[2] == 3
+        assert row[0] == 50.0  # ty: ignore[not-subscriptable]
+        assert row[1] == 500.0  # ty: ignore[not-subscriptable]
+        assert row[2] == 3  # ty: ignore[not-subscriptable]
 
 
 class TestMonthlyCategoryTransform:
@@ -160,7 +160,7 @@ class TestMonthlyOverviewTransform:
         t = TRANSFORM_DEFAULTS[3]
         con.execute(f"INSERT INTO metrics.monthly_overview {t['sql']}")
         row = con.execute("SELECT total_income, total_spent, net, savings_rate FROM metrics.monthly_overview").fetchone()
-        assert row[0] == 1000.0
-        assert row[1] == 400.0
-        assert row[2] == 600.0
-        assert row[3] == pytest.approx(60.0)
+        assert row[0] == 1000.0  # ty: ignore[not-subscriptable]
+        assert row[1] == 400.0  # ty: ignore[not-subscriptable]
+        assert row[2] == 600.0  # ty: ignore[not-subscriptable]
+        assert row[3] == pytest.approx(60.0)  # ty: ignore[not-subscriptable]

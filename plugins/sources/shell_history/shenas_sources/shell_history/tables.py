@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 from shenas_plugins.core.table import Field
-from shenas_sources.core.table import EventTable
+from shenas_sources.core.table import EventTable, SourceTable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -155,4 +155,4 @@ def _read_history(path: str) -> str:
     return Path(path).read_text(encoding="utf-8", errors="replace")
 
 
-TABLES: tuple[type, ...] = (Commands,)
+TABLES: tuple[type[SourceTable], ...] = (Commands,)

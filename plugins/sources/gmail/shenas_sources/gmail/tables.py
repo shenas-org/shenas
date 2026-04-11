@@ -23,6 +23,7 @@ from shenas_sources.core.table import (
     DimensionTable,
     EventTable,
     SnapshotTable,
+    SourceTable,
 )
 
 if TYPE_CHECKING:
@@ -388,4 +389,4 @@ class SendAs(SnapshotTable):
             }
 
 
-TABLES: tuple[type, ...] = (Messages, Labels, Profile, Filters, Vacation, SendAs)
+TABLES: tuple[type[SourceTable], ...] = (Messages, Labels, Profile, Filters, Vacation, SendAs)

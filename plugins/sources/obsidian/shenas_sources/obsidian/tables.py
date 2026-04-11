@@ -19,6 +19,7 @@ from shenas_plugins.core.table import Field
 from shenas_sources.core.table import (
     AggregateTable,
     EventTable,
+    SourceTable,
 )
 
 if TYPE_CHECKING:
@@ -209,4 +210,4 @@ class Habits(EventTable):
             yield from cls._extract_habits(text, date, heading)
 
 
-TABLES: tuple[type, ...] = (DailyNotes, Habits)
+TABLES: tuple[type[SourceTable], ...] = (DailyNotes, Habits)

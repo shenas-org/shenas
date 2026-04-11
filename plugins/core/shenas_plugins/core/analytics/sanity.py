@@ -17,8 +17,7 @@ import math
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from shenas_plugins.core.analytics.runner import Result
-
+    from shenas_plugins.core.analytics.runner import _ResultBase
 
 _MIN_ROWS_FOR_CORRELATION = 10
 _MIN_ROWS_FOR_TREND = 5
@@ -28,7 +27,7 @@ def _is_numeric(value: object) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def _check_scalar(result: Result) -> list[str]:
+def _check_scalar(result: _ResultBase) -> list[str]:
     warnings: list[str] = []
     value = getattr(result, "value", None)
     column = getattr(result, "column", "")
@@ -47,7 +46,7 @@ def _check_scalar(result: Result) -> list[str]:
     return warnings
 
 
-def _check_table(result: Result) -> list[str]:
+def _check_table(result: _ResultBase) -> list[str]:
     warnings: list[str] = []
     rows = list(getattr(result, "rows", []) or [])
     columns = list(getattr(result, "columns", []) or [])
@@ -78,7 +77,7 @@ SANITY_RULES = {
 }
 
 
-def sanity_check(result: Result) -> list[str]:
+def sanity_check(result: _ResultBase) -> list[str]:
     """Return human-readable sanity warnings for one Result.
 
     The list is empty when nothing trips. Caller is free to surface

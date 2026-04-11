@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 from shenas_plugins.core.table import Field
-from shenas_sources.core.table import AggregateTable, EventTable
+from shenas_sources.core.table import AggregateTable, EventTable, SourceTable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -155,4 +155,4 @@ class Servings(EventTable):
             yield row
 
 
-TABLES: tuple[type, ...] = (DailyNutrition, Servings)
+TABLES: tuple[type[SourceTable], ...] = (DailyNutrition, Servings)

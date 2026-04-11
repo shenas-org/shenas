@@ -21,7 +21,7 @@ class _FakeSource(Source):
     def build_client(self) -> Any:
         return None
 
-    def resources(self, _client: Any) -> list[Any]:
+    def resources(self, _client: Any) -> list[Any]:  # ty: ignore[invalid-method-override]
         return []
 
     def acquire_sync_lock(self) -> bool:

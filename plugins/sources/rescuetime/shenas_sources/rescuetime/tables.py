@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 from shenas_plugins.core.table import Field
-from shenas_sources.core.table import AggregateTable
+from shenas_sources.core.table import AggregateTable, SourceTable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -133,4 +133,4 @@ def _resolve_start(expr: str) -> str:
     return expr
 
 
-TABLES: tuple[type, ...] = (DailySummary, Activities)
+TABLES: tuple[type[SourceTable], ...] = (DailySummary, Activities)

@@ -21,7 +21,7 @@ jobs:
       - run: uv sync
       - run: moon run :python-lint
       - run: moon run :python-format-check
-      - run: moon run :python-typecheck
+      - run: moon run :python-type-check
 
   python-test:
     name: Python test
@@ -55,7 +55,7 @@ jobs:
           cache: npm
       - run: moon run :js-lint
       - run: moon run :js-format-check
-      - run: moon run :js-typecheck
+      - run: moon run :js-type-check
 
   js-test:
     name: JS test
@@ -123,7 +123,7 @@ jobs:
       - name: Run Python tests with coverage
         id: coverage
         run: |
-          moon run :python-coverage
+          make coverage
           TOTAL=$(python -c "import json; print(int(json.load(open('coverage.json'))['totals']['percent_covered']))")
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
       - name: Update Python coverage badge

@@ -351,4 +351,4 @@ class TestParamCoercion:
     def test_can_construct_lag_directly(self):
         # Sanity: the operation classes really do require tuple, not list
         with pytest.raises(TypeError):  # frozen dataclass with mutable default
-            hash(Lag(column="x", partition_by=[]))  # type: ignore[arg-type]
+            hash(Lag(column="x", partition_by=[]))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]

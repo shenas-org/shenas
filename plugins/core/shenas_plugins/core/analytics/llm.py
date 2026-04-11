@@ -40,6 +40,7 @@ import os
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
 if TYPE_CHECKING:
+    from shenas_plugins.core.analytics.mode import AnalysisMode
     from shenas_plugins.core.analytics.operations import Operation
 
 # ----------------------------------------------------------------------
@@ -252,7 +253,7 @@ def _operation_vocabulary() -> str:
     return "\n".join(out)
 
 
-def _research_context(findings: list[dict[str, Any]] | None) -> str:
+def _research_context(findings: list[str] | None) -> str:
     """Render literature findings as a system-prompt section."""
     if not findings:
         return ""
@@ -267,16 +268,26 @@ def _research_context(findings: list[dict[str, Any]] | None) -> str:
     return "\n".join(lines) + "\n"
 
 
-def build_system_prompt(*, findings: list[str] | None = None) -> str:
+def build_system_prompt(
+    mode: AnalysisMode | None = None,
+    *,
+    findings: list[str] | None = None,
+) -> str:
     """Static system prompt: vocabulary + recipe shape + guardrails.
 
     Parameters
     ----------
+    mode
+        If provided, delegates to ``mode.build_system_prompt()`` and
+        appends research context. Otherwise falls back to the default
+        vocabulary-based prompt.
     findings
         Pre-rendered finding lines (from ``Finding.to_prompt_line()``).
         Appended as a ``## Research context`` section so the LLM uses
         evidence-informed lags and effect directions.
     """
+    if mode is not None:
+        return mode.build_system_prompt() + _research_context(findings)
     return (
         "You are a data analyst translating natural-language questions about a "
         "personal-data warehouse into structured Recipe DAGs.\n\n"
@@ -287,7 +298,7 @@ def build_system_prompt(*, findings: list[str] | None = None) -> str:
         '- `{"type": "source", "table": "<schema>.<name>"}` for a raw input\n'
         '- `{"type": "op", "op_name": "<name>", "params": {...}, "inputs": [...]}` for an operation call\n'
         "The `inputs` array names other nodes by key. The `final` field names the node "
-        "whose result is the answer.\n" + _research_context(findings)  # ty: ignore[invalid-argument-type]
+        "whose result is the answer.\n" + _research_context(findings)
     )
 
 
@@ -326,6 +337,7 @@ def ask_for_recipe(
     question: str,
     catalog: dict[str, dict[str, Any]],
     *,
+    mode: AnalysisMode | None = None,
     findings: list[str] | None = None,
     relevant_findings: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -336,14 +348,17 @@ def ask_for_recipe(
 
     Parameters
     ----------
+    mode
+        If provided, uses the mode's system prompt and tool definition.
     findings
         All findings for the system prompt (broad context).
     relevant_findings
         Question-specific findings for the user prompt.
     """
-    system = build_system_prompt(findings=findings)
+    system = build_system_prompt(mode, findings=findings)
     user = build_user_prompt(question, catalog, relevant_findings=relevant_findings)
-    return provider.ask(system=system, user=user, tools=[submit_recipe_tool()])
+    tool = mode.submit_tool() if mode is not None else submit_recipe_tool()
+    return provider.ask(system=system, user=user, tools=[tool])
 
 
 def ask_for_recipe_with_retry(
@@ -351,6 +366,7 @@ def ask_for_recipe_with_retry(
     question: str,
     catalog: dict[str, dict[str, Any]],
     *,
+    mode: AnalysisMode | None = None,
     validate: Any = None,
     max_attempts: int = 2,
     findings: list[str] | None = None,
@@ -371,14 +387,16 @@ def ask_for_recipe_with_retry(
 
     Parameters
     ----------
+    mode
+        If provided, uses the mode's system prompt and tool definition.
     findings
         All findings for the system prompt (broad context).
     relevant_findings
         Question-specific findings for the user prompt.
     """
-    system = build_system_prompt(findings=findings)
+    system = build_system_prompt(mode, findings=findings)
     user = build_user_prompt(question, catalog, relevant_findings=relevant_findings)
-    tools = [submit_recipe_tool()]
+    tools = [mode.submit_tool() if mode is not None else submit_recipe_tool()]
 
     errors: list[str] = []
     payload: dict[str, Any] = {}

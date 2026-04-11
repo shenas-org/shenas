@@ -1,3 +1,5 @@
+import dataclasses
+
 import duckdb
 
 from shenas_datasets.finance import (
@@ -24,7 +26,7 @@ class TestMetrics:
             assert len(cls._Meta.pk) >= 2
 
     def test_transaction_fields(self) -> None:
-        field_names = [f.name for f in Transaction.__dataclass_fields__.values()]
+        field_names = [f.name for f in dataclasses.fields(Transaction)]
         assert "id" in field_names
         assert "amount" in field_names
         assert "payee" in field_names
@@ -32,13 +34,13 @@ class TestMetrics:
         assert "is_income" in field_names
 
     def test_daily_spending_fields(self) -> None:
-        field_names = [f.name for f in DailySpending.__dataclass_fields__.values()]
+        field_names = [f.name for f in dataclasses.fields(DailySpending)]
         assert "total_spent" in field_names
         assert "total_income" in field_names
         assert "transaction_count" in field_names
 
     def test_monthly_overview_fields(self) -> None:
-        field_names = [f.name for f in MonthlyOverview.__dataclass_fields__.values()]
+        field_names = [f.name for f in dataclasses.fields(MonthlyOverview)]
         assert "net" in field_names
         assert "savings_rate" in field_names
 
