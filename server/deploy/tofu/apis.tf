@@ -7,6 +7,7 @@ resource "google_project_service" "apis" {
     "sts.googleapis.com",
     "dns.googleapis.com",
     "sqladmin.googleapis.com",
+    "cloudbuild.googleapis.com",
     "servicenetworking.googleapis.com",
     "storage.googleapis.com",
   ])

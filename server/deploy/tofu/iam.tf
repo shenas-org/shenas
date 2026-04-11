@@ -10,6 +10,9 @@ resource "google_project_iam_member" "deploy_roles" {
     "roles/artifactregistry.writer",
     "roles/container.developer",
     "roles/iam.serviceAccountUser",
+    "roles/cloudbuild.builds.builder",
+    "roles/logging.viewer",
+    "roles/storage.objectViewer",
   ])
 
   project = var.project
@@ -19,7 +22,7 @@ resource "google_project_iam_member" "deploy_roles" {
 
 # Workload Identity Federation pool
 resource "google_iam_workload_identity_pool" "github" {
-  workload_identity_pool_id = "github-pool"
+  workload_identity_pool_id = "github-wif-pool"
   display_name              = "GitHub Actions"
 
   depends_on = [google_project_service.apis["iam.googleapis.com"]]

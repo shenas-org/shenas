@@ -47,8 +47,8 @@ discourse-shenas-theme/
 ```json
 {
   "name": "shenas",
-  "about_url": "https://github.com/afuncke/shenas",
-  "license_url": "https://github.com/afuncke/shenas/blob/main/LICENSE",
+  "about_url": "https://github.com/shenas-net/shenas",
+  "license_url": "https://github.com/shenas-net/shenas/blob/main/LICENSE",
   "component": false,
   "color_schemes": {
     "shenas (light)": {
