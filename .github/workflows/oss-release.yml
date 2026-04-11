@@ -40,8 +40,8 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --global user.name "Alexander Funcke"
-          git config --global user.email "funcke@shenas.net"
+          git config --global user.name "shenas"
+          git config --global user.email "noreply@shenas.net"
 
       - name: Prepare Copybara config
         env:
@@ -61,7 +61,7 @@ jobs:
             -e COPYBARA_OPTIONS="--init-history --force --work-dir /tmp/copybara" \
             -e COPYBARA_CONFIG="copy.bara.sky" \
             sharelatex/copybara:latest \
-            -c "cp -r /tmp/host-ssh /root/.ssh && chmod 700 /root/.ssh && chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key && sed -i 's|~/.ssh/|/root/.ssh/|g' /root/.ssh/config && git config --global user.name 'Alexander Funcke' && git config --global user.email 'funcke@shenas.net' && mkdir -p /tmp/copybara && copybara"
+            -c "cp -r /tmp/host-ssh /root/.ssh && chmod 700 /root/.ssh && chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key && sed -i 's|~/.ssh/|/root/.ssh/|g' /root/.ssh/config && git config --global user.name 'shenas' && git config --global user.email 'noreply@shenas.net' && mkdir -p /tmp/copybara && copybara"
 
       - name: Generate LLM summary and amend commit
         env:
@@ -71,8 +71,8 @@ jobs:
 
           git clone git@github.com-oss:shenas-org/shenas.git /tmp/oss-repo
           cd /tmp/oss-repo
-          git config user.name "Alexander Funcke"
-          git config user.email "funcke@shenas.net"
+          git config user.name "shenas"
+          git config user.email "noreply@shenas.net"
 
           SUMMARY=$(cat /tmp/release_summary.txt)
           git commit --amend -m "$SUMMARY" --no-edit 2>/dev/null || git commit --amend -m "$SUMMARY"
