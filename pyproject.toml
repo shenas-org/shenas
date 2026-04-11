@@ -128,7 +128,6 @@ dev = [
     "shenas-transformation-geofence",
     "shenas-transformation-geocode",
     "shenas-transformation-llm-categorize",
-    "shenas-app[local]",
     "shenas-transformation-reverse-geocode",
     "shenas-transformation-regex-extract",
     "shenas-transformation-dedup-merge",
