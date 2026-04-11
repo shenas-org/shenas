@@ -32,13 +32,6 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
-      - name: Install JS deps
-        run: |
-          npm ci --silent
-          for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
-            dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
-            [ -f "$dir/package.json" ] && (cd "$dir" && npm ci --silent)
-          done
       - run: moon run :lint
 
   test:
@@ -65,18 +58,11 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
-      - name: Install JS deps
-        run: |
-          npm ci --silent
-          for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
-            dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
-            [ -f "$dir/package.json" ] && (cd "$dir" && npm ci --silent)
-          done
       - name: Build default frontend (for integration tests)
         run: |
-          cd app/vendor && npm run build && cd "$GITHUB_WORKSPACE"
-          cd plugins/frontends/default && npm run build
-      - run: moon run --no-actions :test
+          cd app/vendor && npm ci --silent && npm run build && cd "$GITHUB_WORKSPACE"
+          cd plugins/frontends/default && npm ci --silent && npm run build
+      - run: moon run :test
 
   infra:
     name: Infra Validate
