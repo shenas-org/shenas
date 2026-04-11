@@ -32,7 +32,7 @@ jobs:
           enable-cache: true
       - run: uv sync
       - run: npm ci --silent
-      - run: moon run :lint
+      - run: moon run --no-actions :lint
 
   test:
     name: Test
@@ -62,7 +62,7 @@ jobs:
         run: |
           cd app/vendor && npm ci --silent && npm run build && cd "$GITHUB_WORKSPACE"
           cd plugins/frontends/default && npm ci --silent && npm run build
-      - run: moon run :test
+      - run: moon run --no-actions :test
 
   infra:
     name: Infra Validate
