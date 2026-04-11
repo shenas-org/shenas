@@ -16,7 +16,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - name: Install moon
-        run: curl -fsSL https://moonrepo.dev/install/moon.sh | bash && echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        run: |
+          sudo apt-get install -y -qq xz-utils >/dev/null 2>&1 || true
+          curl -fsSL https://moonrepo.dev/install/moon.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -27,8 +30,8 @@ jobs:
       - run: uv sync
       - run: moon run :lint
 
-  python-test:
-    name: Python test
+  test:
+    name: Test
     runs-on: gcp-runners
     steps:
       - uses: actions/checkout@v4
@@ -36,7 +39,10 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - name: Install moon
-        run: curl -fsSL https://moonrepo.dev/install/moon.sh | bash && echo "$HOME/.moon/bin" >> $GITHUB_PATH
+        run: |
+          sudo apt-get install -y -qq xz-utils >/dev/null 2>&1 || true
+          curl -fsSL https://moonrepo.dev/install/moon.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -48,36 +54,7 @@ jobs:
         run: |
           cd app/vendor && npm ci --silent && npm run build && cd "$GITHUB_WORKSPACE"
           cd plugins/frontends/default && npm ci --silent && npm run build
-      - run: moon run :python-test
-
-  js-test:
-    name: JS test
-    runs-on: gcp-runners
-    strategy:
-      fail-fast: false
-      matrix:
-        package:
-          - app/vendor
-          - plugins/dashboards/data-table
-          - plugins/dashboards/event-gantt
-          - plugins/dashboards/fitness
-          - plugins/frontends/default
-          - plugins/frontends/focus
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: ${{ matrix.package }}/package-lock.json
-      - run: npm ci --silent
-        working-directory: ${{ matrix.package }}
-      - name: Install vendor deps (for shenas-frontends alias)
-        if: startsWith(matrix.package, 'plugins/frontends/')
-        run: npm ci --silent
-        working-directory: app/vendor
-      - run: npm test
-        working-directory: ${{ matrix.package }}
+      - run: moon run :test
 
   infra:
     name: Infra Validate
@@ -95,7 +72,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: gcp-runners
-    needs: [lint, python-test, js-test]
+    needs: [lint, test]
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
