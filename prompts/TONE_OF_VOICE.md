@@ -18,6 +18,8 @@ How shenas talks to its users -- in the UI, docs, changelogs, error messages, an
 
 **Epistemically humble.** Present findings and correlations for what they are -- not conclusions. Avoid implying causation from observational data.
 
+**Respectful of agency.** People don't want to be told what to do by a computer. Every person is unique, every situation is unique, and preferences are deeply subjective. Present friendly suggestions with data and patterns -- never anything close to prescriptions. The goal is to support the user's own decisions, not to make decisions for them.
+
 ## In practice
 
 ### UI text
