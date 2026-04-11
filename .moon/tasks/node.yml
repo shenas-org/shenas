@@ -48,6 +48,16 @@ tasks:
     inputs:
       - '@group(sources)'
       - '@group(configs)'
+  lint:
+    script: 'echo "All lint checks passed."'
+    deps:
+      - '~:js-lint'
+      - '~:js-format-check'
+      - '~:js-type-check'
+  test:
+    script: 'echo "All tests passed."'
+    deps:
+      - '~:js-test'
   build:
     script: |
       cd $MOON_PROJECT_SOURCE

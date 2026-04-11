@@ -41,6 +41,16 @@ tasks:
       - '~:python-lint'
     options:
       runFromWorkspaceRoot: true
+  lint:
+    script: 'echo "All lint checks passed."'
+    deps:
+      - '~:python-lint'
+      - '~:python-format-check'
+      - '~:python-type-check'
+  test:
+    script: 'echo "All tests passed."'
+    deps:
+      - '~:python-test'
   build:
     script: |
       cd $MOON_PROJECT_SOURCE && uv build --out-dir $MOON_WORKSPACE_ROOT/packages/

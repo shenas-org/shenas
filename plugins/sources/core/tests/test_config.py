@@ -29,6 +29,7 @@ class SampleConfig(SingletonTable):
 def _mock_cursor():
     con = duckdb.connect(":memory:")
     con.execute("CREATE SCHEMA IF NOT EXISTS config")
+    SampleConfig.ensure(con, schema="config")
 
     @contextmanager
     def _fake_cursor(**_kwargs):
