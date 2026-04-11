@@ -37,6 +37,7 @@ jobs:
           key: moon-lint-${{ hashFiles('uv.lock', '**/package-lock.json') }}
           restore-keys: moon-lint-
       - run: uv sync
+      - run: npm ci --silent
       - run: moon run :lint ${{ github.event_name == 'pull_request' && '--affected' || '' }}
 
   test:
@@ -72,9 +73,7 @@ jobs:
           restore-keys: moon-test-
       - run: uv sync
       - name: Build default frontend (for integration tests)
-        run: |
-          cd app/vendor && npm ci --silent && npm run build && cd "$GITHUB_WORKSPACE"
-          cd plugins/frontends/default && npm ci --silent && npm run build
+        run: moon run vendor:build frontend-default:build
       - run: moon run :test ${{ github.event_name == 'pull_request' && '--affected' || '' }}
 
   infra:
@@ -84,6 +83,9 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - uses: opentofu/setup-opentofu@v1
       - name: Validate
         working-directory: server/deploy/tofu
