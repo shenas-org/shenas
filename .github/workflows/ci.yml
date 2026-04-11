@@ -110,9 +110,6 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - name: Install system tools
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq make python-is-python3 >/dev/null
       - run: uv sync
       - name: Build default frontend (for integration tests)
         run: |

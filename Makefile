@@ -1,4 +1,4 @@
-.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install coverage db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan hooks-setup lint infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish plugins-build postgres-dev pyinstaller shenas-net-release shenas-org-release test web-api-release website-dev
+.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install ci-runner-build coverage db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan hooks-setup lint infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish plugins-build postgres-dev pyinstaller shenas-net-release shenas-org-release test web-api-release website-dev
 
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
 NDK_VERSION = 27.2.12479018
@@ -90,6 +90,10 @@ app-dev:
 	while ! curl -s http://127.0.0.1:7280/api/health > /dev/null 2>&1; do sleep 0.2; done; \
 	cd plugins/frontends/default && npx vite & \
 	wait
+
+ci-runner-build:
+	gcloud builds submit --config server/deploy/docker/cloudbuild.yaml \
+		--substitutions=_TAG="us-east4-docker.pkg.dev/shenas-491609/shenas/ci-runner:latest",_TAG_LATEST="us-east4-docker.pkg.dev/shenas-491609/shenas/ci-runner:latest",_VERSION="latest",_DOCKERFILE="server/deploy/docker/Dockerfile.ci-runner" .
 
 app-install:
 	uv tool install --editable app/ --force
