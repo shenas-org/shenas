@@ -14,6 +14,7 @@ jobs:
     name: Detect changes and tag releases
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: gcp-runners
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
