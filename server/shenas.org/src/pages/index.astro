@@ -3,8 +3,8 @@ import Base from "../layouts/Base.astro";
 ---
 
 <Base
-  title="shenas community -- build plugins, share insights"
-  description="The open-source community hub for shenas. Write plugins, share dashboards, and help others understand their data."
+  title="shenas community -- write plugins, share what you build"
+  description="The open-source community hub for shenas. Write source plugins, build dashboards, and help others understand their data."
 >
   <!-- Nav -->
   <nav>
@@ -25,11 +25,11 @@ import Base from "../layouts/Base.astro";
   <!-- Hero -->
   <header class="hero">
     <div class="container">
-      <h1>Build something<br /><span class="accent">people can feel.</span></h1>
+      <h1>Write a plugin.<br /><span class="accent">Share what you build.</span></h1>
       <p class="hero-sub">
-        shenas is an open-source personal analytics platform. Source plugins
-        bring data in, transforms shape it, dashboards make it visible. Every
-        piece is a plugin you can write, share, and improve.
+        shenas is an open-source quantified-self platform. Source plugins
+        bring data in, transforms shape it, dashboards make it visible.
+        Every piece is a plugin you can write, share, and improve.
       </p>
       <div class="hero-actions">
         <a href="#source-plugin" class="btn btn-primary">Write your first plugin</a>
@@ -45,8 +45,8 @@ import Base from "../layouts/Base.astro";
       <p>
         shenas connects to the services people already use -- Garmin, Strava,
         Spotify, Lunch Money, Google Calendar -- and syncs the data into a
-        local encrypted database. Transforms normalize it into canonical
-        metrics. Dashboards visualize it. The LLM coach asks questions of it.
+        local database. Transforms normalize it into canonical metrics.
+        Dashboards visualize it.
       </p>
       <p>
         Everything is a plugin. If there's a data source you care about,
@@ -57,7 +57,7 @@ import Base from "../layouts/Base.astro";
         <div class="card">
           <h3>Source plugins</h3>
           <p>Connect a new API or local file to shenas. dlt handles the pipeline; you define the tables.</p>
-          <a href="#source-plugin">Write one in 30 minutes &rarr;</a>
+          <a href="#source-plugin">Write one &rarr;</a>
         </div>
         <div class="card">
           <h3>Transform plugins</h3>
@@ -81,11 +81,11 @@ import Base from "../layouts/Base.astro";
   <!-- Source plugin tutorial -->
   <section id="source-plugin" class="section section-alt">
     <div class="container">
-      <h2>Write a source plugin in 30 minutes</h2>
+      <h2>Write a source plugin</h2>
       <p class="section-intro">
         A source plugin is a Python package that defines tables as dataclasses
-        and extracts data from an API. dlt handles incremental loading,
-        schema migration, and encryption. You focus on the API.
+        and extracts data from an API. dlt handles incremental loading and
+        schema management. You focus on the API.
       </p>
 
       <div class="step">
@@ -157,7 +157,7 @@ class MyApiSource(Source):
           <h3>Install and sync</h3>
           <pre><code>uv sync  # installs your plugin as a workspace member
 shenasctl source myapi sync</code></pre>
-          <p>Your data is now in a local encrypted DuckDB, queryable from dashboards and the LLM coach.</p>
+          <p>Your data is now in a local DuckDB database, queryable from dashboards and transforms.</p>
         </div>
       </div>
     </div>
@@ -168,18 +168,18 @@ shenasctl source myapi sync</code></pre>
     <div class="container">
       <h2>Other plugin types</h2>
       <p class="section-intro">
-        Sources are the most common, but shenas has six plugin kinds.
+        Sources are the most common, but shenas has several plugin kinds.
         Each follows the same pattern: a Python package with an entry point.
       </p>
 
       <div class="plugin-table">
         <div class="plugin-row">
           <strong>Dataset</strong>
-          <span>Define canonical metric schemas (daily_hrv, transactions, events). Transforms write into these.</span>
+          <span>Define canonical metric tables (daily HRV, transactions, events). Transforms write into these.</span>
         </div>
         <div class="plugin-row">
           <strong>Transform</strong>
-          <span>SQL, geofence, geocode, regex extract, LLM categorize. Write your own by subclassing Transform.</span>
+          <span>SQL, geofence, geocode, regex extract, LLM categorize -- or write your own transform type.</span>
         </div>
         <div class="plugin-row">
           <strong>Dashboard</strong>
@@ -187,15 +187,15 @@ shenasctl source myapi sync</code></pre>
         </div>
         <div class="plugin-row">
           <strong>Frontend</strong>
-          <span>The entire UI shell is a plugin. Write your own minimal frontend or extend the default.</span>
+          <span>The UI shell itself is a plugin. Write your own or extend the default.</span>
         </div>
         <div class="plugin-row">
           <strong>Theme</strong>
-          <span>CSS custom properties that pierce Shadow DOM. Ship a .css file and a Python class.</span>
+          <span>CSS custom properties that style everything at once. Ship a .css file and a Python class.</span>
         </div>
         <div class="plugin-row">
           <strong>Analysis</strong>
-          <span>LLM-driven hypothesis modes. Define a system prompt, operation vocabulary, and recipe strategy.</span>
+          <span>Hypothesis-driven analysis modes. Define an operation vocabulary and recipe strategy.</span>
         </div>
       </div>
     </div>

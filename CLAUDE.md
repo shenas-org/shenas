@@ -6,6 +6,8 @@ Don't ask about doing 'cat', 'find', 'diff' or similar. Do not use emojis in cod
 
 When refactoring, unless told specifically so, don't bother with backward compatability.
 
+Prefer object-oriented code when idiomatic -- classes with methods over loose functions and dicts.
+
 ## Guiding documents
 
 The `prompts/` folder contains documents that guide Claude, MCPs, and other LLMs when generating user-facing content:

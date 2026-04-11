@@ -4,7 +4,7 @@ resource "github_organization_settings" "shenas_org" {
   provider      = github.shenas_org
   billing_email = var.billing_email
   blog          = "https://shenas.net"
-  description   = "Personal analytics platform"
+  description   = "Local-first quantified-self platform"
 }
 
 resource "github_organization_settings" "shenas_net" {

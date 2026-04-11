@@ -3,8 +3,8 @@ import Base from "../layouts/Base.astro";
 ---
 
 <Base
-  title="shenas -- helping you track everything, so you can stop thinking about everything"
-  description="Local-first edge intelligence that turns your health, finance, and lifestyle data into fulfillment -- without it ever leaving your device."
+  title="shenas -- your data, your device, your insights"
+  description="A local-first quantified-self platform. Collects health, finance, and lifestyle data from the services you already use, normalizes it, and visualizes it -- without it ever leaving your device."
 >
   <!-- Nav -->
   <nav>
@@ -32,15 +32,14 @@ import Base from "../layouts/Base.astro";
     <div class="container">
       <img src="/logo.svg" alt="shenas" class="hero-logo" />
       <h1>
-        Helping you track everything,<br />
-        so you can stop<br />
-        <span class="gradient-text">thinking about everything.</span>
+        Your data, your device,<br />
+        <span class="gradient-text">your insights.</span>
       </h1>
       <p class="hero-sub">
-        Google and Meta use your data to predict what you'll buy.
-        We help you use your data to predict what will make you happy.
-        The brain lives on your device, not our server.
-        Your data stays home -- only the wisdom travels.
+        shenas collects health, finance, and lifestyle data from the
+        services you already use, normalizes it into a unified picture,
+        and helps you notice patterns. Everything runs locally --
+        your raw data never leaves your machine.
       </p>
       <div class="hero-actions">
         <a href="#start" class="btn btn-primary">Get started</a>
@@ -53,12 +52,11 @@ import Base from "../layouts/Base.astro";
   <section id="pipeline" class="section">
     <div class="container">
       <div class="section-header">
-        <h2>From your data to real fulfillment</h2>
+        <h2>How it works</h2>
         <p>
-          Pipes sync data from your services, transforms normalize it into
-          canonical schemas, and local-first AI finds patterns -- all without
-          a single byte leaving your device. Like a coach who gives you the
-          perfect plan without ever needing to see you undressed.
+          Sources sync data from your services, transforms normalize it
+          into canonical schemas, and on-device models find patterns --
+          all without a single byte leaving your machine.
         </p>
       </div>
       <shenas-data-flow></shenas-data-flow>
@@ -69,43 +67,41 @@ import Base from "../layouts/Base.astro";
   <section id="features" class="section">
     <div class="container">
       <div class="section-header">
-        <h2>Edge intelligence for the rest of your life</h2>
+        <h2>Built around what matters</h2>
         <p>
-          Not productivity. Fulfillment. Every feature is designed to help
-          you understand yourself better -- not optimize yourself into a
-          spreadsheet.
+          Every feature is designed to help you understand yourself
+          better -- on your terms, at your own pace.
         </p>
       </div>
       <div class="features-grid">
-        <shenas-feature-card icon="AI" heading="Local-first AI">
-          The brain lives on your device. Federated learning trains models
-          across devices without centralizing data -- only gradients travel,
-          your raw records never leave your machine.
+        <shenas-feature-card icon="AI" heading="Local-first models">
+          Federated learning trains models across devices without
+          centralizing data -- only gradients travel, your raw records
+          never leave your machine.
         </shenas-feature-card>
         <shenas-feature-card icon="DB" heading="Your data stays home">
           All data lives in a local DuckDB database. No cloud accounts, no
           third-party sync. Back it up, move it, delete it -- it is a single
           file you own completely.
         </shenas-feature-card>
-        <shenas-feature-card icon="OK" heading="Verified and trusted">
-          Every extension is cryptographically signed before it reaches your
-          system. You always know exactly what's running and where it came
-          from. Trust by design, not by promise.
+        <shenas-feature-card icon="OK" heading="Signed plugins">
+          Every plugin is cryptographically signed before it reaches your
+          system. You always know exactly what is running and where it
+          came from.
         </shenas-feature-card>
-        <shenas-feature-card icon="ZZ" heading="Set it and forget it">
-          After the initial setup, data flows automatically on your schedule.
-          No manual exports, no spreadsheets, no remembering to sync.
-          It tracks everything so you don't have to think about it.
+        <shenas-feature-card icon="ZZ" heading="Automatic syncing">
+          After the initial setup, data syncs automatically on your
+          schedule. No manual exports, no spreadsheets, no remembering
+          to check.
         </shenas-feature-card>
-        <shenas-feature-card icon="EQ" heading="One truth from many sources">
-          Sleep from your watch meets mood from your journal meets spending
-          from your bank. Every source feeds into a unified picture so you
-          can see connections you'd never spot alone.
+        <shenas-feature-card icon="EQ" heading="One picture from many sources">
+          Sleep from your watch, mood from your journal, spending from
+          your bank -- every source feeds into a unified view so you
+          can see connections across different parts of your life.
         </shenas-feature-card>
-        <shenas-feature-card icon="YU" heading="Made for you, by you">
-          Swap dashboards, add views, shape the experience. Your view of
-          your life should look exactly like you want it to -- not like
-          someone else's template.
+        <shenas-feature-card icon="YU" heading="Yours to shape">
+          Swap dashboards, add new ones, change the theme. The interface
+          adapts to what you care about, not the other way around.
         </shenas-feature-card>
       </div>
     </div>
@@ -118,8 +114,8 @@ import Base from "../layouts/Base.astro";
         <h2>Connect what matters to you</h2>
         <p>
           Your health tracker, your bank, your journal, your calendar -- they
-          all know a piece of you. Shenas brings the pieces together on your
-          device so you can see the whole picture.
+          all hold a piece of the picture. shenas brings them together on
+          your device so you can see it whole.
         </p>
       </div>
       <div class="sources-grid">
@@ -129,11 +125,11 @@ import Base from "../layouts/Base.astro";
         </div>
         <div class="source-card">
           <div class="source-name">Spotify</div>
-          <div class="source-desc">Listening history, PKCE OAuth, extended history import</div>
+          <div class="source-desc">Listening history, top tracks, saved albums, playlists</div>
         </div>
         <div class="source-card">
           <div class="source-name">Gmail</div>
-          <div class="source-desc">Email metadata and threads via OAuth2</div>
+          <div class="source-desc">Messages, labels, filters, threads</div>
         </div>
         <div class="source-card">
           <div class="source-name">Google Calendar</div>
@@ -153,11 +149,11 @@ import Base from "../layouts/Base.astro";
         </div>
         <div class="source-card">
           <div class="source-name">Google Takeout</div>
-          <div class="source-desc">Bulk import from Google data exports</div>
+          <div class="source-desc">Photos, location history, YouTube from data exports</div>
         </div>
         <div class="source-card source-card-add">
           <div class="source-name">Your source</div>
-          <div class="source-desc">Write a pipe, publish a wheel, <a href="https://shenas.discourse.group/">share with the community</a></div>
+          <div class="source-desc">Write a plugin for any service you use. <a href="https://shenas.org/">Learn how</a></div>
         </div>
       </div>
     </div>
@@ -225,15 +221,15 @@ shenas`}
         </div>
         <div class="arch-card">
           <h3>Plugin repository</h3>
-          <p>Your own signed package server. Install trusted extensions with a single command.</p>
+          <p>A signed package server. Install trusted plugins with a single command.</p>
         </div>
         <div class="arch-card">
-          <h3>Edge intelligence</h3>
-          <p>Collaborative AI that learns across devices without sharing raw data. The wisdom travels, the data stays.</p>
+          <h3>Federated learning</h3>
+          <p>Models train on-device and share only gradients. Each device benefits from patterns found across many, without sharing raw data.</p>
         </div>
         <div class="arch-card">
-          <h3>Desktop + Mobile</h3>
-          <p>Native apps for Linux, macOS, Windows, and Android. Your data and your dashboard, wherever you are.</p>
+          <h3>Desktop + mobile</h3>
+          <p>Native apps for Linux, macOS, Windows, and Android. Same interface, same data, wherever you are.</p>
         </div>
       </div>
     </div>

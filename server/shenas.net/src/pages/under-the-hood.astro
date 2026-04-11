@@ -42,11 +42,11 @@ import Base from "../layouts/Base.astro";
   <section id="federated" class="section">
     <div class="container">
       <div class="section-header">
-        <h2>Wise together, private always</h2>
+        <h2>Federated learning</h2>
         <p>
           Federated learning lets your devices learn from each other
-          without ever sharing your raw data. The wisdom travels.
-          Your records stay home.
+          without sharing raw data. Only model gradients travel between
+          devices -- your records stay on your machine.
         </p>
       </div>
 
@@ -157,7 +157,7 @@ import Base from "../layouts/Base.astro";
         <div class="explainer-text">
           <h3>Append-only sync log</h3>
           <p>
-            Every data mutation -- a pipe sync, a transform run -- appends
+            Every data mutation -- a source sync, a transform run -- appends
             an immutable event to a local log. Each event carries the
             originating device ID, the affected table, and a timestamp.
             When two devices connect, they compare cursors: "I last saw
@@ -285,9 +285,9 @@ import Base from "../layouts/Base.astro";
       <div class="section-header">
         <h2>Everything is a plugin</h2>
         <p>
-          Pipes, schemas, components, themes, and UIs are all independent
-          Python packages. You install only what you need, and nothing runs
-          unless you put it there.
+          Sources, datasets, dashboards, themes, and frontends are all
+          independent Python packages. You install only what you need,
+          and nothing runs unless you put it there.
         </p>
       </div>
 
@@ -307,24 +307,24 @@ import Base from "../layouts/Base.astro";
           </p>
           <div class="kind-grid">
             <div class="kind-card">
-              <span class="kind-label">Pipe</span>
+              <span class="kind-label">Source</span>
               <span class="kind-desc">Connects to an external service and syncs data into your local database</span>
             </div>
             <div class="kind-card">
-              <span class="kind-label">Schema</span>
-              <span class="kind-desc">Defines canonical tables as Python dataclasses -- DDL is generated, never hand-written</span>
+              <span class="kind-label">Dataset</span>
+              <span class="kind-desc">Defines canonical metric tables as Python dataclasses -- DDL is generated, never hand-written</span>
             </div>
             <div class="kind-card">
-              <span class="kind-label">Component</span>
-              <span class="kind-desc">A Lit web component that renders a dashboard widget or visualization</span>
+              <span class="kind-label">Dashboard</span>
+              <span class="kind-desc">A Lit web component that renders a chart, table, or visualization</span>
             </div>
             <div class="kind-card">
               <span class="kind-label">Theme</span>
               <span class="kind-desc">CSS custom properties that style everything at once -- only one active at a time</span>
             </div>
             <div class="kind-card">
-              <span class="kind-label">UI</span>
-              <span class="kind-desc">The frontend shell itself -- tabs, command palette, navigation</span>
+              <span class="kind-label">Frontend</span>
+              <span class="kind-desc">The UI shell itself -- tabs, command palette, navigation</span>
             </div>
           </div>
         </div>
@@ -335,10 +335,9 @@ import Base from "../layouts/Base.astro";
           <h3>Signed and verified</h3>
           <p>
             Every plugin is distributed as a standard Python wheel served
-            from a PEP 503 package repository that you host yourself.
-            Before a wheel reaches that repository, it is signed with an
-            Ed25519 key. When you run
-            <code>shenasctl pipe add garmin</code>, the CLI downloads the
+            from a PEP 503 package repository. Before a wheel reaches
+            that repository, it is signed with an Ed25519 key. When you
+            run <code>shenasctl source add garmin</code>, the CLI downloads the
             wheel <em>and</em> its <code>.whl.sig</code> signature file,
             verifies the signature against the known public key, and only
             then installs it. If the signature does not match, nothing gets
@@ -355,14 +354,14 @@ import Base from "../layouts/Base.astro";
         <div class="explainer-text">
           <h3>Write your own</h3>
           <p>
-            A pipe is a Python class with two methods:
+            A source is a Python class with two methods:
             <code>build_client()</code> to create an API client from stored
             credentials, and <code>resources()</code> to return
             <a href="https://dlthub.com">dlt</a> resource objects that
             know how to fetch and yield data. Add a
             <code>pyproject.toml</code> with a hatchling build backend,
             declare your entry point, and
-            <code>shenasctl pipe add your-pipe</code> just works.
+            <code>shenasctl source add your-source</code> picks it up.
           </p>
         </div>
       </div>

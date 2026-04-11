@@ -1,7 +1,7 @@
 [project]
 name = "shenas-workspace"
 version = "0.0.0"
-description = "Shenas metrics platform workspace"
+description = "Local-first quantified-self platform"
 requires-python = ">=3.11"
 dependencies = [
     "strawberry-graphql[fastapi]>=0.312.3",
