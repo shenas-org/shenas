@@ -16,3 +16,5 @@ tasks:
       - 'src/**/*'
       - 'package.json'
       - 'vite.config.js'
+    deps:
+      - '~:npm-install'
