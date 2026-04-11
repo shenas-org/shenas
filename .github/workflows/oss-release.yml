@@ -77,3 +77,22 @@ jobs:
           SUMMARY=$(cat /tmp/release_summary.txt)
           git commit --amend -m "$SUMMARY" --no-edit 2>/dev/null || git commit --amend -m "$SUMMARY"
           git push --force-with-lease
+
+      - name: Sync version tags to OSS repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OSS_HEAD=$(cd /tmp/oss-repo && git rev-parse HEAD)
+
+          # Collect all version tags from the private repo, skip server-only prefixes.
+          git tag -l 'source-*/v*' 'dataset-*/v*' 'schema-*/v*' 'dashboard-*/v*' \
+                     'plugin-core/v*' 'frontend-*/v*' 'theme-*/v*' | while read -r TAG; do
+            # Check if the tag already exists on OSS
+            if cd /tmp/oss-repo && git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+              continue
+            fi
+            echo "Creating tag $TAG on shenas-org/shenas"
+            cd /tmp/oss-repo && git tag "$TAG" "$OSS_HEAD"
+          done
+
+          cd /tmp/oss-repo && git push --tags 2>/dev/null || true
