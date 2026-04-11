@@ -33,7 +33,7 @@ class TestServerCli:
         with patch("app.cli.uvicorn.run") as run:
             result = runner.invoke(
                 cli_app,
-                ["--no-tls", "--host", "127.0.0.1", "--port", "9999", "--ui", "default"],
+                ["--no-tls", "--host", "127.0.0.1", "--port", "9999", "--frontend", "default"],
                 catch_exceptions=False,
             )
         assert result.exit_code == 0, result.output

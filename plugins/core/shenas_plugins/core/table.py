@@ -45,15 +45,16 @@ Example (dataset side)
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import types
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self, get_args, get_origin, get_type_hints
 
+import duckdb
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-    import duckdb
 
 
 @dataclass(frozen=True)
@@ -370,7 +371,8 @@ class Table:
         for f in dataclasses.fields(cls):
             if f.name not in existing:
                 col_type = cls._duckdb_type(hints[f.name])
-                con.execute(f'ALTER TABLE "{schema}"."{cls._Meta.name}" ADD COLUMN "{f.name}" {col_type}')
+                with contextlib.suppress(duckdb.CatalogException):
+                    con.execute(f'ALTER TABLE "{schema}"."{cls._Meta.name}" ADD COLUMN "{f.name}" {col_type}')
 
     @classmethod
     def _resolve_schema(cls, schema: str | None) -> str:
