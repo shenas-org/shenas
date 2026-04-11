@@ -57,6 +57,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
+      - run: npm ci --silent
       - name: Build default frontend (for integration tests)
         run: |
           cd app/vendor && npm ci --silent && npm run build && cd "$GITHUB_WORKSPACE"
