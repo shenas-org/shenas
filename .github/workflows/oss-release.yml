@@ -17,7 +17,7 @@ on:
 jobs:
   copybara:
     name: Sync to shenas-org/shenas
-    runs-on: gcp-runners
+    runs-on: ubuntu-latest
     container:
       image: sharelatex/copybara:latest
     steps:
@@ -30,7 +30,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.OSS_DEPLOY_KEY }}" > ~/.ssh/oss_deploy_key
           chmod 600 ~/.ssh/oss_deploy_key
-          cat >> ~/.ssh/config <<EOF
+          cat >> ~/.ssh/config <<'EOF'
           Host github.com-oss
             HostName github.com
             User git
