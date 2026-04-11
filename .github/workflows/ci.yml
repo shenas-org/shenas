@@ -17,8 +17,11 @@ jobs:
           fetch-tags: true
       - name: Install moon
         run: |
-          sudo apt-get install -y -qq xz-utils >/dev/null 2>&1 || true
-          curl -fsSL https://moonrepo.dev/install/moon.sh | bash
+          curl -fsSL -o /tmp/moon.tar.xz https://github.com/moonrepo/moon/releases/latest/download/moon_cli-x86_64-unknown-linux-gnu.tar.xz
+          python3 -c "import tarfile; tarfile.open('/tmp/moon.tar.xz').extractall('/tmp/moon-extract', filter='data')"
+          mkdir -p "$HOME/.moon/bin"
+          mv /tmp/moon-extract/moon_cli-*/moon "$HOME/.moon/bin/"
+          rm -rf /tmp/moon.tar.xz /tmp/moon-extract
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
       - uses: actions/setup-node@v4
         with:
@@ -40,8 +43,11 @@ jobs:
           fetch-tags: true
       - name: Install moon
         run: |
-          sudo apt-get install -y -qq xz-utils >/dev/null 2>&1 || true
-          curl -fsSL https://moonrepo.dev/install/moon.sh | bash
+          curl -fsSL -o /tmp/moon.tar.xz https://github.com/moonrepo/moon/releases/latest/download/moon_cli-x86_64-unknown-linux-gnu.tar.xz
+          python3 -c "import tarfile; tarfile.open('/tmp/moon.tar.xz').extractall('/tmp/moon-extract', filter='data')"
+          mkdir -p "$HOME/.moon/bin"
+          mv /tmp/moon-extract/moon_cli-*/moon "$HOME/.moon/bin/"
+          rm -rf /tmp/moon.tar.xz /tmp/moon-extract
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
       - uses: actions/setup-node@v4
         with:
