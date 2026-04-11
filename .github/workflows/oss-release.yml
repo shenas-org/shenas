@@ -29,12 +29,14 @@ jobs:
           ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
           echo "${{ secrets.OSS_DEPLOY_KEY }}" > ~/.ssh/oss_deploy_key
           chmod 600 ~/.ssh/oss_deploy_key
-          cat >> ~/.ssh/config <<'EOF'
+          cat > ~/.ssh/config <<'EOF'
           Host github.com-oss
             HostName github.com
             User git
-            IdentityFile ~/.ssh/oss_deploy_key
+            IdentityFile /root/.ssh/oss_deploy_key
+            StrictHostKeyChecking no
           EOF
+          chmod 600 ~/.ssh/config
 
       - name: Configure Git
         run: |
@@ -58,11 +60,16 @@ jobs:
           fi
 
           docker run --rm \
-            -v "$HOME/.ssh:/root/.ssh:ro" \
+            -v "$HOME/.ssh:/tmp/host-ssh:ro" \
             -v "$GITHUB_WORKSPACE:/workspace" \
             -w /workspace \
             sharelatex/copybara:latest \
-            copybara copy.bara.sky --work-dir /tmp/copybara $EXTRA_FLAGS
+            bash -c "
+              cp -r /tmp/host-ssh /root/.ssh && \
+              chmod 700 /root/.ssh && \
+              chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key && \
+              copybara copy.bara.sky --work-dir /tmp/copybara $EXTRA_FLAGS
+            "
 
       - name: Generate LLM summary and amend commit
         env:

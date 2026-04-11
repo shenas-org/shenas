@@ -57,7 +57,7 @@ def _make_finding(**overrides):
         "population": "healthy_adults",
         "mechanism": "Deep sleep promotes parasympathetic recovery",
         "citation": "Smith et al., 2023, Sleep Medicine Reviews",
-        "source_api": "curated",
+        "source_kind": "curated",
         "exposure_categories": "sleep",
         "outcome_categories": "cardiovascular",
     }
@@ -123,15 +123,15 @@ def test_for_categories_empty():
     assert Finding.for_categories() == []
 
 
-def test_by_openalex_id():
+def test_by_source_ref():
     from app.literature import Finding
 
-    _make_finding(openalex_id="W12345").insert()
-    found = Finding.by_openalex_id("W12345")
+    _make_finding(source_ref="W12345").insert()
+    found = Finding.by_source_ref("W12345")
     assert found is not None
-    assert found.openalex_id == "W12345"
+    assert found.source_ref == "W12345"
 
-    assert Finding.by_openalex_id("W99999") is None
+    assert Finding.by_source_ref("W99999") is None
 
 
 def test_to_prompt_line():

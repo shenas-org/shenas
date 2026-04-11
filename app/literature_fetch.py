@@ -1,54 +1,47 @@
-"""Fetch and extract research findings from free academic APIs.
+"""Fetch and extract research findings via the shenas.net API gateway.
 
-Two data sources:
+The local app never calls academic paper APIs directly. Instead it
+sends category pairs to the ``/api/literature/refresh`` endpoint on
+shenas.net, which searches multiple academic databases, extracts
+structured findings via the LLM, and returns them as JSON. The local
+app stores the findings in its encrypted DuckDB.
 
-1. **OpenAlex** (primary) -- free, no API key required. Structured
-   concept taxonomy, citation counts, abstracts. Covers PubMed +
-   social science + psychology.
-
-2. **Semantic Scholar** (secondary) -- free tier, TLDR summaries,
-   citation graph traversal.
-
-The extraction pipeline:
-
-1. For each pair of Field categories present in the user's installed
-   datasets, construct a search query and fetch top-cited papers.
-2. Send each paper's abstract to the LLM to extract a structured
-   Finding (exposure, outcome, direction, effect size, temporal lag).
-3. Store in ``shenas_system.literature_findings`` (dedup by openalex_id).
+For users with a local Anthropic API key (no shenas.net account), the
+LLM extraction can also run locally against papers returned by the
+gateway's ``/api/literature/papers`` endpoint.
 
 Privacy: only published paper abstracts go to the LLM. No personal data.
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+import urllib.error
+import urllib.request
 from typing import Any, Literal
 
-import httpx
 from pydantic import BaseModel
 
 log = logging.getLogger(__name__)
 
+SHENAS_NET_URL = os.environ.get("SHENAS_NET_URL", "https://shenas.net")
 
-class OpenAlexPaper(BaseModel):
-    openalex_id: str = ""
+
+class Paper(BaseModel):
+    """Unified academic paper returned by the API gateway.
+
+    Merges results from multiple academic databases into a single model.
+    The ``source_ref`` is an opaque identifier used for deduplication.
+    """
+
+    source_ref: str = ""
     title: str = ""
     abstract: str = ""
     doi: str = ""
     citation_count: int = 0
     publication_year: int | None = None
-    type: str = ""
-
-
-class SemanticScholarPaper(BaseModel):
-    paper_id: str = ""
-    title: str = ""
-    abstract: str = ""
-    tldr: str = ""
-    doi: str = ""
-    citation_count: int = 0
-    year: int | None = None
 
 
 class ExtractedFinding(BaseModel):
@@ -99,119 +92,6 @@ CATEGORY_SEARCH_TERMS: dict[str, list[str]] = {
     "health": ["health behavior", "chronic pain", "inflammation", "skin condition"],
     "time": [],  # skip -- too generic
 }
-
-
-# ------------------------------------------------------------------
-# OpenAlex client
-# ------------------------------------------------------------------
-
-OPENALEX_BASE = "https://api.openalex.org"
-OPENALEX_MAILTO = "shenas@example.com"  # polite pool identifier
-
-
-def search_openalex(
-    query: str,
-    *,
-    min_citations: int = 50,
-    per_page: int = 10,
-    filter_type: str | None = "review",
-) -> list[OpenAlexPaper]:
-    """Search OpenAlex for papers matching a query."""
-    params: dict[str, Any] = {
-        "search": query,
-        "per_page": per_page,
-        "sort": "cited_by_count:desc",
-        "mailto": OPENALEX_MAILTO,
-    }
-    filters = [f"cited_by_count:>{min_citations}"]
-    if filter_type:
-        filters.append(f"type:{filter_type}")
-    params["filter"] = ",".join(filters)
-
-    try:
-        resp = httpx.get(f"{OPENALEX_BASE}/works", params=params, timeout=15)
-        resp.raise_for_status()
-    except httpx.HTTPError:
-        log.warning("OpenAlex search failed for query: %s", query, exc_info=True)
-        return []
-
-    results: list[OpenAlexPaper] = []
-    for work in resp.json().get("results", []):
-        abstract = _reconstruct_abstract(work.get("abstract_inverted_index"))
-        if not abstract:
-            continue
-        results.append(
-            OpenAlexPaper(
-                openalex_id=work.get("id", ""),
-                title=work.get("title", ""),
-                abstract=abstract,
-                doi=work.get("doi", ""),
-                citation_count=work.get("cited_by_count", 0),
-                publication_year=work.get("publication_year"),
-                type=work.get("type", ""),
-            )
-        )
-    return results
-
-
-def _reconstruct_abstract(inverted_index: dict[str, list[int]] | None) -> str:
-    """Reconstruct abstract text from OpenAlex's inverted index format."""
-    if not inverted_index:
-        return ""
-    word_positions: list[tuple[int, str]] = [(pos, word) for word, positions in inverted_index.items() for pos in positions]
-    word_positions.sort()
-    return " ".join(word for _, word in word_positions)
-
-
-# ------------------------------------------------------------------
-# Semantic Scholar client
-# ------------------------------------------------------------------
-
-SEMSCHOLAR_BASE = "https://api.semanticscholar.org/graph/v1"
-
-
-def search_semantic_scholar(
-    query: str,
-    *,
-    limit: int = 10,
-    min_citations: int = 50,
-) -> list[SemanticScholarPaper]:
-    """Search Semantic Scholar for papers matching a query."""
-    params: dict[str, str | int] = {
-        "query": query,
-        "limit": limit,
-        "fields": "title,abstract,tldr,externalIds,citationCount,year",
-        "minCitationCount": min_citations,
-    }
-
-    try:
-        resp = httpx.get(f"{SEMSCHOLAR_BASE}/paper/search", params=params, timeout=15)
-        resp.raise_for_status()
-    except httpx.HTTPError:
-        log.warning("Semantic Scholar search failed for query: %s", query, exc_info=True)
-        return []
-
-    results: list[SemanticScholarPaper] = []
-    for paper in resp.json().get("data", []):
-        abstract = paper.get("abstract") or ""
-        tldr = paper.get("tldr", {})
-        tldr_text = tldr.get("text", "") if isinstance(tldr, dict) else ""
-        text = abstract or tldr_text
-        if not text:
-            continue
-        external = paper.get("externalIds") or {}
-        results.append(
-            SemanticScholarPaper(
-                paper_id=paper.get("paperId", ""),
-                title=paper.get("title", ""),
-                abstract=text,
-                tldr=tldr_text,
-                doi=external.get("DOI", ""),
-                citation_count=paper.get("citationCount", 0),
-                year=paper.get("year"),
-            )
-        )
-    return results
 
 
 # ------------------------------------------------------------------
@@ -302,72 +182,101 @@ def build_search_query(cat_a: str, cat_b: str) -> str:
 
 
 # ------------------------------------------------------------------
-# Refresh: end-to-end pipeline
+# Gateway client
 # ------------------------------------------------------------------
+
+
+def _get_remote_token() -> str | None:
+    """Return the current user's remote_token, or None."""
+    try:
+        from app.db import current_user_id, cursor
+
+        uid = current_user_id.get()
+        if not uid:
+            return None
+        with cursor(database="shenas") as cur:
+            row = cur.execute(
+                "SELECT remote_token FROM shenas_system.local_users WHERE id = ?",
+                [uid],
+            ).fetchone()
+            return row[0] if row and row[0] else None
+    except Exception:
+        return None
 
 
 def refresh_findings(
     catalog: dict[str, dict[str, Any]],
-    provider: Any,
     *,
     papers_per_pair: int = 5,
     min_citations: int = 50,
 ) -> dict[str, Any]:
-    """Fetch papers for all category pairs and extract findings.
+    """Refresh literature findings via the shenas.net API gateway.
 
-    Returns a summary dict with counts of papers fetched, findings
-    extracted, and findings skipped.
+    Sends installed data categories + known source refs to the gateway,
+    which searches academic databases, extracts findings via LLM, and
+    returns them. Findings are stored in the local encrypted DB.
+
+    Returns a summary dict with counts.
     """
     from app.literature import Finding, extract_catalog_categories
 
-    categories = extract_catalog_categories(catalog)
-    pairs = category_search_pairs(categories)
+    categories = list(extract_catalog_categories(catalog))
+    if not categories:
+        return {"pairs": 0, "papers_fetched": 0, "findings_extracted": 0, "skipped": 0, "duplicates": 0}
 
-    stats = {"pairs": len(pairs), "papers_fetched": 0, "findings_extracted": 0, "skipped": 0, "duplicates": 0}
+    token = _get_remote_token()
+    if not token:
+        msg = "Literature refresh requires a shenas.net account. Sign in via Settings to use this feature."
+        raise RuntimeError(msg)
 
-    for cat_a, cat_b in pairs:
-        query = build_search_query(cat_a, cat_b)
-        papers = search_openalex(query, per_page=papers_per_pair, min_citations=min_citations)
-        stats["papers_fetched"] += len(papers)
+    known_refs = [f.source_ref for f in Finding.all() if f.source_ref]
 
-        for paper in papers:
-            oa_id = paper.openalex_id
-            if oa_id and Finding.by_openalex_id(oa_id) is not None:
-                stats["duplicates"] += 1
-                continue
+    payload = json.dumps(
+        {
+            "categories": categories,
+            "papers_per_pair": papers_per_pair,
+            "min_citations": min_citations,
+            "known_source_refs": known_refs,
+        }
+    ).encode()
 
-            citation = f"{paper.title}, {paper.publication_year}" if paper.publication_year else paper.title
-            result = extract_finding_from_abstract(
-                provider,
-                title=paper.title,
-                abstract=paper.abstract,
-                citation=citation,
-            )
+    req = urllib.request.Request(
+        f"{SHENAS_NET_URL}/api/literature/refresh",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+    )
 
-            if result is None:
-                stats["skipped"] += 1
-                continue
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            data = json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode() if exc.fp else ""
+        msg = f"Literature refresh failed: {exc.code} -- {body}"
+        raise RuntimeError(msg) from exc
 
-            finding = Finding(
-                exposure=result.exposure,
-                outcome=result.outcome,
-                direction=result.direction,
-                effect_size=result.effect_size,
-                effect_size_type=result.effect_size_type,
-                lag_hours=result.lag_hours,
-                lag_max_hours=result.lag_max_hours,
-                evidence_level=result.evidence_level,
-                sample_size=result.sample_size,
-                population=result.population,
-                mechanism=result.mechanism,
-                citation=citation,
-                doi=paper.doi or "",
-                source_api="openalex",
-                exposure_categories=result.exposure_categories or f"{cat_a}",
-                outcome_categories=result.outcome_categories or f"{cat_b}",
-                openalex_id=oa_id,
-            )
-            finding.insert()
-            stats["findings_extracted"] += 1
+    # Store findings locally
+    for f in data.get("findings", []):
+        Finding(
+            exposure=f.get("exposure", ""),
+            outcome=f.get("outcome", ""),
+            direction=f.get("direction", ""),
+            effect_size=f.get("effect_size"),
+            effect_size_type=f.get("effect_size_type"),
+            lag_hours=f.get("lag_hours"),
+            lag_max_hours=f.get("lag_max_hours"),
+            evidence_level=f.get("evidence_level", "cross_sectional"),
+            sample_size=f.get("sample_size"),
+            population=f.get("population"),
+            mechanism=f.get("mechanism"),
+            citation=f.get("citation", ""),
+            doi=f.get("doi", ""),
+            source_kind=f.get("source_kind", ""),
+            exposure_categories=f.get("exposure_categories", ""),
+            outcome_categories=f.get("outcome_categories", ""),
+            source_ref=f.get("source_ref", ""),
+        ).insert()
 
-    return stats
+    return data.get("stats", {})

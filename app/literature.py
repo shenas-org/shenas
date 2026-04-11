@@ -19,7 +19,7 @@ Findings serve three purposes in the hypothesis pipeline:
    asked yet.
 
 Findings are populated by the :mod:`app.literature_fetch` module, which
-queries free academic APIs (OpenAlex, Semantic Scholar) and uses an LLM
+queries academic APIs via the shenas.net API gateway and uses an LLM
 to extract structured data from paper abstracts.
 """
 
@@ -95,10 +95,10 @@ class Finding(Table):
     mechanism: Annotated[str, Field(db_type="TEXT", description="Brief causal mechanism description")] | None = None
     citation: Annotated[str, Field(db_type="VARCHAR", description="Author et al., Year, Journal")] = ""
     doi: Annotated[str, Field(db_type="VARCHAR", description="DOI identifier")] | None = None
-    source_api: (
+    source_kind: (
         Annotated[
             str,
-            Field(db_type="VARCHAR", description="Origin: openalex, semantic_scholar, curated", db_default="'curated'"),
+            Field(db_type="VARCHAR", description="Origin API identifier", db_default="'curated'"),
         ]
         | None
     ) = None
@@ -110,7 +110,7 @@ class Finding(Table):
         str,
         Field(db_type="VARCHAR", description="Comma-separated Field categories for the outcome variable"),
     ] = ""
-    openalex_id: Annotated[str, Field(db_type="VARCHAR", description="OpenAlex work ID for deduplication")] | None = None
+    source_ref: Annotated[str, Field(db_type="VARCHAR", description="External paper ID for deduplication")] | None = None
     created_at: (
         Annotated[
             str,
@@ -152,9 +152,9 @@ class Finding(Table):
         return _rank_findings(findings, question)
 
     @classmethod
-    def by_openalex_id(cls, openalex_id: str) -> Finding | None:
-        """Look up a finding by its OpenAlex work ID (for dedup)."""
-        rows = cls.all(where="openalex_id = ?", params=[openalex_id], limit=1)
+    def by_source_ref(cls, source_ref: str) -> Finding | None:
+        """Look up a finding by its external paper ID (for dedup)."""
+        rows = cls.all(where="source_ref = ?", params=[source_ref], limit=1)
         return rows[0] if rows else None
 
     # ------------------------------------------------------------------

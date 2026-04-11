@@ -53,6 +53,14 @@ CREATE TABLE IF NOT EXISTS sync_cursors (
     last_event_id TEXT,
     PRIMARY KEY (device_id, peer_device_id)
 );
+
+CREATE TABLE IF NOT EXISTS llm_usage (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    month TEXT NOT NULL,
+    tokens_used BIGINT NOT NULL DEFAULT 0,
+    monthly_limit BIGINT NOT NULL DEFAULT 1000000,
+    PRIMARY KEY (user_id, month)
+);
 """
 
 

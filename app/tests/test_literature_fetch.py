@@ -1,8 +1,9 @@
-"""Tests for app.literature_fetch -- API clients, extraction, refresh."""
+"""Tests for app.literature_fetch -- LLM extraction, category helpers, gateway refresh."""
 
 from __future__ import annotations
 
 import contextlib
+import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
@@ -39,108 +40,6 @@ def patch_db(db_con: duckdb.DuckDBPyConnection) -> Iterator[None]:
 
     with patch("app.db.cursor", _fake_cursor):
         yield
-
-
-# ------------------------------------------------------------------
-# OpenAlex
-# ------------------------------------------------------------------
-
-
-def test_reconstruct_abstract():
-    from app.literature_fetch import _reconstruct_abstract
-
-    inverted = {"Hello": [0], "world": [1], "of": [2], "science": [3]}
-    assert _reconstruct_abstract(inverted) == "Hello world of science"
-
-
-def test_reconstruct_abstract_none():
-    from app.literature_fetch import _reconstruct_abstract
-
-    assert _reconstruct_abstract(None) == ""
-
-
-def test_search_openalex_success():
-    from app.literature_fetch import search_openalex
-
-    mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "results": [
-            {
-                "id": "https://openalex.org/W1234",
-                "title": "Sleep and HRV: A Meta-Analysis",
-                "abstract_inverted_index": {"Sleep": [0], "affects": [1], "HRV": [2]},
-                "doi": "10.1234/test",
-                "cited_by_count": 200,
-                "publication_year": 2023,
-                "type": "review",
-            }
-        ]
-    }
-    mock_response.raise_for_status = MagicMock()
-
-    with patch("app.literature_fetch.httpx.get", return_value=mock_response):
-        results = search_openalex("sleep heart rate variability")
-
-    assert len(results) == 1
-    assert results[0].title == "Sleep and HRV: A Meta-Analysis"
-    assert results[0].abstract == "Sleep affects HRV"
-    assert results[0].openalex_id == "https://openalex.org/W1234"
-
-
-def test_search_openalex_filters_no_abstract():
-    from app.literature_fetch import search_openalex
-
-    mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "results": [
-            {
-                "id": "W1",
-                "title": "No abstract paper",
-                "abstract_inverted_index": None,
-                "doi": None,
-                "cited_by_count": 100,
-                "publication_year": 2022,
-                "type": "article",
-            }
-        ]
-    }
-    mock_response.raise_for_status = MagicMock()
-
-    with patch("app.literature_fetch.httpx.get", return_value=mock_response):
-        results = search_openalex("test")
-    assert len(results) == 0
-
-
-# ------------------------------------------------------------------
-# Semantic Scholar
-# ------------------------------------------------------------------
-
-
-def test_search_semantic_scholar_success():
-    from app.literature_fetch import search_semantic_scholar
-
-    mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "data": [
-            {
-                "paperId": "abc123",
-                "title": "Exercise and mood",
-                "abstract": "Exercise improves mood significantly.",
-                "tldr": {"text": "Exercise improves mood."},
-                "externalIds": {"DOI": "10.5678/test"},
-                "citationCount": 150,
-                "year": 2022,
-            }
-        ]
-    }
-    mock_response.raise_for_status = MagicMock()
-
-    with patch("app.literature_fetch.httpx.get", return_value=mock_response):
-        results = search_semantic_scholar("exercise mood")
-
-    assert len(results) == 1
-    assert results[0].title == "Exercise and mood"
-    assert results[0].doi == "10.5678/test"
 
 
 # ------------------------------------------------------------------
@@ -244,93 +143,94 @@ def test_build_search_query():
 
 
 # ------------------------------------------------------------------
-# Refresh (integration-ish, with mocked APIs)
+# Paper model
 # ------------------------------------------------------------------
 
 
-def test_refresh_findings():
-    from app.literature import Finding
-    from app.literature_fetch import OpenAlexPaper, refresh_findings
+def test_paper_model():
+    from app.literature_fetch import Paper
 
-    mock_papers = [
-        OpenAlexPaper(
-            openalex_id="W001",
-            title="Sleep and HRV",
-            abstract="Sleep affects HRV significantly.",
-            doi="10.1/test",
-            citation_count=100,
-            publication_year=2023,
-            type="review",
-        )
-    ]
+    p = Paper(
+        source_ref="W1234",
+        title="Sleep and HRV",
+        abstract="Sleep affects HRV significantly.",
+        doi="10.1234/test",
+        citation_count=200,
+        publication_year=2023,
+    )
+    assert p.source_ref == "W1234"
+    assert p.title == "Sleep and HRV"
 
-    provider = MagicMock()
-    provider.ask.return_value = {
-        "exposure": "sleep_quality",
-        "outcome": "heart_rate_variability",
-        "direction": "positive",
-        "effect_size": 0.4,
-        "effect_size_type": "r",
-        "evidence_level": "meta_analysis",
-        "exposure_categories": "sleep",
-        "outcome_categories": "cardiovascular",
-        "skip": False,
-    }
+
+# ------------------------------------------------------------------
+# Gateway refresh
+# ------------------------------------------------------------------
+
+
+def test_refresh_findings_no_token():
+    """refresh_findings raises when there is no remote token."""
+    from app.literature_fetch import refresh_findings
 
     catalog = {
         "metrics.daily_hrv": {"columns": [{"name": "rmssd", "category": "cardiovascular"}]},
         "metrics.daily_sleep": {"columns": [{"name": "score", "category": "sleep"}]},
     }
 
-    with patch("app.literature_fetch.search_openalex", return_value=mock_papers):
-        stats = refresh_findings(catalog, provider, papers_per_pair=1)
-
-    assert stats["findings_extracted"] >= 1
-    all_findings = Finding.all()
-    assert len(all_findings) >= 1
-    assert all_findings[0].openalex_id == "W001"
+    with (
+        patch("app.literature_fetch._get_remote_token", return_value=None),
+        pytest.raises(RuntimeError, match=r"shenas\.net account"),
+    ):
+        refresh_findings(catalog)
 
 
-def test_refresh_findings_dedup():
+def test_refresh_findings_success():
     from app.literature import Finding
     from app.literature_fetch import refresh_findings
 
-    # Pre-insert a finding with the same openalex_id
-    Finding(
-        exposure="sleep",
-        outcome="hrv",
-        direction="positive",
-        evidence_level="rct",
-        exposure_categories="sleep",
-        outcome_categories="cardiovascular",
-        openalex_id="W001",
-        citation="existing",
-    ).insert()
-
-    from app.literature_fetch import OpenAlexPaper
-
-    mock_papers = [
-        OpenAlexPaper(
-            openalex_id="W001",
-            title="Sleep and HRV",
-            abstract="Duplicate paper.",
-            doi="",
-            citation_count=50,
-            publication_year=2023,
-            type="review",
-        )
-    ]
-
-    provider = MagicMock()
-    catalog = {
-        "metrics.daily_hrv": {"columns": [{"name": "rmssd", "category": "cardiovascular"}]},
-        "metrics.daily_sleep": {"columns": [{"name": "score", "category": "sleep"}]},
+    gateway_response = {
+        "stats": {"pairs": 1, "papers_fetched": 1, "findings_extracted": 1, "skipped": 0, "duplicates": 0},
+        "findings": [
+            {
+                "exposure": "sleep_quality",
+                "outcome": "heart_rate_variability",
+                "direction": "positive",
+                "effect_size": 0.4,
+                "effect_size_type": "r",
+                "evidence_level": "meta_analysis",
+                "citation": "Smith et al., 2023",
+                "doi": "10.1/test",
+                "source_kind": "academic",
+                "exposure_categories": "sleep",
+                "outcome_categories": "cardiovascular",
+                "source_ref": "W001",
+            }
+        ],
     }
 
-    with patch("app.literature_fetch.search_openalex", return_value=mock_papers):
-        stats = refresh_findings(catalog, provider, papers_per_pair=1)
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = json.dumps(gateway_response).encode()
+    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+    mock_resp.__exit__ = MagicMock(return_value=False)
 
-    assert stats["duplicates"] >= 1
-    # Should still have only the original finding
+    with (
+        patch("app.literature_fetch._get_remote_token", return_value="tok_123"),
+        patch("app.literature_fetch.urllib.request.urlopen", return_value=mock_resp),
+    ):
+        stats = refresh_findings(
+            {
+                "metrics.daily_hrv": {"columns": [{"name": "rmssd", "category": "cardiovascular"}]},
+                "metrics.daily_sleep": {"columns": [{"name": "score", "category": "sleep"}]},
+            }
+        )
+
+    assert stats["findings_extracted"] == 1
     all_findings = Finding.all()
-    assert len(all_findings) == 1
+    assert len(all_findings) >= 1
+    assert all_findings[0].source_ref == "W001"
+
+
+def test_refresh_findings_empty_categories():
+    from app.literature_fetch import refresh_findings
+
+    stats = refresh_findings({})
+    assert stats["papers_fetched"] == 0
