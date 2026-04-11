@@ -1,6 +1,6 @@
 id: plugin-core
 language: 'python'
-tags: ['core']
+tags: ['plugin', 'core']
 
 workspace:
   inheritedTasks:

@@ -3,7 +3,7 @@ id: 'source-core'
 
 language: 'python'
 stack: 'data'
-tags: ['source', 'core']
+tags: ['plugin', 'source', 'core']
 
 dependsOn:
   - 'dataset-core'

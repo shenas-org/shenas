@@ -268,7 +268,7 @@ class Query:
 
     @strawberry.field
     def theme(self) -> ThemeInfo:
-        from app.server import _get_active_theme
+        from app.main import _get_active_theme
 
         t = _get_active_theme()
         if t:

@@ -3,7 +3,7 @@ id: 'dataset-core'
 
 language: 'python'
 stack: 'data'
-tags: ['dataset', 'core']
+tags: ['plugin', 'dataset', 'core']
 
 workspace:
   inheritedTasks:

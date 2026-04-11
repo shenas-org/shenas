@@ -83,7 +83,7 @@ _telemetry = __import__("app.telemetry.setup", fromlist=["init_telemetry"])
 _telemetry.init_telemetry("shenas-server")
 
 # Global env-based settings
-app.state.ui_name = _os.environ.get("SHENAS_UI", "default")
+app.state.frontend_name = _os.environ.get("SHENAS_FRONTEND", "default")
 app.state.default_theme = _os.environ.get("SHENAS_DEFAULT_THEME", "default")
 
 
@@ -172,18 +172,18 @@ def _serve_ui_html() -> HTMLResponse:
 
     uis = _load_frontends()
     # Check for enabled frontend, fall back to CLI/env setting
-    ui_name = app.state.ui_name
+    frontend_name = app.state.frontend_name
     try:
         from shenas_plugins.core.plugin import PluginInstance
 
         for u in uis:
             inst = PluginInstance.find("frontend", u.name)
             if inst and inst.enabled:
-                ui_name = u.name
+                frontend_name = u.name
                 break
     except Exception:
         pass
-    ui = next((u for u in uis if u.name == ui_name), None)
+    ui = next((u for u in uis if u.name == frontend_name), None)
     if ui:
         html_file = ui.static_dir / ui.html
         if html_file.exists():
@@ -193,7 +193,7 @@ def _serve_ui_html() -> HTMLResponse:
                 css_link = f'<link rel="stylesheet" href="/themes/{theme.name}/{theme.css}" data-shenas-theme>'
                 content = content.replace("</head>", f"  {css_link}\n  </head>")
             return HTMLResponse(content=content)
-    return HTMLResponse(content=_FALLBACK_HTML.format(ui_name=ui_name))
+    return HTMLResponse(content=_FALLBACK_HTML.format(frontend_name=frontend_name))
 
 
 _FALLBACK_HTML = """\
@@ -204,9 +204,9 @@ _FALLBACK_HTML = """\
   </head>
   <body>
     <h1>shenas</h1>
-    <p>UI plugin <code>{ui_name}</code> is not installed.</p>
-    <p>Install it with: <code>shenasctl ui add {ui_name}</code></p>
-    <p>Or start with a different UI: <code>shenas --ui other-name</code></p>
+    <p>UI plugin <code>{frontend_name}</code> is not installed.</p>
+    <p>Install it with: <code>shenasctl frontend add {frontend_name}</code></p>
+    <p>Or start with a different UI: <code>shenas --frontend other-name</code></p>
     <h2>API</h2>
     <ul>
       <li><a href="/api/health">GET /api/health</a></li>

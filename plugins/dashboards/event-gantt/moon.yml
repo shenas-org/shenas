@@ -3,7 +3,7 @@ id: 'dashboard-event-gantt'
 
 language: 'typescript'
 stack: 'frontend'
-tags: ['dashboard']
+tags: ['plugin', 'dashboard']
 
 dependsOn:
   - 'vendor'

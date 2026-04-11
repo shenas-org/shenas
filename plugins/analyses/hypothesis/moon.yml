@@ -3,7 +3,7 @@ id: 'analysis-hypothesis'
 
 language: 'python'
 stack: 'data'
-tags: ['analysis']
+tags: ['plugin', 'analysis']
 
 dependsOn:
   - 'analysis-core'

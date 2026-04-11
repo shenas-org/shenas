@@ -11,7 +11,7 @@ import duckdb
 import pytest
 from fastapi.testclient import TestClient
 
-from app.server import app
+from app.main import app
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
@@ -76,7 +76,7 @@ class TestSSEGenerators:
         return _wait_for
 
     def test_log_stream_yields_data_and_keepalive(self, client: TestClient) -> None:
-        from app.server import stream_logs
+        from app.main import stream_logs
 
         q: asyncio.Queue = asyncio.Queue()
         events = [
@@ -87,7 +87,7 @@ class TestSSEGenerators:
         with (
             patch("app.telemetry.dispatcher.subscribe", return_value=q),
             patch("app.telemetry.dispatcher.unsubscribe"),
-            patch("app.server._asyncio.wait_for", side_effect=self._make_wait_for(events)),
+            patch("app.main._asyncio.wait_for", side_effect=self._make_wait_for(events)),
         ):
             loop = asyncio.new_event_loop()
             try:
@@ -101,7 +101,7 @@ class TestSSEGenerators:
         assert "ignored" not in joined
 
     def test_span_stream_yields_data_and_keepalive(self, client: TestClient) -> None:
-        from app.server import stream_spans
+        from app.main import stream_spans
 
         q: asyncio.Queue = asyncio.Queue()
         events = [
@@ -112,7 +112,7 @@ class TestSSEGenerators:
         with (
             patch("app.telemetry.dispatcher.subscribe", return_value=q),
             patch("app.telemetry.dispatcher.unsubscribe"),
-            patch("app.server._asyncio.wait_for", side_effect=self._make_wait_for(events)),
+            patch("app.main._asyncio.wait_for", side_effect=self._make_wait_for(events)),
         ):
             loop = asyncio.new_event_loop()
             try:

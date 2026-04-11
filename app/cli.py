@@ -28,8 +28,9 @@ def main(
     cert_file: Path = typer.Option(DEFAULT_CERT_DIR / "cert.pem", "--cert", help="TLS certificate file"),
     key_file: Path = typer.Option(DEFAULT_CERT_DIR / "key.pem", "--key", help="TLS private key file"),
     no_tls: bool = typer.Option(False, "--no-tls", help="Run plain HTTP (for desktop app sidecar)"),
-    ui: str = typer.Option("default", "--ui", help="UI plugin to render as the app shell"),
+    frontend: str = typer.Option("default", "--frontend", help="Frontend plugin to render as the app shell"),
     default_theme: str = typer.Option("default", "--default-theme", help="Theme to enable if none is set"),
+    api_url: str = typer.Option("https://shenas.net", "--api-url", help="shenas.net API server URL"),
     reload: bool = typer.Option(False, "--reload", help="Auto-reload on file changes (development)"),
 ) -> None:
     """Start the shenas server."""
@@ -38,11 +39,13 @@ def main(
 
     import os
 
-    os.environ["SHENAS_UI"] = ui
+    os.environ["SHENAS_FRONTEND"] = frontend
     os.environ["SHENAS_DEFAULT_THEME"] = default_theme
+    os.environ["SHENAS_NET_URL"] = api_url
+    os.environ.setdefault("SHENAS_PACKAGE_INDEX", api_url.rstrip("/"))
 
     if reload:
-        app_target = "app.server:app"
+        app_target = "app.main:app"
         if no_tls:
             typer.echo(f"Starting HTTP server on http://{host}:{port} (reload)")
             uvicorn.run(
@@ -71,9 +74,9 @@ def main(
         )
         return
 
-    from app.server import app as fastapi_app
+    from app.main import app as fastapi_app
 
-    fastapi_app.state.ui_name = ui
+    fastapi_app.state.frontend_name = frontend
     fastapi_app.state.default_theme = default_theme
 
     if no_tls:

@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app.server import app
+from app.main import app
 from app.tests.conftest import parse_sse
 from shenas_sources.core.source import Source
 

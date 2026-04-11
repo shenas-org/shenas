@@ -3,7 +3,7 @@ id: 'dataset-habits'
 
 language: 'python'
 stack: 'data'
-tags: ['dataset']
+tags: ['plugin', 'dataset']
 
 dependsOn:
   - 'dataset-core'
