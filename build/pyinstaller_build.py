@@ -89,6 +89,14 @@ _IMPORTS_SERVER = [
     "multipart",
     "opentelemetry.instrumentation.fastapi",
     "opentelemetry.instrumentation.httpx",
+    # Local LLM inference
+    "app.llm",
+    "app.llm.backends",
+    "app.llm.cache",
+    "app.llm.models",
+    "app.llm.cli",
+    "llama_cpp",
+    "llama_cpp.llama",
 ]
 
 _IMPORTS_CLI = [
@@ -191,9 +199,33 @@ _INTERNAL_PACKAGES = {
     "shenas-dataset-core",
     "shenas-frontend-default",
     "shenas-theme-default",
+    "shenas-transformation-llm-categorize",
     "dlt",
     "duckdb",
 }
+
+
+def _collect_llama_cpp_binaries() -> list[tuple[str, str]]:
+    """Find llama_cpp's bundled shared libraries and return them as --add-binary tuples.
+
+    Returns an empty list when llama-cpp-python is not installed, so builds
+    without local LLM support still work.
+    """
+    try:
+        import llama_cpp
+    except ImportError:
+        return []
+    pkg_dir = Path(llama_cpp.__file__).parent
+    out: list[tuple[str, str]] = []
+    # Check both the package root and a lib/ subdirectory
+    for search_dir in [pkg_dir, pkg_dir / "lib"]:
+        if not search_dir.is_dir():
+            continue
+        for lib in search_dir.iterdir():
+            if lib.suffix in {".so", ".dylib", ".dll"} or ".so." in lib.name:
+                dest = str(search_dir.relative_to(pkg_dir.parent))
+                out.append((str(lib), dest))
+    return out
 
 
 def _collect_dist_info_datas(target_name: str) -> list[tuple[str, str]]:
@@ -434,6 +466,8 @@ def build_target(
         *[f"--add-data={src}{sep}{dest}" for src, dest in _collect_explicit_datas(name)],
         # .dist-info directories for importlib.metadata (target-specific)
         *[f"--add-data={src}{sep}{dest}" for src, dest in _collect_dist_info_datas(name)],
+        # llama.cpp shared libraries (empty if llama-cpp-python not installed)
+        *([f"--add-binary={src}{sep}{dest}" for src, dest in _collect_llama_cpp_binaries()] if name == "shenas" else []),
         # Override bundled libpython with patched copy (execstack fix)
         *([f"--add-binary={patched_libpython}{sep}."] if patched_libpython else []),
         # No UPX (adds startup latency)
