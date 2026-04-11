@@ -3,7 +3,7 @@
 resource "github_repository" "oss" {
   provider    = github.shenas_org
   name        = "shenas"
-  description = "Personal analytics platform -- track, transform, and understand your data"
+  description = "Local-first quantified-self platform -- sync, normalize, and visualize your health, finance, and lifestyle data"
   visibility  = "public"
 
   has_issues   = true
@@ -17,11 +17,11 @@ resource "github_repository" "oss" {
   delete_branch_on_merge = true
 
   topics = [
-    "personal-analytics",
-    "duckdb",
-    "self-hosted",
-    "data-pipeline",
     "quantified-self",
+    "local-first",
+    "duckdb",
+    "data-pipeline",
+    "federated-learning",
   ]
 }
 

@@ -1,7 +1,7 @@
 [project]
 name = "shenas-app"
 dynamic = ["version"]
-description = "Shenas metrics platform -- server"
+description = "shenas local server and web UI"
 requires-python = ">=3.11"
 dependencies = [
   "cryptography>=46.0.6",

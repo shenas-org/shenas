@@ -1,7 +1,7 @@
 [project]
 name = "shenas-cli"
 dynamic = ["version"]
-description = "Shenas CLI -- lightweight command-line client"
+description = "shenas command-line client"
 requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.28.1",
