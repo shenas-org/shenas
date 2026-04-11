@@ -5,6 +5,7 @@ javascript:
 node:
   version: '22'
   syncProjectWorkspaceDependencies: false
+  installDependencies: false
 
 npm:
   syncProjectWorkspaceDependencies: false
