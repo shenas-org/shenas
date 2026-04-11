@@ -61,7 +61,7 @@ jobs:
             -e COPYBARA_OPTIONS="--init-history --force --work-dir /tmp/copybara" \
             -e COPYBARA_CONFIG="copy.bara.sky" \
             sharelatex/copybara:latest \
-            -c "cp -r /tmp/host-ssh /root/.ssh && chmod 700 /root/.ssh && chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key && sed -i 's|~/.ssh/|/root/.ssh/|g' /root/.ssh/config && copybara"
+            -c "cp -r /tmp/host-ssh /root/.ssh && chmod 700 /root/.ssh && chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key && sed -i 's|~/.ssh/|/root/.ssh/|g' /root/.ssh/config && mkdir -p /tmp/copybara && copybara"
 
       - name: Generate LLM summary and amend commit
         env:
