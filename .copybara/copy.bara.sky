@@ -75,6 +75,7 @@ core.workflow(
         metadata.squash_notes(
             prefix = "Release sync\n\n",
             show_author = False,
+            compact = True,
         ),
         # Use OSS-specific README and Makefile.
         core.move("README-oss.md", "README.md"),
