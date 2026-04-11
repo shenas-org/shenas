@@ -29,8 +29,14 @@ dependencies = [
   "shenas-frontend-default",
 ]
 
+[project.optional-dependencies]
+local = ["llama-cpp-python>=0.3.0"]
+
 [project.scripts]
 shenas = "app.cli:app"
+
+[project.entry-points."shenas.cli"]
+model = "app.llm.cli:app"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
