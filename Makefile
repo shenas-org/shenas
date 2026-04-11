@@ -93,6 +93,7 @@ app-dev:
 
 app-install:
 	uv tool install --editable app/ --force
+	uv tool install --editable shenasctl/ --force --with-editable app/
 	@echo "Installed shenas and shenasctl to ~/.local/bin/"
 	@echo "Run 'shenasctl --install-completion' for tab completion"
 
