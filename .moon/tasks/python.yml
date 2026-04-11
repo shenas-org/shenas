@@ -34,11 +34,9 @@ tasks:
     options:
       runFromWorkspaceRoot: true
   python-test:
-    script: '[ -d $MOON_PROJECT_SOURCE/tests/ ] && uv run --no-sync pytest $MOON_PROJECT_SOURCE/tests/ -q || echo "No tests directory, skipping"'
+    script: 'if [ -d $MOON_PROJECT_SOURCE/tests/ ]; then uv run --no-sync pytest $MOON_PROJECT_SOURCE/tests/ -q; else echo "No tests directory, skipping"; fi'
     inputs:
       - '**/*.py'
-    deps:
-      - '~:python-lint'
     options:
       runFromWorkspaceRoot: true
   lint:
