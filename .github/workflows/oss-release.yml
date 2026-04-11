@@ -53,31 +53,13 @@ jobs:
 
       - name: Run Copybara
         run: |
-          EXTRA_FLAGS=""
-          if ! git ls-remote --heads git@github.com-oss:shenas-org/shenas.git main 2>/dev/null | grep -q main; then
-            echo "Destination has no main branch, using --init-history"
-            EXTRA_FLAGS="--init-history --force"
-          fi
-
-          printf '%s\n' \
-            '#!/bin/bash' \
-            'set -e' \
-            'cp -r /tmp/host-ssh /root/.ssh' \
-            'chmod 700 /root/.ssh' \
-            'chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key' \
-            "sed -i 's|~/.ssh/|/root/.ssh/|g' /root/.ssh/config" \
-            "copybara copy.bara.sky --work-dir /tmp/copybara $EXTRA_FLAGS" \
-            > /tmp/run-copybara.sh
-          chmod +x /tmp/run-copybara.sh
-          cat /tmp/run-copybara.sh
-
           docker run --rm \
+            --entrypoint bash \
             -v "$HOME/.ssh:/tmp/host-ssh:ro" \
             -v "$GITHUB_WORKSPACE:/workspace" \
-            -v "/tmp/run-copybara.sh:/tmp/run-copybara.sh:ro" \
             -w /workspace \
             sharelatex/copybara:latest \
-            /tmp/run-copybara.sh
+            -c "cp -r /tmp/host-ssh /root/.ssh && chmod 700 /root/.ssh && chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key && sed -i 's|~/.ssh/|/root/.ssh/|g' /root/.ssh/config && copybara copy.bara.sky --work-dir /tmp/copybara --init-history --force"
 
       - name: Generate LLM summary and amend commit
         env:
