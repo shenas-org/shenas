@@ -15,6 +15,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+      - uses: moonrepo/setup-toolchain@v0
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -31,6 +32,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+      - uses: moonrepo/setup-toolchain@v0
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -49,6 +51,7 @@ jobs:
     runs-on: gcp-runners
     steps:
       - uses: actions/checkout@v4
+      - uses: moonrepo/setup-toolchain@v0
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
