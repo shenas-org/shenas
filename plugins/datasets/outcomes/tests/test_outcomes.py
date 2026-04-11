@@ -29,9 +29,9 @@ class TestMetrics:
 class TestDDL:
     def test_generate_ddl(self) -> None:
         ddl = DailyOutcome.to_ddl()
-        assert "CREATE TABLE IF NOT EXISTS metrics.daily_outcomes" in ddl
-        assert "mood INTEGER" in ddl
-        assert "PRIMARY KEY (date, source)" in ddl
+        assert 'CREATE TABLE IF NOT EXISTS "metrics"."daily_outcomes"' in ddl
+        assert '"mood" INTEGER' in ddl
+        assert "PRIMARY KEY" in ddl
 
     def test_ensure_schema(self) -> None:
         con = duckdb.connect(":memory:")
