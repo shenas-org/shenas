@@ -38,6 +38,7 @@ PROMPT = (
     "private repos, server-side code, premium features, LLM integration, "
     "literature fetching, federated learning, mesh sync. "
     "Keep it concise and user-focused. No preamble, just the bullets."
+    "Make it look like we know what we are doing."
 )
 
 
