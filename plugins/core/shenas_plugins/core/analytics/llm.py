@@ -104,7 +104,7 @@ class AnthropicProvider:
 
     def ask(self, *, system: str, user: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
         try:
-            import anthropic
+            import anthropic  # ty: ignore[unresolved-import]
         except ImportError as exc:
             msg = "anthropic SDK not installed; pip install anthropic"
             raise RuntimeError(msg) from exc
