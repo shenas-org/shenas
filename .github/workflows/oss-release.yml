@@ -26,44 +26,7 @@ jobs:
       - name: Generate release summary
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          # Get commits since last OSS sync (look for GitOrigin-RevId in destination)
-          LAST_REV=$(git log --all --grep="GitOrigin-RevId" --format="%b" -1 2>/dev/null | grep "GitOrigin-RevId:" | awk '{print $2}' || echo "")
-          if [ -n "$LAST_REV" ] && git rev-parse "$LAST_REV" >/dev/null 2>&1; then
-            LOG=$(git log "$LAST_REV"..HEAD --pretty=format:"- %s" -- . ':!server/' ':!app/fl/' ':!app/mesh/' ':!app/literature*' ':!plugins/analyses/' ':!plugins/models/' ':!.copybara/' ':!.github/' | head -50)
-          else
-            LOG=$(git log --pretty=format:"- %s" -30 -- . ':!server/' ':!app/fl/' ':!app/mesh/' ':!app/literature*' ':!plugins/analyses/' ':!plugins/models/' ':!.copybara/' ':!.github/')
-          fi
-
-          if [ -z "$LOG" ]; then
-            echo "Release sync" > /tmp/release_summary.txt
-            exit 0
-          fi
-
-          # Ask Claude to summarize, filtering out any private/internal references
-          RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
-            -H "x-api-key: $ANTHROPIC_API_KEY" \
-            -H "anthropic-version: 2023-06-01" \
-            -H "content-type: application/json" \
-            -d "$(cat <<PROMPT
-          {
-            "model": "claude-sonnet-4-20250514",
-            "max_tokens": 300,
-            "messages": [{
-              "role": "user",
-              "content": "Summarize these git commits for a public open-source release changelog. Write 2-5 bullet points covering the user-visible changes. Omit any references to: internal infrastructure, CI/CD fixes, Copybara, private repos, server-side code, premium features, LLM integration, literature fetching, federated learning, mesh sync. Keep it concise and user-focused. No preamble, just the bullets.\n\nCommits:\n$LOG"
-            }]
-          }
-          PROMPT
-          )")
-
-          SUMMARY=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['content'][0]['text'])" 2>/dev/null || echo "")
-
-          if [ -n "$SUMMARY" ]; then
-            echo "$SUMMARY" > /tmp/release_summary.txt
-          else
-            echo "Release sync" > /tmp/release_summary.txt
-          fi
+        run: bash scripts/oss-release-summary.sh /tmp/release_summary.txt
 
       - name: Configure SSH key
         run: |
@@ -83,39 +46,34 @@ jobs:
           git config --global user.name "Alexander Funcke"
           git config --global user.email "funcke@shenas.net"
 
-      - name: Install Copybara
-        run: |
-          docker pull sharelatex/copybara:latest
-
-      - name: Run Copybara
+      - name: Prepare Copybara config
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           SUMMARY=$(cat /tmp/release_summary.txt)
 
-          # Rewrite origin to HTTPS with token, destination to SSH with deploy key
           sed -i "s|git@github.com:shenas-net/shenas.git|https://x-access-token:${GITHUB_TOKEN}@github.com/shenas-net/shenas.git|" .copybara/copy.bara.sky
           sed -i 's|git@github.com:shenas-org/shenas.git|git@github.com-oss:shenas-org/shenas.git|' .copybara/copy.bara.sky
 
-          # Replace squash_notes with the LLM summary
-          python3 -c "
-          import re
+          RELEASE_SUMMARY="$SUMMARY" python3 -c "
+          import re, os
+          summary = os.environ['RELEASE_SUMMARY']
+          escaped = summary.replace('\\\\', '\\\\\\\\').replace('\"', '\\\\\"').replace('\n', '\\\\n')
           with open('.copybara/copy.bara.sky') as f:
               content = f.read()
           content = re.sub(
               r'metadata\.squash_notes\([^)]*\)',
-              'metadata.replace_message(\"${SUMMARY}\")',
+              f'metadata.replace_message(\"{escaped}\")',
               content
           )
-          # Escape the summary for Starlark string
-          summary = '''$SUMMARY'''
-          content = content.replace('\${SUMMARY}', summary.replace('\"', '\\\\\"').replace('\\n', '\\\\n'))
           with open('.copybara/copy.bara.sky', 'w') as f:
               f.write(content)
           "
 
           cp .copybara/copy.bara.sky copy.bara.sky
 
+      - name: Run Copybara
+        run: |
           docker run --rm \
             -v "$HOME/.ssh:/root/.ssh:ro" \
             -v "$GITHUB_WORKSPACE:/workspace" \
