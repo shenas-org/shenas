@@ -18,7 +18,7 @@ from app.api.plugins import (
     _sse,
     _validate_kind,
 )
-from app.server import app
+from app.main import app
 from app.tests.conftest import parse_sse
 from shenas_plugins.core.plugin import (
     VALID_KINDS,

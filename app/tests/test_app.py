@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
-from app.server import app
+from app.main import app
 
 runner = CliRunner()
 
@@ -125,7 +125,7 @@ class TestApiQuery:
 
 
 class TestGetActiveTheme:
-    """Tests for app.server._get_active_theme."""
+    """Tests for app.main._get_active_theme."""
 
     @staticmethod
     def _make_theme(name: str, css: str = "style.css") -> type:
@@ -135,7 +135,7 @@ class TestGetActiveTheme:
         return type(f"Theme_{name}", (Theme,), ns)
 
     def test_returns_enabled_theme_from_db(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
-        from app.server import _get_active_theme
+        from app.main import _get_active_theme
 
         dark = self._make_theme("dark")
         light = self._make_theme("light")
@@ -156,7 +156,7 @@ class TestGetActiveTheme:
         assert result is dark
 
     def test_falls_back_to_default_theme(self, client: TestClient) -> None:
-        from app.server import _get_active_theme
+        from app.main import _get_active_theme
 
         default = self._make_theme("default")
         other = self._make_theme("other")
@@ -168,7 +168,7 @@ class TestGetActiveTheme:
         assert result is default
 
     def test_falls_back_to_first_theme_if_default_missing(self, client: TestClient) -> None:
-        from app.server import _get_active_theme
+        from app.main import _get_active_theme
 
         custom = self._make_theme("custom")
         app.state.default_theme = "nonexistent"
@@ -181,14 +181,14 @@ class TestGetActiveTheme:
         app.state.default_theme = "default"
 
     def test_returns_none_when_no_themes(self, client: TestClient) -> None:
-        from app.server import _get_active_theme
+        from app.main import _get_active_theme
 
         with patch("app.api.sources._load_themes", return_value=[]):
             result = _get_active_theme()
         assert result is None
 
     def test_falls_back_on_db_error(self, client: TestClient) -> None:
-        from app.server import _get_active_theme
+        from app.main import _get_active_theme
 
         default = self._make_theme("default")
         with (
@@ -230,7 +230,7 @@ class TestServeUiHtml:
 
         with (
             patch("app.api.sources._load_frontends", return_value=fake_ui),
-            patch("app.server._get_active_theme", return_value=FakeTheme),
+            patch("app.main._get_active_theme", return_value=FakeTheme),
         ):
             resp = client.get("/")
         assert resp.status_code == 200
@@ -243,7 +243,7 @@ class TestServeUiHtml:
         fake_ui = [self._make_fake_ui(tmp_path)]
         with (
             patch("app.api.sources._load_frontends", return_value=fake_ui),
-            patch("app.server._get_active_theme", return_value=None),
+            patch("app.main._get_active_theme", return_value=None),
         ):
             resp = client.get("/")
         assert resp.status_code == 200
@@ -267,7 +267,7 @@ class TestServeUiHtml:
         with (
             patch("app.api.sources._load_frontends", return_value=[default_ui, custom_ui]),
             patch("shenas_plugins.core.plugin.PluginInstance.find", side_effect=_fake_find),
-            patch("app.server._get_active_theme", return_value=None),
+            patch("app.main._get_active_theme", return_value=None),
         ):
             resp = client.get("/")
         assert resp.status_code == 200
@@ -287,7 +287,7 @@ class TestServeUiHtml:
 
 class TestShenasCLI:
     def test_no_cert(self, tmp_path: Path) -> None:
-        from app.server_cli import app as shenas_app
+        from app.cli import app as shenas_app
 
         result = runner.invoke(
             shenas_app,

@@ -1,4 +1,4 @@
-"""Tests for app.server_cli typer entrypoint."""
+"""Tests for app.cli typer entrypoint."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from app.server_cli import app as cli_app
+from app.cli import app as cli_app
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -30,7 +30,7 @@ class TestGenerateCert:
 
 class TestServerCli:
     def test_no_tls_runs_uvicorn(self, tmp_path: Path) -> None:
-        with patch("app.server_cli.uvicorn.run") as run:
+        with patch("app.cli.uvicorn.run") as run:
             result = runner.invoke(
                 cli_app,
                 ["--no-tls", "--host", "127.0.0.1", "--port", "9999", "--ui", "default"],
@@ -48,7 +48,7 @@ class TestServerCli:
         key = tmp_path / "key.pem"
         cert.write_text("c")
         key.write_text("k")
-        with patch("app.server_cli.uvicorn.run") as run:
+        with patch("app.cli.uvicorn.run") as run:
             result = runner.invoke(
                 cli_app,
                 ["--cert", str(cert), "--key", str(key), "--port", "8443"],
@@ -62,7 +62,7 @@ class TestServerCli:
         assert "HTTPS server" in result.output
 
     def test_reload_no_tls(self, tmp_path: Path) -> None:
-        with patch("app.server_cli.uvicorn.run") as run:
+        with patch("app.cli.uvicorn.run") as run:
             result = runner.invoke(
                 cli_app,
                 ["--reload", "--no-tls", "--port", "1234"],
@@ -70,7 +70,7 @@ class TestServerCli:
             )
         assert result.exit_code == 0, result.output
         args, kwargs = run.call_args
-        assert args[0] == "app.server:app"
+        assert args[0] == "app.main:app"
         assert kwargs["reload"] is True
 
     def test_reload_with_tls(self, tmp_path: Path) -> None:
@@ -78,7 +78,7 @@ class TestServerCli:
         key = tmp_path / "key.pem"
         cert.write_text("c")
         key.write_text("k")
-        with patch("app.server_cli.uvicorn.run") as run:
+        with patch("app.cli.uvicorn.run") as run:
             result = runner.invoke(
                 cli_app,
                 ["--reload", "--cert", str(cert), "--key", str(key)],
@@ -86,7 +86,7 @@ class TestServerCli:
             )
         assert result.exit_code == 0, result.output
         args, kwargs = run.call_args
-        assert args[0] == "app.server:app"
+        assert args[0] == "app.main:app"
         assert kwargs["reload"] is True
         assert kwargs["ssl_certfile"] == str(cert)
 

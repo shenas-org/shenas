@@ -121,6 +121,16 @@ class TransformType:
     updated_at: str | None
     status_changed_at: str | None
 
+    @strawberry.field
+    def sql(self) -> str:
+        """Extract SQL from params JSON for convenience."""
+        import json
+
+        try:
+            return json.loads(self.params).get("sql", "")
+        except (json.JSONDecodeError, TypeError):
+            return ""
+
 
 # -- Input types --------------------------------------------------------------
 

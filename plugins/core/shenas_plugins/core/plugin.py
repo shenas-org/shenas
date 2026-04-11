@@ -5,6 +5,7 @@ from __future__ import annotations
 import abc
 import json
 import logging
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -124,7 +125,7 @@ class PluginInstance(Table):
 
 log = logging.getLogger("shenas.plugins")
 
-DEFAULT_INDEX = "https://repo.shenas.net"
+DEFAULT_INDEX = os.environ.get("SHENAS_PACKAGE_INDEX", "https://repo.shenas.net")
 PACKAGES_DIR = Path("packages")
 PUBLIC_KEY_PATH = Path(".shenas") / "shenas.pub"
 VALID_KINDS = frozenset({"source", "dataset", "dashboard", "frontend", "theme", "model", "transformation", "analysis"})

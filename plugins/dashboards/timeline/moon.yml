@@ -3,7 +3,7 @@ id: 'dashboard-timeline'
 
 language: 'typescript'
 stack: 'frontend'
-tags: ['dashboard']
+tags: ['plugin', 'dashboard']
 
 dependsOn:
   - 'vendor'

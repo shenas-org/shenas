@@ -3,7 +3,7 @@ id: 'model-sleep-forecast'
 
 language: 'python'
 stack: 'data'
-tags: ['model']
+tags: ['plugin', 'model']
 
 dependsOn:
   - 'model-core'

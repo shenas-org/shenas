@@ -3,7 +3,7 @@ id: 'model-core'
 
 language: 'python'
 stack: 'data'
-tags: ['model', 'core']
+tags: ['plugin', 'model', 'core']
 
 dependsOn:
   - 'plugin-core'

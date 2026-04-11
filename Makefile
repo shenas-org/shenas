@@ -1,4 +1,4 @@
-.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install coverage db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan hooks-setup lint infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish postgres-dev pyinstaller shenas-net-release shenas-org-release test web-api-release website-dev
+.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install coverage db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan hooks-setup lint infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish plugins-build postgres-dev pyinstaller shenas-net-release shenas-org-release test web-api-release website-dev
 
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
 NDK_VERSION = 27.2.12479018
@@ -62,7 +62,11 @@ android-setup:
 api-dev:
 	cd server/api && uv pip install -e . --quiet && \
 		DATABASE_URL=postgres://postgres@localhost:5432/shenas_net \
+		LOCAL_PACKAGES_DIR=$(CURDIR)/packages \
 		uv run uvicorn shenas_web_api.main:app --reload --port 8000
+
+plugins-build:
+	moon run :build --query "tag=plugin"
 
 app-clean:
 	moon run :clean
@@ -297,7 +301,8 @@ packages-publish:
 	@if [ ! -d packages ] || [ -z "$$(ls packages/*.whl 2>/dev/null)" ]; then \
 		echo "No packages found in packages/. Build with: moon run :build"; exit 1; \
 	fi
-	gsutil -m cp packages/*.whl packages/*.sig gs://shenas-packages/
+	gcloud storage cp packages/*.whl gs://shenas-packages/
+	@if ls packages/*.sig >/dev/null 2>&1; then gcloud storage cp packages/*.sig gs://shenas-packages/; fi
 
 # ---------------------------------------------------------------------------
 # Postgres

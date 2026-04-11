@@ -1,6 +1,6 @@
 id: themes-core
 language: 'python'
-tags: ['theme', 'core']
+tags: ['plugin', 'theme', 'core']
 
 workspace:
   inheritedTasks:

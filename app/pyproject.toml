@@ -30,7 +30,7 @@ dependencies = [
 ]
 
 [project.scripts]
-shenas = "app.server_cli:app"
+shenas = "app.cli:app"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]

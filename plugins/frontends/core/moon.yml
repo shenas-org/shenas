@@ -1,6 +1,6 @@
 id: dashboards-core
 language: "python"
-tags: ["dashboard", "core"]
+tags: ['plugin', "dashboard", "core"]
 
 workspace:
   inheritedTasks:
