@@ -1,16 +1,20 @@
 $schema: 'https://moonrepo.dev/schemas/workspace.json'
 
 projects:
+  - '.'
   - 'app'
   - 'app/desktop'
   - 'app/mobile'
-  - 'repo-server'
+  - 'app/vendor'
+  - 'plugins/core'
   - 'plugins/sources/*'
   - 'plugins/datasets/*'
   - 'plugins/dashboards/*'
-  - 'plugins/transformations/*'
   - 'plugins/frontends/*'
-  - 'app/vendor'
+  - 'plugins/themes/*'
+  - 'plugins/analyses/*'
+  - 'plugins/transformations/*'
+  - 'plugins/models/*'
 
 vcs:
   defaultBranch: 'main'

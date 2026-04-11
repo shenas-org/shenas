@@ -19,9 +19,9 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
-      - run: make python-lint
-      - run: make python-format-check
-      - run: make python-typecheck
+      - run: moon run :python-lint
+      - run: moon run :python-format-check
+      - run: moon run :python-typecheck
 
   python-test:
     name: Python test
@@ -42,7 +42,7 @@ jobs:
         run: |
           cd app/vendor && npm ci --silent && npm run build && cd "$GITHUB_WORKSPACE"
           cd plugins/frontends/default && npm ci --silent && npm run build
-      - run: make python-test
+      - run: moon run :python-test
 
   js-lint:
     name: JS lint, format, typecheck
@@ -53,11 +53,9 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-      - run: npm ci --silent
-      - run: make js-deps
-      - run: make js-typecheck
-      - run: make js-lint
-      - run: make js-format-check
+      - run: moon run :js-lint
+      - run: moon run :js-format-check
+      - run: moon run :js-typecheck
 
   js-test:
     name: JS test
@@ -125,7 +123,7 @@ jobs:
       - name: Run Python tests with coverage
         id: coverage
         run: |
-          make tests-coverage
+          moon run :python-coverage
           TOTAL=$(python -c "import json; print(int(json.load(open('coverage.json'))['totals']['percent_covered']))")
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
       - name: Update Python coverage badge

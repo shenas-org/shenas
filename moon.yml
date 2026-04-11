@@ -1,37 +1,127 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'shenas'
 
 tasks:
   clean:
     script: 'rm -rf dist/ build/_pyinstaller_work/ htmlcov/ .coverage coverage.json packages/'
     options:
       cache: false
-  lint:
-    script: 'uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync ty check server/repository/ app/ --exclude "**/vendor/**" --exclude "**/fl/**" --extra-search-path server/repository'
-  # Run with: uv sync --group fl && moon run :lint-fl
-  lint-fl:
+
+  # ---------------------------------------------------------------------------
+  # Python
+  # ---------------------------------------------------------------------------
+
+  python-lint:
+    script: 'uv run --no-sync ruff check .'
+    inputs:
+      - '**/*.py'
+      - 'pyproject.toml'
+
+  python-format-check:
+    script: 'uv run --no-sync ruff format --check .'
+    inputs:
+      - '**/*.py'
+      - 'pyproject.toml'
+
+  python-typecheck:
+    script: 'uv run --no-sync ty check app/ --exclude "**/vendor/**" --exclude "**/fl/**"'
+    inputs:
+      - '**/*.py'
+
+  # Run with: uv sync --group fl && moon run :python-typecheck-fl
+  python-typecheck-fl:
     script: 'uv run --no-sync ty check app/fl/'
     inputs:
       - 'app/fl/**/*.py'
-    inputs:
-      - '**/*.py'
-  test:
+
+  python-test:
     command: 'uv run --no-sync pytest'
     inputs:
       - '**/*.py'
-    deps:
-      - '~:lint'
-  coverage:
+
+  python-coverage:
     script: >
-      uv run --no-sync pytest --cov=repo_server --cov=app
+      uv run --no-sync pytest --cov=app
       --cov=shenas_sources --cov=shenas_datasets
       --cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
     inputs:
       - '**/*.py'
+
+  # ---------------------------------------------------------------------------
+  # JavaScript / TypeScript
+  # ---------------------------------------------------------------------------
+
+  js-deps:
+    script: |
+      npm ci --silent
+      for pkg in app/vendor plugins/dashboards/*/package.json plugins/frontends/*/package.json; do
+        dir=$([ -d "$pkg" ] && echo "$pkg" || dirname "$pkg")
+        [ -f "$dir/package.json" ] && (cd "$dir" && npm ci --silent)
+      done
+    options:
+      cache: false
+
+  js-lint:
+    script: 'npm run lint'
+    inputs:
+      - 'plugins/**/src/**/*.ts'
+      - 'app/vendor/src/**/*.ts'
+      - 'eslint.config.js'
+    deps:
+      - '~:js-deps'
+
+  js-format-check:
+    script: 'npm run format:check'
+    inputs:
+      - 'plugins/**/src/**/*.ts'
+      - 'app/vendor/src/**/*.ts'
+    deps:
+      - '~:js-deps'
+
+  js-typecheck:
+    script: |
+      failed=0
+      for tsconfig in app/vendor/tsconfig.json plugins/dashboards/*/tsconfig.json plugins/frontends/*/tsconfig.json; do
+        [ -f "$tsconfig" ] || continue
+        echo "Typechecking $(dirname $tsconfig)..."
+        npx tsc --noEmit -p "$tsconfig" || failed=1
+      done
+      exit $failed
+    inputs:
+      - 'plugins/**/src/**/*.ts'
+      - 'app/vendor/src/**/*.ts'
+      - '**/tsconfig.json'
+    deps:
+      - '~:js-deps'
+
+  # ---------------------------------------------------------------------------
+  # Convenience aggregates
+  # ---------------------------------------------------------------------------
+
+  lint:
+    script: 'echo "All lint checks passed."'
+    deps:
+      - '~:python-lint'
+      - '~:python-format-check'
+      - '~:python-typecheck'
+      - '~:js-lint'
+      - '~:js-format-check'
+      - '~:js-typecheck'
+
+  test:
+    script: 'echo "All tests passed."'
+    deps:
+      - '~:python-test'
+
+  coverage:
+    script: 'echo "Coverage complete."'
+    deps:
+      - '~:python-coverage'
+
   pyinstaller:
     command: 'uv run python build/pyinstaller_build.py'
     inputs:
       - 'build/**/*.py'
       - 'app/**/*.py'
       - 'scheduler/**/*.py'
-      - 'server/repository/**/*.py'
       - 'plugins/**/*.py'

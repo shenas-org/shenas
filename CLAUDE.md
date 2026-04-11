@@ -19,36 +19,39 @@ Consult these when writing UI copy, error messages, documentation, or frontend c
 ## Commands
 
 ```bash
-uv run shenasctl                       # CLI entry point
-uv run shenasctl source garmin sync       # run pipe (must be installed first)
-uv run ruff check .                 # lint
-uv run ruff format .                # format
-uv run ty check app/              # type check
-uv run pytest                       # run tests
-uv run cz commit                    # conventional commit
-uv add <package>                    # add a dependency
-uv sync                             # install dependencies
-make app-install                    # install shenas + shenasctl to ~/.local/bin/
-make hooks-setup                    # install git pre-commit hook
-make desktop-release                # tag a desktop release (version from commits)
-moon run app:test                   # run tests for a single project
-moon run :lint                      # run lint across all projects
-moon run :test                      # run tests across all projects
-moon run :coverage                  # run tests with coverage report
-moon run :pyinstaller               # build standalone binaries (onedir) to dist/
-moon run :build                     # build all distributable wheels
-moon run source-garmin:build           # build a single pipe
-moon run desktop:sidecars           # build PyInstaller sidecars for Tauri
-moon run desktop:tauri              # build desktop app (builds sidecars first)
+# Setup
+uv sync                                # install dependencies
+make app-install                       # install shenas + shenasctl to ~/.local/bin/
+make hooks-setup                       # install git pre-commit hook
 
-# JavaScript / TypeScript
-npm install                                                      # root: install eslint + prettier + typescript
-npm run lint                                                     # eslint all TS
-npm run format                                                   # prettier write
-npm run format:check                                             # prettier check
-npx tsc --noEmit -p plugins/frontends/default/tsconfig.json      # type check one package
-cd app/vendor && npm test                                        # vendor tests
-cd plugins/dashboards/data-table && npm run coverage             # coverage one package
+# Run
+shenasctl                              # CLI entry point
+shenasctl source garmin sync           # run pipe (must be installed first)
+
+# Lint and test (same commands as CI)
+moon run :lint                         # all lints: python + JS lint, format, typecheck
+moon run :test                         # all tests
+moon run :coverage                     # tests with coverage report
+moon run :python-lint                  # ruff check
+moon run :python-format-check          # ruff format --check
+moon run :python-typecheck             # ty check
+moon run :python-test                  # pytest
+moon run :js-lint                      # eslint
+moon run :js-format-check              # prettier --check
+moon run :js-typecheck                 # tsc --noEmit (all TS packages)
+moon run app:test                      # tests for a single project
+
+# Build
+moon run :build                        # build all distributable wheels
+moon run source-garmin:build           # build a single package
+moon run :pyinstaller                  # build standalone binaries (onedir) to dist/
+moon run desktop:sidecars              # build PyInstaller sidecars for Tauri
+moon run desktop:tauri                 # build desktop app (builds sidecars first)
+
+# Other
+uv run cz commit                       # conventional commit
+uv add <package>                       # add a dependency
+make desktop-release                   # tag a desktop release (version from commits)
 ```
 
 ## Stack
