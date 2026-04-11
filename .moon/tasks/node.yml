@@ -21,7 +21,6 @@ tasks:
       - '@group(configs)'
     options:
       runFromWorkspaceRoot: true
-      cache: false
   js-lint:
     script: 'cd $MOON_PROJECT_SOURCE && npx eslint "src/**/*.ts"'
     inputs:
