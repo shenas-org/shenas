@@ -122,7 +122,7 @@ class AnthropicProvider:
             max_tokens=self.max_tokens,
             system=system,
             messages=[{"role": "user", "content": user}],
-            tools=tools,  # ty: ignore[invalid-argument-type]
+            tools=tools,
             tool_choice={"type": "tool", "name": tool_name},
         )
         usage = getattr(resp, "usage", None)
