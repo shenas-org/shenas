@@ -15,12 +15,6 @@ tasks:
     options:
       runFromWorkspaceRoot: true
       cache: false
-  js-deps:
-    script: 'cd $MOON_PROJECT_SOURCE && npm ci --silent'
-    inputs:
-      - '@group(configs)'
-    options:
-      runFromWorkspaceRoot: true
   js-lint:
     script: 'cd $MOON_PROJECT_SOURCE && npx eslint "src/**/*.ts"'
     inputs:
@@ -38,8 +32,6 @@ tasks:
     inputs:
       - '@group(sources)'
       - 'tsconfig.json'
-    deps:
-      - '~:js-deps'
     options:
       runFromWorkspaceRoot: true
   js-test:
@@ -47,8 +39,6 @@ tasks:
     inputs:
       - '@group(sources)'
       - '@group(configs)'
-    deps:
-      - '~:js-deps'
   lint:
     script: 'echo "All lint checks passed."'
     deps:
