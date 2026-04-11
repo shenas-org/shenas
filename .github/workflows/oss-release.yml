@@ -23,11 +23,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate release summary
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: python3 scripts/oss-release-summary.py /tmp/release_summary.txt
-
       - name: Configure SSH key
         run: |
           mkdir -p ~/.ssh
@@ -49,27 +44,11 @@ jobs:
       - name: Prepare Copybara config
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          SUMMARY=$(cat /tmp/release_summary.txt)
-
           sed -i "s|git@github.com:shenas-net/shenas.git|https://x-access-token:${GITHUB_TOKEN}@github.com/shenas-net/shenas.git|" .copybara/copy.bara.sky
           sed -i 's|git@github.com:shenas-org/shenas.git|git@github.com-oss:shenas-org/shenas.git|' .copybara/copy.bara.sky
-
-          RELEASE_SUMMARY="$SUMMARY" python3 -c "
-          import re, os
-          summary = os.environ['RELEASE_SUMMARY']
-          escaped = summary.replace('\\\\', '\\\\\\\\').replace('\"', '\\\\\"').replace('\n', '\\\\n')
-          with open('.copybara/copy.bara.sky') as f:
-              content = f.read()
-          content = re.sub(
-              r'metadata\.squash_notes\([^)]*\)',
-              f'metadata.replace_message(\"{escaped}\")',
-              content
-          )
-          with open('.copybara/copy.bara.sky', 'w') as f:
-              f.write(content)
-          "
-
+          python3 scripts/oss-release-summary.py /tmp/release_summary.txt --patch-copybara
           cp .copybara/copy.bara.sky copy.bara.sky
 
       - name: Run Copybara

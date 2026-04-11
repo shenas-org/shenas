@@ -130,6 +130,37 @@ def main() -> None:
 
     print(f"Release summary written to {OUTPUT}")
 
+    # If --patch-copybara is passed, also patch the config file
+    if "--patch-copybara" in sys.argv:
+        patch_copybara(summary)
+
+
+def patch_copybara(summary: str, config: str = ".copybara/copy.bara.sky") -> None:
+    """Replace metadata.squash_notes(...) with metadata.replace_message("...")."""
+    import re
+
+    # Escape for Starlark double-quoted string
+    escaped = summary
+    escaped = escaped.replace("\\", "\\\\")
+    escaped = escaped.replace('"', '\\"')
+    escaped = escaped.replace("\n", "\\n")
+    # Remove any non-ASCII that Starlark can't handle
+    escaped = escaped.encode("ascii", "replace").decode("ascii")
+
+    with open(config) as f:
+        content = f.read()
+
+    content = re.sub(
+        r"metadata\.squash_notes\([^)]*\)",
+        f'metadata.replace_message("{escaped}")',
+        content,
+    )
+
+    with open(config, "w") as f:
+        f.write(content)
+
+    print(f"Patched {config} with release summary")
+
 
 if __name__ == "__main__":
     main()
