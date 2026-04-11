@@ -38,6 +38,8 @@ jobs:
     name: Test
     runs-on: gcp-runners
     timeout-minutes: 15
+    env:
+      TZ: UTC
     steps:
       - uses: actions/checkout@v4
         with:
