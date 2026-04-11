@@ -10,7 +10,7 @@ variable "region" {
 
 variable "github_repo" {
   description = "GitHub repository (owner/name)"
-  default     = "afuncke/shenas"
+  default     = "shenas-net/shenas"
 }
 
 variable "domain" {
