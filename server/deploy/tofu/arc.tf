@@ -98,13 +98,13 @@ resource "helm_release" "arc_runner_set" {
             mountPath: /home/runner/_work
           resources:
             requests:
-              cpu: 1
-              memory: 2Gi
-              ephemeral-storage: 2Gi
+              cpu: 2
+              memory: 4Gi
+              ephemeral-storage: 4Gi
             limits:
-              cpu: 1
-              memory: 2Gi
-              ephemeral-storage: 2Gi
+              cpu: 2
+              memory: 4Gi
+              ephemeral-storage: 4Gi
     listenerTemplate:
       spec:
         securityContext:
