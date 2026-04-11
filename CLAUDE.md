@@ -6,6 +6,16 @@ Don't ask about doing 'cat', 'find', 'diff' or similar. Do not use emojis in cod
 
 When refactoring, unless told specifically so, don't bother with backward compatability.
 
+## Guiding documents
+
+The `prompts/` folder contains documents that guide Claude, MCPs, and other LLMs when generating user-facing content:
+
+- `prompts/TONE_OF_VOICE.md` -- how shenas talks to users (UI text, errors, changelogs, docs)
+- `prompts/DESIGN.md` -- visual design system (colors, typography, layout, components)
+- `prompts/DISCOURSE.md` -- Discourse community forum theming
+
+Consult these when writing UI copy, error messages, documentation, or frontend components.
+
 ## Commands
 
 ```bash
@@ -13,7 +23,7 @@ uv run shenasctl                       # CLI entry point
 uv run shenasctl source garmin sync       # run pipe (must be installed first)
 uv run ruff check .                 # lint
 uv run ruff format .                # format
-uv run ty check repository/ app/  # type check
+uv run ty check app/              # type check
 uv run pytest                       # run tests
 uv run cz commit                    # conventional commit
 uv add <package>                    # add a dependency
@@ -111,7 +121,7 @@ class LunchMoneySource(Source):
         return [t.to_resource(client, start_date="90 days ago") for t in TABLES]
 ```
 
-The legacy `tables.py` + `resources.py` split is being phased out. Sources already on the new Table ABC pattern: **lunchmoney**, **strava**, **spotify**, **gcalendar**, **gmail**, **duolingo**, **obsidian**, **gtakeout**, **garmin**. All sources are now on the new pattern.
+All sources use the Table ABC pattern.
 
 ### AS-OF macros for SCD2 tables
 
@@ -157,7 +167,7 @@ All artifacts (sources, dashboards, datasets, frontends, themes) are Python whee
 - **Core packages**: `shenas-source-core`, `shenas-dataset-core` (internal, not user-facing)
 - **Versioning**: Each package has a `VERSION` file read by hatchling. `scripts/bump-version.py` auto-increments patch on every build.
 - **Transforms are idempotent**: SQL transforms do DELETE WHERE source, then INSERT
-- **Plugin kinds**: source, dataset, dashboard, frontend, theme (all in `plugins/`)
+- **Plugin kinds**: source, dataset, dashboard, frontend, theme, analysis, transformation, model (all in `plugins/`)
 - **Themes**: exclusive (only one enabled at a time), CSS custom properties pierce Shadow DOM
 - **Python namespaces**: `shenas_sources.*`, `shenas_datasets.*`, `shenas_dashboards.*` (not `pipes.*` — conflicts with stdlib)
 - **DuckDB schemas**: raw data in source-specific schemas (`garmin.*`, `lunchmoney.*`, `strava.*`, ...), canonical in `metrics.*`
@@ -167,37 +177,66 @@ All artifacts (sources, dashboards, datasets, frontends, themes) are Python whee
 ## Modules
 
 - `app/` — FastAPI UI server (shenas-app); discovers plugins via entry points, serves Arrow IPC
+- `app/graphql/` — Strawberry GraphQL schema, mutations, LLM provider routing
 - `app/telemetry/` — OpenTelemetry exporters, DuckDB spans/logs, real-time SSE dispatcher
+- `app/mesh/` — peer-to-peer mesh daemon, identity, relay sync, transport
 - `app/fl/` — Flower FL client, PyTorch training, inference engine, model plugin registry
 - `app/desktop/` — Tauri v2 desktop app with bundled PyInstaller sidecars
 - `app/mobile/` — Tauri v2 mobile app (Rust core: axum + DuckDB, no Python)
 - `app/vendor/` — shared frontend deps (Lit, Arrow, uPlot, Cytoscape) built with Rollup
 - `shenasctl/` — lightweight CLI client (shenas-cli); httpx + typer + cryptography
 - `scheduler/` — background sync daemon sidecar (shenas-scheduler); polls server for due pipes
+- `server/api/` — shenas.net web API (LLM proxy, literature gateway, package repository)
 - `server/fl/` — federated learning coordinator (Flower server + REST API); runs in its own venv
+- `server/shenas.net/` — shenas.net marketing site (Astro)
+- `server/shenas.org/` — shenas.org site (Astro)
+- `server/deploy/` — Kubernetes, Terraform/OpenTofu, Docker deployment configs
 - `scripts/` — build helpers (version bumping, pre-commit hook)
 - `plugins/core/` — shared plugin utilities (shenas-plugin-core)
 - `plugins/sources/core/` — shared source utilities (shenas-source-core)
+- `plugins/sources/chrome/` — Chrome browser history
+- `plugins/sources/cronometer/` — Cronometer nutrition tracking
+- `plugins/sources/duolingo/` — Duolingo (XP, courses, profile, achievements, league, friends)
+- `plugins/sources/firefox/` — Firefox browser history
 - `plugins/sources/garmin/` — Garmin Connect (activities, daily stats, sleep, HRV, SpO2, body composition)
 - `plugins/sources/gcalendar/` — Google Calendar (events with attendees + colors palette)
+- `plugins/sources/github/` — GitHub activity
+- `plugins/sources/gmail/` — Gmail (messages, labels, profile, filters, vacation, send_as)
+- `plugins/sources/goodreads/` — Goodreads reading history
 - `plugins/sources/gtakeout/` — Google Takeout import (photos, location, YouTube history)
 - `plugins/sources/lunchmoney/` — Lunch Money (transactions, transaction_tags, categories, budgets, recurring, assets, plaid, user, crypto)
 - `plugins/sources/obsidian/` — Obsidian daily notes (frontmatter extraction)
-- `plugins/sources/gmail/` — Gmail (messages, labels, profile, filters, vacation, send_as)
-- `plugins/sources/duolingo/` — Duolingo (XP, courses, profile, achievements, league, friends)
+- `plugins/sources/rescuetime/` — RescueTime productivity tracking
+- `plugins/sources/shell_history/` — shell command history
 - `plugins/sources/spotify/` — Spotify (recently played, top tracks/artists for all 3 time ranges, saved tracks/albums/shows/episodes, playlists, followed artists, audio_features, user_profile)
 - `plugins/sources/strava/` — Strava (activities with detail, laps, kudos, comments, athlete, athlete_stats, athlete_zones, gear)
-- `plugins/datasets/core/` — shared schema utilities (shenas-dataset-core)
+- `plugins/sources/tile/` — Tile location tracking
+- `plugins/sources/withings/` — Withings health devices
+- `plugins/datasets/core/` — shared dataset utilities (shenas-dataset-core)
 - `plugins/datasets/fitness/` — canonical fitness metrics (HRV, sleep, vitals, body)
 - `plugins/datasets/finance/` — canonical finance metrics (transactions, spending, budgets)
 - `plugins/datasets/events/` — unified event timeline
 - `plugins/datasets/outcomes/` — canonical outcome metrics (mood, stress, productivity, exercise)
 - `plugins/datasets/habits/` — canonical habits metrics (daily habits)
-- `plugins/dashboards/fitness-dashboard/` — Lit + uPlot fitness charts (built as wheel)
+- `plugins/datasets/location/` — canonical location metrics
+- `plugins/datasets/promoted/` — dynamically promoted hypothesis-to-metric tables
+- `plugins/analyses/core/` — shared analysis utilities
+- `plugins/analyses/hypothesis/` — hypothesis-driven analysis (Recipe DAG runner)
+- `plugins/transformations/core/` — shared transformation utilities
+- `plugins/transformations/*/` — transform plugins (sql, dedup-merge, geocode, geofence, reverse-geocode, regex-extract, llm-categorize)
+- `plugins/models/core/` — shared ML model utilities
+- `plugins/models/sleep-forecast/` — sleep quality forecasting model
+- `plugins/dashboards/core/` — shared dashboard utilities
+- `plugins/dashboards/fitness/` — Lit + uPlot fitness charts (built as wheel)
 - `plugins/dashboards/data-table/` — Lit data table with sorting/filtering/pagination (built as wheel)
+- `plugins/dashboards/event-gantt/` — event Gantt chart visualization
+- `plugins/dashboards/timeline/` — timeline visualization
+- `plugins/frontends/core/` — shared frontend utilities
+- `plugins/frontends/default/` — default UI shell (Lit SPA with tabs, command palette, data flow graph)
+- `plugins/frontends/focus/` — focus mode frontend
+- `plugins/themes/core/` — shared theme utilities
 - `plugins/themes/default/` — default light theme (CSS custom properties)
 - `plugins/themes/dark/` — dark theme
-- `plugins/frontends/default/` — default UI shell (Lit SPA with tabs, command palette, data flow graph)
 
 ## Git workflow
 
