@@ -2,24 +2,15 @@ name: OSS Release
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'app/v*'
-      - 'shenasctl/v*'
-      - 'scheduler/v*'
-      - 'source-*/v*'
-      - 'dataset-*/v*'
-      - 'dashboard-*/v*'
-      - 'plugin-core/v*'
-      - 'transformation-*/v*'
-      - 'frontend-*/v*'
-      - 'theme-*/v*'
-      - 'analysis-*/v*'
-      - 'model-*/v*'
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
 
 jobs:
   copybara:
     name: Sync to shenas-org/shenas
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
