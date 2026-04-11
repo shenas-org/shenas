@@ -1,3 +1,7 @@
+// Suppress Lit dev mode warning in tests -- tests run in dev mode by default
+// but the warning is noisy and not actionable.
+globalThis.litIssuedWarnings ??= new Set(["dev-mode"]);
+
 import "urlpattern-polyfill";
 
 // happy-dom 17.6.3 has a Lit template parser bug on data-list's <tr class="${...}">

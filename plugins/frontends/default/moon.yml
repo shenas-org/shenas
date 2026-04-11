@@ -7,3 +7,8 @@ tags: ['plugin', 'ui']
 
 dependsOn:
   - 'vendor'
+
+tasks:
+  js-test:
+    deps:
+      - 'vendor:npm-install'
