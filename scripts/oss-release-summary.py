@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 
 OUTPUT = sys.argv[1] if len(sys.argv) > 1 else "/tmp/release_summary.txt"
@@ -80,7 +81,7 @@ def ask_claude(commits: str) -> str | None:
 
     payload = json.dumps(
         {
-            "model": "claude-sonnet-4-20250514",
+            "model": "claude-sonnet-4-6-20250514",
             "max_tokens": 300,
             "messages": [{"role": "user", "content": f"{PROMPT}\n\nCommits:\n{commits}"}],
         }
@@ -100,6 +101,9 @@ def ask_claude(commits: str) -> str | None:
         with urllib.request.urlopen(req, timeout=30) as resp:
             data = json.loads(resp.read())
             return data["content"][0]["text"]
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode() if exc.fp else ""
+        print(f"Claude API error: {exc} -- {body}", file=sys.stderr)
     except Exception as exc:
         print(f"Claude API error: {exc}", file=sys.stderr)
         return None
@@ -113,7 +117,10 @@ def main() -> None:
     else:
         summary = ask_claude(commits)
         if not summary:
-            print("ANTHROPIC_API_KEY not set or API failed, using raw commit log", file=sys.stderr)
+            print(
+                "ANTHROPIC_API_KEY not set or API failed, using raw commit log",
+                file=sys.stderr,
+            )
             summary = f"Release sync\n\n{commits}"
 
     with open(OUTPUT, "w") as f:
