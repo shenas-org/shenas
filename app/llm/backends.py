@@ -119,7 +119,7 @@ class LlamaCppBackend(Backend):
 
     def __init__(self, model: Model) -> None:
         try:
-            from llama_cpp import Llama
+            from llama_cpp import Llama  # ty: ignore[unresolved-import]
         except ImportError as e:
             msg = "Local LLM requires llama-cpp-python. Install with: uv pip install 'shenas-app[local]'"
             raise RuntimeError(msg) from e
@@ -132,7 +132,7 @@ class LlamaCppBackend(Backend):
 
     def categorize(self, text: str, *, prompt: str) -> str | None:
         try:
-            resp: dict = self._llm.create_chat_completion(  # ty: ignore[invalid-assignment]
+            resp: dict = self._llm.create_chat_completion(
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=50,
             )
