@@ -51,36 +51,32 @@ jobs:
           sed -i 's|git@github.com:shenas-org/shenas.git|git@github.com-oss:shenas-org/shenas.git|' .copybara/copy.bara.sky
           cp .copybara/copy.bara.sky copy.bara.sky
 
-      - name: Check destination branch
-        id: dest-check
-        run: |
-          if git ls-remote --heads git@github.com-oss:shenas-org/shenas.git main 2>/dev/null | grep -q main; then
-            echo "init=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "Destination has no main branch, will use --init-history"
-            echo "init=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Run Copybara
         run: |
           EXTRA_FLAGS=""
-          if [ "${{ steps.dest-check.outputs.init }}" = "true" ]; then
+          if ! git ls-remote --heads git@github.com-oss:shenas-org/shenas.git main 2>/dev/null | grep -q main; then
+            echo "Destination has no main branch, using --init-history"
             EXTRA_FLAGS="--init-history --force"
           fi
+
+          cat > /tmp/run-copybara.sh <<SCRIPT
+          #!/bin/bash
+          set -e
+          cp -r /tmp/host-ssh /root/.ssh
+          chmod 700 /root/.ssh
+          chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key
+          sed -i 's|~/.ssh/|/root/.ssh/|g' /root/.ssh/config
+          copybara copy.bara.sky --work-dir /tmp/copybara $EXTRA_FLAGS
+          SCRIPT
+          chmod +x /tmp/run-copybara.sh
 
           docker run --rm \
             -v "$HOME/.ssh:/tmp/host-ssh:ro" \
             -v "$GITHUB_WORKSPACE:/workspace" \
+            -v "/tmp/run-copybara.sh:/tmp/run-copybara.sh:ro" \
             -w /workspace \
-            -e EXTRA_FLAGS="$EXTRA_FLAGS" \
             sharelatex/copybara:latest \
-            bash -c '
-              cp -r /tmp/host-ssh /root/.ssh &&
-              chmod 700 /root/.ssh &&
-              chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key &&
-              sed -i "s|~/.ssh/|/root/.ssh/|g" /root/.ssh/config &&
-              copybara copy.bara.sky --work-dir /tmp/copybara $EXTRA_FLAGS
-            '
+            /tmp/run-copybara.sh
 
       - name: Generate LLM summary and amend commit
         env:
