@@ -33,7 +33,7 @@ describe("shenas-settings", () => {
   it("has default property values", () => {
     const el = mount();
     expect(el.apiBase).toBe("/api");
-    expect(el.activeKind).toBe("flow");
+    expect(el.activeKind).toBe("profile");
     expect(el.onNavigate).toBeNull();
     expect(el.onPluginsChanged).toBeNull();
     expect(el._plugins).toEqual({});
@@ -75,7 +75,7 @@ describe("shenas-settings", () => {
 
   it("_displayName returns label for known kinds", () => {
     const el = mount();
-    expect(el._displayName()).toBe("Flow");
+    expect(el._displayName()).toBe("Profile");
     el.activeKind = "hotkeys";
     expect(el._displayName()).toBe("Hotkeys");
   });
@@ -279,12 +279,12 @@ describe("shenas-settings", () => {
     expect(list.rows?.length).toBe(1);
   });
 
-  it("renders pipeline-overview when activeKind=flow", async () => {
+  it("renders profile section by default", async () => {
     const el = mount();
     el._loading = false;
-    el.activeKind = "flow";
     await el.updateComplete;
-    expect(el.shadowRoot?.querySelector("shenas-pipeline-overview")).toBeTruthy();
+    expect(el.activeKind).toBe("profile");
+    expect(el.shadowRoot?.querySelector(".profile")).toBeTruthy();
   });
 
   it("renders hotkeys component when activeKind=hotkeys", async () => {

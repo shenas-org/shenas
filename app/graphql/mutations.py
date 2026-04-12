@@ -191,6 +191,7 @@ class Mutation:
             )
             for c in checks
         ]
+
     # -- Categories --
 
     @strawberry.mutation
