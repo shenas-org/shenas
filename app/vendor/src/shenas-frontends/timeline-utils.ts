@@ -68,11 +68,7 @@ export interface BarPosition {
  * Arrow timestamps arrive as microseconds since epoch; `endAt` is converted
  * with `new Date(Number(endAt) / 1000)`.
  */
-export function computeBarPosition(
-  start: Date,
-  durationMin?: number,
-  endAt?: bigint | number,
-): BarPosition {
+export function computeBarPosition(start: Date, durationMin?: number, endAt?: bigint | number): BarPosition {
   const hours = start.getHours() + start.getMinutes() / 60;
   const leftPct = (hours / 24) * 100;
   let durationHours = ((durationMin as number) || 30) / 60;
