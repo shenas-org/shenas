@@ -3,15 +3,7 @@ import cytoscape from "cytoscape";
 // The vendor bundle re-exports cytoscape-dagre as `dagre` from "cytoscape".
 // @ts-expect-error dagre is provided by the vendor bundle, not the real cytoscape package
 import { dagre } from "cytoscape";
-import {
-  gql,
-  gqlFull,
-  buttonStyles,
-  formStyles,
-  messageStyles,
-  tableStyles,
-  renderMessage,
-} from "shenas-frontends";
+import { gql, gqlFull, buttonStyles, formStyles, messageStyles, tableStyles, renderMessage } from "shenas-frontends";
 
 interface Entity {
   uuid: string;
@@ -180,18 +172,34 @@ class EntitiesPage extends LitElement {
     `,
   ];
 
-  apiBase = "";
-  _entities: Entity[] = [];
-  _relationships: EntityRelationshipRow[] = [];
-  _entityTypes: EntityTypeInfo[] = [];
-  _relationshipTypes: RelationshipTypeInfo[] = [];
-  _loading = true;
-  _message: Message | null = null;
-  _creating = false;
-  _newEntity: EntityForm = this._emptyEntityForm();
-  _editing: string | null = null;
-  _editForm: EntityForm = this._emptyEntityForm();
-  _newRel: RelationshipForm = { fromUuid: "", toUuid: "", type: "" };
+  declare apiBase: string;
+  declare _entities: Entity[];
+  declare _relationships: EntityRelationshipRow[];
+  declare _entityTypes: EntityTypeInfo[];
+  declare _relationshipTypes: RelationshipTypeInfo[];
+  declare _loading: boolean;
+  declare _message: Message | null;
+  declare _creating: boolean;
+  declare _newEntity: EntityForm;
+  declare _editing: string | null;
+  declare _editForm: EntityForm;
+  declare _newRel: RelationshipForm;
+
+  constructor() {
+    super();
+    this.apiBase = "";
+    this._entities = [];
+    this._relationships = [];
+    this._entityTypes = [];
+    this._relationshipTypes = [];
+    this._loading = true;
+    this._message = null;
+    this._creating = false;
+    this._newEntity = this._emptyEntityForm();
+    this._editing = null;
+    this._editForm = this._emptyEntityForm();
+    this._newRel = { fromUuid: "", toUuid: "", type: "" };
+  }
 
   private _cy: cytoscape.Core | null = null;
   private _resizeObserver: ResizeObserver | null = null;
@@ -355,11 +363,9 @@ class EntitiesPage extends LitElement {
       this._message = { type: "error", text: "Cannot delete your own entity." };
       return;
     }
-    const { ok, data } = await gqlFull(
-      this.apiBase,
-      `mutation($uuid: String!) { deleteEntity(uuid: $uuid) { ok } }`,
-      { uuid: e.uuid },
-    );
+    const { ok, data } = await gqlFull(this.apiBase, `mutation($uuid: String!) { deleteEntity(uuid: $uuid) { ok } }`, {
+      uuid: e.uuid,
+    });
     if (ok && (data?.deleteEntity as Record<string, unknown>)?.ok) {
       this._message = { type: "success", text: "Entity removed." };
       await this._fetchAll();
@@ -559,18 +565,14 @@ class EntitiesPage extends LitElement {
         <div class="section">
           <h3>Entities</h3>
           <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem">
-            ${this._creating
-              ? ""
-              : html`<button @click=${() => this._startCreate()}>Add entity</button>`}
+            ${this._creating ? "" : html`<button @click=${() => this._startCreate()}>Add entity</button>`}
           </div>
-          ${this._creating ? this._renderCreateForm() : ""}
-          ${this._renderEntitiesTable()}
+          ${this._creating ? this._renderCreateForm() : ""} ${this._renderEntitiesTable()}
         </div>
 
         <div class="section">
           <h3>Relationships</h3>
-          ${this._renderRelationshipForm()}
-          ${this._renderRelationshipsTable()}
+          ${this._renderRelationshipForm()} ${this._renderRelationshipsTable()}
         </div>
       </shenas-page>
     `;
@@ -596,7 +598,8 @@ class EntitiesPage extends LitElement {
               @change=${(e: Event) => this._updateNewField("type", (e.target as HTMLSelectElement).value)}
             >
               ${this._entityTypes.map(
-                (t) => html`<option value=${t.name} ?selected=${t.name === this._newEntity.type}>${t.displayName}</option>`,
+                (t) =>
+                  html`<option value=${t.name} ?selected=${t.name === this._newEntity.type}>${t.displayName}</option>`,
               )}
             </select>
           </label>
@@ -647,7 +650,8 @@ class EntitiesPage extends LitElement {
               @change=${(ev: Event) => this._updateEditField("type", (ev.target as HTMLSelectElement).value)}
             >
               ${this._entityTypes.map(
-                (t) => html`<option value=${t.name} ?selected=${t.name === this._editForm.type}>${t.displayName}</option>`,
+                (t) =>
+                  html`<option value=${t.name} ?selected=${t.name === this._editForm.type}>${t.displayName}</option>`,
               )}
             </select>
           </label>
@@ -696,9 +700,7 @@ class EntitiesPage extends LitElement {
           ${this._entities.map(
             (e) => html`
               <tr>
-                <td>
-                  ${e.name}${e.isMe ? html`<span class="me-badge">me</span>` : ""}
-                </td>
+                <td>${e.name}${e.isMe ? html`<span class="me-badge">me</span>` : ""}</td>
                 <td>${this._typeDisplayName(e.type)}</td>
                 <td>${e.status}</td>
                 <td>
@@ -712,7 +714,11 @@ class EntitiesPage extends LitElement {
                   </div>
                 </td>
               </tr>
-              ${this._editing === e.uuid ? html`<tr><td colspan="4">${this._renderEditForm(e)}</td></tr>` : ""}
+              ${this._editing === e.uuid
+                ? html`<tr>
+                    <td colspan="4">${this._renderEditForm(e)}</td>
+                  </tr>`
+                : ""}
             `,
           )}
         </tbody>
