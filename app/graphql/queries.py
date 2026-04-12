@@ -23,7 +23,9 @@ from app.graphql.types import (
     QualityInfoType,
     ScheduleInfoType,
     SuggestedAnalysisType,
+    ParamFieldType,
     SuggestedDatasetType,
+    TransformerInfoType,
     TableEntry,
     ThemeInfo,
     TimeColumnsInfoType,
@@ -342,7 +344,7 @@ class Query:
     # -- Transforms --
 
     @strawberry.field
-    def transform_types(self) -> JSON:
+    def transform_types(self) -> list[TransformerInfoType]:
         """Return available transformer plugin types with their param schemas."""
         from importlib.metadata import entry_points
 
@@ -353,16 +355,27 @@ class Query:
                 inst = cls()
                 schema = inst.param_schema() if hasattr(inst, "param_schema") else []
                 result.append(
-                    {
-                        "name": ep.name,
-                        "displayName": getattr(inst, "display_name", ep.name),
-                        "description": getattr(inst, "description", ""),
-                        "paramSchema": schema,
-                    }
+                    TransformerInfoType(
+                        name=ep.name,
+                        display_name=getattr(inst, "display_name", ep.name),
+                        description=getattr(inst, "description", ""),
+                        param_schema=[
+                            ParamFieldType(
+                                name=p["name"],
+                                label=p.get("label", ""),
+                                type=p.get("type", "text"),
+                                required=p.get("required", False),
+                                description=p.get("description", ""),
+                                default=str(p["default"]) if p.get("default") is not None else None,
+                                options=p.get("options"),
+                            )
+                            for p in schema
+                        ],
+                    )
                 )
             except Exception:
                 pass
-        return sorted(result, key=lambda x: x["displayName"])  # ty: ignore[invalid-return-type]
+        return sorted(result, key=lambda x: x.display_name)
 
     # -- Categories --
 

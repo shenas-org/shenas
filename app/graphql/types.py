@@ -198,6 +198,40 @@ class HypothesisSuggestionType:
     score: float = 0.0
 
 
+# -- Transformer info types ----------------------------------------------------
+
+
+@strawberry.type
+class ParamFieldType:
+    name: str
+    label: str = ""
+    type: str = "text"
+    required: bool = False
+    description: str = ""
+    default: str | None = None
+    options: list[str] | None = None
+
+
+@strawberry.type
+class TransformerInfoType:
+    name: str
+    display_name: str
+    description: str = ""
+    param_schema: list[ParamFieldType]
+
+
+@strawberry.type
+class SeedResultType:
+    seeded: list[str]
+    count: int
+
+
+@strawberry.type
+class TransformRunResultType:
+    name: str
+    count: int
+
+
 # -- Suggestion types ----------------------------------------------------------
 
 

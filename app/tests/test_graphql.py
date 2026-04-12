@@ -1024,7 +1024,7 @@ class TestGraphQLMutationsExtra:
             patch("app.graphql.mutations._source_entry_point_names", return_value=["garmin"]),
             patch("app.api.sources._load_plugins", return_value=[fake_plugin_cls]),
         ):
-            result = _gql(client, "mutation { seedTransforms }")
+            result = _gql(client, "mutation { seedTransforms { seeded count } }")
         assert "errors" not in result
         assert result["data"]["seedTransforms"]["count"] == 1
         assert result["data"]["seedTransforms"]["seeded"] == ["garmin"]
@@ -1035,19 +1035,19 @@ class TestGraphQLMutationsExtra:
             patch("app.graphql.mutations._source_entry_point_names", return_value=[]),
             patch("app.api.sources._load_plugins", return_value=[]),
         ):
-            result = _gql(client, "mutation { seedTransforms }")
+            result = _gql(client, "mutation { seedTransforms { seeded count } }")
         assert result["data"]["seedTransforms"]["count"] == 0
 
     def test_run_pipe_transforms(self, client: TestClient) -> None:
         with patch("shenas_transformers.core.transform.Transform.run_for_source", return_value=3):
-            result = _gql(client, 'mutation { runPipeTransforms(pipe: "garmin") }')
+            result = _gql(client, 'mutation { runPipeTransforms(pipe: "garmin") { name count } }')
         assert "errors" not in result
-        assert result["data"]["runPipeTransforms"]["source"] == "garmin"
+        assert result["data"]["runPipeTransforms"]["name"] == "garmin"
         assert result["data"]["runPipeTransforms"]["count"] == 3
 
     def test_run_schema_transforms(self, client: TestClient) -> None:
         with patch("shenas_transformers.core.transform.Transform.run_for_target", return_value=2):
-            result = _gql(client, 'mutation { runSchemaTransforms(schema: "metrics") }')
+            result = _gql(client, 'mutation { runSchemaTransforms(schema: "metrics") { name count } }')
         assert "errors" not in result
-        assert result["data"]["runSchemaTransforms"]["schema"] == "metrics"
+        assert result["data"]["runSchemaTransforms"]["name"] == "metrics"
         assert result["data"]["runSchemaTransforms"]["count"] == 2
