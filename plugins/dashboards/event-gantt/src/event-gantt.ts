@@ -1,11 +1,21 @@
 import { LitElement, html, css, nothing } from "lit";
 import type { TemplateResult, CSSResult } from "lit";
-import { query, arrowToRows, categoryColor, formatTime, formatDate, dayKey, computeBarPosition } from "shenas-frontends";
-import type { EventItem } from "shenas-frontends";
+import { arrowToRows, categoryColor, formatTime, formatDate, dayKey, computeBarPosition } from "shenas-frontends";
+
+interface RowData {
+  title?: string;
+  start_at?: number | bigint;
+  end_at?: number | bigint;
+  duration_min?: number;
+  category?: string;
+  description?: string;
+  _start?: Date;
+  _end?: Date;
+}
 
 interface DayGroup {
   date: Date;
-  events: EventItem[];
+  events: RowData[];
 }
 
 export class ShenasEventGantt extends LitElement {
@@ -22,10 +32,10 @@ export class ShenasEventGantt extends LitElement {
 
   declare apiBase: string;
   declare days: number;
-  declare _events: EventItem[];
+  declare _events: RowData[];
   declare _loading: boolean;
   declare _error: string | null;
-  declare _hoveredEvent: EventItem | null;
+  declare _hoveredEvent: RowData | null;
   declare _tooltipX: number;
   declare _tooltipY: number;
 
@@ -135,7 +145,9 @@ export class ShenasEventGantt extends LitElement {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      transition: opacity 0.2s, transform 0.2s;
+      transition:
+        opacity 0.2s,
+        transform 0.2s;
     }
 
     .event-bar:hover {
@@ -174,7 +186,7 @@ export class ShenasEventGantt extends LitElement {
 
   constructor() {
     super();
-    this.apiBase = '';
+    this.apiBase = "";
     this.days = 7;
     this._events = [];
     this._loading = false;
@@ -195,10 +207,10 @@ export class ShenasEventGantt extends LitElement {
 
     try {
       const response = await fetch(`${this.apiBase}/api/metrics/events`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          table: 'events.all_events',
+          table: "events.all_events",
           filters: [],
         }),
       });
@@ -217,10 +229,12 @@ export class ShenasEventGantt extends LitElement {
   }
 
   private groupEventsByDay(): DayGroup[] {
-    const groups: Map<string, EventItem[]> = new Map();
+    const groups: Map<string, RowData[]> = new Map();
 
     for (const event of this._events) {
-      const key = dayKey(new Date(event.time_start));
+      const start = event._start || (event.start_at ? new Date(Number(event.start_at)) : null);
+      if (!start) continue;
+      const key = dayKey(start);
       if (!groups.has(key)) {
         groups.set(key, []);
       }
@@ -231,18 +245,13 @@ export class ShenasEventGantt extends LitElement {
       .map(([key, events]) => ({
         date: new Date(key),
         events: events.sort(
-          (a, b) =>
-            new Date(a.time_start).getTime() -
-            new Date(b.time_start).getTime()
+          (a, b) => (a._start?.getTime() || Number(a.start_at) || 0) - (b._start?.getTime() || Number(b.start_at) || 0),
         ),
       }))
       .sort((a, b) => a.date.getTime() - b.date.getTime());
   }
 
-  private onEventHover(
-    event: MouseEvent,
-    item: EventItem
-  ) {
+  private onEventHover(event: MouseEvent, item: RowData) {
     this._hoveredEvent = item;
     this._tooltipX = event.clientX;
     this._tooltipY = event.clientY;
@@ -282,45 +291,39 @@ export class ShenasEventGantt extends LitElement {
                 </div>
                 <div class="events-container">
                   ${group.events.map((event) => {
-                    const position = computeBarPosition(
-                      new Date(event.time_start),
-                      new Date(event.time_end),
-                      group.date
-                    );
+                    const start = event._start || (event.start_at ? new Date(Number(event.start_at)) : new Date());
+                    const position = computeBarPosition(start, event.duration_min, event.end_at);
 
                     return html`
                       <div
                         class="event-bar"
-                        style="left: ${position.left}%; width: ${position.width}%; background: ${categoryColor(
-                          event.category
+                        style="left: ${position.leftPct}%; width: ${position.widthPct}%; background: ${categoryColor(
+                          event.category,
                         )}"
-                        @mousemove=${(e: MouseEvent) =>
-                          this.onEventHover(e, event)}
+                        @mousemove=${(e: MouseEvent) => this.onEventHover(e, event)}
                         @mouseleave=${() => this.onEventLeave()}
                       >
-                        ${event.name}
+                        ${event.title}
                       </div>
                     `;
                   })}
                 </div>
               </div>
-            `
+            `,
           )}
         </div>
       </div>
 
       ${this._hoveredEvent
         ? html`
-            <div
-              class="tooltip"
-              style="left: ${this._tooltipX}px; top: ${this._tooltipY}px"
-            >
-              <strong>${this._hoveredEvent.name}</strong>
-              <div>${formatTime(new Date(this._hoveredEvent.time_start))} -
-              ${formatTime(new Date(this._hoveredEvent.time_end))}</div>
-              ${this._hoveredEvent.description
-                ? html`<div>${this._hoveredEvent.description}</div>`
-                : nothing}
+            <div class="tooltip" style="left: ${this._tooltipX}px; top: ${this._tooltipY}px">
+              <strong>${this._hoveredEvent.title || "Event"}</strong>
+              <div>
+                ${this._hoveredEvent._start ? formatTime(this._hoveredEvent._start) : ""}${this._hoveredEvent._end
+                  ? html` - ${formatTime(this._hoveredEvent._end)}`
+                  : nothing}
+              </div>
+              ${this._hoveredEvent.description ? html`<div>${this._hoveredEvent.description}</div>` : nothing}
             </div>
           `
         : nothing}
@@ -328,4 +331,4 @@ export class ShenasEventGantt extends LitElement {
   }
 }
 
-customElements.define('shenas-event-gantt', ShenasEventGantt);
+customElements.define("shenas-event-gantt", ShenasEventGantt);
