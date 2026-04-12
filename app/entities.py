@@ -477,7 +477,7 @@ def seed_me_entity_index(con: duckdb.DuckDBPyConnection, local_user_id: int, loc
 # ---------------------------------------------------------------------------
 
 
-def current_entity(info: Any) -> Any:
+def current_entity(info: Any = None) -> Any:
     """Return the LocalUser row for the current GraphQL request, or None.
 
     Resolves ``info.context['user_id']`` against the registry DB's

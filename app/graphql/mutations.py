@@ -964,9 +964,9 @@ class Mutation:
 
         e = Entity.find_by_uuid(uuid)
         if e is None:
-            return OkType.from_pydantic(OkResponse(ok=False, message="Entity not found"))
+            return OkType.from_pydantic(OkResponse(ok=False, message="Entity not found"))  # ty: ignore[unresolved-attribute]
         e.delete()
-        return OkType.from_pydantic(OkResponse(ok=True))
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
     def create_entity_relationship(
@@ -992,6 +992,6 @@ class Mutation:
 
         r = EntityRelationship.find(from_uuid, to_uuid, relationship_type)
         if r is None:
-            return OkType.from_pydantic(OkResponse(ok=False, message="Relationship not found"))
+            return OkType.from_pydantic(OkResponse(ok=False, message="Relationship not found"))  # ty: ignore[unresolved-attribute]
         r.delete()
-        return OkType.from_pydantic(OkResponse(ok=True))
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
