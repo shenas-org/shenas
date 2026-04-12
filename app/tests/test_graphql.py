@@ -186,7 +186,7 @@ class TestGraphQLQueries:
         )
         result = _gql(
             client,
-            "{ transforms { id transformType source { id schemaName tableName } sourcePlugin params enabled description } }",
+            "{ transforms { id transformType sourcePlugin params enabled description } }",
         )
         assert "errors" not in result
         transforms = result["data"]["transforms"]
@@ -719,7 +719,7 @@ class TestGraphQLMutations:
                     sourcePlugin: "garmin",
                     params: "{\\"sql\\": \\"SELECT 1 AS id, 'garmin' AS source\\"}",
                     description: "test transform"
-                }) { id transformType source { id } sourcePlugin params enabled isDefault description }
+                }) { id transformType sourcePlugin params enabled isDefault description }
             }""",
         )
         assert "errors" not in result

@@ -245,6 +245,29 @@ def _walk_metrics() -> list[tuple[dict, Plugin]]:
 class DataCatalog:
     """Unified entry point for all catalog operations."""
 
+    _resource_cache: dict[str, DataResource] | None = None
+
+    def get_resource(self, resource_id: str) -> DataResource:
+        """Look up a single DataResource by ID. Cached, no lineage.
+
+        Returns a stub for unknown resources (e.g. tables that exist in
+        DuckDB but aren't part of any installed plugin).
+        """
+        if self._resource_cache is None:
+            self._resource_cache = {r.id: r for r in self._walk_all()}
+        if resource_id in self._resource_cache:
+            return self._resource_cache[resource_id]
+        ref = DataResourceRef.from_id(resource_id)
+        stub_plugin = Plugin.__new__(Plugin)
+        stub_plugin.name = ref.schema
+        stub_plugin.display_name = ref.schema
+        return DataResource(
+            ref=ref,
+            display_name=ref.table,
+            description="",
+            plugin=stub_plugin,
+        )
+
     def _walk_all(self) -> list[DataResource]:
         """Build DataResource list from code-derived metadata."""
         resources: list[DataResource] = []

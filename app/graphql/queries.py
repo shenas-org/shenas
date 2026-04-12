@@ -22,7 +22,6 @@ from app.graphql.types import (
     TimeColumnsInfoType,
     TransformType,
 )
-from shenas_plugins.core.table import DataResourceRef
 
 if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform
@@ -106,50 +105,14 @@ def _data_resource_to_gql(r: DataResource) -> DataResourceType:
     )
 
 
-_resource_cache: dict[str, DataResourceType] | None = None
-
-
-def _resolve_data_resource(resource_id: str) -> DataResourceType:
-    """Look up a DataResourceType by ID. Cached per process, no lineage (avoids recursion)."""
-    global _resource_cache
-    if _resource_cache is None:
-        from app.data_catalog import catalog
-
-        _resource_cache = {r.id: _data_resource_to_gql(r) for r in catalog()._walk_all()}
-    if resource_id in _resource_cache:
-        return _resource_cache[resource_id]
-    ref = DataResourceRef.from_id(resource_id)
-    return _data_resource_to_gql_stub(ref)
-
-
-def _data_resource_to_gql_stub(ref: DataResourceRef) -> DataResourceType:
-    """Minimal DataResourceType for resources not found in catalog."""
-    from app.models import PluginInfo
-
-    return DataResourceType(
-        id=ref.id,
-        schema_name=ref.schema,
-        table_name=ref.table,
-        display_name=ref.table,
-        description="",
-        plugin=PluginInfoType.from_pydantic(PluginInfo(name=ref.schema, display_name=ref.schema)),  # ty: ignore[unresolved-attribute]
-        kind=None,
-        primary_key=[],
-        columns=[],
-        time_columns=TimeColumnsInfoType(),
-        freshness=FreshnessInfoType(),
-        quality=QualityInfoType(latest_checks=[]),
-        user_notes="",
-        tags=[],
-    )
-
-
 def _transform_to_gql(t: Transform) -> TransformType:
+    from app.data_catalog import catalog
+
     return TransformType(
         id=t.id,
         transform_type=t.transform_type,
-        source=_resolve_data_resource(t.source_ref.id),
-        target=_resolve_data_resource(t.target_ref.id),
+        source=_data_resource_to_gql(catalog().get_resource(t.source_ref.id)),
+        target=_data_resource_to_gql(catalog().get_resource(t.target_ref.id)),
         source_plugin=t.source_plugin,
         params=t.params or "{}",
         description=t.description or "",
