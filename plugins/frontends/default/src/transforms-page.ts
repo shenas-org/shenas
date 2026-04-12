@@ -1,4 +1,4 @@
-import { LitElement, html, css } from "lit";
+import { LitElement, html, css, nothing } from "lit";
 import {
   gql,
   gqlFull,
@@ -13,24 +13,48 @@ import {
 const _inspectBtnStyle =
   "background:none;border:none;cursor:pointer;color:var(--shenas-text-faint, #aaa);font-size:0.7rem;padding:0 2px";
 
+/** Convert snake_case to Title Case (e.g. "latitude_column" -> "Latitude column"). */
+function _humanize(name: string): string {
+  return name.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+
 interface Transform {
   id: number;
+  transformType: string;
   sourceDuckdbSchema: string;
   sourceDuckdbTable: string;
   targetDuckdbSchema: string;
   targetDuckdbTable: string;
   sourcePlugin: string;
   description: string;
-  sql: string;
+  params: string;
   isDefault: boolean;
   enabled: boolean;
 }
 
+interface ParamField {
+  name: string;
+  label?: string;
+  type: string;
+  required: boolean;
+  description: string;
+  default?: string | number;
+  options?: string[];
+}
+
+interface TransformTypeInfo {
+  name: string;
+  displayName: string;
+  description: string;
+  paramSchema: ParamField[];
+}
+
 interface TransformForm {
+  transform_type: string;
   source_duckdb_table: string;
   target_duckdb_table: string;
   description: string;
-  sql: string;
+  params: Record<string, string>;
 }
 
 interface Message {
@@ -45,13 +69,16 @@ class TransformsPage extends LitElement {
     _transforms: { state: true },
     _loading: { state: true },
     _editing: { state: true },
-    _editSql: { state: true },
+    _editParams: { state: true },
     _message: { state: true },
     _previewRows: { state: true },
     _creating: { state: true },
     _newForm: { state: true },
     _dbTables: { state: true },
     _schemaTables: { state: true },
+    _transformTypes: { state: true },
+    _sourceColumns: { state: true },
+    _targetColumns: { state: true },
   };
 
   static styles = [
@@ -124,6 +151,15 @@ class TransformsPage extends LitElement {
       .form-full {
         grid-column: 1 / -1;
       }
+      .param-hint {
+        font-size: 0.75rem;
+        color: var(--shenas-text-muted, #888);
+      }
+      .type-desc {
+        font-size: 0.8rem;
+        color: var(--shenas-text-secondary, #666);
+        margin: 0.2rem 0 0.6rem;
+      }
     `,
   ];
 
@@ -132,13 +168,16 @@ class TransformsPage extends LitElement {
   declare _transforms: Transform[];
   declare _loading: boolean;
   declare _editing: number | null;
-  declare _editSql: string;
+  declare _editParams: Record<string, string>;
   declare _message: Message | null;
   declare _previewRows: Record<string, unknown>[] | null;
   declare _creating: boolean;
   declare _newForm: TransformForm;
   declare _dbTables: Record<string, string[]>;
   declare _schemaTables: Record<string, string[]>;
+  declare _sourceColumns: string[];
+  declare _targetColumns: string[];
+  declare _transformTypes: TransformTypeInfo[];
 
   constructor() {
     super();
@@ -147,21 +186,25 @@ class TransformsPage extends LitElement {
     this._transforms = [];
     this._loading = true;
     this._editing = null;
-    this._editSql = "";
+    this._editParams = {};
     this._message = null;
     this._previewRows = null;
     this._creating = false;
     this._newForm = this._emptyForm();
     this._dbTables = {};
     this._schemaTables = {};
+    this._transformTypes = [];
+    this._sourceColumns = [];
+    this._targetColumns = [];
   }
 
   _emptyForm(): TransformForm {
     return {
+      transform_type: "",
       source_duckdb_table: "",
       target_duckdb_table: "",
       description: "",
-      sql: "",
+      params: {},
     };
   }
 
@@ -170,11 +213,19 @@ class TransformsPage extends LitElement {
     this._fetchAll();
   }
 
+  // -- Data fetching -------------------------------------------------------
+
   async _fetchAll(): Promise<void> {
     this._loading = true;
     const data = await gql(
       this.apiBase,
-      `query($source: String) { transforms(source: $source) { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin description sql isDefault enabled } }`,
+      `query($source: String) {
+        transforms(source: $source) {
+          id transformType sourceDuckdbSchema sourceDuckdbTable
+          targetDuckdbSchema targetDuckdbTable sourcePlugin
+          params description isDefault enabled
+        }
+      }`,
       { source: this.source || null },
     );
     this._transforms = (data?.transforms as Transform[]) || [];
@@ -182,9 +233,46 @@ class TransformsPage extends LitElement {
     this._registerCommands();
   }
 
+  async _ensureTransformTypes(): Promise<void> {
+    if (this._transformTypes.length) return;
+    const data = await gql(this.apiBase, `{ transformTypes }`);
+    this._transformTypes = (data?.transformTypes as TransformTypeInfo[]) || [];
+  }
+
+  async _fetchColumns(schema: string, table: string): Promise<string[]> {
+    if (!schema || !table) return [];
+    const data = await gql(this.apiBase, `query($s: String!, $t: String!) { tableColumns(schema: $s, table: $t) }`, {
+      s: schema,
+      t: table,
+    });
+    return (data?.tableColumns as string[]) || [];
+  }
+
+  async _onSourceTableSelected(table: string): Promise<void> {
+    this._updateNewForm("source_duckdb_table", table);
+    this._sourceColumns = await this._fetchColumns(this.source, table);
+  }
+
+  async _onTargetTableSelected(table: string): Promise<void> {
+    this._updateNewForm("target_duckdb_table", table);
+    // Target schema is always "metrics" for now
+    this._targetColumns = await this._fetchColumns("metrics", table);
+  }
+
+  _typeInfoFor(name: string): TransformTypeInfo | undefined {
+    return this._transformTypes.find((t) => t.name === name);
+  }
+
+  // -- Commands ------------------------------------------------------------
+
   _registerCommands(): void {
-    const commands: Array<{ id: string; category: string; label: string; description?: string; action: () => void }> =
-      [];
+    const commands: Array<{
+      id: string;
+      category: string;
+      label: string;
+      description?: string;
+      action: () => void;
+    }> = [];
     for (const t of this._transforms) {
       const desc = t.description || `${t.sourceDuckdbTable} -> ${t.targetDuckdbTable}`;
       commands.push({
@@ -206,6 +294,8 @@ class TransformsPage extends LitElement {
     }
     registerCommands(this, `transforms:${this.source}`, commands);
   }
+
+  // -- Actions -------------------------------------------------------------
 
   _inspectTable(schema: string, table: string): void {
     this.dispatchEvent(
@@ -239,41 +329,30 @@ class TransformsPage extends LitElement {
     }
   }
 
-  _startEdit(t: Transform): void {
-    this._editing = t.id;
-    this._editSql = t.sql;
-    this._previewRows = null;
-  }
-
-  _cancelEdit(): void {
-    this._editing = null;
-    this._editSql = "";
-    this._previewRows = null;
-  }
-
-  async _saveEdit(): Promise<void> {
-    const { ok } = await gqlFull(
+  async _preview(): Promise<void> {
+    const { ok, data } = await gqlFull(
       this.apiBase,
-      `mutation($id: Int!, $sql: String!) { updateTransform(transformId: $id, sql: $sql) { id } }`,
-      { id: this._editing, sql: this._editSql },
+      `mutation($id: Int!) { testTransform(transformId: $id, limit: 5) }`,
+      { id: this._editing },
     );
     if (ok) {
-      this._message = { type: "success", text: "Transform updated" };
-      this._editing = null;
-      await this._fetchAll();
+      this._previewRows = data?.testTransform as Record<string, unknown>[] | null;
     } else {
-      this._message = { type: "error", text: "Update failed" };
+      this._message = { type: "error", text: (data?.detail as string) || "Preview failed" };
     }
   }
+
+  // -- Create --------------------------------------------------------------
 
   async _startCreate(): Promise<void> {
     this._creating = true;
     this._newForm = this._emptyForm();
     this._editing = null;
     this._previewRows = null;
-    const data = await gql(this.apiBase, `{ dbTables schemaTables }`);
+    const data = await gql(this.apiBase, `{ dbTables schemaTables transformTypes }`);
     this._dbTables = (data?.dbTables as Record<string, string[]>) || {};
     this._schemaTables = (data?.schemaTables as Record<string, string[]>) || {};
+    this._transformTypes = (data?.transformTypes as TransformTypeInfo[]) || [];
   }
 
   _cancelCreate(): void {
@@ -281,14 +360,18 @@ class TransformsPage extends LitElement {
     this._newForm = this._emptyForm();
   }
 
-  _updateNewForm(field: keyof TransformForm, value: string): void {
+  _updateNewForm(field: keyof TransformForm, value: unknown): void {
     this._newForm = { ...this._newForm, [field]: value };
+  }
+
+  _updateNewParam(name: string, value: string): void {
+    this._updateNewForm("params", { ...this._newForm.params, [name]: value });
   }
 
   async _saveCreate(): Promise<void> {
     const f = this._newForm;
-    if (!f.source_duckdb_table || !f.target_duckdb_table || !f.sql) {
-      this._message = { type: "error", text: "Fill in all required fields" };
+    if (!f.transform_type || !f.source_duckdb_table || !f.target_duckdb_table) {
+      this._message = { type: "error", text: "Select a transform type, source table, and target table" };
       return;
     }
     const { ok, data } = await gqlFull(
@@ -296,13 +379,14 @@ class TransformsPage extends LitElement {
       `mutation($input: TransformCreateInput!) { createTransform(transformInput: $input) { id } }`,
       {
         input: {
+          transformType: f.transform_type,
           sourceDuckdbSchema: this.source,
           sourceDuckdbTable: f.source_duckdb_table,
           targetDuckdbSchema: "metrics",
           targetDuckdbTable: f.target_duckdb_table,
           sourcePlugin: this.source,
           description: f.description,
-          sql: f.sql,
+          params: JSON.stringify(f.params),
         },
       },
     );
@@ -316,21 +400,47 @@ class TransformsPage extends LitElement {
     }
   }
 
-  async _preview(): Promise<void> {
-    const { ok, data } = await gqlFull(
+  // -- Edit ----------------------------------------------------------------
+
+  async _startEdit(t: Transform): Promise<void> {
+    this._editing = t.id;
+    try {
+      this._editParams = JSON.parse(t.params || "{}");
+    } catch {
+      this._editParams = {};
+    }
+    this._previewRows = null;
+    await this._ensureTransformTypes();
+    this._sourceColumns = await this._fetchColumns(t.sourceDuckdbSchema, t.sourceDuckdbTable);
+    this._targetColumns = await this._fetchColumns(t.targetDuckdbSchema, t.targetDuckdbTable);
+  }
+
+  _cancelEdit(): void {
+    this._editing = null;
+    this._editParams = {};
+    this._previewRows = null;
+  }
+
+  _updateEditParam(name: string, value: string): void {
+    this._editParams = { ...this._editParams, [name]: value };
+  }
+
+  async _saveEdit(): Promise<void> {
+    const { ok } = await gqlFull(
       this.apiBase,
-      `mutation($id: Int!) { testTransform(transformId: $id, limit: 5) }`,
-      { id: this._editing },
+      `mutation($id: Int!, $params: String!) { updateTransform(transformId: $id, params: $params) { id } }`,
+      { id: this._editing, params: JSON.stringify(this._editParams) },
     );
     if (ok) {
-      this._previewRows = data?.testTransform as Record<string, unknown>[] | null;
+      this._message = { type: "success", text: "Transform updated" };
+      this._editing = null;
+      await this._fetchAll();
     } else {
-      this._message = {
-        type: "error",
-        text: (data?.detail as string) || "Preview failed",
-      };
+      this._message = { type: "error", text: "Update failed" };
     }
   }
+
+  // -- Render: main --------------------------------------------------------
 
   render() {
     if (this._loading) return html``;
@@ -343,6 +453,11 @@ class TransformsPage extends LitElement {
           @add=${this._startCreate}
           .columns=${[
             { key: "id", label: "ID", class: "muted" },
+            {
+              label: "Type",
+              class: "mono",
+              render: (t: Transform) => html`${t.transformType}`,
+            },
             {
               label: "Source",
               class: "mono",
@@ -388,9 +503,7 @@ class TransformsPage extends LitElement {
           .rows=${this._transforms}
           .rowClass=${(t: Transform) => (t.enabled ? "" : "disabled-row")}
           .actions=${(t: Transform) => html`
-            ${!t.isDefault
-              ? html`<button @click=${() => this._startEdit(t)}>Edit</button>`
-              : html`<button @click=${() => this._startEdit(t)}>View</button>`}
+            <button @click=${() => this._startEdit(t)}>${t.isDefault ? "View" : "Edit"}</button>
             ${!t.isDefault ? html`<button class="danger" @click=${() => this._delete(t)}>Delete</button>` : ""}
           `}
           empty-text="No transforms"
@@ -399,11 +512,13 @@ class TransformsPage extends LitElement {
     `;
   }
 
+  // -- Render: create form -------------------------------------------------
+
   _renderCreateForm() {
     const f = this._newForm;
-    const pipe = this.source;
-    const sourceTables = this._dbTables[pipe] || [];
+    const sourceTables = this._dbTables[this.source] || [];
     const allSchemaTables = Object.values(this._schemaTables || {}).flat();
+    const selectedType = this._typeInfoFor(f.transform_type);
     return html`
       <shenas-form-panel
         title="New transform"
@@ -412,11 +527,24 @@ class TransformsPage extends LitElement {
         @cancel=${this._cancelCreate}
       >
         <div class="form-grid">
+          <label class="form-full">
+            Transform type
+            <select
+              .value=${f.transform_type}
+              @change=${(e: Event) => this._updateNewForm("transform_type", (e.target as HTMLSelectElement).value)}
+            >
+              <option value="">-- select --</option>
+              ${this._transformTypes.map(
+                (t) => html`<option value=${t.name} ?selected=${f.transform_type === t.name}>${t.displayName}</option>`,
+              )}
+            </select>
+          </label>
+          ${selectedType?.description ? html`<p class="type-desc form-full">${selectedType.description}</p>` : nothing}
           <label>
-            Pipe table
+            Source table
             <select
               .value=${f.source_duckdb_table}
-              @change=${(e: Event) => this._updateNewForm("source_duckdb_table", (e.target as HTMLSelectElement).value)}
+              @change=${(e: Event) => this._onSourceTableSelected((e.target as HTMLSelectElement).value)}
             >
               <option value="">-- select --</option>
               ${sourceTables.map(
@@ -425,10 +553,10 @@ class TransformsPage extends LitElement {
             </select>
           </label>
           <label>
-            Schema table
+            Target table
             <select
               .value=${f.target_duckdb_table}
-              @change=${(e: Event) => this._updateNewForm("target_duckdb_table", (e.target as HTMLSelectElement).value)}
+              @change=${(e: Event) => this._onTargetTableSelected((e.target as HTMLSelectElement).value)}
             >
               <option value="">-- select --</option>
               ${allSchemaTables.map(
@@ -436,6 +564,11 @@ class TransformsPage extends LitElement {
               )}
             </select>
           </label>
+        </div>
+        ${selectedType
+          ? this._renderParamFields(selectedType.paramSchema, f.params, false, (n, v) => this._updateNewParam(n, v))
+          : nothing}
+        <div class="form-grid">
           <label class="form-full">
             Description
             <input
@@ -444,31 +577,39 @@ class TransformsPage extends LitElement {
             />
           </label>
         </div>
-        <textarea
-          .value=${f.sql}
-          @input=${(e: InputEvent) => this._updateNewForm("sql", (e.target as HTMLTextAreaElement).value)}
-          placeholder="SELECT ... FROM ${pipe}.${f.source_duckdb_table || "table_name"}"
-        ></textarea>
       </shenas-form-panel>
     `;
   }
+
+  // -- Render: edit/view panel ---------------------------------------------
 
   _renderEditor() {
     const t = this._transforms.find((x) => x.id === this._editing);
     if (!t) return "";
     const readonly = t.isDefault;
+    const typeInfo = this._typeInfoFor(t.transformType);
+    const schema = typeInfo?.paramSchema || [];
     return html`
       <div class="edit-panel">
         <h3>
           ${readonly ? "View" : "Edit"}: ${t.sourceDuckdbSchema}.${t.sourceDuckdbTable} ->
           ${t.targetDuckdbSchema}.${t.targetDuckdbTable}
+          <span class="param-hint">(${t.transformType})</span>
         </h3>
-        <textarea
-          .value=${this._editSql}
-          @input=${(e: InputEvent) => (this._editSql = (e.target as HTMLTextAreaElement).value)}
-          ?readonly=${readonly}
-          class="${readonly ? "readonly" : ""}"
-        ></textarea>
+        ${schema.length
+          ? this._renderParamFields(schema, this._editParams, readonly, (n, v) => this._updateEditParam(n, v))
+          : html`<textarea
+              .value=${JSON.stringify(this._editParams, null, 2)}
+              @input=${(e: InputEvent) => {
+                try {
+                  this._editParams = JSON.parse((e.target as HTMLTextAreaElement).value);
+                } catch {
+                  /* typing */
+                }
+              }}
+              ?readonly=${readonly}
+              class="${readonly ? "readonly" : ""}"
+            ></textarea>`}
         <div class="edit-actions">
           ${!readonly ? html`<button @click=${this._saveEdit}>Save</button>` : ""}
           <button @click=${this._preview}>Preview</button>
@@ -478,6 +619,82 @@ class TransformsPage extends LitElement {
       </div>
     `;
   }
+
+  // -- Render: shared param fields -----------------------------------------
+
+  _renderParamFields(
+    schema: ParamField[],
+    values: Record<string, string>,
+    readonly: boolean,
+    onChange: (name: string, value: string) => void,
+  ) {
+    if (!schema.length) return nothing;
+    return html`
+      <div class="form-grid">
+        ${schema.map((p) => {
+          const val = values[p.name] ?? p.default ?? "";
+          const lbl = p.label || _humanize(p.name);
+          const req = p.required ? " *" : "";
+
+          if (p.type === "textarea") {
+            return html` <label class="form-full">
+              ${lbl}${req}
+              <textarea
+                .value=${String(val)}
+                ?readonly=${readonly}
+                class="${readonly ? "readonly" : ""}"
+                placeholder=${p.description}
+                @input=${(e: InputEvent) => onChange(p.name, (e.target as HTMLTextAreaElement).value)}
+              ></textarea>
+              ${p.description ? html`<span class="param-hint">${p.description}</span>` : nothing}
+            </label>`;
+          }
+          if (p.type === "source_column" || p.type === "target_column") {
+            const cols = p.type === "source_column" ? this._sourceColumns : this._targetColumns;
+            const disabled = readonly || !cols.length;
+            return html` <label>
+              ${lbl}${req}
+              <select
+                .value=${String(val)}
+                ?disabled=${disabled}
+                @change=${(e: Event) => onChange(p.name, (e.target as HTMLSelectElement).value)}
+              >
+                <option value="">-- select --</option>
+                ${cols.map((c) => html`<option value=${c} ?selected=${String(val) === c}>${c}</option>`)}
+              </select>
+              ${p.description ? html`<span class="param-hint">${p.description}</span>` : nothing}
+            </label>`;
+          }
+          if (p.type === "select" && p.options) {
+            return html` <label>
+              ${lbl}${req}
+              <select
+                .value=${String(val)}
+                ?disabled=${readonly}
+                @change=${(e: Event) => onChange(p.name, (e.target as HTMLSelectElement).value)}
+              >
+                ${p.options.map((o) => html`<option value=${o} ?selected=${String(val) === o}>${o}</option>`)}
+              </select>
+              ${p.description ? html`<span class="param-hint">${p.description}</span>` : nothing}
+            </label>`;
+          }
+          return html` <label>
+            ${lbl}${req}
+            <input
+              type=${p.type === "number" ? "number" : "text"}
+              .value=${String(val)}
+              ?readonly=${readonly}
+              placeholder=${p.description}
+              @input=${(e: InputEvent) => onChange(p.name, (e.target as HTMLInputElement).value)}
+            />
+            ${p.description ? html`<span class="param-hint">${p.description}</span>` : nothing}
+          </label>`;
+        })}
+      </div>
+    `;
+  }
+
+  // -- Render: preview table -----------------------------------------------
 
   _renderPreview() {
     if (!this._previewRows || this._previewRows.length === 0) {
@@ -494,11 +711,10 @@ class TransformsPage extends LitElement {
           </thead>
           <tbody>
             ${this._previewRows.map(
-              (row) => html`
-                <tr>
+              (row) =>
+                html`<tr>
                   ${cols.map((c) => html`<td>${row[c]}</td>`)}
-                </tr>
-              `,
+                </tr>`,
             )}
           </tbody>
         </table>

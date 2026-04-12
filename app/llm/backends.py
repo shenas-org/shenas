@@ -132,7 +132,7 @@ class LlamaCppBackend(Backend):
 
     def categorize(self, text: str, *, prompt: str) -> str | None:
         try:
-            resp: dict = self._llm.create_chat_completion(
+            resp: dict = self._llm.create_chat_completion(  # ty: ignore[invalid-assignment]
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=50,
             )

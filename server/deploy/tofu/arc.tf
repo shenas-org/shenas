@@ -99,11 +99,11 @@ resource "helm_release" "arc_runner_set" {
           resources:
             requests:
               cpu: 2
-              memory: 4Gi
+              memory: 8Gi
               ephemeral-storage: 4Gi
             limits:
               cpu: 2
-              memory: 4Gi
+              memory: 8Gi
               ephemeral-storage: 4Gi
     listenerTemplate:
       spec:
