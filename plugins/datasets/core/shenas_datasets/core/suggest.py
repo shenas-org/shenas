@@ -9,7 +9,7 @@ these sources?" -- not data analysis.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 # ----------------------------------------------------------------------
 # Tool schema
@@ -162,7 +162,11 @@ def validate_dataset_payload(payload: dict[str, Any]) -> None:
     if not isinstance(suggestions, list) or not suggestions:
         msg = "payload must contain a non-empty 'suggestions' array"
         raise ValueError(msg)
-    for i, s in enumerate(suggestions):
+    for i, item in enumerate(suggestions):
+        if not isinstance(item, dict):
+            msg = f"suggestion[{i}] must be a dict"
+            raise TypeError(msg)
+        s = cast("dict[str, Any]", item)
         for field in ("title", "table_name", "grain", "columns", "primary_key", "transforms"):
             if field not in s:
                 msg = f"suggestion[{i}] missing required field '{field}'"
