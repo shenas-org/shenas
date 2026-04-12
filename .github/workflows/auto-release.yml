@@ -14,7 +14,8 @@ jobs:
     name: Detect changes and tag releases
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push'
     runs-on: gcp-runners
     timeout-minutes: 5
     steps:
