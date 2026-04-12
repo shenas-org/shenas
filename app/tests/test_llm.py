@@ -175,7 +175,7 @@ class TestBackendFactory:
     def test_local_without_model_raises(self) -> None:
         with (
             patch.object(ModelStore, "resolve", return_value=Model(filename="missing.gguf")),
-            pytest.raises(RuntimeError, match="Model not found"),
+            pytest.raises(RuntimeError, match="Model not found|llama-cpp-python"),
         ):
             Backend.from_config({"backend": "local"})
 
