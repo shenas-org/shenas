@@ -23,8 +23,10 @@ from app.graphql.queries import Query as CoreQuery
 
 
 async def _get_context(request: Request) -> dict[str, Any]:
+    from app.graphql.loaders import create_loaders
+
     user_id: int = getattr(request.state, "user_id", 0) or 0
-    return {"user_id": user_id}
+    return {"user_id": user_id, **create_loaders()}
 
 
 def _build_schema() -> strawberry.Schema:
