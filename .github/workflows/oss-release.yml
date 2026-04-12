@@ -72,7 +72,7 @@ jobs:
           SUMMARY=$(cat /tmp/release_summary.txt)
           git commit --amend -m "$SUMMARY" --no-edit 2>/dev/null || git commit --amend -m "$SUMMARY"
 
-      - name: Rewrite timestamps to leisure hours
+      - name: Finalize and push
         run: |
           cd /tmp/oss-repo
           python3 $GITHUB_WORKSPACE/scripts/rewrite_timestamps.py --all
