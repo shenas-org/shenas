@@ -1,4 +1,13 @@
-"""Local user registry with password-based authentication."""
+"""Local user registry with password-based authentication.
+
+``LocalUser`` inherits from :class:`app.entities.Human` (and transitively
+from :class:`app.entities.Entity`) via Python class hierarchy, so every
+LocalUser row carries the same Entity-shaped columns (uuid, type, name,
+description, status, ...) as any other entity. The physical row still
+lives in the registry DB for login-flow reasons, but edges in the user
+DB's entity graph can reference it by UUID through the per-user
+``shenas_system.entity_index`` table.
+"""
 
 from __future__ import annotations
 
@@ -8,12 +17,13 @@ import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
-from app.table import Field, Table
+from app.entities import Human, _new_uuid, seed_entity_types, seed_me_entity_index, seed_relationship_types
+from shenas_plugins.core.table import Field, Table
 
 if TYPE_CHECKING:
     import duckdb
 
-    from app.db import DB
+    from app.databases import DB
 
 
 def _hash_password(password: str, salt_hex: str) -> str:
@@ -32,8 +42,14 @@ def _verify_password(stored_hash: str, salt_hex: str, password: str) -> bool:
 
 
 @dataclass
-class LocalUser(Table):
-    """Local user registry -- one row per registered user."""
+class LocalUser(Human):
+    """Local user registry -- one row per registered user.
+
+    Inherits Entity-shaped columns (``uuid``, ``type``, ``name``,
+    ``description``, ``status``, ``birth_year``, ...) from
+    :class:`app.entities.Human`, but its physical table
+    (``shenas_system.local_users``) lives in the registry DB.
+    """
 
     database: ClassVar[str] = "system"
 
@@ -48,13 +64,20 @@ class LocalUser(Table):
         schema = "shenas_system"
         pk = ("id",)
 
+    # Override Entity.id so the DDL emits the LocalUser-specific sequence
+    # rather than the shared entity_seq.
     id: Annotated[
         int,
         Field(db_type="INTEGER", description="User ID", db_default="nextval('shenas_system.local_user_seq')"),
     ] = 0
-    username: Annotated[str, Field(db_type="VARCHAR", description="Unique display name")] = ""
-    password_hash: Annotated[str, Field(db_type="VARCHAR", description="scrypt password hash")] = ""
-    key_salt: Annotated[str, Field(db_type="VARCHAR", description="Salt for deriving DB encryption key")] = ""
+    # Override Entity.type so LocalUser rows are always humans.
+    type: Annotated[
+        str,
+        Field(db_type="VARCHAR", description="Entity type (always 'human' for LocalUser)", db_default="'human'"),
+    ] = "human"
+    username: Annotated[str, Field(db_type="VARCHAR", description="Unique display name", db_default="''")] = ""
+    password_hash: Annotated[str, Field(db_type="VARCHAR", description="scrypt password hash", db_default="''")] = ""
+    key_salt: Annotated[str, Field(db_type="VARCHAR", description="Salt for deriving DB encryption key", db_default="''")] = ""
     remote_token: Annotated[str | None, Field(db_type="VARCHAR", description="shenas.net JWT (optional)")] = None
     created_at: Annotated[
         str | None,
@@ -68,7 +91,7 @@ class LocalUser(Table):
 
     @property
     def db_path(self):
-        from app.database import DATA_DIR
+        from app.db import DATA_DIR
 
         return DATA_DIR / "users" / f"{self.id}.duckdb"
 
@@ -81,13 +104,12 @@ class LocalUser(Table):
         ``app`` package ensures the user-scoped Table subclasses have been
         loaded before discovery runs.
         """
-
-        import app.categories
-        import app.data_catalog
-        import app.finding
+        import app.entities
         import app.hotkeys
         import app.hypotheses
+        import app.literature
         import app.recipe_cache
+        import app.transforms
         import app.workspace  # noqa: F401
 
         with contextlib.suppress(ImportError):
@@ -99,6 +121,7 @@ class LocalUser(Table):
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_instance_seq START 1")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.finding_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.entity_seq START 1")
 
         seen: set[type[Table]] = set()
 
@@ -125,6 +148,7 @@ class LocalUser(Table):
         # class-creation time, not declared as top-level classes. Discover
         # them by walking installed Source subclasses.
         try:
+            from app.api.sources import _load_plugins
             from shenas_sources.core.source import Source, SourceAuth
 
             def _ensure_singleton(tbl_cls: Any) -> None:
@@ -135,7 +159,7 @@ class LocalUser(Table):
                 con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
                 tbl_cls.ensure(con, schema=schema)
 
-            for source_cls in Source.load_all():
+            for source_cls in _load_plugins("source", base=Source):
                 _ensure_singleton(source_cls.Config)
                 if source_cls.Auth is not SourceAuth:
                     _ensure_singleton(source_cls.Auth)
@@ -154,11 +178,25 @@ class LocalUser(Table):
 
         from app.hotkeys import Hotkey
 
-        Hotkey.seed()
+        Hotkey.seed(con)
+
+        # Seed the entity system: lookup rows + the current user's
+        # entity_index entry pointing at their LocalUser row in the
+        # registry DB.
+        seed_entity_types(con)
+        seed_relationship_types(con)
+
+        from app.db import current_user_id
+
+        user_id = current_user_id.get()
+        if user_id:
+            me = cls.get_by_id(int(user_id))
+            if me is not None and me.uuid:
+                seed_me_entity_index(con, me.id, me.uuid)
 
     def attach(self, key: str) -> DB:
         """Open and attach this user's encrypted DB. Idempotent."""
-        from app.db import DB
+        from app.databases import DB
 
         cls = type(self)
         with cls._attached_lock:
@@ -181,10 +219,12 @@ class LocalUser(Table):
         users who have opted in to background sync while logged out.
         Returns the list of user_ids that were successfully attached.
         """
+        from app.user_keys import get_remembered_user_key
+
         attached: list[int] = []
         for row in cls.list_all():
             user_id = int(row["id"])
-            key = cls.get_remembered_key(user_id)
+            key = get_remembered_user_key(user_id)
             if not key:
                 continue
             user = cls.get_by_id(user_id)
@@ -208,7 +248,7 @@ class LocalUser(Table):
     @classmethod
     def current_db(cls) -> DB:
         """Return the active user's DB based on the ``current_user_id`` contextvar."""
-        from app.database import current_user_id
+        from app.db import current_user_id
 
         user_id = current_user_id.get()
         with cls._attached_lock:
@@ -223,115 +263,150 @@ class LocalUser(Table):
     # ------------------------------------------------------------------
 
     @classmethod
-    def create(cls, username: str, password: str) -> LocalUser:
-        """Create a new local user and return the row."""
-        import os
+    def create(cls, username: str, password: str) -> LocalUser:  # ty: ignore[invalid-method-override]
+        """Create a new local user and return the row.
 
-        salt = os.urandom(16).hex()
+        Signature intentionally differs from :meth:`Entity.create` -- a
+        LocalUser is constructed from ``(username, password)``, and the
+        entity-shaped columns (uuid, type, name, ...) are derived from
+        the username.
+        """
+        from app.db import cursor
+        from app.user_keys import gen_salt
+
+        salt = gen_salt()
         password_hash = _hash_password(password, salt)
-        user = cls(username=username, password_hash=password_hash, key_salt=salt)
-        user.insert()
-        return user
+        new_uuid = _new_uuid()
+        with cursor(database="shenas") as cur:
+            row = cur.execute(
+                "INSERT INTO shenas_system.local_users "
+                "(uuid, type, name, status, username, password_hash, key_salt, created_at) "
+                "VALUES (?, 'human', ?, 'enabled', ?, ?, ?, now()) "
+                "RETURNING id, uuid, name, username, key_salt",
+                [new_uuid, username, username, password_hash, salt],
+            ).fetchone()
+        if not row:
+            msg = "Failed to create user"
+            raise RuntimeError(msg)
+        return cls(
+            id=row[0],
+            uuid=row[1],
+            type="human",
+            name=row[2] or username,
+            status="enabled",
+            username=row[3],
+            password_hash=password_hash,
+            key_salt=row[4],
+        )
 
     @classmethod
     def authenticate(cls, username: str, password: str) -> LocalUser | None:
         """Verify credentials. Returns the user row or None on failure."""
-        rows = cls.all(where="username = ?", params=[username], limit=1)
-        if not rows:
+        from app.db import cursor
+
+        with cursor(database="shenas") as cur:
+            row = cur.execute(
+                "SELECT id, uuid, name, username, password_hash, key_salt FROM shenas_system.local_users WHERE username = ?",
+                [username],
+            ).fetchone()
+        if not row:
             return None
-        user = rows[0]
-        if not _verify_password(user.password_hash, user.key_salt, password):
+        if not _verify_password(row[4], row[5], password):
             return None
-        return user
+        with cursor(database="shenas") as cur:
+            cur.execute(
+                "UPDATE shenas_system.local_users SET last_login = now() WHERE id = ?",
+                [row[0]],
+            )
+        return cls(
+            id=row[0],
+            uuid=row[1] or "",
+            type="human",
+            name=row[2] or row[3],
+            username=row[3],
+            password_hash=row[4],
+            key_salt=row[5],
+        )
 
     @classmethod
     def list_all(cls) -> list[dict[str, Any]]:
-        """Return all users as [{id, username}] (no hashes)."""
-        return [{"id": u.id, "username": u.username} for u in cls.all(order_by="username")]
+        """Return all users as [{id, username, uuid}] (no hashes)."""
+        from app.db import cursor
+
+        with cursor(database="shenas") as cur:
+            rows = cur.execute(
+                "SELECT id, username, uuid FROM shenas_system.local_users ORDER BY username",
+            ).fetchall()
+        return [{"id": r[0], "username": r[1], "uuid": r[2] or ""} for r in rows]
 
     @classmethod
     def get_by_id(cls, user_id: int) -> LocalUser | None:
         """Return the user row for a user ID, or None if not found."""
-        return cls.find(user_id)
+        from app.db import cursor
+
+        with cursor(database="shenas") as cur:
+            row = cur.execute(
+                "SELECT id, uuid, name, description, status, username, password_hash, key_salt "
+                "FROM shenas_system.local_users WHERE id = ?",
+                [user_id],
+            ).fetchone()
+        if not row:
+            return None
+        return cls(
+            id=row[0],
+            uuid=row[1] or "",
+            type="human",
+            name=row[2] or row[5],
+            description=row[3] or "",
+            status=row[4] or "enabled",
+            username=row[5],
+            password_hash=row[6],
+            key_salt=row[7],
+        )
 
     @classmethod
-    def get_remote_token(cls) -> str | None:
-        """Return the current user's shenas.net token, or None.
+    def backfill_entity_columns(cls, con: duckdb.DuckDBPyConnection) -> None:
+        """Populate entity-inherited columns for pre-existing LocalUser rows.
 
-        Checks SHENAS_REMOTE_TOKEN env var first (used by tests), then
-        falls back to the stored token in local_users.
+        Called once per registry DB bootstrap right after
+        ``LocalUser.ensure()``. Existing rows predate the Entity
+        inheritance so their uuid / name / type / status columns start out
+        NULL; this fills them in place.
         """
-        import os
-
-        if env := os.environ.get("SHENAS_REMOTE_TOKEN"):
-            return env
-        try:
-            from app.database import current_user_id, cursor
-
-            uid = current_user_id.get()
-            if not uid:
-                return None
-            with cursor(database="shenas") as cur:
-                row = cur.execute(
-                    "SELECT remote_token FROM shenas_system.local_users WHERE id = ?",
-                    [uid],
-                ).fetchone()
-            return row[0] if row and row[0] else None
-        except Exception:
-            return None
+        con.execute(
+            "UPDATE shenas_system.local_users "
+            "SET uuid = REPLACE(CAST(uuid() AS VARCHAR), '-', '') "
+            "WHERE uuid IS NULL OR uuid = ''",
+        )
+        con.execute(
+            "UPDATE shenas_system.local_users SET name = username WHERE name IS NULL OR name = ''",
+        )
+        con.execute(
+            "UPDATE shenas_system.local_users SET type = 'human' WHERE type IS NULL OR type = ''",
+        )
+        con.execute(
+            "UPDATE shenas_system.local_users SET status = 'enabled' WHERE status IS NULL OR status = ''",
+        )
 
     @classmethod
     def set_remote_token(cls, user_id: int, token: str) -> None:
         """Store a shenas.net JWT for an existing local user."""
-        user = cls.find(user_id)
-        if user:
-            user.remote_token = token
-            user.save()
+        from app.db import cursor
+
+        with cursor(database="shenas") as cur:
+            cur.execute(
+                "UPDATE shenas_system.local_users SET remote_token = ? WHERE id = ?",
+                [token, user_id],
+            )
 
     @classmethod
     def find_by_remote_token(cls, token: str) -> dict[str, Any] | None:
         """Find a user by their shenas.net JWT."""
-        rows = cls.all(where="remote_token = ?", params=[token], limit=1)
-        if not rows:
-            return None
-        return {"id": rows[0].id, "username": rows[0].username}
+        from app.db import cursor
 
-    # -- Key management --
-
-    @staticmethod
-    def derive_key(password: str, salt: str) -> str:
-        """Derive a 256-bit DuckDB encryption key from a password + salt via scrypt."""
-        dk = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=16384, r=8, p=1, dklen=32)
-        return dk.hex()
-
-    @classmethod
-    def remember_key(cls, user_id: int, key: str) -> None:
-        """Persist a derived user key in the OS keyring."""
-        try:
-            import keyring
-
-            with contextlib.suppress(Exception):
-                keyring.delete_password("shenas", f"user_key_{user_id}")
-            keyring.set_password("shenas", f"user_key_{user_id}", key)
-        except Exception:
-            pass
-
-    @classmethod
-    def forget_key(cls, user_id: int) -> None:
-        """Remove a remembered user key from the OS keyring."""
-        try:
-            import keyring
-
-            keyring.delete_password("shenas", f"user_key_{user_id}")
-        except Exception:
-            pass
-
-    @classmethod
-    def get_remembered_key(cls, user_id: int) -> str | None:
-        """Return the remembered key for a user, or None if not stored."""
-        try:
-            import keyring
-
-            return keyring.get_password("shenas", f"user_key_{user_id}")
-        except Exception:
-            return None
+        with cursor(database="shenas") as cur:
+            row = cur.execute(
+                "SELECT id, username FROM shenas_system.local_users WHERE remote_token = ?",
+                [token],
+            ).fetchone()
+        return {"id": row[0], "username": row[1]} if row else None
