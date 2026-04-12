@@ -4,7 +4,7 @@ import { resolve } from "path";
 export default defineConfig({
   resolve: {
     alias: {
-      "shenas-frontends": resolve(__dirname, "../../../app/vendor/src/shenas-frontends/arrow.ts"),
+      "shenas-frontends": resolve(__dirname, "../../../app/vendor/src/shenas-frontends/dashboard.ts"),
       "apache-arrow": resolve(__dirname, "node_modules/apache-arrow"),
     },
   },

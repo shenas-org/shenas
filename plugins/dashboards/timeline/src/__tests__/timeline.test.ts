@@ -7,7 +7,7 @@ globalThis.fetch = vi.fn().mockResolvedValue({
   json: () => Promise.resolve([]),
 }) as unknown as typeof fetch;
 
-import { categoryColor, formatTime, formatDate, dayKey } from "../day-row.ts";
+import { categoryColor, formatTime, formatDate, dayKey } from "shenas-frontends";
 import "../timeline.ts";
 
 describe("categoryColor", () => {
