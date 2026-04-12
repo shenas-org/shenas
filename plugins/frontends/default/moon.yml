@@ -8,15 +8,16 @@ tags: ['plugin', 'ui']
 dependsOn:
   - 'vendor'
 
+workspace:
+  inheritedTasks:
+    exclude: ['build']
+
 tasks:
   js-test:
     deps:
       - 'vendor:npm-install'
   build:
-    script: 'cd $MOON_PROJECT_SOURCE && PATH="$MOON_PROJECT_SOURCE/node_modules/.bin:$PATH" npm run build'
+    command: 'npm run build'
     deps:
       - '~:npm-install'
       - 'vendor:build'
-    options:
-      runFromWorkspaceRoot: true
-      mergeDeps: replace
