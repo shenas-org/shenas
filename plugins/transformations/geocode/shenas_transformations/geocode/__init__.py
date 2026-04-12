@@ -1,4 +1,4 @@
-"""Geocode transformation plugin -- address string to lat/lng via geopy."""
+"""Geocode transformer plugin -- address string to lat/lng via geopy."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any
 
 import duckdb
-from shenas_transformations.core import Transform, TransformConfig
+from shenas_transformations.core import Transformer, TransformerConfig
 
 from shenas_plugins.core.table import Field
 
@@ -20,7 +20,7 @@ log = logging.getLogger(f"shenas.{__name__}")
 
 
 @dataclass
-class _GeocodeConfig(TransformConfig):
+class _GeocodeConfig(TransformerConfig):
     provider: Annotated[
         str,
         Field(
@@ -42,11 +42,11 @@ class _GeocodeConfig(TransformConfig):
     ] = None
 
 
-class GeocodeTransform(Transform):
+class GeocodeTransformer(Transformer):
     """Convert address strings to latitude/longitude using a geocoding API."""
 
     name = "geocode"
-    display_name = "Geocode Transform"
+    display_name = "Geocode Transformer"
     description = "Convert address strings to latitude/longitude using a geocoding API."
 
     Config = _GeocodeConfig

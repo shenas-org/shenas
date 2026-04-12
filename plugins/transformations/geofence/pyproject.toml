@@ -1,7 +1,7 @@
 [project]
 name = "shenas-transformation-geofence"
 dynamic = ["version"]
-description = "Geofence transformation plugin for shenas"
+description = "Geofence transformer plugin for shenas"
 requires-python = ">=3.11"
 dependencies = [
     "shenas-transformation-core",
@@ -11,8 +11,8 @@ dependencies = [
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
-[project.entry-points."shenas.transformations"]
-geofence = "shenas_transformations.geofence:GeofenceTransform"
+[project.entry-points."shenas.transformers"]
+geofence = "shenas_transformations.geofence:GeofenceTransformer"
 
 [project.entry-points."shenas.graphql"]
 geofence = "shenas_transformations.geofence.graphql"

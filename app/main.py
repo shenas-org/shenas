@@ -49,11 +49,11 @@ async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:
         import contextlib
         from importlib.metadata import entry_points
 
-        from shenas_transformations.core import Transform
+        from shenas_transformations.core import Transformer
 
         from app.api.sources import _load_plugins
 
-        for cls in _load_plugins("transformation", base=Transform, include_internal=True):
+        for cls in _load_plugins("transformer", base=Transformer, include_internal=True):
             plugin = cls()
             for ep in entry_points(group="shenas.sources"):
                 with contextlib.suppress(Exception):

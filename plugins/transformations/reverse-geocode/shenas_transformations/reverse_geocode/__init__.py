@@ -7,7 +7,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import duckdb
-from shenas_transformations.core import Transform, TransformConfig
+from shenas_transformations.core import Transformer, TransformerConfig
 
 if TYPE_CHECKING:
     from shenas_transformations.core.instance import TransformInstance
@@ -21,7 +21,7 @@ log = logging.getLogger(f"shenas.{__name__}")
 
 
 @dataclass
-class _ReverseGeocodeConfig(TransformConfig):
+class _ReverseGeocodeConfig(TransformerConfig):
     provider: Annotated[
         str,
         Field(
@@ -43,11 +43,11 @@ class _ReverseGeocodeConfig(TransformConfig):
     ] = None
 
 
-class ReverseGeocodeTransform(Transform):
+class ReverseGeocodeTransformer(Transformer):
     """Convert latitude/longitude to place names using a reverse geocoding API."""
 
     name = "reverse-geocode"
-    display_name = "Reverse Geocode Transform"
+    display_name = "Reverse Geocode Transformer"
     description = "Convert latitude/longitude to place names using a reverse geocoding API."
 
     Config = _ReverseGeocodeConfig

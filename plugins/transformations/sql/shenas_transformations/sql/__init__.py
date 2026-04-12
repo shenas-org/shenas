@@ -1,4 +1,4 @@
-"""SQL transformation plugin -- executes arbitrary SQL transforms."""
+"""SQL transformer plugin -- executes arbitrary SQL transforms."""
 
 from __future__ import annotations
 
@@ -8,17 +8,17 @@ import logging
 from typing import Any
 
 import duckdb
-from shenas_transformations.core import Transform
+from shenas_transformations.core import Transformer
 from shenas_transformations.core.instance import TransformInstance
 
 log = logging.getLogger(f"shenas.{__name__}")
 
 
-class SqlTransform(Transform):
+class SqlTransformer(Transformer):
     """Execute arbitrary SQL to transform source data into target tables."""
 
     name = "sql"
-    display_name = "SQL Transform"
+    display_name = "SQL Transformer"
     description = "Execute arbitrary SQL to transform source data into target tables."
     internal = True
 

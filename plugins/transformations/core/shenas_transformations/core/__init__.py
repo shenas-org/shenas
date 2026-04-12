@@ -1,4 +1,4 @@
-"""Transform plugin ABC and TransformConfig base."""
+"""Transformer plugin ABC and TransformerConfig base."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from shenas_plugins.core.table import Field, SingletonTable
 
 
 @dataclass
-class TransformConfig(SingletonTable):
-    """Base configuration for transform plugins.
+class TransformerConfig(SingletonTable):
+    """Base configuration for transformer plugins.
 
     Transforms that need persistent config (API keys, model names, etc.)
-    subclass this. ``Transform.__init_subclass__`` auto-sets the
+    subclass this. ``Transformer.__init_subclass__`` auto-sets the
     ``_Meta.name`` to ``transform_{plugin_name}`` so each plugin gets
     its own table in the ``config`` schema.
     """
@@ -23,8 +23,8 @@ class TransformConfig(SingletonTable):
     _abstract: ClassVar[bool] = True
 
     class _Meta(SingletonTable._Meta):
-        display_name = "Transform Config"
-        description = "Per-transform-plugin configuration."
+        display_name = "Transformer Config"
+        description = "Per-transformer-plugin configuration."
         pk = ("id",)
         schema = "config"
 
@@ -36,24 +36,24 @@ class TransformConfig(SingletonTable):
     id: Annotated[int, Field(db_type="INTEGER", description="Config row")] = 1
 
 
-class Transform(Plugin):
-    """Base class for transform plugins.
+class Transformer(Plugin):
+    """Base class for transformer plugins.
 
-    A transform plugin defines a *type* of data transformation
+    A transformer plugin defines a *type* of data transformation
     (SQL, geofence, geocode, LLM categorize, etc.). Each type can
     have multiple configured instances (rows in
     ``shenas_system.transform_instances``).
     """
 
-    _kind = "transformation"
+    _kind = "transformer"
 
-    Config: ClassVar[type] = TransformConfig
+    Config: ClassVar[type] = TransformerConfig
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         if not hasattr(cls, "name"):
             return
-        if cls.Config is not TransformConfig:
+        if cls.Config is not TransformerConfig:
             meta = getattr(cls.Config, "_Meta", None)
             if meta and not getattr(meta, "name", None):
                 cls.Config._Meta = type("_Meta", (meta,), {"name": f"transform_{cls.name}"})  # ty: ignore[invalid-assignment]
@@ -61,7 +61,7 @@ class Transform(Plugin):
 
     @property
     def has_config(self) -> bool:
-        return self.Config is not TransformConfig
+        return self.Config is not TransformerConfig
 
     @property
     def has_data(self) -> bool:
@@ -95,6 +95,6 @@ class Transform(Plugin):
 
 
 __all__ = [
-    "Transform",
-    "TransformConfig",
+    "TransformerConfig",
+    "Transformer",
 ]

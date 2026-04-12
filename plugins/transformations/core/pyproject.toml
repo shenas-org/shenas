@@ -1,7 +1,7 @@
 [project]
 name = "shenas-transformation-core"
 dynamic = ["version"]
-description = "Shared transformation plugin utilities for shenas"
+description = "Shared transformer plugin utilities for shenas"
 requires-python = ">=3.11"
 dependencies = [
     "shenas-plugin-core",

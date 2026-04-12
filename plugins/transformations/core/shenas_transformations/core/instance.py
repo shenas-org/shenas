@@ -2,7 +2,7 @@
 
 Each row is one configured transform -- a binding between a source table,
 a target table, a transformation type, and type-specific params. The
-``transform_type`` column selects which Transform plugin executes it.
+``transform_type`` column selects which Transformer plugin executes it.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ class TransformInstance(Table):
 
     class _Meta:
         name = "transform_instances"
-        display_name = "Transform Instances"
+        display_name = "Transforms"
         description = "Configured transform instances binding source tables to target tables."
         schema = "shenas_system"
         pk = ("id",)
@@ -45,7 +45,7 @@ class TransformInstance(Table):
             db_default="nextval('shenas_system.transform_instance_seq')",
         ),
     ] = 0
-    transform_type: Annotated[str, Field(db_type="VARCHAR", description="Transform plugin name")] = "sql"
+    transform_type: Annotated[str, Field(db_type="VARCHAR", description="Transformer plugin name")] = "sql"
     source_duckdb_schema: Annotated[str, Field(db_type="VARCHAR", description="Source schema")] = ""
     source_duckdb_table: Annotated[str, Field(db_type="VARCHAR", description="Source table")] = ""
     target_duckdb_schema: Annotated[str, Field(db_type="VARCHAR", description="Target schema")] = ""
@@ -268,7 +268,7 @@ class TransformInstance(Table):
             )
 
     # ------------------------------------------------------------------
-    # Execution (dispatches to Transform plugins)
+    # Execution (dispatches to Transformer plugins)
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -284,7 +284,7 @@ class TransformInstance(Table):
             plugin = _get_transform_plugin(inst.transform_type, plugin_cache)
             if plugin is None:
                 log.warning(
-                    "No transformation plugin for type=%s, skipping #%d",
+                    "No transformer plugin for type=%s, skipping #%d",
                     inst.transform_type,
                     inst.id,
                 )
@@ -311,7 +311,7 @@ class TransformInstance(Table):
             plugin = _get_transform_plugin(inst.transform_type, plugin_cache)
             if plugin is None:
                 log.warning(
-                    "No transformation plugin for type=%s, skipping #%d",
+                    "No transformer plugin for type=%s, skipping #%d",
                     inst.transform_type,
                     inst.id,
                 )
@@ -341,6 +341,6 @@ def _get_transform_plugin(transform_type: str, cache: dict[str, Any]) -> Any:
     if transform_type not in cache:
         from app.api.sources import _load_plugin
 
-        cls = _load_plugin("transformation", transform_type)
+        cls = _load_plugin("transformer", transform_type)
         cache[transform_type] = cls() if cls else None
     return cache[transform_type]

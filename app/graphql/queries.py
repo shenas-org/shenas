@@ -336,11 +336,11 @@ class Query:
 
     @strawberry.field
     def transform_types(self) -> JSON:
-        """Return available transform plugin types with their param schemas."""
+        """Return available transformer plugin types with their param schemas."""
         from importlib.metadata import entry_points
 
         result = []
-        for ep in entry_points(group="shenas.transformations"):
+        for ep in entry_points(group="shenas.transformers"):
             try:
                 cls = ep.load()
                 inst = cls()

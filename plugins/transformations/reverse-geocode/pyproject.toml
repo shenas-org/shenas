@@ -1,7 +1,7 @@
 [project]
 name = "shenas-transformation-reverse-geocode"
 dynamic = ["version"]
-description = "Reverse geocode transformation plugin for shenas"
+description = "Reverse geocode transformer plugin for shenas"
 requires-python = ">=3.11"
 dependencies = [
     "shenas-transformation-core",
@@ -12,8 +12,8 @@ dependencies = [
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
-[project.entry-points."shenas.transformations"]
-reverse-geocode = "shenas_transformations.reverse_geocode:ReverseGeocodeTransform"
+[project.entry-points."shenas.transformers"]
+reverse-geocode = "shenas_transformations.reverse_geocode:ReverseGeocodeTransformer"
 
 [tool.hatch.version]
 source = "vcs"

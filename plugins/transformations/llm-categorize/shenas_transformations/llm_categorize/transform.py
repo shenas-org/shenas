@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any
 
 import duckdb
-from shenas_transformations.core import Transform, TransformConfig
+from shenas_transformations.core import Transformer, TransformerConfig
 
 from app.llm import Backend, LlmCache
 from shenas_plugins.core.table import Field
@@ -20,7 +20,7 @@ log = logging.getLogger(f"shenas.{__name__}")
 
 
 @dataclass
-class _LlmConfig(TransformConfig):
+class _LlmConfig(TransformerConfig):
     backend: Annotated[
         str,
         Field(
@@ -46,11 +46,11 @@ class _LlmConfig(TransformConfig):
     ] = "claude-sonnet-4-6"
 
 
-class LlmCategorizeTransform(Transform):
+class LlmCategorizeTransformer(Transformer):
     """Use an LLM to categorize or enrich data."""
 
     name = "llm-categorize"
-    display_name = "LLM Categorize Transform"
+    display_name = "LLM Categorize Transformer"
     description = "Use an LLM to categorize or enrich data (e.g., categorize transaction descriptions)."
 
     Config = _LlmConfig

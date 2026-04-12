@@ -289,12 +289,12 @@ class Mutation:
 
     @strawberry.mutation
     def seed_transforms(self) -> JSON:
-        from shenas_transformations.core import Transform
+        from shenas_transformations.core import Transformer
 
         from app.api.sources import _load_plugins
 
         seeded: list[str] = []
-        plugins = _load_plugins("transformation", base=Transform, include_internal=True)
+        plugins = _load_plugins("transformer", base=Transformer, include_internal=True)
         for ep_name in _source_entry_point_names():
             for cls in plugins:
                 plugin = cls()

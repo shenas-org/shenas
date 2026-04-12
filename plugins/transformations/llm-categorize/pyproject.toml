@@ -1,7 +1,7 @@
 [project]
 name = "shenas-transformation-llm-categorize"
 dynamic = ["version"]
-description = "LLM categorization transformation plugin for shenas"
+description = "LLM categorization transformer plugin for shenas"
 requires-python = ">=3.11"
 dependencies = [
     "shenas-transformation-core",
@@ -12,8 +12,8 @@ dependencies = [
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
-[project.entry-points."shenas.transformations"]
-llm-categorize = "shenas_transformations.llm_categorize.transform:LlmCategorizeTransform"
+[project.entry-points."shenas.transformers"]
+llm-categorize = "shenas_transformations.llm_categorize.transform:LlmCategorizeTransformer"
 
 [tool.hatch.version]
 source = "vcs"

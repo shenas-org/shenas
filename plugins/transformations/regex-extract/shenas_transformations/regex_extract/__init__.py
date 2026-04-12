@@ -7,7 +7,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import duckdb
-from shenas_transformations.core import Transform
+from shenas_transformations.core import Transformer
 
 if TYPE_CHECKING:
     from shenas_transformations.core.instance import TransformInstance
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(f"shenas.{__name__}")
 
 
-class RegexExtractTransform(Transform):
+class RegexExtractTransformer(Transformer):
     """Extract or replace text using regular expressions.
 
     Supports two modes:
@@ -24,7 +24,7 @@ class RegexExtractTransform(Transform):
     """
 
     name = "regex-extract"
-    display_name = "Regex Extract Transform"
+    display_name = "Regex Extract Transformer"
     description = "Extract or replace text in columns using regular expressions."
 
     def execute(

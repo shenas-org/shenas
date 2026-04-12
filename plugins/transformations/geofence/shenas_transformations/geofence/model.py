@@ -1,7 +1,7 @@
 """Geofence: named circular regions for categorizing location data.
 
 A geofence defines a center (latitude, longitude) and a radius in meters.
-The geofence transformation plugin matches location records against these
+The geofence transformer plugin matches location records against these
 regions using DuckDB's spatial extension. Users manage geofences via
 the CLI or GraphQL.
 """

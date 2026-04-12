@@ -1,4 +1,4 @@
-"""Geofence transformation plugin -- categorize locations using DuckDB spatial."""
+"""Geofence transformer plugin -- categorize locations using DuckDB spatial."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 import duckdb
-from shenas_transformations.core import Transform
+from shenas_transformations.core import Transformer
 from shenas_transformations.core.instance import TransformInstance
 
 log = logging.getLogger(f"shenas.{__name__}")
@@ -18,11 +18,11 @@ def _ensure_spatial(con: duckdb.DuckDBPyConnection) -> None:
     con.execute("INSTALL spatial; LOAD spatial;")
 
 
-class GeofenceTransform(Transform):
+class GeofenceTransformer(Transformer):
     """Categorize location data by matching coordinates against user-defined geofences."""
 
     name = "geofence"
-    display_name = "Geofence Transform"
+    display_name = "Geofence Transformer"
     description = "Categorize location data by matching coordinates against user-defined geofences."
 
     def execute(
