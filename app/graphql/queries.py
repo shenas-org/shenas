@@ -251,6 +251,29 @@ class Query:
     # -- Transforms --
 
     @strawberry.field
+    def transform_types(self) -> JSON:
+        """Return available transform plugin types with their param schemas."""
+        from importlib.metadata import entry_points
+
+        result = []
+        for ep in entry_points(group="shenas.transformations"):
+            try:
+                cls = ep.load()
+                inst = cls()
+                schema = inst.param_schema() if hasattr(inst, "param_schema") else []
+                result.append(
+                    {
+                        "name": ep.name,
+                        "displayName": getattr(inst, "display_name", ep.name),
+                        "description": getattr(inst, "description", ""),
+                        "paramSchema": schema,
+                    }
+                )
+            except Exception:
+                pass
+        return sorted(result, key=lambda x: x["displayName"])  # ty: ignore[invalid-return-type]
+
+    @strawberry.field
     def transforms(self, source: str | None = None) -> list[TransformType]:
         from shenas_transformations.core.instance import TransformInstance
 

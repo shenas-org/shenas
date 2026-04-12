@@ -34,12 +34,13 @@ describe("shenas-transforms", () => {
     expect(el._transforms).toEqual([]);
     expect(el._loading).toBe(true);
     expect(el._editing).toBeNull();
-    expect(el._editSql).toBe("");
+    expect(el._editParams).toEqual({});
     expect(el._message).toBeNull();
     expect(el._previewRows).toBeNull();
     expect(el._creating).toBe(false);
     expect(el._dbTables).toEqual({});
     expect(el._schemaTables).toEqual({});
+    expect(el._transformTypes).toEqual([]);
   });
 
   it("fetches on connect", async () => {
@@ -51,9 +52,10 @@ describe("shenas-transforms", () => {
   it("_emptyForm returns blank form", () => {
     const el = mount();
     const f = el._emptyForm();
+    expect(f.transform_type).toBe("");
     expect(f.source_duckdb_table).toBe("");
     expect(f.target_duckdb_table).toBe("");
-    expect(f.sql).toBe("");
+    expect(f.params).toEqual({});
   });
 
   it("renders shadow root", async () => {
@@ -62,14 +64,19 @@ describe("shenas-transforms", () => {
     expect(el.shadowRoot).toBeTruthy();
   });
 
-  it("_startEdit / _cancelEdit toggles edit state", () => {
+  it("_startEdit / _cancelEdit toggles edit state", async () => {
     const el = mount();
-    el._startEdit({ id: 7, sql: "SELECT 1" });
+    // Mock fetch for transformTypes query
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { transformTypes: [] } }),
+    });
+    await el._startEdit({ id: 7, params: '{"sql":"SELECT 1"}', transformType: "sql" });
     expect(el._editing).toBe(7);
-    expect(el._editSql).toBe("SELECT 1");
+    expect(el._editParams).toEqual({ sql: "SELECT 1" });
     el._cancelEdit();
     expect(el._editing).toBeNull();
-    expect(el._editSql).toBe("");
+    expect(el._editParams).toEqual({});
     expect(el._previewRows).toBeNull();
   });
 
