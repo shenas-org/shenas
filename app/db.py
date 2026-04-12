@@ -308,8 +308,8 @@ def flush_to_encrypted(mem_con: duckdb.DuckDBPyConnection, dataset_name: str) ->
 
 def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     """Create all system + user tables on a single in-memory connection for tests."""
-    from shenas_transformations.core.instance import TransformInstance
-    from shenas_transformations.geofence.model import Geofence
+    from shenas_transformers.core.instance import TransformInstance
+    from shenas_transformers.geofence.model import Geofence
 
     from app.categories import CategorySet, CategoryValue
     from app.data_catalog import QualityCheckResult, ResourceAnnotation

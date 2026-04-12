@@ -1039,14 +1039,14 @@ class TestGraphQLMutationsExtra:
         assert result["data"]["seedTransforms"]["count"] == 0
 
     def test_run_pipe_transforms(self, client: TestClient) -> None:
-        with patch("shenas_transformations.core.instance.TransformInstance.run_for_source", return_value=3):
+        with patch("shenas_transformers.core.instance.TransformInstance.run_for_source", return_value=3):
             result = _gql(client, 'mutation { runPipeTransforms(pipe: "garmin") }')
         assert "errors" not in result
         assert result["data"]["runPipeTransforms"]["source"] == "garmin"
         assert result["data"]["runPipeTransforms"]["count"] == 3
 
     def test_run_schema_transforms(self, client: TestClient) -> None:
-        with patch("shenas_transformations.core.instance.TransformInstance.run_for_target", return_value=2):
+        with patch("shenas_transformers.core.instance.TransformInstance.run_for_target", return_value=2):
             result = _gql(client, 'mutation { runSchemaTransforms(schema: "metrics") }')
         assert "errors" not in result
         assert result["data"]["runSchemaTransforms"]["schema"] == "metrics"

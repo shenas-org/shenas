@@ -12,7 +12,7 @@ projects:
   - "plugins/frontends/*"
   - "plugins/themes/*"
   - "plugins/analyses/*"
-  - "plugins/transformations/*"
+  - "plugins/transformers/*"
   - "plugins/models/*"
 
 vcs:

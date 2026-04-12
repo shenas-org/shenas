@@ -24,7 +24,7 @@ members = [
     "plugins/datasets/*",
     "plugins/dashboards/*",
     "plugins/models/*",
-    "plugins/transformations/*",
+    "plugins/transformers/*",
     "plugins/analyses/*",
     "plugins/frontends/*",
     "plugins/themes/*",

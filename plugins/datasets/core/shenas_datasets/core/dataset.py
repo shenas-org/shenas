@@ -74,7 +74,7 @@ class Dataset(Plugin):
         3. Create TransformInstance rows for the bundled transforms.
         4. Flip ``is_suggested`` to False.
         """
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         from app.db import cursor
 

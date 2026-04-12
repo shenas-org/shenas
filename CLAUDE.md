@@ -229,8 +229,8 @@ All artifacts (sources, dashboards, datasets, frontends, themes) are Python whee
 - `plugins/datasets/promoted/` — dynamically promoted hypothesis-to-metric tables
 - `plugins/analyses/core/` — shared analysis utilities
 - `plugins/analyses/hypothesis/` — hypothesis-driven analysis (Recipe DAG runner)
-- `plugins/transformations/core/` — shared transformer utilities
-- `plugins/transformations/*/` — transformer plugins (sql, dedup-merge, geocode, geofence, reverse-geocode, regex-extract, llm-categorize)
+- `plugins/transformers/core/` — shared transformer utilities
+- `plugins/transformers/*/` — transformer plugins (sql, dedup-merge, geocode, geofence, reverse-geocode, regex-extract, llm-categorize)
 - `plugins/models/core/` — shared ML model utilities
 - `plugins/models/sleep-forecast/` — sleep quality forecasting model
 - `plugins/dashboards/core/` — shared dashboard utilities

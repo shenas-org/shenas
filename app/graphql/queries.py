@@ -24,7 +24,7 @@ from app.graphql.types import (
 )
 
 if TYPE_CHECKING:
-    from shenas_transformations.core.instance import TransformInstance
+    from shenas_transformers.core.instance import TransformInstance
 
     from app.data_catalog import DataResource
     from shenas_plugins.core.plugin import Plugin
@@ -390,14 +390,14 @@ class Query:
 
     @strawberry.field
     def transforms(self, source: str | None = None) -> list[TransformType]:
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         rows = TransformInstance.for_plugin(source) if source else TransformInstance.all(order_by="id")
         return [_transform_to_gql(t) for t in rows]
 
     @strawberry.field
     def transform(self, transform_id: int) -> TransformType | None:
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         t = TransformInstance.find(transform_id)
         return _transform_to_gql(t) if t else None
@@ -615,7 +615,7 @@ class Query:
     @strawberry.field
     def suggested_transforms(self, source: str | None = None) -> JSON:
         """Return all suggested (not yet accepted) transforms."""
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         rows = TransformInstance.suggested(source)
         return [  # ty: ignore[invalid-return-type]

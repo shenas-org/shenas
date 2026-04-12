@@ -21,7 +21,7 @@ from shenas_plugins.core.plugin import Plugin
 from shenas_plugins.core.table import DataResourceRef, Field, Table
 
 if TYPE_CHECKING:
-    from shenas_transformations.core.instance import TransformInstance
+    from shenas_transformers.core.instance import TransformInstance
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -357,7 +357,7 @@ class DataCatalog:
 
     def _lineage_transforms(self, data_resource_id: str) -> dict[str, list[TransformInstance]]:
         """Transforms feeding into (upstream) / out of (downstream) this resource."""
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         upstream: list[TransformInstance] = []
         downstream: list[TransformInstance] = []

@@ -49,7 +49,7 @@ async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:
         import contextlib
         from importlib.metadata import entry_points
 
-        from shenas_transformations.core import Transformer
+        from shenas_transformers.core import Transformer
 
         from app.api.sources import _load_plugins
 

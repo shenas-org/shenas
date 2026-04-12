@@ -225,7 +225,7 @@ class Mutation:
 
     @strawberry.mutation
     def create_transform(self, transform_input: TransformCreateInput) -> TransformType:
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         t = TransformInstance.create(
             transform_type=transform_input.transform_type,
@@ -241,7 +241,7 @@ class Mutation:
 
     @strawberry.mutation
     def update_transform(self, transform_id: int, params: str) -> TransformType | None:
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         existing = TransformInstance.find(transform_id)
         if not existing:
@@ -251,7 +251,7 @@ class Mutation:
 
     @strawberry.mutation
     def delete_transform(self, transform_id: int) -> OkType:
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         from app.models import OkResponse
 
@@ -262,7 +262,7 @@ class Mutation:
 
     @strawberry.mutation
     def enable_transform(self, transform_id: int) -> TransformType | None:
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         t = TransformInstance.find(transform_id)
         if not t:
@@ -272,7 +272,7 @@ class Mutation:
 
     @strawberry.mutation
     def disable_transform(self, transform_id: int) -> TransformType | None:
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         t = TransformInstance.find(transform_id)
         if not t:
@@ -282,14 +282,14 @@ class Mutation:
 
     @strawberry.mutation
     def test_transform(self, transform_id: int, limit: int = 10) -> JSON:
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         t = TransformInstance.find(transform_id)
         return t.test(limit) if t else []  # ty: ignore[invalid-return-type]
 
     @strawberry.mutation
     def seed_transforms(self) -> JSON:
-        from shenas_transformations.core import Transformer
+        from shenas_transformers.core import Transformer
 
         from app.api.sources import _load_plugins
 
@@ -306,7 +306,7 @@ class Mutation:
 
     @strawberry.mutation
     def run_pipe_transforms(self, pipe: str) -> JSON:
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         from app.db import connect
 
@@ -315,7 +315,7 @@ class Mutation:
 
     @strawberry.mutation
     def run_schema_transforms(self, schema: str) -> JSON:
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         from app.db import connect
 
@@ -659,7 +659,7 @@ class Mutation:
         import time
         import uuid
 
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         from app.data_catalog import walk_metrics_catalog, walk_source_catalog
         from app.graphql.llm_provider import get_llm_provider
@@ -830,7 +830,7 @@ class Mutation:
     @strawberry.mutation
     def accept_transform_suggestion(self, transform_id: int) -> JSON:
         """Accept a suggested transform: enable it."""
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         t = TransformInstance.find(transform_id)
         if t is None or not t.is_suggested:
@@ -841,7 +841,7 @@ class Mutation:
     @strawberry.mutation
     def dismiss_transform_suggestion(self, transform_id: int) -> JSON:
         """Dismiss a suggested transform."""
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.instance import TransformInstance
 
         t = TransformInstance.find(transform_id)
         if t is None or not t.is_suggested:

@@ -380,8 +380,8 @@ class Source(Plugin):
 
     def _auto_transform(self) -> None:
         """Seed and run transforms via the Transform plugin system."""
-        from shenas_transformations.core import Transformer
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core import Transformer
+        from shenas_transformers.core.instance import TransformInstance
 
         from app.api.sources import _load_plugins
         from shenas_sources.core.db import connect
