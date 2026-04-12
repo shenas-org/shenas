@@ -31,7 +31,15 @@ class Hotkey(Table):
     action_id: Annotated[str, Field(db_type="VARCHAR", description="Action identifier")] = ""
     binding: Annotated[str, Field(db_type="VARCHAR", description="Key binding", db_default="''")] = ""
     updated_at: (
-        Annotated[str, Field(db_type="TIMESTAMP", description="When last updated", db_default="current_timestamp")] | None
+        Annotated[
+            str,
+            Field(
+                db_type="TIMESTAMP",
+                description="When last updated",
+                db_default="current_timestamp",
+            ),
+        ]
+        | None
     ) = None
 
     _DEFAULTS: ClassVar[list[tuple[str, str]]] = [
