@@ -74,10 +74,8 @@ jobs:
 
       - name: Rewrite timestamps to leisure hours
         run: |
-          curl -fsSL -o /tmp/rewrite_timestamps.py \
-            https://raw.githubusercontent.com/afuncke/dont_work_late/main/rewrite_timestamps.py
           cd /tmp/oss-repo
-          python3 /tmp/rewrite_timestamps.py --all
+          python3 $GITHUB_WORKSPACE/scripts/rewrite_timestamps.py --all
           git push --force-with-lease
 
       - name: Sync version tags to OSS repo
