@@ -9,16 +9,89 @@ from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawb
 
 from app.graphql.types import (
     AuthFieldsType,
+    ColumnInfoType,
+    DataResourceRefType,
+    DataResourceType,
     DBStatusType,
+    FreshnessInfoType,
     PluginInfoType,
+    QualityCheckType,
+    QualityInfoType,
     ScheduleInfoType,
     TableEntry,
     ThemeInfo,
+    TimeColumnsInfoType,
     TransformType,
 )
 
 if TYPE_CHECKING:
     from shenas_transformations.core.instance import TransformInstance
+
+    from app.data_catalog import DataResource
+
+
+def _resource_to_gql(r: DataResource) -> DataResourceType:
+    return DataResourceType(
+        id=r.id,
+        schema_name=r.ref.schema,
+        table_name=r.ref.table,
+        display_name=r.display_name,
+        description=r.effective_description,
+        plugin_kind=r.plugin_kind,
+        plugin_name=r.plugin_name,
+        kind=r.kind,
+        query_hint=r.query_hint,
+        as_of_macro=r.as_of_macro,
+        primary_key=r.primary_key,
+        columns=[
+            ColumnInfoType(
+                name=c.name,
+                db_type=c.db_type,
+                nullable=c.nullable,
+                description=c.description,
+                unit=c.unit,
+                value_range=list(c.value_range) if c.value_range else None,
+                example_value=c.example_value,
+                interpretation=c.interpretation,
+            )
+            for c in r.columns
+        ],
+        time_columns=TimeColumnsInfoType(
+            time_at=r.time_columns.time_at,
+            time_start=r.time_columns.time_start,
+            time_end=r.time_columns.time_end,
+            cursor_column=r.time_columns.cursor_column,
+            observed_at_injected=r.time_columns.observed_at_injected,
+        ),
+        freshness=FreshnessInfoType(
+            last_refreshed=r.last_refreshed,
+            sla_minutes=r.freshness_sla_minutes,
+            is_stale=r.is_stale,
+        ),
+        quality=QualityInfoType(
+            expected_row_count_min=r.expected_row_count_min,
+            expected_row_count_max=r.expected_row_count_max,
+            actual_row_count=r.actual_row_count,
+            latest_checks=[
+                QualityCheckType(
+                    check_type=c.check_type,
+                    status=c.status,
+                    message=c.message,
+                    value=c.value,
+                    checked_at=c.checked_at,
+                )
+                for c in r.quality_checks
+            ],
+        ),
+        user_notes=r.user_notes,
+        tags=r.tags,
+        upstream=[DataResourceRefType(id=u.id, schema_name=u.schema, table_name=u.table) for u in r.upstream]
+        if r.upstream is not None
+        else None,
+        downstream=[DataResourceRefType(id=d.id, schema_name=d.schema, table_name=d.table) for d in r.downstream]
+        if r.downstream is not None
+        else None,
+    )
 
 
 def _transform_to_gql(t: TransformInstance) -> TransformType:
@@ -263,6 +336,27 @@ class Query:
 
         t = TransformInstance.find(transform_id)
         return _transform_to_gql(t) if t else None
+
+    # -- Data Catalog --
+
+    @strawberry.field
+    def data_resources(
+        self,
+        kind: str | None = None,
+        plugin: str | None = None,
+        tags: str | None = None,
+        stale_only: bool = False,
+    ) -> list[DataResourceType]:
+        from app.data_catalog import catalog
+
+        return [_resource_to_gql(r) for r in catalog().list(kind=kind, plugin=plugin, tags=tags, stale_only=stale_only)]
+
+    @strawberry.field
+    def data_resource(self, resource_id: str) -> DataResourceType | None:
+        from app.data_catalog import catalog
+
+        r = catalog().get(resource_id)
+        return _resource_to_gql(r) if r else None
 
     # -- Theme --
 

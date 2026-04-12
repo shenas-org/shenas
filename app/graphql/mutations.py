@@ -7,11 +7,14 @@ import json
 import strawberry
 from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawberry
 
-from app.graphql.queries import _transform_to_gql
+from app.graphql.queries import _resource_to_gql, _transform_to_gql
 from app.graphql.types import (
     AuthResponseType,
+    DataResourceAnnotationInput,
+    DataResourceType,
     InstallResponseType,
     OkType,
+    QualityCheckType,
     RemoveResponseType,
     TransformCreateInput,
     TransformType,
@@ -150,6 +153,44 @@ class Mutation:
         except ValueError as exc:
             return OkType.from_pydantic(OkResponse(ok=False, message=str(exc)))  # ty: ignore[unresolved-attribute]
         return OkType.from_pydantic(OkResponse(ok=True, message=msg))  # ty: ignore[unresolved-attribute]
+
+    # -- Data Catalog --
+
+    @strawberry.mutation
+    def update_data_resource(self, resource_id: str, annotation: DataResourceAnnotationInput) -> DataResourceType | None:
+        from app.data_catalog import catalog
+
+        fields: dict = {}
+        if annotation.user_notes is not None:
+            fields["user_notes"] = annotation.user_notes
+        if annotation.tags is not None:
+            fields["tags"] = annotation.tags
+        if annotation.description is not None:
+            fields["description_override"] = annotation.description
+        if annotation.freshness_sla_minutes is not None:
+            fields["freshness_sla_minutes"] = annotation.freshness_sla_minutes
+        if annotation.expected_row_count_min is not None:
+            fields["expected_row_count_min"] = annotation.expected_row_count_min
+        if annotation.expected_row_count_max is not None:
+            fields["expected_row_count_max"] = annotation.expected_row_count_max
+        r = catalog().annotate(resource_id, **fields)
+        return _resource_to_gql(r) if r else None
+
+    @strawberry.mutation
+    def run_quality_checks(self, resource_id: str | None = None) -> list[QualityCheckType]:
+        from app.data_catalog import catalog
+
+        checks = catalog().run_quality_checks(resource_id)
+        return [
+            QualityCheckType(
+                check_type=c.check_type,
+                status=c.status,
+                message=c.message,
+                value=c.value,
+                checked_at=c.checked_at,
+            )
+            for c in checks
+        ]
 
     # -- Transforms --
 
