@@ -7,7 +7,7 @@ import json
 import strawberry
 from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawberry
 
-from app.graphql.queries import _resource_to_gql, _transform_to_gql
+from app.graphql.queries import _data_resource_to_gql, _transform_to_gql
 from app.graphql.types import (
     AuthResponseType,
     DataResourceAnnotationInput,
@@ -174,7 +174,7 @@ class Mutation:
         if annotation.expected_row_count_max is not None:
             fields["expected_row_count_max"] = annotation.expected_row_count_max
         r = catalog().annotate(resource_id, **fields)
-        return _resource_to_gql(r) if r else None
+        return _data_resource_to_gql(r) if r else None
 
     @strawberry.mutation
     def run_quality_checks(self, resource_id: str | None = None) -> list[QualityCheckType]:

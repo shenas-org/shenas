@@ -22,6 +22,7 @@ from app.graphql.types import (
     TimeColumnsInfoType,
     TransformType,
 )
+from shenas_plugins.core.table import DataResourceRef
 
 if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform
@@ -42,7 +43,7 @@ def _plugin_to_gql(plugin: Plugin) -> PluginInfoType:
     )
 
 
-def _resource_to_gql(r: DataResource) -> DataResourceType:
+def _data_resource_to_gql(r: DataResource) -> DataResourceType:
     return DataResourceType(
         id=r.id,
         schema_name=r.ref.schema,
@@ -105,23 +106,35 @@ def _resource_to_gql(r: DataResource) -> DataResourceType:
     )
 
 
-def _ref_to_resource_type(schema: str, table: str) -> DataResourceType:
-    """Build a DataResourceType from schema+table, enriched from catalog metadata."""
-    from app.data_catalog import catalog
+_resource_cache: dict[str, DataResourceType] | None = None
 
-    meta = catalog().metadata_by_id().get(f"{schema}.{table}", {})
-    plugin_name = meta.get("schema", schema) if meta else schema
+
+def _resolve_data_resource(resource_id: str) -> DataResourceType:
+    """Look up a DataResourceType by ID. Cached per process, no lineage (avoids recursion)."""
+    global _resource_cache
+    if _resource_cache is None:
+        from app.data_catalog import catalog
+
+        _resource_cache = {r.id: _data_resource_to_gql(r) for r in catalog()._walk_all()}
+    if resource_id in _resource_cache:
+        return _resource_cache[resource_id]
+    ref = DataResourceRef.from_id(resource_id)
+    return _data_resource_to_gql_stub(ref)
+
+
+def _data_resource_to_gql_stub(ref: DataResourceRef) -> DataResourceType:
+    """Minimal DataResourceType for resources not found in catalog."""
+    from app.models import PluginInfo
+
     return DataResourceType(
-        id=f"{schema}.{table}",
-        schema_name=schema,
-        table_name=table,
-        display_name=meta.get("display_name", table),
-        description=meta.get("description", ""),
-        plugin=_plugin_to_gql_by_name(plugin_name),
-        kind=meta.get("kind"),
-        query_hint=meta.get("query_hint"),
-        as_of_macro=meta.get("as_of_macro"),
-        primary_key=meta.get("primary_key", []),
+        id=ref.id,
+        schema_name=ref.schema,
+        table_name=ref.table,
+        display_name=ref.table,
+        description="",
+        plugin=PluginInfoType.from_pydantic(PluginInfo(name=ref.schema, display_name=ref.schema)),  # ty: ignore[unresolved-attribute]
+        kind=None,
+        primary_key=[],
         columns=[],
         time_columns=TimeColumnsInfoType(),
         freshness=FreshnessInfoType(),
@@ -131,19 +144,12 @@ def _ref_to_resource_type(schema: str, table: str) -> DataResourceType:
     )
 
 
-def _plugin_to_gql_by_name(name: str) -> PluginInfoType:
-    """Build a minimal PluginInfoType from a plugin name."""
-    from app.models import PluginInfo
-
-    return PluginInfoType.from_pydantic(PluginInfo(name=name, display_name=name))  # ty: ignore[unresolved-attribute]
-
-
 def _transform_to_gql(t: Transform) -> TransformType:
     return TransformType(
         id=t.id,
         transform_type=t.transform_type,
-        source=_ref_to_resource_type(t.source_ref.schema, t.source_ref.table),
-        target=_ref_to_resource_type(t.target_ref.schema, t.target_ref.table),
+        source=_resolve_data_resource(t.source_ref.id),
+        target=_resolve_data_resource(t.target_ref.id),
         source_plugin=t.source_plugin,
         params=t.params or "{}",
         description=t.description or "",
@@ -446,14 +452,14 @@ class Query:
         from app.data_catalog import catalog
 
         resources = catalog().list_resources(kind=kind, plugin=plugin, tags=tags, stale_only=stale_only)
-        return [_resource_to_gql(r) for r in resources]
+        return [_data_resource_to_gql(r) for r in resources]
 
     @strawberry.field
     def data_resource(self, resource_id: str) -> DataResourceType | None:
         from app.data_catalog import catalog
 
         r = catalog().get(resource_id)
-        return _resource_to_gql(r) if r else None
+        return _data_resource_to_gql(r) if r else None
 
     # -- Theme --
 
