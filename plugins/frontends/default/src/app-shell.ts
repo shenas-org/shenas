@@ -694,7 +694,14 @@ class ShenasApp extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-    this._fetchData().then(() => this._checkUserSession());
+    this._fetchData().then(() => {
+      this._checkUserSession();
+      // Honor the URL on direct load / reload instead of workspace restore
+      const path = window.location.pathname;
+      if (path && path !== "/" && !this._tabs.some((t) => t.path === path)) {
+        this._navigateTo(path);
+      }
+    });
     this.addEventListener("plugin-state-changed", () => this._refreshDashboards());
     this.addEventListener("job-start", ((e: CustomEvent) =>
       this._getJobPanel()?.addJob(e.detail.id, e.detail.label)) as EventListener);
