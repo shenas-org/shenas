@@ -274,6 +274,19 @@ class Query:
         return sorted(result, key=lambda x: x["displayName"])  # ty: ignore[invalid-return-type]
 
     @strawberry.field
+    def table_columns(self, schema: str, table: str) -> list[str]:
+        """Return column names for a DuckDB table."""
+        from app.db import cursor
+
+        with cursor() as cur:
+            rows = cur.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position",
+                [schema, table],
+            ).fetchall()
+        return [r[0] for r in rows]
+
+    @strawberry.field
     def transforms(self, source: str | None = None) -> list[TransformType]:
         from shenas_transformations.core.instance import TransformInstance
 
