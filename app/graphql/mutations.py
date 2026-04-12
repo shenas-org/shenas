@@ -7,11 +7,14 @@ import json
 import strawberry
 from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawberry
 
-from app.graphql.queries import _transform_to_gql
+from app.graphql.queries import _resource_to_gql, _transform_to_gql
 from app.graphql.types import (
     AuthResponseType,
+    DataResourceAnnotationInput,
+    DataResourceType,
     InstallResponseType,
     OkType,
+    QualityCheckType,
     RemoveResponseType,
     TransformCreateInput,
     TransformType,
@@ -28,10 +31,9 @@ def _source_entry_point_names() -> list[str]:
 def _build_catalog() -> dict[str, dict]:
     """Return ``{qualified_table: table_metadata}`` for the recipe runner.
 
-    Thin wrapper over :func:`app.analytics_catalog.catalog_by_qualified_name`,
-    which is the shared walk used by the GraphQL ``catalog`` query too.
+    Thin wrapper over :func:`app.data_catalog.catalog_by_qualified_name`.
     """
-    from app.analytics_catalog import catalog_by_qualified_name
+    from app.data_catalog import catalog_by_qualified_name
 
     return catalog_by_qualified_name()
 
@@ -152,6 +154,43 @@ class Mutation:
             return OkType.from_pydantic(OkResponse(ok=False, message=str(exc)))  # ty: ignore[unresolved-attribute]
         return OkType.from_pydantic(OkResponse(ok=True, message=msg))  # ty: ignore[unresolved-attribute]
 
+    # -- Data Catalog --
+
+    @strawberry.mutation
+    def update_data_resource(self, resource_id: str, annotation: DataResourceAnnotationInput) -> DataResourceType | None:
+        from app.data_catalog import catalog
+
+        fields: dict = {}
+        if annotation.user_notes is not None:
+            fields["user_notes"] = annotation.user_notes
+        if annotation.tags is not None:
+            fields["tags"] = annotation.tags
+        if annotation.description is not None:
+            fields["description_override"] = annotation.description
+        if annotation.freshness_sla_minutes is not None:
+            fields["freshness_sla_minutes"] = annotation.freshness_sla_minutes
+        if annotation.expected_row_count_min is not None:
+            fields["expected_row_count_min"] = annotation.expected_row_count_min
+        if annotation.expected_row_count_max is not None:
+            fields["expected_row_count_max"] = annotation.expected_row_count_max
+        r = catalog().annotate(resource_id, **fields)
+        return _resource_to_gql(r) if r else None
+
+    @strawberry.mutation
+    def run_quality_checks(self, resource_id: str | None = None) -> list[QualityCheckType]:
+        from app.data_catalog import catalog
+
+        checks = catalog().run_quality_checks(resource_id)
+        return [
+            QualityCheckType(
+                check_type=c.check_type,
+                status=c.status,
+                message=c.message,
+                value=c.value,
+                checked_at=c.checked_at,
+            )
+            for c in checks
+        ]
     # -- Categories --
 
     @strawberry.mutation
@@ -599,7 +638,7 @@ class Mutation:
     @strawberry.mutation
     def refresh_literature(self, papers_per_pair: int = 5, min_citations: int = 50) -> JSON:
         """Fetch papers and extract structured findings via the API gateway."""
-        from app.analytics_catalog import catalog_by_qualified_name
+        from app.data_catalog import catalog_by_qualified_name
         from app.literature_fetch import refresh_findings
 
         catalog = catalog_by_qualified_name()
@@ -621,7 +660,7 @@ class Mutation:
 
         from shenas_transformations.core.instance import TransformInstance
 
-        from app.analytics_catalog import walk_metrics_catalog, walk_source_catalog
+        from app.data_catalog import walk_metrics_catalog, walk_source_catalog
         from app.graphql.llm_provider import get_llm_provider
         from shenas_datasets.core.suggest import ask_for_dataset_suggestions, validate_dataset_payload
         from shenas_plugins.core.plugin import PluginInstance
@@ -713,7 +752,7 @@ class Mutation:
 
         from shenas_analyses.suggestion import ask_for_analysis_suggestions, validate_analysis_payload
 
-        from app.analytics_catalog import walk_metrics_catalog
+        from app.data_catalog import walk_metrics_catalog
         from app.graphql.llm_provider import get_llm_provider
         from app.hypotheses import Hypothesis
 

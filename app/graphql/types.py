@@ -147,13 +147,106 @@ class TransformCreateInput:
     description: str = ""
 
 
+# -- Data Catalog types --------------------------------------------------------
+
+
+@strawberry.type
+class DataResourceRefType:
+    id: str
+    schema_name: str
+    table_name: str
+
+
+@strawberry.type
+class ColumnInfoType:
+    name: str
+    db_type: str
+    nullable: bool
+    description: str
+    unit: str | None = None
+    value_range: list[float] | None = None
+    example_value: str | None = None
+    interpretation: str | None = None
+
+
+@strawberry.type
+class TimeColumnsInfoType:
+    time_at: str | None = None
+    time_start: str | None = None
+    time_end: str | None = None
+    cursor_column: str | None = None
+    observed_at_injected: bool = False
+
+
+@strawberry.type
+class QualityCheckType:
+    check_type: str
+    status: str
+    message: str = ""
+    value: str | None = None
+    checked_at: str = ""
+
+
+@strawberry.type
+class FreshnessInfoType:
+    last_refreshed: str | None = None
+    sla_minutes: int | None = None
+    is_stale: bool = False
+
+
+@strawberry.type
+class QualityInfoType:
+    expected_row_count_min: int | None = None
+    expected_row_count_max: int | None = None
+    actual_row_count: int | None = None
+    latest_checks: list[QualityCheckType]
+
+
+@strawberry.type
+class DataResourceType:
+    id: str
+    schema_name: str
+    table_name: str
+    display_name: str
+    description: str
+    plugin_kind: str
+    plugin_name: str
+    kind: str | None = None
+    query_hint: str | None = None
+    as_of_macro: str | None = None
+    primary_key: list[str]
+    columns: list[ColumnInfoType]
+    time_columns: TimeColumnsInfoType
+    freshness: FreshnessInfoType
+    quality: QualityInfoType
+    user_notes: str = ""
+    tags: list[str]
+    upstream: list[DataResourceType] | None = None
+    downstream: list[DataResourceType] | None = None
+
+
+@strawberry.input
+class DataResourceAnnotationInput:
+    user_notes: str | None = None
+    tags: str | None = None
+    description: str | None = None
+    freshness_sla_minutes: int | None = None
+    expected_row_count_min: int | None = None
+    expected_row_count_max: int | None = None
+
+
 __all__ = [
     "JSON",
     "AuthFieldType",
     "AuthFieldsType",
     "AuthResponseType",
+    "ColumnInfoType",
     "ConfigEntryType",
     "DBStatusType",
+    "DataResourceAnnotationInput",
+    "DataResourceRefType",
+    "DataResourceType",
+    "FreshnessInfoType",
     "InstallResponseType",
     "InstallResultType",
     "OkType",
