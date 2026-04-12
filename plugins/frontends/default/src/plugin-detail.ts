@@ -447,24 +447,32 @@ class PluginDetail extends LitElement {
     this._syncing = true;
     this._message = null;
     try {
-      const response = await gqlFull(
-        this.apiBase,
-        `mutation { syncPlugin(name: "${this.name}", kind: "${this.kind}") { success message synced_at } }`,
-      );
+      const resp = await fetch(`${this.apiBase}/sync/${this.name}`, { method: "POST" });
+      const reader = resp.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let lastMessage = "";
 
-      const result = response as { data?: { syncPlugin?: { success: boolean; message?: string } } };
-      if (result.data?.syncPlugin?.success) {
-        this._message = {
-          type: "success",
-          text: result.data.syncPlugin.message || "Plugin synced successfully",
-        };
-        this._loadPluginInfo();
-      } else {
-        this._message = {
-          type: "error",
-          text: result.data?.syncPlugin?.message || "Sync failed",
-        };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop()!;
+        for (const line of lines) {
+          if (line.startsWith("data:")) {
+            try {
+              const evt = JSON.parse(line.slice(5).trim());
+              lastMessage = evt.message || lastMessage;
+            } catch {
+              /* skip */
+            }
+          }
+        }
       }
+
+      this._message = { type: "success", text: lastMessage || "Sync complete" };
+      this._loadPluginInfo();
     } catch (error) {
       this._message = {
         type: "error",
