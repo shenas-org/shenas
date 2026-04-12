@@ -71,6 +71,11 @@ jobs:
 
           SUMMARY=$(cat /tmp/release_summary.txt)
           git commit --amend -m "$SUMMARY" --no-edit 2>/dev/null || git commit --amend -m "$SUMMARY"
+
+      - name: Finalize and push
+        run: |
+          cd /tmp/oss-repo
+          python3 $GITHUB_WORKSPACE/scripts/rewrite_timestamps.py --all
           git push --force-with-lease
 
       - name: Sync version tags to OSS repo

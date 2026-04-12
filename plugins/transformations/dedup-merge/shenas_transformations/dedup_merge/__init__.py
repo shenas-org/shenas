@@ -106,18 +106,21 @@ class DedupMergeTransform(Transform):
         return [
             {
                 "name": "primary_source",
+                "label": "Primary source",
                 "type": "text",
                 "required": True,
                 "description": "Primary source plugin name (e.g. garmin)",
             },
             {
                 "name": "secondary_source",
+                "label": "Secondary source",
                 "type": "text",
                 "required": True,
                 "description": "Secondary source plugin name (e.g. strava)",
             },
             {
                 "name": "time_column",
+                "label": "Time column",
                 "type": "text",
                 "required": False,
                 "description": "Timestamp column used for matching",
@@ -125,6 +128,7 @@ class DedupMergeTransform(Transform):
             },
             {
                 "name": "match_window_minutes",
+                "label": "Match window (minutes)",
                 "type": "number",
                 "required": False,
                 "description": "Time window in minutes for considering records as duplicates",
@@ -132,6 +136,7 @@ class DedupMergeTransform(Transform):
             },
             {
                 "name": "prefer",
+                "label": "Prefer",
                 "type": "select",
                 "required": False,
                 "description": "Which source to prefer when records overlap",

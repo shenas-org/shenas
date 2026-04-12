@@ -150,6 +150,7 @@ class ReverseGeocodeTransform(Transform):
         return [
             {
                 "name": "latitude_column",
+                "label": "Latitude column",
                 "type": "text",
                 "required": False,
                 "description": "Latitude column name",
@@ -157,6 +158,7 @@ class ReverseGeocodeTransform(Transform):
             },
             {
                 "name": "longitude_column",
+                "label": "Longitude column",
                 "type": "text",
                 "required": False,
                 "description": "Longitude column name",
@@ -164,6 +166,7 @@ class ReverseGeocodeTransform(Transform):
             },
             {
                 "name": "output_column",
+                "label": "Output column",
                 "type": "text",
                 "required": False,
                 "description": "Output column name for the place name",

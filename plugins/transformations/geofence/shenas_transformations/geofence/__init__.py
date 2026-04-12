@@ -99,6 +99,7 @@ class GeofenceTransform(Transform):
         return [
             {
                 "name": "latitude_column",
+                "label": "Latitude column",
                 "type": "text",
                 "required": False,
                 "description": "Latitude column name",
@@ -106,6 +107,7 @@ class GeofenceTransform(Transform):
             },
             {
                 "name": "longitude_column",
+                "label": "Longitude column",
                 "type": "text",
                 "required": False,
                 "description": "Longitude column name",
@@ -113,6 +115,7 @@ class GeofenceTransform(Transform):
             },
             {
                 "name": "time_column",
+                "label": "Arrival time column",
                 "type": "text",
                 "required": False,
                 "description": "Arrival time column",
@@ -120,6 +123,7 @@ class GeofenceTransform(Transform):
             },
             {
                 "name": "end_time_column",
+                "label": "Departure time column",
                 "type": "text",
                 "required": False,
                 "description": "Departure time column",
@@ -127,6 +131,7 @@ class GeofenceTransform(Transform):
             },
             {
                 "name": "place_name_column",
+                "label": "Place name column",
                 "type": "text",
                 "required": False,
                 "description": "Place name column",
@@ -134,13 +139,26 @@ class GeofenceTransform(Transform):
             },
             {
                 "name": "confidence_column",
+                "label": "Confidence column",
                 "type": "text",
                 "required": False,
                 "description": "Confidence column",
                 "default": "confidence",
             },
-            {"name": "id_expression", "type": "text", "required": False, "description": "SQL expression for source_id"},
-            {"name": "filter_where", "type": "text", "required": False, "description": "Additional WHERE clause filter"},
+            {
+                "name": "id_expression",
+                "label": "ID expression",
+                "type": "text",
+                "required": False,
+                "description": "SQL expression for source_id",
+            },
+            {
+                "name": "filter_where",
+                "label": "Filter (WHERE clause)",
+                "type": "text",
+                "required": False,
+                "description": "Additional WHERE clause filter",
+            },
         ]
 
     def seed_defaults_for_source(self, source_name: str) -> None:

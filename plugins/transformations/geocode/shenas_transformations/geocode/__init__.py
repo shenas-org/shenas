@@ -142,9 +142,16 @@ class GeocodeTransform(Transform):
 
     def param_schema(self) -> list[dict[str, Any]]:
         return [
-            {"name": "address_column", "type": "text", "required": True, "description": "Column containing address strings"},
+            {
+                "name": "address_column",
+                "label": "Address column",
+                "type": "source_column",
+                "required": True,
+                "description": "Column containing address strings",
+            },
             {
                 "name": "latitude_output",
+                "label": "Latitude output column",
                 "type": "text",
                 "required": False,
                 "description": "Output latitude column name",
@@ -152,6 +159,7 @@ class GeocodeTransform(Transform):
             },
             {
                 "name": "longitude_output",
+                "label": "Longitude output column",
                 "type": "text",
                 "required": False,
                 "description": "Output longitude column name",
