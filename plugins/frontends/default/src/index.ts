@@ -1,5 +1,5 @@
 import "shenas-frontends";
-import "./pipeline-overview.ts";
+import "./flow.ts";
 import "./auth-page.ts";
 import "./config-page.ts";
 import "./entities-page.ts";

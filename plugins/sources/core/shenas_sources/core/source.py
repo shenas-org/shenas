@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-from shenas_plugins.core.base_auth import SourceAuth
-from shenas_plugins.core.base_config import SourceConfig
-from shenas_plugins.core.plugin import Plugin
+from app.plugin import Plugin
+from shenas_sources.core.base_auth import SourceAuth
+from shenas_sources.core.base_config import SourceConfig
 
 logger = logging.getLogger("shenas.sources")
 
@@ -231,6 +231,27 @@ class Source(Plugin):
         """Build an API client from stored credentials. Override for auth."""
         return None
 
+    @property
+    def dataset_name(self) -> str:
+        """DuckDB schema name for this source's raw data.
+
+        When ``current_entity_uuid`` is set to a non-primary entity, the
+        schema is suffixed with ``__e<uuid8>`` so each entity's raw data
+        lives in its own namespace.
+        """
+        from app.database import current_entity_uuid, current_user_id
+        from app.local_users import LocalUser
+
+        entity_uuid = current_entity_uuid.get()
+        if entity_uuid is None:
+            return self.name
+        # Check if this is the primary (current user's) entity
+        user_id = current_user_id.get()
+        user = LocalUser.get_by_id(user_id) if user_id else None
+        if user and getattr(user, "uuid", None) == entity_uuid:
+            return self.name
+        return f"{self.name}__e{entity_uuid[:8]}"
+
     def acquire_sync_lock(self) -> bool:
         """Try to acquire the sync lock for this pipe. Returns False if already locked."""
         with self._sync_locks_guard:
@@ -247,45 +268,17 @@ class Source(Plugin):
                 lock.release()
 
     def _mark_synced(self) -> None:
-        """Update the synced_at timestamp in the plugin state table."""
+        """Update the synced_at timestamp in the plugin state table and data catalog."""
         try:
             self.get_or_create_instance().mark_synced()
         except Exception:
             logger.exception("Failed to update synced_at for %s", self.name)
-
-    def dataset_name(self) -> str:
-        """Return the DuckDB schema this source's raw data should land in.
-
-        Scoped to the current entity via the ``current_entity_uuid``
-        contextvar. The primary entity (the current user's own
-        ``LocalUser`` row) keeps the bare ``<source>`` schema name for
-        backwards compatibility; other entities use
-        ``<source>__e<uuid8>`` where ``uuid8`` is the first 8 hex chars
-        of the entity's UUID. Never returns an empty string.
-        """
         try:
-            from app.db import current_entity_uuid
-        except ImportError:
-            return self.name
-        target = current_entity_uuid.get()
-        if not target:
-            return self.name
-        # If the target matches the current user's primary entity, also
-        # use the bare schema so existing data layout is preserved.
-        try:
-            from app.local_users import LocalUser
+            from app.data_catalog import catalog
 
-            me = LocalUser.current_db()  # noqa: F841 -- ensures attached
-            from app.db import current_user_id
-
-            user_id = current_user_id.get()
-            primary = LocalUser.get_by_id(int(user_id)) if user_id else None
-            if primary is not None and primary.uuid == target:
-                return self.name
+            catalog().mark_refreshed(self.name)
         except Exception:
             pass
-        suffix = target[:8]
-        return f"{self.name}__e{suffix}"
 
     def sync(
         self,
@@ -305,17 +298,16 @@ class Source(Plugin):
 
         client = self.build_client()
         res = self.resources(client)
-        dataset = self.dataset_name()
-        run_sync(self.name, dataset, res, full_refresh, self._auto_transform, on_progress=on_progress)
-        # Refresh AS-OF macros for any SCD2 tables in the dataset schema.
+        run_sync(self.name, self.dataset_name, res, full_refresh, self._auto_transform, on_progress=on_progress)
+        # Refresh AS-OF macros for any SCD2 tables in this source's schema.
         try:
             con = connect()
             try:
-                apply_as_of_macros(con, dataset)
+                apply_as_of_macros(con, self.dataset_name)
             finally:
                 con.close()
         except Exception:
-            logger.exception("Failed to refresh AS-OF macros for %s", dataset)
+            logger.exception("Failed to refresh AS-OF macros for %s", self.name)
         self._mark_synced()
         self._log_sync_event(full_refresh)
 
@@ -409,21 +401,20 @@ class Source(Plugin):
 
     def _auto_transform(self) -> None:
         """Seed and run transforms via the Transform plugin system."""
-        from shenas_transformations.core import Transform
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core import Transformer
+        from shenas_transformers.core.transform import Transform
 
-        from app.api.sources import _load_plugins
         from shenas_sources.core.db import connect
 
         con = connect()
 
-        for cls in _load_plugins("transformation", base=Transform, include_internal=True):
+        for cls in Transformer.load_all():
             plugin = cls()
             inst = plugin.instance()
             if not inst or inst.enabled:
                 plugin.seed_defaults_for_source(self.name)
 
-        count = TransformInstance.run_for_source(con, self.name)
+        count = Transform.run_for_source(con, self.name)
         logger.info("Transforms done: %s (%d)", self.name, count)
 
     # -- Auth flow ------------------------------------------------------------
@@ -506,7 +497,7 @@ class Source(Plugin):
 
 def _get_field_meta(f: dataclasses.Field) -> dict[str, Any]:  # type: ignore[type-arg]
     """Extract Field metadata from an Annotated dataclass field."""
-    from shenas_plugins.core.table import Field
+    from app.table import Field
 
     hints = getattr(f.type, "__metadata__", ()) if hasattr(f.type, "__metadata__") else ()
     # Unwrap Optional[Annotated[...]]

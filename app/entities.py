@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self
 
-from shenas_plugins.core.table import Field, Table
+from app.table import Field, Table
 
 if TYPE_CHECKING:
     import duckdb
@@ -261,7 +261,7 @@ class Entity(Table):
         local user is handled through the normal registry flow.
         """
         if getattr(type(self), "database", "user") != "system":
-            from app.db import cursor
+            from app.database import cursor
 
             uuid_val = self.uuid
             with cursor() as cur:
@@ -489,7 +489,7 @@ def current_entity(info: Any) -> Any:
     Used by query resolvers that accept an optional entity uuid and want
     to default to "me" when it is not specified.
     """
-    from app.db import current_user_id
+    from app.database import current_user_id
     from app.local_users import LocalUser
 
     user_id = info.context.get("user_id") if info is not None else current_user_id.get()
