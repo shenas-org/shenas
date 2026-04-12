@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any
 
-from shenas_plugins.core.table import Field, Table
+from shenas_plugins.core.table import DataResourceRef, Field, Table
 
 if TYPE_CHECKING:
     import duckdb
@@ -69,6 +69,14 @@ class TransformInstance(Table):
     # ------------------------------------------------------------------
     # Convenience
     # ------------------------------------------------------------------
+
+    @property
+    def source_ref(self) -> DataResourceRef:
+        return DataResourceRef(schema=self.source_duckdb_schema, table=self.source_duckdb_table)
+
+    @property
+    def target_ref(self) -> DataResourceRef:
+        return DataResourceRef(schema=self.target_duckdb_schema, table=self.target_duckdb_table)
 
     def to_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
@@ -281,7 +289,15 @@ class TransformInstance(Table):
                     inst.id,
                 )
                 continue
-            count += plugin.execute(con, inst, device_id=device_id)
+            result = plugin.execute(con, inst, device_id=device_id)
+            if result:
+                try:
+                    from app.data_catalog import catalog
+
+                    catalog().mark_refreshed(inst.target_duckdb_schema, inst.target_duckdb_table)
+                except Exception:
+                    pass
+            count += result
         return count
 
     @staticmethod
@@ -300,7 +316,15 @@ class TransformInstance(Table):
                     inst.id,
                 )
                 continue
-            count += plugin.execute(con, inst, device_id=device_id)
+            result = plugin.execute(con, inst, device_id=device_id)
+            if result:
+                try:
+                    from app.data_catalog import catalog
+
+                    catalog().mark_refreshed(inst.target_duckdb_schema, inst.target_duckdb_table)
+                except Exception:
+                    pass
+            count += result
         return count
 
 

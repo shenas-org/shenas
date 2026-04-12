@@ -78,6 +78,33 @@ class Field:
     options: tuple[str, ...] | None = None  # choices for select widgets
 
 
+@dataclass(frozen=True)
+class DataResourceRef:
+    """Lightweight typed reference to a DuckDB table.
+
+    Lives at the plugin-core level so transforms, recipes, catalog, and
+    any other code can reference tables without raw strings.
+    """
+
+    schema: str
+    table: str
+
+    @property
+    def id(self) -> str:
+        return f"{self.schema}.{self.table}"
+
+    @classmethod
+    def from_id(cls, data_resource_id: str) -> DataResourceRef:
+        schema, table = data_resource_id.split(".", 1)
+        return cls(schema=schema, table=table)
+
+    def __str__(self) -> str:
+        return self.id
+
+    def quoted_sql(self) -> str:
+        return f'"{self.schema}"."{self.table}"'
+
+
 class Table:
     """Slim common base for source-side and dataset-side plugin tables.
 
@@ -286,6 +313,7 @@ class Table:
 
         meta: dict[str, Any] = {
             "table": cls._Meta.name,
+            "display_name": cls._Meta.display_name,
             "schema": cls._Meta.schema,
             "description": cls._Meta.description or cls.__doc__,
             "primary_key": list(cls._Meta.pk),

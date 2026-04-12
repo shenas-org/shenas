@@ -28,10 +28,9 @@ def _source_entry_point_names() -> list[str]:
 def _build_catalog() -> dict[str, dict]:
     """Return ``{qualified_table: table_metadata}`` for the recipe runner.
 
-    Thin wrapper over :func:`app.analytics_catalog.catalog_by_qualified_name`,
-    which is the shared walk used by the GraphQL ``catalog`` query too.
+    Thin wrapper over :func:`app.data_catalog.catalog_by_qualified_name`.
     """
-    from app.analytics_catalog import catalog_by_qualified_name
+    from app.data_catalog import catalog_by_qualified_name
 
     return catalog_by_qualified_name()
 
@@ -570,7 +569,7 @@ class Mutation:
     @strawberry.mutation
     def refresh_literature(self, papers_per_pair: int = 5, min_citations: int = 50) -> JSON:
         """Fetch papers and extract structured findings via the API gateway."""
-        from app.analytics_catalog import catalog_by_qualified_name
+        from app.data_catalog import catalog_by_qualified_name
         from app.literature_fetch import refresh_findings
 
         catalog = catalog_by_qualified_name()
@@ -592,7 +591,7 @@ class Mutation:
 
         from shenas_transformations.core.instance import TransformInstance
 
-        from app.analytics_catalog import walk_metrics_catalog, walk_source_catalog
+        from app.data_catalog import walk_metrics_catalog, walk_source_catalog
         from app.graphql.llm_provider import get_llm_provider
         from shenas_datasets.core.suggest import ask_for_dataset_suggestions, validate_dataset_payload
         from shenas_plugins.core.plugin import PluginInstance
@@ -684,7 +683,7 @@ class Mutation:
 
         from shenas_analyses.suggestion import ask_for_analysis_suggestions, validate_analysis_payload
 
-        from app.analytics_catalog import walk_metrics_catalog
+        from app.data_catalog import walk_metrics_catalog
         from app.graphql.llm_provider import get_llm_provider
         from app.hypotheses import Hypothesis
 

@@ -391,10 +391,9 @@ class Query:
     def catalog(self) -> JSON:
         """Return ``[table_metadata]`` for every queryable source / metric table.
 
-        Thin wrapper over :func:`app.analytics_catalog.walk_catalog`,
-        which both this query and the recipe runner share.
+        Thin wrapper over :func:`app.data_catalog.walk_catalog`.
         """
-        from app.analytics_catalog import walk_catalog
+        from app.data_catalog import walk_catalog
 
         return walk_catalog()  # ty: ignore[invalid-return-type]
 
@@ -422,7 +421,7 @@ class Query:
     @strawberry.field
     def suggested_hypotheses(self, limit: int = 10) -> JSON:
         """Return proactive hypothesis suggestions from literature cross-referenced with installed data."""
-        from app.analytics_catalog import catalog_by_qualified_name
+        from app.data_catalog import catalog_by_qualified_name
         from app.literature import suggest_hypotheses
 
         catalog = catalog_by_qualified_name()

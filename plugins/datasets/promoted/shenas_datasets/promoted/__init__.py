@@ -133,7 +133,7 @@ def _make_transform(record: PromotedMetric):
     recipe_json = record.recipe_json
 
     def transform(cls, con) -> int:
-        from app.analytics_catalog import catalog_by_qualified_name
+        from app.data_catalog import catalog_by_qualified_name
         from app.db import analytics_backend
         from shenas_plugins.core.analytics import (
             OpCall,
