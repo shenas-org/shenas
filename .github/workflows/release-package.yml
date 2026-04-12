@@ -14,7 +14,7 @@ on:
       - 'model-*/v*'
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -113,3 +113,11 @@ jobs:
 
       - name: Upload to GCS
         run: gsutil -m cp dist/*.whl dist/*.whl.sig gs://shenas-packages/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.whl
+            dist/*.whl.sig
+          generate_release_notes: true
