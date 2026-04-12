@@ -73,7 +73,7 @@ jobs:
           restore-keys: moon-test-
       - run: uv sync
       - name: Build default frontend (for integration tests)
-        run: moon run vendor:build frontend-default:build
+        run: moon run vendor:build frontend-default:build --force
       - run: moon run :test ${{ github.event_name == 'pull_request' && '--affected' || '' }}
 
   infra:
