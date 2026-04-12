@@ -143,12 +143,10 @@ class TestSeedDefaults:
 
         defaults = [
             {
-                
                 "source_duckdb_schema": "garmin",
-                    "source_duckdb_table": "activities",
-                
+                "source_duckdb_table": "activities",
                 "target_duckdb_schema": "metrics",
-                    "target_duckdb_table": "daily_activities",
+                "target_duckdb_table": "daily_activities",
                 "params": json.dumps({"sql": "SELECT 1"}),
                 "description": "d",
             }
@@ -164,12 +162,10 @@ class TestSeedDefaults:
 
         defaults = [
             {
-                
                 "source_duckdb_schema": "garmin",
-                    "source_duckdb_table": "activities",
-                
+                "source_duckdb_table": "activities",
                 "target_duckdb_schema": "metrics",
-                    "target_duckdb_table": "daily_activities",
+                "target_duckdb_table": "daily_activities",
                 "params": json.dumps({"sql": "SELECT 1"}),
                 "description": "v1",
             }

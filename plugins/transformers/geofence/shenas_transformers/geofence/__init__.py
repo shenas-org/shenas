@@ -167,9 +167,8 @@ class GeofenceTransformer(Transformer):
 
         defaults = [
             {
-                
                 "source_duckdb_schema": "gtakeout",
-                    "source_duckdb_table": "location_visits",
+                "source_duckdb_table": "location_visits",
                 "target_duckdb_schema": "metrics",
                 "target_duckdb_table": "location_visits",
                 "description": "Categorize Google Takeout location visits using geofences",

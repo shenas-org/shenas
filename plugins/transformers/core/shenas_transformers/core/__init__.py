@@ -95,6 +95,6 @@ class Transformer(Plugin):
 
 
 __all__ = [
-    "TransformerConfig",
     "Transformer",
+    "TransformerConfig",
 ]

@@ -1848,7 +1848,8 @@ class ShenasApp extends LitElement {
                             <span
                               style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)"
                               >${u.kind || "table"}</span
-                            > `,
+                            >
+                          </div> `,
                       )}
                     </div>`
                   : ""}
@@ -1861,7 +1862,8 @@ class ShenasApp extends LitElement {
                             <span
                               style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)"
                               >${dd.kind || "table"}</span
-                            > `,
+                            >
+                          </div> `,
                       )}
                     </div>`
                   : ""}
