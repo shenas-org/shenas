@@ -1346,6 +1346,7 @@ class ShenasApp extends LitElement {
             ${this._dashboards.map((c) => this._navItem(c.name, c.display_name || c.name, active))}
             <hr style="border:none;border-top:1px solid var(--shenas-border-light,#e8e8e8);margin:0.3rem 0.5rem" />
             ${this._navItem("flow", "Flow", active)} ${this._navItem("catalog", "Catalog", active)}
+            ${this._navItem("logs", "Logs", active)} ${this._navItem("flow", "Flow", active)}
             ${this._navItem("logs", "Logs", active)}
             <a
               class="nav-link settings-toggle"
@@ -1784,8 +1785,8 @@ class ShenasApp extends LitElement {
     if (!d) return html``;
     const columns = (d.columns as Array<Record<string, unknown>>) || [];
     const pk = (d.primaryKey as string[]) || [];
-    const upstream = (d.upstreamTransforms as Array<Record<string, unknown>>) || [];
-    const downstream = (d.downstreamTransforms as Array<Record<string, unknown>>) || [];
+    const upstream = (d.upstream as Array<Record<string, unknown>>) || [];
+    const downstream = (d.downstream as Array<Record<string, unknown>>) || [];
     const freshness = (d.freshness as Record<string, unknown>) || {};
     const quality = (d.quality as Record<string, unknown>) || {};
     const checks = (quality.latestChecks as Array<Record<string, unknown>>) || [];
@@ -1841,32 +1842,24 @@ class ShenasApp extends LitElement {
                 ${upstream.length
                   ? html`<div>
                       <strong>Upstream:</strong> ${upstream.map(
-                        (t) =>
-                          html`<div style="margin:2px 0">
-                            <span style="font-family:monospace">${t.sourceDuckdbSchema}.${t.sourceDuckdbTable}</span>
+                        (u) =>
+                          html`<span>${u.displayName || u.id}</span>
                             <span
                               style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)"
-                              >${t.transformType}</span
-                            >${t.description
-                              ? html` <span style="color:var(--shenas-text-muted,#888)">${t.description}</span>`
-                              : ""}
-                          </div>`,
+                              >${u.kind || "table"}</span
+                            > `,
                       )}
                     </div>`
                   : ""}
                 ${downstream.length
                   ? html`<div>
                       <strong>Downstream:</strong> ${downstream.map(
-                        (t) =>
-                          html`<div style="margin:2px 0">
-                            <span style="font-family:monospace">${t.targetDuckdbSchema}.${t.targetDuckdbTable}</span>
+                        (dd) =>
+                          html`<span>${dd.displayName || dd.id}</span>
                             <span
                               style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)"
-                              >${t.transformType}</span
-                            >${t.description
-                              ? html` <span style="color:var(--shenas-text-muted,#888)">${t.description}</span>`
-                              : ""}
-                          </div>`,
+                              >${dd.kind || "table"}</span
+                            > `,
                       )}
                     </div>`
                   : ""}

@@ -330,6 +330,16 @@ class CatalogPage extends LitElement {
     await this._expand(this._expanded);
   }
 
+  _navigateToPlugin(name: string): void {
+    this.dispatchEvent(
+      new CustomEvent("navigate", {
+        bubbles: true,
+        composed: true,
+        detail: { path: `/settings/source/${name}`, label: name },
+      }),
+    );
+  }
+
   _formatRows(n: number | null): string {
     if (n === null || n === undefined) return "--";
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -391,7 +401,12 @@ class CatalogPage extends LitElement {
             {
               label: "Plugin",
               class: "mono",
-              render: (r: DataResource) => html`${r.plugin.displayName || r.plugin.name}`,
+              render: (r: DataResource) =>
+                html`<a
+                  @click=${() => this._navigateToPlugin(r.plugin.name)}
+                  style="cursor:pointer;text-decoration:underline;color:inherit"
+                  >${r.plugin.displayName || r.plugin.name}</a
+                >`,
             },
             {
               label: "Name",

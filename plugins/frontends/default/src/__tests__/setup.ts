@@ -1,6 +1,6 @@
 // Suppress Lit dev mode warning in tests -- tests run in dev mode by default
 // but the warning is noisy and not actionable.
-globalThis.litIssuedWarnings ??= new Set(["dev-mode"]);
+(globalThis as Record<string, unknown>).litIssuedWarnings ??= new Set(["dev-mode"]);
 
 import "urlpattern-polyfill";
 
