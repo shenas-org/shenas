@@ -29,6 +29,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Verify we are on main
+        run: |
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$BRANCH" != "main" ]; then
+            echo "::error::Not on main (on $BRANCH), refusing to tag"
+            exit 1
+          fi
+
       - name: Detect changes and create tags
         run: |
           # Discover all releasable packages from pyproject.toml files.
