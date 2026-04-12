@@ -1,12 +1,12 @@
 import { LitElement, html, css, nothing } from "lit";
 import type { TemplateResult } from "lit";
-import { formatDate, gql, renderMessage, messageStyles } from "shenas-frontends";
-import type { MessageBanner } from "shenas-frontends";
+import "shenas-frontends";
 import "./day-row.ts";
 import type { DayData } from "./types.ts";
 
-interface TimelineQuery {
-  timeline: DayData[];
+interface Message {
+  type: string;
+  text: string;
 }
 
 export class ShenasTimeline extends LitElement {
@@ -21,11 +21,10 @@ export class ShenasTimeline extends LitElement {
   declare apiBase: string;
   declare _days: DayData[];
   declare _loading: boolean;
-  declare _message: MessageBanner | null;
+  declare _message: Message | null;
   declare _expandedDay: string | null;
 
   static styles = [
-    messageStyles,
     css`
       :host {
         display: block;
@@ -97,8 +96,15 @@ export class ShenasTimeline extends LitElement {
   async _fetchTimeline(): Promise<void> {
     this._loading = true;
     try {
-      const data = (await gql(this.apiBase, `{ timeline { date events { title start_time end_time } transactions { amount start_time end_time } metrics { sleep_hours rmssd resting_hr steps mood total_spent } } }`)) as TimelineQuery | null;
-      this._days = data?.timeline || [];
+      const resp = await fetch(`${this.apiBase}/graphql`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `{ timeline { date dateKey items { ... on EventItem { type title start_at end_at category } ... on TransactionItem { type amount payee category } } metrics { sleep_hours rmssd resting_hr steps mood total_spent } } }`,
+        }),
+      });
+      const json = await resp.json();
+      this._days = json?.data?.timeline || [];
     } catch (err) {
       this._message = { type: "error", text: "Failed to fetch timeline" };
       console.error(err);
@@ -115,7 +121,7 @@ export class ShenasTimeline extends LitElement {
     if (this._loading) {
       return html`
         <div class="timeline-container">
-          ${renderMessage(this._message)}
+          ${this._message ? html`<div class="message ${this._message.type}">${this._message.text}</div>` : nothing}
           <div class="loading-state">Loading timeline...</div>
         </div>
       `;
@@ -124,7 +130,7 @@ export class ShenasTimeline extends LitElement {
     if (!this._days || this._days.length === 0) {
       return html`
         <div class="timeline-container">
-          ${renderMessage(this._message)}
+          ${this._message ? html`<div class="message ${this._message.type}">${this._message.text}</div>` : nothing}
           <div class="empty-state">No data available</div>
         </div>
       `;
@@ -134,19 +140,19 @@ export class ShenasTimeline extends LitElement {
 
     return html`
       <div class="timeline-container">
-        ${renderMessage(this._message)}
+        ${this._message ? html`<div class="message ${this._message.type}">${this._message.text}</div>` : nothing}
         <div class="timeline-header">
           <h1>Timeline</h1>
         </div>
         <div class="timeline-body">
           ${this._days.map((day) => {
-            const isToday = day.date === today;
+            const isToday = day.dateKey === today;
             return html`
               <shenas-day-row
                 .day=${day}
                 ?is-today=${isToday}
-                ?expanded=${this._expandedDay === day.date}
-                @click=${() => this._toggleDay(day.date)}
+                ?expanded=${this._expandedDay === day.dateKey}
+                @click=${() => this._toggleDay(day.dateKey)}
               ></shenas-day-row>
             `;
           })}

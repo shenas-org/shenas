@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing } from "lit";
 import type { TemplateResult, CSSResult } from "lit";
 import { formatDate, formatTime, computeBarPosition } from "shenas-frontends";
-import type { DayData, EventItem, TransactionItem, DailyMetrics } from "./types.ts";
+import type { DayData, EventItem, TransactionItem, TimelineItem, DailyMetrics } from "./types.ts";
 
 function formatMetricValue(val: number | null | undefined, unit: string): string | null {
   if (val == null) return null;
@@ -60,7 +60,7 @@ export class ShenasDayRow extends LitElement {
   declare day: DayData;
   declare isToday: boolean;
   declare expanded: boolean;
-  declare _hoveredItem: EventItem | TransactionItem | null;
+  declare _hoveredItem: TimelineItem | null;
   declare _tooltipX: number;
   declare _tooltipY: number;
 
@@ -201,7 +201,7 @@ export class ShenasDayRow extends LitElement {
     this._tooltipY = 0;
   }
 
-  _onItemHover(item: EventItem | TransactionItem, e: MouseEvent): void {
+  _onItemHover(item: TimelineItem, e: MouseEvent): void {
     this._hoveredItem = item;
     this._tooltipX = e.clientX + 10;
     this._tooltipY = e.clientY + 10;
@@ -231,21 +231,18 @@ export class ShenasDayRow extends LitElement {
         </div>
         <div class="timeline">
           ${allItems.map((item) => {
-            const isEvent = "title" in item;
+            const isEvent = item.type === "event";
+            const ev = isEvent ? (item as EventItem) : null;
+            const start = ev?._start;
+            const pos = start ? computeBarPosition(start, ev?.duration_min, ev?.end_at) : undefined;
             return html`
               <div
                 class="timeline-item ${isEvent ? "event" : "transaction"}"
-                style="${isEvent
-                  ? computeBarPosition(
-                      (item as EventItem).start_at,
-                      (item as EventItem).end_at || (item as EventItem).start_at,
-                      d.date,
-                    )
-                  : ""}"
+                style="${pos ? `left:${pos.leftPct}%;width:${pos.widthPct}%` : ""}"
                 @mouseenter=${(e: MouseEvent) => this._onItemHover(item, e)}
                 @mouseleave=${() => this._onItemLeave()}
               >
-                ${isEvent ? ((item as EventItem).title || "").substring(0, 3) : "$"}
+                ${isEvent ? (ev?.title || "").substring(0, 3) : "$"}
               </div>
             `;
           })}
@@ -253,12 +250,17 @@ export class ShenasDayRow extends LitElement {
       </div>
       ${this._hoveredItem
         ? html`<div class="tooltip" style="left: ${this._tooltipX}px; top: ${this._tooltipY}px">
-            <div class="title">${"title" in this._hoveredItem ? this._hoveredItem.title : "Transaction"}</div>
+            <div class="title">
+              ${this._hoveredItem.type === "event" ? (this._hoveredItem as EventItem).title || "Event" : "Transaction"}
+            </div>
             <div class="detail">
-              ${"title" in this._hoveredItem
-                ? html`${formatTime((this._hoveredItem as EventItem).start_at)} -
-                  ${formatTime((this._hoveredItem as EventItem).end_at || (this._hoveredItem as EventItem).start_at)}`
-                : html`${this._hoveredItem.amount ? `$${Math.abs(this._hoveredItem.amount).toFixed(2)}` : "N/A"}`}
+              ${this._hoveredItem.type === "event"
+                ? html`${(this._hoveredItem as EventItem)._start
+                    ? formatTime((this._hoveredItem as EventItem)._start!)
+                    : ""}`
+                : html`${(this._hoveredItem as TransactionItem).amount
+                    ? `$${Math.abs((this._hoveredItem as TransactionItem).amount!).toFixed(2)}`
+                    : "N/A"}`}
             </div>
           </div>`
         : nothing}
