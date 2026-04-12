@@ -1346,8 +1346,8 @@ class ShenasApp extends LitElement {
             ${this._dashboards.map((c) => this._navItem(c.name, c.display_name || c.name, active))}
             <hr style="border:none;border-top:1px solid var(--shenas-border-light,#e8e8e8);margin:0.3rem 0.5rem" />
             ${this._navItem("flow", "Flow", active)} ${this._navItem("catalog", "Catalog", active)}
+            ${this._navItem("logs", "Logs", active)} ${this._navItem("flow", "Flow", active)}
             ${this._navItem("logs", "Logs", active)}
-            ${this._navItem("flow", "Flow", active)} ${this._navItem("logs", "Logs", active)}
             <a
               class="nav-link settings-toggle"
               @click=${() => {
@@ -1793,40 +1793,103 @@ class ShenasApp extends LitElement {
     return html`
       <div style="font-size:0.85rem">
         <div class="inspect-header">
-          <h4>${d.displayName} <span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)">${d.kind || "table"}</span> <span style="font-weight:normal;color:var(--shenas-text-muted,#888)">${d.id}</span></h4>
-          <button class="inspect-close" @click=${() => { this._catalogDetail = null; }}>&times;</button>
+          <h4>
+            ${d.displayName}
+            <span
+              style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)"
+              >${d.kind || "table"}</span
+            >
+            <span style="font-weight:normal;color:var(--shenas-text-muted,#888)">${d.id}</span>
+          </h4>
+          <button
+            class="inspect-close"
+            @click=${() => {
+              this._catalogDetail = null;
+            }}
+          >
+            &times;
+          </button>
         </div>
         <p style="color:var(--shenas-text-secondary,#666);margin:0 0 0.8rem">${d.description || ""}</p>
 
         <strong>Columns</strong>
         <table class="inspect-table" style="margin:0.3rem 0 0.8rem">
-          <thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Unit</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Description</th>
+              <th>Unit</th>
+            </tr>
+          </thead>
           <tbody>
-            ${columns.map((c) => html`<tr>
-              <td style="font-family:monospace">${c.name}${pk.includes(c.name as string) ? " *" : ""}</td>
-              <td style="font-family:monospace">${c.dbType}</td>
-              <td>${c.description}</td>
-              <td>${c.unit || ""}</td>
-            </tr>`)}
+            ${columns.map(
+              (c) =>
+                html`<tr>
+                  <td style="font-family:monospace">${c.name}${pk.includes(c.name as string) ? " *" : ""}</td>
+                  <td style="font-family:monospace">${c.dbType}</td>
+                  <td>${c.description}</td>
+                  <td>${c.unit || ""}</td>
+                </tr>`,
+            )}
           </tbody>
         </table>
 
-        ${upstream.length || downstream.length ? html`
-          <strong>Lineage</strong>
-          <div style="margin:0.3rem 0 0.8rem">
-            ${upstream.length ? html`<div><strong>Upstream:</strong> ${upstream.map((u) => html`<span>${u.displayName || u.id}</span> <span style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)">${u.kind || "table"}</span> `)}</div>` : ""}
-            ${downstream.length ? html`<div><strong>Downstream:</strong> ${downstream.map((dd) => html`<span>${dd.displayName || dd.id}</span> <span style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)">${dd.kind || "table"}</span> `)}</div>` : ""}
-          </div>
-        ` : ""}
+        ${upstream.length || downstream.length
+          ? html`
+              <strong>Lineage</strong>
+              <div style="margin:0.3rem 0 0.8rem">
+                ${upstream.length
+                  ? html`<div>
+                      <strong>Upstream:</strong> ${upstream.map(
+                        (u) =>
+                          html`<span>${u.displayName || u.id}</span>
+                            <span
+                              style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)"
+                              >${u.kind || "table"}</span
+                            > `,
+                      )}
+                    </div>`
+                  : ""}
+                ${downstream.length
+                  ? html`<div>
+                      <strong>Downstream:</strong> ${downstream.map(
+                        (dd) =>
+                          html`<span>${dd.displayName || dd.id}</span>
+                            <span
+                              style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)"
+                              >${dd.kind || "table"}</span
+                            > `,
+                      )}
+                    </div>`
+                  : ""}
+              </div>
+            `
+          : ""}
 
         <strong>Freshness & Quality</strong>
         <div style="margin:0.3rem 0 0.8rem">
-          <div>Last refreshed: ${freshness.lastRefreshed ? (freshness.lastRefreshed as string).slice(0, 16).replace("T", " ") : "never"}</div>
+          <div>
+            Last refreshed:
+            ${freshness.lastRefreshed ? (freshness.lastRefreshed as string).slice(0, 16).replace("T", " ") : "never"}
+          </div>
           <div>Rows: ${quality.actualRowCount ?? "--"}</div>
-          ${checks.length ? checks.map((c) => html`<div>
-            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:${c.status === "pass" ? "#4caf50" : c.status === "warn" ? "#ff9800" : "#c62828"}"></span>
-            ${c.checkType}: ${c.message}
-          </div>`) : ""}
+          ${checks.length
+            ? checks.map(
+                (c) =>
+                  html`<div>
+                    <span
+                      style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:${c.status ===
+                      "pass"
+                        ? "#4caf50"
+                        : c.status === "warn"
+                          ? "#ff9800"
+                          : "#c62828"}"
+                    ></span>
+                    ${c.checkType}: ${c.message}
+                  </div>`,
+              )
+            : ""}
         </div>
       </div>
     `;
