@@ -260,6 +260,15 @@ class SettingsPage extends LitElement {
     `,
   ];
 
+  declare apiBase: string;
+  declare _settings: Record<string, unknown>;
+  declare _categories: SettingCategory[];
+  declare _loading: boolean;
+  declare _saving: boolean;
+  declare _message: { type: string; text: string } | null;
+  declare _expandedCategories: Set<string>;
+  declare _changedSettings: Map<string, unknown>;
+
   constructor() {
     super();
     this.apiBase = "http://localhost:3000";
@@ -310,10 +319,11 @@ class SettingsPage extends LitElement {
         }
       `;
 
-      const response = await gql(`${this.apiBase}/api/graphql`, query);
+      const response = (await gql(`${this.apiBase}/api/graphql`, query)) as Record<string, unknown> | null;
+      const data = response as { settings?: SettingsData } | null;
 
-      if (response.data?.settings) {
-        const settingsData: SettingsData = response.data.settings;
+      if (data?.settings) {
+        const settingsData: SettingsData = data.settings;
         this._categories = settingsData.categories || [];
 
         // Initialize expanded state - expand first category by default
@@ -332,7 +342,7 @@ class SettingsPage extends LitElement {
     } catch (error) {
       this._message = {
         type: "error",
-        text: `Failed to load settings: ${error.message}`,
+        text: `Failed to load settings: ${error instanceof Error ? error.message : String(error)}`,
       };
     } finally {
       this._loading = false;
@@ -366,23 +376,24 @@ class SettingsPage extends LitElement {
         { updates },
       );
 
-      if (response.data?.updateSettings?.success) {
+      const result = response as { data?: { updateSettings?: { success: boolean; message?: string } } };
+      if (result.data?.updateSettings?.success) {
         this._message = {
           type: "success",
-          text: response.data.updateSettings.message || "Settings saved successfully",
+          text: result.data.updateSettings.message || "Settings saved successfully",
         };
         this._changedSettings.clear();
         this._loadSettings();
       } else {
         this._message = {
           type: "error",
-          text: response.data?.updateSettings?.message || "Failed to save settings",
+          text: result.data?.updateSettings?.message || "Failed to save settings",
         };
       }
     } catch (error) {
       this._message = {
         type: "error",
-        text: `Failed to save settings: ${error.message}`,
+        text: `Failed to save settings: ${error instanceof Error ? error.message : String(error)}`,
       };
     } finally {
       this._saving = false;
@@ -424,7 +435,7 @@ class SettingsPage extends LitElement {
               type="checkbox"
               id="setting-${setting.id}"
               ?checked=${value}
-              @change=${(e) => this._updateSetting(setting.id, e.target.checked)}
+              @change=${(e: Event) => this._updateSetting(setting.id, (e.target as HTMLInputElement).checked)}
             />
             <label for="setting-${setting.id}">${setting.display_name}</label>
           </div>
@@ -436,7 +447,7 @@ class SettingsPage extends LitElement {
             id="setting-${setting.id}"
             class="form-select"
             .value=${String(value)}
-            @change=${(e) => this._updateSetting(setting.id, e.target.value)}
+            @change=${(e: Event) => this._updateSetting(setting.id, (e.target as HTMLInputElement).value)}
           >
             ${setting.options?.map(
               (opt) => html` <option value=${opt.value} ?selected=${value === opt.value}>${opt.label}</option> `,
@@ -452,7 +463,7 @@ class SettingsPage extends LitElement {
             class="form-input"
             .value=${String(value || "")}
             ?required=${setting.required}
-            @change=${(e) => this._updateSetting(setting.id, Number(e.target.value))}
+            @change=${(e: Event) => this._updateSetting(setting.id, Number((e.target as HTMLInputElement).value))}
           />
         `;
 
@@ -465,7 +476,7 @@ class SettingsPage extends LitElement {
             class="form-input"
             .value=${String(value || "")}
             ?required=${setting.required}
-            @change=${(e) => this._updateSetting(setting.id, e.target.value)}
+            @change=${(e: Event) => this._updateSetting(setting.id, (e.target as HTMLInputElement).value)}
           />
         `;
     }

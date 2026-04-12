@@ -354,13 +354,32 @@ class PluginDetail extends LitElement {
     this._previewLoading = false;
   }
 
+  declare apiBase: string;
+  declare kind: string;
+  declare name: string;
+  declare activeTab: string;
+  declare dbStatus: Record<string, unknown>;
+  declare schemaPlugins: Record<string, unknown>;
+  declare initialInfo: Record<string, unknown>;
+  declare _info: Record<string, unknown> | null;
+  declare _loading: boolean;
+  declare _showLoading: boolean;
+  declare _message: { type: string; text: string } | null;
+  declare _tables: TableInfo[];
+  declare _syncing: boolean;
+  declare _transforming: boolean;
+  declare _schemaTransforms: Record<string, unknown>[];
+  declare _selectedTable: TableInfo | null;
+  declare _previewRows: Record<string, unknown>[];
+  declare _previewLoading: boolean;
+
   connectedCallback() {
     super.connectedCallback();
     this._loadPluginInfo();
     registerCommands(this, "plugin-detail", [{ command: "refresh", action: () => this._loadPluginInfo() }]);
   }
 
-  updated(changedProperties) {
+  updated(changedProperties: Map<string, unknown>) {
     if (changedProperties.has("name") || changedProperties.has("kind")) {
       this._loadPluginInfo();
     }
@@ -390,17 +409,20 @@ class PluginDetail extends LitElement {
         }
       `;
 
-      const response = await gql(`${this.apiBase}/api/graphql`, query, { name: this.name, kind: this.kind });
+      const response = (await gql(`${this.apiBase}/api/graphql`, query, {
+        name: this.name,
+        kind: this.kind,
+      })) as { plugin?: Record<string, unknown> } | null;
 
-      if (response.data?.plugin) {
-        this._info = response.data.plugin;
+      if (response?.plugin) {
+        this._info = response.plugin;
         this._loadTables();
         this._loadSchemaTransforms();
       }
     } catch (error) {
       this._message = {
         type: "error",
-        text: `Failed to load plugin info: ${error.message}`,
+        text: `Failed to load plugin info: ${error instanceof Error ? error.message : String(error)}`,
       };
     } finally {
       this._loading = false;
@@ -415,8 +437,9 @@ class PluginDetail extends LitElement {
         `query { dbStatus { schemas(name: "${schema}") { tables { name rows cols earliest latest } } } }`,
       );
 
-      const schemas = response.data?.dbStatus?.schemas || [];
-      const schema_data = schemas.find((s) => s.name === schema);
+      const data = response as { dbStatus?: { schemas?: Array<{ name: string; tables: TableInfo[] }> } } | null;
+      const schemas = data?.dbStatus?.schemas || [];
+      const schema_data = schemas.find((s: { name: string }) => s.name === schema);
       this._tables = schema_data?.tables || [];
     } catch (error) {
       console.error("Failed to load tables:", error);
@@ -429,7 +452,8 @@ class PluginDetail extends LitElement {
         `${this.apiBase}/api/graphql`,
         `query { transforms(sourcePlugin: "${this.name}") { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable description enabled } }`,
       );
-      this._schemaTransforms = response.data?.transforms || [];
+      const data = response as { transforms?: Record<string, unknown>[] } | null;
+      this._schemaTransforms = data?.transforms || [];
     } catch (error) {
       console.error("Failed to load schema transforms:", error);
     }
@@ -444,22 +468,23 @@ class PluginDetail extends LitElement {
         `mutation { syncPlugin(name: "${this.name}", kind: "${this.kind}") { success message synced_at } }`,
       );
 
-      if (response.data?.syncPlugin?.success) {
+      const result = response as { data?: { syncPlugin?: { success: boolean; message?: string } } };
+      if (result.data?.syncPlugin?.success) {
         this._message = {
           type: "success",
-          text: response.data.syncPlugin.message || "Plugin synced successfully",
+          text: result.data.syncPlugin.message || "Plugin synced successfully",
         };
         this._loadPluginInfo();
       } else {
         this._message = {
           type: "error",
-          text: response.data?.syncPlugin?.message || "Sync failed",
+          text: result.data?.syncPlugin?.message || "Sync failed",
         };
       }
     } catch (error) {
       this._message = {
         type: "error",
-        text: `Sync failed: ${error.message}`,
+        text: `Sync failed: ${error instanceof Error ? error.message : String(error)}`,
       };
     } finally {
       this._syncing = false;
@@ -474,13 +499,14 @@ class PluginDetail extends LitElement {
         `mutation { updateTransform(id: ${transformId}, enabled: ${!enabled}) { id enabled } }`,
       );
 
-      if (response.data?.updateTransform) {
+      const result = response as { data?: { updateTransform?: unknown } };
+      if (result.data?.updateTransform) {
         this._loadSchemaTransforms();
       }
     } catch (error) {
       this._message = {
         type: "error",
-        text: `Failed to update transform: ${error.message}`,
+        text: `Failed to update transform: ${error instanceof Error ? error.message : String(error)}`,
       };
     } finally {
       this._transforming = false;
@@ -516,6 +542,8 @@ class PluginDetail extends LitElement {
       `;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guarded by null check above
+    const info = this._info!;
     return html`
       <div class="container">
         ${this._message ? renderMessage(this._message) : ""}
@@ -523,15 +551,15 @@ class PluginDetail extends LitElement {
         <div class="header">
           <div class="plugin-icon">📦</div>
           <div class="plugin-info">
-            <div class="plugin-name">${this._info.display_name || this._info.name}</div>
+            <div class="plugin-name">${info.display_name || info.name}</div>
             <div>
-              <span class="plugin-kind">${this._info.kind}</span>
-              ${this._info.version ? html`<span class="plugin-version">v${this._info.version}</span>` : ""}
+              <span class="plugin-kind">${info.kind}</span>
+              ${info.version ? html`<span class="plugin-version">v${info.version}</span>` : ""}
             </div>
-            ${this._info.description ? html`<div class="plugin-description">${this._info.description}</div>` : ""}
+            ${info.description ? html`<div class="plugin-description">${info.description}</div>` : ""}
           </div>
           <div class="header-actions">
-            ${this._info.enabled
+            ${info.enabled
               ? html`<span class="status-indicator enabled" title="Enabled"></span>`
               : html`<span class="status-indicator disabled" title="Disabled"></span>`}
             <button ?disabled=${this._syncing} @click=${() => this._syncPlugin()} class="btn-primary">
@@ -559,7 +587,7 @@ class PluginDetail extends LitElement {
           >
             Transforms
           </button>
-          ${this._info.has_config || this._info.has_auth
+          ${info.has_config || info.has_auth
             ? html`
                 <button
                   class="tab ${this.activeTab === "config" ? "active" : ""}"
@@ -586,21 +614,23 @@ class PluginDetail extends LitElement {
       <div>
         <h3>Plugin Information</h3>
         <div class="sync-status">
-          ${this._info.synced_at
-            ? html`<p>Last synced: ${new Date(this._info.synced_at).toLocaleString()}</p>`
+          ${this._info!.synced_at
+            ? html`<p>Last synced: ${new Date(this._info!.synced_at as string).toLocaleString()}</p>`
             : html`<p>Never synced</p>`}
-          ${this._info.updated_at ? html`<p>Last updated: ${new Date(this._info.updated_at).toLocaleString()}</p>` : ""}
+          ${this._info!.updated_at
+            ? html`<p>Last updated: ${new Date(this._info!.updated_at as string).toLocaleString()}</p>`
+            : ""}
         </div>
         <div class="config-form">
           <div class="form-group">
             <label class="form-label">Status</label>
-            <div>${this._info.enabled ? "Enabled" : "Disabled"}</div>
+            <div>${this._info!.enabled ? "Enabled" : "Disabled"}</div>
           </div>
-          ${this._info.has_data
+          ${this._info!.has_data
             ? html`
                 <div class="form-group">
                   <label class="form-label">Primary Table</label>
-                  <div>${this._info.primary_table || "N/A"}</div>
+                  <div>${this._info!.primary_table || "N/A"}</div>
                 </div>
               `
             : ""}
@@ -681,7 +711,7 @@ class PluginDetail extends LitElement {
                     <input
                       type="checkbox"
                       ?checked=${transform.enabled}
-                      @change=${() => this._toggleTransform(transform.id, transform.enabled)}
+                      @change=${() => this._toggleTransform(transform.id as number, transform.enabled as boolean)}
                     />
                     ${transform.enabled ? "Enabled" : "Disabled"}
                   </label>
@@ -704,10 +734,12 @@ class PluginDetail extends LitElement {
       <div>
         <h3>Configuration</h3>
         <div class="config-form">
-          ${this._info.has_auth
+          ${this._info!.has_auth
             ? html`<div class="form-group"><label class="form-label">Authentication</label></div>`
             : ""}
-          ${this._info.has_config ? html`<div class="form-group"><label class="form-label">Settings</label></div>` : ""}
+          ${this._info!.has_config
+            ? html`<div class="form-group"><label class="form-label">Settings</label></div>`
+            : ""}
         </div>
       </div>
     `;

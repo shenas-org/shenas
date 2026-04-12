@@ -242,7 +242,7 @@ export class ConfigPage extends LitElement {
 
   private async saveEdit(event: Event) {
     event.preventDefault();
-    const value = this.configValueInput.value;
+    const value = this.configValueInput?.value;
 
     if (!this._editingKey || !value) {
       return;

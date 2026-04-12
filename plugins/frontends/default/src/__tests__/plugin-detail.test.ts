@@ -348,7 +348,7 @@ describe("shenas-plugin-detail", () => {
     await el.updateComplete;
     const checkbox = el.shadowRoot?.querySelector('input[type="checkbox"]');
     expect(checkbox).toBeTruthy();
-    expect(checkbox?.checked).toBe(true);
+    expect((checkbox as HTMLInputElement)?.checked).toBe(true);
   });
 
   it("renders Syncing state on button when _syncing", async () => {

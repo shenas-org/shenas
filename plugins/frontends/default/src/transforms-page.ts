@@ -34,7 +34,6 @@ interface TransformForm {
   sql: string;
 }
 
-
 class TransformsPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },

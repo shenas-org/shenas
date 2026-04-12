@@ -465,17 +465,23 @@ class CatalogPage extends LitElement {
           </tbody>
         </table>
 
-        ${r.upstream?.length || r.downstream?.length
+        ${r.upstreamTransforms?.length || r.downstreamTransforms?.length
           ? html`
               <div class="section-label">Lineage</div>
               <div class="lineage-list">
-                ${r.upstream?.length
+                ${r.upstreamTransforms?.length
                   ? html`<strong>Upstream:</strong>
-                      ${r.upstream.map((u) => html` <a @click=${() => this._expand(u.id)}>${u.id}</a>`)} `
+                      ${r.upstreamTransforms.map(
+                        (u) =>
+                          html` <a @click=${() => this._expand(String(u.id))}>${u.source?.displayName || u.id}</a>`,
+                      )} `
                   : nothing}
-                ${r.downstream?.length
+                ${r.downstreamTransforms?.length
                   ? html`<strong>Downstream:</strong>
-                      ${r.downstream.map((d) => html` <a @click=${() => this._expand(d.id)}>${d.id}</a>`)} `
+                      ${r.downstreamTransforms.map(
+                        (d) =>
+                          html` <a @click=${() => this._expand(String(d.id))}>${d.target?.displayName || d.id}</a>`,
+                      )} `
                   : nothing}
               </div>
             `

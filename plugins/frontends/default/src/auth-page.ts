@@ -192,7 +192,7 @@ export class AuthPage extends LitElement {
     this._error = null;
 
     try {
-      const code = this.deviceCodeInput.value;
+      const code = this.deviceCodeInput?.value;
       if (!code) {
         throw new Error("Device code is required");
       }
