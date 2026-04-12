@@ -388,34 +388,17 @@ class PluginDetail extends LitElement {
   private async _loadPluginInfo() {
     this._loading = true;
     try {
-      const query = `
-        query GetPluginInfo($name: String!, $kind: String!) {
-          plugin(name: $name, kind: $kind) {
-            name
-            display_name
-            kind
-            version
-            description
-            enabled
-            synced_at
-            added_at
-            updated_at
-            status_changed_at
-            has_config
-            has_auth
-            has_data
-            primary_table
-          }
-        }
-      `;
+      const response = (await gql(
+        this.apiBase,
+        `query($name: String!, $kind: String!) { pluginInfo(kind: $kind, name: $name) }`,
+        {
+          name: this.name,
+          kind: this.kind,
+        },
+      )) as { pluginInfo?: Record<string, unknown> } | null;
 
-      const response = (await gql(this.apiBase, query, {
-        name: this.name,
-        kind: this.kind,
-      })) as { plugin?: Record<string, unknown> } | null;
-
-      if (response?.plugin) {
-        this._info = response.plugin;
+      if (response?.pluginInfo) {
+        this._info = response.pluginInfo;
         this._loadTables();
         this._loadSchemaTransforms();
       }
