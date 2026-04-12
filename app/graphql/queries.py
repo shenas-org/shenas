@@ -383,37 +383,31 @@ class Query:
     @strawberry.field
     def category_sets(self) -> list[CategorySetType]:
         """Return all category sets with their values."""
-        from app.categories import list_sets
+        from app.categories import Category
 
         return [
             CategorySetType(
-                id=s["id"],
-                display_name=s["displayName"],
-                description=s.get("description", ""),
-                values=[
-                    CategoryValueType(value=v["value"], sort_order=v.get("sortOrder", 0), color=v.get("color"))
-                    for v in s.get("values", [])
-                ],
+                id=c.id,
+                display_name=c.display_name,
+                description=c.description,
+                values=[CategoryValueType(value=v.value, sort_order=v.sort_order, color=v.color) for v in c.values],
             )
-            for s in list_sets()
+            for c in Category.all(order_by="display_name")
         ]
 
     @strawberry.field
     def category_set(self, set_id: str) -> CategorySetType | None:
         """Return a single category set with values."""
-        from app.categories import get_set
+        from app.categories import Category
 
-        s = get_set(set_id)
-        if not s:
+        c = Category.find(set_id)
+        if not c:
             return None
         return CategorySetType(
-            id=s["id"],
-            display_name=s["displayName"],
-            description=s.get("description", ""),
-            values=[
-                CategoryValueType(value=v["value"], sort_order=v.get("sortOrder", 0), color=v.get("color"))
-                for v in s.get("values", [])
-            ],
+            id=c.id,
+            display_name=c.display_name,
+            description=c.description,
+            values=[CategoryValueType(value=v.value, sort_order=v.sort_order, color=v.color) for v in c.values],
         )
 
     # -- Table introspection --
@@ -484,13 +478,16 @@ class Query:
     def hotkeys(self, info: strawberry.types.Info) -> JSON:  # noqa: ARG002
         from app.hotkeys import Hotkey
 
-        return Hotkey.get_all()  # ty: ignore[invalid-return-type]
+        return {h.action_id: h.binding for h in Hotkey.all(order_by="action_id")}  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def workspace(self, info: strawberry.types.Info) -> JSON:  # noqa: ARG002
+        import json
+
         from app.workspace import Workspace
 
-        return Workspace.get()  # ty: ignore[invalid-return-type]
+        raw = Workspace.read_value("state")
+        return json.loads(raw) if raw else {}  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def dashboards(self) -> list[DashboardType]:
@@ -625,7 +622,7 @@ class Query:
     @strawberry.field
     def literature_findings(self, limit: int | None = None) -> list[FindingType]:
         """Return stored literature findings."""
-        from app.literature import Finding
+        from app.finding import Finding
 
         rows = Finding.all(order_by="id DESC", limit=limit)
         return [_finding_to_gql(f) for f in rows]
@@ -633,11 +630,11 @@ class Query:
     @strawberry.field
     def suggested_hypotheses(self, limit: int = 10) -> list[HypothesisSuggestionType]:
         """Return proactive hypothesis suggestions from literature cross-referenced with installed data."""
-        from app.data_catalog import catalog_by_qualified_name
-        from app.literature import suggest_hypotheses
+        from app.data_catalog import catalog as get_catalog
+        from app.finding import Finding
 
-        catalog = catalog_by_qualified_name()
-        suggestions = suggest_hypotheses(catalog, limit=limit)
+        catalog = get_catalog().metadata_by_id()
+        suggestions = Finding.suggest_hypotheses(catalog, limit=limit)
         return [
             HypothesisSuggestionType(
                 question=s.question,

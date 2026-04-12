@@ -56,14 +56,13 @@ def register_user(req: RegisterRequest) -> AuthResponse:
 
     from app.local_sessions import LocalSession
     from app.local_users import LocalUser
-    from app.user_keys import derive_user_key
 
     try:
         user = LocalUser.create(req.username.strip(), req.password)
     except Exception as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    user.attach(derive_user_key(req.password, user.key_salt))
+    user.attach(LocalUser.derive_key(req.password, user.key_salt))
     token = LocalSession.set_user(user.id)
     return AuthResponse(id=user.id, username=user.username, token=token)
 
@@ -73,18 +72,15 @@ def login_user(req: LoginRequest) -> AuthResponse:
     """Authenticate an existing local user and activate a session."""
     from app.local_sessions import LocalSession
     from app.local_users import LocalUser
-    from app.user_keys import derive_user_key
 
     user = LocalUser.authenticate(req.username, req.password)
     if user is None:
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-    derived = derive_user_key(req.password, user.key_salt)
+    derived = LocalUser.derive_key(req.password, user.key_salt)
     user.attach(derived)
     if req.remember:
-        from app.user_keys import remember_user_key
-
-        remember_user_key(user.id, derived)
+        LocalUser.remember_key(user.id, derived)
     token = LocalSession.set_user(user.id)
     return AuthResponse(id=user.id, username=user.username, token=token)
 
@@ -101,9 +97,7 @@ def logout_user() -> OkResponse:
         user = LocalUser.get_by_id(user_id)
         if user is not None:
             user.detach()
-        from app.user_keys import forget_user_key
-
-        forget_user_key(user_id)
+        LocalUser.forget_key(user_id)
     LocalSession.clear()
     return OkResponse()
 

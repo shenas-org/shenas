@@ -340,7 +340,7 @@ def get_system_settings() -> JSONResponse:
     """Return system-wide settings (e.g. multiuser_enabled)."""
     from app.system_settings import SystemSettings
 
-    return JSONResponse(content=SystemSettings.get())
+    return JSONResponse(content=SystemSettings.read_row() or {"id": 1, "multiuser_enabled": False})
 
 
 @app.put("/api/settings/system")
@@ -350,8 +350,8 @@ async def update_system_settings(request: Request) -> JSONResponse:
 
     body = await request.json()
     multiuser_enabled = bool(body.get("multiuser_enabled", False))
-    SystemSettings.put(multiuser_enabled=multiuser_enabled)
-    return JSONResponse(content=SystemSettings.get())
+    SystemSettings.write_row(multiuser_enabled=multiuser_enabled)
+    return JSONResponse(content=SystemSettings.read_row() or {"id": 1, "multiuser_enabled": False})
 
 
 # ---------------------------------------------------------------------------

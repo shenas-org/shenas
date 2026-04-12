@@ -7,6 +7,7 @@ import json
 import strawberry
 from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawberry
 
+from app.categories import Category
 from app.graphql.queries import _data_resource_to_gql, _transform_to_gql
 from app.graphql.types import (
     AuthResponseType,
@@ -32,26 +33,20 @@ def _source_entry_point_names() -> list[str]:
     return [ep.name for ep in entry_points(group="shenas.sources")]
 
 
-def _category_set_to_gql(s: dict) -> CategorySetType:
+def _category_to_gql(c: Category) -> CategorySetType:
     return CategorySetType(
-        id=s["id"],
-        display_name=s["displayName"],
-        description=s.get("description", ""),
-        values=[
-            CategoryValueType(value=v["value"], sort_order=v.get("sortOrder", 0), color=v.get("color"))
-            for v in s.get("values", [])
-        ],
+        id=c.id,
+        display_name=c.display_name,
+        description=c.description,
+        values=[CategoryValueType(value=v.value, sort_order=v.sort_order, color=v.color) for v in c.values],
     )
 
 
 def _build_catalog() -> dict[str, dict]:
-    """Return ``{qualified_table: table_metadata}`` for the recipe runner.
+    """Return ``{qualified_table: table_metadata}`` for the recipe runner."""
+    from app.data_catalog import catalog
 
-    Thin wrapper over :func:`app.data_catalog.catalog_by_qualified_name`.
-    """
-    from app.data_catalog import catalog_by_qualified_name
-
-    return catalog_by_qualified_name()
+    return catalog().metadata_by_id()
 
 
 @strawberry.type
@@ -214,36 +209,43 @@ class Mutation:
 
     @strawberry.mutation
     def create_category_set(self, set_id: str, display_name: str, description: str = "") -> CategorySetType:
-        from app.categories import create_set
-
-        s = create_set(set_id, display_name, description)
-        return _category_set_to_gql(s)
+        c = Category(id=set_id, display_name=display_name, description=description)
+        c.insert()
+        return _category_to_gql(c)
 
     @strawberry.mutation
     def update_category_set(
         self, set_id: str, display_name: str | None = None, description: str | None = None
     ) -> CategorySetType | None:
-        from app.categories import update_set
-
-        s = update_set(set_id, display_name, description)
-        return _category_set_to_gql(s) if s else None
+        c = Category.find(set_id)
+        if not c:
+            return None
+        if display_name is not None:
+            c.display_name = display_name
+        if description is not None:
+            c.description = description
+        c.save()
+        return _category_to_gql(c)
 
     @strawberry.mutation
     def delete_category_set(self, set_id: str) -> OkType:
-        from app.categories import delete_set
         from app.models import OkResponse
 
-        return OkType.from_pydantic(OkResponse(ok=delete_set(set_id)))  # ty: ignore[unresolved-attribute]
+        c = Category.find(set_id)
+        if c:
+            c.delete()
+        return OkType.from_pydantic(OkResponse(ok=c is not None))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
     def update_category_values(self, set_id: str, values: str) -> CategorySetType | None:
         """Replace all values in a set. values is a JSON array of {value, sortOrder?, color?}."""
         import json
 
-        from app.categories import update_values
-
-        s = update_values(set_id, json.loads(values))
-        return _category_set_to_gql(s) if s else None
+        c = Category.find(set_id)
+        if not c:
+            return None
+        c.replace_values(json.loads(values))
+        return _category_to_gql(c)
 
     # -- Transforms --
 
@@ -372,10 +374,12 @@ class Mutation:
 
     @strawberry.mutation
     def save_workspace(self, data: JSON, info: strawberry.types.Info) -> OkType:  # noqa: ARG002
+        import json
+
         from app.models import OkResponse
         from app.workspace import Workspace
 
-        Workspace.put(data)  # ty: ignore[invalid-argument-type]
+        Workspace.write_row(state=json.dumps(data))
         return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     # -- Hypotheses --
@@ -660,10 +664,10 @@ class Mutation:
     @strawberry.mutation
     def refresh_literature(self, papers_per_pair: int = 5, min_citations: int = 50) -> JSON:
         """Fetch papers and extract structured findings via the API gateway."""
-        from app.data_catalog import catalog_by_qualified_name
+        from app.data_catalog import catalog as get_catalog
         from app.literature_fetch import refresh_findings
 
-        catalog = catalog_by_qualified_name()
+        catalog = get_catalog().metadata_by_id()
         return refresh_findings(catalog, papers_per_pair=papers_per_pair, min_citations=min_citations)  # ty: ignore[invalid-return-type]
 
     # -- LLM Suggestions --
@@ -682,7 +686,7 @@ class Mutation:
 
         from shenas_transformers.core.transform import Transform
 
-        from app.data_catalog import walk_metrics_catalog, walk_source_catalog
+        from app.data_catalog import _walk_metrics, _walk_sources
         from app.graphql.llm_provider import get_llm_provider
         from shenas_datasets.core.suggest import ask_for_dataset_suggestions, validate_dataset_payload
         from shenas_plugins.core.plugin import PluginInstance
@@ -691,10 +695,10 @@ class Mutation:
         wall_start = time.monotonic()
 
         # Build catalogs
-        source_catalog = walk_source_catalog()
+        source_catalog = [meta for meta, _plugin in _walk_sources()]
         if source:
             source_catalog = [t for t in source_catalog if t.get("schema") == source]
-        existing_metrics = walk_metrics_catalog()
+        existing_metrics = [meta for meta, _plugin in _walk_metrics()]
 
         if not source_catalog:
             return {"ok": False, "error": "No source tables found", "suggestions": []}  # ty: ignore[invalid-return-type]
@@ -772,14 +776,14 @@ class Mutation:
 
         from shenas_analyses.suggestion import ask_for_analysis_suggestions, validate_analysis_payload
 
-        from app.data_catalog import walk_metrics_catalog
+        from app.data_catalog import _walk_metrics
         from app.graphql.llm_provider import get_llm_provider
         from app.hypotheses import Hypothesis
 
         provider = get_llm_provider()
         wall_start = time.monotonic()
 
-        metrics_catalog = walk_metrics_catalog()
+        metrics_catalog = [meta for meta, _plugin in _walk_metrics()]
         if not metrics_catalog:
             return {"ok": False, "error": "No metric tables found", "suggestions": []}  # ty: ignore[invalid-return-type]
 

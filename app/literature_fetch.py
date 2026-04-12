@@ -200,9 +200,9 @@ def refresh_findings(
 
     Returns a summary dict with counts.
     """
-    from app.literature import Finding, extract_catalog_categories
+    from app.finding import Finding
 
-    categories = list(extract_catalog_categories(catalog))
+    categories = list(Finding.extract_catalog_categories(catalog))
     if not categories:
         return {"pairs": 0, "papers_fetched": 0, "findings_extracted": 0, "skipped": 0, "duplicates": 0}
 
