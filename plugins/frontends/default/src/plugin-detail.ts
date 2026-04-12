@@ -417,7 +417,7 @@ class PluginDetail extends LitElement {
       const schema = `${this.name.replace(/[^a-z0-9_]/gi, "_")}`;
       const response = await gql(
         this.apiBase,
-        `query { dbStatus { schemas(name: "${schema}") { tables { name rows cols earliest latest } } } }`,
+        `query { dbStatus { schemas { name tables { name rows cols earliest latest } } } }`,
       );
 
       const data = response as { dbStatus?: { schemas?: Array<{ name: string; tables: TableInfo[] }> } } | null;
@@ -433,7 +433,8 @@ class PluginDetail extends LitElement {
     try {
       const response = await gql(
         this.apiBase,
-        `query { transforms(sourcePlugin: "${this.name}") { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable description enabled } }`,
+        `query($source: String) { transforms(source: $source) { id transformType source { id schemaName tableName } target { id schemaName tableName } sourcePlugin description enabled } }`,
+        { source: this.name },
       );
       const data = response as { transforms?: Record<string, unknown>[] } | null;
       this._schemaTransforms = data?.transforms || [];
@@ -700,8 +701,13 @@ class PluginDetail extends LitElement {
                   </label>
                 </div>
                 <div class="transform-path">
-                  ${transform.sourceDuckdbSchema}.${transform.sourceDuckdbTable} →
-                  ${transform.targetDuckdbSchema}.${transform.targetDuckdbTable}
+                  ${(transform.source as Record<string, string>)?.schemaName}.${(
+                    transform.source as Record<string, string>
+                  )?.tableName}
+                  →
+                  ${(transform.target as Record<string, string>)?.schemaName}.${(
+                    transform.target as Record<string, string>
+                  )?.tableName}
                 </div>
                 ${transform.description ? html`<div class="transform-description">${transform.description}</div>` : ""}
               </div>
