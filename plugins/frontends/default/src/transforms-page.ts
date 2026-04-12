@@ -178,6 +178,41 @@ class TransformsPage extends LitElement {
     this._registerCommands();
   }
 
+  async _ensureTransformTypes(): Promise<void> {
+    if (this._transformTypes.length) return;
+    const data = await gql(
+      this.apiBase,
+      `{ transformTypes { name displayName description paramSchema { name label type required description default options } } }`,
+    );
+    this._transformTypes = (data?.transformTypes as TransformTypeInfo[]) || [];
+  }
+
+  async _fetchColumns(schema: string, table: string): Promise<string[]> {
+    if (!schema || !table) return [];
+    const data = await gql(this.apiBase, `query($s: String!, $t: String!) { tableColumns(schema: $s, table: $t) }`, {
+      s: schema,
+      t: table,
+    });
+    return (data?.tableColumns as string[]) || [];
+  }
+
+  async _onSourceTableSelected(table: string): Promise<void> {
+    this._updateNewForm("source_duckdb_table", table);
+    this._sourceColumns = await this._fetchColumns(this.source, table);
+  }
+
+  async _onTargetTableSelected(table: string): Promise<void> {
+    this._updateNewForm("target_duckdb_table", table);
+    // Target schema is always "metrics" for now
+    this._targetColumns = await this._fetchColumns("metrics", table);
+  }
+
+  _typeInfoFor(name: string): TransformTypeInfo | undefined {
+    return this._transformTypes.find((t) => t.name === name);
+  }
+
+  // -- Commands ------------------------------------------------------------
+
   _registerCommands(): void {
     const commands: Array<{ id: string; category: string; label: string; description?: string; action: () => void }> =
       [];
@@ -267,7 +302,10 @@ class TransformsPage extends LitElement {
     this._newForm = this._emptyForm();
     this._editing = null;
     this._previewRows = null;
-    const data = await gql(this.apiBase, `{ dbTables schemaTables }`);
+    const data = await gql(
+      this.apiBase,
+      `{ dbTables schemaTables transformTypes { name displayName description paramSchema { name label type required description default options } } }`,
+    );
     this._dbTables = (data?.dbTables as Record<string, string[]>) || {};
     this._schemaTables = (data?.schemaTables as Record<string, string[]>) || {};
   }

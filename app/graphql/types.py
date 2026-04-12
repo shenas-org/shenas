@@ -145,6 +145,32 @@ class TransformCreateInput:
     description: str = ""
 
 
+# -- Model types ---------------------------------------------------------------
+
+
+@strawberry.type
+class ModelInfoType:
+    name: str
+    display_name: str = ""
+    description: str = ""
+    version: str = ""
+    enabled: bool = True
+
+
+@strawberry.type
+class ModelStatusType:
+    name: str
+    available: bool = False
+    current_round: int | None = None
+
+
+@strawberry.type
+class ModelPredictionType:
+    name: str
+    predictions: list[float]
+    labels: list[str]
+
+
 # -- Dashboard + Dependency types -----------------------------------------------
 
 

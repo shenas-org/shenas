@@ -11,15 +11,16 @@ from app.graphql.types import (
     AuthFieldsType,
     CategorySetType,
     CategoryValueType,
-    DashboardType,
-    DependencyEdge,
     ColumnInfoType,
+    DashboardType,
     DataResourceType,
     DBStatusType,
+    DependencyEdge,
     FindingType,
     FreshnessInfoType,
     HypothesisSuggestionType,
     HypothesisType,
+    ModelInfoType,
     ParamFieldType,
     PluginInfoType,
     QualityCheckType,
@@ -553,15 +554,24 @@ class Query:
     # -- Models --
 
     @strawberry.field
-    def models(self) -> JSON:
+    def models(self) -> list[ModelInfoType]:
         from shenas_models.core import Model  # ty: ignore[unresolved-import]
 
         from app.api.sources import _load_plugins
 
-        return sorted(  # ty: ignore[invalid-return-type]
-            [cls().get_info() for cls in _load_plugins("model", base=Model, include_internal=False)],
-            key=lambda x: x["name"],
-        )
+        result = []
+        for cls in _load_plugins("model", base=Model, include_internal=False):
+            info = cls().get_info()
+            result.append(
+                ModelInfoType(
+                    name=info.get("name", cls.name),
+                    display_name=info.get("display_name", cls.name),
+                    description=info.get("description", ""),
+                    version=info.get("version", ""),
+                    enabled=info.get("enabled", True),
+                )
+            )
+        return sorted(result, key=lambda x: x.name)
 
     @strawberry.field
     def model_status(self, name: str) -> JSON:
@@ -592,14 +602,15 @@ class Query:
     # excluded -- they are not joinable analytical inputs.
 
     @strawberry.field
-    def catalog(self) -> JSON:
-        """Return ``[table_metadata]`` for every queryable source / metric table.
+    def catalog(self) -> list[DataResourceType]:
+        """Return all queryable source / metric tables as DataResourceType.
 
-        Thin wrapper over :func:`app.data_catalog.walk_catalog`.
+        Equivalent to dataResources but without row counts for performance.
+        Used by the LLM prompt builder.
         """
-        from app.data_catalog import walk_catalog
+        from app.data_catalog import catalog
 
-        return walk_catalog()  # ty: ignore[invalid-return-type]
+        return [_data_resource_to_gql(r) for r in catalog().list_resources(include_row_counts=False)]
 
     # -- Analysis modes --
 

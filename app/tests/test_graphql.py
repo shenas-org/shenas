@@ -334,29 +334,28 @@ class TestGraphQLQueries:
             patch("app.api.sources._load_plugins", return_value=[]),
             patch("app.api.sources._load_datasets", return_value=[]),
         ):
-            result = _gql(client, "{ catalog }")
+            result = _gql(client, "{ catalog { id displayName kind } }")
         assert "errors" not in result
         assert result["data"]["catalog"] == []
 
     def test_catalog_returns_dataset_metadata(self, client: TestClient) -> None:
         fake_dataset = MagicMock()
+        fake_dataset.name = "test-dataset"
+        fake_dataset.display_name = "Test Dataset"
+        fake_dataset.description = ""
         fake_dataset.all_tables = [_CatalogMood]
+        fake_dataset.return_value = fake_dataset
         with (
             patch("app.api.sources._load_plugins", return_value=[]),
             patch("app.api.sources._load_datasets", return_value=[fake_dataset]),
         ):
-            result = _gql(client, "{ catalog }")
+            result = _gql(client, "{ catalog { id displayName kind } }")
         assert "errors" not in result
         catalog = result["data"]["catalog"]
         assert len(catalog) == 1
         entry = catalog[0]
-        assert entry["table"] == "daily_mood_test"
-        assert entry["schema"] == "metrics"
-        assert entry["primary_key"] == ["date", "source"]
+        assert entry["id"] == "metrics.daily_mood_test"
         assert entry["kind"] == "daily_metric"
-        assert "query_hint" in entry
-        col_names = {c["name"] for c in entry["columns"]}
-        assert col_names == {"date", "source", "mood"}
 
     def test_sync_schedule_with_data(self, client: TestClient) -> None:
         from shenas_sources.core.source import Source

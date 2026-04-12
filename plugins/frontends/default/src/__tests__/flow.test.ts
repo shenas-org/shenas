@@ -18,7 +18,7 @@ vi.mock("cytoscape", () => {
   return { default: fn, dagre: vi.fn() };
 });
 
-import "../pipeline-overview.ts";
+import "../flow.ts";
 
 type AnyEl = HTMLElement & Record<string, any>;
 
