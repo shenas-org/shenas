@@ -1,5 +1,4 @@
-import contextlib
-from collections.abc import Generator, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch
 
@@ -15,37 +14,42 @@ runner = CliRunner()
 
 
 @pytest.fixture
-def test_con() -> duckdb.DuckDBPyConnection:
+def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
     """In-memory DuckDB with test data, attached as 'db' like the real server."""
+    import app.databases
+    import app.database
+
     con = duckdb.connect()
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
-    con.execute("CREATE SCHEMA metrics")
+    con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
+
+    from app.tests.conftest import _StubDB
+
+    stub = _StubDB(con)
+    saved = dict(app.db._resolvers)
+    app.db._resolvers["shenas"] = lambda: stub  # ty: ignore[invalid-assignment]
+    app.db._resolvers[None] = lambda: stub  # ty: ignore[invalid-assignment]
+    app.database._ensure_system_tables(con)
+
+    con.execute("CREATE SCHEMA IF NOT EXISTS metrics")
+    con.execute("DROP TABLE IF EXISTS metrics.daily_hrv")
     con.execute("CREATE TABLE metrics.daily_hrv (date DATE, source VARCHAR, rmssd DOUBLE)")
     con.execute("INSERT INTO metrics.daily_hrv VALUES ('2026-03-15', 'garmin', 42.0)")
-    con.execute("CREATE SCHEMA garmin")
+    con.execute("CREATE SCHEMA IF NOT EXISTS garmin")
+    con.execute("DROP TABLE IF EXISTS garmin.activities")
     con.execute("CREATE TABLE garmin.activities (id INTEGER, start_time_local DATE)")
     con.execute("INSERT INTO garmin.activities VALUES (1, '2026-03-15')")
-    return con
+    yield con
+    app.db._resolvers.clear()
+    app.db._resolvers.update(saved)
+    con.close()
 
 
 @pytest.fixture
 def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
-    @contextlib.contextmanager
-    def _fake_cursor(**_kwargs) -> Generator[duckdb.DuckDBPyConnection, None, None]:
-        cur = test_con.cursor()
-        try:
-            cur.execute("USE db")
-            yield cur
-        finally:
-            cur.close()
-
-    with (
-        patch("app.database.cursor", _fake_cursor),
-        patch("app.api.query.cursor", _fake_cursor),
-        patch("app.api.db.cursor", _fake_cursor),
-    ):
-        yield TestClient(app)
+    """Resolver is already wired by test_con; just yield the test client."""
+    return TestClient(app)
 
 
 class TestIndex:
@@ -140,17 +144,13 @@ class TestGetActiveTheme:
         dark = self._make_theme("dark")
         light = self._make_theme("light")
 
-        # Set up plugin state in the test DB
-        test_con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
-        from app.database import _ensure_system_tables
-
-        _ensure_system_tables(test_con)
+        # System tables already created by test_con fixture
         test_con.execute("INSERT INTO shenas_system.plugins (kind, name, enabled) VALUES ('theme', 'dark', true)")
         test_con.execute("INSERT INTO shenas_system.plugins (kind, name, enabled) VALUES ('theme', 'light', false)")
 
         with (
             patch("shenas_themes.core.theme.Theme.load_all", return_value=[dark, light]),
-            patch("app.database.connect", return_value=test_con),
+            patch("app.db.connect", return_value=test_con),
         ):
             result = _get_active_theme()
         assert result is dark
@@ -162,7 +162,7 @@ class TestGetActiveTheme:
         other = self._make_theme("other")
         with (
             patch("shenas_themes.core.theme.Theme.load_all", return_value=[default, other]),
-            patch("app.database.connect", side_effect=Exception("no DB")),
+            patch("app.db.connect", side_effect=Exception("no DB")),
         ):
             result = _get_active_theme()
         assert result is default
@@ -174,7 +174,7 @@ class TestGetActiveTheme:
         app.state.default_theme = "nonexistent"
         with (
             patch("shenas_themes.core.theme.Theme.load_all", return_value=[custom]),
-            patch("app.database.connect", side_effect=Exception("no DB")),
+            patch("app.db.connect", side_effect=Exception("no DB")),
         ):
             result = _get_active_theme()
         assert result is custom
@@ -193,7 +193,7 @@ class TestGetActiveTheme:
         default = self._make_theme("default")
         with (
             patch("shenas_themes.core.theme.Theme.load_all", return_value=[default]),
-            patch("app.database.connect", side_effect=Exception("DB down")),
+            patch("app.db.connect", side_effect=Exception("DB down")),
         ):
             result = _get_active_theme()
         assert result is default

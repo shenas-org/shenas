@@ -18,30 +18,48 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture
-def test_con() -> duckdb.DuckDBPyConnection:
+def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
+    import app.databases
+    import app.database
+
     con = duckdb.connect()
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
     con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
-    from app.database import _ensure_system_tables
 
-    _ensure_system_tables(con)
-    return con
-
-
-@pytest.fixture
-def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
     @contextlib.contextmanager
-    def _fake_cursor(**_kwargs) -> Generator[duckdb.DuckDBPyConnection, None, None]:
-        cur = test_con.cursor()
+    def _cursor(**_kwargs: object) -> Generator[duckdb.DuckDBPyConnection, None, None]:
+        cur = con.cursor()
+        cur.execute("USE db")
         try:
-            cur.execute("USE db")
             yield cur
         finally:
             cur.close()
 
-    with patch("app.database.cursor", _fake_cursor):
-        yield TestClient(app)
+    class _StubDB:
+        def cursor(self) -> contextlib.AbstractContextManager:
+            return _cursor()
+
+        def connect(self) -> duckdb.DuckDBPyConnection:
+            return con
+
+        def close(self) -> None:
+            pass
+
+    stub = _StubDB()
+    saved = dict(app.db._resolvers)
+    app.db._resolvers["shenas"] = lambda: stub  # type: ignore[assignment]
+    app.db._resolvers[None] = lambda: stub  # type: ignore[assignment]
+    app.database._ensure_system_tables(con)
+    yield con
+    app.db._resolvers.clear()
+    app.db._resolvers.update(saved)
+    con.close()
+
+
+@pytest.fixture
+def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
+    return TestClient(app)
 
 
 class TestSSEGenerators:

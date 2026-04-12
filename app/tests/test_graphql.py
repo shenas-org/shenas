@@ -20,8 +20,11 @@ from app.main import app
 
 
 @pytest.fixture
-def test_con() -> duckdb.DuckDBPyConnection:
+def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
     """In-memory DuckDB with test data, attached as 'db' like the real server."""
+    import app.databases
+    import app.database
+
     con = duckdb.connect()
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
@@ -32,29 +35,44 @@ def test_con() -> duckdb.DuckDBPyConnection:
     con.execute("CREATE TABLE garmin.activities (id INTEGER, start_time_local DATE)")
     con.execute("INSERT INTO garmin.activities VALUES (1, '2026-03-15')")
     con.execute("CREATE SCHEMA shenas_system")
-    from app.database import _ensure_system_tables
 
-    _ensure_system_tables(con)
-    con.execute("INSERT INTO shenas_system.workspace VALUES (1, '{}', NULL)")
-    return con
-
-
-@pytest.fixture
-def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
     @contextlib.contextmanager
-    def _fake_cursor(**_kwargs) -> Generator[duckdb.DuckDBPyConnection, None, None]:
-        cur = test_con.cursor()
+    def _cursor(**_kwargs: object) -> Generator[duckdb.DuckDBPyConnection, None, None]:
+        cur = con.cursor()
+        cur.execute("USE db")
         try:
-            cur.execute("USE db")
             yield cur
         finally:
             cur.close()
 
+    class _StubDB:
+        def cursor(self) -> contextlib.AbstractContextManager:
+            return _cursor()
+
+        def connect(self) -> duckdb.DuckDBPyConnection:
+            return con
+
+        def close(self) -> None:
+            pass
+
+    stub = _StubDB()
+    saved = dict(app.db._resolvers)
+    app.db._resolvers["shenas"] = lambda: stub  # type: ignore[assignment]
+    app.db._resolvers[None] = lambda: stub  # type: ignore[assignment]
+    app.database._ensure_system_tables(con)
+    con.execute("INSERT INTO shenas_system.workspace (id, state) VALUES (1, '{}')")
+    yield con
+    app.db._resolvers.clear()
+    app.db._resolvers.update(saved)
+    con.close()
+
+
+@pytest.fixture
+def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
     with (
-        patch("app.database.cursor", _fake_cursor),
-        patch("app.database.connect", return_value=test_con),
-        patch("app.api.query.cursor", _fake_cursor),
-        patch("app.api.db.cursor", _fake_cursor),
+        patch("app.db.connect", return_value=test_con),
+        patch("app.api.query.cursor", side_effect=app.db.cursor),
+        patch("app.api.db.cursor", side_effect=app.db.cursor),
     ):
         yield TestClient(app)
 
@@ -138,7 +156,7 @@ class TestGraphQLQueries:
         import json
 
         test_con.execute(
-            "UPDATE shenas_system.workspace SET state = ? WHERE workspace_id = 1",
+            "UPDATE shenas_system.workspace SET state = ? WHERE id = 1",
             [json.dumps({"tabs": [1, 2]})],
         )
         result = _gql(client, "{ workspace }")
@@ -957,7 +975,7 @@ class TestGraphQLMutationsExtra:
         assert result["data"]["deleteConfigKey"]["ok"] is False
 
     def test_generate_db_key(self, client: TestClient) -> None:
-        with patch("app.database.generate_db_key", return_value="newkey"), patch("app.database.set_db_key") as mock_set:
+        with patch("app.db.generate_db_key", return_value="newkey"), patch("app.db.set_db_key") as mock_set:
             result = _gql(client, "mutation { generateDbKey { ok } }")
         assert result["data"]["generateDbKey"]["ok"] is True
         mock_set.assert_called_once_with("newkey")
