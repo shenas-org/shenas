@@ -105,33 +105,33 @@ class DedupMergeTransform(Transform):
     def param_schema(self) -> list[dict[str, Any]]:
         return [
             {
-                "name": "primary_source",
+                "name": "primary_source", "label": "Primary source",
                 "type": "text",
                 "required": True,
                 "description": "Primary source plugin name (e.g. garmin)",
             },
             {
-                "name": "secondary_source",
+                "name": "secondary_source", "label": "Secondary source",
                 "type": "text",
                 "required": True,
                 "description": "Secondary source plugin name (e.g. strava)",
             },
             {
-                "name": "time_column",
+                "name": "time_column", "label": "Time column",
                 "type": "text",
                 "required": False,
                 "description": "Timestamp column used for matching",
                 "default": "start_at",
             },
             {
-                "name": "match_window_minutes",
+                "name": "match_window_minutes", "label": "Match window (minutes)",
                 "type": "number",
                 "required": False,
                 "description": "Time window in minutes for considering records as duplicates",
                 "default": 30,
             },
             {
-                "name": "prefer",
+                "name": "prefer", "label": "Prefer",
                 "type": "select",
                 "required": False,
                 "description": "Which source to prefer when records overlap",

@@ -36,6 +36,7 @@ interface Transform {
 
 interface ParamField {
   name: string;
+  label?: string;
   type: string;
   required: boolean;
   description: string;
@@ -660,7 +661,7 @@ class TransformsPage extends LitElement {
           if (p.type === "textarea") {
             return html`
               <label class="form-full">
-                ${_humanize(p.name)}${p.required ? " *" : ""}
+                ${p.label || _humanize(p.name)}${p.required ? " *" : ""}
                 <textarea
                   .value=${String(val)}
                   ?readonly=${readonly}
@@ -683,7 +684,7 @@ class TransformsPage extends LitElement {
           if (p.type === "select" && p.options) {
             return html`
               <label>
-                ${_humanize(p.name)}${p.required ? " *" : ""}
+                ${p.label || _humanize(p.name)}${p.required ? " *" : ""}
                 <select
                   .value=${String(val)}
                   ?disabled=${readonly}
@@ -713,7 +714,7 @@ class TransformsPage extends LitElement {
           }
           return html`
             <label>
-              ${_humanize(p.name)}${p.required ? " *" : ""}
+              ${p.label || _humanize(p.name)}${p.required ? " *" : ""}
               <input
                 type=${p.type === "number" ? "number" : "text"}
                 .value=${String(val)}
@@ -792,7 +793,7 @@ class TransformsPage extends LitElement {
           if (p.type === "textarea") {
             return html`
               <label class="form-full">
-                ${_humanize(p.name)}
+                ${p.label || _humanize(p.name)}
                 <textarea
                   .value=${String(val)}
                   ?readonly=${readonly}
@@ -812,7 +813,7 @@ class TransformsPage extends LitElement {
           if (p.type === "select" && p.options) {
             return html`
               <label>
-                ${_humanize(p.name)}
+                ${p.label || _humanize(p.name)}
                 <select
                   .value=${String(val)}
                   ?disabled=${readonly}
@@ -840,7 +841,7 @@ class TransformsPage extends LitElement {
           }
           return html`
             <label>
-              ${_humanize(p.name)}
+              ${p.label || _humanize(p.name)}
               <input
                 type=${p.type === "number" ? "number" : "text"}
                 .value=${String(val)}

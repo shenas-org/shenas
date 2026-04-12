@@ -119,22 +119,22 @@ class LlmCategorizeTransform(Transform):
 
     def param_schema(self) -> list[dict[str, Any]]:
         return [
-            {"name": "text_column", "type": "text", "required": True, "description": "Column containing text to categorize"},
+            {"name": "text_column", "label": "Text column", "type": "text", "required": True, "description": "Column containing text to categorize"},
             {
-                "name": "output_column",
+                "name": "output_column", "label": "Output column",
                 "type": "text",
                 "required": False,
                 "description": "Output column name for the category",
                 "default": "category",
             },
             {
-                "name": "categories",
+                "name": "categories", "label": "Categories",
                 "type": "text",
                 "required": False,
                 "description": "Comma-separated list of valid categories",
             },
             {
-                "name": "prompt",
+                "name": "prompt", "label": "Prompt template",
                 "type": "textarea",
                 "required": False,
                 "description": "Prompt template ({text} is replaced with the value)",

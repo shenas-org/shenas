@@ -98,49 +98,49 @@ class GeofenceTransform(Transform):
     def param_schema(self) -> list[dict[str, Any]]:
         return [
             {
-                "name": "latitude_column",
+                "name": "latitude_column", "label": "Latitude column",
                 "type": "text",
                 "required": False,
                 "description": "Latitude column name",
                 "default": "latitude",
             },
             {
-                "name": "longitude_column",
+                "name": "longitude_column", "label": "Longitude column",
                 "type": "text",
                 "required": False,
                 "description": "Longitude column name",
                 "default": "longitude",
             },
             {
-                "name": "time_column",
+                "name": "time_column", "label": "Arrival time column",
                 "type": "text",
                 "required": False,
                 "description": "Arrival time column",
                 "default": "start_timestamp",
             },
             {
-                "name": "end_time_column",
+                "name": "end_time_column", "label": "Departure time column",
                 "type": "text",
                 "required": False,
                 "description": "Departure time column",
                 "default": "end_timestamp",
             },
             {
-                "name": "place_name_column",
+                "name": "place_name_column", "label": "Place name column",
                 "type": "text",
                 "required": False,
                 "description": "Place name column",
                 "default": "place_name",
             },
             {
-                "name": "confidence_column",
+                "name": "confidence_column", "label": "Confidence column",
                 "type": "text",
                 "required": False,
                 "description": "Confidence column",
                 "default": "confidence",
             },
-            {"name": "id_expression", "type": "text", "required": False, "description": "SQL expression for source_id"},
-            {"name": "filter_where", "type": "text", "required": False, "description": "Additional WHERE clause filter"},
+            {"name": "id_expression", "label": "ID expression", "type": "text", "required": False, "description": "SQL expression for source_id"},
+            {"name": "filter_where", "label": "Filter (WHERE clause)", "type": "text", "required": False, "description": "Additional WHERE clause filter"},
         ]
 
     def seed_defaults_for_source(self, source_name: str) -> None:
