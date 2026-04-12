@@ -20,7 +20,6 @@ dependencies = [
   "strawberry-graphql[fastapi]>=0.276.0",
   "uvicorn>=0.42.0",
   "watchfiles>=0.21.0",
-  "shenas-plugin-core",
   "shenas-source-core",
   "shenas-dataset-core",
   "shenas-dashboard-core",

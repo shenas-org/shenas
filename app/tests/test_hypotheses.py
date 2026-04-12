@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 import pytest
-
-from shenas_plugins.core.analytics import (
+from shenas_analyses.core.analytics import (
     ErrorResult,
     OpCall,
     Recipe,

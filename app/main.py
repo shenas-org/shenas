@@ -113,7 +113,7 @@ app.include_router(api_router)
 
 def _mount_static(kind: str, url_prefix: str) -> None:
     """Mount static dirs for all plugins of a given kind."""
-    from shenas_plugins.core.plugin import Plugin
+    from app.plugin import Plugin
 
     for plugin in Plugin.load_by_kind(kind):
         if plugin.static_dir.is_dir():  # ty: ignore[unresolved-attribute]
@@ -149,7 +149,7 @@ def _get_active_theme() -> type[Theme] | None:
 
     themes = Theme.load_all()
     try:
-        from shenas_plugins.core.plugin import PluginInstance
+        from app.plugin import PluginInstance
 
         for t in themes:
             inst = PluginInstance.find("theme", t.name)
@@ -172,7 +172,7 @@ def _serve_ui_html() -> HTMLResponse:
     # Check for enabled frontend, fall back to CLI/env setting
     frontend_name = app.state.frontend_name
     try:
-        from shenas_plugins.core.plugin import PluginInstance
+        from app.plugin import PluginInstance
 
         for u in uis:
             inst = PluginInstance.find("frontend", u.name)

@@ -17,7 +17,7 @@ from googleapiclient.discovery import build
 if TYPE_CHECKING:
     from googleapiclient.discovery import Resource
 
-    from shenas_plugins.core.table import SingletonTable
+    from app.table import SingletonTable
 
 
 # Shared state for multi-step OAuth flows (e.g. URL passback).

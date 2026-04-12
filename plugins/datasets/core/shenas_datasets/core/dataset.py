@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Any, ClassVar
 
-from shenas_plugins.core.plugin import Plugin, PluginInstance
+from app.plugin import Plugin, PluginInstance
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -45,7 +45,7 @@ class Dataset(Plugin):
 
     @classmethod
     def ensure(cls, con: Any) -> None:
-        from shenas_plugins.core.table import Table
+        from app.table import Table
 
         Table.ensure_schema(con, all_tables=cls.all_tables)  # ty: ignore[invalid-argument-type]
 

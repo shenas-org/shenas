@@ -19,7 +19,7 @@ from urllib.request import urlopen
 if TYPE_CHECKING:
     from typing import Self
 
-from shenas_plugins.core.table import Field, Table
+from app.table import Field, Table
 
 
 def _now_iso() -> str:

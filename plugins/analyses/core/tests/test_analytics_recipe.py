@@ -15,8 +15,7 @@ from __future__ import annotations
 
 import ibis
 import pytest
-
-from shenas_plugins.core.analytics import (
+from shenas_analyses.core.analytics import (
     Lag,
     OpCall,
     Recipe,

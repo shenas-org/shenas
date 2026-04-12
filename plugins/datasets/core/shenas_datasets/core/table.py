@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from shenas_plugins.core.table import Table
+from app.table import Table
 
 
 class MetricTable(Table):

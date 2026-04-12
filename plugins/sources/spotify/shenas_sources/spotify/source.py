@@ -9,7 +9,7 @@ from typing import Annotated, Any
 
 from spotipy.cache_handler import CacheHandler
 
-from shenas_plugins.core.table import Field
+from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.source import Source
 

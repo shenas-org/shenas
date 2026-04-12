@@ -11,7 +11,7 @@ from shenas_sources.core.source import Source
 client = TestClient(app)
 
 _LOAD_BY_NAME = "shenas_sources.core.source.Source.load_by_name"
-_LOAD_PLUGIN = "shenas_plugins.core.plugin.Plugin.load_by_name_and_kind"
+_LOAD_PLUGIN = "app.plugin.Plugin.load_by_name_and_kind"
 
 
 class _FakeSource(Source):
@@ -214,7 +214,7 @@ class TestInstalledPipeNames:
         with (
             patch("app.api.sync.subprocess.run", return_value=mock_result),
             patch(_LOAD_PLUGIN, return_value=_FakeCls),
-            patch("shenas_plugins.core.plugin.PluginInstance.find", return_value=_FakeInstance()),
+            patch("app.plugin.PluginInstance.find", return_value=_FakeInstance()),
         ):
             names = _installed_source_names()
         # garmin is included, core is excluded (name == "core")
@@ -250,7 +250,7 @@ class TestInstalledPipeNames:
         with (
             patch("app.api.sync.subprocess.run", return_value=mock_result),
             patch(_LOAD_PLUGIN, return_value=_FakeCls),
-            patch("shenas_plugins.core.plugin.PluginInstance.find", return_value=_FakeInstance()),
+            patch("app.plugin.PluginInstance.find", return_value=_FakeInstance()),
         ):
             names = _installed_source_names()
         assert names == []

@@ -33,9 +33,8 @@ import time
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
-
-from shenas_plugins.core.analytics.operations import OperationError
-from shenas_plugins.core.analytics.recipe import Recipe, RecipeError
+from shenas_analyses.core.analytics.operations import OperationError
+from shenas_analyses.core.analytics.recipe import Recipe, RecipeError
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +53,7 @@ class _ResultBase(BaseModel):
 
     def with_warnings(self):
         """Populate warnings from sanity checks and return self."""
-        from shenas_plugins.core.analytics.sanity import sanity_check
+        from shenas_analyses.core.analytics.sanity import sanity_check
 
         self.warnings = sanity_check(self)
         return self

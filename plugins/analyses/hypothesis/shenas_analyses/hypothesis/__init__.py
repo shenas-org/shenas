@@ -11,8 +11,7 @@ from __future__ import annotations
 from typing import ClassVar
 
 from shenas_analyses.core import Analysis, AnalysisMode, Operation
-
-from shenas_plugins.core.analytics.operations import (
+from shenas_analyses.core.analytics.operations import (
     Correlate,
     JoinAsOf,
     Lag,

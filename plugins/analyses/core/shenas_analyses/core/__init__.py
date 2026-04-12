@@ -14,9 +14,10 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from shenas_plugins.core.analytics.mode import AnalysisMode, register_mode
-from shenas_plugins.core.analytics.operations import Operation, register_operation
-from shenas_plugins.core.plugin import Plugin
+from shenas_analyses.core.analytics.mode import AnalysisMode, register_mode
+from shenas_analyses.core.analytics.operations import Operation, register_operation
+
+from app.plugin import Plugin
 
 
 class Analysis(Plugin):

@@ -18,7 +18,7 @@ import logging
 import time
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
-from shenas_plugins.core.table import Field
+from app.table import Field
 from shenas_sources.core.table import (
     DimensionTable,
     EventTable,

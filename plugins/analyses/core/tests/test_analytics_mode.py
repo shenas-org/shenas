@@ -5,15 +5,14 @@ from __future__ import annotations
 from typing import ClassVar
 
 import pytest
-
-from shenas_plugins.core.analytics.mode import (
+from shenas_analyses.core.analytics.mode import (
     MODE_REGISTRY,
     AnalysisMode,
     get_mode,
     list_modes,
     register_mode,
 )
-from shenas_plugins.core.analytics.operations import Correlate, Lag, Operation, Rolling
+from shenas_analyses.core.analytics.operations import Correlate, Lag, Operation, Rolling
 
 
 class _TestMode(AnalysisMode):

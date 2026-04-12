@@ -69,7 +69,7 @@ class Mutation:
     @strawberry.mutation
     def set_config(self, kind: str, name: str, key: str, value: str) -> OkType:
         from app.models import OkResponse
-        from shenas_plugins.core.plugin import Plugin
+        from app.plugin import Plugin
 
         cls = Plugin.load_by_name_and_kind(name, kind)
         if not cls:
@@ -81,7 +81,7 @@ class Mutation:
     @strawberry.mutation
     def delete_config(self, kind: str, name: str) -> OkType:
         from app.models import OkResponse
-        from shenas_plugins.core.plugin import Plugin
+        from app.plugin import Plugin
 
         cls = Plugin.load_by_name_and_kind(name, kind)
         if not cls:
@@ -92,7 +92,7 @@ class Mutation:
     @strawberry.mutation
     def delete_config_key(self, kind: str, name: str, key: str) -> OkType:
         from app.models import OkResponse
-        from shenas_plugins.core.plugin import Plugin
+        from app.plugin import Plugin
 
         cls = Plugin.load_by_name_and_kind(name, kind)
         if not cls:
@@ -128,7 +128,7 @@ class Mutation:
         skip_verify: bool = False,
     ) -> InstallResponseType:
         from app.models import InstallResponse, InstallResult
-        from shenas_plugins.core.plugin import DEFAULT_INDEX, Plugin
+        from app.plugin import DEFAULT_INDEX, Plugin
 
         results = []
         for n in names:
@@ -139,7 +139,7 @@ class Mutation:
     @strawberry.mutation
     def remove_plugin(self, kind: str, name: str) -> RemoveResponseType:
         from app.models import RemoveResponse
-        from shenas_plugins.core.plugin import Plugin
+        from app.plugin import Plugin
 
         ok, message = Plugin.uninstall(kind, name)
         return RemoveResponseType.from_pydantic(RemoveResponse(ok=ok, message=message))  # ty: ignore[unresolved-attribute]
@@ -147,7 +147,7 @@ class Mutation:
     @strawberry.mutation
     def enable_plugin(self, kind: str, name: str) -> OkType:
         from app.models import OkResponse
-        from shenas_plugins.core.plugin import PluginInstance
+        from app.plugin import PluginInstance
 
         inst = PluginInstance.get_or_create(kind, name)
         msg = inst.enable()
@@ -156,7 +156,7 @@ class Mutation:
     @strawberry.mutation
     def disable_plugin(self, kind: str, name: str) -> OkType:
         from app.models import OkResponse
-        from shenas_plugins.core.plugin import PluginInstance
+        from app.plugin import PluginInstance
 
         inst = PluginInstance.find(kind, name)
         if not inst:
@@ -393,8 +393,9 @@ class Mutation:
     @strawberry.mutation
     def create_hypothesis(self, question: str, plan: str = "", model: str = "", mode: str = "hypothesis") -> JSON:
         """Create an empty hypothesis row from a question. No recipe yet."""
+        from shenas_analyses.core.analytics import Recipe
+
         from app.hypotheses import Hypothesis
-        from shenas_plugins.core.analytics import Recipe
 
         empty = Recipe(nodes={}, final="")
         h = Hypothesis.create(question, empty, plan=plan, model=model, mode=mode)
@@ -409,15 +410,16 @@ class Mutation:
         """
         import json
 
-        from app.database import analytics_backend
-        from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
-        from shenas_plugins.core.analytics import (
+        from shenas_analyses.core.analytics import (
             ErrorResult,
             OpCall,
             Recipe,
             SourceRef,
             run_recipe,
         )
+
+        from app.database import analytics_backend
+        from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
 
         h = Hypothesis.find(hypothesis_id)
         if h is None:
@@ -538,11 +540,7 @@ class Mutation:
         import time
 
         from shenas_analyses.core import Analysis
-
-        from app.database import analytics_backend
-        from app.graphql.llm_provider import get_llm_provider
-        from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
-        from shenas_plugins.core.analytics import (
+        from shenas_analyses.core.analytics import (
             ErrorResult,
             OpCall,
             Recipe,
@@ -550,7 +548,11 @@ class Mutation:
             ask_for_recipe_with_retry,
             run_recipe,
         )
-        from shenas_plugins.core.analytics.mode import get_mode
+        from shenas_analyses.core.analytics.mode import get_mode
+
+        from app.database import analytics_backend
+        from app.graphql.llm_provider import get_llm_provider
+        from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
 
         Analysis.discover()
         try:
@@ -688,8 +690,8 @@ class Mutation:
 
         from app.data_catalog import _walk_metrics, _walk_sources
         from app.graphql.llm_provider import get_llm_provider
+        from app.plugin import PluginInstance
         from shenas_datasets.core.suggest import ask_for_dataset_suggestions, validate_dataset_payload
-        from shenas_plugins.core.plugin import PluginInstance
 
         provider = get_llm_provider()
         wall_start = time.monotonic()

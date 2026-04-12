@@ -17,7 +17,7 @@ import math
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from shenas_plugins.core.analytics.runner import _ResultBase
+    from shenas_analyses.core.analytics.runner import _ResultBase
 
 _MIN_ROWS_FOR_CORRELATION = 10
 _MIN_ROWS_FOR_TREND = 5

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
-from shenas_plugins.core.plugin import Plugin
+from app.plugin import Plugin
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -72,7 +72,7 @@ class TestGroup:
 class TestLoadByKind:
     def test_loads_all(self) -> None:
         eps = [_make_entry_point("a", _FakePlugin), _make_entry_point("b", _FakePlugin)]
-        with patch("shenas_plugins.core.plugin.entry_points", return_value=eps):
+        with patch("app.plugin.entry_points", return_value=eps):
             result = Plugin.load_by_kind("source")
         assert result == [_FakePlugin, _FakePlugin]
 
@@ -81,7 +81,7 @@ class TestLoadByKind:
             _make_entry_point("a", _FakePlugin),
             _make_entry_point("b", _InternalPlugin),
         ]
-        with patch("shenas_plugins.core.plugin.entry_points", return_value=eps):
+        with patch("app.plugin.entry_points", return_value=eps):
             result = Plugin.load_by_kind("source", include_internal=False)
         assert result == [_FakePlugin]
 
@@ -90,27 +90,27 @@ class TestLoadByKind:
             _make_entry_point("a", _FakePlugin),
             _make_entry_point("b", _InternalPlugin),
         ]
-        with patch("shenas_plugins.core.plugin.entry_points", return_value=eps):
+        with patch("app.plugin.entry_points", return_value=eps):
             result = Plugin.load_by_kind("source")
         assert len(result) == 2
 
     def test_skips_non_subclass(self) -> None:
         """Non-Plugin objects are silently skipped."""
         eps = [_make_entry_point("bad", str)]
-        with patch("shenas_plugins.core.plugin.entry_points", return_value=eps):
+        with patch("app.plugin.entry_points", return_value=eps):
             result = Plugin.load_by_kind("source")
         assert result == []
 
     def test_skips_on_import_error(self) -> None:
         eps = [_make_entry_point("broken", None, raises=True)]
-        with patch("shenas_plugins.core.plugin.entry_points", return_value=eps):
+        with patch("app.plugin.entry_points", return_value=eps):
             result = Plugin.load_by_kind("source")
         assert result == []
 
     def test_skips_non_class_objects(self) -> None:
         """Instances (not types) are skipped because isinstance(obj, type) is False."""
         eps = [_make_entry_point("instance", _FakePlugin())]
-        with patch("shenas_plugins.core.plugin.entry_points", return_value=eps):
+        with patch("app.plugin.entry_points", return_value=eps):
             result = Plugin.load_by_kind("source")
         assert result == []
 
@@ -126,26 +126,26 @@ class TestLoadByNameAndKind:
             _make_entry_point("alpha", _FakePlugin),
             _make_entry_point("beta", _InternalPlugin),
         ]
-        with patch("shenas_plugins.core.plugin.entry_points", return_value=eps):
+        with patch("app.plugin.entry_points", return_value=eps):
             result = Plugin.load_by_name_and_kind("alpha", "source")
         assert result is _FakePlugin
 
     def test_returns_none_for_missing(self) -> None:
         eps = [_make_entry_point("alpha", _FakePlugin)]
-        with patch("shenas_plugins.core.plugin.entry_points", return_value=eps):
+        with patch("app.plugin.entry_points", return_value=eps):
             result = Plugin.load_by_name_and_kind("nope", "source")
         assert result is None
 
     def test_returns_none_on_import_error(self) -> None:
         eps = [_make_entry_point("broken", None, raises=True)]
-        with patch("shenas_plugins.core.plugin.entry_points", return_value=eps):
+        with patch("app.plugin.entry_points", return_value=eps):
             result = Plugin.load_by_name_and_kind("broken", "source")
         assert result is None
 
     def test_returns_none_for_non_plugin(self) -> None:
         """Entry point loads a non-Plugin class -> returns None and breaks."""
         eps = [_make_entry_point("bad", str)]
-        with patch("shenas_plugins.core.plugin.entry_points", return_value=eps):
+        with patch("app.plugin.entry_points", return_value=eps):
             result = Plugin.load_by_name_and_kind("bad", "source")
         assert result is None
 
@@ -164,18 +164,18 @@ class _SourceLike(Plugin):
 class TestLoadAllAndByName:
     def test_load_all_delegates_to_load_by_kind(self) -> None:
         eps = [_make_entry_point("a", _SourceLike)]
-        with patch("shenas_plugins.core.plugin.entry_points", return_value=eps):
+        with patch("app.plugin.entry_points", return_value=eps):
             result = _SourceLike.load_all()
         assert result == [_SourceLike]
 
     def test_load_by_name_delegates(self) -> None:
         eps = [_make_entry_point("test-source", _SourceLike)]
-        with patch("shenas_plugins.core.plugin.entry_points", return_value=eps):
+        with patch("app.plugin.entry_points", return_value=eps):
             result = _SourceLike.load_by_name("test-source")
         assert result is _SourceLike
 
     def test_load_by_name_returns_none_when_missing(self) -> None:
-        with patch("shenas_plugins.core.plugin.entry_points", return_value=[]):
+        with patch("app.plugin.entry_points", return_value=[]):
             result = _SourceLike.load_by_name("nope")
         assert result is None
 

@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any
 
-from shenas_plugins.core.plugin import Plugin
-from shenas_plugins.core.table import DataResourceRef, Field, Table
+from app.plugin import Plugin
+from app.table import DataResourceRef, Field, Table
 
 if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform
@@ -211,8 +211,8 @@ def _walk_sources() -> list[tuple[dict, Plugin]]:
 
 def _walk_metrics() -> list[tuple[dict, Plugin]]:
     """Return [(table_metadata, plugin_instance)] for metric tables."""
+    from app.plugin import PluginInstance
     from shenas_datasets.core import Dataset
-    from shenas_plugins.core.plugin import PluginInstance
 
     out: list[tuple[dict, Plugin]] = []
     for dataset_cls in Dataset.load_all(include_internal=False):

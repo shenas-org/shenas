@@ -1,7 +1,7 @@
 from typing import Annotated
 
+from app.table import Field
 from shenas_datasets.core import DailyMetricTable
-from shenas_plugins.core.table import Field
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", category="time")]
 Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier (e.g. obsidian)")]

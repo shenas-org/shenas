@@ -11,7 +11,7 @@ import duckdb
 from shenas_transformers.core import Transformer, TransformerConfig
 
 from app.llm import Backend, LlmCache
-from shenas_plugins.core.table import Field
+from app.table import Field
 
 if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform

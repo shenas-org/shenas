@@ -11,8 +11,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 import pytest
-
-from shenas_plugins.core.analytics import OpCall, Recipe, ScalarResult, SourceRef, TableResult
+from shenas_analyses.core.analytics import OpCall, Recipe, ScalarResult, SourceRef, TableResult
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

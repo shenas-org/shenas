@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 from dataclasses import dataclass
 from typing import Annotated
 
-from shenas_plugins.core.table import Field
+from app.table import Field
 
 log = logging.getLogger(f"shenas.{__name__}")
 

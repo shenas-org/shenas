@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any
 
-from shenas_plugins.core.table import DataResourceRef, Field, Table
+from app.table import DataResourceRef, Field, Table
 
 if TYPE_CHECKING:
     import duckdb

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 import duckdb
 from shenas_transformers.core import Transformer, TransformerConfig
 
-from shenas_plugins.core.table import Field
+from app.table import Field
 
 if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform

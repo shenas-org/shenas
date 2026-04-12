@@ -6,4 +6,3 @@ stack: 'data'
 tags: ['plugin', 'analysis', 'core']
 
 dependsOn:
-  - 'plugin-core'

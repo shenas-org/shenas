@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Annotated, ClassVar
 
+from app.table import Field
 from shenas_datasets.core import EventMetricTable
-from shenas_plugins.core.table import Field
 
 # Shared type aliases
 Timestamp = Annotated[str, Field(db_type="TIMESTAMP", description="Event start time")]

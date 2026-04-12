@@ -34,6 +34,23 @@ interface TransformForm {
   sql: string;
 }
 
+interface ParamField {
+  name: string;
+  label: string;
+  type: string;
+  required: boolean;
+  description: string;
+  default: string | null;
+  options: string[] | null;
+}
+
+interface TransformTypeInfo {
+  name: string;
+  displayName: string;
+  description: string;
+  paramSchema: ParamField[];
+}
+
 class TransformsPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
@@ -48,6 +65,9 @@ class TransformsPage extends LitElement {
     _newForm: { state: true },
     _dbTables: { state: true },
     _schemaTables: { state: true },
+    _transformTypes: { state: true },
+    _sourceColumns: { state: true },
+    _targetColumns: { state: true },
   };
 
   static styles = [
@@ -135,6 +155,9 @@ class TransformsPage extends LitElement {
   declare _newForm: TransformForm;
   declare _dbTables: Record<string, string[]>;
   declare _schemaTables: Record<string, string[]>;
+  declare _transformTypes: TransformTypeInfo[];
+  declare _sourceColumns: string[];
+  declare _targetColumns: string[];
 
   constructor() {
     super();
@@ -150,6 +173,9 @@ class TransformsPage extends LitElement {
     this._newForm = this._emptyForm();
     this._dbTables = {};
     this._schemaTables = {};
+    this._transformTypes = [];
+    this._sourceColumns = [];
+    this._targetColumns = [];
   }
 
   _emptyForm(): TransformForm {

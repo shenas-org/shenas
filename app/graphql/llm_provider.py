@@ -14,7 +14,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from shenas_plugins.core.analytics import AnthropicProvider, LLMProvider
+from shenas_analyses.core.analytics import AnthropicProvider, LLMProvider
 
 SHENAS_NET_URL = os.environ.get("SHENAS_NET_URL", "https://shenas.net")
 

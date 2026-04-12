@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, ClassVar
 
-from shenas_plugins.core.table import Field, SingletonTable
+from app.table import Field, SingletonTable
 
 
 class SystemSettings(SingletonTable):
