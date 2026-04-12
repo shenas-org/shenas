@@ -198,6 +198,28 @@ class HypothesisSuggestionType:
     score: float = 0.0
 
 
+# -- Suggestion types ----------------------------------------------------------
+
+
+@strawberry.type
+class SuggestedDatasetType:
+    name: str
+    is_suggested: bool = True
+    enabled: bool = False
+    table_name: str | None = None
+    grain: str | None = None
+    title: str | None = None
+
+
+@strawberry.type
+class SuggestedAnalysisType:
+    id: int
+    question: str
+    rationale: str = ""
+    datasets_involved: list[str]
+    complexity: str = ""
+
+
 # -- Category types ------------------------------------------------------------
 
 

@@ -22,6 +22,8 @@ from app.graphql.types import (
     QualityCheckType,
     QualityInfoType,
     ScheduleInfoType,
+    SuggestedAnalysisType,
+    SuggestedDatasetType,
     TableEntry,
     ThemeInfo,
     TimeColumnsInfoType,
@@ -635,52 +637,42 @@ class Query:
     # Read-only listing of LLM-suggested datasets, transforms, and analyses.
 
     @strawberry.field
-    def suggested_datasets(self) -> JSON:
+    def suggested_datasets(self) -> list[SuggestedDatasetType]:
         """Return all suggested (not yet accepted) datasets."""
         from shenas_plugins.core.plugin import PluginInstance
 
-        return [  # ty: ignore[invalid-return-type]
-            {
-                "name": pi.name,
-                "is_suggested": pi.is_suggested,
-                "enabled": pi.enabled,
-                **(pi.metadata or {}),
-            }
+        return [
+            SuggestedDatasetType(
+                name=pi.name,
+                is_suggested=bool(pi.is_suggested),
+                enabled=bool(pi.enabled),
+                table_name=(pi.metadata or {}).get("table_name"),
+                grain=(pi.metadata or {}).get("grain"),
+                title=(pi.metadata or {}).get("title"),
+            )
             for pi in PluginInstance.suggested("dataset")
         ]
 
     @strawberry.field
-    def suggested_transforms(self, source: str | None = None) -> JSON:
+    def suggested_transforms(self, source: str | None = None) -> list[TransformType]:
         """Return all suggested (not yet accepted) transforms."""
         from shenas_transformers.core.transform import Transform
 
-        rows = Transform.suggested(source)
-        return [  # ty: ignore[invalid-return-type]
-            {
-                "id": t.id,
-                "source": f"{t.source_ref.schema}.{t.source_ref.table}",
-                "target": f"{t.target_ref.schema}.{t.target_ref.table}",
-                "source_plugin": t.source_plugin,
-                "description": t.description or "",
-                "params": t.get_params(),
-            }
-            for t in rows
-        ]
+        return [_transform_to_gql(t) for t in Transform.suggested(source)]
 
     @strawberry.field
-    def suggested_analyses(self) -> JSON:
+    def suggested_analyses(self) -> list[SuggestedAnalysisType]:
         """Return all suggested (not yet accepted) analysis hypotheses."""
         from app.hypotheses import Hypothesis
 
-        return [  # ty: ignore[invalid-return-type]
-            {
-                "id": h.id,
-                "question": h.question,
-                "rationale": h.plan or "",
-                "datasets_involved": (h.inputs or "").split(",") if h.inputs else [],
-                "complexity": h.mode or "",
-                "created_at": str(h.created_at) if h.created_at else None,
-            }
+        return [
+            SuggestedAnalysisType(
+                id=h.id,
+                question=h.question,
+                rationale=h.plan or "",
+                datasets_involved=(h.inputs or "").split(",") if h.inputs else [],
+                complexity=h.mode or "",
+            )
             for h in Hypothesis.suggested()
         ]
 
