@@ -12,3 +12,10 @@ tasks:
   js-test:
     deps:
       - 'vendor:npm-install'
+  build:
+    command: 'npm run build'
+    deps:
+      - '~:npm-install'
+      - 'vendor:build'
+    options:
+      mergeDeps: replace
