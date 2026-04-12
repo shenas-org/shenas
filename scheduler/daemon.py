@@ -53,7 +53,7 @@ class SyncDaemon:
             logger.warning("Server unreachable, will retry next interval")
             return
 
-        due = [s for s in schedule if s.get("is_due")]
+        due = [s for s in schedule if s.get("isDue")]
         if not due:
             return
 
