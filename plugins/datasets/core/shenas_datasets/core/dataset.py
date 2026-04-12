@@ -52,9 +52,7 @@ class Dataset(Plugin):
     @classmethod
     def ensure_all(cls, con: Any) -> None:
         """Ensure all installed dataset plugins have their tables created."""
-        from app.api.sources import _load_datasets
-
-        for dataset_cls in _load_datasets():
+        for dataset_cls in cls.load_all(include_internal=False):
             dataset_cls.ensure(con)
 
     @classmethod

@@ -44,6 +44,7 @@ members = [
     "shenas-plugin-core",
     "shenas-scheduler",
     "shenas-source-chrome",
+    "shenas-source-claude-code",
     "shenas-source-core",
     "shenas-source-cronometer",
     "shenas-source-duolingo",
@@ -3254,6 +3255,20 @@ requires-dist = [
 [[package]]
 name = "shenas-source-chrome"
 source = { editable = "plugins/sources/chrome" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "shenas-source-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "shenas-source-core", editable = "plugins/sources/core" },
+]
+
+[[package]]
+name = "shenas-source-claude-code"
+source = { editable = "plugins/sources/claude_code" }
 dependencies = [
     { name = "dlt", extra = ["duckdb"] },
     { name = "shenas-source-core" },

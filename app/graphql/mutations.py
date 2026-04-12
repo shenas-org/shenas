@@ -60,21 +60,23 @@ class Mutation:
 
     @strawberry.mutation
     def authenticate(self, pipe: str, credentials: JSON) -> AuthResponseType:
-        from app.api.sources import _load_source
         from app.models import AuthResponse
+        from shenas_sources.core.source import Source
 
-        p = _load_source(pipe)
-        result = p.handle_auth(credentials)  # ty: ignore[invalid-argument-type]
+        cls = Source.load_by_name(pipe)
+        if not cls:
+            return AuthResponseType.from_pydantic(AuthResponse(ok=False, error=f"Source not found: {pipe}"))  # ty: ignore[unresolved-attribute]
+        result = cls().handle_auth(credentials)  # ty: ignore[invalid-argument-type]
         return AuthResponseType.from_pydantic(AuthResponse(**result))  # ty: ignore[unresolved-attribute]
 
     # -- Config --
 
     @strawberry.mutation
     def set_config(self, kind: str, name: str, key: str, value: str) -> OkType:
-        from app.api.sources import _load_plugin
         from app.models import OkResponse
+        from shenas_plugins.core.plugin import Plugin
 
-        cls = _load_plugin(kind, name)
+        cls = Plugin.load_by_name_and_kind(name, kind)
         if not cls:
             return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))  # ty: ignore[unresolved-attribute]
         plugin = cls()
@@ -83,10 +85,10 @@ class Mutation:
 
     @strawberry.mutation
     def delete_config(self, kind: str, name: str) -> OkType:
-        from app.api.sources import _load_plugin
         from app.models import OkResponse
+        from shenas_plugins.core.plugin import Plugin
 
-        cls = _load_plugin(kind, name)
+        cls = Plugin.load_by_name_and_kind(name, kind)
         if not cls:
             return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))  # ty: ignore[unresolved-attribute]
         cls().delete_config()
@@ -94,10 +96,10 @@ class Mutation:
 
     @strawberry.mutation
     def delete_config_key(self, kind: str, name: str, key: str) -> OkType:
-        from app.api.sources import _load_plugin
         from app.models import OkResponse
+        from shenas_plugins.core.plugin import Plugin
 
-        cls = _load_plugin(kind, name)
+        cls = Plugin.load_by_name_and_kind(name, kind)
         if not cls:
             return OkType.from_pydantic(OkResponse(ok=False, message=f"Plugin not found: {kind}/{name}"))  # ty: ignore[unresolved-attribute]
         cls().set_config_value(key, None)
@@ -311,10 +313,8 @@ class Mutation:
     def seed_transforms(self) -> SeedResultType:
         from shenas_transformers.core import Transformer
 
-        from app.api.sources import _load_plugins
-
         seeded: list[str] = []
-        plugins = _load_plugins("transformer", base=Transformer, include_internal=True)
+        plugins = Transformer.load_all()
         for ep_name in _source_entry_point_names():
             for cls in plugins:
                 plugin = cls()
@@ -533,7 +533,8 @@ class Mutation:
         """
         import time
 
-        from app.api.sources import _discover_analyses
+        from shenas_analyses.core import Analysis
+
         from app.db import analytics_backend
         from app.graphql.llm_provider import get_llm_provider
         from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
@@ -547,7 +548,7 @@ class Mutation:
         )
         from shenas_plugins.core.analytics.mode import get_mode
 
-        _discover_analyses()
+        Analysis.discover()
         try:
             analysis_mode = get_mode(mode)
         except KeyError as exc:

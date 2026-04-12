@@ -11,9 +11,13 @@ import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from html.parser import HTMLParser
+from importlib.metadata import entry_points
 from pathlib import Path
-from typing import Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 from urllib.request import urlopen
+
+if TYPE_CHECKING:
+    from typing import Self
 
 from shenas_plugins.core.table import Field, Table
 
@@ -95,9 +99,7 @@ class PluginInstance(Table):
     @property
     def _is_single_active(self) -> bool:
         """Check if this kind uses single-active selection (only one enabled at a time)."""
-        from app.api.sources import _load_plugin
-
-        cls = _load_plugin(self.kind, self.name)
+        cls = Plugin.load_by_name_and_kind(self.name, self.kind)
         return getattr(cls, "single_active", False) if cls else False
 
     def enable(self) -> str:
@@ -373,13 +375,106 @@ class Plugin(abc.ABC):
             "synced_at": str(s.synced_at) if s and s.synced_at else None,
         }
 
+    # -- Entry-point discovery (classmethods) --
+
+    _EP_GROUP_OVERRIDES: ClassVar[dict[str, str]] = {"analysis": "shenas.analyses"}
+    _cache_clear_hooks: ClassVar[list[Any]] = []
+
+    @classmethod
+    def _ep_group(cls, kind: str) -> str:
+        """Entry point group name for a plugin kind."""
+        return cls._EP_GROUP_OVERRIDES.get(kind, f"shenas.{kind}s")
+
+    @classmethod
+    def load_by_kind(cls, kind: str, *, include_internal: bool = True) -> list[type[Plugin]]:
+        """Load all plugin classes of a given kind via entry points."""
+
+        result: list[type[Plugin]] = []
+        for ep in entry_points(group=cls._ep_group(kind)):
+            try:
+                obj = ep.load()
+                if isinstance(obj, type) and issubclass(obj, Plugin) and (include_internal or not obj.internal):
+                    result.append(obj)
+            except Exception:
+                pass
+        return result
+
+    @classmethod
+    def load_by_name_and_kind(cls, name: str, kind: str) -> type[Plugin] | None:
+        """Load a single plugin class by kind and name."""
+
+        for ep in entry_points(group=cls._ep_group(kind)):
+            if ep.name == name:
+                try:
+                    obj = ep.load()
+                    if isinstance(obj, type) and issubclass(obj, Plugin):
+                        return obj
+                except Exception:
+                    pass
+                break
+        return None
+
+    @classmethod
+    def _load_fresh(cls, kind: str, name: str) -> type[Plugin] | None:
+        """Load a plugin by scanning dist-info on disk (bypasses all metadata caches)."""
+        import importlib
+        from importlib.metadata import PathDistribution
+
+        group = cls._ep_group(kind)
+        for path_str in sys.path:
+            if "site-packages" not in path_str:
+                continue
+            site = Path(path_str)
+            if not site.is_dir():
+                continue
+            for dist_info in site.glob("*.dist-info"):
+                dist = PathDistribution(dist_info)
+                for ep in dist.entry_points:
+                    if ep.group == group and ep.name == name:
+                        try:
+                            mod_name, attr = ep.value.rsplit(":", 1)
+                            mod = importlib.import_module(mod_name)
+                            obj = getattr(mod, attr)
+                            if isinstance(obj, type) and issubclass(obj, Plugin):
+                                return obj
+                        except Exception:
+                            pass
+        return None
+
+    @classmethod
+    def clear_caches(cls) -> None:
+        """Clear plugin discovery caches so newly installed/removed plugins are picked up."""
+        import importlib
+        import importlib.metadata
+
+        fast_path = getattr(importlib.metadata, "FastPath", None)
+        if fast_path and hasattr(fast_path.__new__, "cache_clear"):
+            fast_path.__new__.cache_clear()
+
+        stale = [p for p in sys.path_importer_cache if "site-packages" in p]
+        for p in stale:
+            del sys.path_importer_cache[p]
+
+        importlib.invalidate_caches()
+
+        for hook in cls._cache_clear_hooks:
+            hook()
+
+    @classmethod
+    def load_all(cls, *, include_internal: bool = True) -> list[type[Self]]:
+        """Load all plugin classes of this kind. Call on a subclass, e.g. ``Source.load_all()``."""
+        return cls.load_by_kind(cls._kind, include_internal=include_internal)  # ty: ignore[invalid-return-type, invalid-argument-type]
+
+    @classmethod
+    def load_by_name(cls, name: str) -> type[Self] | None:
+        """Load a single plugin class by name within this kind. Call on a subclass."""
+        return cls.load_by_name_and_kind(name, cls._kind) or cls._load_fresh(cls._kind, name)  # ty: ignore[invalid-return-type, invalid-argument-type]
+
     # -- Package management (classmethods) --
 
     @staticmethod
     def list_installed(kind: str) -> list[dict[str, Any]]:
         """List installed plugins of a given kind with full info."""
-        from app.api.sources import _load_plugin, _load_plugin_fresh
-
         prefix = Plugin.pkg(kind, "")
         result = subprocess.run(
             ["uv", "pip", "list", "--format", "json", "--python", _python_executable()],
@@ -397,7 +492,7 @@ class Plugin(abc.ABC):
             short_name = p["name"].removeprefix(prefix)
             if short_name == "core":
                 continue
-            plugin_cls = _load_plugin(kind, short_name) or _load_plugin_fresh(kind, short_name)
+            plugin_cls = Plugin.load_by_name_and_kind(short_name, kind) or Plugin._load_fresh(kind, short_name)
             if plugin_cls and plugin_cls.internal:
                 continue
             if plugin_cls:
@@ -432,10 +527,8 @@ class Plugin(abc.ABC):
         skip_verify: bool = False,
     ) -> tuple[bool, str]:
         """Install a plugin. Returns (ok, message)."""
-        from app.api.sources import _load_plugin
-
         pkg = Plugin.pkg(kind, name)
-        cls = _load_plugin(kind, name)
+        cls = Plugin.load_by_name_and_kind(name, kind)
         if (cls and cls.internal) or name == "core":
             return False, f"{pkg} is an internal plugin"
 
@@ -465,10 +558,8 @@ class Plugin(abc.ABC):
         )
 
         if result.returncode == 0:
-            from app.api.sources import _clear_caches, _load_plugin, _load_plugin_fresh
-
-            _clear_caches()
-            cls = _load_plugin(kind, name) or _load_plugin_fresh(kind, name)
+            Plugin.clear_caches()
+            Plugin.load_by_name_and_kind(name, kind) or Plugin._load_fresh(kind, name)
             PluginInstance.get_or_create(kind, name, enabled=True)
             display = name.replace("-", " ").title()
             return True, f"Added {display} {kind.title()}"
@@ -477,10 +568,8 @@ class Plugin(abc.ABC):
     @staticmethod
     def uninstall(kind: str, name: str) -> tuple[bool, str]:
         """Uninstall a plugin. Returns (ok, message)."""
-        from app.api.sources import _load_plugin
-
         pkg = Plugin.pkg(kind, name)
-        cls = _load_plugin(kind, name)
+        cls = Plugin.load_by_name_and_kind(name, kind)
         if (cls and cls.internal) or name == "core":
             return False, f"{pkg} is an internal plugin"
 
@@ -494,9 +583,7 @@ class Plugin(abc.ABC):
         )
 
         if result.returncode == 0:
-            from app.api.sources import _clear_caches
-
-            _clear_caches()
+            Plugin.clear_caches()
             display = name.replace("-", " ").title()
             return True, f"Removed {display} {kind.title()}"
         return False, result.stderr.strip() or f"Failed to uninstall {pkg}"

@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from app.api.sources import _load_source
 from app.models import SyncRequest
 
 if TYPE_CHECKING:
@@ -39,6 +38,7 @@ def _sse_event(event: str, data: dict[str, str]) -> str:
 
 def _installed_source_names() -> list[str]:
     """Get installed pipe names via uv pip list (avoids entry_points cache)."""
+    from shenas_plugins.core.plugin import Plugin, PluginInstance
 
     result = subprocess.run(
         ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True
@@ -46,17 +46,14 @@ def _installed_source_names() -> list[str]:
     if result.returncode != 0:
         return []
     packages = json.loads(result.stdout)
-    from app.api.sources import _load_plugin
 
     names = []
     for p in packages:
         if not p["name"].startswith(SOURCE_PREFIX):
             continue
         name = p["name"].removeprefix(SOURCE_PREFIX)
-        cls = _load_plugin("source", name)
+        cls = Plugin.load_by_name_and_kind(name, "source")
         if cls and not cls.internal and name != "core":
-            from shenas_plugins.core.plugin import PluginInstance
-
             inst = PluginInstance.find("source", name)
             if inst is None or inst.enabled:
                 names.append(name)
@@ -72,6 +69,7 @@ def _sync_to_sse(source: Source, *, full_refresh: bool) -> Iterator[str]:
 @router.post("")
 def sync_all() -> StreamingResponse:
     from app.jobs import bind_job_id, new_job_id
+    from shenas_sources.core.source import Source
 
     def _stream() -> Iterator[str]:
         # One job_id covers the whole sync-all run so every per-source event and
@@ -80,7 +78,7 @@ def sync_all() -> StreamingResponse:
             failed = []
             for name in _installed_source_names():
                 try:
-                    source = _load_source(name)
+                    source = Source.load_by_name(name)()  # ty: ignore[call-non-callable]
                 except Exception as exc:
                     yield _sse_event("error", {"source": name, "message": str(exc)})
                     failed.append(name)
@@ -108,13 +106,14 @@ def sync_all() -> StreamingResponse:
 @router.post("/{name}")
 def sync_source(name: str, body: SyncRequest | None = None) -> StreamingResponse:
     from app.jobs import bind_job_id, new_job_id
+    from shenas_sources.core.source import Source
 
     body = body or SyncRequest()
 
     if name not in _installed_source_names():
         raise HTTPException(status_code=404, detail=f"Source not found: {name}")
 
-    source = _load_source(name)
+    source = Source.load_by_name(name)()  # ty: ignore[call-non-callable]
 
     if not source.acquire_sync_lock():
         raise HTTPException(status_code=409, detail="Sync already in progress")

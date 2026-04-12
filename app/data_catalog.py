@@ -199,10 +199,8 @@ class QualityCheckResult(Table):
 
 def _walk_sources() -> list[tuple[dict, Plugin]]:
     """Return [(table_metadata, plugin_instance)] for source tables."""
-    from app.api.sources import _load_plugins
-
     out: list[tuple[dict, Plugin]] = []
-    for src_cls in _load_plugins("source", base=Plugin, include_internal=False):
+    for src_cls in Plugin.load_by_kind("source", include_internal=False):
         try:
             tables_mod = importlib.import_module(f"shenas_sources.{src_cls.name}.tables")
         except ImportError:
@@ -214,12 +212,11 @@ def _walk_sources() -> list[tuple[dict, Plugin]]:
 
 def _walk_metrics() -> list[tuple[dict, Plugin]]:
     """Return [(table_metadata, plugin_instance)] for metric tables."""
-    from app.api.sources import _load_datasets
     from shenas_datasets.core import Dataset
     from shenas_plugins.core.plugin import PluginInstance
 
     out: list[tuple[dict, Plugin]] = []
-    for dataset_cls in _load_datasets():
+    for dataset_cls in Dataset.load_all(include_internal=False):
         plugin = dataset_cls()
         out.extend((t.table_metadata(), plugin) for t in getattr(dataset_cls, "all_tables", ()))
     where = (

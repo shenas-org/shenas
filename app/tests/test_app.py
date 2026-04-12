@@ -66,13 +66,13 @@ class TestIndex:
         html_file = tmp_path / "default.html"
         html_file.write_text("<html><body>test ui</body></html>")
         fake_ui = [self._make_fake_ui(tmp_path)]
-        with patch("app.api.sources._load_frontends", return_value=fake_ui):
+        with patch("shenas_frontends.core.frontend.Frontend.load_all", return_value=fake_ui):
             resp = client.get("/")
         assert resp.status_code == 200
         assert "test ui" in resp.text
 
     def test_fallback_when_no_ui(self, client: TestClient) -> None:
-        with patch("app.api.sources._load_frontends", return_value=[]):
+        with patch("shenas_frontends.core.frontend.Frontend.load_all", return_value=[]):
             resp = client.get("/")
         assert resp.status_code == 200
         assert "not installed" in resp.text
@@ -81,7 +81,7 @@ class TestIndex:
         html_file = tmp_path / "default.html"
         html_file.write_text("<html><body>spa shell</body></html>")
         fake_ui = [self._make_fake_ui(tmp_path)]
-        with patch("app.api.sources._load_frontends", return_value=fake_ui):
+        with patch("shenas_frontends.core.frontend.Frontend.load_all", return_value=fake_ui):
             resp = client.get("/some/deep/route")
         assert resp.status_code == 200
         assert "spa shell" in resp.text
@@ -149,7 +149,7 @@ class TestGetActiveTheme:
         test_con.execute("INSERT INTO shenas_system.plugins (kind, name, enabled) VALUES ('theme', 'light', false)")
 
         with (
-            patch("app.api.sources._load_themes", return_value=[dark, light]),
+            patch("shenas_themes.core.theme.Theme.load_all", return_value=[dark, light]),
             patch("app.db.connect", return_value=test_con),
         ):
             result = _get_active_theme()
@@ -161,7 +161,7 @@ class TestGetActiveTheme:
         default = self._make_theme("default")
         other = self._make_theme("other")
         with (
-            patch("app.api.sources._load_themes", return_value=[default, other]),
+            patch("shenas_themes.core.theme.Theme.load_all", return_value=[default, other]),
             patch("app.db.connect", side_effect=Exception("no DB")),
         ):
             result = _get_active_theme()
@@ -173,7 +173,7 @@ class TestGetActiveTheme:
         custom = self._make_theme("custom")
         app.state.default_theme = "nonexistent"
         with (
-            patch("app.api.sources._load_themes", return_value=[custom]),
+            patch("shenas_themes.core.theme.Theme.load_all", return_value=[custom]),
             patch("app.db.connect", side_effect=Exception("no DB")),
         ):
             result = _get_active_theme()
@@ -183,7 +183,7 @@ class TestGetActiveTheme:
     def test_returns_none_when_no_themes(self, client: TestClient) -> None:
         from app.main import _get_active_theme
 
-        with patch("app.api.sources._load_themes", return_value=[]):
+        with patch("shenas_themes.core.theme.Theme.load_all", return_value=[]):
             result = _get_active_theme()
         assert result is None
 
@@ -192,7 +192,7 @@ class TestGetActiveTheme:
 
         default = self._make_theme("default")
         with (
-            patch("app.api.sources._load_themes", return_value=[default]),
+            patch("shenas_themes.core.theme.Theme.load_all", return_value=[default]),
             patch("app.db.connect", side_effect=Exception("DB down")),
         ):
             result = _get_active_theme()
@@ -229,7 +229,7 @@ class TestServeUiHtml:
             html = ""
 
         with (
-            patch("app.api.sources._load_frontends", return_value=fake_ui),
+            patch("shenas_frontends.core.frontend.Frontend.load_all", return_value=fake_ui),
             patch("app.main._get_active_theme", return_value=FakeTheme),
         ):
             resp = client.get("/")
@@ -242,7 +242,7 @@ class TestServeUiHtml:
         html_file.write_text("<html><head></head><body>plain</body></html>")
         fake_ui = [self._make_fake_ui(tmp_path)]
         with (
-            patch("app.api.sources._load_frontends", return_value=fake_ui),
+            patch("shenas_frontends.core.frontend.Frontend.load_all", return_value=fake_ui),
             patch("app.main._get_active_theme", return_value=None),
         ):
             resp = client.get("/")
@@ -265,7 +265,7 @@ class TestServeUiHtml:
             return _FakeInstance(enabled=(name == "custom"))
 
         with (
-            patch("app.api.sources._load_frontends", return_value=[default_ui, custom_ui]),
+            patch("shenas_frontends.core.frontend.Frontend.load_all", return_value=[default_ui, custom_ui]),
             patch("shenas_plugins.core.plugin.PluginInstance.find", side_effect=_fake_find),
             patch("app.main._get_active_theme", return_value=None),
         ):
@@ -277,7 +277,7 @@ class TestServeUiHtml:
         """Frontend exists but its HTML file is missing -> fallback."""
         fake_ui = self._make_fake_ui(tmp_path, "broken")
         # Don't create the HTML file
-        with patch("app.api.sources._load_frontends", return_value=[fake_ui]):
+        with patch("shenas_frontends.core.frontend.Frontend.load_all", return_value=[fake_ui]):
             app.state.ui_name = "broken"
             resp = client.get("/")
             app.state.ui_name = "default"
