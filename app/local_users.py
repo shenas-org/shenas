@@ -81,8 +81,8 @@ class LocalUser(Table):
         ``app`` package ensures the user-scoped Table subclasses have been
         loaded before discovery runs.
         """
-        import app.data_catalog
         import app.categories
+        import app.data_catalog
         import app.hotkeys
         import app.hypotheses
         import app.literature

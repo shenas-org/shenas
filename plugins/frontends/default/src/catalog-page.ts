@@ -15,8 +15,7 @@ interface DataResource {
   tableName: string;
   displayName: string;
   description: string;
-  pluginKind: string;
-  pluginName: string;
+  plugin: { name: string; displayName: string };
   kind: string | null;
   queryHint: string | null;
   asOfMacro: string | null;
@@ -32,8 +31,20 @@ interface DataResource {
   };
   userNotes: string;
   tags: string[];
-  upstream: Array<{ id: string; displayName: string; kind: string | null }> | null;
-  downstream: Array<{ id: string; displayName: string; kind: string | null }> | null;
+  upstreamTransforms: Array<{
+    id: number;
+    transformType: string;
+    sourceDuckdbSchema: string;
+    sourceDuckdbTable: string;
+    description: string;
+  }> | null;
+  downstreamTransforms: Array<{
+    id: number;
+    transformType: string;
+    targetDuckdbSchema: string;
+    targetDuckdbTable: string;
+    description: string;
+  }> | null;
 }
 
 interface Message {
@@ -42,7 +53,8 @@ interface Message {
 }
 
 const FIELDS = `
-  id schemaName tableName displayName description pluginKind pluginName
+  id schemaName tableName displayName description
+  plugin { name displayName }
   kind queryHint asOfMacro primaryKey
   columns { name dbType nullable description unit }
   timeColumns { timeAt timeStart timeEnd }
@@ -53,8 +65,8 @@ const FIELDS = `
 `;
 
 const DETAIL_FIELDS = `${FIELDS}
-  upstream { id displayName kind }
-  downstream { id displayName kind }
+  upstreamTransforms { id transformType sourceDuckdbSchema sourceDuckdbTable description }
+  downstreamTransforms { id transformType targetDuckdbSchema targetDuckdbTable description }
 `;
 
 class CatalogPage extends LitElement {
@@ -356,56 +368,56 @@ class CatalogPage extends LitElement {
       <div>
         ${renderMessage(this._message)}
         <div class="search-bar">
-            <input
-              type="text"
-              placeholder="Search resources..."
-              .value=${this._search}
-              @input=${(e: InputEvent) => {
-                this._search = (e.target as HTMLInputElement).value;
-              }}
-            />
-            <select
-              .value=${this._filterKind}
-              @change=${(e: Event) => {
-                this._filterKind = (e.target as HTMLSelectElement).value;
-              }}
-            >
-              <option value="">All kinds</option>
-              ${kinds.map((k) => html`<option value=${k!}>${k}</option>`)}
-            </select>
-          </div>
-          <shenas-data-list
-            .columns=${[
-              {
-                label: "Name",
-                render: (r: DataResource) =>
-                  html`<a
-                      @click=${() => this._expand(r.id)}
-                      style="cursor:pointer;text-decoration:underline;color:inherit"
-                      >${r.displayName}</a
-                    >
-                    <span class="badge">${r.kind || "table"}</span>`,
-              },
-              {
-                label: "Plugin",
-                class: "mono",
-                render: (r: DataResource) => html`${r.pluginName}`,
-              },
-              {
-                label: "Rows",
-                render: (r: DataResource) => html`${this._formatRows(r.quality.actualRowCount)}`,
-              },
-              {
-                label: "Freshness",
-                render: (r: DataResource) =>
-                  html`${this._freshnessDot(r)}${r.freshness.lastRefreshed
-                    ? r.freshness.lastRefreshed.slice(0, 16).replace("T", " ")
-                    : "never"}`,
-              },
-            ]}
-            .rows=${filtered}
-            empty-text="No data resources found"
-          ></shenas-data-list>
+          <input
+            type="text"
+            placeholder="Search resources..."
+            .value=${this._search}
+            @input=${(e: InputEvent) => {
+              this._search = (e.target as HTMLInputElement).value;
+            }}
+          />
+          <select
+            .value=${this._filterKind}
+            @change=${(e: Event) => {
+              this._filterKind = (e.target as HTMLSelectElement).value;
+            }}
+          >
+            <option value="">All kinds</option>
+            ${kinds.map((k) => html`<option value=${k!}>${k}</option>`)}
+          </select>
+        </div>
+        <shenas-data-list
+          .columns=${[
+            {
+              label: "Plugin",
+              class: "mono",
+              render: (r: DataResource) => html`${r.plugin.displayName || r.plugin.name}`,
+            },
+            {
+              label: "Name",
+              render: (r: DataResource) =>
+                html`<a
+                    @click=${() => this._expand(r.id)}
+                    style="cursor:pointer;text-decoration:underline;color:inherit"
+                    >${r.displayName}</a
+                  >
+                  <span class="badge">${r.kind || "table"}</span>`,
+            },
+            {
+              label: "Rows",
+              render: (r: DataResource) => html`${this._formatRows(r.quality.actualRowCount)}`,
+            },
+            {
+              label: "Freshness",
+              render: (r: DataResource) =>
+                html`${this._freshnessDot(r)}${r.freshness.lastRefreshed
+                  ? r.freshness.lastRefreshed.slice(0, 16).replace("T", " ")
+                  : "never"}`,
+            },
+          ]}
+          .rows=${filtered}
+          empty-text="No data resources found"
+        ></shenas-data-list>
       </div>
     `;
   }

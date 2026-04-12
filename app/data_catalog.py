@@ -15,9 +15,13 @@ import importlib
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
+from shenas_plugins.core.plugin import Plugin
 from shenas_plugins.core.table import DataResourceRef, Field, Table
+
+if TYPE_CHECKING:
+    from shenas_transformations.core.instance import TransformInstance
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -63,8 +67,7 @@ class DataResource:
     ref: DataResourceRef
     display_name: str
     description: str
-    plugin_name: str
-    plugin_kind: str
+    plugin: Plugin
     kind: str | None = None
     query_hint: str | None = None
     as_of_macro: str | None = None
@@ -85,9 +88,9 @@ class DataResource:
     # Quality
     quality_checks: list[QualityCheck] = field(default_factory=list)
 
-    # Lineage (populated on detail view)
-    upstream: list[DataResource] | None = None
-    downstream: list[DataResource] | None = None
+    # Lineage (populated on detail view) -- transforms feeding into / out of this resource
+    upstream_transforms: list[TransformInstance] | None = None
+    downstream_transforms: list[TransformInstance] | None = None
 
     @property
     def id(self) -> str:
@@ -108,7 +111,7 @@ class DataResource:
             return False
 
     @classmethod
-    def from_table_metadata(cls, meta: dict, *, plugin_name: str, plugin_kind: str) -> DataResource:
+    def from_table_metadata(cls, meta: dict, *, plugin: Plugin) -> DataResource:
         ref = DataResourceRef(
             schema=meta.get("schema") or "metrics",
             table=meta["table"],
@@ -118,8 +121,7 @@ class DataResource:
             ref=ref,
             display_name=meta.get("display_name", meta["table"]),
             description=meta.get("description") or "",
-            plugin_name=plugin_name,
-            plugin_kind=plugin_kind,
+            plugin=plugin,
             kind=meta.get("kind"),
             query_hint=meta.get("query_hint"),
             as_of_macro=meta.get("as_of_macro"),
@@ -195,37 +197,43 @@ class QualityCheckResult(Table):
 # ---------------------------------------------------------------------------
 
 
-def _walk_sources() -> list[tuple[dict, str]]:
-    """Return [(table_metadata, plugin_name)] for source tables."""
+def _walk_sources() -> list[tuple[dict, Plugin]]:
+    """Return [(table_metadata, plugin_instance)] for source tables."""
     from app.api.sources import _load_plugins
-    from shenas_plugins.core.plugin import Plugin
 
-    out: list[tuple[dict, str]] = []
+    out: list[tuple[dict, Plugin]] = []
     for src_cls in _load_plugins("source", base=Plugin, include_internal=False):
         try:
             tables_mod = importlib.import_module(f"shenas_sources.{src_cls.name}.tables")
         except ImportError:
             continue
-        out.extend((t.table_metadata(), src_cls.name) for t in getattr(tables_mod, "TABLES", ()))
+        plugin = src_cls()
+        out.extend((t.table_metadata(), plugin) for t in getattr(tables_mod, "TABLES", ()))
     return out
 
 
-def _walk_metrics() -> list[tuple[dict, str]]:
-    """Return [(table_metadata, plugin_name)] for metric tables."""
+def _walk_metrics() -> list[tuple[dict, Plugin]]:
+    """Return [(table_metadata, plugin_instance)] for metric tables."""
     from app.api.sources import _load_datasets
     from shenas_datasets.core import Dataset
     from shenas_plugins.core.plugin import PluginInstance
 
-    out: list[tuple[dict, str]] = []
+    out: list[tuple[dict, Plugin]] = []
     for dataset_cls in _load_datasets():
-        out.extend((t.table_metadata(), dataset_cls.name) for t in getattr(dataset_cls, "all_tables", ()))
+        plugin = dataset_cls()
+        out.extend((t.table_metadata(), plugin) for t in getattr(dataset_cls, "all_tables", ()))
     where = (
         "kind = 'dataset'"
         " AND (is_suggested IS NULL OR is_suggested = FALSE)"
         " AND metadata_json IS NOT NULL AND metadata_json != ''"
     )
     for pi in PluginInstance.all(where=where, order_by="name"):
-        out.extend((meta, pi.name) for meta in Dataset.suggested_metadata(pi))
+        # Data-defined datasets don't have a plugin class -- create a stub
+        stub = Plugin.__new__(Plugin)
+        stub.name = pi.name
+        stub.display_name = pi.name
+        stub._kind = "dataset"
+        out.extend((meta, stub) for meta in Dataset.suggested_metadata(pi))
     return out
 
 
@@ -240,10 +248,10 @@ class DataCatalog:
     def _walk_all(self) -> list[DataResource]:
         """Build DataResource list from code-derived metadata."""
         resources: list[DataResource] = []
-        for meta, name in _walk_sources():
-            resources.append(DataResource.from_table_metadata(meta, plugin_name=name, plugin_kind="source"))
-        for meta, name in _walk_metrics():
-            resources.append(DataResource.from_table_metadata(meta, plugin_name=name, plugin_kind="dataset"))
+        for meta, plugin in _walk_sources():
+            resources.append(DataResource.from_table_metadata(meta, plugin=plugin))
+        for meta, plugin in _walk_metrics():
+            resources.append(DataResource.from_table_metadata(meta, plugin=plugin))
         return resources
 
     def _enrich_with_annotations(self, resources: list[DataResource]) -> None:
@@ -292,7 +300,7 @@ class DataCatalog:
         if kind:
             resources = [r for r in resources if r.kind == kind]
         if plugin:
-            resources = [r for r in resources if r.plugin_name == plugin]
+            resources = [r for r in resources if r.plugin.name == plugin]
         if tags:
             tag_set = {t.strip().lower() for t in tags.split(",")}
             resources = [r for r in resources if tag_set & {t.lower() for t in r.tags}]
@@ -329,11 +337,10 @@ class DataCatalog:
             ]
         except Exception:
             pass
-        # Lineage -- resolve refs to full DataResource objects
-        lineage = self._lineage_refs(data_resource_id)
-        by_id = {r.id: r for r in resources}
-        resource.upstream = [by_id[ref.id] for ref in lineage["upstream"] if ref.id in by_id]
-        resource.downstream = [by_id[ref.id] for ref in lineage["downstream"] if ref.id in by_id]
+        # Lineage -- transforms feeding into / out of this resource
+        lineage = self._lineage_transforms(data_resource_id)
+        resource.upstream_transforms = lineage["upstream"]
+        resource.downstream_transforms = lineage["downstream"]
         return resource
 
     def metadata_by_id(self) -> dict[str, dict[str, Any]]:
@@ -348,20 +355,20 @@ class DataCatalog:
             out[key] = meta
         return out
 
-    def _lineage_refs(self, data_resource_id: str) -> dict[str, list[DataResourceRef]]:
-        """Upstream and downstream resources connected via transform_instances."""
+    def _lineage_transforms(self, data_resource_id: str) -> dict[str, list[TransformInstance]]:
+        """Transforms feeding into (upstream) / out of (downstream) this resource."""
         from shenas_transformations.core.instance import TransformInstance
 
-        upstream: list[DataResourceRef] = []
-        downstream: list[DataResourceRef] = []
+        upstream: list[TransformInstance] = []
+        downstream: list[TransformInstance] = []
         try:
             for t in TransformInstance.all():
                 if not t.enabled:
                     continue
                 if t.target_ref.id == data_resource_id:
-                    upstream.append(t.source_ref)
+                    upstream.append(t)
                 if t.source_ref.id == data_resource_id:
-                    downstream.append(t.target_ref)
+                    downstream.append(t)
         except Exception:
             pass
         return {"upstream": upstream, "downstream": downstream}
