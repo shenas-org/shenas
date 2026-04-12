@@ -87,7 +87,7 @@ resource "helm_release" "arc_runner_set" {
           emptyDir: {}
         containers:
         - name: runner
-          image: ghcr.io/actions/actions-runner:latest
+          image: ${var.region}-docker.pkg.dev/${var.project}/shenas/ci-runner:latest
           command: ["/home/runner/run.sh"]
           securityContext:
             allowPrivilegeEscalation: false
