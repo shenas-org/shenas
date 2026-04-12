@@ -1,3 +1,4 @@
+import "./categories-page.ts";
 import { LitElement, html, css } from "lit";
 import {
   gql,
@@ -48,6 +49,7 @@ export interface SettingsNavItem {
 export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { id: "profile", label: "Profile" },
   { id: "flow", label: "Flow" },
+  { id: "categories", label: "Categories" },
   { id: "hotkeys", label: "Hotkeys" },
 ];
 
@@ -513,6 +515,7 @@ class SettingsPage extends LitElement {
   _displayName(): string {
     if (this.activeKind === "profile") return "Profile";
     if (this.activeKind === "flow") return "Flow";
+    if (this.activeKind === "categories") return "Categories";
     if (this.activeKind === "hotkeys") return "Hotkeys";
     const kind = PLUGIN_KINDS.find((k) => k.id === this.activeKind);
     return kind ? kind.label : this.activeKind;
@@ -582,9 +585,11 @@ class SettingsPage extends LitElement {
                 .allPlugins=${this.allPlugins}
                 .schemaPlugins=${this.schemaPlugins}
               ></shenas-pipeline-overview>`
-            : this.activeKind === "hotkeys"
-              ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
-              : this._renderKind(this.activeKind)}
+            : this.activeKind === "categories"
+              ? html`<shenas-categories api-base="${this.apiBase}"></shenas-categories>`
+              : this.activeKind === "hotkeys"
+                ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
+                : this._renderKind(this.activeKind)}
       </shenas-page>
     `;
   }

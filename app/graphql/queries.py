@@ -273,6 +273,24 @@ class Query:
                 pass
         return sorted(result, key=lambda x: x["displayName"])  # ty: ignore[invalid-return-type]
 
+    # -- Categories --
+
+    @strawberry.field
+    def category_sets(self) -> JSON:
+        """Return all category sets with their values."""
+        from app.categories import list_sets
+
+        return list_sets()  # ty: ignore[invalid-return-type]
+
+    @strawberry.field
+    def category_set(self, set_id: str) -> JSON:
+        """Return a single category set with values."""
+        from app.categories import get_set
+
+        return get_set(set_id)  # ty: ignore[invalid-return-type]
+
+    # -- Table introspection --
+
     @strawberry.field
     def table_columns(self, schema: str, table: str) -> list[str]:
         """Return column names for a DuckDB table."""

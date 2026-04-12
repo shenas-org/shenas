@@ -311,6 +311,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     from shenas_transformations.core.instance import TransformInstance
     from shenas_transformations.geofence.model import Geofence
 
+    from app.categories import CategorySet, CategoryValue
     from app.hotkeys import Hotkey
     from app.hypotheses import Hypothesis
     from app.literature import Finding
@@ -341,6 +342,8 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
         LocalUser,
         LocalSession,
         Geofence,
+        CategorySet,
+        CategoryValue,
     ]
     Table.ensure_schema(con, tables, schema="shenas_system")
     Hotkey.seed(con)
