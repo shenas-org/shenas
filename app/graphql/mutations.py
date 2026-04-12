@@ -492,7 +492,7 @@ class Mutation:
                 provider,
                 question,
                 catalog,
-                mode=analysis_mode,  # ty: ignore[unknown-argument]
+                mode=analysis_mode,
                 validate=_validate_payload,
                 max_attempts=2,
             )
@@ -575,3 +575,229 @@ class Mutation:
 
         catalog = catalog_by_qualified_name()
         return refresh_findings(catalog, papers_per_pair=papers_per_pair, min_citations=min_citations)  # ty: ignore[invalid-return-type]
+
+    # -- LLM Suggestions --
+    #
+    # Two suggestion flows: dataset+transform suggestions (given sources)
+    # and analysis suggestions (given datasets). Each persists suggestions
+    # into the domain model with is_suggested=True and returns them for
+    # user review.
+
+    @strawberry.mutation
+    def suggest_datasets(self, source: str | None = None) -> JSON:
+        """Ask LLM to suggest canonical metric tables + transforms for installed sources."""
+        import json
+        import time
+        import uuid
+
+        from shenas_transformations.core.instance import TransformInstance
+
+        from app.analytics_catalog import walk_metrics_catalog, walk_source_catalog
+        from app.graphql.llm_provider import get_llm_provider
+        from shenas_datasets.core.suggest import ask_for_dataset_suggestions, validate_dataset_payload
+        from shenas_plugins.core.plugin import PluginInstance
+
+        provider = get_llm_provider()
+        wall_start = time.monotonic()
+
+        # Build catalogs
+        source_catalog = walk_source_catalog()
+        if source:
+            source_catalog = [t for t in source_catalog if t.get("schema") == source]
+        existing_metrics = walk_metrics_catalog()
+
+        if not source_catalog:
+            return {"ok": False, "error": "No source tables found", "suggestions": []}  # ty: ignore[invalid-return-type]
+
+        # Ask LLM
+        try:
+            payload = ask_for_dataset_suggestions(provider, source_catalog, existing_metrics)
+            validate_dataset_payload(payload)
+        except Exception as exc:
+            return {"ok": False, "error": str(exc), "suggestions": []}  # ty: ignore[invalid-return-type]
+
+        # Persist suggestions
+        batch_id = str(uuid.uuid4())[:8]
+        suggestions = payload.get("suggestions", [])
+        created: list[dict] = []
+        source_context = source or ",".join(sorted({t.get("schema", "") for t in source_catalog}))
+
+        for s in suggestions:
+            metadata = {
+                "table_name": s["table_name"],
+                "grain": s["grain"],
+                "columns": s["columns"],
+                "primary_key": s["primary_key"],
+                "transforms": s.get("transforms", []),
+                "description": s.get("description", ""),
+            }
+            pi = PluginInstance(
+                kind="dataset",
+                name=s["table_name"],
+                enabled=False,
+                is_suggested=True,
+                metadata_json=json.dumps(metadata),
+            )
+            pi.insert()
+
+            # Also create suggested transform instances
+            for t in s.get("transforms", []):
+                TransformInstance.create_suggested(
+                    source_duckdb_schema=t["source_schema"],
+                    source_duckdb_table=t["source_table"],
+                    target_duckdb_schema="metrics",
+                    target_duckdb_table=s["table_name"],
+                    source_plugin=t["source_plugin"],
+                    params=json.dumps({"sql": t["sql"]}),
+                    description=t.get("description", ""),
+                )
+
+            created.append(
+                {
+                    "name": s["table_name"],
+                    "title": s.get("title", ""),
+                    "description": s.get("description", ""),
+                    "grain": s["grain"],
+                    "column_count": len(s["columns"]),
+                    "transform_count": len(s.get("transforms", [])),
+                }
+            )
+
+        wall_ms = (time.monotonic() - wall_start) * 1000.0
+        return {  # ty: ignore[invalid-return-type]
+            "ok": True,
+            "batch_id": batch_id,
+            "source_context": source_context,
+            "suggestions": created,
+            "cost": {
+                "llm_input_tokens": getattr(provider, "last_input_tokens", 0),
+                "llm_output_tokens": getattr(provider, "last_output_tokens", 0),
+                "wall_clock_ms": wall_ms,
+            },
+        }
+
+    @strawberry.mutation
+    def suggest_analyses(self) -> JSON:
+        """Ask LLM to suggest interesting analyses given available metric tables."""
+        import time
+        import uuid
+
+        from shenas_analyses.suggestion import ask_for_analysis_suggestions, validate_analysis_payload
+
+        from app.analytics_catalog import walk_metrics_catalog
+        from app.graphql.llm_provider import get_llm_provider
+        from app.hypotheses import Hypothesis
+
+        provider = get_llm_provider()
+        wall_start = time.monotonic()
+
+        metrics_catalog = walk_metrics_catalog()
+        if not metrics_catalog:
+            return {"ok": False, "error": "No metric tables found", "suggestions": []}  # ty: ignore[invalid-return-type]
+
+        try:
+            payload = ask_for_analysis_suggestions(provider, metrics_catalog)
+            validate_analysis_payload(payload)
+        except Exception as exc:
+            return {"ok": False, "error": str(exc), "suggestions": []}  # ty: ignore[invalid-return-type]
+
+        batch_id = str(uuid.uuid4())[:8]
+        suggestions = payload.get("suggestions", [])
+        created: list[dict] = []
+
+        for s in suggestions:
+            datasets = ",".join(s.get("datasets_involved", []))
+            h = Hypothesis.create_suggestion(
+                question=s["question"],
+                rationale=s.get("rationale", ""),
+                datasets_involved=datasets,
+                complexity=s.get("complexity", ""),
+                model=provider.name,
+            )
+            created.append(
+                {
+                    "id": h.id,
+                    "question": s["question"],
+                    "rationale": s.get("rationale", ""),
+                    "datasets_involved": s.get("datasets_involved", []),
+                    "complexity": s.get("complexity", ""),
+                }
+            )
+
+        wall_ms = (time.monotonic() - wall_start) * 1000.0
+        return {  # ty: ignore[invalid-return-type]
+            "ok": True,
+            "batch_id": batch_id,
+            "suggestions": created,
+            "cost": {
+                "llm_input_tokens": getattr(provider, "last_input_tokens", 0),
+                "llm_output_tokens": getattr(provider, "last_output_tokens", 0),
+                "wall_clock_ms": wall_ms,
+            },
+        }
+
+    @strawberry.mutation
+    def accept_dataset_suggestion(self, name: str) -> JSON:
+        """Accept a suggested dataset: create metric table + transforms."""
+        from shenas_datasets.core import Dataset
+
+        try:
+            result = Dataset.accept_suggestion(name)
+            return {"ok": True, **result}  # ty: ignore[invalid-return-type]
+        except ValueError as exc:
+            return {"ok": False, "error": str(exc)}  # ty: ignore[invalid-return-type]
+
+    @strawberry.mutation
+    def dismiss_dataset_suggestion(self, name: str) -> JSON:
+        """Dismiss a suggested dataset."""
+        from shenas_datasets.core import Dataset
+
+        try:
+            Dataset.dismiss_suggestion(name)
+            return {"ok": True, "name": name}  # ty: ignore[invalid-return-type]
+        except ValueError as exc:
+            return {"ok": False, "error": str(exc)}  # ty: ignore[invalid-return-type]
+
+    @strawberry.mutation
+    def accept_transform_suggestion(self, transform_id: int) -> JSON:
+        """Accept a suggested transform: enable it."""
+        from shenas_transformations.core.instance import TransformInstance
+
+        t = TransformInstance.find(transform_id)
+        if t is None or not t.is_suggested:
+            return {"ok": False, "error": f"No suggested transform #{transform_id}"}  # ty: ignore[invalid-return-type]
+        t.accept_suggestion()
+        return {"ok": True, "id": t.id}  # ty: ignore[invalid-return-type]
+
+    @strawberry.mutation
+    def dismiss_transform_suggestion(self, transform_id: int) -> JSON:
+        """Dismiss a suggested transform."""
+        from shenas_transformations.core.instance import TransformInstance
+
+        t = TransformInstance.find(transform_id)
+        if t is None or not t.is_suggested:
+            return {"ok": False, "error": f"No suggested transform #{transform_id}"}  # ty: ignore[invalid-return-type]
+        t.dismiss_suggestion()
+        return {"ok": True, "id": transform_id}  # ty: ignore[invalid-return-type]
+
+    @strawberry.mutation
+    def accept_analysis_suggestion(self, hypothesis_id: int) -> JSON:
+        """Accept a suggested analysis: return the question for askHypothesis."""
+        from app.hypotheses import Hypothesis
+
+        h = Hypothesis.find(hypothesis_id)
+        if h is None or not h.is_suggested:
+            return {"ok": False, "error": f"No suggested analysis #{hypothesis_id}"}  # ty: ignore[invalid-return-type]
+        h.accept_suggestion()
+        return {"ok": True, "id": h.id, "question": h.question}  # ty: ignore[invalid-return-type]
+
+    @strawberry.mutation
+    def dismiss_analysis_suggestion(self, hypothesis_id: int) -> JSON:
+        """Dismiss a suggested analysis."""
+        from app.hypotheses import Hypothesis
+
+        h = Hypothesis.find(hypothesis_id)
+        if h is None or not h.is_suggested:
+            return {"ok": False, "error": f"No suggested analysis #{hypothesis_id}"}  # ty: ignore[invalid-return-type]
+        h.dismiss_suggestion()
+        return {"ok": True, "id": hypothesis_id}  # ty: ignore[invalid-return-type]

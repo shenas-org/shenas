@@ -55,15 +55,16 @@ class LLMProvider(Protocol):
     last_input_tokens: int
     last_output_tokens: int
 
-    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
+    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]], tool_name: str | None = None) -> dict[str, Any]:
         """Send the prompt + tools to the LLM and return the parsed tool-use payload.
 
-        The implementation MUST instruct the model to respond by calling
-        the ``submit_recipe`` tool. The return value is the dict the
-        model passed as the tool's input -- caller is responsible for
-        validating it against ``Recipe``. Implementations should also
-        update ``last_input_tokens`` / ``last_output_tokens`` so the
-        caller can record cost (PR 4.5).
+        The model is forced to call a specific tool via ``tool_choice``.
+        If ``tool_name`` is given it selects that tool; otherwise the
+        first tool in ``tools`` is used. The return value is the dict
+        the model passed as the tool's input -- caller is responsible
+        for validating it. Implementations should also update
+        ``last_input_tokens`` / ``last_output_tokens`` so the caller
+        can record cost.
         """
         ...
 
@@ -81,7 +82,7 @@ class FakeProvider:
         self.last_input_tokens = 0
         self.last_output_tokens = 0
 
-    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]]) -> dict[str, Any]:  # noqa: ARG002
+    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]], tool_name: str | None = None) -> dict[str, Any]:  # noqa: ARG002
         self.calls.append((system, user))
         self.last_input_tokens = self._in
         self.last_output_tokens = self._out
@@ -102,7 +103,7 @@ class AnthropicProvider:
         self.last_input_tokens: int = 0
         self.last_output_tokens: int = 0
 
-    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]]) -> dict[str, Any]:
+    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]], tool_name: str | None = None) -> dict[str, Any]:
         try:
             import anthropic  # ty: ignore[unresolved-import]
         except ImportError as exc:
@@ -114,6 +115,7 @@ class AnthropicProvider:
             msg = "ANTHROPIC_API_KEY not set"
             raise RuntimeError(msg)
 
+        forced_name = tool_name or tools[0]["name"]
         client = anthropic.Anthropic(api_key=api_key)
         # Force the LLM to call the first tool in the list.
         tool_name = tools[0]["name"] if tools else "submit_recipe"
@@ -123,16 +125,17 @@ class AnthropicProvider:
             system=system,
             messages=[{"role": "user", "content": user}],
             tools=tools,
-            tool_choice={"type": "tool", "name": tool_name},
+            tool_choice={"type": "tool", "name": forced_name},
         )
         usage = getattr(resp, "usage", None)
         if usage is not None:
             self.last_input_tokens = int(getattr(usage, "input_tokens", 0))
             self.last_output_tokens = int(getattr(usage, "output_tokens", 0))
+        # Find the tool_use block matching the forced tool name.
         for block in resp.content:
-            if getattr(block, "type", None) == "tool_use":
+            if getattr(block, "type", None) == "tool_use" and block.name == forced_name:
                 return dict(block.input)
-        msg = f"LLM did not call any tool; got {resp.content!r}"
+        msg = f"LLM did not call {forced_name}; got {resp.content!r}"
         raise RuntimeError(msg)
 
 
