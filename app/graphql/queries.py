@@ -27,6 +27,19 @@ if TYPE_CHECKING:
     from shenas_transformations.core.instance import TransformInstance
 
     from app.data_catalog import DataResource
+    from shenas_plugins.core.plugin import Plugin
+
+
+def _plugin_to_gql(plugin: Plugin) -> PluginInfoType:
+    from app.models import PluginInfo
+
+    return PluginInfoType.from_pydantic(  # ty: ignore[unresolved-attribute]
+        PluginInfo(
+            name=plugin.name,
+            display_name=getattr(plugin, "display_name", plugin.name),
+            description=getattr(plugin, "description", ""),
+        ),
+    )
 
 
 def _resource_to_gql(r: DataResource) -> DataResourceType:
@@ -36,8 +49,7 @@ def _resource_to_gql(r: DataResource) -> DataResourceType:
         table_name=r.ref.table,
         display_name=r.display_name,
         description=r.effective_description,
-        plugin_kind=r.plugin_kind,
-        plugin_name=r.plugin_name,
+        plugin=_plugin_to_gql(r.plugin),
         kind=r.kind,
         query_hint=r.query_hint,
         as_of_macro=r.as_of_macro,
@@ -84,8 +96,12 @@ def _resource_to_gql(r: DataResource) -> DataResourceType:
         ),
         user_notes=r.user_notes,
         tags=r.tags,
-        upstream=[_resource_to_gql(u) for u in r.upstream] if r.upstream is not None else None,
-        downstream=[_resource_to_gql(d) for d in r.downstream] if r.downstream is not None else None,
+        upstream_transforms=[_transform_to_gql(t) for t in r.upstream_transforms]
+        if r.upstream_transforms is not None
+        else None,
+        downstream_transforms=[_transform_to_gql(t) for t in r.downstream_transforms]
+        if r.downstream_transforms is not None
+        else None,
     )
 
 
