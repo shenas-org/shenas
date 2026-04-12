@@ -145,6 +145,77 @@ class TransformCreateInput:
     description: str = ""
 
 
+# -- Hypothesis types ----------------------------------------------------------
+
+
+@strawberry.type
+class HypothesisType:
+    id: int
+    question: str
+    plan: str | None = None
+    recipe_json: str = ""
+    inputs: str | None = None
+    result_json: str | None = None
+    interpretation: str | None = None
+    created_at: str | None = None
+    model: str | None = None
+    promoted_to: str | None = None
+    llm_input_tokens: int | None = None
+    llm_output_tokens: int | None = None
+    llm_elapsed_ms: float | None = None
+    query_elapsed_ms: float | None = None
+    wall_clock_ms: float | None = None
+    mode: str | None = None
+    parent_id: int | None = None
+    is_suggested: bool | None = None
+
+
+@strawberry.type
+class FindingType:
+    id: int
+    exposure: str
+    outcome: str
+    direction: str = ""
+    effect_size: float | None = None
+    ci_low: float | None = None
+    ci_high: float | None = None
+    evidence_level: str | None = None
+    sample_size: int | None = None
+    mechanism: str | None = None
+    citation: str = ""
+    doi: str | None = None
+    exposure_categories: str | None = None
+    outcome_categories: str | None = None
+    source_ref: str | None = None
+
+
+@strawberry.type
+class HypothesisSuggestionType:
+    question: str
+    rationale: str = ""
+    datasets_involved: list[str]
+    complexity: str = ""
+    score: float = 0.0
+
+
+# -- Category types ------------------------------------------------------------
+
+
+@strawberry.type
+class CategoryValueType:
+    value: str
+    sort_order: int = 0
+    color: str | None = None
+
+
+@strawberry.type
+class CategorySetType:
+    id: str
+    display_name: str
+    description: str = ""
+    values: list[CategoryValueType]
+
+
 # -- Data Catalog types --------------------------------------------------------
 
 
