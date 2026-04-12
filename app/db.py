@@ -312,6 +312,7 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
     from shenas_transformations.geofence.model import Geofence
 
     from app.data_catalog import QualityCheckResult, ResourceAnnotation
+    from app.categories import CategorySet, CategoryValue
     from app.hotkeys import Hotkey
     from app.hypotheses import Hypothesis
     from app.literature import Finding
@@ -344,6 +345,8 @@ def _ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
         Geofence,
         ResourceAnnotation,
         QualityCheckResult,
+        CategorySet,
+        CategoryValue,
     ]
     Table.ensure_schema(con, tables, schema="shenas_system")
     Hotkey.seed(con)

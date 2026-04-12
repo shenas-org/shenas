@@ -319,6 +319,60 @@ class Query:
     # -- Transforms --
 
     @strawberry.field
+    def transform_types(self) -> JSON:
+        """Return available transform plugin types with their param schemas."""
+        from importlib.metadata import entry_points
+
+        result = []
+        for ep in entry_points(group="shenas.transformations"):
+            try:
+                cls = ep.load()
+                inst = cls()
+                schema = inst.param_schema() if hasattr(inst, "param_schema") else []
+                result.append(
+                    {
+                        "name": ep.name,
+                        "displayName": getattr(inst, "display_name", ep.name),
+                        "description": getattr(inst, "description", ""),
+                        "paramSchema": schema,
+                    }
+                )
+            except Exception:
+                pass
+        return sorted(result, key=lambda x: x["displayName"])  # ty: ignore[invalid-return-type]
+
+    # -- Categories --
+
+    @strawberry.field
+    def category_sets(self) -> JSON:
+        """Return all category sets with their values."""
+        from app.categories import list_sets
+
+        return list_sets()  # ty: ignore[invalid-return-type]
+
+    @strawberry.field
+    def category_set(self, set_id: str) -> JSON:
+        """Return a single category set with values."""
+        from app.categories import get_set
+
+        return get_set(set_id)  # ty: ignore[invalid-return-type]
+
+    # -- Table introspection --
+
+    @strawberry.field
+    def table_columns(self, schema: str, table: str) -> list[str]:
+        """Return column names for a DuckDB table."""
+        from app.db import cursor
+
+        with cursor() as cur:
+            rows = cur.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position",
+                [schema, table],
+            ).fetchall()
+        return [r[0] for r in rows]
+
+    @strawberry.field
     def transforms(self, source: str | None = None) -> list[TransformType]:
         from shenas_transformations.core.instance import TransformInstance
 

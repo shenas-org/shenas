@@ -80,18 +80,21 @@ class RegexExtractTransform(Transform):
         return [
             {
                 "name": "text_column",
+                "label": "Text column",
                 "type": "text",
                 "required": True,
                 "description": "Column containing text to match against",
             },
             {
                 "name": "pattern",
+                "label": "Regex pattern",
                 "type": "text",
                 "required": True,
                 "description": "Regular expression pattern (use capture groups for extract mode)",
             },
             {
                 "name": "output_column",
+                "label": "Output column",
                 "type": "text",
                 "required": False,
                 "description": "Output column name",
@@ -99,6 +102,7 @@ class RegexExtractTransform(Transform):
             },
             {
                 "name": "mode",
+                "label": "Mode",
                 "type": "select",
                 "required": False,
                 "description": "Mode: extract (capture group) or replace (substitution)",
@@ -107,6 +111,7 @@ class RegexExtractTransform(Transform):
             },
             {
                 "name": "replacement",
+                "label": "Replacement string",
                 "type": "text",
                 "required": False,
                 "description": "Replacement string for replace mode (supports \\1 backreferences)",

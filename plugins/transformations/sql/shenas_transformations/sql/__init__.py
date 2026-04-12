@@ -59,7 +59,9 @@ class SqlTransform(Transform):
             return 0
 
     def param_schema(self) -> list[dict[str, Any]]:
-        return [{"name": "sql", "type": "textarea", "required": True, "description": "SQL query to execute"}]
+        return [
+            {"name": "sql", "label": "SQL query", "type": "textarea", "required": True, "description": "SQL query to execute"}
+        ]
 
     def validate_params(self, params: dict[str, Any]) -> None:
         if not params.get("sql"):

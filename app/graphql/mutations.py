@@ -191,6 +191,34 @@ class Mutation:
             )
             for c in checks
         ]
+    # -- Categories --
+
+    @strawberry.mutation
+    def create_category_set(self, set_id: str, display_name: str, description: str = "") -> JSON:
+        from app.categories import create_set
+
+        return create_set(set_id, display_name, description)  # ty: ignore[invalid-return-type]
+
+    @strawberry.mutation
+    def update_category_set(self, set_id: str, display_name: str | None = None, description: str | None = None) -> JSON:
+        from app.categories import update_set
+
+        return update_set(set_id, display_name, description)  # ty: ignore[invalid-return-type]
+
+    @strawberry.mutation
+    def delete_category_set(self, set_id: str) -> JSON:
+        from app.categories import delete_set
+
+        return {"ok": delete_set(set_id)}  # ty: ignore[invalid-return-type]
+
+    @strawberry.mutation
+    def update_category_values(self, set_id: str, values: str) -> JSON:
+        """Replace all values in a set. values is a JSON array of {value, sortOrder?, color?}."""
+        import json
+
+        from app.categories import update_values
+
+        return update_values(set_id, json.loads(values))  # ty: ignore[invalid-return-type]
 
     # -- Transforms --
 

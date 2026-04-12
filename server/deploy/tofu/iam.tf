@@ -11,6 +11,7 @@ resource "google_project_iam_member" "deploy_roles" {
     "roles/container.developer",
     "roles/iam.serviceAccountUser",
     "roles/cloudbuild.builds.builder",
+    "roles/cloudbuild.builds.viewer",
     "roles/logging.viewer",
     "roles/storage.objectViewer",
   ])

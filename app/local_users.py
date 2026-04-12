@@ -82,6 +82,7 @@ class LocalUser(Table):
         loaded before discovery runs.
         """
         import app.data_catalog
+        import app.categories
         import app.hotkeys
         import app.hypotheses
         import app.literature

@@ -141,6 +141,8 @@ class ShenasApp extends LitElement {
     { path: "/flow", render: () => this._renderFlow() },
     { path: "/catalog", render: () => this._renderCatalog() },
     { path: "/settings", render: () => this._renderSettings("profile") },
+    { path: "/flow", render: () => this._renderSettings("flow") },
+    { path: "/settings", render: () => this._renderSettings("flow") },
     {
       path: "/settings/:kind",
       render: (params: { [key: string]: string | undefined }) => this._renderSettings(params?.kind ?? ""),
@@ -1347,6 +1349,7 @@ class ShenasApp extends LitElement {
             <hr style="border:none;border-top:1px solid var(--shenas-border-light,#e8e8e8);margin:0.3rem 0.5rem" />
             ${this._navItem("flow", "Flow", active)} ${this._navItem("catalog", "Catalog", active)}
             ${this._navItem("logs", "Logs", active)}
+            ${this._navItem("flow", "Flow", active)} ${this._navItem("logs", "Logs", active)}
             <a
               class="nav-link settings-toggle"
               @click=${() => {

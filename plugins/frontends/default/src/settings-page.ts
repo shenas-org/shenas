@@ -1,3 +1,4 @@
+import "./categories-page.ts";
 import { LitElement, html, css } from "lit";
 import {
   gql,
@@ -47,6 +48,8 @@ export interface SettingsNavItem {
 }
 export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { id: "profile", label: "Profile" },
+  { id: "flow", label: "Flow" },
+  { id: "categories", label: "Categories" },
   { id: "hotkeys", label: "Hotkeys" },
 ];
 
@@ -289,6 +292,7 @@ class SettingsPage extends LitElement {
   declare multiuserEnabled: boolean;
   declare localUser: { id: number; username: string } | null;
   declare _plugins: Record<string, PluginSummary[]>;
+  declare _schemaStats: Record<string, { totalRows: number; earliest: string; latest: string }>;
   declare _loading: boolean;
   declare _actionMessage: Message | null;
   declare _installing: boolean;
@@ -313,6 +317,7 @@ class SettingsPage extends LitElement {
     this.multiuserEnabled = false;
     this.localUser = null;
     this._plugins = {};
+    this._schemaStats = {};
     this._loading = true;
     this._actionMessage = null;
     this._installing = false;
@@ -344,12 +349,37 @@ class SettingsPage extends LitElement {
     const kindQueries = this._pluginKinds
       .map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`)
       .join("\n      ");
-    const data = await gql(this.apiBase, `{ ${kindQueries} }`);
+    const data = await gql(
+      this.apiBase,
+      `{ ${kindQueries} dbStatus { schemas { name tables { name rows earliest latest } } } }`,
+    );
     const result: Record<string, PluginSummary[]> = {};
     for (const { id } of this._pluginKinds) {
       result[id] = (data?.[`p_${id}`] as PluginSummary[]) || [];
     }
     this._plugins = result;
+    // Build per-schema stats for the source data column
+    const schemaStats: Record<string, { totalRows: number; earliest: string; latest: string }> = {};
+    const schemas = (data?.dbStatus as Record<string, unknown>)?.schemas as
+      | Array<{
+          name: string;
+          tables: Array<{ rows: number; earliest: string; latest: string }>;
+        }>
+      | undefined;
+    if (schemas) {
+      for (const s of schemas) {
+        let totalRows = 0;
+        let earliest = "";
+        let latest = "";
+        for (const t of s.tables) {
+          totalRows += t.rows || 0;
+          if (t.earliest && (!earliest || t.earliest < earliest)) earliest = t.earliest;
+          if (t.latest && (!latest || t.latest > latest)) latest = t.latest;
+        }
+        schemaStats[s.name] = { totalRows, earliest, latest };
+      }
+    }
+    this._schemaStats = schemaStats;
     this._loading = false;
     if (this.onPluginsChanged) this.onPluginsChanged(result);
   }
@@ -511,6 +541,8 @@ class SettingsPage extends LitElement {
 
   _displayName(): string {
     if (this.activeKind === "profile") return "Profile";
+    if (this.activeKind === "flow") return "Flow";
+    if (this.activeKind === "categories") return "Categories";
     if (this.activeKind === "hotkeys") return "Hotkeys";
     const kind = PLUGIN_KINDS.find((k) => k.id === this.activeKind);
     return kind ? kind.label : this.activeKind;
@@ -577,6 +609,17 @@ class SettingsPage extends LitElement {
           : this.activeKind === "hotkeys"
             ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
             : this._renderKind(this.activeKind)}
+          : this.activeKind === "flow"
+            ? html`<shenas-pipeline-overview
+                api-base="${this.apiBase}"
+                .allPlugins=${this.allPlugins}
+                .schemaPlugins=${this.schemaPlugins}
+              ></shenas-pipeline-overview>`
+            : this.activeKind === "categories"
+              ? html`<shenas-categories api-base="${this.apiBase}"></shenas-categories>`
+              : this.activeKind === "hotkeys"
+                ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
+                : this._renderKind(this.activeKind)}
       </shenas-page>
     `;
   }
@@ -685,6 +728,23 @@ class SettingsPage extends LitElement {
           },
           ...(kind === "source"
             ? [
+                {
+                  label: "Data",
+                  render: (p: PluginSummary) => {
+                    const s = this._schemaStats[p.name];
+                    if (!s || !s.totalRows) return html`<span class="muted">--</span>`;
+                    const rows =
+                      s.totalRows >= 1_000_000
+                        ? `${(s.totalRows / 1_000_000).toFixed(1)}M`
+                        : s.totalRows >= 1_000
+                          ? `${(s.totalRows / 1_000).toFixed(1)}k`
+                          : `${s.totalRows}`;
+                    const range =
+                      s.earliest && s.latest ? `${s.earliest.slice(0, 10)} -- ${s.latest.slice(0, 10)}` : "";
+                    return html`${rows}
+                    rows${range ? html`<br /><span class="muted" style="font-size:0.75rem">${range}</span>` : ""}`;
+                  },
+                },
                 {
                   label: "Last Synced",
                   class: "mono",
