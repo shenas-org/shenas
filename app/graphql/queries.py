@@ -24,7 +24,7 @@ from app.graphql.types import (
 )
 
 if TYPE_CHECKING:
-    from shenas_transformers.core.instance import TransformInstance
+    from shenas_transformers.core.instance import Transform
 
     from app.data_catalog import DataResource
     from shenas_plugins.core.plugin import Plugin
@@ -105,7 +105,7 @@ def _resource_to_gql(r: DataResource) -> DataResourceType:
     )
 
 
-def _transform_to_gql(t: TransformInstance) -> TransformType:
+def _transform_to_gql(t: Transform) -> TransformType:
     return TransformType(
         id=t.id,
         transform_type=t.transform_type,
@@ -390,16 +390,16 @@ class Query:
 
     @strawberry.field
     def transforms(self, source: str | None = None) -> list[TransformType]:
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
-        rows = TransformInstance.for_plugin(source) if source else TransformInstance.all(order_by="id")
+        rows = Transform.for_plugin(source) if source else Transform.all(order_by="id")
         return [_transform_to_gql(t) for t in rows]
 
     @strawberry.field
     def transform(self, transform_id: int) -> TransformType | None:
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
-        t = TransformInstance.find(transform_id)
+        t = Transform.find(transform_id)
         return _transform_to_gql(t) if t else None
 
     # -- Data Catalog --
@@ -615,9 +615,9 @@ class Query:
     @strawberry.field
     def suggested_transforms(self, source: str | None = None) -> JSON:
         """Return all suggested (not yet accepted) transforms."""
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
-        rows = TransformInstance.suggested(source)
+        rows = Transform.suggested(source)
         return [  # ty: ignore[invalid-return-type]
             {
                 "id": t.id,

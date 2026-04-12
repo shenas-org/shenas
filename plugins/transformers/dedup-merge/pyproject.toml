@@ -1,10 +1,10 @@
 [project]
-name = "shenas-transformation-dedup-merge"
+name = "shenas-transformer-dedup-merge"
 dynamic = ["version"]
 description = "Dedup/merge transformer plugin for shenas"
 requires-python = ">=3.11"
 dependencies = [
-    "shenas-transformation-core",
+    "shenas-transformer-core",
 ]
 
 [build-system]
@@ -16,9 +16,9 @@ dedup-merge = "shenas_transformers.dedup_merge:DedupMergeTransformer"
 
 [tool.hatch.version]
 source = "vcs"
-tag-pattern = "transformation-dedup-merge/v(?P<version>[^+]+)"
+tag-pattern = "transformer-dedup-merge/v(?P<version>[^+]+)"
 raw-options.root = "../../.."
-raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "transformation-dedup-merge/v*"]
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "transformer-dedup-merge/v*"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["shenas_transformers"]

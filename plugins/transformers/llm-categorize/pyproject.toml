@@ -1,10 +1,10 @@
 [project]
-name = "shenas-transformation-llm-categorize"
+name = "shenas-transformer-llm-categorize"
 dynamic = ["version"]
 description = "LLM categorization transformer plugin for shenas"
 requires-python = ">=3.11"
 dependencies = [
-    "shenas-transformation-core",
+    "shenas-transformer-core",
     "shenas-app",
 ]
 
@@ -17,9 +17,9 @@ llm-categorize = "shenas_transformers.llm_categorize.transform:LlmCategorizeTran
 
 [tool.hatch.version]
 source = "vcs"
-tag-pattern = "transformation-llm-categorize/v(?P<version>[^+]+)"
+tag-pattern = "transformer-llm-categorize/v(?P<version>[^+]+)"
 raw-options.root = "../../.."
-raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "transformation-llm-categorize/v*"]
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "transformer-llm-categorize/v*"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["shenas_transformers"]

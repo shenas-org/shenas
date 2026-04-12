@@ -10,7 +10,7 @@ import duckdb
 from shenas_transformers.core import Transformer
 
 if TYPE_CHECKING:
-    from shenas_transformers.core.instance import TransformInstance
+    from shenas_transformers.core.instance import Transform
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -31,7 +31,7 @@ class DedupMergeTransformer(Transformer):
     def execute(
         self,
         con: duckdb.DuckDBPyConnection,
-        instance: TransformInstance,
+        instance: Transform,
         *,
         device_id: str = "local",
     ) -> int:

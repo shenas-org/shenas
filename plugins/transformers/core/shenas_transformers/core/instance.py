@@ -1,4 +1,4 @@
-"""TransformInstance: configured transform instances stored in DuckDB.
+"""Transform: configured transform instances stored in DuckDB.
 
 Each row is one configured transform -- a binding between a source table,
 a target table, a transformation type, and type-specific params. The
@@ -27,7 +27,7 @@ def _now_iso() -> str:
 
 
 @dataclass
-class TransformInstance(Table):
+class Transform(Table):
     """A configured transform instance in ``shenas_system.transform_instances``."""
 
     class _Meta:
@@ -93,11 +93,11 @@ class TransformInstance(Table):
     # ------------------------------------------------------------------
 
     @classmethod
-    def for_plugin(cls, source_plugin: str) -> list[TransformInstance]:
+    def for_plugin(cls, source_plugin: str) -> list[Transform]:
         return cls.all(where="source_plugin = ?", params=[source_plugin], order_by="id")
 
     @classmethod
-    def suggested(cls, source_plugin: str | None = None) -> list[TransformInstance]:
+    def suggested(cls, source_plugin: str | None = None) -> list[Transform]:
         """List suggested (not yet accepted) transform instances."""
         if source_plugin:
             return cls.all(
@@ -123,7 +123,7 @@ class TransformInstance(Table):
         source_plugin: str,
         params: str = "{}",
         description: str = "",
-    ) -> TransformInstance:
+    ) -> Transform:
         """Create a suggested transform instance (disabled until accepted)."""
         t = cls(
             transform_type=transform_type,
@@ -139,7 +139,7 @@ class TransformInstance(Table):
         )
         return t.insert()
 
-    def accept_suggestion(self) -> TransformInstance:
+    def accept_suggestion(self) -> Transform:
         """Accept: flip is_suggested, enable the transform."""
         now = _now_iso()
         self.is_suggested = False
@@ -168,7 +168,7 @@ class TransformInstance(Table):
         params: str = "{}",
         description: str = "",
         is_default: bool = False,
-    ) -> TransformInstance:
+    ) -> Transform:
         t = cls(
             transform_type=transform_type,
             source_duckdb_schema=source_duckdb_schema,
@@ -182,12 +182,12 @@ class TransformInstance(Table):
         )
         return t.insert()
 
-    def update_params(self, params: str) -> TransformInstance:
+    def update_params(self, params: str) -> Transform:
         self.params = params
         self.updated_at = _now_iso()
         return self.save()
 
-    def set_enabled(self, enabled: bool) -> TransformInstance:
+    def set_enabled(self, enabled: bool) -> Transform:
         now = _now_iso()
         self.enabled = enabled
         self.status_changed_at = now
@@ -273,7 +273,7 @@ class TransformInstance(Table):
 
     @staticmethod
     def run_for_source(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
-        instances = TransformInstance.for_plugin(source_plugin)
+        instances = Transform.for_plugin(source_plugin)
         log.info("Running transforms for %s (%d total)", source_plugin, len(instances))
         device_id = _get_device_id()
         plugin_cache: dict[str, Any] = {}
@@ -302,7 +302,7 @@ class TransformInstance(Table):
 
     @staticmethod
     def run_for_target(con: duckdb.DuckDBPyConnection, target_table: str) -> int:
-        matching = [t for t in TransformInstance.all(order_by="id") if t.target_duckdb_table == target_table and t.enabled]
+        matching = [t for t in Transform.all(order_by="id") if t.target_duckdb_table == target_table and t.enabled]
         log.info("Running transforms targeting %s (%d total)", target_table, len(matching))
         device_id = _get_device_id()
         plugin_cache: dict[str, Any] = {}

@@ -1,10 +1,10 @@
 [project]
-name = "shenas-transformation-geofence"
+name = "shenas-transformer-geofence"
 dynamic = ["version"]
 description = "Geofence transformer plugin for shenas"
 requires-python = ">=3.11"
 dependencies = [
-    "shenas-transformation-core",
+    "shenas-transformer-core",
 ]
 
 [build-system]
@@ -22,9 +22,9 @@ geofence = "shenas_transformers.geofence.cli:app"
 
 [tool.hatch.version]
 source = "vcs"
-tag-pattern = "transformation-geofence/v(?P<version>[^+]+)"
+tag-pattern = "transformer-geofence/v(?P<version>[^+]+)"
 raw-options.root = "../../.."
-raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "transformation-geofence/v*"]
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "transformer-geofence/v*"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["shenas_transformers"]

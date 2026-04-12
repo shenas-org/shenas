@@ -10,7 +10,7 @@ import duckdb
 from shenas_transformers.core import Transformer, TransformerConfig
 
 if TYPE_CHECKING:
-    from shenas_transformers.core.instance import TransformInstance
+    from shenas_transformers.core.instance import Transform
 
 from dataclasses import dataclass
 from typing import Annotated
@@ -55,7 +55,7 @@ class ReverseGeocodeTransformer(Transformer):
     def execute(
         self,
         con: duckdb.DuckDBPyConnection,
-        instance: TransformInstance,
+        instance: Transform,
         *,
         device_id: str = "local",
     ) -> int:

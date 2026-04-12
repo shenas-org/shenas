@@ -9,7 +9,7 @@ from typing import Any
 
 import duckdb
 from shenas_transformers.core import Transformer
-from shenas_transformers.core.instance import TransformInstance
+from shenas_transformers.core.instance import Transform
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -25,7 +25,7 @@ class SqlTransformer(Transformer):
     def execute(
         self,
         con: duckdb.DuckDBPyConnection,
-        instance: TransformInstance,
+        instance: Transform,
         *,
         device_id: str = "local",
     ) -> int:
@@ -87,7 +87,7 @@ class SqlTransformer(Transformer):
             for d in defaults
         ]
 
-        TransformInstance.seed_defaults(source_name, "sql", seed_rows)
+        Transform.seed_defaults(source_name, "sql", seed_rows)
 
 
 __all__ = ["SqlTransform"]

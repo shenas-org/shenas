@@ -1,8 +1,8 @@
-"""Backward-compat shim -- re-exports TransformInstance as Transform.
+"""Backward-compat shim -- re-exports Transform as Transform.
 
 All transform logic now lives in ``shenas_transformers.core.instance``.
 """
 
-from shenas_transformers.core.instance import TransformInstance as Transform
+from shenas_transformers.core.instance import Transform as Transform
 
 __all__ = ["Transform"]

@@ -225,9 +225,9 @@ class Mutation:
 
     @strawberry.mutation
     def create_transform(self, transform_input: TransformCreateInput) -> TransformType:
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
-        t = TransformInstance.create(
+        t = Transform.create(
             transform_type=transform_input.transform_type,
             source_duckdb_schema=transform_input.source_duckdb_schema,
             source_duckdb_table=transform_input.source_duckdb_table,
@@ -241,9 +241,9 @@ class Mutation:
 
     @strawberry.mutation
     def update_transform(self, transform_id: int, params: str) -> TransformType | None:
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
-        existing = TransformInstance.find(transform_id)
+        existing = Transform.find(transform_id)
         if not existing:
             return None
         t = existing.update_params(params)
@@ -251,20 +251,20 @@ class Mutation:
 
     @strawberry.mutation
     def delete_transform(self, transform_id: int) -> OkType:
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
         from app.models import OkResponse
 
-        t = TransformInstance.find(transform_id)
+        t = Transform.find(transform_id)
         if t:
             t.delete()
         return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
     def enable_transform(self, transform_id: int) -> TransformType | None:
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
-        t = TransformInstance.find(transform_id)
+        t = Transform.find(transform_id)
         if not t:
             return None
         updated = t.set_enabled(True)
@@ -272,9 +272,9 @@ class Mutation:
 
     @strawberry.mutation
     def disable_transform(self, transform_id: int) -> TransformType | None:
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
-        t = TransformInstance.find(transform_id)
+        t = Transform.find(transform_id)
         if not t:
             return None
         updated = t.set_enabled(False)
@@ -282,9 +282,9 @@ class Mutation:
 
     @strawberry.mutation
     def test_transform(self, transform_id: int, limit: int = 10) -> JSON:
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
-        t = TransformInstance.find(transform_id)
+        t = Transform.find(transform_id)
         return t.test(limit) if t else []  # ty: ignore[invalid-return-type]
 
     @strawberry.mutation
@@ -306,20 +306,20 @@ class Mutation:
 
     @strawberry.mutation
     def run_pipe_transforms(self, pipe: str) -> JSON:
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
         from app.db import connect
 
-        count = TransformInstance.run_for_source(connect(), pipe)
+        count = Transform.run_for_source(connect(), pipe)
         return {"source": pipe, "count": count}  # ty: ignore[invalid-return-type]
 
     @strawberry.mutation
     def run_schema_transforms(self, schema: str) -> JSON:
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
         from app.db import connect
 
-        count = TransformInstance.run_for_target(connect(), schema)
+        count = Transform.run_for_target(connect(), schema)
         return {"schema": schema, "count": count}  # ty: ignore[invalid-return-type]
 
     # -- Hotkeys --
@@ -659,7 +659,7 @@ class Mutation:
         import time
         import uuid
 
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
         from app.data_catalog import walk_metrics_catalog, walk_source_catalog
         from app.graphql.llm_provider import get_llm_provider
@@ -711,7 +711,7 @@ class Mutation:
 
             # Also create suggested transform instances
             for t in s.get("transforms", []):
-                TransformInstance.create_suggested(
+                Transform.create_suggested(
                     source_duckdb_schema=t["source_schema"],
                     source_duckdb_table=t["source_table"],
                     target_duckdb_schema="metrics",
@@ -830,9 +830,9 @@ class Mutation:
     @strawberry.mutation
     def accept_transform_suggestion(self, transform_id: int) -> JSON:
         """Accept a suggested transform: enable it."""
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
-        t = TransformInstance.find(transform_id)
+        t = Transform.find(transform_id)
         if t is None or not t.is_suggested:
             return {"ok": False, "error": f"No suggested transform #{transform_id}"}  # ty: ignore[invalid-return-type]
         t.accept_suggestion()
@@ -841,9 +841,9 @@ class Mutation:
     @strawberry.mutation
     def dismiss_transform_suggestion(self, transform_id: int) -> JSON:
         """Dismiss a suggested transform."""
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
-        t = TransformInstance.find(transform_id)
+        t = Transform.find(transform_id)
         if t is None or not t.is_suggested:
             return {"ok": False, "error": f"No suggested transform #{transform_id}"}  # ty: ignore[invalid-return-type]
         t.dismiss_suggestion()

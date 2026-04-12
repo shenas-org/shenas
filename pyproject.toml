@@ -70,14 +70,14 @@ shenas-dashboard-event-gantt = { workspace = true }
 shenas-dashboard-timeline = { workspace = true }
 shenas-model-core = { workspace = true }
 shenas-model-sleep-forecast = { workspace = true }
-shenas-transformation-core = { workspace = true }
-shenas-transformation-sql = { workspace = true }
-shenas-transformation-geofence = { workspace = true }
-shenas-transformation-geocode = { workspace = true }
-shenas-transformation-llm-categorize = { workspace = true }
-shenas-transformation-reverse-geocode = { workspace = true }
-shenas-transformation-regex-extract = { workspace = true }
-shenas-transformation-dedup-merge = { workspace = true }
+shenas-transformer-core = { workspace = true }
+shenas-transformer-sql = { workspace = true }
+shenas-transformer-geofence = { workspace = true }
+shenas-transformer-geocode = { workspace = true }
+shenas-transformer-llm-categorize = { workspace = true }
+shenas-transformer-reverse-geocode = { workspace = true }
+shenas-transformer-regex-extract = { workspace = true }
+shenas-transformer-dedup-merge = { workspace = true }
 shenas-analysis-core = { workspace = true }
 shenas-analysis-hypothesis = { workspace = true }
 shenas-analysis-suggestion = { workspace = true }
@@ -125,13 +125,13 @@ dev = [
     "shenas-theme-default",
     "shenas-theme-dark",
     "shenas-model-core",
-    "shenas-transformation-sql",
-    "shenas-transformation-geofence",
-    "shenas-transformation-geocode",
-    "shenas-transformation-llm-categorize",
-    "shenas-transformation-reverse-geocode",
-    "shenas-transformation-regex-extract",
-    "shenas-transformation-dedup-merge",
+    "shenas-transformer-sql",
+    "shenas-transformer-geofence",
+    "shenas-transformer-geocode",
+    "shenas-transformer-llm-categorize",
+    "shenas-transformer-reverse-geocode",
+    "shenas-transformer-regex-extract",
+    "shenas-transformer-dedup-merge",
     "shenas-analysis-hypothesis",
     "shenas-analysis-suggestion",
     "commitizen>=4.13.9",

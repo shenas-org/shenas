@@ -8,7 +8,7 @@ from typing import Any
 
 import duckdb
 from shenas_transformers.core import Transformer
-from shenas_transformers.core.instance import TransformInstance
+from shenas_transformers.core.instance import Transform
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -28,7 +28,7 @@ class GeofenceTransformer(Transformer):
     def execute(
         self,
         con: duckdb.DuckDBPyConnection,
-        instance: TransformInstance,
+        instance: Transform,
         *,
         device_id: str = "local",
     ) -> int:
@@ -185,7 +185,7 @@ class GeofenceTransformer(Transformer):
                 ),
             }
         ]
-        TransformInstance.seed_defaults(source_name, "geofence", defaults)
+        Transform.seed_defaults(source_name, "geofence", defaults)
 
 
 __all__ = ["GeofenceTransform"]

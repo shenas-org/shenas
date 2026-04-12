@@ -381,7 +381,7 @@ class Source(Plugin):
     def _auto_transform(self) -> None:
         """Seed and run transforms via the Transform plugin system."""
         from shenas_transformers.core import Transformer
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
         from app.api.sources import _load_plugins
         from shenas_sources.core.db import connect
@@ -394,7 +394,7 @@ class Source(Plugin):
             if not inst or inst.enabled:
                 plugin.seed_defaults_for_source(self.name)
 
-        count = TransformInstance.run_for_source(con, self.name)
+        count = Transform.run_for_source(con, self.name)
         logger.info("Transforms done: %s (%d)", self.name, count)
 
     # -- Auth flow ------------------------------------------------------------

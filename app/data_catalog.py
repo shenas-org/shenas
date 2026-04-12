@@ -21,7 +21,7 @@ from shenas_plugins.core.plugin import Plugin
 from shenas_plugins.core.table import DataResourceRef, Field, Table
 
 if TYPE_CHECKING:
-    from shenas_transformers.core.instance import TransformInstance
+    from shenas_transformers.core.instance import Transform
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -89,8 +89,8 @@ class DataResource:
     quality_checks: list[QualityCheck] = field(default_factory=list)
 
     # Lineage (populated on detail view) -- transforms feeding into / out of this resource
-    upstream_transforms: list[TransformInstance] | None = None
-    downstream_transforms: list[TransformInstance] | None = None
+    upstream_transforms: list[Transform] | None = None
+    downstream_transforms: list[Transform] | None = None
 
     @property
     def id(self) -> str:
@@ -355,14 +355,14 @@ class DataCatalog:
             out[key] = meta
         return out
 
-    def _lineage_transforms(self, data_resource_id: str) -> dict[str, list[TransformInstance]]:
+    def _lineage_transforms(self, data_resource_id: str) -> dict[str, list[Transform]]:
         """Transforms feeding into (upstream) / out of (downstream) this resource."""
-        from shenas_transformers.core.instance import TransformInstance
+        from shenas_transformers.core.instance import Transform
 
-        upstream: list[TransformInstance] = []
-        downstream: list[TransformInstance] = []
+        upstream: list[Transform] = []
+        downstream: list[Transform] = []
         try:
-            for t in TransformInstance.all():
+            for t in Transform.all():
                 if not t.enabled:
                     continue
                 if t.target_ref.id == data_resource_id:
