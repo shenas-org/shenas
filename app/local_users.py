@@ -181,12 +181,10 @@ class LocalUser(Table):
         users who have opted in to background sync while logged out.
         Returns the list of user_ids that were successfully attached.
         """
-        from app.user_keys import get_remembered_user_key
-
         attached: list[int] = []
         for row in cls.list_all():
             user_id = int(row["id"])
-            key = get_remembered_user_key(user_id)
+            key = cls.get_remembered_key(user_id)
             if not key:
                 continue
             user = cls.get_by_id(user_id)
@@ -227,63 +225,34 @@ class LocalUser(Table):
     @classmethod
     def create(cls, username: str, password: str) -> LocalUser:
         """Create a new local user and return the row."""
-        from app.database import cursor
-        from app.user_keys import gen_salt
+        import os
 
-        salt = gen_salt()
+        salt = os.urandom(16).hex()
         password_hash = _hash_password(password, salt)
-        with cursor(database="shenas") as cur:
-            row = cur.execute(
-                "INSERT INTO shenas_system.local_users (username, password_hash, key_salt, created_at) "
-                "VALUES (?, ?, ?, now()) RETURNING id, username, key_salt",
-                [username, password_hash, salt],
-            ).fetchone()
-        if not row:
-            msg = "Failed to create user"
-            raise RuntimeError(msg)
-        return cls(id=row[0], username=row[1], password_hash=password_hash, key_salt=row[2])
+        user = cls(username=username, password_hash=password_hash, key_salt=salt)
+        user.insert()
+        return user
 
     @classmethod
     def authenticate(cls, username: str, password: str) -> LocalUser | None:
         """Verify credentials. Returns the user row or None on failure."""
-        from app.database import cursor
-
-        with cursor(database="shenas") as cur:
-            row = cur.execute(
-                "SELECT id, username, password_hash, key_salt FROM shenas_system.local_users WHERE username = ?",
-                [username],
-            ).fetchone()
-        if not row:
+        rows = cls.all(where="username = ?", params=[username], limit=1)
+        if not rows:
             return None
-        if not _verify_password(row[2], row[3], password):
+        user = rows[0]
+        if not _verify_password(user.password_hash, user.key_salt, password):
             return None
-        with cursor(database="shenas") as cur:
-            cur.execute(
-                "UPDATE shenas_system.local_users SET last_login = now() WHERE id = ?",
-                [row[0]],
-            )
-        return cls(id=row[0], username=row[1], password_hash=row[2], key_salt=row[3])
+        return user
 
     @classmethod
     def list_all(cls) -> list[dict[str, Any]]:
         """Return all users as [{id, username}] (no hashes)."""
-        from app.database import cursor
-
-        with cursor(database="shenas") as cur:
-            rows = cur.execute("SELECT id, username FROM shenas_system.local_users ORDER BY username").fetchall()
-        return [{"id": r[0], "username": r[1]} for r in rows]
+        return [{"id": u.id, "username": u.username} for u in cls.all(order_by="username")]
 
     @classmethod
     def get_by_id(cls, user_id: int) -> LocalUser | None:
         """Return the user row for a user ID, or None if not found."""
-        from app.database import cursor
-
-        with cursor(database="shenas") as cur:
-            row = cur.execute(
-                "SELECT id, username, password_hash, key_salt FROM shenas_system.local_users WHERE id = ?",
-                [user_id],
-            ).fetchone()
-        return cls(id=row[0], username=row[1], password_hash=row[2], key_salt=row[3]) if row else None
+        return cls.find(user_id)
 
     @classmethod
     def get_remote_token(cls) -> str | None:
@@ -314,22 +283,55 @@ class LocalUser(Table):
     @classmethod
     def set_remote_token(cls, user_id: int, token: str) -> None:
         """Store a shenas.net JWT for an existing local user."""
-        from app.database import cursor
-
-        with cursor(database="shenas") as cur:
-            cur.execute(
-                "UPDATE shenas_system.local_users SET remote_token = ? WHERE id = ?",
-                [token, user_id],
-            )
+        user = cls.find(user_id)
+        if user:
+            user.remote_token = token
+            user.save()
 
     @classmethod
     def find_by_remote_token(cls, token: str) -> dict[str, Any] | None:
         """Find a user by their shenas.net JWT."""
-        from app.database import cursor
+        rows = cls.all(where="remote_token = ?", params=[token], limit=1)
+        if not rows:
+            return None
+        return {"id": rows[0].id, "username": rows[0].username}
 
-        with cursor(database="shenas") as cur:
-            row = cur.execute(
-                "SELECT id, username FROM shenas_system.local_users WHERE remote_token = ?",
-                [token],
-            ).fetchone()
-        return {"id": row[0], "username": row[1]} if row else None
+    # -- Key management --
+
+    @staticmethod
+    def derive_key(password: str, salt: str) -> str:
+        """Derive a 256-bit DuckDB encryption key from a password + salt via scrypt."""
+        dk = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=16384, r=8, p=1, dklen=32)
+        return dk.hex()
+
+    @classmethod
+    def remember_key(cls, user_id: int, key: str) -> None:
+        """Persist a derived user key in the OS keyring."""
+        try:
+            import keyring
+
+            with contextlib.suppress(Exception):
+                keyring.delete_password("shenas", f"user_key_{user_id}")
+            keyring.set_password("shenas", f"user_key_{user_id}", key)
+        except Exception:
+            pass
+
+    @classmethod
+    def forget_key(cls, user_id: int) -> None:
+        """Remove a remembered user key from the OS keyring."""
+        try:
+            import keyring
+
+            keyring.delete_password("shenas", f"user_key_{user_id}")
+        except Exception:
+            pass
+
+    @classmethod
+    def get_remembered_key(cls, user_id: int) -> str | None:
+        """Return the remembered key for a user, or None if not stored."""
+        try:
+            import keyring
+
+            return keyring.get_password("shenas", f"user_key_{user_id}")
+        except Exception:
+            return None
