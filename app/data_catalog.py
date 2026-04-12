@@ -5,7 +5,6 @@ table metadata from code, then enriches each resource with user annotations
 (freshness tracking, quality expectations, notes, tags) from the
 ``resource_annotations`` table.
 
-Replaces ``app.analytics_catalog``.
 """
 
 from __future__ import annotations
@@ -193,7 +192,7 @@ class QualityCheckResult(Table):
 
 
 # ---------------------------------------------------------------------------
-# Catalog walk logic (absorbed from analytics_catalog.py)
+# Catalog walk logic
 # ---------------------------------------------------------------------------
 
 
@@ -364,10 +363,7 @@ class DataCatalog:
         return resource
 
     def metadata_by_id(self) -> dict[str, dict[str, Any]]:
-        """Return {data_resource_id: table_metadata_dict}.
-
-        Drop-in replacement for catalog_by_qualified_name().
-        """
+        """Return {data_resource_id: table_metadata_dict}."""
         out: dict[str, dict[str, Any]] = {}
         for meta, _name in _walk_sources() + _walk_metrics():
             schema = meta.get("schema") or "metrics"
@@ -488,28 +484,3 @@ def catalog() -> DataCatalog:
     if _catalog is None:
         _catalog = DataCatalog()
     return _catalog
-
-
-# ---------------------------------------------------------------------------
-# Backwards-compatible functions (for callers not yet migrated)
-# ---------------------------------------------------------------------------
-
-
-def walk_catalog() -> list[dict[str, Any]]:
-    """Legacy: return [table_metadata] for every source/metric table."""
-    return [meta for meta, _name in _walk_sources() + _walk_metrics()]
-
-
-def walk_source_catalog() -> list[dict[str, Any]]:
-    """Source tables only."""
-    return [meta for meta, _name in _walk_sources()]
-
-
-def walk_metrics_catalog() -> list[dict[str, Any]]:
-    """Metric tables only."""
-    return [meta for meta, _name in _walk_metrics()]
-
-
-def catalog_by_qualified_name() -> dict[str, dict[str, Any]]:
-    """Legacy: return {qualified_name: table_metadata}."""
-    return catalog().metadata_by_id()

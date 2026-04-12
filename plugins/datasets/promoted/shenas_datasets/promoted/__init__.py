@@ -133,7 +133,7 @@ def _make_transform(record: PromotedMetric):
     recipe_json = record.recipe_json
 
     def transform(cls, con) -> int:
-        from app.data_catalog import catalog_by_qualified_name
+        from app.data_catalog import catalog as get_catalog
         from app.database import analytics_backend
         from shenas_plugins.core.analytics import (
             OpCall,
@@ -155,7 +155,7 @@ def _make_transform(record: PromotedMetric):
                     inputs=tuple(node.get("inputs", ())),
                 )
         recipe = Recipe(nodes=nodes, final=payload.get("final", ""))
-        result = run_recipe(recipe, catalog_by_qualified_name(), backend=analytics_backend())
+        result = run_recipe(recipe, get_catalog().metadata_by_id(), backend=analytics_backend())
         if not isinstance(result, TableResult):
             return 0
         qualified = f'"{cls._Meta.schema}"."{cls._Meta.name}"'

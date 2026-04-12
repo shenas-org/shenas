@@ -627,10 +627,10 @@ class Query:
     @strawberry.field
     def suggested_hypotheses(self, limit: int = 10) -> list[HypothesisSuggestionType]:
         """Return proactive hypothesis suggestions from literature cross-referenced with installed data."""
-        from app.data_catalog import catalog_by_qualified_name
+        from app.data_catalog import catalog as get_catalog
         from app.literature import suggest_hypotheses
 
-        catalog = catalog_by_qualified_name()
+        catalog = get_catalog().metadata_by_id()
         suggestions = suggest_hypotheses(catalog, limit=limit)
         return [
             HypothesisSuggestionType(

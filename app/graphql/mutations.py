@@ -43,13 +43,10 @@ def _category_to_gql(c: Category) -> CategorySetType:
 
 
 def _build_catalog() -> dict[str, dict]:
-    """Return ``{qualified_table: table_metadata}`` for the recipe runner.
+    """Return ``{qualified_table: table_metadata}`` for the recipe runner."""
+    from app.data_catalog import catalog
 
-    Thin wrapper over :func:`app.data_catalog.catalog_by_qualified_name`.
-    """
-    from app.data_catalog import catalog_by_qualified_name
-
-    return catalog_by_qualified_name()
+    return catalog().metadata_by_id()
 
 
 @strawberry.type
@@ -665,10 +662,10 @@ class Mutation:
     @strawberry.mutation
     def refresh_literature(self, papers_per_pair: int = 5, min_citations: int = 50) -> JSON:
         """Fetch papers and extract structured findings via the API gateway."""
-        from app.data_catalog import catalog_by_qualified_name
+        from app.data_catalog import catalog as get_catalog
         from app.literature_fetch import refresh_findings
 
-        catalog = catalog_by_qualified_name()
+        catalog = get_catalog().metadata_by_id()
         return refresh_findings(catalog, papers_per_pair=papers_per_pair, min_citations=min_citations)  # ty: ignore[invalid-return-type]
 
     # -- LLM Suggestions --
@@ -687,7 +684,7 @@ class Mutation:
 
         from shenas_transformers.core.transform import Transform
 
-        from app.data_catalog import walk_metrics_catalog, walk_source_catalog
+        from app.data_catalog import _walk_metrics, _walk_sources
         from app.graphql.llm_provider import get_llm_provider
         from shenas_datasets.core.suggest import ask_for_dataset_suggestions, validate_dataset_payload
         from shenas_plugins.core.plugin import PluginInstance
@@ -696,10 +693,10 @@ class Mutation:
         wall_start = time.monotonic()
 
         # Build catalogs
-        source_catalog = walk_source_catalog()
+        source_catalog = [meta for meta, _plugin in _walk_sources()]
         if source:
             source_catalog = [t for t in source_catalog if t.get("schema") == source]
-        existing_metrics = walk_metrics_catalog()
+        existing_metrics = [meta for meta, _plugin in _walk_metrics()]
 
         if not source_catalog:
             return {"ok": False, "error": "No source tables found", "suggestions": []}  # ty: ignore[invalid-return-type]
@@ -777,14 +774,14 @@ class Mutation:
 
         from shenas_analyses.suggestion import ask_for_analysis_suggestions, validate_analysis_payload
 
-        from app.data_catalog import walk_metrics_catalog
+        from app.data_catalog import _walk_metrics
         from app.graphql.llm_provider import get_llm_provider
         from app.hypotheses import Hypothesis
 
         provider = get_llm_provider()
         wall_start = time.monotonic()
 
-        metrics_catalog = walk_metrics_catalog()
+        metrics_catalog = [meta for meta, _plugin in _walk_metrics()]
         if not metrics_catalog:
             return {"ok": False, "error": "No metric tables found", "suggestions": []}  # ty: ignore[invalid-return-type]
 
