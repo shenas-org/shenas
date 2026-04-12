@@ -13,7 +13,7 @@ tasks:
     deps:
       - 'vendor:npm-install'
   build:
-    script: 'cd $MOON_PROJECT_SOURCE && npm run build'
+    script: 'cd $MOON_PROJECT_SOURCE && PATH="$MOON_PROJECT_SOURCE/node_modules/.bin:$PATH" npm run build'
     deps:
       - '~:npm-install'
       - 'vendor:build'
