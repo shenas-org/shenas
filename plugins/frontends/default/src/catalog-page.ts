@@ -83,17 +83,6 @@ class CatalogPage extends LitElement {
       :host {
         display: block;
       }
-      .catalog-layout {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 1rem;
-      }
-      .catalog-layout.has-detail {
-        grid-template-columns: 1fr 1fr;
-      }
-      .list-panel {
-        min-width: 0;
-      }
       .search-bar {
         display: flex;
         gap: 0.5rem;
@@ -112,10 +101,11 @@ class CatalogPage extends LitElement {
         border-radius: 4px;
       }
       .detail-panel {
+        margin: 0.5rem 0 1rem;
         padding: 1rem;
-        border-left: 1px solid var(--shenas-border, #e0e0e0);
-        overflow-y: auto;
-        max-height: 80vh;
+        border: 1px solid var(--shenas-border, #e0e0e0);
+        border-radius: 8px;
+        background: var(--shenas-bg-secondary, #fafafa);
       }
       .detail-panel h3 {
         margin: 0 0 0.8rem;
@@ -283,6 +273,14 @@ class CatalogPage extends LitElement {
       this._editSla = this._detail.freshness.slaMinutes?.toString() || "";
       this._editRowMin = this._detail.quality.expectedRowCountMin?.toString() || "";
       this._editRowMax = this._detail.quality.expectedRowCountMax?.toString() || "";
+      // Show data preview in the app-shell right panel
+      this.dispatchEvent(
+        new CustomEvent("inspect-table", {
+          bubbles: true,
+          composed: true,
+          detail: { schema: this._detail.schemaName, table: this._detail.tableName },
+        }),
+      );
     }
   }
 
@@ -354,12 +352,10 @@ class CatalogPage extends LitElement {
     if (this._loading) return html``;
     const kinds = [...new Set(this._resources.map((r) => r.kind).filter(Boolean))].sort();
     const filtered = this._filtered();
-    const hasDetail = this._expanded && this._detail;
     return html`
-      ${renderMessage(this._message)}
-      <div class="catalog-layout ${hasDetail ? "has-detail" : ""}">
-        <div class="list-panel">
-          <div class="search-bar">
+      <div>
+        ${renderMessage(this._message)}
+        <div class="search-bar">
             <input
               type="text"
               placeholder="Search resources..."
@@ -410,8 +406,7 @@ class CatalogPage extends LitElement {
             .rows=${filtered}
             empty-text="No data resources found"
           ></shenas-data-list>
-        </div>
-        ${hasDetail ? this._renderDetail(this._detail!) : nothing}
+        ${this._expanded && this._detail ? this._renderDetail(this._detail) : nothing}
       </div>
     `;
   }
