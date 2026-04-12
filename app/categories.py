@@ -69,22 +69,10 @@ class Category(Table):
         for i, v in enumerate(values):
             self.add_value(v["value"], sort_order=v.get("sortOrder", i), color=v.get("color"))
 
-    # -- lifecycle --
-
-    def destroy(self) -> None:
-        """Delete this category and all its values."""
+    def delete(self) -> None:
+        """Delete this category and cascade to its values."""
         from app.database import cursor
 
         with cursor() as cur:
             cur.execute("DELETE FROM shenas_system.category_values WHERE set_id = ?", [self.id])
-        self.delete()
-
-    # -- serialisation --
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "displayName": self.display_name,
-            "description": self.description,
-            "values": [{"value": v.value, "sortOrder": v.sort_order, "color": v.color} for v in self.values],
-        }
+        super().delete()

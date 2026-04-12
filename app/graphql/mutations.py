@@ -236,7 +236,7 @@ class Mutation:
 
         c = Category.find(set_id)
         if c:
-            c.destroy()
+            c.delete()
         return OkType.from_pydantic(OkResponse(ok=c is not None))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
