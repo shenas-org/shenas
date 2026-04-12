@@ -21,16 +21,24 @@ def _drive(coro: Any) -> Any:
 
 class TestGetRemoteToken:
     def test_returns_value_when_present(self, patch_db: None) -> None:
-        from app.db import cursor
+        from app.db import current_user_id, cursor
+        from app.local_users import LocalUser
 
         with cursor() as cur:
-            cur.execute("CREATE TABLE IF NOT EXISTS shenas_system.remote_auth (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-            cur.execute("INSERT INTO shenas_system.remote_auth VALUES ('token', 'tok-123')")
-        assert daemon._get_remote_token() == "tok-123"
+            cur.execute(
+                "INSERT INTO shenas_system.local_users (id, username, password_hash, key_salt, remote_token) "
+                "VALUES (1, 'test', '', '', 'tok-123')"
+            )
+        token = current_user_id.set(1)
+        try:
+            assert LocalUser.get_remote_token() == "tok-123"
+        finally:
+            current_user_id.reset(token)
 
-    def test_returns_none_when_table_missing(self, patch_db: None) -> None:
-        # Table never created -> exception swallowed -> None
-        assert daemon._get_remote_token() is None
+    def test_returns_none_when_no_user(self, patch_db: None) -> None:
+        from app.local_users import LocalUser
+
+        assert LocalUser.get_remote_token() is None
 
 
 class TestServerDeviceId:
@@ -74,7 +82,7 @@ class TestRunMeshDaemon:
             patch("app.mesh.transport.SyncListener", return_value=listener),
             patch("app.mesh.transport.refresh_endpoints", new=AsyncMock()) as mock_refresh,
             patch("app.mesh.sync_log.ensure_sync_tables") as mock_tables,
-            patch("app.mesh.daemon._get_remote_token", return_value=None),
+            patch("app.local_users.LocalUser.get_remote_token", return_value=None),
             patch("app.mesh.daemon._get_server_device_id", return_value=None),
             patch("asyncio.create_task", return_value=MagicMock()),
             patch("asyncio.sleep", side_effect=_no_sleep),
@@ -101,7 +109,7 @@ class TestRunMeshDaemon:
             patch("app.mesh.transport.SyncListener", return_value=listener),
             patch("app.mesh.transport.refresh_endpoints", new=AsyncMock()) as mock_refresh,
             patch("app.mesh.sync_log.ensure_sync_tables"),
-            patch("app.mesh.daemon._get_remote_token", return_value="tok"),
+            patch("app.local_users.LocalUser.get_remote_token", return_value="tok"),
             patch("app.mesh.daemon._get_server_device_id", side_effect=[None, "srv-dev"]),
             patch("app.mesh.daemon._store_server_device_id") as mock_store,
             patch("asyncio.create_task", return_value=MagicMock()),
@@ -129,7 +137,7 @@ class TestRunMeshDaemon:
             patch("app.mesh.transport.SyncListener", return_value=listener),
             patch("app.mesh.transport.refresh_endpoints", new=AsyncMock()),
             patch("app.mesh.sync_log.ensure_sync_tables"),
-            patch("app.mesh.daemon._get_remote_token", return_value="tok"),
+            patch("app.local_users.LocalUser.get_remote_token", return_value="tok"),
             patch("app.mesh.daemon._get_server_device_id", return_value="srv-dev"),
             patch("asyncio.create_task", return_value=MagicMock()),
             patch("asyncio.sleep", side_effect=_no_sleep),

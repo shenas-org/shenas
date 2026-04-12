@@ -15,30 +15,6 @@ log = logging.getLogger(f"shenas.{__name__}")
 SHENAS_NET_URL = os.environ.get("SHENAS_NET_URL", "https://shenas.net")
 
 
-def _get_remote_token() -> str | None:
-    """Look up the current user's shenas.net token.
-
-    Lazy-imports app.db to avoid circular imports at module load time.
-    An SHENAS_REMOTE_TOKEN env var wins if set (used by tests).
-    """
-    if env := os.environ.get("SHENAS_REMOTE_TOKEN"):
-        return env
-    try:
-        from app.db import current_user_id, cursor
-
-        uid = current_user_id.get()
-        if not uid:
-            return None
-        with cursor(database="shenas") as cur:
-            row = cur.execute(
-                "SELECT remote_token FROM shenas_system.local_users WHERE id = ?",
-                [uid],
-            ).fetchone()
-        return row[0] if row and row[0] else None
-    except Exception:
-        return None
-
-
 class Backend(abc.ABC):
     """One LLM provider invocation. Stateful (singletons OK)."""
 
@@ -52,7 +28,9 @@ class Backend(abc.ABC):
 
             return LlamaCppBackend.get(ModelStore.resolve(config.get("model_path")))
         if backend == "proxy":
-            token = _get_remote_token()
+            from app.local_users import LocalUser
+
+            token = LocalUser.get_remote_token()
             if not token:
                 msg = "Cloud backend requires a shenas.net account. Sign in via Settings or set backend=local."
                 raise RuntimeError(msg)

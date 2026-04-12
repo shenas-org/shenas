@@ -10,13 +10,13 @@ from app.mesh import relay_sync
 
 class TestPushToPeer:
     def test_no_token_returns_false(self) -> None:
-        with patch("app.mesh.relay_sync._get_remote_token", return_value=None):
+        with patch("app.local_users.LocalUser.get_remote_token", return_value=None):
             assert relay_sync.push_to_peer("https://srv", "peer-1", [{"a": 1}]) is False
 
     def test_success(self) -> None:
         mock_resp = MagicMock(status_code=200)
         with (
-            patch("app.mesh.relay_sync._get_remote_token", return_value="tok"),
+            patch("app.local_users.LocalUser.get_remote_token", return_value="tok"),
             patch("httpx.post", return_value=mock_resp) as mock_post,
         ):
             assert relay_sync.push_to_peer("https://srv", "peer-1", [{"a": 1}]) is True
@@ -27,14 +27,14 @@ class TestPushToPeer:
     def test_non_200(self) -> None:
         mock_resp = MagicMock(status_code=500, text="boom")
         with (
-            patch("app.mesh.relay_sync._get_remote_token", return_value="tok"),
+            patch("app.local_users.LocalUser.get_remote_token", return_value="tok"),
             patch("httpx.post", return_value=mock_resp),
         ):
             assert relay_sync.push_to_peer("https://srv", "peer-1", []) is False
 
     def test_network_error(self) -> None:
         with (
-            patch("app.mesh.relay_sync._get_remote_token", return_value="tok"),
+            patch("app.local_users.LocalUser.get_remote_token", return_value="tok"),
             patch("httpx.post", side_effect=RuntimeError("boom")),
         ):
             assert relay_sync.push_to_peer("https://srv", "peer-1", []) is False
@@ -43,7 +43,7 @@ class TestPushToPeer:
 class TestPullFromRelay:
     def test_returns_empty_when_unauthenticated(self) -> None:
         with (
-            patch("app.mesh.relay_sync._get_remote_token", return_value=None),
+            patch("app.local_users.LocalUser.get_remote_token", return_value=None),
             patch("app.mesh.relay_sync._get_device_id", return_value="dev"),
         ):
             assert relay_sync.pull_from_relay("https://srv") == []
@@ -51,7 +51,7 @@ class TestPullFromRelay:
     def test_success(self) -> None:
         mock_resp = MagicMock(status_code=200, json=lambda: [{"payload": "[]"}])
         with (
-            patch("app.mesh.relay_sync._get_remote_token", return_value="tok"),
+            patch("app.local_users.LocalUser.get_remote_token", return_value="tok"),
             patch("app.mesh.relay_sync._get_device_id", return_value="dev"),
             patch("httpx.get", return_value=mock_resp),
         ):
@@ -60,7 +60,7 @@ class TestPullFromRelay:
 
     def test_network_error(self) -> None:
         with (
-            patch("app.mesh.relay_sync._get_remote_token", return_value="tok"),
+            patch("app.local_users.LocalUser.get_remote_token", return_value="tok"),
             patch("app.mesh.relay_sync._get_device_id", return_value="dev"),
             patch("httpx.get", side_effect=RuntimeError("boom")),
         ):
@@ -101,7 +101,7 @@ class TestApplyRemoteEvents:
 class TestSyncWithPeers:
     def test_no_credentials(self) -> None:
         with (
-            patch("app.mesh.relay_sync._get_remote_token", return_value=None),
+            patch("app.local_users.LocalUser.get_remote_token", return_value=None),
             patch("app.mesh.relay_sync._get_device_id", return_value=None),
         ):
             assert relay_sync.sync_with_peers("https://srv") == {"pushed": 0, "pulled": 0}
@@ -117,7 +117,7 @@ class TestSyncWithPeers:
         push_resp = MagicMock(status_code=200)
 
         with (
-            patch("app.mesh.relay_sync._get_remote_token", return_value="tok"),
+            patch("app.local_users.LocalUser.get_remote_token", return_value="tok"),
             patch("app.mesh.relay_sync._get_device_id", return_value="self"),
             patch("httpx.get", return_value=peers_resp),
             patch("httpx.post", return_value=push_resp),
@@ -130,7 +130,7 @@ class TestSyncWithPeers:
 
     def test_peer_discovery_failure(self, patch_db: None) -> None:
         with (
-            patch("app.mesh.relay_sync._get_remote_token", return_value="tok"),
+            patch("app.local_users.LocalUser.get_remote_token", return_value="tok"),
             patch("app.mesh.relay_sync._get_device_id", return_value="self"),
             patch("httpx.get", side_effect=RuntimeError("boom")),
             patch("app.mesh.relay_sync.pull_from_relay", return_value=[]),
@@ -140,9 +140,10 @@ class TestSyncWithPeers:
 
 
 class TestGetTokenAndDeviceId:
-    def test_get_remote_token_missing_table(self, patch_db: None) -> None:
-        # No remote_auth table -- should return None gracefully via the except.
-        assert relay_sync._get_remote_token() is None
+    def test_get_remote_token_no_user(self, patch_db: None) -> None:
+        from app.local_users import LocalUser
+
+        assert LocalUser.get_remote_token() is None
 
     def test_get_device_id_missing_row(self, patch_db: None) -> None:
         # No identity row yet -- should return None.

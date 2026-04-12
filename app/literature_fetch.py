@@ -186,24 +186,6 @@ def build_search_query(cat_a: str, cat_b: str) -> str:
 # ------------------------------------------------------------------
 
 
-def _get_remote_token() -> str | None:
-    """Return the current user's remote_token, or None."""
-    try:
-        from app.db import current_user_id, cursor
-
-        uid = current_user_id.get()
-        if not uid:
-            return None
-        with cursor(database="shenas") as cur:
-            row = cur.execute(
-                "SELECT remote_token FROM shenas_system.local_users WHERE id = ?",
-                [uid],
-            ).fetchone()
-            return row[0] if row and row[0] else None
-    except Exception:
-        return None
-
-
 def refresh_findings(
     catalog: dict[str, dict[str, Any]],
     *,
@@ -224,7 +206,9 @@ def refresh_findings(
     if not categories:
         return {"pairs": 0, "papers_fetched": 0, "findings_extracted": 0, "skipped": 0, "duplicates": 0}
 
-    token = _get_remote_token()
+    from app.local_users import LocalUser
+
+    token = LocalUser.get_remote_token()
     if not token:
         msg = "Literature refresh requires a shenas.net account. Sign in via Settings to use this feature."
         raise RuntimeError(msg)

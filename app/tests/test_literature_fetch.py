@@ -177,7 +177,7 @@ def test_refresh_findings_no_token():
     }
 
     with (
-        patch("app.literature_fetch._get_remote_token", return_value=None),
+        patch("app.local_users.LocalUser.get_remote_token", return_value=None),
         pytest.raises(RuntimeError, match=r"shenas\.net account"),
     ):
         refresh_findings(catalog)
@@ -213,7 +213,7 @@ def test_refresh_findings_success():
     mock_resp.__exit__ = MagicMock(return_value=False)
 
     with (
-        patch("app.literature_fetch._get_remote_token", return_value="tok_123"),
+        patch("app.local_users.LocalUser.get_remote_token", return_value="tok_123"),
         patch("app.literature_fetch.urllib.request.urlopen", return_value=mock_resp),
     ):
         stats = refresh_findings(

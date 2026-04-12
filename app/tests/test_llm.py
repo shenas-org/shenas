@@ -181,13 +181,13 @@ class TestBackendFactory:
 
     def test_proxy_without_token_raises(self) -> None:
         with (
-            patch("app.llm.backends._get_remote_token", return_value=None),
+            patch("app.local_users.LocalUser.get_remote_token", return_value=None),
             pytest.raises(RuntimeError, match=r"shenas\.net account"),
         ):
             Backend.from_config({"backend": "proxy"})
 
     def test_proxy_with_token_creates_backend(self) -> None:
-        with patch("app.llm.backends._get_remote_token", return_value="tok-123"):
+        with patch("app.local_users.LocalUser.get_remote_token", return_value="tok-123"):
             backend = Backend.from_config({"backend": "proxy"})
         assert isinstance(backend, ShenasProxyBackend)
         assert "shenas-net@" in backend.name
