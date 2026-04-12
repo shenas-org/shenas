@@ -212,12 +212,21 @@ class LocalUser(Table):
             db.close()
 
     def _ensure_me_entity(self) -> None:
-        """Create the 'me' entity in the user DB if it doesn't exist yet."""
-        from app.entities import Entity
+        """Create the 'me' entity and device entity if they don't exist yet."""
+        import platform
 
-        existing = Entity.all(where="type = 'human' AND name = ?", params=[self.username], limit=1)
-        if not existing:
-            Entity.create(name=self.username, type="human", description="Me")
+        from app.entities import Entity, EntityRelationship
+
+        # Ensure "me" human entity
+        me_list = Entity.all(where="type = 'human' AND name = ?", params=[self.username], limit=1)
+        me = me_list[0] if me_list else Entity.create(name=self.username, type="human", description="Me")
+
+        # Ensure device entity for this machine
+        device_name = platform.node() or "unknown"
+        device_list = Entity.all(where="type = 'device' AND name = ?", params=[device_name], limit=1)
+        if not device_list:
+            device = Entity.create(name=device_name, type="device", description="This device")
+            EntityRelationship(from_uuid=me.uuid, to_uuid=device.uuid, type="uses").upsert()
 
     @classmethod
     def current_db(cls) -> DB:
