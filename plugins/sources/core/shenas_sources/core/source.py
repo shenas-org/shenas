@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-from app.plugin import Plugin
-from shenas_sources.core.base_auth import SourceAuth
-from shenas_sources.core.base_config import SourceConfig
+from shenas_plugins.core.base_auth import SourceAuth
+from shenas_plugins.core.base_config import SourceConfig
+from shenas_plugins.core.plugin import Plugin
 
 logger = logging.getLogger("shenas.sources")
 
@@ -247,17 +247,45 @@ class Source(Plugin):
                 lock.release()
 
     def _mark_synced(self) -> None:
-        """Update the synced_at timestamp in the plugin state table and data catalog."""
+        """Update the synced_at timestamp in the plugin state table."""
         try:
             self.get_or_create_instance().mark_synced()
         except Exception:
             logger.exception("Failed to update synced_at for %s", self.name)
-        try:
-            from app.data_catalog import catalog
 
-            catalog().mark_refreshed(self.name)
+    def dataset_name(self) -> str:
+        """Return the DuckDB schema this source's raw data should land in.
+
+        Scoped to the current entity via the ``current_entity_uuid``
+        contextvar. The primary entity (the current user's own
+        ``LocalUser`` row) keeps the bare ``<source>`` schema name for
+        backwards compatibility; other entities use
+        ``<source>__e<uuid8>`` where ``uuid8`` is the first 8 hex chars
+        of the entity's UUID. Never returns an empty string.
+        """
+        try:
+            from app.db import current_entity_uuid
+        except ImportError:
+            return self.name
+        target = current_entity_uuid.get()
+        if not target:
+            return self.name
+        # If the target matches the current user's primary entity, also
+        # use the bare schema so existing data layout is preserved.
+        try:
+            from app.local_users import LocalUser
+
+            me = LocalUser.current_db()  # noqa: F841 -- ensures attached
+            from app.db import current_user_id
+
+            user_id = current_user_id.get()
+            primary = LocalUser.get_by_id(int(user_id)) if user_id else None
+            if primary is not None and primary.uuid == target:
+                return self.name
         except Exception:
             pass
+        suffix = target[:8]
+        return f"{self.name}__e{suffix}"
 
     def sync(
         self,
@@ -277,16 +305,17 @@ class Source(Plugin):
 
         client = self.build_client()
         res = self.resources(client)
-        run_sync(self.name, self.name, res, full_refresh, self._auto_transform, on_progress=on_progress)
-        # Refresh AS-OF macros for any SCD2 tables in this source's schema.
+        dataset = self.dataset_name()
+        run_sync(self.name, dataset, res, full_refresh, self._auto_transform, on_progress=on_progress)
+        # Refresh AS-OF macros for any SCD2 tables in the dataset schema.
         try:
             con = connect()
             try:
-                apply_as_of_macros(con, self.name)
+                apply_as_of_macros(con, dataset)
             finally:
                 con.close()
         except Exception:
-            logger.exception("Failed to refresh AS-OF macros for %s", self.name)
+            logger.exception("Failed to refresh AS-OF macros for %s", dataset)
         self._mark_synced()
         self._log_sync_event(full_refresh)
 
@@ -380,20 +409,21 @@ class Source(Plugin):
 
     def _auto_transform(self) -> None:
         """Seed and run transforms via the Transform plugin system."""
-        from shenas_transformers.core import Transformer
-        from shenas_transformers.core.transform import Transform
+        from shenas_transformations.core import Transform
+        from shenas_transformations.core.instance import TransformInstance
 
+        from app.api.sources import _load_plugins
         from shenas_sources.core.db import connect
 
         con = connect()
 
-        for cls in Transformer.load_all():
+        for cls in _load_plugins("transformation", base=Transform, include_internal=True):
             plugin = cls()
             inst = plugin.instance()
             if not inst or inst.enabled:
                 plugin.seed_defaults_for_source(self.name)
 
-        count = Transform.run_for_source(con, self.name)
+        count = TransformInstance.run_for_source(con, self.name)
         logger.info("Transforms done: %s (%d)", self.name, count)
 
     # -- Auth flow ------------------------------------------------------------
@@ -476,7 +506,7 @@ class Source(Plugin):
 
 def _get_field_meta(f: dataclasses.Field) -> dict[str, Any]:  # type: ignore[type-arg]
     """Extract Field metadata from an Annotated dataclass field."""
-    from app.table import Field
+    from shenas_plugins.core.table import Field
 
     hints = getattr(f.type, "__metadata__", ()) if hasattr(f.type, "__metadata__") else ()
     # Unwrap Optional[Annotated[...]]
