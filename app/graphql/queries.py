@@ -9,133 +9,59 @@ from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawb
 
 from app.graphql.types import (
     AuthFieldsType,
-    CategorySetType,
-    CategoryValueType,
-    ColumnInfoType,
-    DashboardType,
-    DataResourceType,
     DBStatusType,
-    DependencyEdge,
-    FindingType,
-    FreshnessInfoType,
-    HypothesisSuggestionType,
-    HypothesisType,
-    ModelInfoType,
-    ParamFieldType,
+    EntityRelationshipTypeType,
+    EntityTypeType,
     PluginInfoType,
-    QualityCheckType,
-    QualityInfoType,
     ScheduleInfoType,
-    SuggestedAnalysisType,
-    SuggestedDatasetType,
     TableEntry,
     ThemeInfo,
-    TimeColumnsInfoType,
-    TransformerInfoType,
     TransformType,
+)
+from app.graphql.types import (
+    EntityRelationshipType as GqlEntityRelationshipType,
+)
+from app.graphql.types import (
+    EntityType as GqlEntityType,
 )
 
 if TYPE_CHECKING:
-    from shenas_transformers.core.transform import Transform
-
-    from app.data_catalog import DataResource
-    from app.plugin import Plugin
+    from shenas_transformations.core.instance import TransformInstance
 
 
-def _plugin_to_gql(plugin: Plugin) -> PluginInfoType:
-    from app.models import PluginInfo
-
-    return PluginInfoType.from_pydantic(  # ty: ignore[unresolved-attribute]
-        PluginInfo(
-            name=plugin.name,
-            display_name=getattr(plugin, "display_name", plugin.name),
-            description=getattr(plugin, "description", ""),
-        ),
+def _entity_row_to_gql(row: Any, *, is_me: bool = False) -> GqlEntityType:
+    return GqlEntityType(
+        uuid=getattr(row, "uuid", "") or "",
+        type=getattr(row, "type", "human") or "human",
+        name=getattr(row, "name", "") or "",
+        description=getattr(row, "description", "") or "",
+        status=getattr(row, "status", "enabled") or "enabled",
+        birth_year=getattr(row, "birth_year", None),
+        added_at=str(getattr(row, "added_at", None)) if getattr(row, "added_at", None) else None,
+        updated_at=str(getattr(row, "updated_at", None)) if getattr(row, "updated_at", None) else None,
+        is_me=is_me,
     )
 
 
-def _data_resource_to_gql(r: DataResource) -> DataResourceType:
-    return DataResourceType(
-        id=r.id,
-        schema_name=r.ref.schema,
-        table_name=r.ref.table,
-        display_name=r.display_name,
-        description=r.effective_description,
-        plugin=_plugin_to_gql(r.plugin),
-        kind=r.kind,
-        query_hint=r.query_hint,
-        as_of_macro=r.as_of_macro,
-        primary_key=r.primary_key,
-        columns=[
-            ColumnInfoType(
-                name=c.name,
-                db_type=c.db_type,
-                nullable=c.nullable,
-                description=c.description,
-                unit=c.unit,
-                value_range=list(c.value_range) if c.value_range else None,
-                example_value=c.example_value,
-                interpretation=c.interpretation,
-            )
-            for c in r.columns
-        ],
-        time_columns=TimeColumnsInfoType(
-            time_at=r.time_columns.time_at,
-            time_start=r.time_columns.time_start,
-            time_end=r.time_columns.time_end,
-            cursor_column=r.time_columns.cursor_column,
-            observed_at_injected=r.time_columns.observed_at_injected,
-        ),
-        freshness=FreshnessInfoType(
-            last_refreshed=r.last_refreshed,
-            sla_minutes=r.freshness_sla_minutes,
-            is_stale=r.is_stale,
-        ),
-        quality=QualityInfoType(
-            expected_row_count_min=r.expected_row_count_min,
-            expected_row_count_max=r.expected_row_count_max,
-            actual_row_count=r.actual_row_count,
-            latest_checks=[
-                QualityCheckType(
-                    check_type=c.check_type,
-                    status=c.status,
-                    message=c.message,
-                    value=c.value,
-                    checked_at=c.checked_at,
-                )
-                for c in r.quality_checks
-            ],
-        ),
-        user_notes=r.user_notes,
-        tags=r.tags,
-        upstream_transforms=[_transform_to_gql(t) for t in r.upstream_transforms]
-        if r.upstream_transforms is not None
-        else None,
-        downstream_transforms=[_transform_to_gql(t) for t in r.downstream_transforms]
-        if r.downstream_transforms is not None
-        else None,
+def _entity_rel_to_gql(row: Any) -> GqlEntityRelationshipType:
+    return GqlEntityRelationshipType(
+        from_uuid=row.from_uuid,
+        to_uuid=row.to_uuid,
+        type=row.type,
+        description=row.description or "",
+        added_at=str(row.added_at) if row.added_at else None,
+        updated_at=str(row.updated_at) if row.updated_at else None,
     )
 
 
-def _transform_to_gql(
-    t: Transform,
-    *,
-    resource_map: dict[str, Any] | None = None,
-) -> TransformType:
-    if resource_map:
-        source_r = resource_map[t.source_ref.id]
-        target_r = resource_map[t.target_ref.id]
-    else:
-        from app.data_catalog import catalog
-
-        source_r = catalog().get_resource(t.source_ref.id)
-        target_r = catalog().get_resource(t.target_ref.id)
-
+def _transform_to_gql(t: TransformInstance) -> TransformType:
     return TransformType(
         id=t.id,
         transform_type=t.transform_type,
-        source=_data_resource_to_gql(source_r),
-        target=_data_resource_to_gql(target_r),
+        source_duckdb_schema=t.source_duckdb_schema,
+        source_duckdb_table=t.source_duckdb_table,
+        target_duckdb_schema=t.target_duckdb_schema,
+        target_duckdb_table=t.target_duckdb_table,
         source_plugin=t.source_plugin,
         params=t.params or "{}",
         description=t.description or "",
@@ -153,7 +79,7 @@ class Query:
 
     @strawberry.field
     def tables(self) -> list[TableEntry]:
-        from app.database import cursor
+        from app.db import cursor
 
         with cursor() as cur:
             rows = cur.execute(
@@ -177,10 +103,10 @@ class Query:
 
     @strawberry.field
     def config_value(self, kind: str, name: str, key: str) -> str | None:
-        from app.plugin import Plugin
+        from app.api.sources import _load_plugin
 
         try:
-            cls = Plugin.load_by_name_and_kind(name, kind)
+            cls = _load_plugin(kind, name)
             if not cls:
                 return None
             val = cls().get_config_value(key)
@@ -228,12 +154,13 @@ class Query:
     @strawberry.field
     def plugin_kinds(self) -> JSON:
         """Return all discovered plugin kinds with display labels, ordered by label."""
-        from app.plugin import VALID_KINDS, Plugin
+        from app.api.sources import _load_plugins
+        from shenas_plugins.core.plugin import VALID_KINDS, Plugin
 
         plural_map: dict[str, str] = {}
         for kind in VALID_KINDS:
             try:
-                for cls in Plugin.load_by_kind(kind):
+                for cls in _load_plugins(kind, base=Plugin):
                     plural = getattr(cls, "display_name_plural", None)
                     if plural:
                         plural_map[kind] = plural
@@ -247,7 +174,7 @@ class Query:
     @strawberry.field
     def plugins(self, kind: str) -> list[PluginInfoType]:
         from app.models import ConfigEntry, PluginInfo
-        from app.plugin import Plugin
+        from shenas_plugins.core.plugin import Plugin
 
         items = []
         for pi in Plugin.list_installed(kind):
@@ -288,9 +215,9 @@ class Query:
 
     @strawberry.field
     def plugin_info(self, kind: str, name: str) -> JSON:
-        from app.plugin import Plugin
+        from app.api.sources import _load_plugin, _load_plugin_fresh
 
-        cls = Plugin.load_by_name_and_kind(name, kind) or Plugin._load_fresh(kind, name)
+        cls = _load_plugin(kind, name) or _load_plugin_fresh(kind, name)
         if not cls:
             return {"name": name, "kind": kind, "display_name": name.replace("-", " ").title()}  # ty: ignore[invalid-return-type]
         return cls().get_info()  # ty: ignore[invalid-return-type]
@@ -302,7 +229,7 @@ class Query:
         from html.parser import HTMLParser
         from urllib.request import urlopen
 
-        from app.plugin import DEFAULT_INDEX
+        from shenas_plugins.core.plugin import DEFAULT_INDEX
 
         prefix = f"shenas-{kind}-"
         try:
@@ -329,11 +256,12 @@ class Query:
 
     @strawberry.field
     def sync_schedule(self) -> list[ScheduleInfoType]:
+        from app.api.sources import _load_plugins
         from app.models import ScheduleInfo
         from shenas_sources.core.source import Source
 
         result = []
-        for cls in Source.load_all(include_internal=False):
+        for cls in _load_plugins("source", base=Source, include_internal=False):
             src = cls()
             freq = src.sync_frequency
             if freq is None:
@@ -356,130 +284,18 @@ class Query:
     # -- Transforms --
 
     @strawberry.field
-    def transform_types(self) -> list[TransformerInfoType]:
-        """Return available transformer plugin types with their param schemas."""
-        from importlib.metadata import entry_points
+    def transforms(self, source: str | None = None) -> list[TransformType]:
+        from shenas_transformations.core.instance import TransformInstance
 
-        result = []
-        for ep in entry_points(group="shenas.transformers"):
-            try:
-                cls = ep.load()
-                inst = cls()
-                schema = inst.param_schema() if hasattr(inst, "param_schema") else []
-                result.append(
-                    TransformerInfoType(
-                        name=ep.name,
-                        display_name=getattr(inst, "display_name", ep.name),
-                        description=getattr(inst, "description", ""),
-                        param_schema=[
-                            ParamFieldType(
-                                name=p["name"],
-                                label=p.get("label", ""),
-                                type=p.get("type", "text"),
-                                required=p.get("required", False),
-                                description=p.get("description", ""),
-                                default=str(p["default"]) if p.get("default") is not None else None,
-                                options=p.get("options"),
-                            )
-                            for p in schema
-                        ],
-                    )
-                )
-            except Exception:
-                pass
-        return sorted(result, key=lambda x: x.display_name)
-
-    # -- Categories --
-
-    @strawberry.field
-    def category_sets(self) -> list[CategorySetType]:
-        """Return all category sets with their values."""
-        from app.categories import Category
-
-        return [
-            CategorySetType(
-                id=c.id,
-                display_name=c.display_name,
-                description=c.description,
-                values=[CategoryValueType(value=v.value, sort_order=v.sort_order, color=v.color) for v in c.values],
-            )
-            for c in Category.all(order_by="display_name")
-        ]
-
-    @strawberry.field
-    def category_set(self, set_id: str) -> CategorySetType | None:
-        """Return a single category set with values."""
-        from app.categories import Category
-
-        c = Category.find(set_id)
-        if not c:
-            return None
-        return CategorySetType(
-            id=c.id,
-            display_name=c.display_name,
-            description=c.description,
-            values=[CategoryValueType(value=v.value, sort_order=v.sort_order, color=v.color) for v in c.values],
-        )
-
-    # -- Table introspection --
-
-    @strawberry.field
-    def table_columns(self, schema: str, table: str) -> list[str]:
-        """Return column names for a DuckDB table."""
-        from app.database import cursor
-
-        with cursor() as cur:
-            rows = cur.execute(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position",
-                [schema, table],
-            ).fetchall()
-        return [r[0] for r in rows]
-
-    @strawberry.field
-    async def transforms(self, info: strawberry.types.Info, source: str | None = None) -> list[TransformType]:
-        from shenas_transformers.core.transform import Transform
-
-        rows = Transform.for_plugin(source) if source else Transform.all(order_by="id")
-        resource_ids = list({ref for t in rows for ref in (t.source_ref.id, t.target_ref.id)})
-        resources = await info.context["resource_loader"].load_many(resource_ids)
-        resource_map = dict(zip(resource_ids, resources, strict=True))
-        return [_transform_to_gql(t, resource_map=resource_map) for t in rows]
+        rows = TransformInstance.for_plugin(source) if source else TransformInstance.all(order_by="id")
+        return [_transform_to_gql(t) for t in rows]
 
     @strawberry.field
     def transform(self, transform_id: int) -> TransformType | None:
-        from shenas_transformers.core.transform import Transform
+        from shenas_transformations.core.instance import TransformInstance
 
-        t = Transform.find(transform_id)
+        t = TransformInstance.find(transform_id)
         return _transform_to_gql(t) if t else None
-
-    # -- Data Catalog --
-
-    @strawberry.field
-    async def data_resources(
-        self,
-        info: strawberry.types.Info,
-        kind: str | None = None,
-        plugin: str | None = None,
-        tags: str | None = None,
-        stale_only: bool = False,
-    ) -> list[DataResourceType]:
-        from app.data_catalog import catalog
-
-        resources = catalog().list_resources(
-            kind=kind, plugin=plugin, tags=tags, stale_only=stale_only, include_row_counts=False
-        )
-        counts = await info.context["row_count_loader"].load_many([r.id for r in resources])
-        for r, count in zip(resources, counts, strict=True):
-            r.actual_row_count = count
-        return [_data_resource_to_gql(r) for r in resources]
-
-    @strawberry.field
-    def data_resource(self, resource_id: str) -> DataResourceType | None:
-        from app.data_catalog import catalog
-
-        r = catalog().get(resource_id)
-        return _data_resource_to_gql(r) if r else None
 
     # -- Theme --
 
@@ -498,40 +314,37 @@ class Query:
     def hotkeys(self, info: strawberry.types.Info) -> JSON:  # noqa: ARG002
         from app.hotkeys import Hotkey
 
-        return {h.action_id: h.binding for h in Hotkey.all(order_by="action_id")}  # ty: ignore[invalid-return-type]
+        return Hotkey.get_all()  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def workspace(self, info: strawberry.types.Info) -> JSON:  # noqa: ARG002
-        import json
-
         from app.workspace import Workspace
 
-        raw = Workspace.read_value("state")
-        return json.loads(raw) if raw else {}  # ty: ignore[invalid-return-type]
+        return Workspace.get()  # ty: ignore[invalid-return-type]
 
     @strawberry.field
-    def dashboards(self) -> list[DashboardType]:
-        from app.plugin import PluginInstance
-        from shenas_dashboards.core import Dashboard
+    def dashboards(self) -> JSON:
+        from app.api.sources import _load_dashboards
+        from shenas_plugins.core.plugin import PluginInstance
 
         result = []
-        for c in Dashboard.load_all(include_internal=False):
+        for c in _load_dashboards(include_internal=False):
             inst = PluginInstance.find("dashboard", c.name)
             if inst is not None and not inst.enabled:
                 continue
             result.append(
-                DashboardType(
-                    name=c.name,
-                    display_name=c.display_name,
-                    tag=c.tag,
-                    js=f"/dashboards/{c.name}/{c.entrypoint}",
-                    description=c.description,
-                )
+                {
+                    "name": c.name,
+                    "display_name": c.display_name,
+                    "tag": c.tag,
+                    "js": f"/dashboards/{c.name}/{c.entrypoint}",
+                    "description": c.description,
+                }
             )
-        return result
+        return result  # ty: ignore[invalid-return-type]
 
     @strawberry.field
-    def dependencies(self) -> list[DependencyEdge]:
+    def dependencies(self) -> JSON:
         from importlib.metadata import distributions
 
         prefixes = {
@@ -564,45 +377,38 @@ class Query:
                         deps.append(f"{dep_kind}:{req_name.removeprefix(dep_prefix)}")
             if deps:
                 result[f"{kind}:{plugin_name}"] = deps
-        return [DependencyEdge(source=k, targets=v) for k, v in result.items()]
+        return result  # ty: ignore[invalid-return-type]
 
     # -- Models --
 
     @strawberry.field
-    def models(self) -> list[ModelInfoType]:
-        from shenas_models.core import Model
+    def models(self) -> JSON:
+        from shenas_models.core import Model  # ty: ignore[unresolved-import]
 
-        result = []
-        for cls in Model.load_all(include_internal=False):
-            info = cls().get_info()
-            result.append(
-                ModelInfoType(
-                    name=info.get("name", cls.name),
-                    display_name=info.get("display_name", cls.name),
-                    description=info.get("description", ""),
-                    version=info.get("version", ""),
-                    enabled=info.get("enabled", True),
-                )
-            )
-        return sorted(result, key=lambda x: x.name)
+        from app.api.sources import _load_plugins
+
+        return sorted(  # ty: ignore[invalid-return-type]
+            [cls().get_info() for cls in _load_plugins("model", base=Model, include_internal=False)],
+            key=lambda x: x["name"],
+        )
 
     @strawberry.field
     def model_status(self, name: str) -> JSON:
-        from shenas_models.core import Model
+        from app.api.sources import _load_plugin
 
-        cls = Model.load_by_name(name)
+        cls = _load_plugin("model", name)
         if not cls:
             return {"name": name, "available": False, "round": None}  # ty: ignore[invalid-return-type]
-        return cls().training_status  # ty: ignore[invalid-return-type]
+        return cls().training_status  # ty: ignore[unresolved-attribute]
 
     @strawberry.field
     def model_predict(self, name: str) -> JSON:
-        from shenas_models.core import Model
+        from app.api.sources import _load_plugin
 
-        cls = Model.load_by_name(name)
+        cls = _load_plugin("model", name)
         if not cls:
             return None  # ty: ignore[invalid-return-type]
-        return cls().predict()  # ty: ignore[invalid-return-type]
+        return cls().predict()  # ty: ignore[unresolved-attribute]
 
     # -- Analytics catalog --
     #
@@ -615,105 +421,45 @@ class Query:
     # excluded -- they are not joinable analytical inputs.
 
     @strawberry.field
-    def catalog(self) -> list[DataResourceType]:
-        """Return all queryable source / metric tables as DataResourceType.
+    def catalog(self) -> JSON:
+        """Return ``[table_metadata]`` for every queryable source / metric table.
 
-        Equivalent to dataResources but without row counts for performance.
-        Used by the LLM prompt builder.
+        Thin wrapper over :func:`app.analytics_catalog.walk_catalog`,
+        which both this query and the recipe runner share.
         """
-        from app.data_catalog import catalog
+        from app.analytics_catalog import walk_catalog
 
-        return [_data_resource_to_gql(r) for r in catalog().list_resources(include_row_counts=False)]
+        return walk_catalog()  # ty: ignore[invalid-return-type]
 
     # -- Analysis modes --
 
     @strawberry.field
     def analysis_modes(self) -> JSON:
         """Return metadata for all registered analysis modes."""
-        from shenas_analyses.core import Analysis
-        from shenas_analyses.core.analytics.mode import list_modes
+        from app.api.sources import _discover_analyses
+        from shenas_plugins.core.analytics.mode import list_modes
 
-        Analysis.discover()
+        _discover_analyses()
         return list_modes()  # ty: ignore[invalid-return-type]
 
     # -- Literature --
 
     @strawberry.field
-    def literature_findings(self, limit: int | None = None) -> list[FindingType]:
+    def literature_findings(self, limit: int | None = None) -> JSON:
         """Return stored literature findings."""
-        from app.finding import Finding
+        from app.literature import Finding
 
         rows = Finding.all(order_by="id DESC", limit=limit)
-        return [_finding_to_gql(f) for f in rows]
+        return [f.to_prompt_line() for f in rows]  # ty: ignore[invalid-return-type]
 
     @strawberry.field
-    def suggested_hypotheses(self, limit: int = 10) -> list[HypothesisSuggestionType]:
+    def suggested_hypotheses(self, limit: int = 10) -> JSON:
         """Return proactive hypothesis suggestions from literature cross-referenced with installed data."""
-        from app.data_catalog import catalog as get_catalog
-        from app.finding import Finding
+        from app.analytics_catalog import catalog_by_qualified_name
+        from app.literature import suggest_hypotheses
 
-        catalog = get_catalog().metadata_by_id()
-        suggestions = Finding.suggest_hypotheses(catalog, limit=limit)
-        return [
-            HypothesisSuggestionType(
-                question=s.question,
-                rationale=s.rationale,
-                datasets_involved=s.datasets_involved,
-                complexity=getattr(s, "complexity", ""),
-                score=getattr(s, "score", 0.0),
-            )
-            for s in suggestions
-        ]
-
-    # -- Hypotheses --
-    #
-    # Read-only listing + single fetch over the Hypothesis system table.
-    # The mutations that create / run / promote hypotheses live in
-    # app/graphql/mutations.py.
-
-    # -- Suggestions --
-    #
-    # Read-only listing of LLM-suggested datasets, transforms, and analyses.
-
-    @strawberry.field
-    def suggested_datasets(self) -> list[SuggestedDatasetType]:
-        """Return all suggested (not yet accepted) datasets."""
-        from app.plugin import PluginInstance
-
-        return [
-            SuggestedDatasetType(
-                name=pi.name,
-                is_suggested=bool(pi.is_suggested),
-                enabled=bool(pi.enabled),
-                table_name=(pi.metadata or {}).get("table_name"),
-                grain=(pi.metadata or {}).get("grain"),
-                title=(pi.metadata or {}).get("title"),
-            )
-            for pi in PluginInstance.suggested("dataset")
-        ]
-
-    @strawberry.field
-    def suggested_transforms(self, source: str | None = None) -> list[TransformType]:
-        """Return all suggested (not yet accepted) transforms."""
-        from shenas_transformers.core.transform import Transform
-
-        return [_transform_to_gql(t) for t in Transform.suggested(source)]
-
-    @strawberry.field
-    def suggested_analyses(self) -> list[SuggestedAnalysisType]:
-        """Return all suggested (not yet accepted) analysis hypotheses."""
-        from app.hypotheses import Hypothesis
-
-        return [
-            SuggestedAnalysisType(
-                id=h.id,
-                question=h.question,
-                rationale=h.plan or "",
-                datasets_involved=(h.inputs or "").split(",") if h.inputs else [],  # ty: ignore[invalid-argument-type]
-                complexity=h.mode or "",
-            )
-            for h in Hypothesis.suggested()
-        ]
+        catalog = catalog_by_qualified_name()
+        return [s.model_dump() for s in suggest_hypotheses(catalog, limit=limit)]  # ty: ignore[invalid-return-type]
 
     # -- Hypotheses --
     #
@@ -722,62 +468,134 @@ class Query:
     # app/graphql/mutations.py.
 
     @strawberry.field
-    def hypotheses(self, limit: int | None = None) -> list[HypothesisType]:
+    def hypotheses(self, limit: int | None = None) -> JSON:
         """Return every hypothesis row, most recent first."""
         from app.hypotheses import Hypothesis
 
-        return [_hypothesis_to_gql(h) for h in Hypothesis.all(order_by="created_at DESC", limit=limit)]
+        return [_hypothesis_to_dict(h) for h in Hypothesis.all(order_by="created_at DESC", limit=limit)]  # ty: ignore[invalid-return-type]
 
     @strawberry.field
-    def hypothesis(self, hypothesis_id: int) -> HypothesisType | None:
+    def hypothesis(self, hypothesis_id: int) -> JSON:
         """Return one hypothesis by id, or ``None`` if not found."""
         from app.hypotheses import Hypothesis
 
         h = Hypothesis.find(hypothesis_id)
-        return _hypothesis_to_gql(h) if h else None
+        return _hypothesis_to_dict(h) if h else None  # ty: ignore[invalid-return-type]
+
+    # -- Entities ------------------------------------------------------------
+
+    @strawberry.field
+    def entity_types(self) -> list[EntityTypeType]:
+        """Return every seeded entity type (human, animal, residence, ...)."""
+        from app.entities import EntityType
+
+        return [
+            EntityTypeType(
+                name=t.name,
+                display_name=t.display_name or t.name,
+                description=t.description or "",
+                icon=t.icon or "",
+                is_human=bool(t.is_human),
+            )
+            for t in EntityType.all(order_by="name")
+        ]
+
+    @strawberry.field
+    def entity_relationship_types(self) -> list[EntityRelationshipTypeType]:
+        """Return every seeded relationship type."""
+        from app.entities import EntityRelationshipType
+
+        return [
+            EntityRelationshipTypeType(
+                name=t.name,
+                display_name=t.display_name or t.name,
+                description=t.description or "",
+                inverse_name=t.inverse_name,
+                is_symmetric=bool(t.is_symmetric),
+            )
+            for t in EntityRelationshipType.all(order_by="name")
+        ]
+
+    @strawberry.field
+    def entities(self, info: strawberry.types.Info, status: str | None = None) -> list[GqlEntityType]:
+        """Return every entity in the current user's graph.
+
+        Includes the current user's ``LocalUser`` row (marked ``isMe``) so
+        the frontend has a single unified list for the ego graph.
+        """
+        from app.entities import Entity, current_entity
+
+        rows = Entity.all(
+            where="status = ?" if status else None,
+            params=[status] if status else None,
+            order_by="added_at",
+        )
+        result = [_entity_row_to_gql(r) for r in rows]
+        me = current_entity(info)
+        if me is not None and me.uuid:
+            result.insert(0, _entity_row_to_gql(me, is_me=True))
+        return result
+
+    @strawberry.field
+    def entity(self, info: strawberry.types.Info, uuid: str | None = None) -> GqlEntityType | None:
+        """Return one entity by UUID, defaulting to "me" when omitted."""
+        from app.entities import Entity, current_entity
+
+        if not uuid:
+            me = current_entity(info)
+            return _entity_row_to_gql(me, is_me=True) if me is not None else None
+        row = Entity.find_by_uuid(uuid)
+        if row is not None:
+            return _entity_row_to_gql(row)
+        # Maybe the uuid is the current user's LocalUser.
+        me = current_entity(info)
+        if me is not None and me.uuid == uuid:
+            return _entity_row_to_gql(me, is_me=True)
+        return None
+
+    @strawberry.field
+    def my_entity(self, info: strawberry.types.Info) -> GqlEntityType | None:
+        """Return the current user's ``LocalUser`` shaped as an entity."""
+        from app.entities import current_entity
+
+        me = current_entity(info)
+        return _entity_row_to_gql(me, is_me=True) if me is not None else None
+
+    @strawberry.field
+    def entity_relationships(
+        self,
+        info: strawberry.types.Info,
+        entity_uuid: str | None = None,
+    ) -> list[GqlEntityRelationshipType]:
+        """Return every relationship touching the given entity (default: me)."""
+        from app.entities import EntityRelationship, current_entity
+
+        target = entity_uuid
+        if not target:
+            me = current_entity(info)
+            target = me.uuid if me is not None else None
+        if not target:
+            return []
+        return [_entity_rel_to_gql(r) for r in EntityRelationship.for_entity(target)]
 
 
-def _hypothesis_to_gql(h: Any) -> HypothesisType:
-    return HypothesisType(
-        id=h.id,
-        question=h.question,
-        plan=h.plan,
-        recipe_json=h.recipe_json or "",
-        inputs=h.inputs,
-        result_json=h.result_json,
-        interpretation=h.interpretation,
-        created_at=str(h.created_at) if h.created_at else None,
-        model=h.model,
-        promoted_to=h.promoted_to,
-        llm_input_tokens=h.llm_input_tokens,
-        llm_output_tokens=h.llm_output_tokens,
-        llm_elapsed_ms=h.llm_elapsed_ms,
-        query_elapsed_ms=h.query_elapsed_ms,
-        wall_clock_ms=h.wall_clock_ms,
-        mode=h.mode,
-        parent_id=getattr(h, "parent_id", None),
-        is_suggested=getattr(h, "is_suggested", None),
-    )
-
-
-def _finding_to_gql(f: Any) -> FindingType:
-    return FindingType(
-        id=f.id,
-        exposure=f.exposure,
-        outcome=f.outcome,
-        direction=f.direction or "",
-        effect_size=f.effect_size,
-        ci_low=f.ci_low,
-        ci_high=f.ci_high,
-        evidence_level=f.evidence_level,
-        sample_size=f.sample_size,
-        mechanism=f.mechanism,
-        citation=f.citation or "",
-        doi=f.doi,
-        exposure_categories=f.exposure_categories,
-        outcome_categories=f.outcome_categories,
-        source_ref=f.source_ref,
-    )
+def _hypothesis_to_dict(h: Any) -> dict[str, Any]:
+    """Serialize a Hypothesis row to a JSON-friendly dict for GraphQL."""
+    result = h.result()
+    return {
+        "id": h.id,
+        "question": h.question,
+        "plan": h.plan or "",
+        "inputs": (h.inputs or "").split(",") if h.inputs else [],
+        "interpretation": h.interpretation or "",
+        "model": h.model or "",
+        "mode": h.mode or "hypothesis",
+        "promoted_to": h.promoted_to,
+        "parent_id": getattr(h, "parent_id", None),
+        "created_at": str(h.created_at) if h.created_at else None,
+        "recipe": _safe_json_load(h.recipe_json),
+        "result": result.model_dump() if result is not None else None,
+    }
 
 
 def _safe_json_load(s: str) -> Any:
