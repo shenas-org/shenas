@@ -275,6 +275,7 @@ logos-generate:
 		rsvg-convert -w $$s -h $$s $$MARK -o app/mobile/src-tauri/icons/$${s}x$${s}.png; \
 	done; \
 	rsvg-convert -w 512 -h 512 $$MARK -o app/desktop/src-tauri/icons/icon.png; \
+	convert app/desktop/src-tauri/icons/256x256.png -define icon:auto-resize=256,128,64,48,32,16 app/desktop/src-tauri/icons/icon.ico; \
 	rsvg-convert -w 512 -h 512 $$MARK -o app/mobile/src-tauri/icons/icon.png; \
 	rsvg-convert -w 512 -h 512 $$SVG -o server/shenas.net/public/logo.png; \
 	rsvg-convert -w 192 -h 192 $$SVG -o server/shenas.net/public/logo-192.png; \
