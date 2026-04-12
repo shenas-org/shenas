@@ -17,6 +17,7 @@ tasks:
       - 'package-lock.json'
     options:
       runFromWorkspaceRoot: true
+      cache: false
   clean:
     script: 'rm -rf $MOON_PROJECT_SOURCE/node_modules/ $MOON_PROJECT_SOURCE/dist/'
     options:
