@@ -492,7 +492,7 @@ class Mutation:
                 provider,
                 question,
                 catalog,
-                mode=analysis_mode,  # ty: ignore[unknown-argument]
+                mode=analysis_mode,
                 validate=_validate_payload,
                 max_attempts=2,
             )
@@ -607,14 +607,14 @@ class Mutation:
         existing_metrics = walk_metrics_catalog()
 
         if not source_catalog:
-            return {"ok": False, "error": "No source tables found", "suggestions": []}
+            return {"ok": False, "error": "No source tables found", "suggestions": []}  # ty: ignore[invalid-return-type]
 
         # Ask LLM
         try:
             payload = ask_for_dataset_suggestions(provider, source_catalog, existing_metrics)
             validate_dataset_payload(payload)
         except Exception as exc:
-            return {"ok": False, "error": str(exc), "suggestions": []}
+            return {"ok": False, "error": str(exc), "suggestions": []}  # ty: ignore[invalid-return-type]
 
         # Persist suggestions
         batch_id = str(uuid.uuid4())[:8]
@@ -664,7 +664,7 @@ class Mutation:
             )
 
         wall_ms = (time.monotonic() - wall_start) * 1000.0
-        return {
+        return {  # ty: ignore[invalid-return-type]
             "ok": True,
             "batch_id": batch_id,
             "source_context": source_context,
@@ -693,13 +693,13 @@ class Mutation:
 
         metrics_catalog = walk_metrics_catalog()
         if not metrics_catalog:
-            return {"ok": False, "error": "No metric tables found", "suggestions": []}
+            return {"ok": False, "error": "No metric tables found", "suggestions": []}  # ty: ignore[invalid-return-type]
 
         try:
             payload = ask_for_analysis_suggestions(provider, metrics_catalog)
             validate_analysis_payload(payload)
         except Exception as exc:
-            return {"ok": False, "error": str(exc), "suggestions": []}
+            return {"ok": False, "error": str(exc), "suggestions": []}  # ty: ignore[invalid-return-type]
 
         batch_id = str(uuid.uuid4())[:8]
         suggestions = payload.get("suggestions", [])
@@ -725,7 +725,7 @@ class Mutation:
             )
 
         wall_ms = (time.monotonic() - wall_start) * 1000.0
-        return {
+        return {  # ty: ignore[invalid-return-type]
             "ok": True,
             "batch_id": batch_id,
             "suggestions": created,
@@ -743,9 +743,9 @@ class Mutation:
 
         try:
             result = Dataset.accept_suggestion(name)
-            return {"ok": True, **result}
+            return {"ok": True, **result}  # ty: ignore[invalid-return-type]
         except ValueError as exc:
-            return {"ok": False, "error": str(exc)}
+            return {"ok": False, "error": str(exc)}  # ty: ignore[invalid-return-type]
 
     @strawberry.mutation
     def dismiss_dataset_suggestion(self, name: str) -> JSON:
@@ -754,9 +754,9 @@ class Mutation:
 
         try:
             Dataset.dismiss_suggestion(name)
-            return {"ok": True, "name": name}
+            return {"ok": True, "name": name}  # ty: ignore[invalid-return-type]
         except ValueError as exc:
-            return {"ok": False, "error": str(exc)}
+            return {"ok": False, "error": str(exc)}  # ty: ignore[invalid-return-type]
 
     @strawberry.mutation
     def accept_transform_suggestion(self, transform_id: int) -> JSON:
@@ -765,9 +765,9 @@ class Mutation:
 
         t = TransformInstance.find(transform_id)
         if t is None or not t.is_suggested:
-            return {"ok": False, "error": f"No suggested transform #{transform_id}"}
+            return {"ok": False, "error": f"No suggested transform #{transform_id}"}  # ty: ignore[invalid-return-type]
         t.accept_suggestion()
-        return {"ok": True, "id": t.id}
+        return {"ok": True, "id": t.id}  # ty: ignore[invalid-return-type]
 
     @strawberry.mutation
     def dismiss_transform_suggestion(self, transform_id: int) -> JSON:
@@ -776,9 +776,9 @@ class Mutation:
 
         t = TransformInstance.find(transform_id)
         if t is None or not t.is_suggested:
-            return {"ok": False, "error": f"No suggested transform #{transform_id}"}
+            return {"ok": False, "error": f"No suggested transform #{transform_id}"}  # ty: ignore[invalid-return-type]
         t.dismiss_suggestion()
-        return {"ok": True, "id": transform_id}
+        return {"ok": True, "id": transform_id}  # ty: ignore[invalid-return-type]
 
     @strawberry.mutation
     def accept_analysis_suggestion(self, hypothesis_id: int) -> JSON:
@@ -787,9 +787,9 @@ class Mutation:
 
         h = Hypothesis.find(hypothesis_id)
         if h is None or not h.is_suggested:
-            return {"ok": False, "error": f"No suggested analysis #{hypothesis_id}"}
+            return {"ok": False, "error": f"No suggested analysis #{hypothesis_id}"}  # ty: ignore[invalid-return-type]
         h.accept_suggestion()
-        return {"ok": True, "id": h.id, "question": h.question}
+        return {"ok": True, "id": h.id, "question": h.question}  # ty: ignore[invalid-return-type]
 
     @strawberry.mutation
     def dismiss_analysis_suggestion(self, hypothesis_id: int) -> JSON:
@@ -798,6 +798,6 @@ class Mutation:
 
         h = Hypothesis.find(hypothesis_id)
         if h is None or not h.is_suggested:
-            return {"ok": False, "error": f"No suggested analysis #{hypothesis_id}"}
+            return {"ok": False, "error": f"No suggested analysis #{hypothesis_id}"}  # ty: ignore[invalid-return-type]
         h.dismiss_suggestion()
-        return {"ok": True, "id": hypothesis_id}
+        return {"ok": True, "id": hypothesis_id}  # ty: ignore[invalid-return-type]

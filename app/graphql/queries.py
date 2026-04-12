@@ -443,7 +443,7 @@ class Query:
         """Return all suggested (not yet accepted) datasets."""
         from shenas_plugins.core.plugin import PluginInstance
 
-        return [
+        return [  # ty: ignore[invalid-return-type]
             {
                 "name": pi.name,
                 "is_suggested": pi.is_suggested,
@@ -459,7 +459,7 @@ class Query:
         from shenas_transformations.core.instance import TransformInstance
 
         rows = TransformInstance.suggested(source)
-        return [
+        return [  # ty: ignore[invalid-return-type]
             {
                 "id": t.id,
                 "source": f"{t.source_duckdb_schema}.{t.source_duckdb_table}",
@@ -476,7 +476,7 @@ class Query:
         """Return all suggested (not yet accepted) analysis hypotheses."""
         from app.hypotheses import Hypothesis
 
-        return [
+        return [  # ty: ignore[invalid-return-type]
             {
                 "id": h.id,
                 "question": h.question,
