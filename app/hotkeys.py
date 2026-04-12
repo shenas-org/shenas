@@ -10,8 +10,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, ClassVar
 
-import duckdb  # noqa: TC002 - runtime type for seed() parameter
-
 from shenas_plugins.core.table import Field, Table
 
 
@@ -33,7 +31,15 @@ class Hotkey(Table):
     action_id: Annotated[str, Field(db_type="VARCHAR", description="Action identifier")] = ""
     binding: Annotated[str, Field(db_type="VARCHAR", description="Key binding", db_default="''")] = ""
     updated_at: (
-        Annotated[str, Field(db_type="TIMESTAMP", description="When last updated", db_default="current_timestamp")] | None
+        Annotated[
+            str,
+            Field(
+                db_type="TIMESTAMP",
+                description="When last updated",
+                db_default="current_timestamp",
+            ),
+        ]
+        | None
     ) = None
 
     _DEFAULTS: ClassVar[list[tuple[str, str]]] = [
@@ -50,28 +56,8 @@ class Hotkey(Table):
         return self.upsert()
 
     @classmethod
-    def get_all(cls) -> dict[str, str]:
-        """Return ``{action_id: binding}``."""
-        rows = cls.all(order_by="action_id")
-        return {h.action_id: h.binding for h in rows}
-
-    @classmethod
-    def seed(cls, con: duckdb.DuckDBPyConnection | None = None) -> None:
-        """Insert default bindings if none exist yet.
-
-        Accepts an explicit ``con`` so it can be called from bootstrap
-        helpers that don't yet have the resolver wired up.
-        """
-        if con is not None:
-            row = con.execute("SELECT 1 FROM shenas_system.hotkeys LIMIT 1").fetchone()
-            if row:
-                return
-            for action_id, binding in cls._DEFAULTS:
-                con.execute(
-                    "INSERT INTO shenas_system.hotkeys (action_id, binding) VALUES (?, ?)",
-                    [action_id, binding],
-                )
-            return
+    def seed(cls) -> None:
+        """Insert default bindings if none exist yet."""
         if cls.all(limit=1):
             return
         for action_id, binding in cls._DEFAULTS:
@@ -80,9 +66,7 @@ class Hotkey(Table):
     @classmethod
     def reset(cls) -> None:
         """Drop every binding and re-seed defaults."""
-        from app.database import cursor
-
-        with cursor() as cur:
-            cur.execute("DELETE FROM shenas_system.hotkeys")
+        for h in cls.all():
+            h.delete()
         for action_id, binding in cls._DEFAULTS:
             cls(action_id=action_id, binding=binding).insert()

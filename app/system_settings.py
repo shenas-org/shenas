@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, ClassVar
+from typing import Annotated, ClassVar
 
 from shenas_plugins.core.table import Field, SingletonTable
 
@@ -22,14 +22,3 @@ class SystemSettings(SingletonTable):
         bool,
         Field(db_type="BOOLEAN", description="Whether multi-user mode is enabled", db_default="FALSE"),
     ] = False
-
-    @classmethod
-    def get(cls) -> dict[str, Any]:
-        row = cls.read_row()
-        if row is None:
-            return {"id": 1, "multiuser_enabled": False}
-        return row
-
-    @classmethod
-    def put(cls, *, multiuser_enabled: bool) -> None:
-        cls.write_row(id=1, multiuser_enabled=multiuser_enabled)

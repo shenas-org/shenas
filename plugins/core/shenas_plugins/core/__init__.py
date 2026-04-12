@@ -1,5 +1,5 @@
 from shenas_plugins.core.plugin import Plugin
-from shenas_plugins.core.static import StaticPlugin
+from shenas_plugins.core.static_plugin import StaticPlugin
 from shenas_plugins.core.table import DataResourceRef, Field, SingletonTable, Table
 
 __all__ = [

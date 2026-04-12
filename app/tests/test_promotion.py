@@ -7,9 +7,7 @@ from the rows at catalog-walk time. No filesystem.
 
 from __future__ import annotations
 
-import contextlib
 from typing import TYPE_CHECKING
-from unittest.mock import patch
 
 import duckdb
 import pytest
@@ -17,35 +15,36 @@ import pytest
 from shenas_plugins.core.analytics import OpCall, Recipe, ScalarResult, SourceRef, TableResult
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterator
+    from collections.abc import Iterator
 
 
 @pytest.fixture
 def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
+    import app.database
+    import app.db
+
     con = duckdb.connect(":memory:")
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
     con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
-    from app.database import _ensure_system_tables
 
-    _ensure_system_tables(con)
+    from app.tests.conftest import _StubDB
+
+    stub = _StubDB(con)
+    saved = dict(app.db._resolvers)
+    app.db._resolvers["shenas"] = lambda: stub  # ty: ignore[invalid-assignment]
+    app.db._resolvers[None] = lambda: stub  # ty: ignore[invalid-assignment]
+    app.database._ensure_system_tables(con)
     yield con
+    app.db._resolvers.clear()
+    app.db._resolvers.update(saved)
     con.close()
 
 
 @pytest.fixture(autouse=True)
 def patch_db(db_con: duckdb.DuckDBPyConnection) -> Iterator[None]:
-    @contextlib.contextmanager
-    def _fake_cursor(**_kwargs) -> Generator[duckdb.DuckDBPyConnection, None, None]:
-        cur = db_con.cursor()
-        try:
-            cur.execute("USE db")
-            yield cur
-        finally:
-            cur.close()
-
-    with patch("app.database.cursor", _fake_cursor):
-        yield
+    """Back-compat alias -- db_con already wires the resolvers."""
+    return  # ty: ignore[invalid-return-type]
 
 
 def _hypothesis():

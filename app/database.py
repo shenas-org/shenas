@@ -252,9 +252,9 @@ class DatabaseManager:
 
         from app.categories import CategorySet, CategoryValue
         from app.data_catalog import QualityCheckResult, ResourceAnnotation
+        from app.finding import Finding
         from app.hotkeys import Hotkey
         from app.hypotheses import Hypothesis
-        from app.literature import Finding
         from app.local_sessions import LocalSession
         from app.local_users import LocalUser
         from app.recipe_cache import RecipeCache
@@ -288,7 +288,7 @@ class DatabaseManager:
             CategoryValue,
         ]
         Table.ensure_schema(con, tables, schema="shenas_system")
-        Hotkey.seed(con)
+        Hotkey.seed()
         from shenas_datasets.core.dataset import Dataset
 
         Dataset.ensure_all(con)
