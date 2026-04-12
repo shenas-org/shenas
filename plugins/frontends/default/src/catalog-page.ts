@@ -83,6 +83,17 @@ class CatalogPage extends LitElement {
       :host {
         display: block;
       }
+      .catalog-layout {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      .catalog-layout.has-detail {
+        grid-template-columns: 1fr 1fr;
+      }
+      .list-panel {
+        min-width: 0;
+      }
       .search-bar {
         display: flex;
         gap: 0.5rem;
@@ -101,11 +112,10 @@ class CatalogPage extends LitElement {
         border-radius: 4px;
       }
       .detail-panel {
-        margin: 0.5rem 0 1rem;
         padding: 1rem;
-        border: 1px solid var(--shenas-border, #e0e0e0);
-        border-radius: 8px;
-        background: var(--shenas-bg-secondary, #fafafa);
+        border-left: 1px solid var(--shenas-border, #e0e0e0);
+        overflow-y: auto;
+        max-height: 80vh;
       }
       .detail-panel h3 {
         margin: 0 0 0.8rem;
@@ -175,7 +185,7 @@ class CatalogPage extends LitElement {
         font-size: 0.85rem;
       }
       .lineage-list a {
-        color: var(--shenas-link, #1a73e8);
+        color: var(--shenas-text, #222);
         cursor: pointer;
         text-decoration: none;
       }
@@ -344,59 +354,64 @@ class CatalogPage extends LitElement {
     if (this._loading) return html``;
     const kinds = [...new Set(this._resources.map((r) => r.kind).filter(Boolean))].sort();
     const filtered = this._filtered();
+    const hasDetail = this._expanded && this._detail;
     return html`
-      <div>
-        ${renderMessage(this._message)}
-        <div class="search-bar">
-          <input
-            type="text"
-            placeholder="Search resources..."
-            .value=${this._search}
-            @input=${(e: InputEvent) => {
-              this._search = (e.target as HTMLInputElement).value;
-            }}
-          />
-          <select
-            .value=${this._filterKind}
-            @change=${(e: Event) => {
-              this._filterKind = (e.target as HTMLSelectElement).value;
-            }}
-          >
-            <option value="">All kinds</option>
-            ${kinds.map((k) => html`<option value=${k!}>${k}</option>`)}
-          </select>
+      ${renderMessage(this._message)}
+      <div class="catalog-layout ${hasDetail ? "has-detail" : ""}">
+        <div class="list-panel">
+          <div class="search-bar">
+            <input
+              type="text"
+              placeholder="Search resources..."
+              .value=${this._search}
+              @input=${(e: InputEvent) => {
+                this._search = (e.target as HTMLInputElement).value;
+              }}
+            />
+            <select
+              .value=${this._filterKind}
+              @change=${(e: Event) => {
+                this._filterKind = (e.target as HTMLSelectElement).value;
+              }}
+            >
+              <option value="">All kinds</option>
+              ${kinds.map((k) => html`<option value=${k!}>${k}</option>`)}
+            </select>
+          </div>
+          <shenas-data-list
+            .columns=${[
+              {
+                label: "Name",
+                render: (r: DataResource) =>
+                  html`<a
+                      @click=${() => this._expand(r.id)}
+                      style="cursor:pointer;text-decoration:underline;color:inherit"
+                      >${r.displayName}</a
+                    >
+                    <span class="badge">${r.kind || "table"}</span>`,
+              },
+              {
+                label: "Plugin",
+                class: "mono",
+                render: (r: DataResource) => html`${r.pluginName}`,
+              },
+              {
+                label: "Rows",
+                render: (r: DataResource) => html`${this._formatRows(r.quality.actualRowCount)}`,
+              },
+              {
+                label: "Freshness",
+                render: (r: DataResource) =>
+                  html`${this._freshnessDot(r)}${r.freshness.lastRefreshed
+                    ? r.freshness.lastRefreshed.slice(0, 16).replace("T", " ")
+                    : "never"}`,
+              },
+            ]}
+            .rows=${filtered}
+            empty-text="No data resources found"
+          ></shenas-data-list>
         </div>
-        <shenas-data-list
-          .columns=${[
-            {
-              label: "Name",
-              render: (r: DataResource) =>
-                html`<a @click=${() => this._expand(r.id)} style="cursor:pointer;color:var(--shenas-link,#1a73e8)"
-                    >${r.displayName}</a
-                  >
-                  <span class="badge">${r.kind || "table"}</span>`,
-            },
-            {
-              label: "Plugin",
-              class: "mono",
-              render: (r: DataResource) => html`${r.pluginName}`,
-            },
-            {
-              label: "Rows",
-              render: (r: DataResource) => html`${this._formatRows(r.quality.actualRowCount)}`,
-            },
-            {
-              label: "Freshness",
-              render: (r: DataResource) =>
-                html`${this._freshnessDot(r)}${r.freshness.lastRefreshed
-                  ? r.freshness.lastRefreshed.slice(0, 16).replace("T", " ")
-                  : "never"}`,
-            },
-          ]}
-          .rows=${filtered}
-          empty-text="No data resources found"
-        ></shenas-data-list>
-        ${this._expanded && this._detail ? this._renderDetail(this._detail) : nothing}
+        ${hasDetail ? this._renderDetail(this._detail!) : nothing}
       </div>
     `;
   }
