@@ -478,7 +478,7 @@ class Query:
     def hotkeys(self, info: strawberry.types.Info) -> JSON:  # noqa: ARG002
         from app.hotkeys import Hotkey
 
-        return Hotkey.get_all()  # ty: ignore[invalid-return-type]
+        return {h.action_id: h.binding for h in Hotkey.all(order_by="action_id")}  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def workspace(self, info: strawberry.types.Info) -> JSON:  # noqa: ARG002

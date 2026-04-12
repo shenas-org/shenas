@@ -154,7 +154,7 @@ class LocalUser(Table):
 
         from app.hotkeys import Hotkey
 
-        Hotkey.seed(con)
+        Hotkey.seed()
 
     def attach(self, key: str) -> DB:
         """Open and attach this user's encrypted DB. Idempotent."""
