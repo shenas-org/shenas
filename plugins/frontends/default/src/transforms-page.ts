@@ -34,6 +34,7 @@ interface TransformForm {
   sql: string;
 }
 
+
 class TransformsPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
@@ -463,44 +464,44 @@ class TransformsPage extends LitElement {
           .value=${this._editSql}
           @input=${(e: InputEvent) => (this._editSql = (e.target as HTMLTextAreaElement).value)}
           ?readonly=${readonly}
-          class=${readonly ? "readonly" : ""}
+          class="${readonly ? "readonly" : ""}"
         ></textarea>
         <div class="edit-actions">
           ${!readonly ? html`<button @click=${this._saveEdit}>Save</button>` : ""}
-          <button @click=${this._preview}>Preview (5 rows)</button>
-          <button @click=${this._cancelEdit}>Close</button>
+          <button @click=${this._preview}>Preview</button>
+          <button @click=${this._cancelEdit}>${readonly ? "Close" : "Cancel"}</button>
         </div>
-        ${this._previewRows
-          ? html`
-              <div class="preview-table">
-                <table>
-                  <thead>
-                    <tr>
-                      ${this._previewRows[0]
-                        ? Object.keys(this._previewRows[0]).map((k) => html`<th>${k}</th>`)
-                        : ""}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${this._previewRows.map(
-                      (row) =>
-                        html`<tr>
-                          ${Object.values(row).map(
-                            (v) =>
-                              html`<td>
-                                ${typeof v === "string" || typeof v === "number" ? v : JSON.stringify(v)}
-                              </td>`,
-                          )}
-                        </tr>`,
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            `
-          : ""}
+        ${this._previewRows ? this._renderPreview() : ""}
+      </div>
+    `;
+  }
+
+  _renderPreview() {
+    if (!this._previewRows || this._previewRows.length === 0) {
+      return html`<p class="loading">No preview rows</p>`;
+    }
+    const cols = Object.keys(this._previewRows[0]);
+    return html`
+      <div class="preview-table">
+        <table>
+          <thead>
+            <tr>
+              ${cols.map((c) => html`<th>${c}</th>`)}
+            </tr>
+          </thead>
+          <tbody>
+            ${this._previewRows.map(
+              (row) => html`
+                <tr>
+                  ${cols.map((c) => html`<td>${row[c]}</td>`)}
+                </tr>
+              `,
+            )}
+          </tbody>
+        </table>
       </div>
     `;
   }
 }
 
-customElements.define("transforms-page", TransformsPage);
+customElements.define("shenas-transforms", TransformsPage);
