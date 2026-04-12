@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import TYPE_CHECKING
 
 import duckdb
 import pytest
+
+# Set before any test module imports app.main, which triggers init_telemetry()
+# at module level. Must be here (not in a fixture) because test collection
+# imports happen before session fixtures run.
+os.environ["OTEL_SDK_DISABLED"] = "true"
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -37,18 +43,6 @@ class _StubDB:
 
     def close(self) -> None:
         pass
-
-
-@pytest.fixture(autouse=True, scope="session")
-def _disable_otel_exporters() -> None:
-    """Prevent OTel background threads from writing to DuckDB during tests.
-
-    The DuckDB span/log exporters run in background threads and can segfault
-    when they access a connection concurrently with test fixture setup.
-    """
-    import os
-
-    os.environ["OTEL_SDK_DISABLED"] = "true"
 
 
 @pytest.fixture

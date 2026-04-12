@@ -29,12 +29,19 @@ def init_telemetry(service_name: str) -> None:
     Safe to call multiple times -- only the first call takes effect.
     Uses DispatchingSpanProcessor/DispatchingLogProcessor to push SSE events
     immediately when telemetry is received, while batching DB writes.
+
+    Respects OTEL_SDK_DISABLED=true to skip initialization (used by tests).
     """
+    import os
+
     global _initialized, _tracer_provider, _logger_provider
     with _lock:
         if _initialized:
             return
         _initialized = True
+
+    if os.environ.get("OTEL_SDK_DISABLED", "").lower() in ("true", "1"):
+        return
 
     resource = Resource.create({"service.name": service_name})
 
