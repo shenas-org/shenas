@@ -286,6 +286,32 @@ class LocalUser(Table):
         return cls(id=row[0], username=row[1], password_hash=row[2], key_salt=row[3]) if row else None
 
     @classmethod
+    def get_remote_token(cls) -> str | None:
+        """Return the current user's shenas.net token, or None.
+
+        Checks SHENAS_REMOTE_TOKEN env var first (used by tests), then
+        falls back to the stored token in local_users.
+        """
+        import os
+
+        if env := os.environ.get("SHENAS_REMOTE_TOKEN"):
+            return env
+        try:
+            from app.db import current_user_id, cursor
+
+            uid = current_user_id.get()
+            if not uid:
+                return None
+            with cursor(database="shenas") as cur:
+                row = cur.execute(
+                    "SELECT remote_token FROM shenas_system.local_users WHERE id = ?",
+                    [uid],
+                ).fetchone()
+            return row[0] if row and row[0] else None
+        except Exception:
+            return None
+
+    @classmethod
     def set_remote_token(cls, user_id: int, token: str) -> None:
         """Store a shenas.net JWT for an existing local user."""
         from app.db import cursor

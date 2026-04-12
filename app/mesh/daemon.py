@@ -13,6 +13,8 @@ import asyncio
 import logging
 import os
 
+from app.local_users import LocalUser
+
 log = logging.getLogger("shenas.mesh")
 
 SYNC_INTERVAL = int(os.environ.get("SHENAS_MESH_SYNC_INTERVAL", "60"))
@@ -36,7 +38,7 @@ async def run_mesh_daemon() -> None:
 
     try:
         while True:
-            token = _get_remote_token()
+            token = LocalUser.get_remote_token()
             device_id = _get_server_device_id()
 
             if token and not device_id:
@@ -66,17 +68,6 @@ async def run_mesh_daemon() -> None:
     finally:
         listener.stop()
         listener_task.cancel()
-
-
-def _get_remote_token() -> str | None:
-    from app.db import cursor
-
-    try:
-        with cursor() as cur:
-            row = cur.execute("SELECT value FROM shenas_system.remote_auth WHERE key = 'token'").fetchone()
-        return row[0] if row else None
-    except Exception:
-        return None
 
 
 def _get_server_device_id() -> str | None:

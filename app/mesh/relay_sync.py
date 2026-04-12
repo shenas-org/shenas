@@ -12,6 +12,7 @@ from typing import Any
 
 import httpx
 
+from app.local_users import LocalUser
 from app.mesh.sync_log import (
     append_event,
     get_events_since,
@@ -20,18 +21,6 @@ from app.mesh.sync_log import (
 )
 
 log = logging.getLogger("shenas.mesh.relay")
-
-
-def _get_remote_token() -> str | None:
-    """Read the stored remote auth token."""
-    from app.db import cursor
-
-    try:
-        with cursor() as cur:
-            row = cur.execute("SELECT value FROM shenas_system.remote_auth WHERE key = 'token'").fetchone()
-        return row[0] if row else None
-    except Exception:
-        return None
 
 
 def _get_device_id() -> str | None:
@@ -52,7 +41,7 @@ def push_to_peer(
     events: list[dict[str, Any]],
 ) -> bool:
     """Push sync events to a peer device via the server relay."""
-    token = _get_remote_token()
+    token = LocalUser.get_remote_token()
     if not token:
         log.warning("No remote auth token, cannot push")
         return False
@@ -77,7 +66,7 @@ def push_to_peer(
 
 def pull_from_relay(server_url: str) -> list[dict[str, Any]]:
     """Pull pending relay messages for this device."""
-    token = _get_remote_token()
+    token = LocalUser.get_remote_token()
     device_id = _get_device_id()
     if not token or not device_id:
         return []
@@ -122,7 +111,7 @@ def apply_remote_events(events_json: str) -> int:
 
 def sync_with_peers(server_url: str) -> dict[str, int]:
     """Full relay sync cycle: push local events to peers, pull from relay."""
-    token = _get_remote_token()
+    token = LocalUser.get_remote_token()
     device_id = _get_device_id()
     if not token or not device_id:
         return {"pushed": 0, "pulled": 0}
