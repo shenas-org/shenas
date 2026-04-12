@@ -135,6 +135,7 @@ class ShenasApp extends LitElement {
 
   _router = new Router(this, [
     { path: "/", render: () => this._renderDynamicHome() },
+    { path: "/flow", render: () => this._renderSettings("flow") },
     { path: "/settings", render: () => this._renderSettings("flow") },
     {
       path: "/settings/:kind",
@@ -1319,6 +1320,7 @@ class ShenasApp extends LitElement {
           </div>
           <nav class="nav">
             ${this._dashboards.map((c) => this._navItem(c.name, c.display_name || c.name, active))}
+            ${this._navItem("flow", "Flow", active)}
             ${this._navItem("logs", "Logs", active)}
             <a
               class="nav-link settings-toggle"
