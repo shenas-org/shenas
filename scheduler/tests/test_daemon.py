@@ -30,8 +30,8 @@ class TestTick:
     def test_syncs_due_pipes(self) -> None:
         client = MagicMock()
         client.get_sync_schedule.return_value = [
-            {"name": "garmin", "sync_frequency": 60, "synced_at": None, "is_due": True},
-            {"name": "lunchmoney", "sync_frequency": 120, "synced_at": None, "is_due": True},
+            {"name": "garmin", "syncFrequency": 60, "syncedAt": None, "isDue": True},
+            {"name": "lunchmoney", "syncFrequency": 120, "syncedAt": None, "isDue": True},
         ]
         client.sync_source.return_value = iter([{"_event": "complete", "source": "test", "message": "done"}])
         daemon = _make_daemon(client)
@@ -45,8 +45,8 @@ class TestTick:
     def test_skips_not_due(self) -> None:
         client = MagicMock()
         client.get_sync_schedule.return_value = [
-            {"name": "garmin", "sync_frequency": 60, "synced_at": "2026-03-30 15:00:00", "is_due": False},
-            {"name": "lunchmoney", "sync_frequency": 120, "synced_at": None, "is_due": True},
+            {"name": "garmin", "syncFrequency": 60, "syncedAt": "2026-03-30 15:00:00", "isDue": False},
+            {"name": "lunchmoney", "syncFrequency": 120, "syncedAt": None, "isDue": True},
         ]
         client.sync_source.return_value = iter([{"_event": "complete", "source": "lunchmoney", "message": "done"}])
         daemon = _make_daemon(client)
@@ -117,8 +117,8 @@ class TestShutdown:
     def test_shutdown_interrupts_tick(self) -> None:
         client = MagicMock()
         client.get_sync_schedule.return_value = [
-            {"name": "garmin", "is_due": True},
-            {"name": "lunchmoney", "is_due": True},
+            {"name": "garmin", "isDue": True},
+            {"name": "lunchmoney", "isDue": True},
         ]
 
         def set_shutdown_on_first_sync(name: str):

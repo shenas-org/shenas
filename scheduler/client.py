@@ -43,7 +43,7 @@ class SchedulerClient:
             raise ShenasServerError(resp.status_code, detail)
         return body["data"]["syncSchedule"]
 
-    def sync_pipe(self, name: str) -> Iterator[dict[str, Any]]:
+    def sync_source(self, name: str) -> Iterator[dict[str, Any]]:
         try:
             with self._client.stream(
                 "POST",

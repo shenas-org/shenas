@@ -1,4 +1,4 @@
-.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install ci-runner-build coverage db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan hooks-setup lint infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish plugins-build postgres-dev pyinstaller shenas-net-release shenas-org-release test web-api-release website-dev
+.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install ci-runner-build coverage db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan hooks-setup lint infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish plugins-build postgres-dev pyinstaller scheduler-install shenas-net-release shenas-org-release test web-api-release website-dev
 
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
 NDK_VERSION = 27.2.12479018
@@ -100,6 +100,29 @@ app-install:
 	uv tool install --editable shenasctl/ --force --with-editable app/
 	@echo "Installed shenas and shenasctl to ~/.local/bin/"
 	@echo "Run 'shenasctl --install-completion' for tab completion"
+
+scheduler-install:
+	@mkdir -p $(HOME)/.config/systemd/user
+	@printf '%s\n' \
+		'[Unit]' \
+		'Description=Shenas background sync scheduler' \
+		'After=network-online.target' \
+		'Wants=network-online.target' \
+		'' \
+		'[Service]' \
+		'Type=simple' \
+		'ExecStart=$(HOME)/.local/bin/shenas-scheduler --server-url http://localhost:7280 --check-interval 60' \
+		'Restart=on-failure' \
+		'RestartSec=10' \
+		'Environment=PATH=$(HOME)/.local/bin:/usr/local/bin:/usr/bin:/bin' \
+		'' \
+		'[Install]' \
+		'WantedBy=default.target' \
+		> $(HOME)/.config/systemd/user/shenas-scheduler.service
+	systemctl --user daemon-reload
+	systemctl --user enable shenas-scheduler.service
+	systemctl --user restart shenas-scheduler.service
+	@echo "Scheduler installed and started. Check with: systemctl --user status shenas-scheduler"
 
 db-flush:
 	rm -f data/shenas.duckdb data/shenas.duckdb.wal
