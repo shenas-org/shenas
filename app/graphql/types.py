@@ -209,8 +209,7 @@ class DataResourceType:
     table_name: str
     display_name: str
     description: str
-    plugin_kind: str
-    plugin_name: str
+    plugin: PluginInfoType
     kind: str | None = None
     query_hint: str | None = None
     as_of_macro: str | None = None
@@ -221,8 +220,8 @@ class DataResourceType:
     quality: QualityInfoType
     user_notes: str = ""
     tags: list[str]
-    upstream: list[DataResourceType] | None = None
-    downstream: list[DataResourceType] | None = None
+    upstream_transforms: list[TransformType] | None = None
+    downstream_transforms: list[TransformType] | None = None
 
 
 @strawberry.input

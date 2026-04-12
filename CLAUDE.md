@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Don't ask about doing 'cat', 'find', 'diff' or similar. Do not use emojis in code, docs, or commit messages.
 
+Do not merge PRs without explicit approval. Create the PR and wait for the user to say "merge".
+
 When refactoring, unless told specifically so, don't bother with backward compatability.
 
 Prefer object-oriented code when idiomatic -- classes with methods over loose functions and dicts.
