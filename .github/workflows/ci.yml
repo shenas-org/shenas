@@ -80,7 +80,6 @@ jobs:
     name: Infra Validate
     runs-on: gcp-runners
     timeout-minutes: 5
-    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
