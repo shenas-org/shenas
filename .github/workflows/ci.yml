@@ -12,7 +12,7 @@ jobs:
     runs-on: gcp-runners
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -24,14 +24,14 @@ jobs:
           mv /tmp/moon-extract/moon_cli-*/moon "$HOME/.moon/bin/"
           rm -rf /tmp/moon.tar.xz /tmp/moon-extract
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: .moon/cache
           key: moon-lint-${{ hashFiles('uv.lock', '**/package-lock.json') }}
@@ -47,7 +47,7 @@ jobs:
     env:
       TZ: UTC
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -59,14 +59,14 @@ jobs:
           mv /tmp/moon-extract/moon_cli-*/moon "$HOME/.moon/bin/"
           rm -rf /tmp/moon.tar.xz /tmp/moon-extract
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: .moon/cache
           key: moon-test-${{ hashFiles('uv.lock', '**/package-lock.json') }}
@@ -82,11 +82,11 @@ jobs:
     timeout-minutes: 5
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - uses: opentofu/setup-opentofu@v1
+      - uses: opentofu/setup-opentofu@v2
       - name: Validate
         working-directory: server/deploy/tofu
         run: |
@@ -100,14 +100,14 @@ jobs:
     needs: [lint, test]
     if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           fetch-tags: true
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
       - run: uv sync
