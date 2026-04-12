@@ -152,7 +152,7 @@ class FocusApp extends LitElement {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: `{ dashboards hotkeys theme { css } uis: plugins(kind: "frontend") { name displayName enabled } }`,
+          query: `{ dashboards { name displayName tag js description } hotkeys theme { css } uis: plugins(kind: "frontend") { name displayName enabled } }`,
         }),
       });
       const json = (await resp.json()) as { data: Record<string, unknown> };
