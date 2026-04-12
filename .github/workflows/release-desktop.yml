@@ -17,8 +17,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            args: --bundles deb,rpm
           - os: macos-latest
+            args: --bundles dmg
           - os: windows-latest
+            args: --bundles msi
 
     steps:
       - uses: actions/checkout@v5
@@ -73,3 +76,4 @@ jobs:
           releaseName: "shenas ${{ github.ref_name }}"
           releaseDraft: false
           prerelease: false
+          args: ${{ matrix.args }}
