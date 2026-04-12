@@ -1,6 +1,7 @@
 """Re-exports for convenience."""
 
-from shenas_plugins.core import Plugin, StaticPlugin
+from app.plugin import Plugin
+from app.static_plugin import StaticPlugin
 from shenas_sources.core.source import Source
 
 __all__ = [

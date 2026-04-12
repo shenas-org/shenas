@@ -5,7 +5,6 @@ projects:
   - "app/desktop"
   - "app/mobile"
   - "app/vendor"
-  - "plugins/core"
   - "plugins/sources/*"
   - "plugins/datasets/*"
   - "plugins/dashboards/*"

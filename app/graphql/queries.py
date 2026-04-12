@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform
 
     from app.data_catalog import DataResource
-    from shenas_plugins.core.plugin import Plugin
+    from app.plugin import Plugin
 
 
 def _plugin_to_gql(plugin: Plugin) -> PluginInfoType:
@@ -177,7 +177,7 @@ class Query:
 
     @strawberry.field
     def config_value(self, kind: str, name: str, key: str) -> str | None:
-        from shenas_plugins.core.plugin import Plugin
+        from app.plugin import Plugin
 
         try:
             cls = Plugin.load_by_name_and_kind(name, kind)
@@ -228,7 +228,7 @@ class Query:
     @strawberry.field
     def plugin_kinds(self) -> JSON:
         """Return all discovered plugin kinds with display labels, ordered by label."""
-        from shenas_plugins.core.plugin import VALID_KINDS, Plugin
+        from app.plugin import VALID_KINDS, Plugin
 
         plural_map: dict[str, str] = {}
         for kind in VALID_KINDS:
@@ -247,7 +247,7 @@ class Query:
     @strawberry.field
     def plugins(self, kind: str) -> list[PluginInfoType]:
         from app.models import ConfigEntry, PluginInfo
-        from shenas_plugins.core.plugin import Plugin
+        from app.plugin import Plugin
 
         items = []
         for pi in Plugin.list_installed(kind):
@@ -288,7 +288,7 @@ class Query:
 
     @strawberry.field
     def plugin_info(self, kind: str, name: str) -> JSON:
-        from shenas_plugins.core.plugin import Plugin
+        from app.plugin import Plugin
 
         cls = Plugin.load_by_name_and_kind(name, kind) or Plugin._load_fresh(kind, name)
         if not cls:
@@ -302,7 +302,7 @@ class Query:
         from html.parser import HTMLParser
         from urllib.request import urlopen
 
-        from shenas_plugins.core.plugin import DEFAULT_INDEX
+        from app.plugin import DEFAULT_INDEX
 
         prefix = f"shenas-{kind}-"
         try:
@@ -511,8 +511,8 @@ class Query:
 
     @strawberry.field
     def dashboards(self) -> list[DashboardType]:
+        from app.plugin import PluginInstance
         from shenas_dashboards.core import Dashboard
-        from shenas_plugins.core.plugin import PluginInstance
 
         result = []
         for c in Dashboard.load_all(include_internal=False):
@@ -631,8 +631,7 @@ class Query:
     def analysis_modes(self) -> JSON:
         """Return metadata for all registered analysis modes."""
         from shenas_analyses.core import Analysis
-
-        from shenas_plugins.core.analytics.mode import list_modes
+        from shenas_analyses.core.analytics.mode import list_modes
 
         Analysis.discover()
         return list_modes()  # ty: ignore[invalid-return-type]
@@ -679,7 +678,7 @@ class Query:
     @strawberry.field
     def suggested_datasets(self) -> list[SuggestedDatasetType]:
         """Return all suggested (not yet accepted) datasets."""
-        from shenas_plugins.core.plugin import PluginInstance
+        from app.plugin import PluginInstance
 
         return [
             SuggestedDatasetType(

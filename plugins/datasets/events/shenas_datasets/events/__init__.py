@@ -1,6 +1,6 @@
+from app.table import Field
 from shenas_datasets.core.dataset import Dataset
 from shenas_datasets.events.metrics import ALL_TABLES, Event
-from shenas_plugins.core import Field
 
 
 class EventsSchema(Dataset):

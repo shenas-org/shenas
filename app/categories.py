@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, Any
 
-from shenas_plugins.core.table import Field, Table
+from app.table import Field, Table
 
 
 @dataclass

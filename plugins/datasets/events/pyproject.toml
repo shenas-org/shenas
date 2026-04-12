@@ -5,7 +5,7 @@ description = "Canonical event metrics for shenas"
 requires-python = ">=3.11"
 dependencies = [
     "shenas-dataset-core",
-    "shenas-plugin-core",
+    "shenas-app",
 ]
 
 [build-system]

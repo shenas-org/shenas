@@ -23,7 +23,7 @@ system prompt and large enough to express the most common analysis
 shapes (lag this, window that, join AS-OF, correlate the two).
 """
 
-from shenas_plugins.core.analytics.llm import (
+from shenas_analyses.core.analytics.llm import (
     AnthropicProvider,
     FakeProvider,
     LLMProvider,
@@ -34,14 +34,14 @@ from shenas_plugins.core.analytics.llm import (
     build_user_prompt,
     operation_param_schema,
 )
-from shenas_plugins.core.analytics.mode import (
+from shenas_analyses.core.analytics.mode import (
     AnalysisMode,
     get_mode,
     list_modes,
     register_mode,
 )
-from shenas_plugins.core.analytics.node import RecipeNode
-from shenas_plugins.core.analytics.operations import (
+from shenas_analyses.core.analytics.node import RecipeNode
+from shenas_analyses.core.analytics.operations import (
     Correlate,
     JoinAsOf,
     Lag,
@@ -52,8 +52,8 @@ from shenas_plugins.core.analytics.operations import (
     get_operations,
     register_operation,
 )
-from shenas_plugins.core.analytics.recipe import OpCall, Recipe, RecipeError, SourceRef
-from shenas_plugins.core.analytics.runner import (
+from shenas_analyses.core.analytics.recipe import OpCall, Recipe, RecipeError, SourceRef
+from shenas_analyses.core.analytics.runner import (
     ErrorResult,
     Result,
     ScalarResult,

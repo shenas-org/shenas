@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from shenas_plugins.core.table import Field, Table
+from app.table import Field, Table
 
 
 def _now_iso() -> str:

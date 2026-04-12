@@ -108,8 +108,8 @@ class DatabaseManager:
         """Create the device-wide registry tables."""
         from app.local_sessions import LocalSession
         from app.local_users import LocalUser
+        from app.plugin import PluginInstance
         from app.system_settings import SystemSettings
-        from shenas_plugins.core.plugin import PluginInstance
 
         con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.local_user_seq START 1")
@@ -117,7 +117,7 @@ class DatabaseManager:
             tbl.ensure(con, schema=tbl._Meta.schema or "shenas_system")
 
         try:
-            from shenas_plugins.core.plugin import VALID_KINDS, Plugin
+            from app.plugin import VALID_KINDS, Plugin
 
             for kind in VALID_KINDS:
                 try:
@@ -257,12 +257,12 @@ class DatabaseManager:
         from app.hypotheses import Hypothesis
         from app.local_sessions import LocalSession
         from app.local_users import LocalUser
+        from app.plugin import PluginInstance
         from app.recipe_cache import RecipeCache
         from app.system_settings import SystemSettings
+        from app.table import Table
         from app.workspace import Workspace
         from shenas_datasets.promoted import PromotedMetric
-        from shenas_plugins.core.plugin import PluginInstance
-        from shenas_plugins.core.table import Table
 
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_instance_seq START 1")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")

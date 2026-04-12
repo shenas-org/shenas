@@ -4,7 +4,7 @@ dynamic = ["version"]
 description = "Core UI ABC for shenas"
 requires-python = ">=3.11"
 dependencies = [
-    "shenas-plugin-core",
+    "shenas-app",
 ]
 
 [build-system]

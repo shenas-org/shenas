@@ -27,8 +27,8 @@ import json
 from dataclasses import dataclass
 from typing import Annotated, Any
 
+from app.table import Field, Table
 from shenas_datasets.core import Dataset, MetricTable
-from shenas_plugins.core.table import Field, Table
 
 
 @dataclass
@@ -133,15 +133,16 @@ def _make_transform(record: PromotedMetric):
     recipe_json = record.recipe_json
 
     def transform(cls, con) -> int:
-        from app.data_catalog import catalog as get_catalog
-        from app.database import analytics_backend
-        from shenas_plugins.core.analytics import (
+        from shenas_analyses.core.analytics import (
             OpCall,
             Recipe,
             SourceRef,
             TableResult,
             run_recipe,
         )
+
+        from app.data_catalog import catalog as get_catalog
+        from app.database import analytics_backend
 
         payload = json.loads(recipe_json)
         nodes: dict[str, SourceRef | OpCall] = {}

@@ -9,7 +9,7 @@ their custom fields and a ``table_name`` (set dynamically by
 from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
-from shenas_plugins.core.table import Field, SingletonTable
+from app.table import Field, SingletonTable
 
 
 @dataclass

@@ -6,7 +6,7 @@ from typing import Annotated, Any, ClassVar
 
 import pytest
 
-from shenas_plugins.core.table import Field
+from app.table import Field
 from shenas_sources.core.table import (
     AggregateTable,
     CounterTable,
@@ -493,7 +493,7 @@ class TestTableKindAndMetadata:
         # kind=None and have no kind-specific keys. This covers MetricTable
         # subclasses, system tables (Plugin._Table, Workspace._Table, ...),
         # and SourceConfig / SourceAuth.
-        from shenas_plugins.core.table import Table
+        from app.table import Table
 
         class _Plain(Table):
             class _Meta:

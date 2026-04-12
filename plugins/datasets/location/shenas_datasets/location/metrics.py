@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Annotated, ClassVar
 
+from app.table import Field
 from shenas_datasets.core import EventMetricTable
-from shenas_plugins.core.table import Field
 
 Source = Annotated[str, Field(db_type="VARCHAR", description="Source plugin (e.g. gtakeout)")]
 

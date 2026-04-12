@@ -6,8 +6,7 @@ import json
 from typing import Any
 
 import pytest
-
-from shenas_plugins.core.analytics import (
+from shenas_analyses.core.analytics import (
     FakeProvider,
     ask_for_recipe,
     build_system_prompt,
@@ -25,7 +24,7 @@ def _ensure_hypothesis_mode():
 
 
 def test_operation_param_schema_lag():
-    from shenas_plugins.core.analytics.operations import Lag
+    from shenas_analyses.core.analytics.operations import Lag
 
     schema = operation_param_schema(Lag)
     assert schema["type"] == "object"
@@ -91,7 +90,7 @@ def test_ask_for_recipe_round_trip_via_fake_provider():
 
 
 def test_anthropic_provider_raises_without_api_key(monkeypatch):
-    from shenas_plugins.core.analytics import AnthropicProvider
+    from shenas_analyses.core.analytics import AnthropicProvider
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     p = AnthropicProvider()
@@ -106,7 +105,7 @@ def test_anthropic_provider_raises_without_api_key(monkeypatch):
 
 def test_iteration_loop_retries_once_on_validation_error():
     """The retry loop sends the validation error back to the LLM and accepts the second attempt."""
-    from shenas_plugins.core.analytics import ask_for_recipe_with_retry
+    from shenas_analyses.core.analytics import ask_for_recipe_with_retry
 
     payloads = iter(
         [
@@ -141,7 +140,7 @@ def test_iteration_loop_retries_once_on_validation_error():
 
 
 def test_iteration_loop_gives_up_after_max_attempts():
-    from shenas_plugins.core.analytics import ask_for_recipe_with_retry
+    from shenas_analyses.core.analytics import ask_for_recipe_with_retry
 
     class _AlwaysBad:
         name = "bad@v0"
@@ -175,7 +174,7 @@ def test_dynamic_operation_registry():
     from dataclasses import dataclass
     from typing import ClassVar
 
-    from shenas_plugins.core.analytics.operations import (
+    from shenas_analyses.core.analytics.operations import (
         _OPERATION_REGISTRY,
         Operation,
         get_operations,

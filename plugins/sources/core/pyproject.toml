@@ -5,7 +5,7 @@ description = "Shared utilities for shenas pipes"
 requires-python = ">=3.11"
 dependencies = [
     "opentelemetry-api>=1.25.0",
-    "shenas-plugin-core",
+    "shenas-app",
     "shenas-dataset-core",
 ]
 

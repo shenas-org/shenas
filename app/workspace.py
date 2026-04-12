@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated
 
-from shenas_plugins.core.table import Field, SingletonTable
+from app.table import Field, SingletonTable
 
 
 @dataclass

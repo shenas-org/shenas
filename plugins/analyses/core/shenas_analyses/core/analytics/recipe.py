@@ -28,9 +28,8 @@ makes recipes durable as part of the ``HypothesisRecord`` artifact.
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel
-
-from shenas_plugins.core.analytics.node import RecipeNode
-from shenas_plugins.core.analytics.operations import Operation, OperationError, get_operations
+from shenas_analyses.core.analytics.node import RecipeNode
+from shenas_analyses.core.analytics.operations import Operation, OperationError, get_operations
 
 if TYPE_CHECKING:
     import ibis.backends.duckdb as ibd

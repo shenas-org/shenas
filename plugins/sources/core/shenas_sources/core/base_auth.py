@@ -8,7 +8,7 @@ individual pipes only need to declare their credential fields and a
 from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
-from shenas_plugins.core.table import Field, SingletonTable
+from app.table import Field, SingletonTable
 
 
 @dataclass

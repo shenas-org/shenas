@@ -40,8 +40,8 @@ import os
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
 if TYPE_CHECKING:
-    from shenas_plugins.core.analytics.mode import AnalysisMode
-    from shenas_plugins.core.analytics.operations import Operation
+    from shenas_analyses.core.analytics.mode import AnalysisMode
+    from shenas_analyses.core.analytics.operations import Operation
 
 # ----------------------------------------------------------------------
 # Provider interface
@@ -242,7 +242,7 @@ def submit_recipe_tool() -> dict[str, Any]:
 def _operation_vocabulary() -> str:
     """Render the curated operation library as a system-prompt section."""
     out: list[str] = ["## Operation vocabulary", ""]
-    from shenas_plugins.core.analytics.operations import get_operations
+    from shenas_analyses.core.analytics.operations import get_operations
 
     for op in get_operations().values():
         params = operation_param_schema(op)

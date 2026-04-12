@@ -6,8 +6,8 @@ import abc
 from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
-from shenas_plugins.core.plugin import Plugin
-from shenas_plugins.core.table import Field, SingletonTable
+from app.plugin import Plugin
+from app.table import Field, SingletonTable
 
 
 @dataclass

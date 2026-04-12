@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import math
 
-from shenas_plugins.core.analytics import ErrorResult, ScalarResult, TableResult
-from shenas_plugins.core.analytics.sanity import sanity_check
+from shenas_analyses.core.analytics import ErrorResult, ScalarResult, TableResult
+from shenas_analyses.core.analytics.sanity import sanity_check
 
 
 def test_clean_scalar_no_warnings():

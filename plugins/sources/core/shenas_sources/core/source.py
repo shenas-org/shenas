@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-from shenas_plugins.core.plugin import Plugin
+from app.plugin import Plugin
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.base_config import SourceConfig
 
@@ -476,7 +476,7 @@ class Source(Plugin):
 
 def _get_field_meta(f: dataclasses.Field) -> dict[str, Any]:  # type: ignore[type-arg]
     """Extract Field metadata from an Annotated dataclass field."""
-    from shenas_plugins.core.table import Field
+    from app.table import Field
 
     hints = getattr(f.type, "__metadata__", ()) if hasattr(f.type, "__metadata__") else ()
     # Unwrap Optional[Annotated[...]]
