@@ -48,7 +48,6 @@ export interface SettingsNavItem {
 }
 export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { id: "profile", label: "Profile" },
-  { id: "flow", label: "Flow" },
   { id: "categories", label: "Categories" },
   { id: "hotkeys", label: "Hotkeys" },
 ];
@@ -541,7 +540,6 @@ class SettingsPage extends LitElement {
 
   _displayName(): string {
     if (this.activeKind === "profile") return "Profile";
-    if (this.activeKind === "flow") return "Flow";
     if (this.activeKind === "categories") return "Categories";
     if (this.activeKind === "hotkeys") return "Hotkeys";
     const kind = PLUGIN_KINDS.find((k) => k.id === this.activeKind);
@@ -606,20 +604,11 @@ class SettingsPage extends LitElement {
         ${renderMessage(this._actionMessage)}
         ${this.activeKind === "profile"
           ? this._renderProfile()
-          : this.activeKind === "hotkeys"
-            ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
-            : this._renderKind(this.activeKind)}
-          : this.activeKind === "flow"
-            ? html`<shenas-pipeline-overview
-                api-base="${this.apiBase}"
-                .allPlugins=${this.allPlugins}
-                .schemaPlugins=${this.schemaPlugins}
-              ></shenas-pipeline-overview>`
-            : this.activeKind === "categories"
-              ? html`<shenas-categories api-base="${this.apiBase}"></shenas-categories>`
-              : this.activeKind === "hotkeys"
-                ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
-                : this._renderKind(this.activeKind)}
+          : this.activeKind === "categories"
+            ? html`<shenas-categories api-base="${this.apiBase}"></shenas-categories>`
+            : this.activeKind === "hotkeys"
+              ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
+              : this._renderKind(this.activeKind)}
       </shenas-page>
     `;
   }

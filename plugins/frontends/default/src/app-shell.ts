@@ -141,8 +141,6 @@ class ShenasApp extends LitElement {
     { path: "/flow", render: () => this._renderFlow() },
     { path: "/catalog", render: () => this._renderCatalog() },
     { path: "/settings", render: () => this._renderSettings("profile") },
-    { path: "/flow", render: () => this._renderSettings("flow") },
-    { path: "/settings", render: () => this._renderSettings("flow") },
     {
       path: "/settings/:kind",
       render: (params: { [key: string]: string | undefined }) => this._renderSettings(params?.kind ?? ""),
