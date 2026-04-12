@@ -2,74 +2,75 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
+// Stub localStorage for happy-dom
+const localStorageStore: Record<string, string> = {};
+(globalThis as any).localStorage = {
+  getItem(key: string) {
+    return localStorageStore[key] ?? null;
+  },
+  setItem(key: string, value: string) {
+    localStorageStore[key] = value;
+  },
+  removeItem(key: string) {
+    delete localStorageStore[key];
+  },
+  clear() {
+    Object.keys(localStorageStore).forEach((k) => delete localStorageStore[k]);
+  },
+};
+
 import "../config-page.ts";
 
 type AnyEl = HTMLElement & Record<string, any>;
 
 function mount(): AnyEl {
-  const el = document.createElement("shenas-config") as AnyEl;
+  const el = document.createElement("shenas-config-page") as AnyEl;
   document.body.appendChild(el);
   return el;
 }
 
-describe("shenas-config", () => {
+describe("shenas-config-page", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.resetAllMocks();
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ data: { plugins: [] } }),
+      json: () => Promise.resolve({ configs: [] }),
     });
   });
 
   it("creates the element", () => {
-    const el = document.createElement("shenas-config");
-    expect(el.tagName.toLowerCase()).toBe("shenas-config");
+    const el = document.createElement("shenas-config-page");
+    expect(el.tagName.toLowerCase()).toBe("shenas-config-page");
   });
 
   it("has default property values", () => {
     const el = mount();
-    expect(el.apiBase).toBe("/api");
-    expect(el.kind).toBe("");
-    expect(el.name).toBe("");
+    expect(el.apiBase).toBe("");
+    expect(el._configs).toEqual([]);
+    expect(el._error).toBeNull();
     expect(el._loading).toBe(true);
-    expect(el._editing).toBeNull();
-    expect(el._editValue).toBe("");
-    expect(el._freqUnit).toBe("hours");
-    expect(el._config).toBeNull();
+    expect(el._editingKey).toBeNull();
   });
 
-  it("fetches when kind and name set", async () => {
+  it("fetches configs on connect", async () => {
     const el = mount();
-    el.kind = "source";
-    el.name = "garmin";
     await el.updateComplete;
     await new Promise((r) => setTimeout(r, 20));
     expect(globalThis.fetch).toHaveBeenCalled();
   });
 
-  it("_startEdit populates edit state for non-duration field", async () => {
+  it("startEdit sets editingKey", async () => {
     const el = mount();
     await el.updateComplete;
-    el._startEdit("api_key", "abc");
-    expect(el._editing).toBe("api_key");
-    expect(el._editValue).toBe("abc");
+    el.startEdit("api_key");
+    expect(el._editingKey).toBe("api_key");
   });
 
-  it("_startEdit converts minutes to hours for duration fields", async () => {
+  it("cancelEdit clears editingKey", async () => {
     const el = mount();
-    await el.updateComplete;
-    el._startEdit("sync_frequency", "120");
-    expect(el._freqNum).toBe("2");
-    expect(el._freqUnit).toBe("hours");
-  });
-
-  it("_cancelEdit clears edit state", async () => {
-    const el = mount();
-    el._editing = "x";
-    el._editValue = "y";
-    el._cancelEdit();
-    expect(el._editing).toBeNull();
-    expect(el._editValue).toBe("");
+    el._editingKey = "x";
+    el.cancelEdit();
+    expect(el._editingKey).toBeNull();
   });
 });

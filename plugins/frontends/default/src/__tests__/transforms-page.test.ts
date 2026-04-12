@@ -34,13 +34,18 @@ describe("shenas-transforms", () => {
     expect(el._transforms).toEqual([]);
     expect(el._loading).toBe(true);
     expect(el._editing).toBeNull();
-    expect(el._editParams).toEqual({});
+    expect(el._editSql).toBe("");
     expect(el._message).toBeNull();
     expect(el._previewRows).toBeNull();
     expect(el._creating).toBe(false);
+    expect(el._newForm).toEqual({
+      source_duckdb_table: "",
+      target_duckdb_table: "",
+      description: "",
+      sql: "",
+    });
     expect(el._dbTables).toEqual({});
     expect(el._schemaTables).toEqual({});
-    expect(el._transformTypes).toEqual([]);
   });
 
   it("fetches on connect", async () => {
@@ -52,10 +57,10 @@ describe("shenas-transforms", () => {
   it("_emptyForm returns blank form", () => {
     const el = mount();
     const f = el._emptyForm();
-    expect(f.transform_type).toBe("");
     expect(f.source_duckdb_table).toBe("");
     expect(f.target_duckdb_table).toBe("");
-    expect(f.params).toEqual({});
+    expect(f.description).toBe("");
+    expect(f.sql).toBe("");
   });
 
   it("renders shadow root", async () => {
@@ -64,25 +69,26 @@ describe("shenas-transforms", () => {
     expect(el.shadowRoot).toBeTruthy();
   });
 
-  it("_startEdit / _cancelEdit toggles edit state", async () => {
+  it("_startEdit / _cancelEdit toggles edit state", () => {
     const el = mount();
-    // Mock fetch for transformTypes query
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { transformTypes: [] } }),
-    });
-    await el._startEdit({
+    el._startEdit({
       id: 7,
-      params: '{"sql":"SELECT 1"}',
-      transformType: "sql",
-      source: { id: "garmin.hr", schemaName: "garmin", tableName: "hr" },
-      target: { id: "metrics.hrv", schemaName: "metrics", tableName: "hrv" },
+      sourceDuckdbSchema: "garmin",
+      sourceDuckdbTable: "activities",
+      targetDuckdbSchema: "metrics",
+      targetDuckdbTable: "exercise",
+      sourcePlugin: "garmin",
+      description: "test",
+      sql: "SELECT 1",
+      isDefault: false,
+      enabled: true,
     });
     expect(el._editing).toBe(7);
-    expect(el._editParams).toEqual({ sql: "SELECT 1" });
+    expect(el._editSql).toBe("SELECT 1");
+    expect(el._previewRows).toBeNull();
     el._cancelEdit();
     expect(el._editing).toBeNull();
-    expect(el._editParams).toEqual({});
+    expect(el._editSql).toBe("");
     expect(el._previewRows).toBeNull();
   });
 

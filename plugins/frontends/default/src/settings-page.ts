@@ -1,6 +1,5 @@
 import { LitElement, html, css } from "lit";
 import {
-  arrowQuery,
   gql,
   gqlFull,
   registerCommands,
@@ -9,7 +8,17 @@ import {
   linkStyles,
   messageStyles,
 } from "shenas-frontends";
-import type { MessageBanner } from "shenas-frontends";
+
+interface SettingsNavItem {
+  id: string;
+  label: string;
+}
+
+export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
+  { id: "profile", label: "Profile" },
+  { id: "categories", label: "Categories" },
+  { id: "hotkeys", label: "Hotkeys" },
+];
 
 interface SettingCategory {
   id: string;
@@ -266,7 +275,7 @@ class SettingsPage extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._loadSettings();
-    registerCommands([
+    registerCommands(this, "settings-page", [
       { command: "save", action: () => this._saveSettings() },
       { command: "reset", action: () => this._resetSettings() },
     ]);
@@ -354,7 +363,7 @@ class SettingsPage extends LitElement {
             message
           }
         }`,
-        { updates }
+        { updates },
       );
 
       if (response.data?.updateSettings?.success) {
@@ -406,7 +415,6 @@ class SettingsPage extends LitElement {
 
   private _renderSettingInput(setting: Setting) {
     const value = this._settings[setting.id];
-    const hasChanged = this._changedSettings.has(setting.id);
 
     switch (setting.type) {
       case "boolean":
@@ -431,12 +439,7 @@ class SettingsPage extends LitElement {
             @change=${(e) => this._updateSetting(setting.id, e.target.value)}
           >
             ${setting.options?.map(
-              (opt) =>
-                html`
-                  <option value=${opt.value} ?selected=${value === opt.value}>
-                    ${opt.label}
-                  </option>
-                `
+              (opt) => html` <option value=${opt.value} ?selected=${value === opt.value}>${opt.label}</option> `,
             )}
           </select>
         `;
@@ -480,10 +483,7 @@ class SettingsPage extends LitElement {
     return html`
       <div class="container">
         ${this._message ? renderMessage(this._message) : ""}
-
-        ${this._changedSettings.size > 0
-          ? html`<div class="unsaved-indicator">You have unsaved changes</div>`
-          : ""}
+        ${this._changedSettings.size > 0 ? html`<div class="unsaved-indicator">You have unsaved changes</div>` : ""}
 
         <div class="page-header">
           <h1 class="page-title">Settings</h1>
@@ -498,9 +498,7 @@ class SettingsPage extends LitElement {
                   (category) => html`
                     <div class="category">
                       <div
-                        class="category-header ${this._expandedCategories.has(category.id)
-                          ? "expanded"
-                          : ""}"
+                        class="category-header ${this._expandedCategories.has(category.id) ? "expanded" : ""}"
                         @click=${() => this._toggleCategory(category.id)}
                       >
                         <div>
@@ -513,35 +511,33 @@ class SettingsPage extends LitElement {
                           ▼
                         </div>
                       </div>
-                      <div
-                        class="category-content ${this._expandedCategories.has(category.id) ? "expanded" : ""}"
-                      >
+                      <div class="category-content ${this._expandedCategories.has(category.id) ? "expanded" : ""}">
                         <form class="settings-form">
                           ${category.settings.map(
                             (setting) => html`
                               <div class="form-group">
                                 ${setting.type !== "boolean"
                                   ? html`
-                                      <label for="setting-${setting.id}" class="form-label ${setting.required ? "required" : ""}">
+                                      <label
+                                        for="setting-${setting.id}"
+                                        class="form-label ${setting.required ? "required" : ""}"
+                                      >
                                         ${setting.display_name}
                                       </label>
                                     `
                                   : ""}
                                 ${this._renderSettingInput(setting)}
-                                ${setting.description
-                                  ? html`<p class="form-help">${setting.description}</p>`
-                                  : ""}
+                                ${setting.description ? html`<p class="form-help">${setting.description}</p>` : ""}
                               </div>
-                            `
+                            `,
                           )}
                         </form>
                       </div>
                     </div>
-                  `
+                  `,
                 )}
               </div>
             `}
-
         ${this._categories.length > 0
           ? html`
               <div class="action-bar">
@@ -567,5 +563,5 @@ class SettingsPage extends LitElement {
   }
 }
 
-customElements.define("settings-page", SettingsPage);
+customElements.define("shenas-settings", SettingsPage);
 export { SettingsPage };

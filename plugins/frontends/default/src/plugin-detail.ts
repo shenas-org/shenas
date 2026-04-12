@@ -1,6 +1,5 @@
 import { LitElement, html, css } from "lit";
 import {
-  arrowQuery,
   gql,
   gqlFull,
   registerCommands,
@@ -10,24 +9,6 @@ import {
   messageStyles,
   tabStyles,
 } from "shenas-frontends";
-import type { MessageBanner } from "shenas-frontends";
-
-interface PluginInfo {
-  name: string;
-  display_name?: string;
-  kind: string;
-  version?: string;
-  description?: string;
-  enabled?: boolean;
-  synced_at?: string;
-  added_at?: string;
-  updated_at?: string;
-  status_changed_at?: string;
-  has_config?: boolean;
-  has_auth?: boolean;
-  has_data?: boolean;
-  primary_table?: string;
-}
 
 interface TableInfo {
   name: string;
@@ -36,23 +17,6 @@ interface TableInfo {
   earliest?: string;
   latest?: string;
 }
-
-interface SchemaTransform {
-  id: number;
-  sourceDuckdbSchema: string;
-  sourceDuckdbTable: string;
-  targetDuckdbSchema: string;
-  targetDuckdbTable: string;
-  sourcePlugin: string;
-  description?: string;
-  enabled: boolean;
-}
-
-interface DbStatus {
-  schemas: Array<{ name: string; tables: TableInfo[] }>;
-  [key: string]: unknown;
-}
-
 
 class PluginDetail extends LitElement {
   static properties = {
@@ -393,7 +357,7 @@ class PluginDetail extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._loadPluginInfo();
-    registerCommands([{ command: "refresh", action: () => this._loadPluginInfo() }]);
+    registerCommands(this, "plugin-detail", [{ command: "refresh", action: () => this._loadPluginInfo() }]);
   }
 
   updated(changedProperties) {
@@ -426,11 +390,7 @@ class PluginDetail extends LitElement {
         }
       `;
 
-      const response = await gql(
-        `${this.apiBase}/api/graphql`,
-        query,
-        { name: this.name, kind: this.kind }
-      );
+      const response = await gql(`${this.apiBase}/api/graphql`, query, { name: this.name, kind: this.kind });
 
       if (response.data?.plugin) {
         this._info = response.data.plugin;
@@ -452,7 +412,7 @@ class PluginDetail extends LitElement {
       const schema = `${this.name.replace(/[^a-z0-9_]/gi, "_")}`;
       const response = await gql(
         `${this.apiBase}/api/graphql`,
-        `query { dbStatus { schemas(name: "${schema}") { tables { name rows cols earliest latest } } } }`
+        `query { dbStatus { schemas(name: "${schema}") { tables { name rows cols earliest latest } } } }`,
       );
 
       const schemas = response.data?.dbStatus?.schemas || [];
@@ -467,7 +427,7 @@ class PluginDetail extends LitElement {
     try {
       const response = await gql(
         `${this.apiBase}/api/graphql`,
-        `query { transforms(sourcePlugin: "${this.name}") { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable description enabled } }`
+        `query { transforms(sourcePlugin: "${this.name}") { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable description enabled } }`,
       );
       this._schemaTransforms = response.data?.transforms || [];
     } catch (error) {
@@ -481,7 +441,7 @@ class PluginDetail extends LitElement {
     try {
       const response = await gqlFull(
         `${this.apiBase}/api/graphql`,
-        `mutation { syncPlugin(name: "${this.name}", kind: "${this.kind}") { success message synced_at } }`
+        `mutation { syncPlugin(name: "${this.name}", kind: "${this.kind}") { success message synced_at } }`,
       );
 
       if (response.data?.syncPlugin?.success) {
@@ -511,7 +471,7 @@ class PluginDetail extends LitElement {
     try {
       const response = await gqlFull(
         `${this.apiBase}/api/graphql`,
-        `mutation { updateTransform(id: ${transformId}, enabled: ${!enabled}) { id enabled } }`
+        `mutation { updateTransform(id: ${transformId}, enabled: ${!enabled}) { id enabled } }`,
       );
 
       if (response.data?.updateTransform) {
@@ -566,23 +526,15 @@ class PluginDetail extends LitElement {
             <div class="plugin-name">${this._info.display_name || this._info.name}</div>
             <div>
               <span class="plugin-kind">${this._info.kind}</span>
-              ${this._info.version
-                ? html`<span class="plugin-version">v${this._info.version}</span>`
-                : ""}
+              ${this._info.version ? html`<span class="plugin-version">v${this._info.version}</span>` : ""}
             </div>
-            ${this._info.description
-              ? html`<div class="plugin-description">${this._info.description}</div>`
-              : ""}
+            ${this._info.description ? html`<div class="plugin-description">${this._info.description}</div>` : ""}
           </div>
           <div class="header-actions">
             ${this._info.enabled
               ? html`<span class="status-indicator enabled" title="Enabled"></span>`
               : html`<span class="status-indicator disabled" title="Disabled"></span>`}
-            <button
-              ?disabled=${this._syncing}
-              @click=${() => this._syncPlugin()}
-              class="btn-primary"
-            >
+            <button ?disabled=${this._syncing} @click=${() => this._syncPlugin()} class="btn-primary">
               ${this._syncing ? "Syncing..." : "Sync Now"}
             </button>
           </div>
@@ -637,9 +589,7 @@ class PluginDetail extends LitElement {
           ${this._info.synced_at
             ? html`<p>Last synced: ${new Date(this._info.synced_at).toLocaleString()}</p>`
             : html`<p>Never synced</p>`}
-          ${this._info.updated_at
-            ? html`<p>Last updated: ${new Date(this._info.updated_at).toLocaleString()}</p>`
-            : ""}
+          ${this._info.updated_at ? html`<p>Last updated: ${new Date(this._info.updated_at).toLocaleString()}</p>` : ""}
         </div>
         <div class="config-form">
           <div class="form-group">
@@ -680,7 +630,7 @@ class PluginDetail extends LitElement {
                   ${table.cols ? html`<div class="table-stat"><span>Columns:</span> ${table.cols}</div>` : ""}
                 </div>
               </div>
-            `
+            `,
           )}
         </div>
         ${this._selectedTable
@@ -697,7 +647,12 @@ class PluginDetail extends LitElement {
                           </tr>
                         </thead>
                         <tbody>
-                          ${this._previewRows.map((row) => html`<tr><td>${row}</td></tr>`)}
+                          ${this._previewRows.map(
+                            (row) =>
+                              html`<tr>
+                                <td>${row}</td>
+                              </tr>`,
+                          )}
                         </tbody>
                       </table>
                     `}
@@ -735,11 +690,9 @@ class PluginDetail extends LitElement {
                   ${transform.sourceDuckdbSchema}.${transform.sourceDuckdbTable} →
                   ${transform.targetDuckdbSchema}.${transform.targetDuckdbTable}
                 </div>
-                ${transform.description
-                  ? html`<div class="transform-description">${transform.description}</div>`
-                  : ""}
+                ${transform.description ? html`<div class="transform-description">${transform.description}</div>` : ""}
               </div>
-            `
+            `,
           )}
         </div>
       </div>
@@ -751,7 +704,9 @@ class PluginDetail extends LitElement {
       <div>
         <h3>Configuration</h3>
         <div class="config-form">
-          ${this._info.has_auth ? html`<div class="form-group"><label class="form-label">Authentication</label></div>` : ""}
+          ${this._info.has_auth
+            ? html`<div class="form-group"><label class="form-label">Authentication</label></div>`
+            : ""}
           ${this._info.has_config ? html`<div class="form-group"><label class="form-label">Settings</label></div>` : ""}
         </div>
       </div>
@@ -759,5 +714,5 @@ class PluginDetail extends LitElement {
   }
 }
 
-customElements.define("plugin-detail", PluginDetail);
+customElements.define("shenas-plugin-detail", PluginDetail);
 export { PluginDetail };

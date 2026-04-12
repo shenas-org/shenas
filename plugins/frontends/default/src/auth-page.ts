@@ -1,6 +1,5 @@
-import { LitElement, html, css } from 'lit';
-import { query } from 'lit/decorators.js';
-import type { TemplateResult, CSSResult } from 'lit';
+import { LitElement, html, css } from "lit";
+import type { TemplateResult, CSSResult } from "lit";
 
 interface AuthRequest {
   code: string;
@@ -9,7 +8,7 @@ interface AuthRequest {
 
 export class AuthPage extends LitElement {
   static properties = {
-    apiBase: { type: String, attribute: 'api-base' },
+    apiBase: { type: String, attribute: "api-base" },
     _authRequest: { state: true },
     _error: { state: true },
     _loading: { state: true },
@@ -20,8 +19,9 @@ export class AuthPage extends LitElement {
   declare _error: string | null;
   declare _loading: boolean;
 
-  @query('#device-code')
-  declare deviceCodeInput: HTMLInputElement;
+  get deviceCodeInput(): HTMLInputElement | null {
+    return this.renderRoot?.querySelector("#device-code") as HTMLInputElement | null;
+  }
 
   static styles: CSSResult = css`
     :host {
@@ -100,7 +100,9 @@ export class AuthPage extends LitElement {
       font-size: 0.95rem;
       font-weight: 600;
       cursor: pointer;
-      transition: opacity 0.2s, transform 0.2s;
+      transition:
+        opacity 0.2s,
+        transform 0.2s;
     }
 
     button:hover {
@@ -151,7 +153,7 @@ export class AuthPage extends LitElement {
 
   constructor() {
     super();
-    this.apiBase = '';
+    this.apiBase = "";
     this._authRequest = null;
     this._error = null;
     this._loading = false;
@@ -168,11 +170,11 @@ export class AuthPage extends LitElement {
 
     try {
       const response = await fetch(`${this.apiBase}/api/auth/request`, {
-        method: 'POST',
+        method: "POST",
       });
 
       if (!response.ok) {
-        throw new Error('Failed to initialize authentication');
+        throw new Error("Failed to initialize authentication");
       }
 
       const data = await response.json();
@@ -192,12 +194,12 @@ export class AuthPage extends LitElement {
     try {
       const code = this.deviceCodeInput.value;
       if (!code) {
-        throw new Error('Device code is required');
+        throw new Error("Device code is required");
       }
 
       const response = await fetch(`${this.apiBase}/api/auth/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code,
           challenge: this._authRequest?.challenge,
@@ -205,13 +207,13 @@ export class AuthPage extends LitElement {
       });
 
       if (!response.ok) {
-        throw new Error('Invalid device code');
+        throw new Error("Invalid device code");
       }
 
       const data = await response.json();
       if (data.token) {
-        localStorage.setItem('auth_token', data.token);
-        window.location.href = '/';
+        localStorage.setItem("auth_token", data.token);
+        window.location.href = "/";
       }
     } catch (error) {
       this._error = error instanceof Error ? error.message : String(error);
@@ -228,31 +230,24 @@ export class AuthPage extends LitElement {
           <p>Personal data integration</p>
         </div>
 
-        ${this._error ? html`<div class="error">${this._error}</div>` : ''}
+        ${this._error ? html`<div class="error">${this._error}</div>` : ""}
         ${this._authRequest
           ? html`
-              <div class="info">
-                Enter your device code below to authenticate
-              </div>
+              <div class="info">Enter your device code below to authenticate</div>
               <form @submit=${this.handleSubmit.bind(this)}>
                 <div class="form-group">
                   <label for="device-code">Device Code</label>
-                  <input
-                    id="device-code"
-                    type="text"
-                    placeholder="Enter device code"
-                    required
-                  />
+                  <input id="device-code" type="text" placeholder="Enter device code" required />
                 </div>
                 <button type="submit" ?disabled=${this._loading}>
-                  ${this._loading ? 'Authenticating...' : 'Authenticate'}
+                  ${this._loading ? "Authenticating..." : "Authenticate"}
                 </button>
               </form>
             `
-          : ''}
+          : ""}
       </div>
     `;
   }
 }
 
-customElements.define('shenas-auth-page', AuthPage);
+customElements.define("shenas-auth-page", AuthPage);

@@ -1,6 +1,5 @@
-import { LitElement, html, css } from 'lit';
-import { query } from 'lit/decorators.js';
-import type { TemplateResult, CSSResult } from 'lit';
+import { LitElement, html, css } from "lit";
+import type { TemplateResult, CSSResult } from "lit";
 
 interface ConfigValue {
   key: string;
@@ -10,7 +9,7 @@ interface ConfigValue {
 
 export class ConfigPage extends LitElement {
   static properties = {
-    apiBase: { type: String, attribute: 'api-base' },
+    apiBase: { type: String, attribute: "api-base" },
     _configs: { state: true },
     _error: { state: true },
     _loading: { state: true },
@@ -23,8 +22,9 @@ export class ConfigPage extends LitElement {
   declare _loading: boolean;
   declare _editingKey: string | null;
 
-  @query('#config-value')
-  declare configValueInput: HTMLInputElement;
+  get configValueInput(): HTMLInputElement | null {
+    return this.renderRoot?.querySelector("#config-value") as HTMLInputElement | null;
+  }
 
   static styles: CSSResult = css`
     :host {
@@ -196,7 +196,7 @@ export class ConfigPage extends LitElement {
 
   constructor() {
     super();
-    this.apiBase = '';
+    this.apiBase = "";
     this._configs = [];
     this._error = null;
     this._loading = false;
@@ -215,12 +215,12 @@ export class ConfigPage extends LitElement {
     try {
       const response = await fetch(`${this.apiBase}/api/config`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
 
       if (!response.ok) {
-        throw new Error('Failed to load configuration');
+        throw new Error("Failed to load configuration");
       }
 
       const data = await response.json();
@@ -252,20 +252,17 @@ export class ConfigPage extends LitElement {
     this._error = null;
 
     try {
-      const response = await fetch(
-        `${this.apiBase}/api/config/${this._editingKey}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-          },
-          body: JSON.stringify({ value }),
-        }
-      );
+      const response = await fetch(`${this.apiBase}/api/config/${this._editingKey}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+        body: JSON.stringify({ value }),
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to update configuration');
+        throw new Error("Failed to update configuration");
       }
 
       await this.loadConfigs();
@@ -283,15 +280,11 @@ export class ConfigPage extends LitElement {
         <div class="header">
           <h1>Configuration</h1>
           <div class="controls">
-            <button @click=${this.loadConfigs.bind(this)}
-              ?disabled=${this._loading}>
-              Refresh
-            </button>
+            <button @click=${this.loadConfigs.bind(this)} ?disabled=${this._loading}>Refresh</button>
           </div>
         </div>
 
-        ${this._error ? html`<div class="error">${this._error}</div>` : ''}
-
+        ${this._error ? html`<div class="error">${this._error}</div>` : ""}
         ${this._loading && this._configs.length === 0
           ? html`<div class="loading">Loading configuration...</div>`
           : html`
@@ -303,37 +296,17 @@ export class ConfigPage extends LitElement {
                           <div>
                             <div class="config-key">${config.key}</div>
                             ${config.description
-                              ? html`<div class="config-description">
-                                  ${config.description}
-                                </div>`
-                              : ''}
+                              ? html`<div class="config-description">${config.description}</div>`
+                              : ""}
                           </div>
-                          <form
-                            @submit=${this.saveEdit.bind(this)}
-                            class="edit-form"
-                          >
+                          <form @submit=${this.saveEdit.bind(this)} class="edit-form">
                             <div class="form-group">
                               <label for="config-value">Value</label>
-                              <input
-                                id="config-value"
-                                type="text"
-                                .value=${config.value}
-                                required
-                              />
+                              <input id="config-value" type="text" .value=${config.value} required />
                             </div>
                             <div class="config-actions">
-                              <button
-                                type="submit"
-                                ?disabled=${this._loading}
-                              >
-                                Save
-                              </button>
-                              <button
-                                type="button"
-                                @click=${this.cancelEdit.bind(this)}
-                              >
-                                Cancel
-                              </button>
+                              <button type="submit" ?disabled=${this._loading}>Save</button>
+                              <button type="button" @click=${this.cancelEdit.bind(this)}>Cancel</button>
                             </div>
                           </form>
                         </div>
@@ -344,20 +317,14 @@ export class ConfigPage extends LitElement {
                             <div class="config-key">${config.key}</div>
                             <div class="config-value">${config.value}</div>
                             ${config.description
-                              ? html`<div class="config-description">
-                                  ${config.description}
-                                </div>`
-                              : ''}
+                              ? html`<div class="config-description">${config.description}</div>`
+                              : ""}
                           </div>
                           <div class="config-actions">
-                            <button
-                              @click=${() => this.startEdit(config.key)}
-                            >
-                              Edit
-                            </button>
+                            <button @click=${() => this.startEdit(config.key)}>Edit</button>
                           </div>
                         </div>
-                      `
+                      `,
                 )}
               </div>
             `}
@@ -366,4 +333,4 @@ export class ConfigPage extends LitElement {
   }
 }
 
-customElements.define('shenas-config-page', ConfigPage);
+customElements.define("shenas-config-page", ConfigPage);
