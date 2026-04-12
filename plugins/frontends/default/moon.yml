@@ -13,9 +13,10 @@ tasks:
     deps:
       - 'vendor:npm-install'
   build:
-    command: 'npm run build'
+    script: 'cd $MOON_PROJECT_SOURCE && npm run build'
     deps:
       - '~:npm-install'
       - 'vendor:build'
     options:
+      runFromWorkspaceRoot: true
       mergeDeps: replace
