@@ -15,9 +15,7 @@ const _inspectBtnStyle =
 
 /** Convert snake_case to Title Case (e.g. "latitude_column" -> "Latitude column"). */
 function _humanize(name: string): string {
-  return name
-    .replace(/_/g, " ")
-    .replace(/^./, (c) => c.toUpperCase());
+  return name.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 }
 
 interface Transform {
@@ -238,17 +236,15 @@ class TransformsPage extends LitElement {
   async _ensureTransformTypes(): Promise<void> {
     if (this._transformTypes.length) return;
     const data = await gql(this.apiBase, `{ transformTypes }`);
-    this._transformTypes =
-      (data?.transformTypes as TransformTypeInfo[]) || [];
+    this._transformTypes = (data?.transformTypes as TransformTypeInfo[]) || [];
   }
 
   async _fetchColumns(schema: string, table: string): Promise<string[]> {
     if (!schema || !table) return [];
-    const data = await gql(
-      this.apiBase,
-      `query($s: String!, $t: String!) { tableColumns(schema: $s, table: $t) }`,
-      { s: schema, t: table },
-    );
+    const data = await gql(this.apiBase, `query($s: String!, $t: String!) { tableColumns(schema: $s, table: $t) }`, {
+      s: schema,
+      t: table,
+    });
     return (data?.tableColumns as string[]) || [];
   }
 
@@ -278,9 +274,7 @@ class TransformsPage extends LitElement {
       action: () => void;
     }> = [];
     for (const t of this._transforms) {
-      const desc =
-        t.description ||
-        `${t.sourceDuckdbTable} -> ${t.targetDuckdbTable}`;
+      const desc = t.description || `${t.sourceDuckdbTable} -> ${t.targetDuckdbTable}`;
       commands.push({
         id: `transform:toggle:${t.id}`,
         category: "Transform",
@@ -452,8 +446,7 @@ class TransformsPage extends LitElement {
     if (this._loading) return html``;
     return html`
       <div>
-        ${renderMessage(this._message)}
-        ${this._editing ? this._renderEditor() : ""}
+        ${renderMessage(this._message)} ${this._editing ? this._renderEditor() : ""}
         ${this._creating ? this._renderCreateForm() : ""}
         <shenas-data-list
           ?show-add=${!this._creating && !this._editing}
@@ -470,22 +463,35 @@ class TransformsPage extends LitElement {
               class: "mono",
               render: (t: Transform) =>
                 html`${t.sourceDuckdbSchema}.${t.sourceDuckdbTable}
-                  <button style=${_inspectBtnStyle} title="Inspect table"
-                    @click=${() => this._inspectTable(t.sourceDuckdbSchema, t.sourceDuckdbTable)}>&#9655;</button>`,
+                  <button
+                    style=${_inspectBtnStyle}
+                    title="Inspect table"
+                    @click=${() => this._inspectTable(t.sourceDuckdbSchema, t.sourceDuckdbTable)}
+                  >
+                    &#9655;
+                  </button>`,
             },
             {
               label: "Target",
               class: "mono",
               render: (t: Transform) =>
                 html`${t.targetDuckdbSchema}.${t.targetDuckdbTable}
-                  <button style=${_inspectBtnStyle} title="Inspect table"
-                    @click=${() => this._inspectTable(t.targetDuckdbSchema, t.targetDuckdbTable)}>&#9655;</button>`,
+                  <button
+                    style=${_inspectBtnStyle}
+                    title="Inspect table"
+                    @click=${() => this._inspectTable(t.targetDuckdbSchema, t.targetDuckdbTable)}
+                  >
+                    &#9655;
+                  </button>`,
             },
             {
               label: "Description",
               render: (t: Transform) =>
                 html`${t.description || ""}${t.isDefault
-                  ? html`<span style="font-size:0.75rem;color:var(--shenas-text-muted, #888);background:var(--shenas-border-light, #f0f0f0);padding:1px 5px;border-radius:3px;margin-left:4px">default</span>`
+                  ? html`<span
+                      style="font-size:0.75rem;color:var(--shenas-text-muted, #888);background:var(--shenas-border-light, #f0f0f0);padding:1px 5px;border-radius:3px;margin-left:4px"
+                      >default</span
+                    >`
                   : ""}`,
             },
             {
@@ -514,13 +520,19 @@ class TransformsPage extends LitElement {
     const allSchemaTables = Object.values(this._schemaTables || {}).flat();
     const selectedType = this._typeInfoFor(f.transform_type);
     return html`
-      <shenas-form-panel title="New transform" submit-label="Create"
-        @submit=${this._saveCreate} @cancel=${this._cancelCreate}>
+      <shenas-form-panel
+        title="New transform"
+        submit-label="Create"
+        @submit=${this._saveCreate}
+        @cancel=${this._cancelCreate}
+      >
         <div class="form-grid">
           <label class="form-full">
             Transform type
-            <select .value=${f.transform_type}
-              @change=${(e: Event) => this._updateNewForm("transform_type", (e.target as HTMLSelectElement).value)}>
+            <select
+              .value=${f.transform_type}
+              @change=${(e: Event) => this._updateNewForm("transform_type", (e.target as HTMLSelectElement).value)}
+            >
               <option value="">-- select --</option>
               ${this._transformTypes.map(
                 (t) => html`<option value=${t.name} ?selected=${f.transform_type === t.name}>${t.displayName}</option>`,
@@ -530,8 +542,10 @@ class TransformsPage extends LitElement {
           ${selectedType?.description ? html`<p class="type-desc form-full">${selectedType.description}</p>` : nothing}
           <label>
             Source table
-            <select .value=${f.source_duckdb_table}
-              @change=${(e: Event) => this._onSourceTableSelected((e.target as HTMLSelectElement).value)}>
+            <select
+              .value=${f.source_duckdb_table}
+              @change=${(e: Event) => this._onSourceTableSelected((e.target as HTMLSelectElement).value)}
+            >
               <option value="">-- select --</option>
               ${sourceTables.map(
                 (t) => html`<option value=${t} ?selected=${f.source_duckdb_table === t}>${t}</option>`,
@@ -540,8 +554,10 @@ class TransformsPage extends LitElement {
           </label>
           <label>
             Target table
-            <select .value=${f.target_duckdb_table}
-              @change=${(e: Event) => this._onTargetTableSelected((e.target as HTMLSelectElement).value)}>
+            <select
+              .value=${f.target_duckdb_table}
+              @change=${(e: Event) => this._onTargetTableSelected((e.target as HTMLSelectElement).value)}
+            >
               <option value="">-- select --</option>
               ${allSchemaTables.map(
                 (t) => html`<option value=${t} ?selected=${f.target_duckdb_table === t}>${t}</option>`,
@@ -549,12 +565,16 @@ class TransformsPage extends LitElement {
             </select>
           </label>
         </div>
-        ${selectedType ? this._renderParamFields(selectedType.paramSchema, f.params, false, (n, v) => this._updateNewParam(n, v)) : nothing}
+        ${selectedType
+          ? this._renderParamFields(selectedType.paramSchema, f.params, false, (n, v) => this._updateNewParam(n, v))
+          : nothing}
         <div class="form-grid">
           <label class="form-full">
             Description
-            <input .value=${f.description}
-              @input=${(e: InputEvent) => this._updateNewForm("description", (e.target as HTMLInputElement).value)} />
+            <input
+              .value=${f.description}
+              @input=${(e: InputEvent) => this._updateNewForm("description", (e.target as HTMLInputElement).value)}
+            />
           </label>
         </div>
       </shenas-form-panel>
@@ -572,8 +592,7 @@ class TransformsPage extends LitElement {
     return html`
       <div class="edit-panel">
         <h3>
-          ${readonly ? "View" : "Edit"}:
-          ${t.sourceDuckdbSchema}.${t.sourceDuckdbTable} ->
+          ${readonly ? "View" : "Edit"}: ${t.sourceDuckdbSchema}.${t.sourceDuckdbTable} ->
           ${t.targetDuckdbSchema}.${t.targetDuckdbTable}
           <span class="param-hint">(${t.transformType})</span>
         </h3>
@@ -582,9 +601,15 @@ class TransformsPage extends LitElement {
           : html`<textarea
               .value=${JSON.stringify(this._editParams, null, 2)}
               @input=${(e: InputEvent) => {
-                try { this._editParams = JSON.parse((e.target as HTMLTextAreaElement).value); } catch { /* typing */ }
+                try {
+                  this._editParams = JSON.parse((e.target as HTMLTextAreaElement).value);
+                } catch {
+                  /* typing */
+                }
               }}
-              ?readonly=${readonly} class="${readonly ? "readonly" : ""}"></textarea>`}
+              ?readonly=${readonly}
+              class="${readonly ? "readonly" : ""}"
+            ></textarea>`}
         <div class="edit-actions">
           ${!readonly ? html`<button @click=${this._saveEdit}>Save</button>` : ""}
           <button @click=${this._preview}>Preview</button>
@@ -612,48 +637,58 @@ class TransformsPage extends LitElement {
           const req = p.required ? " *" : "";
 
           if (p.type === "textarea") {
-            return html`
-              <label class="form-full">
-                ${lbl}${req}
-                <textarea .value=${String(val)} ?readonly=${readonly} class="${readonly ? "readonly" : ""}"
-                  placeholder=${p.description}
-                  @input=${(e: InputEvent) => onChange(p.name, (e.target as HTMLTextAreaElement).value)}></textarea>
-                ${p.description ? html`<span class="param-hint">${p.description}</span>` : nothing}
-              </label>`;
+            return html` <label class="form-full">
+              ${lbl}${req}
+              <textarea
+                .value=${String(val)}
+                ?readonly=${readonly}
+                class="${readonly ? "readonly" : ""}"
+                placeholder=${p.description}
+                @input=${(e: InputEvent) => onChange(p.name, (e.target as HTMLTextAreaElement).value)}
+              ></textarea>
+              ${p.description ? html`<span class="param-hint">${p.description}</span>` : nothing}
+            </label>`;
           }
           if (p.type === "source_column" || p.type === "target_column") {
             const cols = p.type === "source_column" ? this._sourceColumns : this._targetColumns;
             const disabled = readonly || !cols.length;
-            return html`
-              <label>
-                ${lbl}${req}
-                <select .value=${String(val)} ?disabled=${disabled}
-                  @change=${(e: Event) => onChange(p.name, (e.target as HTMLSelectElement).value)}>
-                  <option value="">-- select --</option>
-                  ${cols.map((c) => html`<option value=${c} ?selected=${String(val) === c}>${c}</option>`)}
-                </select>
-                ${p.description ? html`<span class="param-hint">${p.description}</span>` : nothing}
-              </label>`;
-          }
-          if (p.type === "select" && p.options) {
-            return html`
-              <label>
-                ${lbl}${req}
-                <select .value=${String(val)} ?disabled=${readonly}
-                  @change=${(e: Event) => onChange(p.name, (e.target as HTMLSelectElement).value)}>
-                  ${p.options.map((o) => html`<option value=${o} ?selected=${String(val) === o}>${o}</option>`)}
-                </select>
-                ${p.description ? html`<span class="param-hint">${p.description}</span>` : nothing}
-              </label>`;
-          }
-          return html`
-            <label>
+            return html` <label>
               ${lbl}${req}
-              <input type=${p.type === "number" ? "number" : "text"} .value=${String(val)} ?readonly=${readonly}
-                placeholder=${p.description}
-                @input=${(e: InputEvent) => onChange(p.name, (e.target as HTMLInputElement).value)} />
+              <select
+                .value=${String(val)}
+                ?disabled=${disabled}
+                @change=${(e: Event) => onChange(p.name, (e.target as HTMLSelectElement).value)}
+              >
+                <option value="">-- select --</option>
+                ${cols.map((c) => html`<option value=${c} ?selected=${String(val) === c}>${c}</option>`)}
+              </select>
               ${p.description ? html`<span class="param-hint">${p.description}</span>` : nothing}
             </label>`;
+          }
+          if (p.type === "select" && p.options) {
+            return html` <label>
+              ${lbl}${req}
+              <select
+                .value=${String(val)}
+                ?disabled=${readonly}
+                @change=${(e: Event) => onChange(p.name, (e.target as HTMLSelectElement).value)}
+              >
+                ${p.options.map((o) => html`<option value=${o} ?selected=${String(val) === o}>${o}</option>`)}
+              </select>
+              ${p.description ? html`<span class="param-hint">${p.description}</span>` : nothing}
+            </label>`;
+          }
+          return html` <label>
+            ${lbl}${req}
+            <input
+              type=${p.type === "number" ? "number" : "text"}
+              .value=${String(val)}
+              ?readonly=${readonly}
+              placeholder=${p.description}
+              @input=${(e: InputEvent) => onChange(p.name, (e.target as HTMLInputElement).value)}
+            />
+            ${p.description ? html`<span class="param-hint">${p.description}</span>` : nothing}
+          </label>`;
         })}
       </div>
     `;
@@ -669,9 +704,18 @@ class TransformsPage extends LitElement {
     return html`
       <div class="preview-table">
         <table>
-          <thead><tr>${cols.map((c) => html`<th>${c}</th>`)}</tr></thead>
+          <thead>
+            <tr>
+              ${cols.map((c) => html`<th>${c}</th>`)}
+            </tr>
+          </thead>
           <tbody>
-            ${this._previewRows.map((row) => html`<tr>${cols.map((c) => html`<td>${row[c]}</td>`)}</tr>`)}
+            ${this._previewRows.map(
+              (row) =>
+                html`<tr>
+                  ${cols.map((c) => html`<td>${row[c]}</td>`)}
+                </tr>`,
+            )}
           </tbody>
         </table>
       </div>

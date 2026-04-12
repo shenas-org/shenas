@@ -1,13 +1,5 @@
 import { LitElement, html, css, nothing } from "lit";
-import {
-  gql,
-  gqlFull,
-  renderMessage,
-  buttonStyles,
-  formStyles,
-  messageStyles,
-  tableStyles,
-} from "shenas-frontends";
+import { gql, gqlFull, renderMessage, buttonStyles, formStyles, messageStyles, tableStyles } from "shenas-frontends";
 
 interface CategoryValue {
   value: string;
@@ -245,10 +237,7 @@ class CategoriesPage extends LitElement {
   _addValueToList(): void {
     const v = this._addValue.trim();
     if (!v || this._editValues.some((x) => x.value === v)) return;
-    this._editValues = [
-      ...this._editValues,
-      { value: v, sortOrder: this._editValues.length, color: null },
-    ];
+    this._editValues = [...this._editValues, { value: v, sortOrder: this._editValues.length, color: null }];
     this._addValue = "";
   }
 
@@ -257,9 +246,7 @@ class CategoriesPage extends LitElement {
   }
 
   _updateValueColor(value: string, color: string): void {
-    this._editValues = this._editValues.map((v) =>
-      v.value === value ? { ...v, color } : v,
-    );
+    this._editValues = this._editValues.map((v) => (v.value === value ? { ...v, color } : v));
   }
 
   async _saveEdit(): Promise<void> {
@@ -296,11 +283,9 @@ class CategoriesPage extends LitElement {
   }
 
   async _deleteSet(setId: string): Promise<void> {
-    const { ok } = await gqlFull(
-      this.apiBase,
-      `mutation($id: String!) { deleteCategorySet(setId: $id) }`,
-      { id: setId },
-    );
+    const { ok } = await gqlFull(this.apiBase, `mutation($id: String!) { deleteCategorySet(setId: $id) }`, {
+      id: setId,
+    });
     if (ok) {
       this._message = { type: "success", text: "Deleted" };
       if (this._editing === setId) this._editing = null;
@@ -314,8 +299,7 @@ class CategoriesPage extends LitElement {
     if (this._loading) return html``;
     return html`
       <div>
-        ${renderMessage(this._message)}
-        ${this._editing ? this._renderEditor() : ""}
+        ${renderMessage(this._message)} ${this._editing ? this._renderEditor() : ""}
         ${this._creating ? this._renderCreateForm() : ""}
         <shenas-data-list
           ?show-add=${!this._creating && !this._editing}
@@ -325,14 +309,14 @@ class CategoriesPage extends LitElement {
             {
               label: "Values",
               render: (s: CategorySet) => html`
-                ${s.values.map(
-                  (v) => html`${v.color
-                    ? html`<span class="color-dot" style="background:${v.color}"></span>`
-                    : nothing}${v.value}`,
-                ).reduce(
-                  (acc: unknown[], cur, i) => (i === 0 ? [cur] : [...acc, ", ", cur]),
-                  [],
-                )}
+                ${s.values
+                  .map(
+                    (v) =>
+                      html`${v.color
+                        ? html`<span class="color-dot" style="background:${v.color}"></span>`
+                        : nothing}${v.value}`,
+                  )
+                  .reduce((acc: unknown[], cur, i) => (i === 0 ? [cur] : [...acc, ", ", cur]), [])}
                 <span class="value-count">(${s.values.length})</span>
               `,
             },
@@ -350,18 +334,31 @@ class CategoriesPage extends LitElement {
 
   _renderCreateForm() {
     return html`
-      <shenas-form-panel title="New category set" submit-label="Create"
-        @submit=${this._saveCreate} @cancel=${this._cancelCreate}>
+      <shenas-form-panel
+        title="New category set"
+        submit-label="Create"
+        @submit=${this._saveCreate}
+        @cancel=${this._cancelCreate}
+      >
         <div class="form-grid">
           <label class="form-full">
             Name
-            <input .value=${this._newName}
-              @input=${(e: InputEvent) => { this._newName = (e.target as HTMLInputElement).value; this._autoSlug(); }} />
+            <input
+              .value=${this._newName}
+              @input=${(e: InputEvent) => {
+                this._newName = (e.target as HTMLInputElement).value;
+                this._autoSlug();
+              }}
+            />
           </label>
           <label class="form-full">
             Description
-            <input .value=${this._newDesc}
-              @input=${(e: InputEvent) => { this._newDesc = (e.target as HTMLInputElement).value; }} />
+            <input
+              .value=${this._newDesc}
+              @input=${(e: InputEvent) => {
+                this._newDesc = (e.target as HTMLInputElement).value;
+              }}
+            />
           </label>
         </div>
       </shenas-form-panel>
@@ -375,13 +372,21 @@ class CategoriesPage extends LitElement {
         <div class="form-grid">
           <label>
             Name
-            <input .value=${this._editName}
-              @input=${(e: InputEvent) => { this._editName = (e.target as HTMLInputElement).value; }} />
+            <input
+              .value=${this._editName}
+              @input=${(e: InputEvent) => {
+                this._editName = (e.target as HTMLInputElement).value;
+              }}
+            />
           </label>
           <label>
             Description
-            <input .value=${this._editDesc}
-              @input=${(e: InputEvent) => { this._editDesc = (e.target as HTMLInputElement).value; }} />
+            <input
+              .value=${this._editDesc}
+              @input=${(e: InputEvent) => {
+                this._editDesc = (e.target as HTMLInputElement).value;
+              }}
+            />
           </label>
         </div>
         <strong>Values</strong>
@@ -389,8 +394,11 @@ class CategoriesPage extends LitElement {
           ${this._editValues.map(
             (v) => html`
               <div class="value-row">
-                <input type="color" .value=${v.color || "#888888"}
-                  @input=${(e: InputEvent) => this._updateValueColor(v.value, (e.target as HTMLInputElement).value)} />
+                <input
+                  type="color"
+                  .value=${v.color || "#888888"}
+                  @input=${(e: InputEvent) => this._updateValueColor(v.value, (e.target as HTMLInputElement).value)}
+                />
                 <input type="text" .value=${v.value} readonly />
                 <button class="danger" @click=${() => this._removeValue(v.value)}>Remove</button>
               </div>
@@ -398,9 +406,20 @@ class CategoriesPage extends LitElement {
           )}
         </div>
         <div class="add-row">
-          <input type="text" placeholder="Add value..." .value=${this._addValue}
-            @input=${(e: InputEvent) => { this._addValue = (e.target as HTMLInputElement).value; }}
-            @keydown=${(e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); this._addValueToList(); } }} />
+          <input
+            type="text"
+            placeholder="Add value..."
+            .value=${this._addValue}
+            @input=${(e: InputEvent) => {
+              this._addValue = (e.target as HTMLInputElement).value;
+            }}
+            @keydown=${(e: KeyboardEvent) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                this._addValueToList();
+              }
+            }}
+          />
           <button @click=${this._addValueToList}>Add</button>
         </div>
         <div class="edit-actions">

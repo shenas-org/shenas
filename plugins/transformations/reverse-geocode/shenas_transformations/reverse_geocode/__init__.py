@@ -149,21 +149,24 @@ class ReverseGeocodeTransform(Transform):
     def param_schema(self) -> list[dict[str, Any]]:
         return [
             {
-                "name": "latitude_column", "label": "Latitude column",
+                "name": "latitude_column",
+                "label": "Latitude column",
                 "type": "text",
                 "required": False,
                 "description": "Latitude column name",
                 "default": "latitude",
             },
             {
-                "name": "longitude_column", "label": "Longitude column",
+                "name": "longitude_column",
+                "label": "Longitude column",
                 "type": "text",
                 "required": False,
                 "description": "Longitude column name",
                 "default": "longitude",
             },
             {
-                "name": "output_column", "label": "Output column",
+                "name": "output_column",
+                "label": "Output column",
                 "type": "text",
                 "required": False,
                 "description": "Output column name for the place name",

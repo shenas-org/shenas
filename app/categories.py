@@ -85,7 +85,9 @@ def create_set(set_id: str, display_name: str, description: str = "", values: li
         for i, v in enumerate(values):
             cv = CategoryValue(set_id=set_id, value=v["value"], sort_order=v.get("sortOrder", i), color=v.get("color"))
             cv.insert()
-    return get_set(set_id)  # type: ignore[return-value]
+    result = get_set(set_id)
+    assert result is not None
+    return result
 
 
 def update_set(set_id: str, display_name: str | None = None, description: str | None = None) -> dict[str, Any] | None:

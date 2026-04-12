@@ -360,10 +360,12 @@ class SettingsPage extends LitElement {
     this._plugins = result;
     // Build per-schema stats for the source data column
     const schemaStats: Record<string, { totalRows: number; earliest: string; latest: string }> = {};
-    const schemas = (data?.dbStatus as Record<string, unknown>)?.schemas as Array<{
-      name: string;
-      tables: Array<{ rows: number; earliest: string; latest: string }>;
-    }> | undefined;
+    const schemas = (data?.dbStatus as Record<string, unknown>)?.schemas as
+      | Array<{
+          name: string;
+          tables: Array<{ rows: number; earliest: string; latest: string }>;
+        }>
+      | undefined;
     if (schemas) {
       for (const s of schemas) {
         let totalRows = 0;
@@ -735,12 +737,9 @@ class SettingsPage extends LitElement {
                           ? `${(s.totalRows / 1_000).toFixed(1)}k`
                           : `${s.totalRows}`;
                     const range =
-                      s.earliest && s.latest
-                        ? `${s.earliest.slice(0, 10)} -- ${s.latest.slice(0, 10)}`
-                        : "";
-                    return html`${rows} rows${range
-                      ? html`<br /><span class="muted" style="font-size:0.75rem">${range}</span>`
-                      : ""}`;
+                      s.earliest && s.latest ? `${s.earliest.slice(0, 10)} -- ${s.latest.slice(0, 10)}` : "";
+                    return html`${rows}
+                    rows${range ? html`<br /><span class="muted" style="font-size:0.75rem">${range}</span>` : ""}`;
                   },
                 },
                 {
