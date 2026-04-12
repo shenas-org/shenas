@@ -67,18 +67,16 @@ const MOCK_CATEGORIES = [
 
 /**
  * gql() unwraps the top-level { data } envelope, so the component receives
- * whatever is nested inside `data`. The component then reads
- * `response.data?.settings`, which means it expects gql() to return an
- * object with a `.data` property. To satisfy that, the fetch mock must
- * double-nest: json = { data: { data: { settings: { ... } } } } so that
- * gql() (which returns json.data) hands back { data: { settings: ... } }.
+ * whatever is nested inside `data`. The component reads
+ * `response.settings`, so gql() must return { settings: { ... } }.
+ * That means the fetch mock returns { data: { settings: { ... } } }.
  */
 function mockSettingsResponse() {
   return {
     ok: true,
     json: () =>
       Promise.resolve({
-        data: { data: { settings: { categories: MOCK_CATEGORIES } } },
+        data: { settings: { categories: MOCK_CATEGORIES } },
       }),
   };
 }
@@ -88,7 +86,7 @@ function mockEmptySettingsResponse() {
     ok: true,
     json: () =>
       Promise.resolve({
-        data: { data: { settings: { categories: [] } } },
+        data: { settings: { categories: [] } },
       }),
   };
 }
