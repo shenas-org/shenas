@@ -165,6 +165,11 @@ class DatabaseManager:
                 )
                 LocalUser._attached[0] = db
                 db.connect()
+                # Seed a "me" entity for the default single-user.
+                from app.entities import Entity
+
+                if not Entity.all(where="type = 'human'", limit=1):
+                    Entity.create(name="me", type="human", description="Default user")
         if db is None:
             msg = f"no user DB attached for user_id={user_id}; call user.attach() first"
             raise RuntimeError(msg)

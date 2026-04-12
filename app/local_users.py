@@ -176,6 +176,7 @@ class LocalUser(Table):
                 )
                 cls._attached[self.id] = db
                 db.connect()
+                self._ensure_me_entity()
             return db
 
     @classmethod
@@ -209,6 +210,14 @@ class LocalUser(Table):
             db = cls._attached.pop(self.id, None)
         if db is not None:
             db.close()
+
+    def _ensure_me_entity(self) -> None:
+        """Create the 'me' entity in the user DB if it doesn't exist yet."""
+        from app.entities import Entity
+
+        existing = Entity.all(where="type = 'human' AND name = ?", params=[self.username], limit=1)
+        if not existing:
+            Entity.create(name=self.username, type="human", description="Me")
 
     @classmethod
     def current_db(cls) -> DB:
