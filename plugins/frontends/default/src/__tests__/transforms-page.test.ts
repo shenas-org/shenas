@@ -71,7 +71,13 @@ describe("shenas-transforms", () => {
       ok: true,
       json: () => Promise.resolve({ data: { transformTypes: [] } }),
     });
-    await el._startEdit({ id: 7, params: '{"sql":"SELECT 1"}', transformType: "sql" });
+    await el._startEdit({
+      id: 7,
+      params: '{"sql":"SELECT 1"}',
+      transformType: "sql",
+      source: { id: "garmin.hr", schemaName: "garmin", tableName: "hr" },
+      target: { id: "metrics.hrv", schemaName: "metrics", tableName: "hrv" },
+    });
     expect(el._editing).toBe(7);
     expect(el._editParams).toEqual({ sql: "SELECT 1" });
     el._cancelEdit();

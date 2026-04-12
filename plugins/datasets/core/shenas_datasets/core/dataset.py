@@ -71,10 +71,10 @@ class Dataset(Plugin):
 
         1. Look up the PluginInstance with ``is_suggested=True``.
         2. Generate and execute DDL from ``metadata_json``.
-        3. Create TransformInstance rows for the bundled transforms.
+        3. Create Transform rows for the bundled transforms.
         4. Flip ``is_suggested`` to False.
         """
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.transform import Transform
 
         from app.db import cursor
 
@@ -97,12 +97,10 @@ class Dataset(Plugin):
         # Create transform instances
         created_transforms: list[int] = []
         for t in meta.get("transforms", []):
-            ti = TransformInstance.create(
+            ti = Transform.create(
                 transform_type="sql",
-                source_duckdb_schema=t["source_schema"],
-                source_duckdb_table=t["source_table"],
-                target_duckdb_schema="metrics",
-                target_duckdb_table=table_name,
+                source_data_resource_id=f"{t['source_schema']}.{t['source_table']}",
+                target_data_resource_id=f"metrics.{table_name}",
                 source_plugin=t["source_plugin"],
                 params=json.dumps({"sql": t["sql"]}),
                 description=t.get("description", ""),
@@ -114,10 +112,10 @@ class Dataset(Plugin):
 
         con = connect()
         for tid in created_transforms:
-            ti = TransformInstance.find(tid)
+            ti = Transform.find(tid)
             if ti and ti.enabled:
                 try:
-                    TransformInstance.run_for_target(con, table_name)
+                    Transform.run_for_target(con, table_name)
                 except Exception:
                     log.exception("Failed to run transforms for %s", table_name)
                 break

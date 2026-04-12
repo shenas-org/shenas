@@ -38,10 +38,8 @@ interface TableInfo {
 
 interface SchemaTransform {
   id: number;
-  sourceDuckdbSchema: string;
-  sourceDuckdbTable: string;
-  targetDuckdbSchema: string;
-  targetDuckdbTable: string;
+  source: { id: string; schemaName: string; tableName: string };
+  target: { id: string; schemaName: string; tableName: string };
   sourcePlugin: string;
   description?: string;
   enabled: boolean;
@@ -269,7 +267,7 @@ class PluginDetail extends LitElement {
     const fields = [
       `pluginInfo(kind: $kind, name: $name)`,
       needsSchema
-        ? `transforms { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin description enabled }`
+        ? `transforms { id source { id schemaName tableName } target { id schemaName tableName } sourcePlugin description enabled }`
         : "",
     ]
       .filter(Boolean)
@@ -293,7 +291,7 @@ class PluginDetail extends LitElement {
       }
     }
     if (allTransforms) {
-      this._schemaTransforms = allTransforms.filter((t) => ownedTables.includes(t.targetDuckdbTable));
+      this._schemaTransforms = allTransforms.filter((t) => ownedTables.includes(t.target.tableName));
     }
     this._loading = false;
     this._registerCommands();
@@ -825,12 +823,12 @@ class PluginDetail extends LitElement {
                 {
                   label: "Source",
                   class: "mono",
-                  render: (t: SchemaTransform) => `${t.sourceDuckdbSchema}.${t.sourceDuckdbTable}`,
+                  render: (t: SchemaTransform) => `${t.source.schemaName}.${t.source.tableName}`,
                 },
                 {
                   label: "Target",
                   class: "mono",
-                  render: (t: SchemaTransform) => `${t.targetDuckdbSchema}.${t.targetDuckdbTable}`,
+                  render: (t: SchemaTransform) => `${t.target.schemaName}.${t.target.tableName}`,
                 },
                 { label: "Description", render: (t: SchemaTransform) => t.description || "" },
                 {

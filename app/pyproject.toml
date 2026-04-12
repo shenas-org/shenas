@@ -24,7 +24,7 @@ dependencies = [
   "shenas-source-core",
   "shenas-dataset-core",
   "shenas-dashboard-core",
-  "shenas-transformation-core",
+  "shenas-transformer-core",
   "shenas-theme-default",
   "shenas-frontend-default",
 ]

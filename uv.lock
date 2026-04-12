@@ -65,14 +65,14 @@ members = [
     "shenas-theme-core",
     "shenas-theme-dark",
     "shenas-theme-default",
-    "shenas-transformation-core",
-    "shenas-transformation-dedup-merge",
-    "shenas-transformation-geocode",
-    "shenas-transformation-geofence",
-    "shenas-transformation-llm-categorize",
-    "shenas-transformation-regex-extract",
-    "shenas-transformation-reverse-geocode",
-    "shenas-transformation-sql",
+    "shenas-transformer-core",
+    "shenas-transformer-dedup-merge",
+    "shenas-transformer-geocode",
+    "shenas-transformer-geofence",
+    "shenas-transformer-llm-categorize",
+    "shenas-transformer-regex-extract",
+    "shenas-transformer-reverse-geocode",
+    "shenas-transformer-sql",
     "shenas-workspace",
 ]
 overrides = [
@@ -2943,7 +2943,7 @@ dependencies = [
     { name = "shenas-plugin-core" },
     { name = "shenas-source-core" },
     { name = "shenas-theme-default" },
-    { name = "shenas-transformation-core" },
+    { name = "shenas-transformer-core" },
     { name = "strawberry-graphql", extra = ["fastapi"] },
     { name = "typer" },
     { name = "uvicorn" },
@@ -2976,7 +2976,7 @@ requires-dist = [
     { name = "shenas-plugin-core", editable = "plugins/core" },
     { name = "shenas-source-core", editable = "plugins/sources/core" },
     { name = "shenas-theme-default", editable = "plugins/themes/default" },
-    { name = "shenas-transformation-core", editable = "plugins/transformations/core" },
+    { name = "shenas-transformer-core", editable = "plugins/transformers/core" },
     { name = "strawberry-graphql", extras = ["fastapi"], specifier = ">=0.276.0" },
     { name = "typer", specifier = ">=0.24.1" },
     { name = "uvicorn", specifier = ">=0.42.0" },
@@ -3621,8 +3621,8 @@ dependencies = [
 requires-dist = [{ name = "shenas-theme-core", editable = "plugins/themes/core" }]
 
 [[package]]
-name = "shenas-transformation-core"
-source = { editable = "plugins/transformations/core" }
+name = "shenas-transformer-core"
+source = { editable = "plugins/transformers/core" }
 dependencies = [
     { name = "shenas-plugin-core" },
 ]
@@ -3631,86 +3631,86 @@ dependencies = [
 requires-dist = [{ name = "shenas-plugin-core", editable = "plugins/core" }]
 
 [[package]]
-name = "shenas-transformation-dedup-merge"
-source = { editable = "plugins/transformations/dedup-merge" }
+name = "shenas-transformer-dedup-merge"
+source = { editable = "plugins/transformers/dedup-merge" }
 dependencies = [
-    { name = "shenas-transformation-core" },
+    { name = "shenas-transformer-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-transformation-core", editable = "plugins/transformations/core" }]
+requires-dist = [{ name = "shenas-transformer-core", editable = "plugins/transformers/core" }]
 
 [[package]]
-name = "shenas-transformation-geocode"
-source = { editable = "plugins/transformations/geocode" }
+name = "shenas-transformer-geocode"
+source = { editable = "plugins/transformers/geocode" }
 dependencies = [
     { name = "geopy" },
-    { name = "shenas-transformation-core" },
+    { name = "shenas-transformer-core" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "geopy", specifier = ">=2.4.0" },
-    { name = "shenas-transformation-core", editable = "plugins/transformations/core" },
+    { name = "shenas-transformer-core", editable = "plugins/transformers/core" },
 ]
 
 [[package]]
-name = "shenas-transformation-geofence"
-source = { editable = "plugins/transformations/geofence" }
+name = "shenas-transformer-geofence"
+source = { editable = "plugins/transformers/geofence" }
 dependencies = [
-    { name = "shenas-transformation-core" },
+    { name = "shenas-transformer-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-transformation-core", editable = "plugins/transformations/core" }]
+requires-dist = [{ name = "shenas-transformer-core", editable = "plugins/transformers/core" }]
 
 [[package]]
-name = "shenas-transformation-llm-categorize"
-source = { editable = "plugins/transformations/llm-categorize" }
+name = "shenas-transformer-llm-categorize"
+source = { editable = "plugins/transformers/llm-categorize" }
 dependencies = [
     { name = "shenas-app" },
-    { name = "shenas-transformation-core" },
+    { name = "shenas-transformer-core" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "shenas-app", editable = "app" },
-    { name = "shenas-transformation-core", editable = "plugins/transformations/core" },
+    { name = "shenas-transformer-core", editable = "plugins/transformers/core" },
 ]
 
 [[package]]
-name = "shenas-transformation-regex-extract"
-source = { editable = "plugins/transformations/regex-extract" }
+name = "shenas-transformer-regex-extract"
+source = { editable = "plugins/transformers/regex-extract" }
 dependencies = [
-    { name = "shenas-transformation-core" },
+    { name = "shenas-transformer-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-transformation-core", editable = "plugins/transformations/core" }]
+requires-dist = [{ name = "shenas-transformer-core", editable = "plugins/transformers/core" }]
 
 [[package]]
-name = "shenas-transformation-reverse-geocode"
-source = { editable = "plugins/transformations/reverse-geocode" }
+name = "shenas-transformer-reverse-geocode"
+source = { editable = "plugins/transformers/reverse-geocode" }
 dependencies = [
     { name = "geopy" },
-    { name = "shenas-transformation-core" },
+    { name = "shenas-transformer-core" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "geopy", specifier = ">=2.4.0" },
-    { name = "shenas-transformation-core", editable = "plugins/transformations/core" },
+    { name = "shenas-transformer-core", editable = "plugins/transformers/core" },
 ]
 
 [[package]]
-name = "shenas-transformation-sql"
-source = { editable = "plugins/transformations/sql" }
+name = "shenas-transformer-sql"
+source = { editable = "plugins/transformers/sql" }
 dependencies = [
-    { name = "shenas-transformation-core" },
+    { name = "shenas-transformer-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-transformation-core", editable = "plugins/transformations/core" }]
+requires-dist = [{ name = "shenas-transformer-core", editable = "plugins/transformers/core" }]
 
 [[package]]
 name = "shenas-workspace"
@@ -3765,13 +3765,13 @@ dev = [
     { name = "shenas-source-withings" },
     { name = "shenas-theme-dark" },
     { name = "shenas-theme-default" },
-    { name = "shenas-transformation-dedup-merge" },
-    { name = "shenas-transformation-geocode" },
-    { name = "shenas-transformation-geofence" },
-    { name = "shenas-transformation-llm-categorize" },
-    { name = "shenas-transformation-regex-extract" },
-    { name = "shenas-transformation-reverse-geocode" },
-    { name = "shenas-transformation-sql" },
+    { name = "shenas-transformer-dedup-merge" },
+    { name = "shenas-transformer-geocode" },
+    { name = "shenas-transformer-geofence" },
+    { name = "shenas-transformer-llm-categorize" },
+    { name = "shenas-transformer-regex-extract" },
+    { name = "shenas-transformer-reverse-geocode" },
+    { name = "shenas-transformer-sql" },
     { name = "ty" },
 ]
 fl = [
@@ -3828,13 +3828,13 @@ dev = [
     { name = "shenas-source-withings", editable = "plugins/sources/withings" },
     { name = "shenas-theme-dark", editable = "plugins/themes/dark" },
     { name = "shenas-theme-default", editable = "plugins/themes/default" },
-    { name = "shenas-transformation-dedup-merge", editable = "plugins/transformations/dedup-merge" },
-    { name = "shenas-transformation-geocode", editable = "plugins/transformations/geocode" },
-    { name = "shenas-transformation-geofence", editable = "plugins/transformations/geofence" },
-    { name = "shenas-transformation-llm-categorize", editable = "plugins/transformations/llm-categorize" },
-    { name = "shenas-transformation-regex-extract", editable = "plugins/transformations/regex-extract" },
-    { name = "shenas-transformation-reverse-geocode", editable = "plugins/transformations/reverse-geocode" },
-    { name = "shenas-transformation-sql", editable = "plugins/transformations/sql" },
+    { name = "shenas-transformer-dedup-merge", editable = "plugins/transformers/dedup-merge" },
+    { name = "shenas-transformer-geocode", editable = "plugins/transformers/geocode" },
+    { name = "shenas-transformer-geofence", editable = "plugins/transformers/geofence" },
+    { name = "shenas-transformer-llm-categorize", editable = "plugins/transformers/llm-categorize" },
+    { name = "shenas-transformer-regex-extract", editable = "plugins/transformers/regex-extract" },
+    { name = "shenas-transformer-reverse-geocode", editable = "plugins/transformers/reverse-geocode" },
+    { name = "shenas-transformer-sql", editable = "plugins/transformers/sql" },
     { name = "ty", specifier = "==0.0.27" },
 ]
 fl = [

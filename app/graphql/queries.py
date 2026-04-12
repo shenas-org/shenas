@@ -24,7 +24,7 @@ from app.graphql.types import (
 )
 
 if TYPE_CHECKING:
-    from shenas_transformations.core.instance import TransformInstance
+    from shenas_transformers.core.transform import Transform
 
     from app.data_catalog import DataResource
     from shenas_plugins.core.plugin import Plugin
@@ -42,7 +42,7 @@ def _plugin_to_gql(plugin: Plugin) -> PluginInfoType:
     )
 
 
-def _resource_to_gql(r: DataResource) -> DataResourceType:
+def _data_resource_to_gql(r: DataResource) -> DataResourceType:
     return DataResourceType(
         id=r.id,
         schema_name=r.ref.schema,
@@ -105,14 +105,14 @@ def _resource_to_gql(r: DataResource) -> DataResourceType:
     )
 
 
-def _transform_to_gql(t: TransformInstance) -> TransformType:
+def _transform_to_gql(t: Transform) -> TransformType:
+    from app.data_catalog import catalog
+
     return TransformType(
         id=t.id,
         transform_type=t.transform_type,
-        source_duckdb_schema=t.source_duckdb_schema,
-        source_duckdb_table=t.source_duckdb_table,
-        target_duckdb_schema=t.target_duckdb_schema,
-        target_duckdb_table=t.target_duckdb_table,
+        source=_data_resource_to_gql(catalog().get_resource(t.source_ref.id)),
+        target=_data_resource_to_gql(catalog().get_resource(t.target_ref.id)),
         source_plugin=t.source_plugin,
         params=t.params or "{}",
         description=t.description or "",
@@ -336,11 +336,11 @@ class Query:
 
     @strawberry.field
     def transform_types(self) -> JSON:
-        """Return available transform plugin types with their param schemas."""
+        """Return available transformer plugin types with their param schemas."""
         from importlib.metadata import entry_points
 
         result = []
-        for ep in entry_points(group="shenas.transformations"):
+        for ep in entry_points(group="shenas.transformers"):
             try:
                 cls = ep.load()
                 inst = cls()
@@ -390,16 +390,16 @@ class Query:
 
     @strawberry.field
     def transforms(self, source: str | None = None) -> list[TransformType]:
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.transform import Transform
 
-        rows = TransformInstance.for_plugin(source) if source else TransformInstance.all(order_by="id")
+        rows = Transform.for_plugin(source) if source else Transform.all(order_by="id")
         return [_transform_to_gql(t) for t in rows]
 
     @strawberry.field
     def transform(self, transform_id: int) -> TransformType | None:
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.transform import Transform
 
-        t = TransformInstance.find(transform_id)
+        t = Transform.find(transform_id)
         return _transform_to_gql(t) if t else None
 
     # -- Data Catalog --
@@ -415,14 +415,14 @@ class Query:
         from app.data_catalog import catalog
 
         resources = catalog().list_resources(kind=kind, plugin=plugin, tags=tags, stale_only=stale_only)
-        return [_resource_to_gql(r) for r in resources]
+        return [_data_resource_to_gql(r) for r in resources]
 
     @strawberry.field
     def data_resource(self, resource_id: str) -> DataResourceType | None:
         from app.data_catalog import catalog
 
         r = catalog().get(resource_id)
-        return _resource_to_gql(r) if r else None
+        return _data_resource_to_gql(r) if r else None
 
     # -- Theme --
 
@@ -615,14 +615,14 @@ class Query:
     @strawberry.field
     def suggested_transforms(self, source: str | None = None) -> JSON:
         """Return all suggested (not yet accepted) transforms."""
-        from shenas_transformations.core.instance import TransformInstance
+        from shenas_transformers.core.transform import Transform
 
-        rows = TransformInstance.suggested(source)
+        rows = Transform.suggested(source)
         return [  # ty: ignore[invalid-return-type]
             {
                 "id": t.id,
-                "source": f"{t.source_duckdb_schema}.{t.source_duckdb_table}",
-                "target": f"{t.target_duckdb_schema}.{t.target_duckdb_table}",
+                "source": f"{t.source_ref.schema}.{t.source_ref.table}",
+                "target": f"{t.target_ref.schema}.{t.target_ref.table}",
                 "source_plugin": t.source_plugin,
                 "description": t.description or "",
                 "params": t.get_params(),

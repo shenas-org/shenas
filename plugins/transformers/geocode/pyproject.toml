@@ -1,0 +1,25 @@
+[project]
+name = "shenas-transformer-geocode"
+dynamic = ["version"]
+description = "Geocode transformer plugin for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-transformer-core",
+    "geopy>=2.4.0",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.transformers"]
+geocode = "shenas_transformers.geocode:GeocodeTransformer"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "transformer-geocode/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "transformer-geocode/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_transformers"]

@@ -88,7 +88,7 @@ jobs:
           git tag -l 'app/v*' 'shenasctl/v*' 'scheduler/v*' \
                      'source-*/v*' 'dataset-*/v*' 'dashboard-*/v*' \
                      'plugin-core/v*' 'frontend-*/v*' 'theme-*/v*' \
-                     'transformation-*/v*' 'analysis-*/v*' 'model-*/v*' | while read -r TAG; do
+                     'transformer-*/v*' 'analysis-*/v*' 'model-*/v*' | while read -r TAG; do
             # Check if the tag already exists on OSS
             if cd /tmp/oss-repo && git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
               continue
