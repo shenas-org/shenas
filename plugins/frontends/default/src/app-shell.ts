@@ -1332,6 +1332,7 @@ class ShenasApp extends LitElement {
           </div>
           <nav class="nav">
             ${this._dashboards.map((c) => this._navItem(c.name, c.display_name || c.name, active))}
+            <hr style="border:none;border-top:1px solid var(--shenas-border-light,#e8e8e8);margin:0.3rem 0.5rem" />
             ${this._navItem("flow", "Flow", active)} ${this._navItem("catalog", "Catalog", active)}
             ${this._navItem("logs", "Logs", active)}
             <a
