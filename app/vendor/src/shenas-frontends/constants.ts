@@ -59,8 +59,8 @@ export function sortActions<T extends ActionDescriptor>(
       const bHas = hotkeys[b.id] ? 0 : 1;
       if (aHas !== bHas) return aHas - bHas;
     }
-    if (a.category !== b.category) return a.category.localeCompare(b.category);
-    return a.label.localeCompare(b.label);
+    if (a.category !== b.category) return (a.category || "").localeCompare(b.category || "");
+    return (a.label || "").localeCompare(b.label || "");
   });
 }
 

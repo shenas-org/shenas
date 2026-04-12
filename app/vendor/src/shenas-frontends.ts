@@ -22,6 +22,18 @@ export { formatHotkey, matchesHotkey, parseHotkey, PLUGIN_KINDS, sortActions } f
 export { arrowDatesToUnix, arrowToColumns, arrowToRows, query } from "./shenas-frontends/arrow.ts";
 export type { RowData, Table } from "./shenas-frontends/arrow.ts";
 
+export type { MessageBanner } from "./shenas-frontends/api.ts";
+
+export {
+  CATEGORY_COLORS,
+  categoryColor,
+  computeBarPosition,
+  dayKey,
+  formatDate,
+  formatTime,
+} from "./shenas-frontends/timeline-utils.ts";
+export type { BarPosition, EventItem } from "./shenas-frontends/timeline-utils.ts";
+
 export {
   buttonStyles,
   formStyles,

@@ -24,6 +24,10 @@ declare module "shenas-frontends" {
   export function parseHotkey(binding: string): Record<string, unknown>;
   export function formatHotkey(event: KeyboardEvent): string;
   export function matchesHotkey(event: KeyboardEvent, binding: string): boolean;
+  export interface MessageBanner {
+    type: string;
+    text: string;
+  }
   export const buttonStyles: import("lit").CSSResult;
   export const linkStyles: import("lit").CSSResult;
   export const tabStyles: import("lit").CSSResult;

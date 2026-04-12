@@ -116,9 +116,7 @@ def ask_claude(commits: str) -> str | None:
         {
             "model": "claude-sonnet-4-20250514",
             "max_tokens": 300,
-            "messages": [
-                {"role": "user", "content": f"{PROMPT}\n\nCommits:\n{commits}"}
-            ],
+            "messages": [{"role": "user", "content": f"{PROMPT}\n\nCommits:\n{commits}"}],
         }
     ).encode()
 

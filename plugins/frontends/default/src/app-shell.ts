@@ -1844,10 +1844,13 @@ class ShenasApp extends LitElement {
                       <strong>Upstream:</strong> ${upstream.map(
                         (t) =>
                           html`<div style="margin:2px 0">
-                            <span style="font-family:monospace">${t.source.displayName || t.source.id}</span>
+                            <span style="font-family:monospace"
+                              >${(t as Record<string, Record<string, string>>).source?.displayName ||
+                              (t as Record<string, Record<string, string>>).source?.id}</span
+                            >
                             <span
                               style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)"
-                              >${u.kind || "table"}</span
+                              >${(t as Record<string, string>).kind || "table"}</span
                             >
                           </div> `,
                       )}
@@ -1858,10 +1861,13 @@ class ShenasApp extends LitElement {
                       <strong>Downstream:</strong> ${downstream.map(
                         (t) =>
                           html`<div style="margin:2px 0">
-                            <span style="font-family:monospace">${t.target.displayName || t.target.id}</span>
+                            <span style="font-family:monospace"
+                              >${(t as Record<string, Record<string, string>>).target?.displayName ||
+                              (t as Record<string, Record<string, string>>).target?.id}</span
+                            >
                             <span
                               style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)"
-                              >${dd.kind || "table"}</span
+                              >${(t as Record<string, string>).kind || "table"}</span
                             >
                           </div> `,
                       )}
