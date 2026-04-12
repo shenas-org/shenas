@@ -117,14 +117,25 @@ def _data_resource_to_gql(r: DataResource) -> DataResourceType:
     )
 
 
-def _transform_to_gql(t: Transform) -> TransformType:
-    from app.data_catalog import catalog
+def _transform_to_gql(
+    t: Transform,
+    *,
+    resource_map: dict[str, Any] | None = None,
+) -> TransformType:
+    if resource_map:
+        source_r = resource_map[t.source_ref.id]
+        target_r = resource_map[t.target_ref.id]
+    else:
+        from app.data_catalog import catalog
+
+        source_r = catalog().get_resource(t.source_ref.id)
+        target_r = catalog().get_resource(t.target_ref.id)
 
     return TransformType(
         id=t.id,
         transform_type=t.transform_type,
-        source=_data_resource_to_gql(catalog().get_resource(t.source_ref.id)),
-        target=_data_resource_to_gql(catalog().get_resource(t.target_ref.id)),
+        source=_data_resource_to_gql(source_r),
+        target=_data_resource_to_gql(target_r),
         source_plugin=t.source_plugin,
         params=t.params or "{}",
         description=t.description or "",
@@ -426,11 +437,14 @@ class Query:
         return [r[0] for r in rows]
 
     @strawberry.field
-    def transforms(self, source: str | None = None) -> list[TransformType]:
+    async def transforms(self, info: strawberry.types.Info, source: str | None = None) -> list[TransformType]:
         from shenas_transformers.core.transform import Transform
 
         rows = Transform.for_plugin(source) if source else Transform.all(order_by="id")
-        return [_transform_to_gql(t) for t in rows]
+        resource_ids = list({ref for t in rows for ref in (t.source_ref.id, t.target_ref.id)})
+        resources = await info.context["resource_loader"].load_many(resource_ids)
+        resource_map = dict(zip(resource_ids, resources, strict=True))
+        return [_transform_to_gql(t, resource_map=resource_map) for t in rows]
 
     @strawberry.field
     def transform(self, transform_id: int) -> TransformType | None:
@@ -442,8 +456,9 @@ class Query:
     # -- Data Catalog --
 
     @strawberry.field
-    def data_resources(
+    async def data_resources(
         self,
+        info: strawberry.types.Info,
         kind: str | None = None,
         plugin: str | None = None,
         tags: str | None = None,
@@ -451,7 +466,12 @@ class Query:
     ) -> list[DataResourceType]:
         from app.data_catalog import catalog
 
-        resources = catalog().list_resources(kind=kind, plugin=plugin, tags=tags, stale_only=stale_only)
+        resources = catalog().list_resources(
+            kind=kind, plugin=plugin, tags=tags, stale_only=stale_only, include_row_counts=False
+        )
+        counts = await info.context["row_count_loader"].load_many([r.id for r in resources])
+        for r, count in zip(resources, counts, strict=True):
+            r.actual_row_count = count
         return [_data_resource_to_gql(r) for r in resources]
 
     @strawberry.field
