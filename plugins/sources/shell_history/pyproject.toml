@@ -13,7 +13,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project.entry-points."shenas.sources"]
-shell_history = "shenas_sources.shell_history.source:ShellHistorySource"
+shell-history = "shenas_sources.shell_history.source:ShellHistorySource"
 
 [tool.hatch.version]
 source = "vcs"
