@@ -266,7 +266,7 @@ class TestServeUiHtml:
 
         with (
             patch("shenas_frontends.core.frontend.Frontend.load_all", return_value=[default_ui, custom_ui]),
-            patch("shenas_plugins.core.plugin.PluginInstance.find", side_effect=_fake_find),
+            patch("app.plugin.PluginInstance.find", side_effect=_fake_find),
             patch("app.main._get_active_theme", return_value=None),
         ):
             resp = client.get("/")

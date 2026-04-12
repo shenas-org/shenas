@@ -29,4 +29,4 @@ def test_graphql_schema_imports() -> None:
 
 def test_plugin_discovery_imports() -> None:
     """Import the plugin loader that touches all core packages."""
-    from shenas_plugins.core.plugin import Plugin  # noqa: F401
+    from app.plugin import Plugin  # noqa: F401

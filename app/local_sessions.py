@@ -5,7 +5,7 @@ from __future__ import annotations
 import secrets
 from typing import Annotated, Any, ClassVar
 
-from shenas_plugins.core.table import Field, SingletonTable
+from app.table import Field, SingletonTable
 
 
 class LocalSession(SingletonTable):

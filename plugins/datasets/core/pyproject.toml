@@ -5,7 +5,7 @@ description = "Shared utilities for shenas canonical schemas"
 requires-python = ">=3.11"
 dependencies = [
     "duckdb>=1.2.0",
-    "shenas-plugin-core",
+    "shenas-app",
 ]
 
 [build-system]

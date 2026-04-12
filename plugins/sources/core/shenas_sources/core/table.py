@@ -52,7 +52,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from shenas_plugins.core.table import Table
+from app.table import Table
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

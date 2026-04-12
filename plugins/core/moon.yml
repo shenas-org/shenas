@@ -1,7 +1,0 @@
-id: plugin-core
-language: 'python'
-tags: ['plugin', 'core']
-
-workspace:
-  inheritedTasks:
-    exclude: ['test']

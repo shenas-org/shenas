@@ -1,6 +1,6 @@
+from app.table import Field
 from shenas_datasets.core import Dataset
 from shenas_datasets.fitness.metrics import ALL_TABLES, DailyBody, DailyHRV, DailySleep, DailyVitals
-from shenas_plugins.core import Field
 
 
 class FitnessSchema(Dataset):

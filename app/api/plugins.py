@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.models import InstallRequest  # noqa: TC001
-from shenas_plugins.core.plugin import (
+from app.plugin import (
     DEFAULT_INDEX,
     PUBLIC_KEY_PATH,
     VALID_KINDS,

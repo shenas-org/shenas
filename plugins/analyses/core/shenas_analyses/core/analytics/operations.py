@@ -27,8 +27,7 @@ from dataclasses import dataclass
 from typing import Any, ClassVar
 
 import ibis
-
-from shenas_plugins.core.analytics.node import RecipeNode
+from shenas_analyses.core.analytics.node import RecipeNode
 
 
 class OperationError(Exception):

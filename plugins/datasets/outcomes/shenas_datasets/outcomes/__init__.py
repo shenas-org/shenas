@@ -1,6 +1,6 @@
+from app.table import Field
 from shenas_datasets.core import Dataset
 from shenas_datasets.outcomes.metrics import ALL_TABLES, DailyOutcome
-from shenas_plugins.core import Field
 
 
 class OutcomesSchema(Dataset):

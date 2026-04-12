@@ -25,10 +25,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated
 
-from shenas_plugins.core.table import Field, Table
+from app.table import Field, Table
 
 if TYPE_CHECKING:
-    from shenas_plugins.core.analytics import Recipe, Result
+    from shenas_analyses.core.analytics import Recipe, Result
 
 
 @dataclass
@@ -163,7 +163,7 @@ class Hypothesis(Table):
         model: str = "",
     ) -> Hypothesis:
         """Create a suggested hypothesis (question only, no recipe)."""
-        from shenas_plugins.core.analytics import Recipe
+        from shenas_analyses.core.analytics import Recipe
 
         empty = Recipe(nodes={}, final="")
         h = cls(
@@ -228,7 +228,7 @@ class Hypothesis(Table):
 
     def recipe(self) -> Recipe:
         """Reconstruct the :class:`Recipe` from ``recipe_json``."""
-        from shenas_plugins.core.analytics import Recipe
+        from shenas_analyses.core.analytics import Recipe
 
         return Recipe.model_validate_json(self.recipe_json)
 
@@ -236,8 +236,7 @@ class Hypothesis(Table):
         """Reconstruct the most recent :class:`Result` from ``result_json``,
         or ``None`` if the recipe hasn't been executed yet."""
         from pydantic import TypeAdapter
-
-        from shenas_plugins.core.analytics.runner import Result
+        from shenas_analyses.core.analytics.runner import Result
 
         raw = self.result_json
         if not raw:
@@ -290,6 +289,6 @@ def _extract_input_tables(recipe: Recipe) -> list[str]:
     table X?" query is a simple LIKE -- no need to deserialize the
     recipe JSON.
     """
-    from shenas_plugins.core.analytics import SourceRef
+    from shenas_analyses.core.analytics import SourceRef
 
     return [node.table for node in recipe.nodes.values() if isinstance(node, SourceRef)]

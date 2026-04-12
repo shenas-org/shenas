@@ -5,7 +5,7 @@ from unittest.mock import patch
 import duckdb
 import pytest
 
-from shenas_plugins.core.table import Field, SingletonTable
+from app.table import Field, SingletonTable
 
 
 class SampleConfig(SingletonTable):

@@ -41,7 +41,6 @@ members = [
     "shenas-frontend-focus",
     "shenas-model-core",
     "shenas-model-sleep-forecast",
-    "shenas-plugin-core",
     "shenas-scheduler",
     "shenas-source-chrome",
     "shenas-source-claude-code",
@@ -2896,11 +2895,17 @@ wheels = [
 name = "shenas-analysis-core"
 source = { editable = "plugins/analyses/core" }
 dependencies = [
-    { name = "shenas-plugin-core" },
+    { name = "ibis-framework", extra = ["duckdb"] },
+    { name = "pydantic" },
+    { name = "shenas-app" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-plugin-core", editable = "plugins/core" }]
+requires-dist = [
+    { name = "ibis-framework", extras = ["duckdb"], specifier = ">=10.0.0" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "shenas-app", editable = "app" },
+]
 
 [[package]]
 name = "shenas-analysis-hypothesis"
@@ -2941,7 +2946,6 @@ dependencies = [
     { name = "shenas-dashboard-core" },
     { name = "shenas-dataset-core" },
     { name = "shenas-frontend-default" },
-    { name = "shenas-plugin-core" },
     { name = "shenas-source-core" },
     { name = "shenas-theme-default" },
     { name = "shenas-transformer-core" },
@@ -2974,7 +2978,6 @@ requires-dist = [
     { name = "shenas-dashboard-core", editable = "plugins/dashboards/core" },
     { name = "shenas-dataset-core", editable = "plugins/datasets/core" },
     { name = "shenas-frontend-default", editable = "plugins/frontends/default" },
-    { name = "shenas-plugin-core", editable = "plugins/core" },
     { name = "shenas-source-core", editable = "plugins/sources/core" },
     { name = "shenas-theme-default", editable = "plugins/themes/default" },
     { name = "shenas-transformer-core", editable = "plugins/transformers/core" },
@@ -3005,11 +3008,11 @@ requires-dist = [
 name = "shenas-dashboard-core"
 source = { editable = "plugins/dashboards/core" }
 dependencies = [
-    { name = "shenas-plugin-core" },
+    { name = "shenas-app" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-plugin-core", editable = "plugins/core" }]
+requires-dist = [{ name = "shenas-app", editable = "app" }]
 
 [[package]]
 name = "shenas-dashboard-data-table"
@@ -3076,27 +3079,27 @@ name = "shenas-dataset-core"
 source = { editable = "plugins/datasets/core" }
 dependencies = [
     { name = "duckdb" },
-    { name = "shenas-plugin-core" },
+    { name = "shenas-app" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "duckdb", specifier = ">=1.2.0" },
-    { name = "shenas-plugin-core", editable = "plugins/core" },
+    { name = "shenas-app", editable = "app" },
 ]
 
 [[package]]
 name = "shenas-dataset-events"
 source = { editable = "plugins/datasets/events" }
 dependencies = [
+    { name = "shenas-app" },
     { name = "shenas-dataset-core" },
-    { name = "shenas-plugin-core" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "shenas-app", editable = "app" },
     { name = "shenas-dataset-core", editable = "plugins/datasets/core" },
-    { name = "shenas-plugin-core", editable = "plugins/core" },
 ]
 
 [[package]]
@@ -3133,14 +3136,14 @@ requires-dist = [{ name = "shenas-dataset-core", editable = "plugins/datasets/co
 name = "shenas-dataset-location"
 source = { editable = "plugins/datasets/location" }
 dependencies = [
+    { name = "shenas-app" },
     { name = "shenas-dataset-core" },
-    { name = "shenas-plugin-core" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "shenas-app", editable = "app" },
     { name = "shenas-dataset-core", editable = "plugins/datasets/core" },
-    { name = "shenas-plugin-core", editable = "plugins/core" },
 ]
 
 [[package]]
@@ -3167,11 +3170,11 @@ requires-dist = [{ name = "shenas-dataset-core", editable = "plugins/datasets/co
 name = "shenas-frontend-core"
 source = { editable = "plugins/frontends/core" }
 dependencies = [
-    { name = "shenas-plugin-core" },
+    { name = "shenas-app" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-plugin-core", editable = "plugins/core" }]
+requires-dist = [{ name = "shenas-app", editable = "app" }]
 
 [[package]]
 name = "shenas-frontend-default"
@@ -3197,11 +3200,11 @@ requires-dist = [{ name = "shenas-frontend-core", editable = "plugins/frontends/
 name = "shenas-model-core"
 source = { editable = "plugins/models/core" }
 dependencies = [
-    { name = "shenas-plugin-core" },
+    { name = "shenas-app" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-plugin-core", editable = "plugins/core" }]
+requires-dist = [{ name = "shenas-app", editable = "app" }]
 
 [[package]]
 name = "shenas-model-sleep-forecast"
@@ -3220,22 +3223,6 @@ requires-dist = [
     { name = "shenas-dataset-fitness", editable = "plugins/datasets/fitness" },
     { name = "shenas-model-core", editable = "plugins/models/core" },
     { name = "torch", specifier = ">=2.0" },
-]
-
-[[package]]
-name = "shenas-plugin-core"
-source = { editable = "plugins/core" }
-dependencies = [
-    { name = "cryptography" },
-    { name = "ibis-framework", extra = ["duckdb"] },
-    { name = "pydantic" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cryptography", specifier = ">=45.0.0" },
-    { name = "ibis-framework", extras = ["duckdb"], specifier = ">=10.0.0" },
-    { name = "pydantic", specifier = ">=2.12.5" },
 ]
 
 [[package]]
@@ -3285,8 +3272,8 @@ name = "shenas-source-core"
 source = { editable = "plugins/sources/core" }
 dependencies = [
     { name = "opentelemetry-api" },
+    { name = "shenas-app" },
     { name = "shenas-dataset-core" },
-    { name = "shenas-plugin-core" },
 ]
 
 [package.optional-dependencies]
@@ -3305,8 +3292,8 @@ requires-dist = [
     { name = "google-auth-oauthlib", marker = "extra == 'google'", specifier = ">=1.0.0" },
     { name = "opentelemetry-api", specifier = ">=1.25.0" },
     { name = "rich", marker = "extra == 'cli'", specifier = ">=14.0.0" },
+    { name = "shenas-app", editable = "app" },
     { name = "shenas-dataset-core", editable = "plugins/datasets/core" },
-    { name = "shenas-plugin-core", editable = "plugins/core" },
     { name = "typer", marker = "extra == 'cli'", specifier = ">=0.24.0" },
 ]
 provides-extras = ["cli", "google"]
@@ -3609,11 +3596,11 @@ requires-dist = [
 name = "shenas-theme-core"
 source = { editable = "plugins/themes/core" }
 dependencies = [
-    { name = "shenas-plugin-core" },
+    { name = "shenas-app" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-plugin-core", editable = "plugins/core" }]
+requires-dist = [{ name = "shenas-app", editable = "app" }]
 
 [[package]]
 name = "shenas-theme-dark"
@@ -3639,11 +3626,11 @@ requires-dist = [{ name = "shenas-theme-core", editable = "plugins/themes/core" 
 name = "shenas-transformer-core"
 source = { editable = "plugins/transformers/core" }
 dependencies = [
-    { name = "shenas-plugin-core" },
+    { name = "shenas-app" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shenas-plugin-core", editable = "plugins/core" }]
+requires-dist = [{ name = "shenas-app", editable = "app" }]
 
 [[package]]
 name = "shenas-transformer-dedup-merge"

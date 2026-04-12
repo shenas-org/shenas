@@ -38,7 +38,7 @@ def _sse_event(event: str, data: dict[str, str]) -> str:
 
 def _installed_source_names() -> list[str]:
     """Get installed pipe names via uv pip list (avoids entry_points cache)."""
-    from shenas_plugins.core.plugin import Plugin, PluginInstance
+    from app.plugin import Plugin, PluginInstance
 
     result = subprocess.run(
         ["uv", "pip", "list", "--format", "json", "--python", sys.executable], capture_output=True, text=True

@@ -15,7 +15,7 @@ import json
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
-from shenas_plugins.core.table import Field
+from app.table import Field
 from shenas_sources.core.table import (
     CounterTable,
     EventTable,

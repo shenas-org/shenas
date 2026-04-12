@@ -6,8 +6,7 @@ from __future__ import annotations
 def test_import_registers_mode():
     """Importing the plugin auto-registers the hypothesis mode."""
     import shenas_analyses.hypothesis  # noqa: F401
-
-    from shenas_plugins.core.analytics.mode import get_mode
+    from shenas_analyses.core.analytics.mode import get_mode
 
     mode = get_mode("hypothesis")
     assert mode.name == "hypothesis"

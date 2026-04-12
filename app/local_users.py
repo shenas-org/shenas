@@ -8,7 +8,7 @@ import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
-from shenas_plugins.core.table import Field, Table
+from app.table import Field, Table
 
 if TYPE_CHECKING:
     import duckdb

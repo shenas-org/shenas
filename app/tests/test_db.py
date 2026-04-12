@@ -9,7 +9,7 @@ import pytest
 if TYPE_CHECKING:
     import duckdb
 
-from shenas_plugins.core.plugin import Plugin, PluginInstance
+from app.plugin import Plugin, PluginInstance
 
 
 class _FakePlugin(Plugin):

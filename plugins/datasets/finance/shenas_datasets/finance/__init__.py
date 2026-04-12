@@ -1,3 +1,4 @@
+from app.table import Field
 from shenas_datasets.core import Dataset
 from shenas_datasets.finance.metrics import (
     ALL_TABLES,
@@ -6,7 +7,6 @@ from shenas_datasets.finance.metrics import (
     MonthlyOverview,
     Transaction,
 )
-from shenas_plugins.core import Field
 
 
 class FinanceSchema(Dataset):

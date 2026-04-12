@@ -23,7 +23,7 @@ import json
 from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
-    from shenas_plugins.core.analytics.operations import Operation
+    from shenas_analyses.core.analytics.operations import Operation
 
 
 class AnalysisMode:
@@ -74,7 +74,7 @@ class AnalysisMode:
 
     def _operation_vocabulary(self) -> str:
         """Render the curated operation library as a prompt section."""
-        from shenas_plugins.core.analytics.llm import operation_param_schema
+        from shenas_analyses.core.analytics.llm import operation_param_schema
 
         out: list[str] = ["## Operation vocabulary", ""]
         for op in self.operations:
@@ -145,7 +145,7 @@ class AnalysisMode:
         The default delegates to the shared rules in ``sanity.py``.
         Modes override to add checks specific to their analysis style.
         """
-        from shenas_plugins.core.analytics.sanity import SANITY_RULES
+        from shenas_analyses.core.analytics.sanity import SANITY_RULES
 
         return dict(SANITY_RULES)
 

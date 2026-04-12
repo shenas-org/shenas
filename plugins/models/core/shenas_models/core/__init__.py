@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, ClassVar
 
-from shenas_plugins.core.plugin import Plugin
+from app.plugin import Plugin
 
 logger = logging.getLogger(__name__)
 
