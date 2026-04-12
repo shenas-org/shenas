@@ -116,6 +116,9 @@ def validate_analysis_payload(payload: dict[str, Any]) -> None:
         msg = "payload must contain a non-empty 'suggestions' array"
         raise ValueError(msg)
     for i, s in enumerate(suggestions):
+        if not isinstance(s, dict):
+            msg = f"suggestion[{i}] must be a dict"
+            raise TypeError(msg)
         if "question" not in s:
             msg = f"suggestion[{i}] missing required field 'question'"
             raise ValueError(msg)
