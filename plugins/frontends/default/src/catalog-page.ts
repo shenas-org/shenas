@@ -273,12 +273,12 @@ class CatalogPage extends LitElement {
       this._editSla = this._detail.freshness.slaMinutes?.toString() || "";
       this._editRowMin = this._detail.quality.expectedRowCountMin?.toString() || "";
       this._editRowMax = this._detail.quality.expectedRowCountMax?.toString() || "";
-      // Show data preview in the app-shell right panel
+      // Show detail in the app-shell right panel
       this.dispatchEvent(
-        new CustomEvent("inspect-table", {
+        new CustomEvent("show-resource", {
           bubbles: true,
           composed: true,
-          detail: { schema: this._detail.schemaName, table: this._detail.tableName },
+          detail: this._detail,
         }),
       );
     }
@@ -406,7 +406,6 @@ class CatalogPage extends LitElement {
             .rows=${filtered}
             empty-text="No data resources found"
           ></shenas-data-list>
-        ${this._expanded && this._detail ? this._renderDetail(this._detail) : nothing}
       </div>
     `;
   }

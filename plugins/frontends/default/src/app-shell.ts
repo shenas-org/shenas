@@ -84,6 +84,7 @@ class ShenasApp extends LitElement {
     _dbStatus: { state: true },
     _inspectTable: { state: true },
     _inspectRows: { state: true },
+    _catalogDetail: { state: true },
     _paletteOpen: { state: true },
     _paletteCommands: { state: true },
     _navPaletteOpen: { state: true },
@@ -109,6 +110,7 @@ class ShenasApp extends LitElement {
   declare _dbStatus: DbStatus | null;
   declare _inspectTable: string | null;
   declare _inspectRows: Record<string, unknown>[] | null;
+  declare _catalogDetail: Record<string, unknown> | null;
   declare _paletteOpen: boolean;
   declare _paletteCommands: Command[];
   declare _navPaletteOpen: boolean;
@@ -675,6 +677,7 @@ class ShenasApp extends LitElement {
     this._dbStatus = null;
     this._inspectTable = null;
     this._inspectRows = null;
+    this._catalogDetail = null;
     this._paletteOpen = false;
     this._paletteCommands = [];
     this._navPaletteOpen = false;
@@ -701,6 +704,12 @@ class ShenasApp extends LitElement {
       this._getJobPanel()?.finishJob(e.detail.id, e.detail.ok, e.detail.message)) as EventListener);
     this.addEventListener("inspect-table", ((e: CustomEvent) =>
       this._inspect(e.detail.schema, e.detail.table)) as unknown as EventListener);
+    this.addEventListener("show-resource", ((e: CustomEvent) => {
+      this._catalogDetail = e.detail;
+      this._inspectTable = null;
+      this._inspectRows = null;
+      this._rightOpen = true;
+    }) as unknown as EventListener);
     this.addEventListener("page-title", ((e: CustomEvent) => {
       if (this._activeTabId != null) {
         this._tabs = this._tabs.map((t) => (t.id === this._activeTabId ? { ...t, label: e.detail.title } : t));
@@ -1424,7 +1433,7 @@ class ShenasApp extends LitElement {
           class="panel-right ${this._rightOpen ? "" : "collapsed"} ${this._mobileDrawerOpen ? "mobile-open" : ""}"
           style="width: ${this._rightWidth}px"
         >
-          ${this._inspectTable ? this._renderInspect() : this._renderDbStats()}
+          ${this._catalogDetail ? this._renderCatalogDetail() : this._renderDbStats()}
         </div>
         <div class="bottom-nav">
           <nav>
@@ -1744,6 +1753,58 @@ class ShenasApp extends LitElement {
             )}
           `,
         )}
+      </div>
+    `;
+  }
+
+  _renderCatalogDetail() {
+    const d = this._catalogDetail as Record<string, unknown> | null;
+    if (!d) return html``;
+    const columns = (d.columns as Array<Record<string, unknown>>) || [];
+    const pk = (d.primaryKey as string[]) || [];
+    const upstream = (d.upstream as Array<Record<string, unknown>>) || [];
+    const downstream = (d.downstream as Array<Record<string, unknown>>) || [];
+    const freshness = (d.freshness as Record<string, unknown>) || {};
+    const quality = (d.quality as Record<string, unknown>) || {};
+    const checks = (quality.latestChecks as Array<Record<string, unknown>>) || [];
+    return html`
+      <div style="font-size:0.85rem">
+        <div class="inspect-header">
+          <h4>${d.displayName} <span style="font-size:0.7rem;padding:1px 5px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)">${d.kind || "table"}</span> <span style="font-weight:normal;color:var(--shenas-text-muted,#888)">${d.id}</span></h4>
+          <button class="inspect-close" @click=${() => { this._catalogDetail = null; }}>&times;</button>
+        </div>
+        <p style="color:var(--shenas-text-secondary,#666);margin:0 0 0.8rem">${d.description || ""}</p>
+
+        <strong>Columns</strong>
+        <table class="inspect-table" style="margin:0.3rem 0 0.8rem">
+          <thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Unit</th></tr></thead>
+          <tbody>
+            ${columns.map((c) => html`<tr>
+              <td style="font-family:monospace">${c.name}${pk.includes(c.name as string) ? " *" : ""}</td>
+              <td style="font-family:monospace">${c.dbType}</td>
+              <td>${c.description}</td>
+              <td>${c.unit || ""}</td>
+            </tr>`)}
+          </tbody>
+        </table>
+
+        ${upstream.length || downstream.length ? html`
+          <strong>Lineage</strong>
+          <div style="margin:0.3rem 0 0.8rem">
+            ${upstream.length ? html`<div><strong>Upstream:</strong> ${upstream.map((u) => html`<span style="font-family:monospace">${u.id}</span> `)}</div>` : ""}
+            ${downstream.length ? html`<div><strong>Downstream:</strong> ${downstream.map((dd) => html`<span style="font-family:monospace">${dd.id}</span> `)}</div>` : ""}
+          </div>
+        ` : ""}
+
+        <strong>Freshness & Quality</strong>
+        <div style="margin:0.3rem 0 0.8rem">
+          <div>Last refreshed: ${freshness.lastRefreshed ? (freshness.lastRefreshed as string).slice(0, 16).replace("T", " ") : "never"}</div>
+          <div>Rows: ${quality.actualRowCount ?? "--"}</div>
+          ${checks.length ? checks.map((c) => html`<div>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:${c.status === "pass" ? "#4caf50" : c.status === "warn" ? "#ff9800" : "#c62828"}"></span>
+            ${c.checkType}: ${c.message}
+          </div>`) : ""}
+        </div>
       </div>
     `;
   }
