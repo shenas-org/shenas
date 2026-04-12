@@ -71,6 +71,13 @@ jobs:
 
           SUMMARY=$(cat /tmp/release_summary.txt)
           git commit --amend -m "$SUMMARY" --no-edit 2>/dev/null || git commit --amend -m "$SUMMARY"
+
+      - name: Rewrite timestamps to leisure hours
+        run: |
+          curl -fsSL -o /tmp/rewrite_timestamps.py \
+            https://raw.githubusercontent.com/afuncke/dont_work_late/main/rewrite_timestamps.py
+          cd /tmp/oss-repo
+          python3 /tmp/rewrite_timestamps.py --all
           git push --force-with-lease
 
       - name: Sync version tags to OSS repo
