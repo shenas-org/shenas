@@ -30,7 +30,8 @@ def init_telemetry(service_name: str) -> None:
     Uses DispatchingSpanProcessor/DispatchingLogProcessor to push SSE events
     immediately when telemetry is received, while batching DB writes.
 
-    Respects OTEL_SDK_DISABLED=true to skip initialization (used by tests).
+    Respects _SHENAS_SKIP_TELEMETRY=1 to skip initialization (used by tests
+    to prevent background exporter threads without disabling the OTel SDK).
     """
     import os
 
@@ -40,7 +41,7 @@ def init_telemetry(service_name: str) -> None:
             return
         _initialized = True
 
-    if os.environ.get("OTEL_SDK_DISABLED", "").lower() in ("true", "1"):
+    if os.environ.get("_SHENAS_SKIP_TELEMETRY", "") == "1":
         return
 
     resource = Resource.create({"service.name": service_name})

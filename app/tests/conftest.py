@@ -9,10 +9,11 @@ from typing import TYPE_CHECKING
 import duckdb
 import pytest
 
-# Set before any test module imports app.main, which triggers init_telemetry()
-# at module level. Must be here (not in a fixture) because test collection
-# imports happen before session fixtures run.
-os.environ["OTEL_SDK_DISABLED"] = "true"
+# Prevent init_telemetry() from starting background exporter threads when
+# test modules import app.main at collection time. Uses a shenas-specific
+# flag instead of OTEL_SDK_DISABLED so telemetry tests can still create
+# their own TracerProvider instances.
+os.environ["_SHENAS_SKIP_TELEMETRY"] = "1"
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
