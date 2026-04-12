@@ -10,7 +10,7 @@ import duckdb
 from shenas_transformers.core import Transformer
 
 if TYPE_CHECKING:
-    from shenas_transformers.core.instance import Transform
+    from shenas_transformers.core.transform import Transform
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -50,7 +50,7 @@ class DedupMergeTransformer(Transformer):
             return 0
 
         source_name = instance.source_plugin
-        target = f'"{instance.target_duckdb_schema}"."{instance.target_duckdb_table}"'
+        target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
 
         try:
             con.execute(f"DELETE FROM {target} WHERE source IN (?, ?)", [primary_source, secondary_source])
@@ -65,8 +65,8 @@ class DedupMergeTransformer(Transformer):
                 keep_all = secondary_source
                 keep_unmatched = primary_source
 
-            source_schema = instance.source_duckdb_schema
-            source_table = instance.source_duckdb_table
+            source_schema = instance.source_ref.schema
+            source_table = instance.source_ref.table
 
             # All records from preferred source
             con.execute(

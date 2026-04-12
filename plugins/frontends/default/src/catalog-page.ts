@@ -34,15 +34,13 @@ interface DataResource {
   upstreamTransforms: Array<{
     id: number;
     transformType: string;
-    sourceDuckdbSchema: string;
-    sourceDuckdbTable: string;
+    source: { id: string; displayName: string };
     description: string;
   }> | null;
   downstreamTransforms: Array<{
     id: number;
     transformType: string;
-    targetDuckdbSchema: string;
-    targetDuckdbTable: string;
+    target: { id: string; displayName: string };
     description: string;
   }> | null;
 }
@@ -65,8 +63,8 @@ const FIELDS = `
 `;
 
 const DETAIL_FIELDS = `${FIELDS}
-  upstreamTransforms { id transformType sourceDuckdbSchema sourceDuckdbTable description }
-  downstreamTransforms { id transformType targetDuckdbSchema targetDuckdbTable description }
+  upstreamTransforms { id transformType source { id displayName } description }
+  downstreamTransforms { id transformType target { id displayName } description }
 `;
 
 class CatalogPage extends LitElement {

@@ -225,14 +225,12 @@ class Mutation:
 
     @strawberry.mutation
     def create_transform(self, transform_input: TransformCreateInput) -> TransformType:
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         t = Transform.create(
             transform_type=transform_input.transform_type,
-            source_duckdb_schema=transform_input.source_duckdb_schema,
-            source_duckdb_table=transform_input.source_duckdb_table,
-            target_duckdb_schema=transform_input.target_duckdb_schema,
-            target_duckdb_table=transform_input.target_duckdb_table,
+            source_data_resource_id=f"{transform_input.source_duckdb_schema}.{transform_input.source_duckdb_table}",
+            target_data_resource_id=f"{transform_input.target_duckdb_schema}.{transform_input.target_duckdb_table}",
             source_plugin=transform_input.source_plugin,
             params=transform_input.params,
             description=transform_input.description,
@@ -241,7 +239,7 @@ class Mutation:
 
     @strawberry.mutation
     def update_transform(self, transform_id: int, params: str) -> TransformType | None:
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         existing = Transform.find(transform_id)
         if not existing:
@@ -251,7 +249,7 @@ class Mutation:
 
     @strawberry.mutation
     def delete_transform(self, transform_id: int) -> OkType:
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         from app.models import OkResponse
 
@@ -262,7 +260,7 @@ class Mutation:
 
     @strawberry.mutation
     def enable_transform(self, transform_id: int) -> TransformType | None:
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         t = Transform.find(transform_id)
         if not t:
@@ -272,7 +270,7 @@ class Mutation:
 
     @strawberry.mutation
     def disable_transform(self, transform_id: int) -> TransformType | None:
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         t = Transform.find(transform_id)
         if not t:
@@ -282,7 +280,7 @@ class Mutation:
 
     @strawberry.mutation
     def test_transform(self, transform_id: int, limit: int = 10) -> JSON:
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         t = Transform.find(transform_id)
         return t.test(limit) if t else []  # ty: ignore[invalid-return-type]
@@ -306,7 +304,7 @@ class Mutation:
 
     @strawberry.mutation
     def run_pipe_transforms(self, pipe: str) -> JSON:
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         from app.db import connect
 
@@ -315,7 +313,7 @@ class Mutation:
 
     @strawberry.mutation
     def run_schema_transforms(self, schema: str) -> JSON:
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         from app.db import connect
 
@@ -659,7 +657,7 @@ class Mutation:
         import time
         import uuid
 
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         from app.data_catalog import walk_metrics_catalog, walk_source_catalog
         from app.graphql.llm_provider import get_llm_provider
@@ -712,10 +710,8 @@ class Mutation:
             # Also create suggested transform instances
             for t in s.get("transforms", []):
                 Transform.create_suggested(
-                    source_duckdb_schema=t["source_schema"],
-                    source_duckdb_table=t["source_table"],
-                    target_duckdb_schema="metrics",
-                    target_duckdb_table=s["table_name"],
+                    source_data_resource_id=f"{t['source_schema']}.{t['source_table']}",
+                    target_data_resource_id=f"metrics.{s['table_name']}",
                     source_plugin=t["source_plugin"],
                     params=json.dumps({"sql": t["sql"]}),
                     description=t.get("description", ""),
@@ -830,7 +826,7 @@ class Mutation:
     @strawberry.mutation
     def accept_transform_suggestion(self, transform_id: int) -> JSON:
         """Accept a suggested transform: enable it."""
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         t = Transform.find(transform_id)
         if t is None or not t.is_suggested:
@@ -841,7 +837,7 @@ class Mutation:
     @strawberry.mutation
     def dismiss_transform_suggestion(self, transform_id: int) -> JSON:
         """Dismiss a suggested transform."""
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         t = Transform.find(transform_id)
         if t is None or not t.is_suggested:

@@ -8,7 +8,7 @@ from typing import Any
 
 import duckdb
 from shenas_transformers.core import Transformer
-from shenas_transformers.core.instance import Transform
+from shenas_transformers.core.transform import Transform
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -43,8 +43,8 @@ class GeofenceTransformer(Transformer):
         confidence_col = params.get("confidence_column", "confidence")
         source_name = instance.source_plugin
 
-        target = f'"{instance.target_duckdb_schema}"."{instance.target_duckdb_table}"'
-        source = f'"{instance.source_duckdb_schema}"."{instance.source_duckdb_table}"'
+        target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
+        source = f'"{instance.source_ref.schema}"."{instance.source_ref.table}"'
 
         try:
             _ensure_spatial(con)
@@ -167,8 +167,9 @@ class GeofenceTransformer(Transformer):
 
         defaults = [
             {
+                
                 "source_duckdb_schema": "gtakeout",
-                "source_duckdb_table": "location_visits",
+                    "source_duckdb_table": "location_visits",
                 "target_duckdb_schema": "metrics",
                 "target_duckdb_table": "location_visits",
                 "description": "Categorize Google Takeout location visits using geofences",

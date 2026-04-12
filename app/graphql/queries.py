@@ -24,7 +24,7 @@ from app.graphql.types import (
 )
 
 if TYPE_CHECKING:
-    from shenas_transformers.core.instance import Transform
+    from shenas_transformers.core.transform import Transform
 
     from app.data_catalog import DataResource
     from shenas_plugins.core.plugin import Plugin
@@ -105,14 +105,45 @@ def _resource_to_gql(r: DataResource) -> DataResourceType:
     )
 
 
+def _ref_to_resource_type(schema: str, table: str) -> DataResourceType:
+    """Build a DataResourceType from schema+table, enriched from catalog metadata."""
+    from app.data_catalog import catalog
+
+    meta = catalog().metadata_by_id().get(f"{schema}.{table}", {})
+    plugin_name = meta.get("schema", schema) if meta else schema
+    return DataResourceType(
+        id=f"{schema}.{table}",
+        schema_name=schema,
+        table_name=table,
+        display_name=meta.get("display_name", table),
+        description=meta.get("description", ""),
+        plugin=_plugin_to_gql_by_name(plugin_name),
+        kind=meta.get("kind"),
+        query_hint=meta.get("query_hint"),
+        as_of_macro=meta.get("as_of_macro"),
+        primary_key=meta.get("primary_key", []),
+        columns=[],
+        time_columns=TimeColumnsInfoType(),
+        freshness=FreshnessInfoType(),
+        quality=QualityInfoType(latest_checks=[]),
+        user_notes="",
+        tags=[],
+    )
+
+
+def _plugin_to_gql_by_name(name: str) -> PluginInfoType:
+    """Build a minimal PluginInfoType from a plugin name."""
+    from app.models import PluginInfo
+
+    return PluginInfoType.from_pydantic(PluginInfo(name=name, display_name=name))  # ty: ignore[unresolved-attribute]
+
+
 def _transform_to_gql(t: Transform) -> TransformType:
     return TransformType(
         id=t.id,
         transform_type=t.transform_type,
-        source_duckdb_schema=t.source_duckdb_schema,
-        source_duckdb_table=t.source_duckdb_table,
-        target_duckdb_schema=t.target_duckdb_schema,
-        target_duckdb_table=t.target_duckdb_table,
+        source=_ref_to_resource_type(t.source_ref.schema, t.source_ref.table),
+        target=_ref_to_resource_type(t.target_ref.schema, t.target_ref.table),
         source_plugin=t.source_plugin,
         params=t.params or "{}",
         description=t.description or "",
@@ -390,14 +421,14 @@ class Query:
 
     @strawberry.field
     def transforms(self, source: str | None = None) -> list[TransformType]:
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         rows = Transform.for_plugin(source) if source else Transform.all(order_by="id")
         return [_transform_to_gql(t) for t in rows]
 
     @strawberry.field
     def transform(self, transform_id: int) -> TransformType | None:
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         t = Transform.find(transform_id)
         return _transform_to_gql(t) if t else None
@@ -615,14 +646,14 @@ class Query:
     @strawberry.field
     def suggested_transforms(self, source: str | None = None) -> JSON:
         """Return all suggested (not yet accepted) transforms."""
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         rows = Transform.suggested(source)
         return [  # ty: ignore[invalid-return-type]
             {
                 "id": t.id,
-                "source": f"{t.source_duckdb_schema}.{t.source_duckdb_table}",
-                "target": f"{t.target_duckdb_schema}.{t.target_duckdb_table}",
+                "source": f"{t.source_ref.schema}.{t.source_ref.table}",
+                "target": f"{t.target_ref.schema}.{t.target_ref.table}",
                 "source_plugin": t.source_plugin,
                 "description": t.description or "",
                 "params": t.get_params(),

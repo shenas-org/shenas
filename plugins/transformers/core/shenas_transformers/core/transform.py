@@ -46,10 +46,8 @@ class Transform(Table):
         ),
     ] = 0
     transform_type: Annotated[str, Field(db_type="VARCHAR", description="Transformer plugin name")] = "sql"
-    source_duckdb_schema: Annotated[str, Field(db_type="VARCHAR", description="Source schema")] = ""
-    source_duckdb_table: Annotated[str, Field(db_type="VARCHAR", description="Source table")] = ""
-    target_duckdb_schema: Annotated[str, Field(db_type="VARCHAR", description="Target schema")] = ""
-    target_duckdb_table: Annotated[str, Field(db_type="VARCHAR", description="Target table")] = ""
+    source_data_resource_id: Annotated[str, Field(db_type="VARCHAR", description="Source data resource (schema.table)")] = ""
+    target_data_resource_id: Annotated[str, Field(db_type="VARCHAR", description="Target data resource (schema.table)")] = ""
     source_plugin: Annotated[str, Field(db_type="VARCHAR", description="Source plugin name")] = ""
     params: Annotated[str, Field(db_type="TEXT", description="Type-specific params as JSON", db_default="'{}'")] = "{}"
     description: Annotated[str, Field(db_type="VARCHAR", description="Transform description", db_default="''")] | None = None
@@ -72,11 +70,11 @@ class Transform(Table):
 
     @property
     def source_ref(self) -> DataResourceRef:
-        return DataResourceRef(schema=self.source_duckdb_schema, table=self.source_duckdb_table)
+        return DataResourceRef.from_id(self.source_data_resource_id)
 
     @property
     def target_ref(self) -> DataResourceRef:
-        return DataResourceRef(schema=self.target_duckdb_schema, table=self.target_duckdb_table)
+        return DataResourceRef.from_id(self.target_data_resource_id)
 
     def to_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
@@ -116,10 +114,8 @@ class Transform(Table):
         cls,
         *,
         transform_type: str = "sql",
-        source_duckdb_schema: str,
-        source_duckdb_table: str,
-        target_duckdb_schema: str,
-        target_duckdb_table: str,
+        source_data_resource_id: str,
+        target_data_resource_id: str,
         source_plugin: str,
         params: str = "{}",
         description: str = "",
@@ -127,10 +123,8 @@ class Transform(Table):
         """Create a suggested transform instance (disabled until accepted)."""
         t = cls(
             transform_type=transform_type,
-            source_duckdb_schema=source_duckdb_schema,
-            source_duckdb_table=source_duckdb_table,
-            target_duckdb_schema=target_duckdb_schema,
-            target_duckdb_table=target_duckdb_table,
+            source_data_resource_id=source_data_resource_id,
+            target_data_resource_id=target_data_resource_id,
             source_plugin=source_plugin,
             params=params,
             description=description,
@@ -160,10 +154,8 @@ class Transform(Table):
         cls,
         *,
         transform_type: str,
-        source_duckdb_schema: str,
-        source_duckdb_table: str,
-        target_duckdb_schema: str,
-        target_duckdb_table: str,
+        source_data_resource_id: str,
+        target_data_resource_id: str,
         source_plugin: str,
         params: str = "{}",
         description: str = "",
@@ -171,10 +163,8 @@ class Transform(Table):
     ) -> Transform:
         t = cls(
             transform_type=transform_type,
-            source_duckdb_schema=source_duckdb_schema,
-            source_duckdb_table=source_duckdb_table,
-            target_duckdb_schema=target_duckdb_schema,
-            target_duckdb_table=target_duckdb_table,
+            source_data_resource_id=source_data_resource_id,
+            target_data_resource_id=target_data_resource_id,
             source_plugin=source_plugin,
             params=params,
             description=description,
@@ -227,7 +217,7 @@ class Transform(Table):
 
         with cursor() as cur:
             existing = cur.execute(
-                "SELECT source_duckdb_table, target_duckdb_table "
+                "SELECT source_data_resource_id, target_data_resource_id "
                 "FROM shenas_system.transform_instances "
                 "WHERE source_plugin = ? AND transform_type = ? AND is_default = true",
                 [source_plugin, transform_type],
@@ -235,7 +225,9 @@ class Transform(Table):
         existing_keys = {(r[0], r[1]) for r in existing}
 
         for d in defaults:
-            key = (d["source_duckdb_table"], d["target_duckdb_table"])
+            src_id = f"{d['source_duckdb_schema']}.{d['source_duckdb_table']}"
+            tgt_id = f"{d['target_duckdb_schema']}.{d['target_duckdb_table']}"
+            key = (src_id, tgt_id)
             params_json = d.get("params", "{}")
             if key in existing_keys:
                 with cursor() as cur:
@@ -243,24 +235,22 @@ class Transform(Table):
                         "UPDATE shenas_system.transform_instances "
                         "SET params = ?, description = ?, updated_at = current_timestamp "
                         "WHERE source_plugin = ? AND transform_type = ? "
-                        "AND source_duckdb_table = ? AND target_duckdb_table = ? "
+                        "AND source_data_resource_id = ? AND target_data_resource_id = ? "
                         "AND is_default = true",
                         [
                             params_json,
                             d.get("description", ""),
                             source_plugin,
                             transform_type,
-                            d["source_duckdb_table"],
-                            d["target_duckdb_table"],
+                            src_id,
+                            tgt_id,
                         ],
                     )
                 continue
             cls.create(
                 transform_type=transform_type,
-                source_duckdb_schema=d["source_duckdb_schema"],
-                source_duckdb_table=d["source_duckdb_table"],
-                target_duckdb_schema=d["target_duckdb_schema"],
-                target_duckdb_table=d["target_duckdb_table"],
+                source_data_resource_id=src_id,
+                target_data_resource_id=tgt_id,
                 source_plugin=source_plugin,
                 params=params_json,
                 description=d.get("description", ""),
@@ -294,7 +284,7 @@ class Transform(Table):
                 try:
                     from app.data_catalog import catalog
 
-                    catalog().mark_refreshed(inst.target_duckdb_schema, inst.target_duckdb_table)
+                    catalog().mark_refreshed(inst.target_ref.schema, inst.target_ref.table)
                 except Exception:
                     pass
             count += result
@@ -302,7 +292,7 @@ class Transform(Table):
 
     @staticmethod
     def run_for_target(con: duckdb.DuckDBPyConnection, target_table: str) -> int:
-        matching = [t for t in Transform.all(order_by="id") if t.target_duckdb_table == target_table and t.enabled]
+        matching = [t for t in Transform.all(order_by="id") if t.target_ref.table == target_table and t.enabled]
         log.info("Running transforms targeting %s (%d total)", target_table, len(matching))
         device_id = _get_device_id()
         plugin_cache: dict[str, Any] = {}
@@ -321,7 +311,7 @@ class Transform(Table):
                 try:
                     from app.data_catalog import catalog
 
-                    catalog().mark_refreshed(inst.target_duckdb_schema, inst.target_duckdb_table)
+                    catalog().mark_refreshed(inst.target_ref.schema, inst.target_ref.table)
                 except Exception:
                     pass
             count += result

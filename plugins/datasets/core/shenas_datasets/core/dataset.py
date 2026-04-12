@@ -74,7 +74,7 @@ class Dataset(Plugin):
         3. Create Transform rows for the bundled transforms.
         4. Flip ``is_suggested`` to False.
         """
-        from shenas_transformers.core.instance import Transform
+        from shenas_transformers.core.transform import Transform
 
         from app.db import cursor
 
@@ -99,10 +99,8 @@ class Dataset(Plugin):
         for t in meta.get("transforms", []):
             ti = Transform.create(
                 transform_type="sql",
-                source_duckdb_schema=t["source_schema"],
-                source_duckdb_table=t["source_table"],
-                target_duckdb_schema="metrics",
-                target_duckdb_table=table_name,
+                source_data_resource_id=f"{t['source_schema']}.{t['source_table']}",
+                target_data_resource_id=f"metrics.{table_name}",
                 source_plugin=t["source_plugin"],
                 params=json.dumps({"sql": t["sql"]}),
                 description=t.get("description", ""),

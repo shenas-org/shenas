@@ -10,7 +10,7 @@ import duckdb
 from shenas_transformers.core import Transformer, TransformerConfig
 
 if TYPE_CHECKING:
-    from shenas_transformers.core.instance import Transform
+    from shenas_transformers.core.transform import Transform
 
 from dataclasses import dataclass
 from typing import Annotated
@@ -64,8 +64,8 @@ class ReverseGeocodeTransformer(Transformer):
         lon_col = params.get("longitude_column", "longitude")
         output_col = params.get("output_column", "place_name")
         source_name = instance.source_plugin
-        source = f'"{instance.source_duckdb_schema}"."{instance.source_duckdb_table}"'
-        target = f'"{instance.target_duckdb_schema}"."{instance.target_duckdb_table}"'
+        source = f'"{instance.source_ref.schema}"."{instance.source_ref.table}"'
+        target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
 
         try:
             con.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])

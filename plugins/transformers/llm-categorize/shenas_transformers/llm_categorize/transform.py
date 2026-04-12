@@ -14,7 +14,7 @@ from app.llm import Backend, LlmCache
 from shenas_plugins.core.table import Field
 
 if TYPE_CHECKING:
-    from shenas_transformers.core.instance import Transform
+    from shenas_transformers.core.transform import Transform
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -72,8 +72,8 @@ class LlmCategorizeTransformer(Transformer):
         prompt_template = params.get("prompt", "Categorize the following text into one word: {text}")
         categories = params.get("categories", "")
         source_name = instance.source_plugin
-        source = f'"{instance.source_duckdb_schema}"."{instance.source_duckdb_table}"'
-        target = f'"{instance.target_duckdb_schema}"."{instance.target_duckdb_table}"'
+        source = f'"{instance.source_ref.schema}"."{instance.source_ref.table}"'
+        target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
 
         try:
             config = self.Config.read_row() or {}

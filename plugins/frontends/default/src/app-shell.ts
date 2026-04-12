@@ -1842,8 +1842,9 @@ class ShenasApp extends LitElement {
                 ${upstream.length
                   ? html`<div>
                       <strong>Upstream:</strong> ${upstream.map(
-                        (u) =>
-                          html`<span>${u.displayName || u.id}</span>
+                        (t) =>
+                          html`<div style="margin:2px 0">
+                            <span style="font-family:monospace">${t.source.displayName || t.source.id}</span>
                             <span
                               style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)"
                               >${u.kind || "table"}</span
@@ -1854,8 +1855,9 @@ class ShenasApp extends LitElement {
                 ${downstream.length
                   ? html`<div>
                       <strong>Downstream:</strong> ${downstream.map(
-                        (dd) =>
-                          html`<span>${dd.displayName || dd.id}</span>
+                        (t) =>
+                          html`<div style="margin:2px 0">
+                            <span style="font-family:monospace">${t.target.displayName || t.target.id}</span>
                             <span
                               style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)"
                               >${dd.kind || "table"}</span
