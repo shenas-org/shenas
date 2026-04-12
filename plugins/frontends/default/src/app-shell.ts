@@ -35,9 +35,10 @@ import "./user-select-dialog.ts";
 
 interface DashboardInfo {
   name: string;
-  display_name?: string;
+  displayName?: string;
   tag: string;
   js: string;
+  description?: string;
 }
 
 interface PluginSummary {
@@ -813,7 +814,7 @@ class ShenasApp extends LitElement {
 
     // Components (top-level tabs)
     for (const c of this._dashboards) {
-      commands.push({ id: `nav:${c.name}`, category: "Page", label: c.display_name || c.name, path: `/${c.name}` });
+      commands.push({ id: `nav:${c.name}`, category: "Page", label: c.displayName || c.name, path: `/${c.name}` });
     }
 
     // Settings sections from dynamically fetched plugin kinds
@@ -895,7 +896,9 @@ class ShenasApp extends LitElement {
               category: "Transform",
               label: `Run Transforms: ${name}`,
               action: () => {
-                gqlFull(this.apiBase, `mutation($pipe: String!) { runPipeTransforms(pipe: $pipe) }`, { pipe: p.name });
+                gqlFull(this.apiBase, `mutation($pipe: String!) { runPipeTransforms(pipe: $pipe) { name count } }`, {
+                  pipe: p.name,
+                });
               },
             });
           }
@@ -912,7 +915,7 @@ class ShenasApp extends LitElement {
         category: "Transform",
         label: "Seed Default Transforms",
         action: () => {
-          gqlFull(this.apiBase, `mutation { seedTransforms }`);
+          gqlFull(this.apiBase, `mutation { seedTransforms { seeded count } }`);
         },
       });
       commands.push({
@@ -944,9 +947,13 @@ class ShenasApp extends LitElement {
             category: "Transform",
             label: `Run Transforms -> ${s.displayName || s.name}: ${table}`,
             action: () => {
-              gqlFull(this.apiBase, `mutation($schema: String!) { runSchemaTransforms(schema: $schema) }`, {
-                schema: table,
-              });
+              gqlFull(
+                this.apiBase,
+                `mutation($schema: String!) { runSchemaTransforms(schema: $schema) { name count } }`,
+                {
+                  schema: table,
+                },
+              );
             },
           });
         }
@@ -1116,11 +1123,11 @@ class ShenasApp extends LitElement {
       }
     }
     const comp = this._dashboards.find((c) => c.name === parts[0]);
-    return comp ? comp.display_name || comp.name : parts[0];
+    return comp ? comp.displayName || comp.name : parts[0];
   }
 
   async _refreshDashboards(): Promise<void> {
-    const data = await gql(this.apiBase, `{ dashboards }`);
+    const data = await gql(this.apiBase, `{ dashboards { name displayName tag js description } }`);
     this._dashboards = (data?.dashboards as DashboardInfo[]) || [];
   }
 
@@ -1161,7 +1168,7 @@ class ShenasApp extends LitElement {
       const data = await gql(
         this.apiBase,
         `{
-        dashboards
+        dashboards { name displayName tag js description }
         hotkeys
         workspace
         dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } }
@@ -1343,10 +1350,9 @@ class ShenasApp extends LitElement {
             <img src="/static/images/shenas.svg" alt="shenas" />
           </div>
           <nav class="nav">
-            ${this._dashboards.map((c) => this._navItem(c.name, c.display_name || c.name, active))}
+            ${this._dashboards.map((c) => this._navItem(c.name, c.displayName || c.name, active))}
             <hr style="border:none;border-top:1px solid var(--shenas-border-light,#e8e8e8);margin:0.3rem 0.5rem" />
             ${this._navItem("flow", "Flow", active)} ${this._navItem("catalog", "Catalog", active)}
-            ${this._navItem("logs", "Logs", active)} ${this._navItem("flow", "Flow", active)}
             ${this._navItem("logs", "Logs", active)}
             <a
               class="nav-link settings-toggle"
@@ -1467,7 +1473,7 @@ class ShenasApp extends LitElement {
                     <rect x="3" y="3" width="18" height="18" rx="2" />
                     <path d="M3 9h18M9 21V9" />
                   </svg>
-                  <span>${c.display_name || c.name}</span>
+                  <span>${c.displayName || c.name}</span>
                 </a>
               `,
             )}

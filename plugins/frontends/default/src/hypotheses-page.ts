@@ -16,14 +16,14 @@ interface HypothesisRow {
   id: number;
   question: string;
   plan: string;
-  inputs: string[];
+  inputs: string | null;
   interpretation: string;
   model: string;
   mode: string;
-  promoted_to: string | null;
-  created_at: string | null;
-  recipe: unknown;
-  result: unknown;
+  promotedTo: string | null;
+  createdAt: string | null;
+  recipeJson: string;
+  resultJson: string | null;
 }
 
 class HypothesesPage extends LitElement {
@@ -196,7 +196,10 @@ class HypothesesPage extends LitElement {
   }
 
   async _load(): Promise<void> {
-    const data = await gql(this.apiBase, `{ hypotheses }`);
+    const data = await gql(
+      this.apiBase,
+      `{ hypotheses { id question plan inputs interpretation model mode promotedTo createdAt recipeJson resultJson } }`,
+    );
     this._hypotheses = (data?.hypotheses as HypothesisRow[]) || [];
     if (this._hypotheses.length > 0 && this._selectedId === null) {
       this._selectedId = this._hypotheses[0].id;
@@ -272,7 +275,14 @@ class HypothesesPage extends LitElement {
     this._error = "";
   }
 
-  _renderResult(result: unknown): unknown {
+  _renderResult(resultJson: string | null): unknown {
+    if (!resultJson) return html`<p class="meta">No result yet.</p>`;
+    let result: unknown;
+    try {
+      result = JSON.parse(resultJson);
+    } catch {
+      return html`<p class="meta">No result yet.</p>`;
+    }
     if (!result || typeof result !== "object") return html`<p class="meta">No result yet.</p>`;
     const r = result as { type?: string; value?: unknown; rows?: unknown[]; columns?: string[]; message?: string };
     if (r.type === "scalar") {
@@ -313,8 +323,8 @@ class HypothesesPage extends LitElement {
     return html`
       <h2>${h.question}</h2>
       <p class="meta">
-        ${h.created_at || ""} · ${h.model || "---"} · <span class="mode-badge">${h.mode || "hypothesis"}</span>
-        ${h.promoted_to ? html` · <span class="promoted">-> ${h.promoted_to}</span>` : ""}
+        ${h.createdAt || ""} · ${h.model || "---"} · <span class="mode-badge">${h.mode || "hypothesis"}</span>
+        ${h.promotedTo ? html` · <span class="promoted">-> ${h.promotedTo}</span>` : ""}
       </p>
 
       ${h.plan
@@ -326,12 +336,12 @@ class HypothesesPage extends LitElement {
 
       <div class="panel">
         <h3>Recipe</h3>
-        <pre>${JSON.stringify(h.recipe, null, 2)}</pre>
+        <pre>${h.recipeJson ? JSON.stringify(JSON.parse(h.recipeJson), null, 2) : ""}</pre>
       </div>
 
       <div class="panel">
         <h3>Result</h3>
-        ${this._renderResult(h.result)}
+        ${this._renderResult(h.resultJson)}
       </div>
 
       ${h.interpretation
@@ -340,7 +350,7 @@ class HypothesesPage extends LitElement {
             <p>${h.interpretation}</p>
           </div>`
         : ""}
-      ${!h.promoted_to
+      ${!h.promotedTo
         ? html`
             <div class="promote-bar">
               <input
@@ -375,7 +385,7 @@ class HypothesesPage extends LitElement {
                   <div class="meta">
                     #${h.id}
                     <span class="mode-badge">${h.mode || "hypothesis"}</span>
-                    ${h.promoted_to ? html`<span class="promoted">· promoted</span>` : ""}
+                    ${h.promotedTo ? html`<span class="promoted">· promoted</span>` : ""}
                   </div>
                 </div>
               `,

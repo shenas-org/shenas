@@ -12,19 +12,26 @@ from app.graphql.types import (
     CategorySetType,
     CategoryValueType,
     ColumnInfoType,
+    DashboardType,
     DataResourceType,
     DBStatusType,
+    DependencyEdge,
     FindingType,
     FreshnessInfoType,
     HypothesisSuggestionType,
     HypothesisType,
+    ModelInfoType,
+    ParamFieldType,
     PluginInfoType,
     QualityCheckType,
     QualityInfoType,
     ScheduleInfoType,
+    SuggestedAnalysisType,
+    SuggestedDatasetType,
     TableEntry,
     ThemeInfo,
     TimeColumnsInfoType,
+    TransformerInfoType,
     TransformType,
 )
 
@@ -340,7 +347,7 @@ class Query:
     # -- Transforms --
 
     @strawberry.field
-    def transform_types(self) -> JSON:
+    def transform_types(self) -> list[TransformerInfoType]:
         """Return available transformer plugin types with their param schemas."""
         from importlib.metadata import entry_points
 
@@ -351,16 +358,27 @@ class Query:
                 inst = cls()
                 schema = inst.param_schema() if hasattr(inst, "param_schema") else []
                 result.append(
-                    {
-                        "name": ep.name,
-                        "displayName": getattr(inst, "display_name", ep.name),
-                        "description": getattr(inst, "description", ""),
-                        "paramSchema": schema,
-                    }
+                    TransformerInfoType(
+                        name=ep.name,
+                        display_name=getattr(inst, "display_name", ep.name),
+                        description=getattr(inst, "description", ""),
+                        param_schema=[
+                            ParamFieldType(
+                                name=p["name"],
+                                label=p.get("label", ""),
+                                type=p.get("type", "text"),
+                                required=p.get("required", False),
+                                description=p.get("description", ""),
+                                default=str(p["default"]) if p.get("default") is not None else None,
+                                options=p.get("options"),
+                            )
+                            for p in schema
+                        ],
+                    )
                 )
             except Exception:
                 pass
-        return sorted(result, key=lambda x: x["displayName"])  # ty: ignore[invalid-return-type]
+        return sorted(result, key=lambda x: x.display_name)
 
     # -- Categories --
 
@@ -477,7 +495,7 @@ class Query:
         return Workspace.get()  # ty: ignore[invalid-return-type]
 
     @strawberry.field
-    def dashboards(self) -> JSON:
+    def dashboards(self) -> list[DashboardType]:
         from app.api.sources import _load_dashboards
         from shenas_plugins.core.plugin import PluginInstance
 
@@ -487,18 +505,18 @@ class Query:
             if inst is not None and not inst.enabled:
                 continue
             result.append(
-                {
-                    "name": c.name,
-                    "display_name": c.display_name,
-                    "tag": c.tag,
-                    "js": f"/dashboards/{c.name}/{c.entrypoint}",
-                    "description": c.description,
-                }
+                DashboardType(
+                    name=c.name,
+                    display_name=c.display_name,
+                    tag=c.tag,
+                    js=f"/dashboards/{c.name}/{c.entrypoint}",
+                    description=c.description,
+                )
             )
-        return result  # ty: ignore[invalid-return-type]
+        return result
 
     @strawberry.field
-    def dependencies(self) -> JSON:
+    def dependencies(self) -> list[DependencyEdge]:
         from importlib.metadata import distributions
 
         prefixes = {
@@ -531,20 +549,29 @@ class Query:
                         deps.append(f"{dep_kind}:{req_name.removeprefix(dep_prefix)}")
             if deps:
                 result[f"{kind}:{plugin_name}"] = deps
-        return result  # ty: ignore[invalid-return-type]
+        return [DependencyEdge(source=k, targets=v) for k, v in result.items()]
 
     # -- Models --
 
     @strawberry.field
-    def models(self) -> JSON:
+    def models(self) -> list[ModelInfoType]:
         from shenas_models.core import Model  # ty: ignore[unresolved-import]
 
         from app.api.sources import _load_plugins
 
-        return sorted(  # ty: ignore[invalid-return-type]
-            [cls().get_info() for cls in _load_plugins("model", base=Model, include_internal=False)],
-            key=lambda x: x["name"],
-        )
+        result = []
+        for cls in _load_plugins("model", base=Model, include_internal=False):
+            info = cls().get_info()
+            result.append(
+                ModelInfoType(
+                    name=info.get("name", cls.name),
+                    display_name=info.get("display_name", cls.name),
+                    description=info.get("description", ""),
+                    version=info.get("version", ""),
+                    enabled=info.get("enabled", True),
+                )
+            )
+        return sorted(result, key=lambda x: x.name)
 
     @strawberry.field
     def model_status(self, name: str) -> JSON:
@@ -575,14 +602,15 @@ class Query:
     # excluded -- they are not joinable analytical inputs.
 
     @strawberry.field
-    def catalog(self) -> JSON:
-        """Return ``[table_metadata]`` for every queryable source / metric table.
+    def catalog(self) -> list[DataResourceType]:
+        """Return all queryable source / metric tables as DataResourceType.
 
-        Thin wrapper over :func:`app.data_catalog.walk_catalog`.
+        Equivalent to dataResources but without row counts for performance.
+        Used by the LLM prompt builder.
         """
-        from app.data_catalog import walk_catalog
+        from app.data_catalog import catalog
 
-        return walk_catalog()  # ty: ignore[invalid-return-type]
+        return [_data_resource_to_gql(r) for r in catalog().list_resources(include_row_counts=False)]
 
     # -- Analysis modes --
 
@@ -635,52 +663,42 @@ class Query:
     # Read-only listing of LLM-suggested datasets, transforms, and analyses.
 
     @strawberry.field
-    def suggested_datasets(self) -> JSON:
+    def suggested_datasets(self) -> list[SuggestedDatasetType]:
         """Return all suggested (not yet accepted) datasets."""
         from shenas_plugins.core.plugin import PluginInstance
 
-        return [  # ty: ignore[invalid-return-type]
-            {
-                "name": pi.name,
-                "is_suggested": pi.is_suggested,
-                "enabled": pi.enabled,
-                **(pi.metadata or {}),
-            }
+        return [
+            SuggestedDatasetType(
+                name=pi.name,
+                is_suggested=bool(pi.is_suggested),
+                enabled=bool(pi.enabled),
+                table_name=(pi.metadata or {}).get("table_name"),
+                grain=(pi.metadata or {}).get("grain"),
+                title=(pi.metadata or {}).get("title"),
+            )
             for pi in PluginInstance.suggested("dataset")
         ]
 
     @strawberry.field
-    def suggested_transforms(self, source: str | None = None) -> JSON:
+    def suggested_transforms(self, source: str | None = None) -> list[TransformType]:
         """Return all suggested (not yet accepted) transforms."""
         from shenas_transformers.core.transform import Transform
 
-        rows = Transform.suggested(source)
-        return [  # ty: ignore[invalid-return-type]
-            {
-                "id": t.id,
-                "source": f"{t.source_ref.schema}.{t.source_ref.table}",
-                "target": f"{t.target_ref.schema}.{t.target_ref.table}",
-                "source_plugin": t.source_plugin,
-                "description": t.description or "",
-                "params": t.get_params(),
-            }
-            for t in rows
-        ]
+        return [_transform_to_gql(t) for t in Transform.suggested(source)]
 
     @strawberry.field
-    def suggested_analyses(self) -> JSON:
+    def suggested_analyses(self) -> list[SuggestedAnalysisType]:
         """Return all suggested (not yet accepted) analysis hypotheses."""
         from app.hypotheses import Hypothesis
 
-        return [  # ty: ignore[invalid-return-type]
-            {
-                "id": h.id,
-                "question": h.question,
-                "rationale": h.plan or "",
-                "datasets_involved": (h.inputs or "").split(",") if h.inputs else [],
-                "complexity": h.mode or "",
-                "created_at": str(h.created_at) if h.created_at else None,
-            }
+        return [
+            SuggestedAnalysisType(
+                id=h.id,
+                question=h.question,
+                rationale=h.plan or "",
+                datasets_involved=(h.inputs or "").split(",") if h.inputs else [],  # ty: ignore[invalid-argument-type]
+                complexity=h.mode or "",
+            )
             for h in Hypothesis.suggested()
         ]
 

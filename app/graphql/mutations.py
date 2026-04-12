@@ -18,7 +18,9 @@ from app.graphql.types import (
     OkType,
     QualityCheckType,
     RemoveResponseType,
+    SeedResultType,
     TransformCreateInput,
+    TransformRunResultType,
     TransformType,
 )
 
@@ -306,7 +308,7 @@ class Mutation:
         return t.test(limit) if t else []  # ty: ignore[invalid-return-type]
 
     @strawberry.mutation
-    def seed_transforms(self) -> JSON:
+    def seed_transforms(self) -> SeedResultType:
         from shenas_transformers.core import Transformer
 
         from app.api.sources import _load_plugins
@@ -320,25 +322,25 @@ class Mutation:
                 if not inst or inst.enabled:
                     plugin.seed_defaults_for_source(ep_name)
             seeded.append(ep_name)
-        return {"seeded": seeded, "count": len(seeded)}  # ty: ignore[invalid-return-type]
+        return SeedResultType(seeded=seeded, count=len(seeded))
 
     @strawberry.mutation
-    def run_pipe_transforms(self, pipe: str) -> JSON:
+    def run_pipe_transforms(self, pipe: str) -> TransformRunResultType:
         from shenas_transformers.core.transform import Transform
 
         from app.db import connect
 
         count = Transform.run_for_source(connect(), pipe)
-        return {"source": pipe, "count": count}  # ty: ignore[invalid-return-type]
+        return TransformRunResultType(name=pipe, count=count)
 
     @strawberry.mutation
-    def run_schema_transforms(self, schema: str) -> JSON:
+    def run_schema_transforms(self, schema: str) -> TransformRunResultType:
         from shenas_transformers.core.transform import Transform
 
         from app.db import connect
 
         count = Transform.run_for_target(connect(), schema)
-        return {"schema": schema, "count": count}  # ty: ignore[invalid-return-type]
+        return TransformRunResultType(name=schema, count=count)
 
     # -- Hotkeys --
 
