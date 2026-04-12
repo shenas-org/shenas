@@ -330,33 +330,31 @@ class TestGraphQLQueries:
         assert result["data"]["syncSchedule"] == []
 
     def test_catalog_empty_when_no_plugins(self, client: TestClient) -> None:
-        with patch("app.data_catalog.walk_catalog", return_value=[]):
-            result = _gql(client, "{ catalog }")
+        with (
+            patch("shenas_plugins.core.plugin.Plugin.load_by_kind", return_value=[]),
+            patch("shenas_datasets.core.dataset.Dataset.load_all", return_value=[]),
+        ):
+            result = _gql(client, "{ catalog { id displayName kind } }")
         assert "errors" not in result
         assert result["data"]["catalog"] == []
 
     def test_catalog_returns_dataset_metadata(self, client: TestClient) -> None:
-        fake_catalog = [
-            {
-                "table": "daily_mood_test",
-                "schema": "metrics",
-                "primary_key": ["date", "source"],
-                "kind": "daily_metric",
-                "query_hint": "SELECT * FROM metrics.daily_mood_test",
-                "columns": [
-                    {"name": "date", "db_type": "DATE", "description": "Calendar date"},
-                    {"name": "source", "db_type": "VARCHAR", "description": "Source"},
-                    {"name": "mood", "db_type": "DOUBLE", "description": "Mood 1-10"},
-                ],
-            }
-        ]
-        with patch("app.data_catalog.walk_catalog", return_value=fake_catalog):
-            result = _gql(client, "{ catalog }")
+        fake_dataset = MagicMock()
+        fake_dataset.name = "test-dataset"
+        fake_dataset.display_name = "Test Dataset"
+        fake_dataset.description = ""
+        fake_dataset.all_tables = [_CatalogMood]
+        fake_dataset.return_value = fake_dataset
+        with (
+            patch("shenas_plugins.core.plugin.Plugin.load_by_kind", return_value=[]),
+            patch("shenas_datasets.core.dataset.Dataset.load_all", return_value=[fake_dataset]),
+        ):
+            result = _gql(client, "{ catalog { id displayName kind } }")
         assert "errors" not in result
         catalog = result["data"]["catalog"]
         assert len(catalog) == 1
         entry = catalog[0]
-        assert entry["table"] == "daily_mood_test"
+        assert entry["id"] == "metrics.daily_mood_test"
         assert entry["kind"] == "daily_metric"
 
     def test_sync_schedule_with_data(self, client: TestClient) -> None:
