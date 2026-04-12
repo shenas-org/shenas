@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from "lit";
 import type { TemplateResult, CSSResult } from "lit";
-import { categoryColor, formatTime, formatDate, computeBarPosition } from "shenas-frontends";
+import { formatDate, formatTime, computeBarPosition } from "shenas-frontends";
 import type { DayData, EventItem, TransactionItem, DailyMetrics } from "./types.ts";
 
 function formatMetricValue(val: number | null | undefined, unit: string): string | null {
@@ -213,8 +213,9 @@ export class ShenasDayRow extends LitElement {
 
   render(): TemplateResult {
     const d = this.day;
+    if (!d) return html``;
     const badges = buildBadges(d.metrics || null);
-    const allItems = [...(d.events || []), ...(d.transactions || [])];
+    const allItems = d.items || [];
 
     return html`
       <div class="day-row">
@@ -234,25 +235,29 @@ export class ShenasDayRow extends LitElement {
             return html`
               <div
                 class="timeline-item ${isEvent ? "event" : "transaction"}"
-                style="${computeBarPosition(item.start_time, item.end_time || item.start_time, d.date)}"
+                style="${isEvent
+                  ? computeBarPosition(
+                      (item as EventItem).start_at,
+                      (item as EventItem).end_at || (item as EventItem).start_at,
+                      d.date,
+                    )
+                  : ""}"
                 @mouseenter=${(e: MouseEvent) => this._onItemHover(item, e)}
                 @mouseleave=${() => this._onItemLeave()}
               >
-                ${isEvent ? (item as EventItem).title.substring(0, 3) : "$"}
+                ${isEvent ? ((item as EventItem).title || "").substring(0, 3) : "$"}
               </div>
             `;
           })}
         </div>
       </div>
       ${this._hoveredItem
-        ? html`<div
-            class="tooltip"
-            style="left: ${this._tooltipX}px; top: ${this._tooltipY}px"
-          >
+        ? html`<div class="tooltip" style="left: ${this._tooltipX}px; top: ${this._tooltipY}px">
             <div class="title">${"title" in this._hoveredItem ? this._hoveredItem.title : "Transaction"}</div>
             <div class="detail">
               ${"title" in this._hoveredItem
-                ? html`${formatTime(this._hoveredItem.start_time)} - ${formatTime(this._hoveredItem.end_time || this._hoveredItem.start_time)}`
+                ? html`${formatTime((this._hoveredItem as EventItem).start_at)} -
+                  ${formatTime((this._hoveredItem as EventItem).end_at || (this._hoveredItem as EventItem).start_at)}`
                 : html`${this._hoveredItem.amount ? `$${Math.abs(this._hoveredItem.amount).toFixed(2)}` : "N/A"}`}
             </div>
           </div>`
