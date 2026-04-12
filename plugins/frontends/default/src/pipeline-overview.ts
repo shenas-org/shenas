@@ -14,10 +14,8 @@ interface PluginInfo {
 interface Transform {
   id: number;
   transformType: string;
-  sourceDuckdbSchema: string;
-  sourceDuckdbTable: string;
-  targetDuckdbSchema: string;
-  targetDuckdbTable: string;
+  source: { id: string; schemaName: string; tableName: string };
+  target: { id: string; schemaName: string; tableName: string };
   sourcePlugin: string;
   description?: string;
   enabled: boolean;
@@ -139,7 +137,7 @@ class PipelineOverview extends LitElement {
       const data = await gql(
         this.apiBase,
         `{
-        transforms { id transformType sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin enabled }
+        transforms { id transformType source { id schemaName tableName } target { id schemaName tableName } sourcePlugin enabled }
         dependencies
       }`,
       );
@@ -218,11 +216,11 @@ class PipelineOverview extends LitElement {
     // Transform edges (pipe -> schema via data)
     for (const t of transforms) {
       const sourceId = `source:${t.sourcePlugin}`;
-      const ownerPlugin = tableToPlugin[t.targetDuckdbTable];
+      const ownerPlugin = tableToPlugin[t.target.tableName];
       const targetId = ownerPlugin ? `dataset:${ownerPlugin}` : null;
       if (!targetId || !nodeIds.has(sourceId) || !nodeIds.has(targetId)) continue;
       const typeTag = t.transformType ? `[${t.transformType}] ` : "";
-      const desc = t.description || `${t.sourceDuckdbTable} -> ${t.targetDuckdbTable}`;
+      const desc = t.description || `${t.source.tableName} -> ${t.target.tableName}`;
       const full = `${typeTag}${desc}`;
       const label = full.length > 35 ? full.slice(0, 33) + "..." : full;
       elements.push({

@@ -108,10 +108,8 @@ class ThemeInfo:
 class TransformType:
     id: int
     transform_type: str
-    source_duckdb_schema: str
-    source_duckdb_table: str
-    target_duckdb_schema: str
-    target_duckdb_table: str
+    source: DataResourceType
+    target: DataResourceType
     source_plugin: str
     params: str
     description: str

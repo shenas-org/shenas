@@ -403,10 +403,8 @@ describe("shenas-plugin-detail", () => {
     el._schemaTransforms = [
       {
         id: 1,
-        sourceDuckdbSchema: "garmin",
-        sourceDuckdbTable: "hr",
-        targetDuckdbSchema: "metrics",
-        targetDuckdbTable: "hrv",
+        source: { id: "garmin.hr", schemaName: "garmin", tableName: "hr" },
+        target: { id: "metrics.hrv", schemaName: "metrics", tableName: "hrv" },
         sourcePlugin: "garmin",
         enabled: true,
       },

@@ -174,7 +174,7 @@ All artifacts (sources, dashboards, datasets, frontends, themes) are Python whee
 - **Core packages**: `shenas-source-core`, `shenas-dataset-core` (internal, not user-facing)
 - **Versioning**: Each package has a `VERSION` file read by hatchling. `scripts/bump-version.py` auto-increments patch on every build.
 - **Transforms are idempotent**: SQL transforms do DELETE WHERE source, then INSERT
-- **Plugin kinds**: source, dataset, dashboard, frontend, theme, analysis, transformation, model (all in `plugins/`)
+- **Plugin kinds**: source, dataset, dashboard, frontend, theme, analysis, transformer, model (all in `plugins/`)
 - **Themes**: exclusive (only one enabled at a time), CSS custom properties pierce Shadow DOM
 - **Python namespaces**: `shenas_sources.*`, `shenas_datasets.*`, `shenas_dashboards.*` (not `pipes.*` — conflicts with stdlib)
 - **DuckDB schemas**: raw data in source-specific schemas (`garmin.*`, `lunchmoney.*`, `strava.*`, ...), canonical in `metrics.*`
@@ -229,8 +229,8 @@ All artifacts (sources, dashboards, datasets, frontends, themes) are Python whee
 - `plugins/datasets/promoted/` — dynamically promoted hypothesis-to-metric tables
 - `plugins/analyses/core/` — shared analysis utilities
 - `plugins/analyses/hypothesis/` — hypothesis-driven analysis (Recipe DAG runner)
-- `plugins/transformations/core/` — shared transformation utilities
-- `plugins/transformations/*/` — transform plugins (sql, dedup-merge, geocode, geofence, reverse-geocode, regex-extract, llm-categorize)
+- `plugins/transformers/core/` — shared transformer utilities
+- `plugins/transformers/*/` — transformer plugins (sql, dedup-merge, geocode, geofence, reverse-geocode, regex-extract, llm-categorize)
 - `plugins/models/core/` — shared ML model utilities
 - `plugins/models/sleep-forecast/` — sleep quality forecasting model
 - `plugins/dashboards/core/` — shared dashboard utilities

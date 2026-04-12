@@ -9,7 +9,7 @@ on:
       - 'plugin-core/v*'
       - 'frontend-*/v*'
       - 'theme-*/v*'
-      - 'transformation-*/v*'
+      - 'transformer-*/v*'
       - 'analysis-*/v*'
       - 'model-*/v*'
 
@@ -62,7 +62,7 @@ jobs:
             dashboard-*)      NAME="${PREFIX#dashboard-}";      DIR="plugins/dashboards/$NAME" ;;
             frontend-*)       NAME="${PREFIX#frontend-}";       DIR="plugins/frontends/$NAME" ;;
             theme-*)          NAME="${PREFIX#theme-}";          DIR="plugins/themes/$NAME" ;;
-            transformation-*) NAME="${PREFIX#transformation-}"; DIR="plugins/transformations/$NAME" ;;
+            transformer-*) NAME="${PREFIX#transformer-}"; DIR="plugins/transformers/$NAME" ;;
             analysis-*)       NAME="${PREFIX#analysis-}";       DIR="plugins/analyses/$NAME" ;;
             model-*)          NAME="${PREFIX#model-}";          DIR="plugins/models/$NAME" ;;
             plugin-core)      NAME="core";                     DIR="plugins/core" ;;

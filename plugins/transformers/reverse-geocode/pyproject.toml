@@ -1,0 +1,25 @@
+[project]
+name = "shenas-transformer-reverse-geocode"
+dynamic = ["version"]
+description = "Reverse geocode transformer plugin for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-transformer-core",
+    "geopy>=2.4.0",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.transformers"]
+reverse-geocode = "shenas_transformers.reverse_geocode:ReverseGeocodeTransformer"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "transformer-reverse-geocode/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "transformer-reverse-geocode/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_transformers"]

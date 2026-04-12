@@ -81,13 +81,13 @@ class LocalUser(Table):
         ``app`` package ensures the user-scoped Table subclasses have been
         loaded before discovery runs.
         """
+
         import app.categories
         import app.data_catalog
         import app.hotkeys
         import app.hypotheses
         import app.literature
         import app.recipe_cache
-        import app.transforms
         import app.workspace  # noqa: F401
 
         with contextlib.suppress(ImportError):
