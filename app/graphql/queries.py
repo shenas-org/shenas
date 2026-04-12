@@ -774,10 +774,11 @@ class Query:
 
     @strawberry.field
     def entities(self, info: strawberry.types.Info, status: str | None = None) -> list[GqlEntityType]:  # noqa: ARG002
-        from app.entities import Entity, current_entity
+        from app.entities import Entity
 
-        me = current_entity()
-        me_uuid = me.uuid if me else None
+        # Find the "me" entity: the first human entity created at bootstrap.
+        me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
+        me_uuid = me_candidates[0].uuid if me_candidates else None
         where = f"status = '{status}'" if status else None
         return [
             GqlEntityType(
@@ -796,15 +797,14 @@ class Query:
 
     @strawberry.field
     def entity(self, info: strawberry.types.Info, uuid: str | None = None) -> GqlEntityType | None:  # noqa: ARG002
-        from app.entities import Entity, current_entity
+        from app.entities import Entity
 
+        me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
+        me_uuid = me_candidates[0].uuid if me_candidates else None
         if uuid is None:
-            me = current_entity()
-            if me is None:
+            if me_uuid is None:
                 return None
-            uuid = me.uuid
-        me = current_entity()
-        me_uuid = me.uuid if me else None
+            uuid = me_uuid
         e = Entity.find_by_uuid(uuid)
         if e is None:
             return None
@@ -826,13 +826,12 @@ class Query:
         info: strawberry.types.Info,  # noqa: ARG002
         entity_uuid: str | None = None,
     ) -> list[GqlEntityRelationshipType]:
-        from app.entities import EntityRelationship, current_entity
+        from app.entities import EntityRelationship
 
-        if entity_uuid is None:
-            me = current_entity()
-            if me is None:
-                return []
-            entity_uuid = me.uuid
+        if entity_uuid is not None:
+            rels = EntityRelationship.for_entity(entity_uuid)
+        else:
+            rels = EntityRelationship.all(order_by="from_uuid")
         return [
             GqlEntityRelationshipType(
                 from_uuid=r.from_uuid,
@@ -842,7 +841,7 @@ class Query:
                 added_at=str(r.added_at) if r.added_at else None,
                 updated_at=str(r.updated_at) if r.updated_at else None,
             )
-            for r in EntityRelationship.for_entity(entity_uuid)
+            for r in rels
         ]
 
 

@@ -904,7 +904,7 @@ class Mutation:
 
     @strawberry.mutation
     def create_entity(self, entity_input: EntityCreateInput) -> GqlEntityType:
-        from app.entities import Entity, current_entity
+        from app.entities import Entity
 
         e = Entity.create(
             type=entity_input.type,
@@ -913,7 +913,8 @@ class Mutation:
             status=entity_input.status,
             birth_year=entity_input.birth_year,
         )
-        me = current_entity()
+        me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
+        me_uuid = me_candidates[0].uuid if me_candidates else None
         return GqlEntityType(
             uuid=e.uuid,
             type=e.type,
@@ -923,12 +924,12 @@ class Mutation:
             birth_year=e.birth_year,
             added_at=str(e.added_at) if e.added_at else None,
             updated_at=str(e.updated_at) if e.updated_at else None,
-            is_me=(me is not None and e.uuid == me.uuid),
+            is_me=(e.uuid == me_uuid),
         )
 
     @strawberry.mutation
     def update_entity(self, uuid: str, entity_input: EntityUpdateInput) -> GqlEntityType | None:
-        from app.entities import Entity, current_entity
+        from app.entities import Entity
 
         e = Entity.find_by_uuid(uuid)
         if e is None:
@@ -944,7 +945,8 @@ class Mutation:
         if entity_input.birth_year is not None:
             e.birth_year = entity_input.birth_year
         e.save()
-        me = current_entity()
+        me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
+        me_uuid = me_candidates[0].uuid if me_candidates else None
         return GqlEntityType(
             uuid=e.uuid,
             type=e.type,
@@ -954,7 +956,7 @@ class Mutation:
             birth_year=e.birth_year,
             added_at=str(e.added_at) if e.added_at else None,
             updated_at=str(e.updated_at) if e.updated_at else None,
-            is_me=(me is not None and e.uuid == me.uuid),
+            is_me=(e.uuid == me_uuid),
         )
 
     @strawberry.mutation
