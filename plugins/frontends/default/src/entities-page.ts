@@ -391,7 +391,7 @@ class EntitiesPage extends LitElement {
     const { ok } = await gqlFull(
       this.apiBase,
       `mutation($from: String!, $to: String!, $type: String!) {
-        createEntityRelationship(fromUuid: $from, toUuid: $to, type: $type) { fromUuid }
+        createEntityRelationship(fromUuid: $from, toUuid: $to, relationshipType: $type) { fromUuid }
       }`,
       { from: r.fromUuid, to: r.toUuid, type: r.type },
     );
@@ -408,7 +408,7 @@ class EntitiesPage extends LitElement {
     const { ok } = await gqlFull(
       this.apiBase,
       `mutation($from: String!, $to: String!, $type: String!) {
-        deleteEntityRelationship(fromUuid: $from, toUuid: $to, type: $type) { ok }
+        deleteEntityRelationship(fromUuid: $from, toUuid: $to, relationshipType: $type) { ok }
       }`,
       { from: r.fromUuid, to: r.toUuid, type: r.type },
     );
