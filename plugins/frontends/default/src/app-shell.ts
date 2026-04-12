@@ -694,14 +694,7 @@ class ShenasApp extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-    this._fetchData().then(() => {
-      this._checkUserSession();
-      // Honor the URL on direct load / reload instead of workspace restore
-      const path = window.location.pathname;
-      if (path && path !== "/" && !this._tabs.some((t) => t.path === path)) {
-        this._navigateTo(path);
-      }
-    });
+    this._fetchData().then(() => this._checkUserSession());
     this.addEventListener("plugin-state-changed", () => this._refreshDashboards());
     this.addEventListener("job-start", ((e: CustomEvent) =>
       this._getJobPanel()?.addJob(e.detail.id, e.detail.label)) as EventListener);
@@ -1082,8 +1075,14 @@ class ShenasApp extends LitElement {
         this._nextTabId = (state.nextTabId as number) || Math.max(...(state.tabs as TabInfo[]).map((t) => t.id)) + 1;
         // If URL has a specific path (shared link), open it
         const urlPath = window.location.pathname.replace(/\/+$/, "") || "/";
-        if (urlPath && urlPath !== "/" && !this._tabs.some((t) => t.path === urlPath)) {
-          this._openTab(urlPath);
+        if (urlPath && urlPath !== "/") {
+          const urlTab = this._tabs.find((t) => t.path === urlPath);
+          if (urlTab) {
+            this._activeTabId = urlTab.id;
+            this._router.goto(urlTab.path);
+          } else {
+            this._openTab(urlPath);
+          }
           return;
         }
         // Navigate to the active tab
@@ -1199,8 +1198,14 @@ class ShenasApp extends LitElement {
         this._activeTabId = (ws.activeTabId as number) || (ws.tabs as TabInfo[])[0].id;
         this._nextTabId = (ws.nextTabId as number) || Math.max(...(ws.tabs as TabInfo[]).map((t) => t.id)) + 1;
         const urlPath = window.location.pathname.replace(/\/+$/, "") || "/";
-        if (urlPath && urlPath !== "/" && !this._tabs.some((t) => t.path === urlPath)) {
-          this._openTab(urlPath);
+        if (urlPath && urlPath !== "/") {
+          const urlTab = this._tabs.find((t) => t.path === urlPath);
+          if (urlTab) {
+            this._activeTabId = urlTab.id;
+            this._router.goto(urlTab.path);
+          } else {
+            this._openTab(urlPath);
+          }
         } else {
           const active = this._tabs.find((t) => t.id === this._activeTabId);
           if (active) this._router.goto(active.path);
