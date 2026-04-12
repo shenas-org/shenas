@@ -32,7 +32,7 @@ def test_con() -> duckdb.DuckDBPyConnection:
     con.execute("CREATE TABLE garmin.activities (id INTEGER, start_time_local DATE)")
     con.execute("INSERT INTO garmin.activities VALUES (1, '2026-03-15')")
     con.execute("CREATE SCHEMA shenas_system")
-    from app.db import _ensure_system_tables
+    from app.database import _ensure_system_tables
 
     _ensure_system_tables(con)
     con.execute("INSERT INTO shenas_system.workspace VALUES (1, '{}', NULL)")
@@ -51,8 +51,8 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
             cur.close()
 
     with (
-        patch("app.db.cursor", _fake_cursor),
-        patch("app.db.connect", return_value=test_con),
+        patch("app.database.cursor", _fake_cursor),
+        patch("app.database.connect", return_value=test_con),
         patch("app.api.query.cursor", _fake_cursor),
         patch("app.api.db.cursor", _fake_cursor),
     ):
@@ -957,7 +957,7 @@ class TestGraphQLMutationsExtra:
         assert result["data"]["deleteConfigKey"]["ok"] is False
 
     def test_generate_db_key(self, client: TestClient) -> None:
-        with patch("app.db.generate_db_key", return_value="newkey"), patch("app.db.set_db_key") as mock_set:
+        with patch("app.database.generate_db_key", return_value="newkey"), patch("app.database.set_db_key") as mock_set:
             result = _gql(client, "mutation { generateDbKey { ok } }")
         assert result["data"]["generateDbKey"]["ok"] is True
         mock_set.assert_called_once_with("newkey")

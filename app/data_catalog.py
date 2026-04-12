@@ -293,7 +293,7 @@ class DataCatalog:
 
     def _enrich_with_row_counts(self, resources: list[DataResource]) -> None:
         """Add live row counts from DuckDB."""
-        from app.db import cursor
+        from app.database import cursor
 
         for r in resources:
             try:
@@ -418,7 +418,7 @@ class DataCatalog:
 
         results: list[QualityCheck] = []
         now = datetime.now(UTC).isoformat()
-        from app.db import cursor
+        from app.database import cursor
 
         for r in resources:
             # Row count check

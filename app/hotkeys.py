@@ -80,7 +80,7 @@ class Hotkey(Table):
     @classmethod
     def reset(cls) -> None:
         """Drop every binding and re-seed defaults."""
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor() as cur:
             cur.execute("DELETE FROM shenas_system.hotkeys")

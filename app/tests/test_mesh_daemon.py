@@ -21,7 +21,7 @@ def _drive(coro: Any) -> Any:
 
 class TestGetRemoteToken:
     def test_returns_value_when_present(self, patch_db: None) -> None:
-        from app.db import current_user_id, cursor
+        from app.database import current_user_id, cursor
         from app.local_users import LocalUser
 
         with cursor() as cur:
@@ -46,7 +46,7 @@ class TestServerDeviceId:
         assert daemon._get_server_device_id() is None
 
     def test_store_then_get(self, patch_db: None) -> None:
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor() as cur:
             cur.execute("CREATE TABLE IF NOT EXISTS shenas_system.device_identity (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
@@ -54,7 +54,7 @@ class TestServerDeviceId:
         assert daemon._get_server_device_id() == "server-dev-1"
 
     def test_store_overwrites_existing(self, patch_db: None) -> None:
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor() as cur:
             cur.execute("CREATE TABLE IF NOT EXISTS shenas_system.device_identity (key TEXT PRIMARY KEY, value TEXT NOT NULL)")

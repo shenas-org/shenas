@@ -39,7 +39,7 @@ class SqlTransformer(Transformer):
         try:
             con.execute(f"DELETE FROM {target} WHERE source = ?", [instance.source_plugin])
 
-            from app.db import cursor
+            from app.database import cursor
 
             with cursor() as cur:
                 cur.execute(f"SELECT * FROM ({sql}) _t LIMIT 0")

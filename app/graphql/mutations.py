@@ -109,7 +109,7 @@ class Mutation:
 
     @strawberry.mutation
     def generate_db_key(self) -> OkType:
-        from app.db import generate_db_key, set_db_key
+        from app.database import generate_db_key, set_db_key
         from app.models import OkResponse
 
         key = generate_db_key()
@@ -328,7 +328,7 @@ class Mutation:
     def run_pipe_transforms(self, pipe: str) -> TransformRunResultType:
         from shenas_transformers.core.transform import Transform
 
-        from app.db import connect
+        from app.database import connect
 
         count = Transform.run_for_source(connect(), pipe)
         return TransformRunResultType(name=pipe, count=count)
@@ -337,7 +337,7 @@ class Mutation:
     def run_schema_transforms(self, schema: str) -> TransformRunResultType:
         from shenas_transformers.core.transform import Transform
 
-        from app.db import connect
+        from app.database import connect
 
         count = Transform.run_for_target(connect(), schema)
         return TransformRunResultType(name=schema, count=count)
@@ -405,7 +405,7 @@ class Mutation:
         """
         import json
 
-        from app.db import analytics_backend
+        from app.database import analytics_backend
         from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
         from shenas_plugins.core.analytics import (
             ErrorResult,
@@ -535,7 +535,7 @@ class Mutation:
 
         from shenas_analyses.core import Analysis
 
-        from app.db import analytics_backend
+        from app.database import analytics_backend
         from app.graphql.llm_provider import get_llm_provider
         from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
         from shenas_plugins.core.analytics import (

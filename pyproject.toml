@@ -205,5 +205,22 @@ unfixable = []
 [tool.ruff.lint.isort]
 known-first-party = ["app", "shenas_plugins", "shenas_sources", "shenas_datasets", "shenas_dashboards", "shenas_themes", "shenas_frontends", "repository", "scheduler"]
 
+[tool.ty.analysis]
+# Optional dependencies that may not be installed in every environment.
+# Using replace-imports-with-any so ty treats them as Any when absent
+# rather than erroring, while still type-checking them when present.
+replace-imports-with-any = [
+    "anthropic",
+    "authlib.**",
+    "flwr.**",
+    "google.cloud.**",
+    "itsdangerous",
+    "llama_cpp",
+    "opentelemetry.instrumentation.**",
+    "psycopg.**",
+    "shenasctl.**",
+    "torch.**",
+]
+
 [tool.commitizen]
 version_provider = "uv"

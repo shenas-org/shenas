@@ -97,7 +97,7 @@ class LlamaCppBackend(Backend):
 
     def __init__(self, model: Model) -> None:
         try:
-            from llama_cpp import Llama  # ty: ignore[unresolved-import]
+            from llama_cpp import Llama
         except ImportError as e:
             msg = "Local LLM requires llama-cpp-python. Install with: uv pip install 'shenas-app[local]'"
             raise RuntimeError(msg) from e

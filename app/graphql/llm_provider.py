@@ -85,7 +85,7 @@ def get_llm_provider() -> LLMProvider:
 
     # Check for premium (remote_token on the current local user)
     try:
-        from app.db import current_user_id, cursor
+        from app.database import current_user_id, cursor
 
         uid = current_user_id.get()
         if uid:

@@ -6,8 +6,8 @@ re-exports the public API so pipe code doesn't need to change.
 
 from __future__ import annotations
 
-from app.db import SHENAS_DB_PATH as DB_PATH
-from app.db import connect, dlt_destination, flush_to_encrypted, get_db_key
+from app.database import SHENAS_DB_PATH as DB_PATH
+from app.database import connect, dlt_destination, flush_to_encrypted, get_db_key
 
 
 def close() -> None:

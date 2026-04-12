@@ -41,7 +41,7 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
             cur.close()
 
     with (
-        patch("app.db.cursor", _fake_cursor),
+        patch("app.database.cursor", _fake_cursor),
         patch("app.api.query.cursor", _fake_cursor),
         patch("app.api.db.cursor", _fake_cursor),
     ):
@@ -142,7 +142,7 @@ class TestGetActiveTheme:
 
         # Set up plugin state in the test DB
         test_con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
-        from app.db import _ensure_system_tables
+        from app.database import _ensure_system_tables
 
         _ensure_system_tables(test_con)
         test_con.execute("INSERT INTO shenas_system.plugins (kind, name, enabled) VALUES ('theme', 'dark', true)")
@@ -150,7 +150,7 @@ class TestGetActiveTheme:
 
         with (
             patch("shenas_themes.core.theme.Theme.load_all", return_value=[dark, light]),
-            patch("app.db.connect", return_value=test_con),
+            patch("app.database.connect", return_value=test_con),
         ):
             result = _get_active_theme()
         assert result is dark
@@ -162,7 +162,7 @@ class TestGetActiveTheme:
         other = self._make_theme("other")
         with (
             patch("shenas_themes.core.theme.Theme.load_all", return_value=[default, other]),
-            patch("app.db.connect", side_effect=Exception("no DB")),
+            patch("app.database.connect", side_effect=Exception("no DB")),
         ):
             result = _get_active_theme()
         assert result is default
@@ -174,7 +174,7 @@ class TestGetActiveTheme:
         app.state.default_theme = "nonexistent"
         with (
             patch("shenas_themes.core.theme.Theme.load_all", return_value=[custom]),
-            patch("app.db.connect", side_effect=Exception("no DB")),
+            patch("app.database.connect", side_effect=Exception("no DB")),
         ):
             result = _get_active_theme()
         assert result is custom
@@ -193,7 +193,7 @@ class TestGetActiveTheme:
         default = self._make_theme("default")
         with (
             patch("shenas_themes.core.theme.Theme.load_all", return_value=[default]),
-            patch("app.db.connect", side_effect=Exception("DB down")),
+            patch("app.database.connect", side_effect=Exception("DB down")),
         ):
             result = _get_active_theme()
         assert result is default
