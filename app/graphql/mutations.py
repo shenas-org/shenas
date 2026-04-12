@@ -7,6 +7,7 @@ import json
 import strawberry
 from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawberry
 
+from app.categories import Category
 from app.graphql.queries import _data_resource_to_gql, _transform_to_gql
 from app.graphql.types import (
     AuthResponseType,
@@ -32,15 +33,12 @@ def _source_entry_point_names() -> list[str]:
     return [ep.name for ep in entry_points(group="shenas.sources")]
 
 
-def _category_set_to_gql(s: dict) -> CategorySetType:
+def _category_to_gql(c: Category) -> CategorySetType:
     return CategorySetType(
-        id=s["id"],
-        display_name=s["displayName"],
-        description=s.get("description", ""),
-        values=[
-            CategoryValueType(value=v["value"], sort_order=v.get("sortOrder", 0), color=v.get("color"))
-            for v in s.get("values", [])
-        ],
+        id=c.id,
+        display_name=c.display_name,
+        description=c.description,
+        values=[CategoryValueType(value=v.value, sort_order=v.sort_order, color=v.color) for v in c.values],
     )
 
 
@@ -214,36 +212,38 @@ class Mutation:
 
     @strawberry.mutation
     def create_category_set(self, set_id: str, display_name: str, description: str = "") -> CategorySetType:
-        from app.categories import create_set
-
-        s = create_set(set_id, display_name, description)
-        return _category_set_to_gql(s)
+        c = Category.create(category_id=set_id, display_name=display_name, description=description)
+        return _category_to_gql(c)
 
     @strawberry.mutation
     def update_category_set(
         self, set_id: str, display_name: str | None = None, description: str | None = None
     ) -> CategorySetType | None:
-        from app.categories import update_set
-
-        s = update_set(set_id, display_name, description)
-        return _category_set_to_gql(s) if s else None
+        c = Category.find(set_id)
+        if not c:
+            return None
+        c.update(display_name=display_name, description=description)
+        return _category_to_gql(c)
 
     @strawberry.mutation
     def delete_category_set(self, set_id: str) -> OkType:
-        from app.categories import delete_set
         from app.models import OkResponse
 
-        return OkType.from_pydantic(OkResponse(ok=delete_set(set_id)))  # ty: ignore[unresolved-attribute]
+        c = Category.find(set_id)
+        if c:
+            c.destroy()
+        return OkType.from_pydantic(OkResponse(ok=c is not None))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
     def update_category_values(self, set_id: str, values: str) -> CategorySetType | None:
         """Replace all values in a set. values is a JSON array of {value, sortOrder?, color?}."""
         import json
 
-        from app.categories import update_values
-
-        s = update_values(set_id, json.loads(values))
-        return _category_set_to_gql(s) if s else None
+        c = Category.find(set_id)
+        if not c:
+            return None
+        c.replace_values(json.loads(values))
+        return _category_to_gql(c)
 
     # -- Transforms --
 

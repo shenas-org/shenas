@@ -383,37 +383,31 @@ class Query:
     @strawberry.field
     def category_sets(self) -> list[CategorySetType]:
         """Return all category sets with their values."""
-        from app.categories import list_sets
+        from app.categories import Category
 
         return [
             CategorySetType(
-                id=s["id"],
-                display_name=s["displayName"],
-                description=s.get("description", ""),
-                values=[
-                    CategoryValueType(value=v["value"], sort_order=v.get("sortOrder", 0), color=v.get("color"))
-                    for v in s.get("values", [])
-                ],
+                id=c.id,
+                display_name=c.display_name,
+                description=c.description,
+                values=[CategoryValueType(value=v.value, sort_order=v.sort_order, color=v.color) for v in c.values],
             )
-            for s in list_sets()
+            for c in Category.all(order_by="display_name")
         ]
 
     @strawberry.field
     def category_set(self, set_id: str) -> CategorySetType | None:
         """Return a single category set with values."""
-        from app.categories import get_set
+        from app.categories import Category
 
-        s = get_set(set_id)
-        if not s:
+        c = Category.find(set_id)
+        if not c:
             return None
         return CategorySetType(
-            id=s["id"],
-            display_name=s["displayName"],
-            description=s.get("description", ""),
-            values=[
-                CategoryValueType(value=v["value"], sort_order=v.get("sortOrder", 0), color=v.get("color"))
-                for v in s.get("values", [])
-            ],
+            id=c.id,
+            display_name=c.display_name,
+            description=c.description,
+            values=[CategoryValueType(value=v.value, sort_order=v.sort_order, color=v.color) for v in c.values],
         )
 
     # -- Table introspection --
