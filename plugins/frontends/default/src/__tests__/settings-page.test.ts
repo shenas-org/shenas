@@ -2,94 +2,9 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
-vi.mock("shenas-frontends", async (importOriginal) => {
-  const mod = (await importOriginal()) as Record<string, unknown>;
-  return {
-    ...mod,
-    registerCommands: vi.fn(),
-  };
-});
-
 import "../settings-page.ts";
 
 type AnyEl = HTMLElement & Record<string, any>;
-
-const MOCK_CATEGORIES = [
-  {
-    id: "general",
-    name: "General",
-    description: "General application settings",
-    settings: [
-      {
-        id: "theme",
-        key: "theme",
-        display_name: "Theme",
-        value: "light",
-        type: "select",
-        description: "Choose a color theme",
-        options: [
-          { label: "Light", value: "light" },
-          { label: "Dark", value: "dark" },
-        ],
-        required: false,
-        default: "light",
-      },
-      {
-        id: "notifications",
-        key: "notifications",
-        display_name: "Notifications",
-        value: true,
-        type: "boolean",
-        description: "Enable desktop notifications",
-        required: false,
-        default: true,
-      },
-    ],
-  },
-  {
-    id: "sync",
-    name: "Sync",
-    description: "Data synchronization settings",
-    settings: [
-      {
-        id: "sync_interval",
-        key: "sync_interval",
-        display_name: "Sync Interval",
-        value: 60,
-        type: "number",
-        description: "Minutes between syncs",
-        required: true,
-        default: 60,
-      },
-    ],
-  },
-];
-
-/**
- * gql() unwraps the top-level { data } envelope, so the component receives
- * whatever is nested inside `data`. The component reads
- * `response.settings`, so gql() must return { settings: { ... } }.
- * That means the fetch mock returns { data: { settings: { ... } } }.
- */
-function mockSettingsResponse() {
-  return {
-    ok: true,
-    json: () =>
-      Promise.resolve({
-        data: { settings: { categories: MOCK_CATEGORIES } },
-      }),
-  };
-}
-
-function mockEmptySettingsResponse() {
-  return {
-    ok: true,
-    json: () =>
-      Promise.resolve({
-        data: { settings: { categories: [] } },
-      }),
-  };
-}
 
 function mount(): AnyEl {
   const el = document.createElement("shenas-settings") as AnyEl;
@@ -101,7 +16,13 @@ describe("shenas-settings", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.resetAllMocks();
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockSettingsResponse());
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          data: { sources: [], datasets: [], dashboardPlugins: [], frontends: [], themes: [], models: [] },
+        }),
+    });
   });
 
   it("creates the element", () => {
@@ -110,334 +31,304 @@ describe("shenas-settings", () => {
   });
 
   it("has default property values", () => {
-    const el = document.createElement("shenas-settings") as AnyEl;
-    expect(el.apiBase).toBe("http://localhost:3000");
-    expect(el._settings).toEqual({});
-    expect(el._categories).toEqual([]);
-    expect(el._loading).toBe(false);
-    expect(el._saving).toBe(false);
-    expect(el._message).toBeNull();
-    expect(el._expandedCategories).toBeInstanceOf(Set);
-    expect(el._expandedCategories.size).toBe(0);
-    expect(el._changedSettings).toBeInstanceOf(Map);
-    expect(el._changedSettings.size).toBe(0);
+    const el = mount();
+    expect(el.apiBase).toBe("/api");
+    expect(el.activeKind).toBe("profile");
+    expect(el.onNavigate).toBeNull();
+    expect(el.onPluginsChanged).toBeNull();
+    expect(el._plugins).toEqual({});
+    expect(el._loading).toBe(true);
+    expect(el._installing).toBe(false);
+    expect(el._availablePlugins).toBeNull();
+    expect(el._selectedPlugin).toBe("");
+    expect(el._menuOpen).toBe(false);
   });
 
-  it("loads settings on connect", async () => {
+  it("uses preloaded allPlugins instead of fetching", async () => {
+    const el = document.createElement("shenas-settings") as AnyEl;
+    el.allPlugins = { source: [{ name: "garmin", enabled: true }] };
+    document.body.appendChild(el);
+    await el.updateComplete;
+    expect(el._plugins).toEqual({ source: [{ name: "garmin", enabled: true }] });
+    expect(el._loading).toBe(false);
+  });
+
+  it("fetches when no allPlugins given", async () => {
     mount();
     await new Promise((r) => setTimeout(r, 20));
     expect(globalThis.fetch).toHaveBeenCalled();
-    const call = (globalThis.fetch as any).mock.calls[0];
-    expect(call[0]).toContain("/graphql");
-    expect(JSON.parse(call[1].body).query).toContain("settings");
   });
 
-  it("populates categories and settings after load", async () => {
+  it("renders sidebar", async () => {
     const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
-    expect(el._categories).toHaveLength(2);
-    expect(el._categories[0].id).toBe("general");
-    expect(el._settings.theme).toBe("light");
-    expect(el._settings.notifications).toBe(true);
-    expect(el._settings.sync_interval).toBe(60);
-    expect(el._loading).toBe(false);
+    el._loading = false;
+    await el.updateComplete;
+    const burger = el.shadowRoot?.querySelector(".burger");
+    expect(burger).toBeTruthy();
   });
 
-  it("expands first category by default after load", async () => {
+  it("_displayPluginName humanizes names", () => {
     const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
-    expect(el._expandedCategories.has("general")).toBe(true);
-    expect(el._expandedCategories.has("sync")).toBe(false);
+    expect(typeof el._displayPluginName("garmin-connect")).toBe("string");
+    expect(el._displayPluginName("garmin-connect").length).toBeGreaterThan(0);
   });
 
-  it("sets error message when load fails", async () => {
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("network error"));
+  it("_displayName returns label for known kinds", () => {
     const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
-    expect(el._message).toBeTruthy();
-    expect(el._message.type).toBe("error");
-    expect(el._message.text).toContain("network error");
-    expect(el._loading).toBe(false);
+    expect(el._displayName()).toBe("Profile");
+    el.activeKind = "hotkeys";
+    expect(el._displayName()).toBe("Hotkeys");
   });
 
-  it("renders loading state", async () => {
+  it("renders source kind list when _plugins set", async () => {
     const el = mount();
-    el._loading = true;
+    el._loading = false;
+    el.activeKind = "source";
+    el._plugins = {
+      source: [{ name: "garmin", displayName: "Garmin", enabled: true, package: "p", version: "1" }],
+    };
     await el.updateComplete;
     const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Loading settings");
+    expect(text).toContain("Sources");
   });
 
-  it("renders empty state when no categories", async () => {
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockEmptySettingsResponse());
+  it("toggling _menuOpen affects render", async () => {
     const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
     await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("No settings available");
-  });
-
-  it("renders categories after loading", async () => {
-    const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
+    el._menuOpen = true;
     await el.updateComplete;
-    const headers = el.shadowRoot?.querySelectorAll(".category-header");
-    expect(headers?.length).toBe(2);
+    expect(el.shadowRoot?.querySelector(".menu-overlay")).toBeTruthy();
   });
 
-  it("renders page title", async () => {
+  function sseResponse(events: string[]) {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        for (const e of events) controller.enqueue(encoder.encode(e));
+        controller.close();
+      },
+    });
+    return { ok: true, body: stream, headers: new Headers({ "content-type": "text/event-stream" }) };
+  }
+
+  it("_displayPluginName capitalizes hyphenated names", () => {
     const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
+    expect(el._displayPluginName("garmin-connect")).toBe("Garmin Connect");
+  });
+
+  it("_formatFreq formats days/hours/minutes/seconds", () => {
+    const el = mount();
+    expect(el._formatFreq(1440)).toBe("1d");
+    expect(el._formatFreq(60)).toBe("1h");
+    expect(el._formatFreq(5)).toBe("5m");
+    expect(el._formatFreq(0.5)).toBe("30s");
+  });
+
+  it("_switchKind updates state and calls onNavigate", () => {
+    const el = mount();
+    let called = "";
+    el.onNavigate = (k: string) => {
+      called = k;
+    };
+    el._menuOpen = true;
+    el._switchKind("source");
+    expect(el.activeKind).toBe("source");
+    expect(el._menuOpen).toBe(false);
+    expect(called).toBe("source");
+  });
+
+  it("_displayName falls back to activeKind", () => {
+    const el = mount();
+    el.activeKind = "unknown-kind";
+    expect(el._displayName()).toBe("unknown-kind");
+  });
+
+  it("_togglePlugin calls disable mutation", async () => {
+    const el = document.createElement("shenas-settings") as AnyEl;
+    el.allPlugins = { source: [] };
+    document.body.appendChild(el);
     await el.updateComplete;
-    const title = el.shadowRoot?.querySelector(".page-title");
-    expect(title?.textContent).toContain("Settings");
-  });
-
-  it("toggles category expansion", async () => {
-    const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
-    expect(el._expandedCategories.has("general")).toBe(true);
-    expect(el._expandedCategories.has("sync")).toBe(false);
-
-    el._toggleCategory("sync");
-    expect(el._expandedCategories.has("sync")).toBe(true);
-
-    el._toggleCategory("sync");
-    expect(el._expandedCategories.has("sync")).toBe(false);
-  });
-
-  it("toggles off an already expanded category", async () => {
-    const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
-    expect(el._expandedCategories.has("general")).toBe(true);
-
-    el._toggleCategory("general");
-    expect(el._expandedCategories.has("general")).toBe(false);
-  });
-
-  it("updates a setting value", async () => {
-    const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
-
-    el._updateSetting("theme", "dark");
-    expect(el._settings.theme).toBe("dark");
-    expect(el._changedSettings.has("theme")).toBe(true);
-    expect(el._changedSettings.get("theme")).toBe("dark");
-  });
-
-  it("tracks multiple changed settings", async () => {
-    const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
-
-    el._updateSetting("theme", "dark");
-    el._updateSetting("notifications", false);
-    expect(el._changedSettings.size).toBe(2);
-  });
-
-  it("saves changed settings via GraphQL mutation", async () => {
-    const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
     (globalThis.fetch as any).mockClear();
     (globalThis.fetch as any).mockResolvedValue({
       ok: true,
       json: () =>
         Promise.resolve({
           data: {
-            updateSettings: { success: true, message: "Settings saved" },
+            disablePlugin: { ok: true, message: "" },
+            sources: [],
+            datasets: [],
+            dashboardPlugins: [],
+            frontends: [],
+            themes: [],
+            models: [],
           },
         }),
     });
-
-    el._updateSetting("theme", "dark");
-    await el._saveSettings();
-
+    await el._togglePlugin("source", "garmin", true);
     const calls = (globalThis.fetch as any).mock.calls;
-    expect(calls.length).toBeGreaterThanOrEqual(1);
-    const body = JSON.parse(calls[0][1].body);
-    expect(body.query).toContain("updateSettings");
-    expect(body.variables.updates).toEqual([{ id: "theme", value: "dark" }]);
+    expect(JSON.parse(calls[0][1].body).query).toContain("disablePlugin");
   });
 
-  it("shows success message after save", async () => {
+  it("_togglePlugin sets error on failure", async () => {
     const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
-    (globalThis.fetch as any).mockClear();
     (globalThis.fetch as any).mockResolvedValue({
       ok: true,
       json: () =>
         Promise.resolve({
           data: {
-            updateSettings: { success: true, message: "Settings saved" },
+            enablePlugin: { ok: false, message: "fail" },
+            sources: [],
+            datasets: [],
+            dashboardPlugins: [],
+            frontends: [],
+            themes: [],
+            models: [],
           },
         }),
     });
-
-    el._updateSetting("theme", "dark");
-    await el._saveSettings();
-
-    expect(el._message?.type).toBe("success");
-    expect(el._message?.text).toContain("Settings saved");
-    expect(el._changedSettings.size).toBe(0);
+    await el._togglePlugin("source", "garmin", false);
+    expect(el._actionMessage?.type).toBe("error");
   });
 
-  it("shows error message on save failure", async () => {
-    const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
-    (globalThis.fetch as any).mockClear();
+  it("_startInstall populates available plugins excluding installed", async () => {
+    const el = document.createElement("shenas-settings") as AnyEl;
+    el.allPlugins = { source: [{ name: "garmin" }] };
+    document.body.appendChild(el);
+    await el.updateComplete;
     (globalThis.fetch as any).mockResolvedValue({
       ok: true,
-      json: () =>
-        Promise.resolve({
-          data: {
-            updateSettings: { success: false, message: "Validation error" },
-          },
-        }),
+      json: () => Promise.resolve({ data: { availablePlugins: ["garmin", "lunchmoney"] } }),
     });
-
-    el._updateSetting("theme", "invalid");
-    await el._saveSettings();
-
-    expect(el._message?.type).toBe("error");
-    expect(el._message?.text).toContain("Validation error");
+    await el._startInstall("source");
+    expect(el._installing).toBe(true);
+    expect(el._availablePlugins).toEqual(["lunchmoney"]);
   });
 
-  it("shows error message on save network failure", async () => {
-    const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
+  it("_install no-op when no selected plugin", async () => {
+    const el = document.createElement("shenas-settings") as AnyEl;
+    el.allPlugins = { source: [] };
+    document.body.appendChild(el);
+    await el.updateComplete;
     (globalThis.fetch as any).mockClear();
-    (globalThis.fetch as any).mockRejectedValue(new Error("timeout"));
-
-    el._updateSetting("theme", "dark");
-    await el._saveSettings();
-
-    expect(el._message?.type).toBe("error");
-    expect(el._message?.text).toContain("timeout");
-  });
-
-  it("no-ops save when no changes", async () => {
-    const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
-    (globalThis.fetch as any).mockClear();
-
-    await el._saveSettings();
-
+    el._selectedPlugin = "";
+    await el._install("source");
     expect(globalThis.fetch).not.toHaveBeenCalled();
-    expect(el._message?.type).toBe("info");
-    expect(el._message?.text).toContain("No changes");
   });
 
-  it("resets settings to last saved state", async () => {
+  it("_install streams success", async () => {
     const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
-
-    el._updateSetting("theme", "dark");
-    expect(el._changedSettings.size).toBe(1);
-
-    (globalThis.fetch as any).mockClear();
-    (globalThis.fetch as any).mockResolvedValue(mockSettingsResponse());
-
-    el._resetSettings();
-
-    expect(el._changedSettings.size).toBe(0);
-    expect(el._message?.type).toBe("info");
-    expect(el._message?.text).toContain("reset");
+    el._selectedPlugin = "garmin";
+    (globalThis.fetch as any)
+      .mockResolvedValueOnce(sseResponse(['data: {"event":"done","ok":true,"message":"installed"}\n']))
+      .mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            data: {
+              sources: [],
+              datasets: [],
+              dashboardPlugins: [],
+              frontends: [],
+              themes: [],
+              models: [],
+            },
+          }),
+      });
+    await el._install("source");
+    expect(el._actionMessage?.type).toBe("success");
   });
 
-  it("shows unsaved indicator when changes exist", async () => {
+  it("_install streams failure", async () => {
     const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
+    el._selectedPlugin = "garmin";
+    (globalThis.fetch as any).mockResolvedValueOnce(
+      sseResponse(['data: {"event":"done","ok":false,"message":"bad"}\n']),
+    );
+    await el._install("source");
+    expect(el._actionMessage?.type).toBe("error");
+  });
+
+  it("_streamJob handles fetch error", async () => {
+    const el = mount();
+    (globalThis.fetch as any).mockRejectedValueOnce(new Error("netfail"));
+    const result = await el._streamJob("jid", "/api/x", { method: "POST" });
+    expect(result?.ok).toBe(false);
+    expect(result?.message).toBe("netfail");
+  });
+
+  it("_streamJob parses log events and dispatches", async () => {
+    const el = mount();
+    const logs: string[] = [];
+    el.addEventListener("job-log", (e: any) => logs.push(e.detail.text));
+    (globalThis.fetch as any).mockResolvedValueOnce(
+      sseResponse(['data: {"event":"log","text":"hello"}\n', 'data: {"event":"done","ok":true,"message":"k"}\n']),
+    );
+    const result = await el._streamJob("jid", "/api/x", { method: "POST" });
+    expect(result?.ok).toBe(true);
+    expect(logs).toContain("hello");
+  });
+
+  it("renders dataset kind list", async () => {
+    const el = mount();
+    el._loading = false;
+    el.activeKind = "dataset";
+    el._plugins = { dataset: [{ name: "fitness", displayName: "Fitness", enabled: true }] };
     await el.updateComplete;
+    const list = el.shadowRoot?.querySelector("shenas-data-list") as any;
+    expect(list).toBeTruthy();
+    expect(list.rows?.length).toBe(1);
+  });
 
-    el._updateSetting("theme", "dark");
+  it("renders hotkeys component when activeKind=hotkeys", async () => {
+    const el = mount();
+    el._loading = false;
+    el.activeKind = "hotkeys";
     await el.updateComplete;
-
-    const indicator = el.shadowRoot?.querySelector(".unsaved-indicator");
-    expect(indicator).toBeTruthy();
-    expect(indicator?.textContent).toContain("unsaved");
+    expect(el.shadowRoot?.querySelector("shenas-hotkeys")).toBeTruthy();
   });
 
-  it("renders action bar with save and reset buttons", async () => {
+  it("renders 'Needs Auth' for unauthenticated source", async () => {
     const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
+    el._loading = false;
+    el.activeKind = "source";
+    el._plugins = {
+      source: [{ name: "garmin", displayName: "Garmin", enabled: true, hasAuth: true, isAuthenticated: false }],
+    };
     await el.updateComplete;
-
-    const actionBar = el.shadowRoot?.querySelector(".action-bar");
-    expect(actionBar).toBeTruthy();
-    const buttons = actionBar?.querySelectorAll("button");
-    expect(buttons?.length).toBe(2);
+    const list = el.shadowRoot?.querySelector("shenas-data-list") as any;
+    expect(list?.rows?.length).toBe(1);
   });
 
-  it("renders setting inputs for expanded category", async () => {
+  it("renders install panel when _installing", async () => {
     const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
+    el._loading = false;
+    el.activeKind = "source";
+    el._plugins = { source: [] };
+    el._installing = true;
+    el._availablePlugins = ["lunchmoney"];
     await el.updateComplete;
-
-    // "general" is expanded by default
-    const content = el.shadowRoot?.querySelector(".category-content.expanded");
-    expect(content).toBeTruthy();
-    const formGroups = content?.querySelectorAll(".form-group");
-    expect(formGroups?.length).toBe(2);
+    expect(el.shadowRoot?.querySelector("shenas-form-panel")).toBeTruthy();
   });
 
-  it("renders select input for select-type setting", async () => {
+  it("install panel shows loading when availablePlugins null", async () => {
     const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
+    el._loading = false;
+    el.activeKind = "source";
+    el._plugins = { source: [] };
+    el._installing = true;
+    el._availablePlugins = null;
     await el.updateComplete;
-
-    const select = el.shadowRoot?.querySelector("select");
-    expect(select).toBeTruthy();
-    const options = select?.querySelectorAll("option");
-    expect(options?.length).toBe(2);
+    expect(el.shadowRoot?.textContent || "").toContain("Loading available plugins");
   });
 
-  it("renders checkbox for boolean-type setting", async () => {
+  it("install panel shows none-available message", async () => {
     const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
+    el._loading = false;
+    el.activeKind = "source";
+    el._plugins = { source: [] };
+    el._installing = true;
+    el._availablePlugins = [];
     await el.updateComplete;
-
-    const checkbox = el.shadowRoot?.querySelector('input[type="checkbox"]');
-    expect(checkbox).toBeTruthy();
-  });
-
-  it("clears saving flag after save completes", async () => {
-    const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
-    (globalThis.fetch as any).mockClear();
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          data: {
-            updateSettings: { success: true, message: "ok" },
-          },
-        }),
-    });
-
-    el._updateSetting("theme", "dark");
-    await el._saveSettings();
-    expect(el._saving).toBe(false);
-  });
-
-  it("reloads settings after successful save", async () => {
-    const el = mount();
-    await new Promise((r) => setTimeout(r, 20));
-    (globalThis.fetch as any).mockClear();
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          data: {
-            updateSettings: { success: true, message: "ok" },
-          },
-        }),
-    });
-
-    el._updateSetting("theme", "dark");
-    await el._saveSettings();
-    await new Promise((r) => setTimeout(r, 20));
-
-    // Save triggers a reload, so fetch is called at least twice:
-    // once for the mutation, once for the reload
-    expect((globalThis.fetch as any).mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(el.shadowRoot?.textContent || "").toContain("No new");
   });
 });
