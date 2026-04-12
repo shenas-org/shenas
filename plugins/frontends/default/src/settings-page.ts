@@ -304,7 +304,7 @@ class SettingsPage extends LitElement {
   constructor() {
     super();
     this.apiBase = "/api";
-    this.activeKind = "flow";
+    this.activeKind = "profile";
     this.onNavigate = null;
     this.onPluginsChanged = null;
     this.onMultiuserToggle = null;
@@ -606,6 +606,9 @@ class SettingsPage extends LitElement {
         ${renderMessage(this._actionMessage)}
         ${this.activeKind === "profile"
           ? this._renderProfile()
+          : this.activeKind === "hotkeys"
+            ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
+            : this._renderKind(this.activeKind)}
           : this.activeKind === "flow"
             ? html`<shenas-pipeline-overview
                 api-base="${this.apiBase}"

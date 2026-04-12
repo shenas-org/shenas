@@ -247,11 +247,17 @@ class Source(Plugin):
                 lock.release()
 
     def _mark_synced(self) -> None:
-        """Update the synced_at timestamp in the plugin state table."""
+        """Update the synced_at timestamp in the plugin state table and data catalog."""
         try:
             self.get_or_create_instance().mark_synced()
         except Exception:
             logger.exception("Failed to update synced_at for %s", self.name)
+        try:
+            from app.data_catalog import catalog
+
+            catalog().mark_refreshed(self.name)
+        except Exception:
+            pass
 
     def sync(
         self,
