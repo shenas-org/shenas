@@ -37,10 +37,10 @@ def _mock_cursor(con: duckdb.DuckDBPyConnection) -> Iterator[duckdb.DuckDBPyConn
 
 def _patches(con: duckdb.DuckDBPyConnection):
     """Return patches that route telemetry exporters to the in-memory DB."""
-    import app.db  # ensure module is loaded before patching  # noqa: F401
+    import app.database  # ensure module is loaded before patching  # noqa: F401
 
     return (
-        patch("app.db.cursor", lambda: _mock_cursor(con)),
+        patch("app.database.cursor", lambda: _mock_cursor(con)),
         patch("app.telemetry.exporters._ensure_schema"),
     )
 
@@ -143,7 +143,7 @@ class TestLogExporter:
             log_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
             set_logger_provider(log_provider)
 
-            from opentelemetry.instrumentation.logging import LoggingInstrumentor  # ty: ignore[unresolved-import]
+            from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
             LoggingInstrumentor().instrument(set_logging_format=False)
 
@@ -175,7 +175,7 @@ class TestLogExporter:
             log_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
             set_logger_provider(log_provider)
 
-            from opentelemetry.instrumentation.logging import LoggingInstrumentor  # ty: ignore[unresolved-import]
+            from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
             LoggingInstrumentor().instrument(set_logging_format=False)
 
@@ -226,7 +226,7 @@ class TestLogExporter:
             log_provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
             set_logger_provider(log_provider)
 
-            from opentelemetry.instrumentation.logging import LoggingInstrumentor  # ty: ignore[unresolved-import]
+            from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
             LoggingInstrumentor().instrument(set_logging_format=False)
 

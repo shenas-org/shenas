@@ -13,7 +13,7 @@ from shenas_plugins.core.table import Field, Table
 if TYPE_CHECKING:
     import duckdb
 
-    from app.databases import DB
+    from app.db import DB
 
 
 def _hash_password(password: str, salt_hex: str) -> str:
@@ -68,7 +68,7 @@ class LocalUser(Table):
 
     @property
     def db_path(self):
-        from app.db import DATA_DIR
+        from app.database import DATA_DIR
 
         return DATA_DIR / "users" / f"{self.id}.duckdb"
 
@@ -158,7 +158,7 @@ class LocalUser(Table):
 
     def attach(self, key: str) -> DB:
         """Open and attach this user's encrypted DB. Idempotent."""
-        from app.databases import DB
+        from app.db import DB
 
         cls = type(self)
         with cls._attached_lock:
@@ -210,7 +210,7 @@ class LocalUser(Table):
     @classmethod
     def current_db(cls) -> DB:
         """Return the active user's DB based on the ``current_user_id`` contextvar."""
-        from app.db import current_user_id
+        from app.database import current_user_id
 
         user_id = current_user_id.get()
         with cls._attached_lock:
@@ -227,7 +227,7 @@ class LocalUser(Table):
     @classmethod
     def create(cls, username: str, password: str) -> LocalUser:
         """Create a new local user and return the row."""
-        from app.db import cursor
+        from app.database import cursor
         from app.user_keys import gen_salt
 
         salt = gen_salt()
@@ -246,7 +246,7 @@ class LocalUser(Table):
     @classmethod
     def authenticate(cls, username: str, password: str) -> LocalUser | None:
         """Verify credentials. Returns the user row or None on failure."""
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor(database="shenas") as cur:
             row = cur.execute(
@@ -267,7 +267,7 @@ class LocalUser(Table):
     @classmethod
     def list_all(cls) -> list[dict[str, Any]]:
         """Return all users as [{id, username}] (no hashes)."""
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor(database="shenas") as cur:
             rows = cur.execute("SELECT id, username FROM shenas_system.local_users ORDER BY username").fetchall()
@@ -276,7 +276,7 @@ class LocalUser(Table):
     @classmethod
     def get_by_id(cls, user_id: int) -> LocalUser | None:
         """Return the user row for a user ID, or None if not found."""
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor(database="shenas") as cur:
             row = cur.execute(
@@ -297,7 +297,7 @@ class LocalUser(Table):
         if env := os.environ.get("SHENAS_REMOTE_TOKEN"):
             return env
         try:
-            from app.db import current_user_id, cursor
+            from app.database import current_user_id, cursor
 
             uid = current_user_id.get()
             if not uid:
@@ -314,7 +314,7 @@ class LocalUser(Table):
     @classmethod
     def set_remote_token(cls, user_id: int, token: str) -> None:
         """Store a shenas.net JWT for an existing local user."""
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor(database="shenas") as cur:
             cur.execute(
@@ -325,7 +325,7 @@ class LocalUser(Table):
     @classmethod
     def find_by_remote_token(cls, token: str) -> dict[str, Any] | None:
         """Find a user by their shenas.net JWT."""
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor(database="shenas") as cur:
             row = cur.execute(

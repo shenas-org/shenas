@@ -49,7 +49,7 @@ class _StubDB:
 @pytest.fixture
 def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
     """In-memory DuckDB with system tables initialized."""
-    import app.databases
+    import app.database
     import app.db
 
     con = duckdb.connect()
@@ -57,13 +57,13 @@ def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
     con.execute("USE db")
     con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
     stub = _StubDB(con)
-    saved = dict(app.databases._resolvers)
-    app.databases._resolvers["shenas"] = lambda: stub  # ty: ignore[invalid-assignment]
-    app.databases._resolvers[None] = lambda: stub  # ty: ignore[invalid-assignment]
-    app.db._ensure_system_tables(con)
+    saved = dict(app.db._resolvers)
+    app.db._resolvers["shenas"] = lambda: stub  # ty: ignore[invalid-assignment]
+    app.db._resolvers[None] = lambda: stub  # ty: ignore[invalid-assignment]
+    app.database._ensure_system_tables(con)
     yield con
-    app.databases._resolvers.clear()
-    app.databases._resolvers.update(saved)
+    app.db._resolvers.clear()
+    app.db._resolvers.update(saved)
     con.close()
 
 

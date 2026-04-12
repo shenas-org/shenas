@@ -232,8 +232,8 @@ class TestFlushSchema:
 class TestKeygen:
     def test_generates_and_stores_key(self) -> None:
         with (
-            patch("app.db.generate_db_key", return_value="newkey"),
-            patch("app.db.set_db_key") as mock_set,
+            patch("app.database.generate_db_key", return_value="newkey"),
+            patch("app.database.set_db_key") as mock_set,
         ):
             result = api_db.db_keygen()
         assert result.ok is True

@@ -458,7 +458,7 @@ class Table:
     @classmethod
     def find(cls, *pk_values: Any) -> Self | None:
         """Look up a single row by its primary key. Returns ``None`` if missing."""
-        from app.db import cursor
+        from app.database import cursor
 
         if len(pk_values) != len(cls._Meta.pk):
             msg = f"{cls.__name__}.find expects {len(cls._Meta.pk)} pk value(s), got {len(pk_values)}"
@@ -480,7 +480,7 @@ class Table:
         limit: int | None = None,
     ) -> list[Self]:
         """Return every row matching the optional WHERE clause as instances."""
-        from app.db import cursor
+        from app.database import cursor
 
         cols = ", ".join(cls._column_names())
         sql = f"SELECT {cols} FROM {cls._qualified()}"
@@ -499,7 +499,7 @@ class Table:
         equals the dataclass default. Refreshes ``self`` from ``RETURNING``
         so DB-generated values (sequence ids, timestamps) are populated.
         """
-        from app.db import cursor
+        from app.database import cursor
 
         cls = type(self)
 
@@ -535,7 +535,7 @@ class Table:
 
     def save(self) -> Self:
         """UPDATE this row by primary key. Refreshes ``self`` from ``RETURNING``."""
-        from app.db import cursor
+        from app.database import cursor
 
         cls = type(self)
 
@@ -559,7 +559,7 @@ class Table:
 
     def delete(self) -> None:
         """DELETE this row by primary key. Idempotent: no error if already gone."""
-        from app.db import cursor
+        from app.database import cursor
 
         cls = type(self)
 
@@ -584,7 +584,7 @@ class Table:
     @classmethod
     def clear_rows(cls, *, schema: str | None = None) -> None:
         """Delete every row from this table."""
-        from app.db import cursor
+        from app.database import cursor
 
         s = cls._resolve_schema(schema)
 
@@ -683,7 +683,7 @@ class SingletonTable(Table):
     @classmethod
     def read_row(cls, *, schema: str | None = None) -> dict[str, Any] | None:
         """Read the single row from this table as a dict, or None if empty."""
-        from app.db import cursor
+        from app.database import cursor
 
         s = cls._resolve_schema(schema)
 
@@ -706,7 +706,7 @@ class SingletonTable(Table):
     @classmethod
     def write_row(cls, *, schema: str | None = None, **kwargs: Any) -> None:
         """Upsert the single row: merge with existing values, then DELETE + INSERT."""
-        from app.db import cursor
+        from app.database import cursor
 
         s = cls._resolve_schema(schema)
 

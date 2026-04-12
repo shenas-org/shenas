@@ -134,7 +134,7 @@ def _make_transform(record: PromotedMetric):
 
     def transform(cls, con) -> int:
         from app.data_catalog import catalog_by_qualified_name
-        from app.db import analytics_backend
+        from app.database import analytics_backend
         from shenas_plugins.core.analytics import (
             OpCall,
             Recipe,

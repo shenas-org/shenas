@@ -44,7 +44,7 @@ def _ensure_schema() -> None:
     global _schema_ensured
     if _schema_ensured:
         return
-    from app.db import connect
+    from app.database import connect
 
     con = connect()
     ensure_telemetry_schema(con)
@@ -106,7 +106,7 @@ class DuckDBSpanExporter(SpanExporter):
                     )
 
                 if rows:
-                    from app.db import cursor
+                    from app.database import cursor
 
                     with cursor() as cur:
                         cur.executemany(_SPAN_INSERT, rows)
@@ -178,7 +178,7 @@ class DuckDBLogExporter(LogRecordExporter):
                     )
 
                 if rows:
-                    from app.db import cursor
+                    from app.database import cursor
 
                     with cursor() as cur:
                         cur.executemany(_LOG_INSERT, rows)

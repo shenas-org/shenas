@@ -39,7 +39,7 @@ def _mock_cursor():
         finally:
             cur.close()
 
-    with patch("app.db.cursor", _fake_cursor):
+    with patch("app.database.cursor", _fake_cursor):
         yield
 
 

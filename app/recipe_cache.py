@@ -92,7 +92,7 @@ class RecipeCache(Table):
         anything else we return ``"static"`` so the cache key stays
         stable across runs.
         """
-        from app.db import cursor
+        from app.database import cursor
 
         schema, _, table = qualified_table.partition(".")
         if not table:

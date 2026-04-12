@@ -287,7 +287,7 @@ def remote_login() -> RedirectResponse:
 def remote_callback(token: str | None = None) -> HTMLResponse:
     """Receive the token from shenas.net after OAuth and store it."""
     if token:
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor() as cur:
             cur.execute("CREATE TABLE IF NOT EXISTS shenas_system.remote_auth (key TEXT PRIMARY KEY, value TEXT)")
@@ -313,7 +313,7 @@ def remote_me() -> dict:
     import httpx
 
     try:
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor() as cur:
             row = cur.execute("SELECT value FROM shenas_system.remote_auth WHERE key = 'token'").fetchone()

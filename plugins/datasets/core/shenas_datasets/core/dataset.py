@@ -74,7 +74,7 @@ class Dataset(Plugin):
         """
         from shenas_transformers.core.transform import Transform
 
-        from app.db import cursor
+        from app.database import cursor
 
         pi = PluginInstance.find("dataset", name)
         if pi is None or not pi.is_suggested:
@@ -106,7 +106,7 @@ class Dataset(Plugin):
             created_transforms.append(ti.id)
 
         # Run the new transforms
-        from app.db import connect
+        from app.database import connect
 
         con = connect()
         for tid in created_transforms:
