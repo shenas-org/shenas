@@ -143,6 +143,54 @@ class Hypothesis(Table):
     # Forking: parent_id is the hypothesis this one was branched from.
     # Forks share the question + initial recipe but iterate independently.
     parent_id: Annotated[int, Field(db_type="INTEGER", description="Parent hypothesis id if this is a fork")] | None = None
+    is_suggested: (
+        Annotated[bool, Field(db_type="BOOLEAN", description="LLM-suggested analysis, not yet accepted", db_default="FALSE")]
+        | None
+    ) = None
+
+    # ------------------------------------------------------------------
+    # Suggestion lifecycle
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def create_suggestion(
+        cls,
+        question: str,
+        *,
+        rationale: str = "",
+        datasets_involved: str = "",
+        complexity: str = "",
+        model: str = "",
+    ) -> Hypothesis:
+        """Create a suggested hypothesis (question only, no recipe)."""
+        from shenas_plugins.core.analytics import Recipe
+
+        empty = Recipe(nodes={}, final="")
+        h = cls(
+            question=question,
+            plan=rationale,
+            recipe_json=_serialize_recipe(empty),
+            inputs=datasets_involved,
+            model=model,
+            mode=complexity or "suggestion",
+            is_suggested=True,
+        )
+        return h.insert()
+
+    def accept_suggestion(self) -> Hypothesis:
+        """Accept: flip is_suggested, return self for further processing."""
+        self.is_suggested = False
+        self.save()
+        return self
+
+    def dismiss_suggestion(self) -> None:
+        """Dismiss: delete the suggested hypothesis."""
+        self.delete()
+
+    @classmethod
+    def suggested(cls) -> list[Hypothesis]:
+        """List suggested (not yet accepted) hypotheses."""
+        return cls.all(where="is_suggested = TRUE", order_by="created_at DESC")
 
     # ------------------------------------------------------------------
     # Factory: create() handles recipe serialization + input extraction

@@ -10,6 +10,7 @@ from shenasctl.commands import (
     frontend_cmd,
     service,
     source,
+    suggest_cmd,
     theme_cmd,
     transform_cmd,
 )
@@ -23,6 +24,7 @@ app.add_typer(dataset_cmd.app, name="dataset")
 app.add_typer(config_cmd.app, name="config")
 app.add_typer(db_cmd.app, name="db")
 app.add_typer(transform_cmd.app, name="transform")
+app.add_typer(suggest_cmd.app, name="suggest")
 app.add_typer(service.app, name="service")
 
 # Discover CLI commands from plugins via entry points.

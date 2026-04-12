@@ -32,67 +32,10 @@ def test_con() -> duckdb.DuckDBPyConnection:
     con.execute("CREATE TABLE garmin.activities (id INTEGER, start_time_local DATE)")
     con.execute("INSERT INTO garmin.activities VALUES (1, '2026-03-15')")
     con.execute("CREATE SCHEMA shenas_system")
-    con.execute(
-        "CREATE TABLE shenas_system.hotkeys ("
-        "action_id VARCHAR, binding VARCHAR DEFAULT '', updated_at TIMESTAMP, "
-        "PRIMARY KEY (action_id))"
-    )
-    con.execute("INSERT INTO shenas_system.hotkeys VALUES ('command-palette', 'Ctrl+P', NULL)")
-    con.execute("INSERT INTO shenas_system.hotkeys VALUES ('close-tab', 'Ctrl+W', NULL)")
-    con.execute(
-        "CREATE TABLE shenas_system.workspace ("
-        "workspace_id INTEGER DEFAULT 1, state VARCHAR DEFAULT '{}', updated_at TIMESTAMP, "
-        "PRIMARY KEY (workspace_id))"
-    )
+    from app.db import _ensure_system_tables
+
+    _ensure_system_tables(con)
     con.execute("INSERT INTO shenas_system.workspace VALUES (1, '{}', NULL)")
-    con.execute(
-        "CREATE TABLE shenas_system.plugins ("
-        "kind VARCHAR, name VARCHAR, enabled BOOLEAN DEFAULT TRUE, "
-        "added_at TIMESTAMP, updated_at TIMESTAMP, status_changed_at TIMESTAMP, synced_at TIMESTAMP, "
-        "PRIMARY KEY (kind, name))"
-    )
-    con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
-    con.execute(
-        "CREATE TABLE shenas_system.hypotheses ("
-        "id INTEGER DEFAULT nextval('shenas_system.hypothesis_seq'), "
-        "question TEXT, plan TEXT DEFAULT '', recipe_json TEXT, "
-        "inputs VARCHAR DEFAULT '', result_json TEXT DEFAULT '', "
-        "interpretation TEXT DEFAULT '', created_at TIMESTAMP DEFAULT current_timestamp, "
-        "model VARCHAR DEFAULT '', promoted_to VARCHAR, "
-        "llm_input_tokens INTEGER, llm_output_tokens INTEGER, "
-        "llm_elapsed_ms DOUBLE, query_elapsed_ms DOUBLE, wall_clock_ms DOUBLE, "
-        "mode VARCHAR DEFAULT 'hypothesis', "
-        "parent_id INTEGER, "
-        "PRIMARY KEY (id))"
-    )
-    con.execute(
-        "CREATE TABLE shenas_system.promoted_metrics ("
-        "name VARCHAR, metric_schema VARCHAR DEFAULT 'metrics', "
-        "recipe_json TEXT, inputs VARCHAR DEFAULT '', "
-        "columns_json TEXT DEFAULT '[]', pk_json TEXT DEFAULT '[]', "
-        "hypothesis_id INTEGER, question TEXT DEFAULT '', "
-        "created_at TIMESTAMP DEFAULT current_timestamp, "
-        "PRIMARY KEY (name, metric_schema))"
-    )
-    con.execute(
-        "CREATE TABLE shenas_system.recipe_cache ("
-        "cache_key VARCHAR, result_json TEXT, "
-        "created_at TIMESTAMP DEFAULT current_timestamp, "
-        "PRIMARY KEY (cache_key))"
-    )
-    con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_instance_seq START 1")
-    con.execute(
-        "CREATE TABLE shenas_system.transform_instances ("
-        "id INTEGER DEFAULT nextval('shenas_system.transform_instance_seq'), "
-        "transform_type VARCHAR DEFAULT 'sql', "
-        "source_duckdb_schema VARCHAR, source_duckdb_table VARCHAR, "
-        "target_duckdb_schema VARCHAR, target_duckdb_table VARCHAR, "
-        "source_plugin VARCHAR, params TEXT DEFAULT '{}', "
-        "description VARCHAR DEFAULT '', "
-        "is_default BOOLEAN DEFAULT FALSE, enabled BOOLEAN DEFAULT TRUE, "
-        "added_at TIMESTAMP DEFAULT current_timestamp, updated_at TIMESTAMP, "
-        "status_changed_at TIMESTAMP, PRIMARY KEY (id))"
-    )
     return con
 
 

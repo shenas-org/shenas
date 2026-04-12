@@ -133,7 +133,7 @@ def test_iteration_loop_retries_once_on_validation_error():
 
     mode = get_mode("hypothesis")
     provider = _SeqProvider()
-    payload, errors = ask_for_recipe_with_retry(provider, "q", {}, mode=mode, validate=_validate, max_attempts=2)
+    payload, errors = ask_for_recipe_with_retry(provider, "q", {}, mode=mode, validate=_validate, max_attempts=2)  # ty: ignore[invalid-argument-type]
     assert payload["plan"] == "second"
     assert len(errors) == 1
     # Second user prompt includes the error from attempt 1
@@ -155,7 +155,7 @@ def test_iteration_loop_gives_up_after_max_attempts():
         raise ValueError("always invalid")
 
     mode = get_mode("hypothesis")
-    payload, errors = ask_for_recipe_with_retry(_AlwaysBad(), "q", {}, mode=mode, validate=_validate, max_attempts=2)
+    payload, errors = ask_for_recipe_with_retry(_AlwaysBad(), "q", {}, mode=mode, validate=_validate, max_attempts=2)  # ty: ignore[invalid-argument-type]
     assert len(errors) == 2
     assert payload["plan"] == "x"
 
