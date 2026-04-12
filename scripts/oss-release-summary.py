@@ -56,6 +56,7 @@ PROMPT = (
     "literature fetching, federated learning, mesh sync. "
     "Keep it concise and user-focused. No preamble, just the bullets."
     "Make it look like we know what we are doing."
+    "Avoid 'Enhanced' as the first word of the message."
 )
 
 
@@ -115,7 +116,9 @@ def ask_claude(commits: str) -> str | None:
         {
             "model": "claude-sonnet-4-20250514",
             "max_tokens": 300,
-            "messages": [{"role": "user", "content": f"{PROMPT}\n\nCommits:\n{commits}"}],
+            "messages": [
+                {"role": "user", "content": f"{PROMPT}\n\nCommits:\n{commits}"}
+            ],
         }
     ).encode()
 
