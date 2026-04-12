@@ -374,10 +374,12 @@ class Mutation:
 
     @strawberry.mutation
     def save_workspace(self, data: JSON, info: strawberry.types.Info) -> OkType:  # noqa: ARG002
+        import json
+
         from app.models import OkResponse
         from app.workspace import Workspace
 
-        Workspace.put(data)  # ty: ignore[invalid-argument-type]
+        Workspace.write_row(state=json.dumps(data))
         return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     # -- Hypotheses --

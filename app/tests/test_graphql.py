@@ -417,7 +417,7 @@ class TestGraphQLMutations:
         assert result["data"]["resetHotkeys"]["ok"] is True
 
     def test_save_workspace(self, client: TestClient) -> None:
-        with patch("app.workspace.Workspace.put"):
+        with patch("app.workspace.Workspace.write_row"):
             result = _gql(
                 client,
                 'mutation { saveWorkspace(data: {key: "value"}) { ok } }',
@@ -426,7 +426,7 @@ class TestGraphQLMutations:
         assert result["data"]["saveWorkspace"]["ok"] is True
 
     def test_save_workspace_with_nested_data(self, client: TestClient) -> None:
-        with patch("app.workspace.Workspace.put") as mock_save:
+        with patch("app.workspace.Workspace.write_row") as mock_save:
             result = _gql(
                 client,
                 'mutation { saveWorkspace(data: {tabs: ["a", "b"], active: 0}) { ok } }',

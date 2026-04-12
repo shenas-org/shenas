@@ -482,9 +482,12 @@ class Query:
 
     @strawberry.field
     def workspace(self, info: strawberry.types.Info) -> JSON:  # noqa: ARG002
+        import json
+
         from app.workspace import Workspace
 
-        return Workspace.get()  # ty: ignore[invalid-return-type]
+        raw = Workspace.read_value("state")
+        return json.loads(raw) if raw else {}  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def dashboards(self) -> list[DashboardType]:
