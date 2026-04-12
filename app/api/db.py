@@ -103,9 +103,9 @@ def db_tables() -> dict[str, list[str]]:
 
 def _load_schema_plugins() -> dict[str, list[str]]:
     """Load schema plugin name -> table names from entry points."""
-    from app.api.sources import _load_datasets
+    from shenas_datasets.core.dataset import Dataset
 
-    return {s.name: sorted(s.tables) for s in _load_datasets()}
+    return {s.name: sorted(s.tables) for s in Dataset.load_all(include_internal=False)}
 
 
 @router.get("/schema-tables")

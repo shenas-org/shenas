@@ -53,9 +53,7 @@ def _run_subprocess(cmd: list[str]) -> Any:
 
 
 async def _install_stream(name: str, kind: str, skip_verify: bool = False) -> AsyncIterator[str]:
-    from app.api.sources import _clear_caches, _load_plugin, _load_plugin_fresh
-
-    cls = _load_plugin(kind, name)
+    cls = Plugin.load_by_name_and_kind(name, kind)
     if (cls and cls.internal) or name == "core":
         yield _sse("done", ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
         return
@@ -100,8 +98,8 @@ async def _install_stream(name: str, kind: str, skip_verify: bool = False) -> As
             yield _sse("log", text=line.strip())
 
     if result.returncode == 0:
-        _clear_caches()
-        cls = _load_plugin(kind, name) or _load_plugin_fresh(kind, name)
+        Plugin.clear_caches()
+        Plugin.load_by_name_and_kind(name, kind) or Plugin._load_fresh(kind, name)
         PluginInstance.get_or_create(kind, name, enabled=True)
         yield _sse("done", ok=True, message=f"Added {display} {kind_label}")
     else:
@@ -109,9 +107,7 @@ async def _install_stream(name: str, kind: str, skip_verify: bool = False) -> As
 
 
 async def _remove_stream(name: str, kind: str) -> AsyncIterator[str]:
-    from app.api.sources import _clear_caches, _load_plugin
-
-    cls = _load_plugin(kind, name)
+    cls = Plugin.load_by_name_and_kind(name, kind)
     if (cls and cls.internal) or name == "core":
         yield _sse("done", ok=False, message=f"shenas-{kind}-{name} is an internal plugin")
         return
@@ -137,7 +133,7 @@ async def _remove_stream(name: str, kind: str) -> AsyncIterator[str]:
             yield _sse("log", text=line.strip())
 
     if result.returncode == 0:
-        _clear_caches()
+        Plugin.clear_caches()
         yield _sse("done", ok=True, message=f"Removed {display} {kind_label}")
     else:
         yield _sse("done", ok=False, message=result.stderr.strip() or f"Failed to remove {pkg}")

@@ -47,7 +47,9 @@ jobs:
           cp .copybara/copy.bara.sky copy.bara.sky
 
       - name: Run Copybara
+        id: copybara
         run: |
+          set +e
           docker run --rm \
             --entrypoint bash \
             -v "$HOME/.ssh:/tmp/host-ssh:ro" \
@@ -57,8 +59,16 @@ jobs:
             -e COPYBARA_CONFIG="copy.bara.sky" \
             sharelatex/copybara:latest \
             -c "cp -r /tmp/host-ssh /root/.ssh && chmod 700 /root/.ssh && chmod 600 /root/.ssh/config /root/.ssh/oss_deploy_key && sed -i 's|~/.ssh/|/root/.ssh/|g' /root/.ssh/config && git config --global user.name 'shenas' && git config --global user.email 'noreply@shenas.net' && mkdir -p /tmp/copybara && copybara"
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 4 ]; then
+            echo "No changes to migrate (already up to date)"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          exit $EXIT_CODE
 
       - name: Generate LLM summary and amend commit
+        if: steps.copybara.outputs.skip != 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
@@ -73,6 +83,7 @@ jobs:
           git commit --amend -m "$SUMMARY" --no-edit 2>/dev/null || git commit --amend -m "$SUMMARY"
 
       - name: Finalize and push
+        if: steps.copybara.outputs.skip != 'true'
         run: |
           cd /tmp/oss-repo
           python3 $GITHUB_WORKSPACE/scripts/rewrite_timestamps.py --all
@@ -82,6 +93,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if [ ! -d /tmp/oss-repo ]; then
+            git clone git@github.com-oss:shenas-org/shenas.git /tmp/oss-repo
+          fi
           OSS_HEAD=$(cd /tmp/oss-repo && git rev-parse HEAD)
 
           # Collect all version tags from the private repo, skip server-only prefixes.

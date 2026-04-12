@@ -51,9 +51,7 @@ async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:
 
         from shenas_transformers.core import Transformer
 
-        from app.api.sources import _load_plugins
-
-        for cls in _load_plugins("transformer", base=Transformer, include_internal=True):
+        for cls in Transformer.load_all():
             plugin = cls()
             for ep in entry_points(group="shenas.sources"):
                 with contextlib.suppress(Exception):
@@ -115,13 +113,13 @@ app.include_router(api_router)
 
 def _mount_static(kind: str, url_prefix: str) -> None:
     """Mount static dirs for all plugins of a given kind."""
-    from app.api.sources import _load_static_plugins
+    from shenas_plugins.core.plugin import Plugin
 
-    for plugin in _load_static_plugins(kind):
-        if plugin.static_dir.is_dir():
+    for plugin in Plugin.load_by_kind(kind):
+        if plugin.static_dir.is_dir():  # ty: ignore[unresolved-attribute]
             app.mount(
                 f"/{url_prefix}/{plugin.name}",
-                StaticFiles(directory=str(plugin.static_dir)),
+                StaticFiles(directory=str(plugin.static_dir)),  # ty: ignore[unresolved-attribute]
                 name=f"{url_prefix}-{plugin.name}",
             )
 
@@ -147,9 +145,9 @@ _mount_static("theme", "themes")
 
 def _get_active_theme() -> type[Theme] | None:
     """Find the one explicitly enabled theme. Falls back to --default-theme."""
-    from app.api.sources import _load_themes
+    from shenas_themes.core import Theme
 
-    themes = _load_themes()
+    themes = Theme.load_all()
     try:
         from shenas_plugins.core.plugin import PluginInstance
 
@@ -168,9 +166,9 @@ def _get_active_theme() -> type[Theme] | None:
 
 def _serve_ui_html() -> HTMLResponse:
     """Read and serve the active UI plugin's HTML from disk, or a fallback."""
-    from app.api.sources import _load_frontends
+    from shenas_frontends.core import Frontend
 
-    uis = _load_frontends()
+    uis = Frontend.load_all()
     # Check for enabled frontend, fall back to CLI/env setting
     frontend_name = app.state.frontend_name
     try:

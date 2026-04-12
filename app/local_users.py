@@ -125,7 +125,6 @@ class LocalUser(Table):
         # class-creation time, not declared as top-level classes. Discover
         # them by walking installed Source subclasses.
         try:
-            from app.api.sources import _load_plugins
             from shenas_sources.core.source import Source, SourceAuth
 
             def _ensure_singleton(tbl_cls: Any) -> None:
@@ -136,7 +135,7 @@ class LocalUser(Table):
                 con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
                 tbl_cls.ensure(con, schema=schema)
 
-            for source_cls in _load_plugins("source", base=Source):
+            for source_cls in Source.load_all():
                 _ensure_singleton(source_cls.Config)
                 if source_cls.Auth is not SourceAuth:
                     _ensure_singleton(source_cls.Auth)

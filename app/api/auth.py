@@ -6,7 +6,6 @@ import logging
 
 from fastapi import APIRouter
 
-from app.api.sources import _load_source
 from app.models import AuthField, AuthFieldsResponse, AuthRequest, AuthResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -17,8 +16,10 @@ log = logging.getLogger(f"shenas.{__name__}")
 @router.post("/{source_name}")
 def auth_source(source_name: str, body: AuthRequest | None = None) -> AuthResponse:
     """Start or continue a source's auth flow."""
+    from shenas_sources.core.source import Source
+
     body = body or AuthRequest()
-    source = _load_source(source_name)
+    source = Source.load_by_name(source_name)()  # ty: ignore[call-non-callable]
     result = source.handle_auth(body.credentials)
     if result.get("ok"):
         log.info("Auth success: %s", source_name)
@@ -30,8 +31,10 @@ def auth_source(source_name: str, body: AuthRequest | None = None) -> AuthRespon
 @router.get("/{source_name}/fields")
 def auth_fields(source_name: str) -> AuthFieldsResponse:
     """Get credential fields, instructions, and stored credential status."""
+    from shenas_sources.core.source import Source
+
     try:
-        source = _load_source(source_name)
+        source = Source.load_by_name(source_name)()  # ty: ignore[call-non-callable]
     except Exception:
         return AuthFieldsResponse()
 
