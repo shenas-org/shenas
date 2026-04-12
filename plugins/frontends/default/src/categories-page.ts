@@ -193,9 +193,7 @@ class CategoriesPage extends LitElement {
   }
 
   _autoSlug(): void {
-    if (!this._newId || this._newId === this._slugify(this._newName.slice(0, -1))) {
-      this._newId = this._slugify(this._newName);
-    }
+    this._newId = this._slugify(this._newName);
   }
 
   _slugify(s: string): string {
@@ -323,7 +321,6 @@ class CategoriesPage extends LitElement {
           ?show-add=${!this._creating && !this._editing}
           @add=${() => this._startCreate()}
           .columns=${[
-            { key: "id", label: "ID", class: "mono" },
             { key: "displayName", label: "Name" },
             {
               label: "Values",
@@ -356,15 +353,10 @@ class CategoriesPage extends LitElement {
       <shenas-form-panel title="New category set" submit-label="Create"
         @submit=${this._saveCreate} @cancel=${this._cancelCreate}>
         <div class="form-grid">
-          <label>
+          <label class="form-full">
             Name
             <input .value=${this._newName}
               @input=${(e: InputEvent) => { this._newName = (e.target as HTMLInputElement).value; this._autoSlug(); }} />
-          </label>
-          <label>
-            ID
-            <input .value=${this._newId} class="mono"
-              @input=${(e: InputEvent) => { this._newId = (e.target as HTMLInputElement).value; }} />
           </label>
           <label class="form-full">
             Description
