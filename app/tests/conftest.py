@@ -26,7 +26,12 @@ class _StubDB:
 
         @contextlib.contextmanager
         def _cm():
-            yield self._con
+            cur = self._con.cursor()
+            cur.execute("USE db")
+            try:
+                yield cur
+            finally:
+                cur.close()
 
         return _cm()
 
