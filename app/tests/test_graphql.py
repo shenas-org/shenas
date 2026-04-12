@@ -475,16 +475,16 @@ class TestGraphQLMutations:
         created = _gql(client, 'mutation { createHypothesis(question: "q1") }')["data"]["createHypothesis"]
         hid = created["id"]
 
-        listed = _gql(client, "{ hypotheses }")
+        listed = _gql(client, "{ hypotheses { id question mode } }")
         assert "errors" not in listed
         rows = listed["data"]["hypotheses"]
         assert any(r["id"] == hid and r["question"] == "q1" for r in rows)
 
-        single = _gql(client, f"{{ hypothesis(hypothesisId: {hid}) }}")
+        single = _gql(client, f"{{ hypothesis(hypothesisId: {hid}) {{ question mode resultJson }} }}")
         assert "errors" not in single
         assert single["data"]["hypothesis"]["question"] == "q1"
         assert single["data"]["hypothesis"]["mode"] == "hypothesis"
-        assert single["data"]["hypothesis"]["result"] is None
+        assert not single["data"]["hypothesis"]["resultJson"]
 
     def test_run_recipe_attaches_result(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute("DROP TABLE IF EXISTS metrics.daily_intake")

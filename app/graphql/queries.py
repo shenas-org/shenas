@@ -12,7 +12,12 @@ from app.graphql.types import (
     ColumnInfoType,
     DataResourceType,
     DBStatusType,
+    CategorySetType,
+    CategoryValueType,
+    FindingType,
     FreshnessInfoType,
+    HypothesisSuggestionType,
+    HypothesisType,
     PluginInfoType,
     QualityCheckType,
     QualityInfoType,
@@ -360,18 +365,34 @@ class Query:
     # -- Categories --
 
     @strawberry.field
-    def category_sets(self) -> JSON:
+    def category_sets(self) -> list[CategorySetType]:
         """Return all category sets with their values."""
         from app.categories import list_sets
 
-        return list_sets()  # ty: ignore[invalid-return-type]
+        return [
+            CategorySetType(
+                id=s["id"],
+                display_name=s["displayName"],
+                description=s.get("description", ""),
+                values=[CategoryValueType(value=v["value"], sort_order=v.get("sortOrder", 0), color=v.get("color")) for v in s.get("values", [])],
+            )
+            for s in list_sets()
+        ]
 
     @strawberry.field
-    def category_set(self, set_id: str) -> JSON:
+    def category_set(self, set_id: str) -> CategorySetType | None:
         """Return a single category set with values."""
         from app.categories import get_set
 
-        return get_set(set_id)  # ty: ignore[invalid-return-type]
+        s = get_set(set_id)
+        if not s:
+            return None
+        return CategorySetType(
+            id=s["id"],
+            display_name=s["displayName"],
+            description=s.get("description", ""),
+            values=[CategoryValueType(value=v["value"], sort_order=v.get("sortOrder", 0), color=v.get("color")) for v in s.get("values", [])],
+        )
 
     # -- Table introspection --
 
@@ -571,21 +592,31 @@ class Query:
     # -- Literature --
 
     @strawberry.field
-    def literature_findings(self, limit: int | None = None) -> JSON:
+    def literature_findings(self, limit: int | None = None) -> list[FindingType]:
         """Return stored literature findings."""
         from app.literature import Finding
 
         rows = Finding.all(order_by="id DESC", limit=limit)
-        return [f.to_prompt_line() for f in rows]  # ty: ignore[invalid-return-type]
+        return [_finding_to_gql(f) for f in rows]
 
     @strawberry.field
-    def suggested_hypotheses(self, limit: int = 10) -> JSON:
+    def suggested_hypotheses(self, limit: int = 10) -> list[HypothesisSuggestionType]:
         """Return proactive hypothesis suggestions from literature cross-referenced with installed data."""
         from app.data_catalog import catalog_by_qualified_name
         from app.literature import suggest_hypotheses
 
         catalog = catalog_by_qualified_name()
-        return [s.model_dump() for s in suggest_hypotheses(catalog, limit=limit)]  # ty: ignore[invalid-return-type]
+        suggestions = suggest_hypotheses(catalog, limit=limit)
+        return [
+            HypothesisSuggestionType(
+                question=s.question,
+                rationale=s.rationale,
+                datasets_involved=s.datasets_involved,
+                complexity=getattr(s, "complexity", ""),
+                score=getattr(s, "score", 0.0),
+            )
+            for s in suggestions
+        ]
 
     # -- Hypotheses --
     #
@@ -654,38 +685,62 @@ class Query:
     # app/graphql/mutations.py.
 
     @strawberry.field
-    def hypotheses(self, limit: int | None = None) -> JSON:
+    def hypotheses(self, limit: int | None = None) -> list[HypothesisType]:
         """Return every hypothesis row, most recent first."""
         from app.hypotheses import Hypothesis
 
-        return [_hypothesis_to_dict(h) for h in Hypothesis.all(order_by="created_at DESC", limit=limit)]  # ty: ignore[invalid-return-type]
+        return [_hypothesis_to_gql(h) for h in Hypothesis.all(order_by="created_at DESC", limit=limit)]
 
     @strawberry.field
-    def hypothesis(self, hypothesis_id: int) -> JSON:
+    def hypothesis(self, hypothesis_id: int) -> HypothesisType | None:
         """Return one hypothesis by id, or ``None`` if not found."""
         from app.hypotheses import Hypothesis
 
         h = Hypothesis.find(hypothesis_id)
-        return _hypothesis_to_dict(h) if h else None  # ty: ignore[invalid-return-type]
+        return _hypothesis_to_gql(h) if h else None
 
 
-def _hypothesis_to_dict(h: Any) -> dict[str, Any]:
-    """Serialize a Hypothesis row to a JSON-friendly dict for GraphQL."""
-    result = h.result()
-    return {
-        "id": h.id,
-        "question": h.question,
-        "plan": h.plan or "",
-        "inputs": (h.inputs or "").split(",") if h.inputs else [],
-        "interpretation": h.interpretation or "",
-        "model": h.model or "",
-        "mode": h.mode or "hypothesis",
-        "promoted_to": h.promoted_to,
-        "parent_id": getattr(h, "parent_id", None),
-        "created_at": str(h.created_at) if h.created_at else None,
-        "recipe": _safe_json_load(h.recipe_json),
-        "result": result.model_dump() if result is not None else None,
-    }
+def _hypothesis_to_gql(h: Any) -> HypothesisType:
+    return HypothesisType(
+        id=h.id,
+        question=h.question,
+        plan=h.plan,
+        recipe_json=h.recipe_json or "",
+        inputs=h.inputs,
+        result_json=h.result_json,
+        interpretation=h.interpretation,
+        created_at=str(h.created_at) if h.created_at else None,
+        model=h.model,
+        promoted_to=h.promoted_to,
+        llm_input_tokens=h.llm_input_tokens,
+        llm_output_tokens=h.llm_output_tokens,
+        llm_elapsed_ms=h.llm_elapsed_ms,
+        query_elapsed_ms=h.query_elapsed_ms,
+        wall_clock_ms=h.wall_clock_ms,
+        mode=h.mode,
+        parent_id=getattr(h, "parent_id", None),
+        is_suggested=getattr(h, "is_suggested", None),
+    )
+
+
+def _finding_to_gql(f: Any) -> FindingType:
+    return FindingType(
+        id=f.id,
+        exposure=f.exposure,
+        outcome=f.outcome,
+        direction=f.direction or "",
+        effect_size=f.effect_size,
+        ci_low=f.ci_low,
+        ci_high=f.ci_high,
+        evidence_level=f.evidence_level,
+        sample_size=f.sample_size,
+        mechanism=f.mechanism,
+        citation=f.citation or "",
+        doi=f.doi,
+        exposure_categories=f.exposure_categories,
+        outcome_categories=f.outcome_categories,
+        source_ref=f.source_ref,
+    )
 
 
 def _safe_json_load(s: str) -> Any:
