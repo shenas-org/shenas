@@ -138,7 +138,7 @@ class ShenasApp extends LitElement {
 
   _router = new Router(this, [
     { path: "/", render: () => this._renderDynamicHome() },
-    { path: "/flow", render: () => this._renderSettings("flow") },
+    { path: "/flow", render: () => this._renderFlow() },
     { path: "/catalog", render: () => this._renderCatalog() },
     { path: "/settings", render: () => this._renderSettings("profile") },
     {
@@ -1571,6 +1571,14 @@ class ShenasApp extends LitElement {
         ${label}
       </a>
     `;
+  }
+
+  _renderFlow() {
+    return html`<shenas-pipeline-overview
+      api-base="${this.apiBase}"
+      .allPlugins=${this._allPlugins}
+      .schemaPlugins=${this._schemaPlugins}
+    ></shenas-pipeline-overview>`;
   }
 
   _renderCatalog() {
