@@ -109,8 +109,8 @@ describe("tab management", () => {
     await new Promise((r) => setTimeout(r, 30));
     el._loading = false;
     el._dashboards = [
-      { name: "fitness", display_name: "Fitness", tag: "shenas-fitness", js: "/x.js" },
-      { name: "finance", display_name: "Finance", tag: "shenas-finance", js: "/y.js" },
+      { name: "fitness", displayName: "Fitness", tag: "shenas-fitness", js: "/x.js" },
+      { name: "finance", displayName: "Finance", tag: "shenas-finance", js: "/y.js" },
     ];
     await el.updateComplete;
     await el.updateComplete;

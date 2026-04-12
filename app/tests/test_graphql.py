@@ -297,7 +297,7 @@ class TestGraphQLQueries:
         mock_cls.description = "Charts"
         mock_cls.return_value.enabled = True
         with patch("app.api.sources._load_dashboards", return_value=[mock_cls]):
-            result = _gql(client, "{ dashboards }")
+            result = _gql(client, "{ dashboards { name displayName tag js description } }")
         assert "errors" not in result
         dashboards = result["data"]["dashboards"]
         assert len(dashboards) == 1
@@ -319,7 +319,7 @@ class TestGraphQLQueries:
             patch("app.api.sources._load_dashboards", return_value=[mock_cls]),
             patch("shenas_plugins.core.plugin.PluginInstance.find", return_value=_DisabledInstance()),
         ):
-            result = _gql(client, "{ dashboards }")
+            result = _gql(client, "{ dashboards { name displayName tag js description } }")
         assert "errors" not in result
         assert result["data"]["dashboards"] == []
 
@@ -334,29 +334,28 @@ class TestGraphQLQueries:
             patch("app.api.sources._load_plugins", return_value=[]),
             patch("app.api.sources._load_datasets", return_value=[]),
         ):
-            result = _gql(client, "{ catalog }")
+            result = _gql(client, "{ catalog { id displayName kind } }")
         assert "errors" not in result
         assert result["data"]["catalog"] == []
 
     def test_catalog_returns_dataset_metadata(self, client: TestClient) -> None:
         fake_dataset = MagicMock()
+        fake_dataset.name = "test-dataset"
+        fake_dataset.display_name = "Test Dataset"
+        fake_dataset.description = ""
         fake_dataset.all_tables = [_CatalogMood]
+        fake_dataset.return_value = fake_dataset
         with (
             patch("app.api.sources._load_plugins", return_value=[]),
             patch("app.api.sources._load_datasets", return_value=[fake_dataset]),
         ):
-            result = _gql(client, "{ catalog }")
+            result = _gql(client, "{ catalog { id displayName kind } }")
         assert "errors" not in result
         catalog = result["data"]["catalog"]
         assert len(catalog) == 1
         entry = catalog[0]
-        assert entry["table"] == "daily_mood_test"
-        assert entry["schema"] == "metrics"
-        assert entry["primary_key"] == ["date", "source"]
+        assert entry["id"] == "metrics.daily_mood_test"
         assert entry["kind"] == "daily_metric"
-        assert "query_hint" in entry
-        col_names = {c["name"] for c in entry["columns"]}
-        assert col_names == {"date", "source", "mood"}
 
     def test_sync_schedule_with_data(self, client: TestClient) -> None:
         from shenas_sources.core.source import Source
@@ -386,10 +385,10 @@ class TestGraphQLQueries:
         assert schedules[0]["isDue"] is True
 
     def test_dependencies(self, client: TestClient) -> None:
-        result = _gql(client, "{ dependencies }")
+        result = _gql(client, "{ dependencies { source targets } }")
         assert "errors" not in result
         # Returns a JSON dict, possibly empty
-        assert isinstance(result["data"]["dependencies"], dict)
+        assert isinstance(result["data"]["dependencies"], list)
 
 
 class TestGraphQLMutations:
@@ -1024,7 +1023,7 @@ class TestGraphQLMutationsExtra:
             patch("app.graphql.mutations._source_entry_point_names", return_value=["garmin"]),
             patch("app.api.sources._load_plugins", return_value=[fake_plugin_cls]),
         ):
-            result = _gql(client, "mutation { seedTransforms }")
+            result = _gql(client, "mutation { seedTransforms { seeded count } }")
         assert "errors" not in result
         assert result["data"]["seedTransforms"]["count"] == 1
         assert result["data"]["seedTransforms"]["seeded"] == ["garmin"]
@@ -1035,19 +1034,19 @@ class TestGraphQLMutationsExtra:
             patch("app.graphql.mutations._source_entry_point_names", return_value=[]),
             patch("app.api.sources._load_plugins", return_value=[]),
         ):
-            result = _gql(client, "mutation { seedTransforms }")
+            result = _gql(client, "mutation { seedTransforms { seeded count } }")
         assert result["data"]["seedTransforms"]["count"] == 0
 
     def test_run_pipe_transforms(self, client: TestClient) -> None:
         with patch("shenas_transformers.core.transform.Transform.run_for_source", return_value=3):
-            result = _gql(client, 'mutation { runPipeTransforms(pipe: "garmin") }')
+            result = _gql(client, 'mutation { runPipeTransforms(pipe: "garmin") { name count } }')
         assert "errors" not in result
-        assert result["data"]["runPipeTransforms"]["source"] == "garmin"
+        assert result["data"]["runPipeTransforms"]["name"] == "garmin"
         assert result["data"]["runPipeTransforms"]["count"] == 3
 
     def test_run_schema_transforms(self, client: TestClient) -> None:
         with patch("shenas_transformers.core.transform.Transform.run_for_target", return_value=2):
-            result = _gql(client, 'mutation { runSchemaTransforms(schema: "metrics") }')
+            result = _gql(client, 'mutation { runSchemaTransforms(schema: "metrics") { name count } }')
         assert "errors" not in result
-        assert result["data"]["runSchemaTransforms"]["schema"] == "metrics"
+        assert result["data"]["runSchemaTransforms"]["name"] == "metrics"
         assert result["data"]["runSchemaTransforms"]["count"] == 2

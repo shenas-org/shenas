@@ -165,7 +165,10 @@ class CategoriesPage extends LitElement {
 
   async _fetchAll(): Promise<void> {
     this._loading = true;
-    const data = await gql(this.apiBase, `{ categorySets }`);
+    const data = await gql(
+      this.apiBase,
+      `{ categorySets { id displayName description values { value sortOrder color } } }`,
+    );
     this._sets = (data?.categorySets as CategorySet[]) || [];
     this._loading = false;
   }
@@ -203,7 +206,7 @@ class CategoriesPage extends LitElement {
     const { ok } = await gqlFull(
       this.apiBase,
       `mutation($id: String!, $name: String!, $desc: String!) {
-        createCategorySet(setId: $id, displayName: $name, description: $desc)
+        createCategorySet(setId: $id, displayName: $name, description: $desc) { id displayName }
       }`,
       { id: this._newId, name: this._newName, desc: this._newDesc },
     );
@@ -261,14 +264,14 @@ class CategoriesPage extends LitElement {
       gqlFull(
         this.apiBase,
         `mutation($id: String!, $name: String!, $desc: String!) {
-          updateCategorySet(setId: $id, displayName: $name, description: $desc)
+          updateCategorySet(setId: $id, displayName: $name, description: $desc) { id displayName }
         }`,
         { id: this._editing, name: this._editName, desc: this._editDesc },
       ),
       gqlFull(
         this.apiBase,
         `mutation($id: String!, $values: String!) {
-          updateCategoryValues(setId: $id, values: $values)
+          updateCategoryValues(setId: $id, values: $values) { id displayName }
         }`,
         { id: this._editing, values: valuesJson },
       ),
@@ -283,7 +286,7 @@ class CategoriesPage extends LitElement {
   }
 
   async _deleteSet(setId: string): Promise<void> {
-    const { ok } = await gqlFull(this.apiBase, `mutation($id: String!) { deleteCategorySet(setId: $id) }`, {
+    const { ok } = await gqlFull(this.apiBase, `mutation($id: String!) { deleteCategorySet(setId: $id) { ok } }`, {
       id: setId,
     });
     if (ok) {

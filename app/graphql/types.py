@@ -145,6 +145,50 @@ class TransformCreateInput:
     description: str = ""
 
 
+# -- Model types ---------------------------------------------------------------
+
+
+@strawberry.type
+class ModelInfoType:
+    name: str
+    display_name: str = ""
+    description: str = ""
+    version: str = ""
+    enabled: bool = True
+
+
+@strawberry.type
+class ModelStatusType:
+    name: str
+    available: bool = False
+    current_round: int | None = None
+
+
+@strawberry.type
+class ModelPredictionType:
+    name: str
+    predictions: list[float]
+    labels: list[str]
+
+
+# -- Dashboard + Dependency types -----------------------------------------------
+
+
+@strawberry.type
+class DashboardType:
+    name: str
+    display_name: str
+    tag: str = ""
+    js: str = ""
+    description: str = ""
+
+
+@strawberry.type
+class DependencyEdge:
+    source: str
+    targets: list[str]
+
+
 # -- Hypothesis types ----------------------------------------------------------
 
 
@@ -196,6 +240,62 @@ class HypothesisSuggestionType:
     datasets_involved: list[str]
     complexity: str = ""
     score: float = 0.0
+
+
+# -- Transformer info types ----------------------------------------------------
+
+
+@strawberry.type
+class ParamFieldType:
+    name: str
+    label: str = ""
+    type: str = "text"
+    required: bool = False
+    description: str = ""
+    default: str | None = None
+    options: list[str] | None = None
+
+
+@strawberry.type
+class TransformerInfoType:
+    name: str
+    display_name: str
+    description: str = ""
+    param_schema: list[ParamFieldType]
+
+
+@strawberry.type
+class SeedResultType:
+    seeded: list[str]
+    count: int
+
+
+@strawberry.type
+class TransformRunResultType:
+    name: str
+    count: int
+
+
+# -- Suggestion types ----------------------------------------------------------
+
+
+@strawberry.type
+class SuggestedDatasetType:
+    name: str
+    is_suggested: bool = True
+    enabled: bool = False
+    table_name: str | None = None
+    grain: str | None = None
+    title: str | None = None
+
+
+@strawberry.type
+class SuggestedAnalysisType:
+    id: int
+    question: str
+    rationale: str = ""
+    datasets_involved: list[str]
+    complexity: str = ""
 
 
 # -- Category types ------------------------------------------------------------

@@ -138,7 +138,7 @@ class PipelineOverview extends LitElement {
         this.apiBase,
         `{
         transforms { id transformType source { id schemaName tableName } target { id schemaName tableName } sourcePlugin enabled }
-        dependencies
+        dependencies { source targets }
       }`,
       );
       const ap = this.allPlugins || {};
@@ -148,7 +148,12 @@ class PipelineOverview extends LitElement {
         (data?.transforms || []) as Transform[],
         this.schemaPlugins || {},
         (ap.dashboard || []) as PluginInfo[],
-        (data?.dependencies || {}) as Record<string, string[]>,
+        Object.fromEntries(
+          ((data?.dependencies || []) as Array<{ source: string; targets: string[] }>).map((d) => [
+            d.source,
+            d.targets,
+          ]),
+        ),
         (ap.model || []) as PluginInfo[],
       );
     } catch (e) {

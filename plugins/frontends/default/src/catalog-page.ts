@@ -398,7 +398,6 @@ class CatalogPage extends LitElement {
           .columns=${[
             {
               label: "Plugin",
-              class: "mono",
               render: (r: DataResource) =>
                 html`<a
                   @click=${() => this._navigateToPlugin(r.plugin.name)}
