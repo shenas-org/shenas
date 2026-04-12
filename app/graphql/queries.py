@@ -9,11 +9,11 @@ from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawb
 
 from app.graphql.types import (
     AuthFieldsType,
+    CategorySetType,
+    CategoryValueType,
     ColumnInfoType,
     DataResourceType,
     DBStatusType,
-    CategorySetType,
-    CategoryValueType,
     FindingType,
     FreshnessInfoType,
     HypothesisSuggestionType,
@@ -374,7 +374,10 @@ class Query:
                 id=s["id"],
                 display_name=s["displayName"],
                 description=s.get("description", ""),
-                values=[CategoryValueType(value=v["value"], sort_order=v.get("sortOrder", 0), color=v.get("color")) for v in s.get("values", [])],
+                values=[
+                    CategoryValueType(value=v["value"], sort_order=v.get("sortOrder", 0), color=v.get("color"))
+                    for v in s.get("values", [])
+                ],
             )
             for s in list_sets()
         ]
@@ -391,7 +394,10 @@ class Query:
             id=s["id"],
             display_name=s["displayName"],
             description=s.get("description", ""),
-            values=[CategoryValueType(value=v["value"], sort_order=v.get("sortOrder", 0), color=v.get("color")) for v in s.get("values", [])],
+            values=[
+                CategoryValueType(value=v["value"], sort_order=v.get("sortOrder", 0), color=v.get("color"))
+                for v in s.get("values", [])
+            ],
         )
 
     # -- Table introspection --

@@ -1,794 +1,578 @@
-import "./categories-page.ts";
 import { LitElement, html, css } from "lit";
 import {
   gql,
   gqlFull,
-  openExternal,
+  registerCommands,
   renderMessage,
-  PLUGIN_KINDS,
   buttonStyles,
-  formStyles,
   linkStyles,
   messageStyles,
 } from "shenas-frontends";
 
-type PluginKind = { id: string; label: string };
-
-interface PluginSummary {
-  name: string;
-  displayName?: string;
-  package?: string;
-  version?: string;
-  enabled?: boolean;
-  description?: string;
-  syncedAt?: string;
-  hasAuth?: boolean;
-  isAuthenticated?: boolean;
-}
-
-interface Message {
-  type: string;
-  text: string;
-}
-
-interface ActionInfo {
-  id: string;
-  label: string;
-  category: string;
-}
-
-/**
- * Single source of truth for the static (non-plugin-kind) entries in the
- * settings sidebar. The plugin kinds (source/dataset/...) are appended after
- * these by both the desktop sub-nav (app-shell.ts) and the mobile burger menu.
- */
-export interface SettingsNavItem {
+interface SettingsNavItem {
   id: string;
   label: string;
 }
+
 export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { id: "profile", label: "Profile" },
   { id: "categories", label: "Categories" },
   { id: "hotkeys", label: "Hotkeys" },
 ];
 
+interface SettingCategory {
+  id: string;
+  name: string;
+  description?: string;
+  settings: Setting[];
+}
+
+interface Setting {
+  id: string;
+  key: string;
+  display_name: string;
+  value: unknown;
+  type: "string" | "number" | "boolean" | "select";
+  description?: string;
+  options?: { label: string; value: unknown }[];
+  required?: boolean;
+  default?: unknown;
+}
+
+interface SettingsData {
+  categories: SettingCategory[];
+  [key: string]: unknown;
+}
+
 class SettingsPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
-    activeKind: { type: String, attribute: "active-kind" },
-    onNavigate: { type: Function },
-    onPluginsChanged: { type: Function },
-    onMultiuserToggle: { type: Function },
-    onSwitchUser: { type: Function },
-    allActions: { type: Array },
-    allPlugins: { type: Object },
-    schemaPlugins: { type: Object },
-    remoteUser: { type: Object },
-    deviceName: { type: String, attribute: "device-name" },
-    multiuserEnabled: { type: Boolean },
-    localUser: { type: Object },
-    _plugins: { state: true },
+    _settings: { state: true },
+    _categories: { state: true },
     _loading: { state: true },
-    _actionMessage: { state: true },
-    _installing: { state: true },
-    _availablePlugins: { state: true },
-    _selectedPlugin: { state: true },
-    _menuOpen: { state: true },
+    _saving: { state: true },
+    _message: { state: true },
+    _expandedCategories: { state: true },
+    _changedSettings: { state: true },
   };
 
   static styles = [
     buttonStyles,
-    formStyles,
     linkStyles,
     messageStyles,
     css`
       :host {
         display: block;
-        height: 100%;
+        color: var(--text-color);
+        background: var(--bg-color);
       }
-      .layout {
-        display: flex;
-        gap: 2rem;
-        height: 100%;
+
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 1rem;
       }
-      .sidebar {
-        min-width: 140px;
-        flex-shrink: 0;
+
+      .page-header {
+        margin-bottom: 2rem;
       }
-      .sidebar ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-      }
-      .sidebar-section {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--shenas-text-faint, #aaa);
-        padding: 0.8rem 0.8rem 0.3rem;
-      }
-      .sidebar li {
-        margin: 0;
-      }
-      .sidebar a {
-        display: block;
-        width: 100%;
-        text-align: left;
-        padding: 0.5rem 0.8rem;
-        border: none;
-        background: none;
-        cursor: pointer;
-        font-size: 0.9rem;
-        color: var(--shenas-text-secondary, #666);
-        border-radius: 4px;
-        border-left: 3px solid transparent;
-      }
-      .sidebar a:hover {
-        background: var(--shenas-bg-hover, #f5f5f5);
-        color: var(--shenas-text, #222);
-      }
-      .sidebar a[aria-selected="true"] {
-        background: var(--shenas-bg-selected, #f0f4ff);
-        color: var(--shenas-text, #222);
+
+      .page-title {
+        font-size: 1.875rem;
         font-weight: 600;
-        border-left-color: var(--shenas-primary, #0066cc);
+        margin-bottom: 0.5rem;
       }
-      .content {
-        flex: 1;
-        min-width: 0;
+
+      .page-description {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+      }
+
+      .settings-grid {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .category {
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        overflow: hidden;
+      }
+
+      .category-header {
+        padding: 1rem;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        user-select: none;
+      }
+
+      .category-header:hover {
+        background: var(--bg-tertiary);
+      }
+
+      .category-header.expanded {
+        border-bottom-color: var(--accent-color);
+      }
+
+      .category-title {
+        font-size: 1.1rem;
+        font-weight: 500;
+      }
+
+      .category-description {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-top: 0.25rem;
+      }
+
+      .category-toggle {
+        font-size: 1.25rem;
+        transition: transform 0.2s ease;
+      }
+
+      .category-toggle.expanded {
+        transform: rotate(180deg);
+      }
+
+      .category-content {
+        display: none;
+        padding: 1rem;
+        background: var(--bg-color);
+      }
+
+      .category-content.expanded {
+        display: block;
+        animation: slideDown 0.2s ease;
+      }
+
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          max-height: 0;
+        }
+        to {
+          opacity: 1;
+          max-height: 1000px;
+        }
+      }
+
+      .settings-form {
+        display: grid;
+        gap: 1.5rem;
+      }
+
+      .form-group {
         display: flex;
         flex-direction: column;
+        gap: 0.5rem;
       }
-      .content h3 {
-        font-size: 1rem;
-        margin: 0 0 1rem;
+
+      .form-label {
+        font-weight: 500;
+        font-size: 0.95rem;
       }
-      /* Burger menu button (hidden on desktop) */
-      .burger {
-        display: none;
-        background: none;
-        border: 1px solid var(--shenas-border, #e0e0e0);
-        border-radius: 6px;
-        padding: 0.4rem 0.6rem;
-        cursor: pointer;
-        color: var(--shenas-text-secondary, #666);
-        margin-bottom: 0.5rem;
-        align-items: center;
-        gap: 0.4rem;
-        font-size: 0.85rem;
+
+      .form-label.required::after {
+        content: " *";
+        color: #ef4444;
       }
-      .burger svg {
-        flex-shrink: 0;
+
+      .form-input,
+      .form-select {
+        padding: 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 0.375rem;
+        font-size: 0.95rem;
+        background: var(--bg-color);
+        color: var(--text-color);
+        font-family: inherit;
       }
-      /* Overlay menu (mobile) */
-      .menu-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.3);
-        z-index: 100;
+
+      .form-input:focus,
+      .form-select:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
       }
-      .menu-overlay.open {
-        display: block;
+
+      .form-input:disabled,
+      .form-select:disabled {
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        cursor: not-allowed;
       }
-      .menu-panel {
-        position: fixed;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        width: 220px;
-        background: var(--shenas-bg, #fff);
-        z-index: 101;
-        padding: 1rem;
-        overflow-y: auto;
-        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
-      }
-      .menu-panel .menu-close {
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 1.2rem;
-        color: var(--shenas-text-muted, #888);
-        float: right;
-      }
-      .menu-panel a {
+
+      .form-checkbox {
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        padding: 0.6rem 0.5rem;
-        font-size: 0.9rem;
-        color: var(--shenas-text-secondary, #666);
-        text-decoration: none;
-        border-radius: 4px;
       }
-      .menu-panel a:hover {
-        background: var(--shenas-bg-hover, #f5f5f5);
+
+      .form-checkbox input {
+        cursor: pointer;
       }
-      .menu-panel a[aria-selected="true"] {
-        background: var(--shenas-bg-selected, #f0f4ff);
-        color: var(--shenas-text, #222);
-        font-weight: 600;
+
+      .form-help {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
       }
-      .menu-panel a svg {
-        flex-shrink: 0;
+
+      .form-error {
+        font-size: 0.85rem;
+        color: #ef4444;
       }
-      .menu-panel .sidebar-section {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--shenas-text-faint, #aaa);
-        padding: 0.8rem 0.5rem 0.3rem;
-      }
-      .profile {
+
+      .action-bar {
+        position: sticky;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 1rem;
+        background: var(--bg-color);
+        border-top: 1px solid var(--border-color);
         display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        max-width: 480px;
+        gap: 0.5rem;
+        justify-content: flex-end;
+        z-index: 10;
       }
-      .profile-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0.6rem 0.8rem;
-        background: var(--shenas-bg-secondary, #f3f0eb);
-        border: 1px solid var(--shenas-border, #d8d4cc);
-        border-radius: 6px;
+
+      .empty-state {
+        padding: 2rem;
+        text-align: center;
+        color: var(--text-secondary);
       }
-      .profile-label {
-        font-size: 0.8rem;
-        color: var(--shenas-text-muted, #888);
-      }
-      .profile-value {
-        font-size: 0.9rem;
-        color: var(--shenas-text, #222);
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-      }
-      .profile .device-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--shenas-text-muted, #888);
-      }
-      .profile .device-dot.connected {
-        background: var(--shenas-success, #628261);
-      }
-      .profile-actions {
-        margin-top: 0.5rem;
-      }
-      @media (max-width: 768px) {
-        .sidebar {
-          display: none;
-        }
-        .burger {
-          display: flex;
-        }
-        .layout {
-          gap: 0;
-          flex-direction: column;
-        }
-        .content {
-          flex: 1;
-          min-height: 0;
-          overflow-y: auto;
-        }
+
+      .unsaved-indicator {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        padding: 0.75rem 1rem;
+        background: #f59e0b;
+        color: white;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        z-index: 20;
       }
     `,
   ];
 
   declare apiBase: string;
-  declare activeKind: string;
-  declare onNavigate: ((kind: string) => void) | null;
-  declare onPluginsChanged: ((data: Record<string, PluginSummary[]>) => void) | null;
-  declare onMultiuserToggle: ((enabled: boolean) => void) | null;
-  declare onSwitchUser: (() => void) | null;
-  declare allActions: ActionInfo[];
-  declare allPlugins: Record<string, PluginSummary[]>;
-  declare schemaPlugins: Record<string, string[]>;
-  declare remoteUser: Record<string, unknown> | null;
-  declare deviceName: string;
-  declare multiuserEnabled: boolean;
-  declare localUser: { id: number; username: string } | null;
-  declare _plugins: Record<string, PluginSummary[]>;
-  declare _schemaStats: Record<string, { totalRows: number; earliest: string; latest: string }>;
+  declare _settings: Record<string, unknown>;
+  declare _categories: SettingCategory[];
   declare _loading: boolean;
-  declare _actionMessage: Message | null;
-  declare _installing: boolean;
-  declare _availablePlugins: string[] | null;
-  declare _selectedPlugin: string;
-  declare _menuOpen: boolean;
-  declare _pluginKinds: PluginKind[];
+  declare _saving: boolean;
+  declare _message: { type: string; text: string } | null;
+  declare _expandedCategories: Set<string>;
+  declare _changedSettings: Map<string, unknown>;
 
   constructor() {
     super();
-    this.apiBase = "/api";
-    this.activeKind = "profile";
-    this.onNavigate = null;
-    this.onPluginsChanged = null;
-    this.onMultiuserToggle = null;
-    this.onSwitchUser = null;
-    this.allActions = [];
-    this.allPlugins = {};
-    this.schemaPlugins = {};
-    this.remoteUser = null;
-    this.deviceName = "";
-    this.multiuserEnabled = false;
-    this.localUser = null;
-    this._plugins = {};
-    this._schemaStats = {};
-    this._loading = true;
-    this._actionMessage = null;
-    this._installing = false;
-    this._availablePlugins = null;
-    this._selectedPlugin = "";
-    this._menuOpen = false;
-    this._pluginKinds = PLUGIN_KINDS;
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    if (this.allPlugins && Object.keys(this.allPlugins).length > 0) {
-      this._plugins = this.allPlugins;
-      this._loading = false;
-    } else {
-      this._fetchAll();
-    }
-  }
-
-  async _fetchAll(_options?: { force?: boolean }): Promise<void> {
-    this._loading = true;
-    // Fetch available plugin kinds from the API, fall back to hardcoded list.
-    const kindsData = await gql(this.apiBase, `{ pluginKinds }`);
-    if (kindsData?.pluginKinds) {
-      this._pluginKinds = (kindsData.pluginKinds as PluginKind[]).sort((a, b) => a.label.localeCompare(b.label));
-    }
-    // Build a single GraphQL query for all discovered kinds.
-    const fields = `name displayName package version enabled description syncedAt hasAuth isAuthenticated`;
-    const kindQueries = this._pluginKinds
-      .map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`)
-      .join("\n      ");
-    const data = await gql(
-      this.apiBase,
-      `{ ${kindQueries} dbStatus { schemas { name tables { name rows earliest latest } } } }`,
-    );
-    const result: Record<string, PluginSummary[]> = {};
-    for (const { id } of this._pluginKinds) {
-      result[id] = (data?.[`p_${id}`] as PluginSummary[]) || [];
-    }
-    this._plugins = result;
-    // Build per-schema stats for the source data column
-    const schemaStats: Record<string, { totalRows: number; earliest: string; latest: string }> = {};
-    const schemas = (data?.dbStatus as Record<string, unknown>)?.schemas as
-      | Array<{
-          name: string;
-          tables: Array<{ rows: number; earliest: string; latest: string }>;
-        }>
-      | undefined;
-    if (schemas) {
-      for (const s of schemas) {
-        let totalRows = 0;
-        let earliest = "";
-        let latest = "";
-        for (const t of s.tables) {
-          totalRows += t.rows || 0;
-          if (t.earliest && (!earliest || t.earliest < earliest)) earliest = t.earliest;
-          if (t.latest && (!latest || t.latest > latest)) latest = t.latest;
-        }
-        schemaStats[s.name] = { totalRows, earliest, latest };
-      }
-    }
-    this._schemaStats = schemaStats;
+    this.apiBase = "http://localhost:3000";
+    this._settings = {};
+    this._categories = [];
     this._loading = false;
-    if (this.onPluginsChanged) this.onPluginsChanged(result);
+    this._saving = false;
+    this._message = null;
+    this._expandedCategories = new Set();
+    this._changedSettings = new Map();
   }
 
-  async _togglePlugin(kind: string, name: string, currentlyEnabled: boolean): Promise<void> {
-    const action = currentlyEnabled ? "disable" : "enable";
-    const mutation =
-      action === "enable"
-        ? `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok message } }`
-        : `mutation($k: String!, $n: String!) { disablePlugin(kind: $k, name: $n) { ok message } }`;
-    const { data } = await gqlFull(this.apiBase, mutation, { k: kind, n: name });
-    const result = (action === "enable" ? data?.enablePlugin : data?.disablePlugin) as
-      | Record<string, unknown>
-      | undefined;
-    if (!result?.ok) {
-      this._actionMessage = { type: "error", text: (result?.message as string) || `${action} failed` };
-    }
-    if (kind === "theme") {
-      await this._applyActiveTheme();
-    }
-    if (kind === "frontend") {
-      window.location.replace(window.location.pathname + "?_switch=" + Date.now());
-      return;
-    }
-    this.dispatchEvent(new CustomEvent("plugin-state-changed", { bubbles: true, composed: true }));
-    await this._fetchAll({ force: true });
+  connectedCallback() {
+    super.connectedCallback();
+    this._loadSettings();
+    registerCommands(this, "settings-page", [
+      { command: "save", action: () => this._saveSettings() },
+      { command: "reset", action: () => this._resetSettings() },
+    ]);
   }
 
-  async _applyActiveTheme(): Promise<void> {
-    const data = await gql(this.apiBase, `{ theme { css } }`);
-    if (!data?.theme) return;
-    const { css } = data.theme as Record<string, string>;
-    let link = document.querySelector("link[data-shenas-theme]") as HTMLLinkElement | null;
-    if (css) {
-      if (!link) {
-        link = document.createElement("link");
-        link.rel = "stylesheet";
-        link.setAttribute("data-shenas-theme", "");
-        document.head.appendChild(link);
-      }
-      link.href = css;
-    } else if (link) {
-      link.remove();
-    }
-  }
-
-  async _startInstall(kind: string): Promise<void> {
-    this._installing = true;
-    this._selectedPlugin = "";
-    this._availablePlugins = null;
-    const data = await gql(this.apiBase, `query($kind: String!) { availablePlugins(kind: $kind) }`, { kind });
-    const available = (data?.availablePlugins as string[]) || [];
-    const installed = new Set((this._plugins[kind] || []).map((p) => p.name));
-    this._availablePlugins = available.filter((n) => !installed.has(n));
-  }
-
-  async _install(kind: string): Promise<void> {
-    const name = this._selectedPlugin;
-    if (!name) return;
-    this._actionMessage = null;
-    this._installing = false;
-    const displayName = this._displayPluginName(name);
-    const jobId = `install-${kind}-${name}-${Date.now()}`;
-
-    this.dispatchEvent(
-      new CustomEvent("job-start", {
-        bubbles: true,
-        composed: true,
-        detail: { id: jobId, label: `Adding ${displayName}` },
-      }),
-    );
-
-    const result = await this._streamJob(jobId, `${this.apiBase}/plugins/${kind}/install-stream`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ names: [name], skip_verify: true }),
-    });
-
-    if (result?.ok) {
-      this._actionMessage = { type: "success", text: result.message };
-      await this._fetchAll();
-    } else {
-      this._actionMessage = { type: "error", text: result?.message || "Add failed" };
-    }
-  }
-
-  async _streamJob(
-    jobId: string,
-    url: string,
-    fetchOptions: RequestInit,
-  ): Promise<{ ok: boolean; message: string } | null> {
+  private async _loadSettings() {
+    this._loading = true;
     try {
-      const resp = await fetch(url, fetchOptions);
-      const reader = resp.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let finalResult: { ok: boolean; message: string } | null = null;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split("\n");
-        buffer = lines.pop()!;
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const evt = JSON.parse(line.slice(6)) as Record<string, unknown>;
-            if (evt.event === "log") {
-              this.dispatchEvent(
-                new CustomEvent("job-log", {
-                  bubbles: true,
-                  composed: true,
-                  detail: { id: jobId, text: evt.text },
-                }),
-              );
-            } else if (evt.event === "done") {
-              finalResult = { ok: evt.ok as boolean, message: evt.message as string };
-              this.dispatchEvent(
-                new CustomEvent("job-finish", {
-                  bubbles: true,
-                  composed: true,
-                  detail: { id: jobId, ok: evt.ok, message: evt.message },
-                }),
-              );
+      const query = `
+        query {
+          settings {
+            categories {
+              id
+              name
+              description
+              settings {
+                id
+                key
+                display_name
+                value
+                type
+                description
+                options {
+                  label
+                  value
+                }
+                required
+                default
+              }
             }
-          } catch {
-            /* skip malformed lines */
+          }
+        }
+      `;
+
+      const response = (await gql(`${this.apiBase}/api/graphql`, query)) as Record<string, unknown> | null;
+      const data = response as { settings?: SettingsData } | null;
+
+      if (data?.settings) {
+        const settingsData: SettingsData = data.settings;
+        this._categories = settingsData.categories || [];
+
+        // Initialize expanded state - expand first category by default
+        if (this._categories.length > 0) {
+          this._expandedCategories.add(this._categories[0].id);
+        }
+
+        // Copy initial settings values
+        this._settings = {};
+        for (const category of this._categories) {
+          for (const setting of category.settings) {
+            this._settings[setting.id] = setting.value;
           }
         }
       }
-      return finalResult;
-    } catch (err) {
-      const error = err as Error;
-      this.dispatchEvent(
-        new CustomEvent("job-finish", {
-          bubbles: true,
-          composed: true,
-          detail: { id: jobId, ok: false, message: error.message },
-        }),
-      );
-      return { ok: false, message: error.message };
+    } catch (error) {
+      this._message = {
+        type: "error",
+        text: `Failed to load settings: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    } finally {
+      this._loading = false;
     }
   }
 
-  _displayPluginName(name: string): string {
-    return name
-      .split("-")
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ");
+  private async _saveSettings() {
+    if (this._changedSettings.size === 0) {
+      this._message = {
+        type: "info",
+        text: "No changes to save",
+      };
+      return;
+    }
+
+    this._saving = true;
+    try {
+      const updates = Array.from(this._changedSettings.entries()).map(([id, value]) => ({
+        id,
+        value,
+      }));
+
+      const response = await gqlFull(
+        `${this.apiBase}/api/graphql`,
+        `mutation UpdateSettings($updates: [SettingUpdate!]!) {
+          updateSettings(updates: $updates) {
+            success
+            message
+          }
+        }`,
+        { updates },
+      );
+
+      const result = response as { data?: { updateSettings?: { success: boolean; message?: string } } };
+      if (result.data?.updateSettings?.success) {
+        this._message = {
+          type: "success",
+          text: result.data.updateSettings.message || "Settings saved successfully",
+        };
+        this._changedSettings.clear();
+        this._loadSettings();
+      } else {
+        this._message = {
+          type: "error",
+          text: result.data?.updateSettings?.message || "Failed to save settings",
+        };
+      }
+    } catch (error) {
+      this._message = {
+        type: "error",
+        text: `Failed to save settings: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    } finally {
+      this._saving = false;
+    }
   }
 
-  _switchKind(kind: string): void {
-    this.activeKind = kind;
-    this._menuOpen = false;
-    if (this.onNavigate) this.onNavigate(kind);
+  private _resetSettings() {
+    this._changedSettings.clear();
+    this._loadSettings();
+    this._message = {
+      type: "info",
+      text: "Settings reset to last saved state",
+    };
   }
 
-  _displayName(): string {
-    if (this.activeKind === "profile") return "Profile";
-    if (this.activeKind === "categories") return "Categories";
-    if (this.activeKind === "hotkeys") return "Hotkeys";
-    const kind = PLUGIN_KINDS.find((k) => k.id === this.activeKind);
-    return kind ? kind.label : this.activeKind;
+  private _toggleCategory(categoryId: string) {
+    if (this._expandedCategories.has(categoryId)) {
+      this._expandedCategories.delete(categoryId);
+    } else {
+      this._expandedCategories.add(categoryId);
+    }
+    this.requestUpdate();
+  }
+
+  private _updateSetting(settingId: string, value: unknown) {
+    this._settings[settingId] = value;
+    this._changedSettings.set(settingId, value);
+    this.requestUpdate();
+  }
+
+  private _renderSettingInput(setting: Setting) {
+    const value = this._settings[setting.id];
+
+    switch (setting.type) {
+      case "boolean":
+        return html`
+          <div class="form-checkbox">
+            <input
+              type="checkbox"
+              id="setting-${setting.id}"
+              ?checked=${value}
+              @change=${(e: Event) => this._updateSetting(setting.id, (e.target as HTMLInputElement).checked)}
+            />
+            <label for="setting-${setting.id}">${setting.display_name}</label>
+          </div>
+        `;
+
+      case "select":
+        return html`
+          <select
+            id="setting-${setting.id}"
+            class="form-select"
+            .value=${String(value)}
+            @change=${(e: Event) => this._updateSetting(setting.id, (e.target as HTMLInputElement).value)}
+          >
+            ${setting.options?.map(
+              (opt) => html` <option value=${opt.value} ?selected=${value === opt.value}>${opt.label}</option> `,
+            )}
+          </select>
+        `;
+
+      case "number":
+        return html`
+          <input
+            type="number"
+            id="setting-${setting.id}"
+            class="form-input"
+            .value=${String(value || "")}
+            ?required=${setting.required}
+            @change=${(e: Event) => this._updateSetting(setting.id, Number((e.target as HTMLInputElement).value))}
+          />
+        `;
+
+      case "string":
+      default:
+        return html`
+          <input
+            type="text"
+            id="setting-${setting.id}"
+            class="form-input"
+            .value=${String(value || "")}
+            ?required=${setting.required}
+            @change=${(e: Event) => this._updateSetting(setting.id, (e.target as HTMLInputElement).value)}
+          />
+        `;
+    }
   }
 
   render() {
-    return html`
-      <button
-        class="burger"
-        @click=${() => {
-          this._menuOpen = !this._menuOpen;
-        }}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <line x1="3" y1="12" x2="21" y2="12" />
-          <line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-        ${this._displayName()}
-      </button>
-      ${this._menuOpen
-        ? html`
-            <div
-              class="menu-overlay"
-              @click=${() => {
-                this._menuOpen = false;
-              }}
-            ></div>
-            <div class="menu-panel">
-              ${SETTINGS_NAV_ITEMS.map(
-                (item) => html`
-                  <a
-                    href="/settings/${item.id}"
-                    aria-selected=${this.activeKind === item.id}
-                    @click=${(e: MouseEvent) => {
-                      e.preventDefault();
-                      this._switchKind(item.id);
-                    }}
-                    >${item.label}</a
-                  >
-                `,
-              )}
-              <span class="sidebar-section">Plugins</span>
-              ${this._pluginKinds.map(
-                ({ id, label }) => html`
-                  <a
-                    href="/settings/${id}"
-                    aria-selected=${this.activeKind === id}
-                    @click=${(e: MouseEvent) => {
-                      e.preventDefault();
-                      this._switchKind(id);
-                    }}
-                    >${label}</a
-                  >
-                `,
-              )}
-            </div>
-          `
-        : ""}
-      <shenas-page ?loading=${this._loading} loading-text="Loading plugins..." display-name="${this._displayName()}">
-        ${renderMessage(this._actionMessage)}
-        ${this.activeKind === "profile"
-          ? this._renderProfile()
-          : this.activeKind === "categories"
-            ? html`<shenas-categories api-base="${this.apiBase}"></shenas-categories>`
-            : this.activeKind === "hotkeys"
-              ? html`<shenas-hotkeys api-base="${this.apiBase}" .actions=${this.allActions || []}></shenas-hotkeys>`
-              : this._renderKind(this.activeKind)}
-      </shenas-page>
-    `;
-  }
-
-  _renderProfile() {
-    const user = this.remoteUser;
-    const name = user ? (user.name as string) || (user.email as string) || "" : "";
-    const email = user ? (user.email as string) || "" : "";
-
-    const multiuserSection = html`
-      <div class="profile-row">
-        <div>
-          <span class="profile-label">Multi-user mode</span>
-          <span
-            class="profile-value"
-            style="font-size:0.8rem;color:var(--shenas-text-muted,#888);display:block;margin-top:2px"
-          >
-            Enable multiple local users on this device
-          </span>
-        </div>
-        <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer">
-          <input
-            type="checkbox"
-            ?checked=${this.multiuserEnabled}
-            @change=${(e: Event) => {
-              const enabled = (e.target as HTMLInputElement).checked;
-              if (this.onMultiuserToggle) this.onMultiuserToggle(enabled);
-            }}
-          />
-          ${this.multiuserEnabled ? "On" : "Off"}
-        </label>
-      </div>
-      ${this.multiuserEnabled && this.localUser
-        ? html`
-            <div class="profile-row">
-              <div>
-                <span class="profile-label">Local user</span>
-                <span class="profile-value">${this.localUser.username}</span>
-              </div>
-              <button
-                @click=${() => {
-                  if (this.onSwitchUser) this.onSwitchUser();
-                }}
-              >
-                Switch User
-              </button>
-            </div>
-          `
-        : ""}
-    `;
-
-    if (!user) {
+    if (this._loading) {
       return html`
-        <div class="profile">
-          ${multiuserSection}
-          <p>You are not signed in to shenas.net.</p>
-          <button @click=${() => (window.location.href = "/api/auth/login")}>Sign in with shenas.net</button>
+        <div class="container">
+          <div class="empty-state">Loading settings...</div>
         </div>
       `;
     }
+
     return html`
-      <div class="profile">
-        ${multiuserSection}
-        <div class="profile-row">
-          <span class="profile-label">Name</span>
-          <span class="profile-value">${name}</span>
+      <div class="container">
+        ${this._message ? renderMessage(this._message) : ""}
+        ${this._changedSettings.size > 0 ? html`<div class="unsaved-indicator">You have unsaved changes</div>` : ""}
+
+        <div class="page-header">
+          <h1 class="page-title">Settings</h1>
+          <p class="page-description">Configure application preferences and options</p>
         </div>
-        ${email && email !== name
-          ? html`<div class="profile-row">
-              <span class="profile-label">Email</span>
-              <span class="profile-value">${email}</span>
-            </div>`
+
+        ${this._categories.length === 0
+          ? html`<div class="empty-state">No settings available</div>`
+          : html`
+              <div class="settings-grid">
+                ${this._categories.map(
+                  (category) => html`
+                    <div class="category">
+                      <div
+                        class="category-header ${this._expandedCategories.has(category.id) ? "expanded" : ""}"
+                        @click=${() => this._toggleCategory(category.id)}
+                      >
+                        <div>
+                          <div class="category-title">${category.name}</div>
+                          ${category.description
+                            ? html`<div class="category-description">${category.description}</div>`
+                            : ""}
+                        </div>
+                        <div class="category-toggle ${this._expandedCategories.has(category.id) ? "expanded" : ""}">
+                          ▼
+                        </div>
+                      </div>
+                      <div class="category-content ${this._expandedCategories.has(category.id) ? "expanded" : ""}">
+                        <form class="settings-form">
+                          ${category.settings.map(
+                            (setting) => html`
+                              <div class="form-group">
+                                ${setting.type !== "boolean"
+                                  ? html`
+                                      <label
+                                        for="setting-${setting.id}"
+                                        class="form-label ${setting.required ? "required" : ""}"
+                                      >
+                                        ${setting.display_name}
+                                      </label>
+                                    `
+                                  : ""}
+                                ${this._renderSettingInput(setting)}
+                                ${setting.description ? html`<p class="form-help">${setting.description}</p>` : ""}
+                              </div>
+                            `,
+                          )}
+                        </form>
+                      </div>
+                    </div>
+                  `,
+                )}
+              </div>
+            `}
+        ${this._categories.length > 0
+          ? html`
+              <div class="action-bar">
+                <button
+                  @click=${() => this._resetSettings()}
+                  ?disabled=${this._changedSettings.size === 0 || this._saving}
+                  class="btn-secondary"
+                >
+                  Reset
+                </button>
+                <button
+                  @click=${() => this._saveSettings()}
+                  ?disabled=${this._changedSettings.size === 0 || this._saving}
+                  class="btn-primary"
+                >
+                  ${this._saving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            `
           : ""}
-        <div class="profile-row">
-          <span class="profile-label">Device</span>
-          <span class="profile-value">
-            <span class="device-dot connected"></span>
-            ${this.deviceName || "this device"}
-          </span>
-        </div>
-        <div class="profile-actions">
-          <button @click=${() => openExternal("https://shenas.net/dashboard")}>Dashboard</button>
-          <button class="danger" @click=${() => (window.location.href = "/api/auth/logout")}>Logout</button>
-        </div>
       </div>
-    `;
-  }
-
-  _formatFreq(m: number): string {
-    if (m >= 1440 && m % 1440 === 0) return `${m / 1440}d`;
-    if (m >= 60 && m % 60 === 0) return `${m / 60}h`;
-    if (m >= 1) return `${m}m`;
-    return `${m * 60}s`;
-  }
-
-  _renderKind(kind: string) {
-    const plugins = this._plugins[kind] || [];
-    const label = PLUGIN_KINDS.find((k) => k.id === kind)?.label || kind;
-    return html`
-      <h3>${label}</h3>
-      <shenas-data-list
-        .columns=${[
-          {
-            label: "Name",
-            render: (p: PluginSummary) => html`<a href="/settings/${kind}/${p.name}">${p.displayName || p.name}</a>`,
-          },
-          ...(kind === "source"
-            ? [
-                {
-                  label: "Data",
-                  render: (p: PluginSummary) => {
-                    const s = this._schemaStats[p.name];
-                    if (!s || !s.totalRows) return html`<span class="muted">--</span>`;
-                    const rows =
-                      s.totalRows >= 1_000_000
-                        ? `${(s.totalRows / 1_000_000).toFixed(1)}M`
-                        : s.totalRows >= 1_000
-                          ? `${(s.totalRows / 1_000).toFixed(1)}k`
-                          : `${s.totalRows}`;
-                    const range =
-                      s.earliest && s.latest ? `${s.earliest.slice(0, 10)} -- ${s.latest.slice(0, 10)}` : "";
-                    return html`${rows}
-                    rows${range ? html`<br /><span class="muted" style="font-size:0.75rem">${range}</span>` : ""}`;
-                  },
-                },
-                {
-                  label: "Last Synced",
-                  class: "mono",
-                  render: (p: PluginSummary) => (p.syncedAt ? p.syncedAt.slice(0, 16).replace("T", " ") : "never"),
-                },
-              ]
-            : []),
-          {
-            label: "Status",
-            render: (p: PluginSummary) =>
-              p.hasAuth && p.isAuthenticated === false
-                ? html`<span style="color:var(--shenas-error,#c62828);font-size:0.8rem">Needs Auth</span>`
-                : html`<status-toggle
-                    ?enabled=${p.enabled !== false}
-                    toggleable
-                    @toggle=${() => this._togglePlugin(kind, p.name, p.enabled !== false)}
-                  ></status-toggle>`,
-          },
-        ]}
-        .rows=${plugins}
-        .rowClass=${(p: PluginSummary) => (p.enabled === false ? "disabled-row" : "")}
-        ?show-add=${!this._installing}
-        @add=${() => this._startInstall(kind)}
-        empty-text="No ${label.toLowerCase()} added"
-      ></shenas-data-list>
-      ${this._installing
-        ? html`<shenas-form-panel
-            title="Add ${label.slice(0, -1)}"
-            submit-label="Add"
-            @submit=${() => this._install(kind)}
-            @cancel=${() => {
-              this._installing = false;
-            }}
-          >
-            <div class="field">
-              ${this._availablePlugins === null
-                ? html`<span style="color:var(--shenas-text-muted)">Loading available plugins...</span>`
-                : this._availablePlugins.length === 0
-                  ? html`<span style="color:var(--shenas-text-muted)">No new ${label.toLowerCase()} available</span>`
-                  : html`<select
-                      @change=${(e: Event) => {
-                        this._selectedPlugin = (e.target as HTMLSelectElement).value;
-                      }}
-                      style="width:100%;padding:0.5rem;border:1px solid var(--shenas-border-input,#ddd);border-radius:6px;font-size:0.9rem"
-                    >
-                      <option value="">Select a ${label.slice(0, -1).toLowerCase()}...</option>
-                      ${this._availablePlugins.map(
-                        (n) => html`<option value=${n}>${this._displayPluginName(n)}</option>`,
-                      )}
-                    </select>`}
-            </div>
-          </shenas-form-panel>`
-        : ""}
     `;
   }
 }
 
 customElements.define("shenas-settings", SettingsPage);
+export { SettingsPage };

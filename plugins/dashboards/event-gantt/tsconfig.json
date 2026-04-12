@@ -1,4 +1,9 @@
 {
   "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "shenas-frontends": ["../../../app/vendor/src/shenas-frontends/dashboard.ts"]
+    }
+  },
   "include": ["src/**/*.ts"]
 }

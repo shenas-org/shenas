@@ -1,0 +1,25 @@
+[project]
+name = "shenas-source-claude-code"
+dynamic = ["version"]
+description = "Claude Code usage history (prompts, turns) dlt connector for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "shenas-source-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.sources"]
+claude_code = "shenas_sources.claude_code.source:ClaudeCodeSource"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-claude-code/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-claude-code/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]

@@ -7,7 +7,7 @@ globalThis.fetch = vi.fn().mockResolvedValue({
   json: () => Promise.resolve([]),
 }) as unknown as typeof fetch;
 
-import { categoryColor, formatTime, formatDate, dayKey } from "../event-gantt.ts";
+import { categoryColor, formatTime, formatDate, dayKey } from "shenas-frontends";
 import "../event-gantt.ts";
 
 describe("categoryColor", () => {
