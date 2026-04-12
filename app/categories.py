@@ -69,23 +69,7 @@ class Category(Table):
         for i, v in enumerate(values):
             self.add_value(v["value"], sort_order=v.get("sortOrder", i), color=v.get("color"))
 
-    # -- CRUD --
-
-    @classmethod
-    def create(cls, category_id: str, display_name: str, description: str = "", values: list[dict] | None = None) -> Category:
-        cat = cls(id=category_id, display_name=display_name, description=description)
-        cat.insert()
-        if values:
-            for i, v in enumerate(values):
-                cat.add_value(v["value"], sort_order=v.get("sortOrder", i), color=v.get("color"))
-        return cat
-
-    def update(self, *, display_name: str | None = None, description: str | None = None) -> None:
-        if display_name is not None:
-            self.display_name = display_name
-        if description is not None:
-            self.description = description
-        self.save()
+    # -- lifecycle --
 
     def destroy(self) -> None:
         """Delete this category and all its values."""

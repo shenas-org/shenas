@@ -212,7 +212,8 @@ class Mutation:
 
     @strawberry.mutation
     def create_category_set(self, set_id: str, display_name: str, description: str = "") -> CategorySetType:
-        c = Category.create(category_id=set_id, display_name=display_name, description=description)
+        c = Category(id=set_id, display_name=display_name, description=description)
+        c.insert()
         return _category_to_gql(c)
 
     @strawberry.mutation
@@ -222,7 +223,11 @@ class Mutation:
         c = Category.find(set_id)
         if not c:
             return None
-        c.update(display_name=display_name, description=description)
+        if display_name is not None:
+            c.display_name = display_name
+        if description is not None:
+            c.description = description
+        c.save()
         return _category_to_gql(c)
 
     @strawberry.mutation
