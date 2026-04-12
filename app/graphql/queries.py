@@ -696,7 +696,7 @@ class Query:
                 id=h.id,
                 question=h.question,
                 rationale=h.plan or "",
-                datasets_involved=(h.inputs or "").split(",") if h.inputs else [],
+                datasets_involved=(h.inputs or "").split(",") if h.inputs else [],  # ty: ignore[invalid-argument-type]
                 complexity=h.mode or "",
             )
             for h in Hypothesis.suggested()
