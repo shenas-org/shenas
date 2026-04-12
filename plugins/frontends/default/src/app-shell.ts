@@ -140,7 +140,7 @@ class ShenasApp extends LitElement {
     { path: "/", render: () => this._renderDynamicHome() },
     { path: "/flow", render: () => this._renderSettings("flow") },
     { path: "/catalog", render: () => this._renderCatalog() },
-    { path: "/settings", render: () => this._renderSettings("flow") },
+    { path: "/settings", render: () => this._renderSettings("profile") },
     {
       path: "/settings/:kind",
       render: (params: { [key: string]: string | undefined }) => this._renderSettings(params?.kind ?? ""),
@@ -709,6 +709,7 @@ class ShenasApp extends LitElement {
       this._inspectTable = null;
       this._inspectRows = null;
       this._rightOpen = true;
+      this._rightWidth = Math.max(this._rightWidth, 400);
     }) as unknown as EventListener);
     this.addEventListener("page-title", ((e: CustomEvent) => {
       if (this._activeTabId != null) {
