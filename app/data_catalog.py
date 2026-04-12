@@ -10,6 +10,7 @@ Replaces ``app.analytics_catalog``.
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import logging
 from dataclasses import dataclass, field
@@ -205,8 +206,7 @@ def _walk_sources() -> list[tuple[dict, str]]:
             tables_mod = importlib.import_module(f"shenas_sources.{src_cls.name}.tables")
         except ImportError:
             continue
-        for t in getattr(tables_mod, "TABLES", ()):
-            out.append((t.table_metadata(), src_cls.name))
+        out.extend((t.table_metadata(), src_cls.name) for t in getattr(tables_mod, "TABLES", ()))
     return out
 
 
@@ -218,16 +218,14 @@ def _walk_metrics() -> list[tuple[dict, str]]:
 
     out: list[tuple[dict, str]] = []
     for dataset_cls in _load_datasets():
-        for t in getattr(dataset_cls, "all_tables", ()):
-            out.append((t.table_metadata(), dataset_cls.name))
+        out.extend((t.table_metadata(), dataset_cls.name) for t in getattr(dataset_cls, "all_tables", ()))
     where = (
         "kind = 'dataset'"
         " AND (is_suggested IS NULL OR is_suggested = FALSE)"
         " AND metadata_json IS NOT NULL AND metadata_json != ''"
     )
     for pi in PluginInstance.all(where=where, order_by="name"):
-        for meta in Dataset.suggested_metadata(pi):
-            out.append((meta, pi.name))
+        out.extend((meta, pi.name) for meta in Dataset.suggested_metadata(pi))
     return out
 
 
@@ -277,7 +275,7 @@ class DataCatalog:
             except Exception:
                 pass
 
-    def list(
+    def list_resources(
         self,
         *,
         kind: str | None = None,
@@ -446,10 +444,8 @@ class DataCatalog:
             value=check.value,
             checked_at=check.checked_at,
         )
-        try:
+        with contextlib.suppress(Exception):
             result.insert()
-        except Exception:
-            pass
 
 
 # ---------------------------------------------------------------------------

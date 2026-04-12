@@ -349,7 +349,8 @@ class Query:
     ) -> list[DataResourceType]:
         from app.data_catalog import catalog
 
-        return [_resource_to_gql(r) for r in catalog().list(kind=kind, plugin=plugin, tags=tags, stale_only=stale_only)]
+        resources = catalog().list_resources(kind=kind, plugin=plugin, tags=tags, stale_only=stale_only)
+        return [_resource_to_gql(r) for r in resources]
 
     @strawberry.field
     def data_resource(self, resource_id: str) -> DataResourceType | None:

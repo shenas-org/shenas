@@ -1322,8 +1322,7 @@ class ShenasApp extends LitElement {
           </div>
           <nav class="nav">
             ${this._dashboards.map((c) => this._navItem(c.name, c.display_name || c.name, active))}
-            ${this._navItem("flow", "Flow", active)}
-            ${this._navItem("catalog", "Catalog", active)}
+            ${this._navItem("flow", "Flow", active)} ${this._navItem("catalog", "Catalog", active)}
             ${this._navItem("logs", "Logs", active)}
             <a
               class="nav-link settings-toggle"

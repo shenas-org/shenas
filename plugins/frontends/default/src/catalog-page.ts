@@ -372,9 +372,9 @@ class CatalogPage extends LitElement {
               label: "Name",
               render: (r: DataResource) =>
                 html`<a @click=${() => this._expand(r.id)} style="cursor:pointer;color:var(--shenas-link,#1a73e8)"
-                  >${r.displayName}</a
-                >
-                <span class="badge">${r.kind || "table"}</span>`,
+                    >${r.displayName}</a
+                  >
+                  <span class="badge">${r.kind || "table"}</span>`,
             },
             {
               label: "Plugin",
@@ -492,7 +492,9 @@ class CatalogPage extends LitElement {
               ${r.quality.latestChecks.map(
                 (c) => html`
                   <div>
-                    <span class="dot ${c.status === "pass" ? "dot-green" : c.status === "warn" ? "dot-yellow" : "dot-red"}"></span>
+                    <span
+                      class="dot ${c.status === "pass" ? "dot-green" : c.status === "warn" ? "dot-yellow" : "dot-red"}"
+                    ></span>
                     ${c.checkType}: ${c.message}
                     <span class="muted">${c.checkedAt.slice(0, 16)}</span>
                   </div>
@@ -525,7 +527,14 @@ class CatalogPage extends LitElement {
         <div class="actions">
           <button @click=${this._saveAnnotation}>Save</button>
           <button @click=${this._runChecks}>Run Checks</button>
-          <button @click=${() => { this._expanded = null; this._detail = null; }}>Close</button>
+          <button
+            @click=${() => {
+              this._expanded = null;
+              this._detail = null;
+            }}
+          >
+            Close
+          </button>
         </div>
       </div>
     `;
