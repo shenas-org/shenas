@@ -39,6 +39,18 @@ class _StubDB:
         pass
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _disable_otel_exporters() -> None:
+    """Prevent OTel background threads from writing to DuckDB during tests.
+
+    The DuckDB span/log exporters run in background threads and can segfault
+    when they access a connection concurrently with test fixture setup.
+    """
+    import os
+
+    os.environ["OTEL_SDK_DISABLED"] = "true"
+
+
 @pytest.fixture
 def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
     """In-memory DuckDB with system tables initialized."""
