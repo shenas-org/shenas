@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from shenas_plugins.core.static import StaticPlugin
+from shenas_plugins.core.static_plugin import StaticPlugin
 
 
 class Frontend(StaticPlugin):

@@ -22,8 +22,8 @@ from app.main import app
 @pytest.fixture
 def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
     """In-memory DuckDB with test data, attached as 'db' like the real server."""
-    import app.databases
     import app.database
+    import app.db
 
     con = duckdb.connect()
     con.execute("ATTACH ':memory:' AS db")
@@ -69,12 +69,12 @@ def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
 
 @pytest.fixture
 def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
-    import app.db as _db
+    import app.database as _database
 
     with (
-        patch("app.db.connect", return_value=test_con),
-        patch("app.api.query.cursor", side_effect=_db.cursor),
-        patch("app.api.db.cursor", side_effect=_db.cursor),
+        patch("app.database.connect", return_value=test_con),
+        patch("app.api.query.cursor", side_effect=_database.cursor),
+        patch("app.api.db.cursor", side_effect=_database.cursor),
     ):
         yield TestClient(app)
 
@@ -977,7 +977,7 @@ class TestGraphQLMutationsExtra:
         assert result["data"]["deleteConfigKey"]["ok"] is False
 
     def test_generate_db_key(self, client: TestClient) -> None:
-        with patch("app.db.generate_db_key", return_value="newkey"), patch("app.db.set_db_key") as mock_set:
+        with patch("app.database.generate_db_key", return_value="newkey"), patch("app.database.set_db_key") as mock_set:
             result = _gql(client, "mutation { generateDbKey { ok } }")
         assert result["data"]["generateDbKey"]["ok"] is True
         mock_set.assert_called_once_with("newkey")

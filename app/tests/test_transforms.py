@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 @pytest.fixture
 def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
     """Per-test isolated in-memory DuckDB with system tables."""
-    import app.databases
     import app.database
+    import app.db
 
     con = duckdb.connect(":memory:")
     con.execute("ATTACH ':memory:' AS db")

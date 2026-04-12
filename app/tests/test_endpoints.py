@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
-    import app.databases
     import app.database
+    import app.db
 
     con = duckdb.connect()
     con.execute("ATTACH ':memory:' AS db")

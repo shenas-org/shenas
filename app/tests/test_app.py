@@ -16,8 +16,8 @@ runner = CliRunner()
 @pytest.fixture
 def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
     """In-memory DuckDB with test data, attached as 'db' like the real server."""
-    import app.databases
     import app.database
+    import app.db
 
     con = duckdb.connect()
     con.execute("ATTACH ':memory:' AS db")
@@ -150,7 +150,7 @@ class TestGetActiveTheme:
 
         with (
             patch("shenas_themes.core.theme.Theme.load_all", return_value=[dark, light]),
-            patch("app.db.connect", return_value=test_con),
+            patch("app.database.connect", return_value=test_con),
         ):
             result = _get_active_theme()
         assert result is dark
@@ -162,7 +162,7 @@ class TestGetActiveTheme:
         other = self._make_theme("other")
         with (
             patch("shenas_themes.core.theme.Theme.load_all", return_value=[default, other]),
-            patch("app.db.connect", side_effect=Exception("no DB")),
+            patch("app.database.connect", side_effect=Exception("no DB")),
         ):
             result = _get_active_theme()
         assert result is default
@@ -174,7 +174,7 @@ class TestGetActiveTheme:
         app.state.default_theme = "nonexistent"
         with (
             patch("shenas_themes.core.theme.Theme.load_all", return_value=[custom]),
-            patch("app.db.connect", side_effect=Exception("no DB")),
+            patch("app.database.connect", side_effect=Exception("no DB")),
         ):
             result = _get_active_theme()
         assert result is custom
@@ -193,7 +193,7 @@ class TestGetActiveTheme:
         default = self._make_theme("default")
         with (
             patch("shenas_themes.core.theme.Theme.load_all", return_value=[default]),
-            patch("app.db.connect", side_effect=Exception("DB down")),
+            patch("app.database.connect", side_effect=Exception("DB down")),
         ):
             result = _get_active_theme()
         assert result is default
