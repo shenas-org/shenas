@@ -171,7 +171,7 @@ class TestSchemaPluginEndpoints:
         fake_dataset = MagicMock(name="fitness")
         fake_dataset.name = "fitness"
         fake_dataset.tables = {"daily_hrv", "daily_sleep"}
-        with patch("app.api.sources._load_datasets", return_value=[fake_dataset]):
+        with patch("shenas_datasets.core.dataset.Dataset.load_all", return_value=[fake_dataset]):
             result = api_db._load_schema_plugins()
         assert result == {"fitness": ["daily_hrv", "daily_sleep"]}
 

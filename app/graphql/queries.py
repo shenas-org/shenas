@@ -166,10 +166,10 @@ class Query:
 
     @strawberry.field
     def config_value(self, kind: str, name: str, key: str) -> str | None:
-        from app.api.sources import _load_plugin
+        from shenas_plugins.core.plugin import Plugin
 
         try:
-            cls = _load_plugin(kind, name)
+            cls = Plugin.load_by_name_and_kind(name, kind)
             if not cls:
                 return None
             val = cls().get_config_value(key)
@@ -217,13 +217,12 @@ class Query:
     @strawberry.field
     def plugin_kinds(self) -> JSON:
         """Return all discovered plugin kinds with display labels, ordered by label."""
-        from app.api.sources import _load_plugins
         from shenas_plugins.core.plugin import VALID_KINDS, Plugin
 
         plural_map: dict[str, str] = {}
         for kind in VALID_KINDS:
             try:
-                for cls in _load_plugins(kind, base=Plugin):
+                for cls in Plugin.load_by_kind(kind):
                     plural = getattr(cls, "display_name_plural", None)
                     if plural:
                         plural_map[kind] = plural
@@ -278,9 +277,9 @@ class Query:
 
     @strawberry.field
     def plugin_info(self, kind: str, name: str) -> JSON:
-        from app.api.sources import _load_plugin, _load_plugin_fresh
+        from shenas_plugins.core.plugin import Plugin
 
-        cls = _load_plugin(kind, name) or _load_plugin_fresh(kind, name)
+        cls = Plugin.load_by_name_and_kind(name, kind) or Plugin._load_fresh(kind, name)
         if not cls:
             return {"name": name, "kind": kind, "display_name": name.replace("-", " ").title()}  # ty: ignore[invalid-return-type]
         return cls().get_info()  # ty: ignore[invalid-return-type]
@@ -319,12 +318,11 @@ class Query:
 
     @strawberry.field
     def sync_schedule(self) -> list[ScheduleInfoType]:
-        from app.api.sources import _load_plugins
         from app.models import ScheduleInfo
         from shenas_sources.core.source import Source
 
         result = []
-        for cls in _load_plugins("source", base=Source, include_internal=False):
+        for cls in Source.load_all(include_internal=False):
             src = cls()
             freq = src.sync_frequency
             if freq is None:
@@ -496,11 +494,11 @@ class Query:
 
     @strawberry.field
     def dashboards(self) -> list[DashboardType]:
-        from app.api.sources import _load_dashboards
+        from shenas_dashboards.core import Dashboard
         from shenas_plugins.core.plugin import PluginInstance
 
         result = []
-        for c in _load_dashboards(include_internal=False):
+        for c in Dashboard.load_all(include_internal=False):
             inst = PluginInstance.find("dashboard", c.name)
             if inst is not None and not inst.enabled:
                 continue
@@ -555,12 +553,10 @@ class Query:
 
     @strawberry.field
     def models(self) -> list[ModelInfoType]:
-        from shenas_models.core import Model  # ty: ignore[unresolved-import]
-
-        from app.api.sources import _load_plugins
+        from shenas_models.core import Model
 
         result = []
-        for cls in _load_plugins("model", base=Model, include_internal=False):
+        for cls in Model.load_all(include_internal=False):
             info = cls().get_info()
             result.append(
                 ModelInfoType(
@@ -575,21 +571,21 @@ class Query:
 
     @strawberry.field
     def model_status(self, name: str) -> JSON:
-        from app.api.sources import _load_plugin
+        from shenas_models.core import Model
 
-        cls = _load_plugin("model", name)
+        cls = Model.load_by_name(name)
         if not cls:
             return {"name": name, "available": False, "round": None}  # ty: ignore[invalid-return-type]
-        return cls().training_status  # ty: ignore[unresolved-attribute]
+        return cls().training_status
 
     @strawberry.field
     def model_predict(self, name: str) -> JSON:
-        from app.api.sources import _load_plugin
+        from shenas_models.core import Model
 
-        cls = _load_plugin("model", name)
+        cls = Model.load_by_name(name)
         if not cls:
             return None  # ty: ignore[invalid-return-type]
-        return cls().predict()  # ty: ignore[unresolved-attribute]
+        return cls().predict()
 
     # -- Analytics catalog --
     #
@@ -617,10 +613,11 @@ class Query:
     @strawberry.field
     def analysis_modes(self) -> JSON:
         """Return metadata for all registered analysis modes."""
-        from app.api.sources import _discover_analyses
+        from shenas_analyses.core import Analysis
+
         from shenas_plugins.core.analytics.mode import list_modes
 
-        _discover_analyses()
+        Analysis.discover()
         return list_modes()  # ty: ignore[invalid-return-type]
 
     # -- Literature --

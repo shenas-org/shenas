@@ -383,12 +383,11 @@ class Source(Plugin):
         from shenas_transformers.core import Transformer
         from shenas_transformers.core.transform import Transform
 
-        from app.api.sources import _load_plugins
         from shenas_sources.core.db import connect
 
         con = connect()
 
-        for cls in _load_plugins("transformer", base=Transformer, include_internal=True):
+        for cls in Transformer.load_all():
             plugin = cls()
             inst = plugin.instance()
             if not inst or inst.enabled:

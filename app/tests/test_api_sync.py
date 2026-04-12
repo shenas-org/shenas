@@ -1,6 +1,6 @@
 """Tests for the sync API endpoints with SSE streaming."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -9,6 +9,9 @@ from app.tests.conftest import parse_sse
 from shenas_sources.core.source import Source
 
 client = TestClient(app)
+
+_LOAD_BY_NAME = "shenas_sources.core.source.Source.load_by_name"
+_LOAD_PLUGIN = "shenas_plugins.core.plugin.Plugin.load_by_name_and_kind"
 
 
 class _FakeSource(Source):
@@ -44,7 +47,7 @@ class TestSyncAll:
         pipe = _FakeSource(pipe_name="testpipe")
         with (
             patch("app.api.sync._installed_source_names", return_value=["testpipe"]),
-            patch("app.api.sync._load_source", return_value=pipe),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
         ):
             resp = client.post("/api/sync")
 
@@ -61,7 +64,7 @@ class TestSyncAll:
         pipe = _FakeSource(failing_sync, pipe_name="badpipe")
         with (
             patch("app.api.sync._installed_source_names", return_value=["badpipe"]),
-            patch("app.api.sync._load_source", return_value=pipe),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
         ):
             resp = client.post("/api/sync")
 
@@ -75,7 +78,7 @@ class TestSyncSource:
         pipe = _FakeSource(pipe_name="garmin")
         with (
             patch("app.api.sync._installed_source_names", return_value=["garmin"]),
-            patch("app.api.sync._load_source", return_value=pipe),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
         ):
             resp = client.post("/api/sync/garmin")
 
@@ -97,7 +100,7 @@ class TestSyncSource:
         pipe = _FakeSource(sync_fn, pipe_name="garmin")
         with (
             patch("app.api.sync._installed_source_names", return_value=["garmin"]),
-            patch("app.api.sync._load_source", return_value=pipe),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
         ):
             resp = client.post("/api/sync/garmin", json={"full_refresh": True})
 
@@ -111,7 +114,7 @@ class TestSyncSource:
         pipe = _FakeSource(failing_sync, pipe_name="garmin")
         with (
             patch("app.api.sync._installed_source_names", return_value=["garmin"]),
-            patch("app.api.sync._load_source", return_value=pipe),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
         ):
             resp = client.post("/api/sync/garmin")
 
@@ -124,7 +127,7 @@ class TestSyncSource:
         pipe.acquire_sync_lock = lambda: False  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         with (
             patch("app.api.sync._installed_source_names", return_value=["garmin"]),
-            patch("app.api.sync._load_source", return_value=pipe),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
         ):
             resp = client.post("/api/sync/garmin")
         assert resp.status_code == 409
@@ -173,7 +176,7 @@ class TestSseStreamCarriesJobId:
         pipe = _FakeSource(pipe_name="garmin")
         with (
             patch("app.api.sync._installed_source_names", return_value=["garmin"]),
-            patch("app.api.sync._load_source", return_value=pipe),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
         ):
             resp = client.post("/api/sync/garmin")
         assert resp.status_code == 200
@@ -210,7 +213,7 @@ class TestInstalledPipeNames:
 
         with (
             patch("app.api.sync.subprocess.run", return_value=mock_result),
-            patch("app.api.sources._load_plugin", return_value=_FakeCls),
+            patch(_LOAD_PLUGIN, return_value=_FakeCls),
             patch("shenas_plugins.core.plugin.PluginInstance.find", return_value=_FakeInstance()),
         ):
             names = _installed_source_names()
@@ -246,7 +249,7 @@ class TestInstalledPipeNames:
 
         with (
             patch("app.api.sync.subprocess.run", return_value=mock_result),
-            patch("app.api.sources._load_plugin", return_value=_FakeCls),
+            patch(_LOAD_PLUGIN, return_value=_FakeCls),
             patch("shenas_plugins.core.plugin.PluginInstance.find", return_value=_FakeInstance()),
         ):
             names = _installed_source_names()
@@ -270,7 +273,7 @@ class TestInstalledPipeNames:
 
         with (
             patch("app.api.sync.subprocess.run", return_value=mock_result),
-            patch("app.api.sources._load_plugin", return_value=_FakeCls),
+            patch(_LOAD_PLUGIN, return_value=_FakeCls),
         ):
             names = _installed_source_names()
         assert names == []
@@ -286,7 +289,7 @@ class TestInstalledPipeNames:
 
         with (
             patch("app.api.sync.subprocess.run", return_value=mock_result),
-            patch("app.api.sources._load_plugin", return_value=None),
+            patch(_LOAD_PLUGIN, return_value=None),
         ):
             names = _installed_source_names()
         assert names == []
@@ -298,7 +301,7 @@ class TestSyncAllLockSkip:
         pipe.acquire_sync_lock = lambda: False  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         with (
             patch("app.api.sync._installed_source_names", return_value=["locked"]),
-            patch("app.api.sync._load_source", return_value=pipe),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
         ):
             resp = client.post("/api/sync")
 
@@ -312,7 +315,7 @@ class TestSyncAllLockSkip:
     def test_sync_all_reports_load_error(self) -> None:
         with (
             patch("app.api.sync._installed_source_names", return_value=["broken"]),
-            patch("app.api.sync._load_source", side_effect=ValueError("Source not found: broken")),
+            patch(_LOAD_BY_NAME, side_effect=ValueError("Source not found: broken")),
         ):
             resp = client.post("/api/sync")
 

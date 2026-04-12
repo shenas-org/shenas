@@ -121,12 +121,11 @@ def _bootstrap_shenas_db(con: duckdb.DuckDBPyConnection) -> None:
     # Seed PluginInstance rows for all discovered plugins so they appear
     # in the UI with the correct default enabled state on first startup.
     try:
-        from app.api.sources import _load_plugins
         from shenas_plugins.core.plugin import VALID_KINDS, Plugin
 
         for kind in VALID_KINDS:
             try:
-                for cls in _load_plugins(kind, base=Plugin):
+                for cls in Plugin.load_by_kind(kind):
                     if cls.internal:
                         continue
                     row = con.execute(

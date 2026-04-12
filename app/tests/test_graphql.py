@@ -260,15 +260,15 @@ class TestGraphQLQueries:
             "kind": "source",
             "display_name": "Garmin Connect",
         }
-        with patch("app.api.sources._load_plugin", return_value=mock_cls):
+        with patch("shenas_plugins.core.plugin.Plugin.load_by_name_and_kind", return_value=mock_cls):
             result = _gql(client, '{ pluginInfo(kind: "source", name: "garmin") }')
         assert "errors" not in result
         assert result["data"]["pluginInfo"]["name"] == "garmin"
 
     def test_plugin_info_not_found(self, client: TestClient) -> None:
         with (
-            patch("app.api.sources._load_plugin", return_value=None),
-            patch("app.api.sources._load_plugin_fresh", return_value=None),
+            patch("shenas_plugins.core.plugin.Plugin.load_by_name_and_kind", return_value=None),
+            patch("shenas_plugins.core.plugin.Plugin._load_fresh", return_value=None),
         ):
             result = _gql(client, '{ pluginInfo(kind: "source", name: "nonexistent") }')
         assert "errors" not in result
@@ -296,7 +296,7 @@ class TestGraphQLQueries:
         mock_cls.entrypoint = "index.js"
         mock_cls.description = "Charts"
         mock_cls.return_value.enabled = True
-        with patch("app.api.sources._load_dashboards", return_value=[mock_cls]):
+        with patch("shenas_dashboards.core.Dashboard.load_all", return_value=[mock_cls]):
             result = _gql(client, "{ dashboards { name displayName tag js description } }")
         assert "errors" not in result
         dashboards = result["data"]["dashboards"]
@@ -316,7 +316,7 @@ class TestGraphQLQueries:
             enabled = False
 
         with (
-            patch("app.api.sources._load_dashboards", return_value=[mock_cls]),
+            patch("shenas_dashboards.core.Dashboard.load_all", return_value=[mock_cls]),
             patch("shenas_plugins.core.plugin.PluginInstance.find", return_value=_DisabledInstance()),
         ):
             result = _gql(client, "{ dashboards { name displayName tag js description } }")
@@ -324,37 +324,39 @@ class TestGraphQLQueries:
         assert result["data"]["dashboards"] == []
 
     def test_sync_schedule_empty(self, client: TestClient) -> None:
-        with patch("app.api.sources._load_plugins", return_value=[]):
+        with patch("shenas_sources.core.source.Source.load_all", return_value=[]):
             result = _gql(client, "{ syncSchedule { name syncFrequency isDue } }")
         assert "errors" not in result
         assert result["data"]["syncSchedule"] == []
 
     def test_catalog_empty_when_no_plugins(self, client: TestClient) -> None:
-        with (
-            patch("app.api.sources._load_plugins", return_value=[]),
-            patch("app.api.sources._load_datasets", return_value=[]),
-        ):
-            result = _gql(client, "{ catalog { id displayName kind } }")
+        with patch("app.data_catalog.walk_catalog", return_value=[]):
+            result = _gql(client, "{ catalog }")
         assert "errors" not in result
         assert result["data"]["catalog"] == []
 
     def test_catalog_returns_dataset_metadata(self, client: TestClient) -> None:
-        fake_dataset = MagicMock()
-        fake_dataset.name = "test-dataset"
-        fake_dataset.display_name = "Test Dataset"
-        fake_dataset.description = ""
-        fake_dataset.all_tables = [_CatalogMood]
-        fake_dataset.return_value = fake_dataset
-        with (
-            patch("app.api.sources._load_plugins", return_value=[]),
-            patch("app.api.sources._load_datasets", return_value=[fake_dataset]),
-        ):
-            result = _gql(client, "{ catalog { id displayName kind } }")
+        fake_catalog = [
+            {
+                "table": "daily_mood_test",
+                "schema": "metrics",
+                "primary_key": ["date", "source"],
+                "kind": "daily_metric",
+                "query_hint": "SELECT * FROM metrics.daily_mood_test",
+                "columns": [
+                    {"name": "date", "db_type": "DATE", "description": "Calendar date"},
+                    {"name": "source", "db_type": "VARCHAR", "description": "Source"},
+                    {"name": "mood", "db_type": "DOUBLE", "description": "Mood 1-10"},
+                ],
+            }
+        ]
+        with patch("app.data_catalog.walk_catalog", return_value=fake_catalog):
+            result = _gql(client, "{ catalog }")
         assert "errors" not in result
         catalog = result["data"]["catalog"]
         assert len(catalog) == 1
         entry = catalog[0]
-        assert entry["id"] == "metrics.daily_mood_test"
+        assert entry["table"] == "daily_mood_test"
         assert entry["kind"] == "daily_metric"
 
     def test_sync_schedule_with_data(self, client: TestClient) -> None:
@@ -372,7 +374,7 @@ class TestGraphQLQueries:
             synced_at = "2026-03-15 10:00:00"
 
         with (
-            patch("app.api.sources._load_plugins", return_value=[FakeSource]),
+            patch("shenas_sources.core.source.Source.load_all", return_value=[FakeSource]),
             patch.object(FakeSource, "sync_frequency", new_callable=lambda: property(lambda self: 60)),
             patch.object(FakeSource, "instance", return_value=_FakeInstance()),
             patch.object(FakeSource, "is_due_for_sync", new_callable=lambda: property(lambda self: True)),
@@ -823,15 +825,10 @@ class TestGraphQLMutations:
         assert result["data"]["disableTransform"] is None
 
     def test_enable_plugin(self, client: TestClient) -> None:
-        class FakePlugin:
-            def enable(self):
-                return "enabled"
-
-        with patch("app.api.sources._load_plugin", return_value=FakePlugin):
-            result = _gql(
-                client,
-                'mutation { enablePlugin(kind: "source", name: "garmin") { ok } }',
-            )
+        result = _gql(
+            client,
+            'mutation { enablePlugin(kind: "source", name: "garmin") { ok } }',
+        )
         assert "errors" not in result
         assert result["data"]["enablePlugin"]["ok"] is True
 
@@ -879,13 +876,13 @@ class TestGraphQLMutations:
             def get_config_value(self, key):
                 return "2024-01-01" if key == "start_date" else None
 
-        with patch("app.api.sources._load_plugin", return_value=FakePlugin):
+        with patch("shenas_plugins.core.plugin.Plugin.load_by_name_and_kind", return_value=FakePlugin):
             result = _gql(client, '{ configValue(kind: "source", name: "garmin", key: "start_date") }')
         assert "errors" not in result
         assert result["data"]["configValue"] == "2024-01-01"
 
     def test_config_value_query_not_found(self, client: TestClient) -> None:
-        with patch("app.api.sources._load_plugin", return_value=None):
+        with patch("shenas_plugins.core.plugin.Plugin.load_by_name_and_kind", return_value=None):
             result = _gql(client, '{ configValue(kind: "source", name: "garmin", key: "missing") }')
         assert "errors" not in result
         assert result["data"]["configValue"] is None
@@ -897,7 +894,8 @@ class TestGraphQLMutationsExtra:
     def test_authenticate(self, client: TestClient) -> None:
         fake_source = MagicMock()
         fake_source.handle_auth.return_value = {"ok": True, "needs_mfa": False, "auth_url": None, "message": "logged in"}
-        with patch("app.api.sources._load_source", return_value=fake_source):
+        fake_cls = MagicMock(return_value=fake_source)
+        with patch("shenas_sources.core.source.Source.load_by_name", return_value=fake_cls):
             result = _gql(
                 client,
                 'mutation { authenticate(pipe: "garmin", credentials: {username: "u", password: "p"}) { ok message } }',
@@ -910,7 +908,7 @@ class TestGraphQLMutationsExtra:
     def test_set_config_success(self, client: TestClient) -> None:
         fake_plugin = MagicMock()
         fake_cls = MagicMock(return_value=fake_plugin)
-        with patch("app.api.sources._load_plugin", return_value=fake_cls):
+        with patch("shenas_plugins.core.plugin.Plugin.load_by_name_and_kind", return_value=fake_cls):
             result = _gql(
                 client,
                 'mutation { setConfig(kind: "source", name: "garmin", key: "k", value: "v") { ok } }',
@@ -920,7 +918,7 @@ class TestGraphQLMutationsExtra:
         fake_plugin.set_config_value.assert_called_once_with("k", "v")
 
     def test_set_config_plugin_not_found(self, client: TestClient) -> None:
-        with patch("app.api.sources._load_plugin", return_value=None):
+        with patch("shenas_plugins.core.plugin.Plugin.load_by_name_and_kind", return_value=None):
             result = _gql(
                 client,
                 'mutation { setConfig(kind: "source", name: "missing", key: "k", value: "v") { ok message } }',
@@ -931,20 +929,20 @@ class TestGraphQLMutationsExtra:
     def test_delete_config_success(self, client: TestClient) -> None:
         fake_plugin = MagicMock()
         fake_cls = MagicMock(return_value=fake_plugin)
-        with patch("app.api.sources._load_plugin", return_value=fake_cls):
+        with patch("shenas_plugins.core.plugin.Plugin.load_by_name_and_kind", return_value=fake_cls):
             result = _gql(client, 'mutation { deleteConfig(kind: "source", name: "garmin") { ok } }')
         assert result["data"]["deleteConfig"]["ok"] is True
         fake_plugin.delete_config.assert_called_once()
 
     def test_delete_config_plugin_not_found(self, client: TestClient) -> None:
-        with patch("app.api.sources._load_plugin", return_value=None):
+        with patch("shenas_plugins.core.plugin.Plugin.load_by_name_and_kind", return_value=None):
             result = _gql(client, 'mutation { deleteConfig(kind: "source", name: "missing") { ok message } }')
         assert result["data"]["deleteConfig"]["ok"] is False
 
     def test_delete_config_key_success(self, client: TestClient) -> None:
         fake_plugin = MagicMock()
         fake_cls = MagicMock(return_value=fake_plugin)
-        with patch("app.api.sources._load_plugin", return_value=fake_cls):
+        with patch("shenas_plugins.core.plugin.Plugin.load_by_name_and_kind", return_value=fake_cls):
             result = _gql(
                 client,
                 'mutation { deleteConfigKey(kind: "source", name: "garmin", key: "k") { ok } }',
@@ -953,7 +951,7 @@ class TestGraphQLMutationsExtra:
         fake_plugin.set_config_value.assert_called_once_with("k", None)
 
     def test_delete_config_key_plugin_not_found(self, client: TestClient) -> None:
-        with patch("app.api.sources._load_plugin", return_value=None):
+        with patch("shenas_plugins.core.plugin.Plugin.load_by_name_and_kind", return_value=None):
             result = _gql(
                 client,
                 'mutation { deleteConfigKey(kind: "source", name: "missing", key: "k") { ok message } }',
@@ -1005,11 +1003,10 @@ class TestGraphQLMutationsExtra:
         assert result["data"]["enablePlugin"]["ok"] is True
 
     def test_disable_plugin_not_found(self, client: TestClient) -> None:
-        with patch("app.api.sources._load_plugin", return_value=None):
-            result = _gql(
-                client,
-                'mutation { disablePlugin(kind: "source", name: "missing") { ok message } }',
-            )
+        result = _gql(
+            client,
+            'mutation { disablePlugin(kind: "source", name: "missing") { ok message } }',
+        )
         assert result["data"]["disablePlugin"]["ok"] is False
 
     def test_seed_transforms(self, client: TestClient) -> None:
@@ -1021,7 +1018,7 @@ class TestGraphQLMutationsExtra:
         fake_plugin_cls.return_value = fake_plugin_instance
         with (
             patch("app.graphql.mutations._source_entry_point_names", return_value=["garmin"]),
-            patch("app.api.sources._load_plugins", return_value=[fake_plugin_cls]),
+            patch("shenas_transformers.core.Transformer.load_all", return_value=[fake_plugin_cls]),
         ):
             result = _gql(client, "mutation { seedTransforms { seeded count } }")
         assert "errors" not in result
@@ -1032,7 +1029,7 @@ class TestGraphQLMutationsExtra:
     def test_seed_transforms_no_sources(self, client: TestClient) -> None:
         with (
             patch("app.graphql.mutations._source_entry_point_names", return_value=[]),
-            patch("app.api.sources._load_plugins", return_value=[]),
+            patch("shenas_transformers.core.Transformer.load_all", return_value=[]),
         ):
             result = _gql(client, "mutation { seedTransforms { seeded count } }")
         assert result["data"]["seedTransforms"]["count"] == 0

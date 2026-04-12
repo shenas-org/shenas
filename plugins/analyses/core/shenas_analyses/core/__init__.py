@@ -40,6 +40,7 @@ class Analysis(Plugin):
 
     _kind = "analysis"
     display_name_plural: ClassVar[str | None] = "Analyses"
+    _discovered: ClassVar[bool] = False
 
     mode_cls: ClassVar[type[AnalysisMode]]
     extra_operations: ClassVar[tuple[type[Operation], ...]] = ()
@@ -53,5 +54,24 @@ class Analysis(Plugin):
         if hasattr(cls, "mode_cls") and cls.mode_cls is not AnalysisMode:
             register_mode(cls.mode_cls())
 
+    @classmethod
+    def discover(cls) -> None:
+        """Load all analysis plugins via entry points.
+
+        Importing an analysis plugin class triggers ``__init_subclass__``
+        which auto-registers its mode and operations. Idempotent.
+        """
+        if cls._discovered:
+            return
+        cls._discovered = True
+        import contextlib
+        from importlib.metadata import entry_points
+
+        for ep in entry_points(group=Plugin._ep_group("analysis")):
+            with contextlib.suppress(Exception):
+                ep.load()
+
+
+Plugin._cache_clear_hooks.append(lambda: setattr(Analysis, "_discovered", False))
 
 __all__ = ["Analysis", "AnalysisMode", "Operation", "register_mode", "register_operation"]

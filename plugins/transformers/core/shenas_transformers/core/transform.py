@@ -329,8 +329,8 @@ def _get_device_id() -> str:
 
 def _get_transform_plugin(transform_type: str, cache: dict[str, Any]) -> Any:
     if transform_type not in cache:
-        from app.api.sources import _load_plugin
+        from shenas_transformers.core import Transformer
 
-        cls = _load_plugin("transformer", transform_type)
+        cls = Transformer.load_by_name(transform_type)
         cache[transform_type] = cls() if cls else None
     return cache[transform_type]
