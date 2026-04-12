@@ -48,8 +48,8 @@ def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
 
     stub = _StubDB()
     saved = dict(app.db._resolvers)
-    app.db._resolvers["shenas"] = lambda: stub  # type: ignore[assignment]
-    app.db._resolvers[None] = lambda: stub  # type: ignore[assignment]
+    app.db._resolvers["shenas"] = lambda: stub  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    app.db._resolvers[None] = lambda: stub  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     app.database._ensure_system_tables(con)
     yield con
     app.db._resolvers.clear()
@@ -59,7 +59,7 @@ def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
 
 @pytest.fixture
 def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
-    return TestClient(app)
+    return TestClient(app)  # ty: ignore[invalid-return-type]
 
 
 class TestSSEGenerators:

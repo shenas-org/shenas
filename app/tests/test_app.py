@@ -49,7 +49,7 @@ def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
 @pytest.fixture
 def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
     """Resolver is already wired by test_con; just yield the test client."""
-    return TestClient(app)
+    return TestClient(app)  # ty: ignore[invalid-return-type]
 
 
 class TestIndex:

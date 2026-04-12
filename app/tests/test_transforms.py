@@ -45,8 +45,8 @@ def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
 
     stub = _StubDB()
     saved = dict(app.db._resolvers)
-    app.db._resolvers["shenas"] = lambda: stub  # type: ignore[assignment]
-    app.db._resolvers[None] = lambda: stub  # type: ignore[assignment]
+    app.db._resolvers["shenas"] = lambda: stub  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    app.db._resolvers[None] = lambda: stub  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     app.database._ensure_system_tables(con)
     con.execute("CREATE SCHEMA IF NOT EXISTS metrics")
     yield con
@@ -58,7 +58,7 @@ def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
 @pytest.fixture(autouse=True)
 def patch_db(db_con: duckdb.DuckDBPyConnection) -> Iterator[None]:
     """Back-compat alias -- db_con already wires the resolvers."""
-    return
+    return  # ty: ignore[invalid-return-type]
 
 
 def _make(
