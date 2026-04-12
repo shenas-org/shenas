@@ -287,6 +287,14 @@ describe("shenas-settings", () => {
     expect(el.shadowRoot?.querySelector("shenas-categories")).toBeTruthy();
   });
 
+  it("renders profile section by default", async () => {
+    const el = mount();
+    el._loading = false;
+    await el.updateComplete;
+    expect(el.activeKind).toBe("profile");
+    expect(el.shadowRoot?.querySelector(".profile")).toBeTruthy();
+  });
+
   it("renders hotkeys component when activeKind=hotkeys", async () => {
     const el = mount();
     el._loading = false;
