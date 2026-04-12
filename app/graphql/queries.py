@@ -622,7 +622,7 @@ class Query:
     @strawberry.field
     def literature_findings(self, limit: int | None = None) -> list[FindingType]:
         """Return stored literature findings."""
-        from app.literature import Finding
+        from app.finding import Finding
 
         rows = Finding.all(order_by="id DESC", limit=limit)
         return [_finding_to_gql(f) for f in rows]
@@ -631,10 +631,10 @@ class Query:
     def suggested_hypotheses(self, limit: int = 10) -> list[HypothesisSuggestionType]:
         """Return proactive hypothesis suggestions from literature cross-referenced with installed data."""
         from app.data_catalog import catalog as get_catalog
-        from app.literature import suggest_hypotheses
+        from app.finding import Finding
 
         catalog = get_catalog().metadata_by_id()
-        suggestions = suggest_hypotheses(catalog, limit=limit)
+        suggestions = Finding.suggest_hypotheses(catalog, limit=limit)
         return [
             HypothesisSuggestionType(
                 question=s.question,

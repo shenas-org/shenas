@@ -84,9 +84,9 @@ class LocalUser(Table):
 
         import app.categories
         import app.data_catalog
+        import app.finding
         import app.hotkeys
         import app.hypotheses
-        import app.literature
         import app.recipe_cache
         import app.workspace  # noqa: F401
 

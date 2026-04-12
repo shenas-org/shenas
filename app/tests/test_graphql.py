@@ -69,10 +69,12 @@ def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
 
 @pytest.fixture
 def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
+    import app.db as _db
+
     with (
         patch("app.db.connect", return_value=test_con),
-        patch("app.api.query.cursor", side_effect=app.db.cursor),
-        patch("app.api.db.cursor", side_effect=app.db.cursor),
+        patch("app.api.query.cursor", side_effect=_db.cursor),
+        patch("app.api.db.cursor", side_effect=_db.cursor),
     ):
         yield TestClient(app)
 

@@ -41,7 +41,7 @@ def patch_db(db_con: duckdb.DuckDBPyConnection) -> Iterator[None]:
 
 
 def _make_finding(**overrides):
-    from app.literature import Finding
+    from app.finding import Finding
 
     defaults = {
         "exposure": "sleep_quality",
@@ -77,7 +77,7 @@ def test_insert_and_find():
 
 
 def test_all_returns_instances():
-    from app.literature import Finding
+    from app.finding import Finding
 
     _make_finding(exposure="a").insert()
     _make_finding(exposure="b").insert()
@@ -87,7 +87,7 @@ def test_all_returns_instances():
 
 
 def test_for_categories_matches_exposure():
-    from app.literature import Finding
+    from app.finding import Finding
 
     _make_finding(exposure_categories="sleep", outcome_categories="cardiovascular").insert()
     _make_finding(exposure_categories="activity", outcome_categories="wellbeing").insert()
@@ -98,7 +98,7 @@ def test_for_categories_matches_exposure():
 
 
 def test_for_categories_matches_outcome():
-    from app.literature import Finding
+    from app.finding import Finding
 
     _make_finding(exposure_categories="activity", outcome_categories="cardiovascular").insert()
     results = Finding.for_categories("cardiovascular")
@@ -106,7 +106,7 @@ def test_for_categories_matches_outcome():
 
 
 def test_for_categories_multiple():
-    from app.literature import Finding
+    from app.finding import Finding
 
     _make_finding(exposure_categories="sleep", outcome_categories="cardiovascular").insert()
     _make_finding(exposure_categories="activity", outcome_categories="wellbeing").insert()
@@ -117,13 +117,13 @@ def test_for_categories_multiple():
 
 
 def test_for_categories_empty():
-    from app.literature import Finding
+    from app.finding import Finding
 
     assert Finding.for_categories() == []
 
 
 def test_by_source_ref():
-    from app.literature import Finding
+    from app.finding import Finding
 
     _make_finding(source_ref="W12345").insert()
     found = Finding.by_source_ref("W12345")
@@ -154,7 +154,7 @@ def test_to_prompt_line_minimal():
 
 
 def test_extract_catalog_categories():
-    from app.literature import extract_catalog_categories
+    from app.finding import Finding
 
     catalog = {
         "metrics.daily_hrv": {
@@ -170,18 +170,18 @@ def test_extract_catalog_categories():
             ],
         },
     }
-    cats = extract_catalog_categories(catalog)
+    cats = Finding.extract_catalog_categories(catalog)
     assert cats == {"cardiovascular", "time", "sleep"}
 
 
 def test_extract_catalog_categories_empty():
-    from app.literature import extract_catalog_categories
+    from app.finding import Finding
 
-    assert extract_catalog_categories({}) == set()
+    assert Finding.extract_catalog_categories({}) == set()
 
 
 def test_suggest_hypotheses():
-    from app.literature import suggest_hypotheses
+    from app.finding import Finding
 
     _make_finding(
         exposure="sleep_quality",
@@ -208,7 +208,7 @@ def test_suggest_hypotheses():
         "metrics.daily_vitals": {"columns": [{"name": "steps", "category": "activity"}]},
         "metrics.daily_outcomes": {"columns": [{"name": "mood", "category": "wellbeing"}]},
     }
-    suggestions = suggest_hypotheses(catalog, limit=10)
+    suggestions = Finding.suggest_hypotheses(catalog, limit=10)
     assert len(suggestions) == 2
     # Meta-analysis should rank first
     assert suggestions[0].evidence_level == "meta_analysis"
@@ -217,7 +217,7 @@ def test_suggest_hypotheses():
 
 
 def test_suggest_hypotheses_filters_unavailable_data():
-    from app.literature import suggest_hypotheses
+    from app.finding import Finding
 
     _make_finding(
         exposure_categories="spending",
@@ -228,12 +228,12 @@ def test_suggest_hypotheses_filters_unavailable_data():
     catalog = {
         "metrics.daily_outcomes": {"columns": [{"name": "mood", "category": "wellbeing"}]},
     }
-    suggestions = suggest_hypotheses(catalog, limit=10)
+    suggestions = Finding.suggest_hypotheses(catalog, limit=10)
     assert len(suggestions) == 0
 
 
 def test_for_question():
-    from app.literature import Finding
+    from app.finding import Finding
 
     _make_finding(
         exposure="sleep_quality",

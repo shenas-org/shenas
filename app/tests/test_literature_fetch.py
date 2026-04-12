@@ -184,7 +184,7 @@ def test_refresh_findings_no_token():
 
 
 def test_refresh_findings_success():
-    from app.literature import Finding
+    from app.finding import Finding
     from app.literature_fetch import refresh_findings
 
     gateway_response = {
