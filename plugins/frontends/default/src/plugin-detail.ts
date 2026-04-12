@@ -409,7 +409,7 @@ class PluginDetail extends LitElement {
         }
       `;
 
-      const response = (await gql(`${this.apiBase}/api/graphql`, query, {
+      const response = (await gql(this.apiBase, query, {
         name: this.name,
         kind: this.kind,
       })) as { plugin?: Record<string, unknown> } | null;
@@ -433,7 +433,7 @@ class PluginDetail extends LitElement {
     try {
       const schema = `${this.name.replace(/[^a-z0-9_]/gi, "_")}`;
       const response = await gql(
-        `${this.apiBase}/api/graphql`,
+        this.apiBase,
         `query { dbStatus { schemas(name: "${schema}") { tables { name rows cols earliest latest } } } }`,
       );
 
@@ -449,7 +449,7 @@ class PluginDetail extends LitElement {
   private async _loadSchemaTransforms() {
     try {
       const response = await gql(
-        `${this.apiBase}/api/graphql`,
+        this.apiBase,
         `query { transforms(sourcePlugin: "${this.name}") { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable description enabled } }`,
       );
       const data = response as { transforms?: Record<string, unknown>[] } | null;
@@ -464,7 +464,7 @@ class PluginDetail extends LitElement {
     this._message = null;
     try {
       const response = await gqlFull(
-        `${this.apiBase}/api/graphql`,
+        this.apiBase,
         `mutation { syncPlugin(name: "${this.name}", kind: "${this.kind}") { success message synced_at } }`,
       );
 
@@ -495,7 +495,7 @@ class PluginDetail extends LitElement {
     this._transforming = true;
     try {
       const response = await gqlFull(
-        `${this.apiBase}/api/graphql`,
+        this.apiBase,
         `mutation { updateTransform(id: ${transformId}, enabled: ${!enabled}) { id enabled } }`,
       );
 
