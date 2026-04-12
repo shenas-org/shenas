@@ -1,5 +1,3 @@
-from shenas_plugins.core.base_auth import SourceAuth
-from shenas_plugins.core.base_config import SourceConfig
 from shenas_plugins.core.plugin import Plugin
 from shenas_plugins.core.static import StaticPlugin
 from shenas_plugins.core.table import DataResourceRef, Field, SingletonTable, Table
@@ -12,9 +10,6 @@ __all__ = [
     "Frontend",
     "Plugin",
     "SingletonTable",
-    "Source",
-    "SourceAuth",
-    "SourceConfig",
     "StaticPlugin",
     "Table",
     "Theme",

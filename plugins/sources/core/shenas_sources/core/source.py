@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING, Any, ClassVar
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
 
-from shenas_plugins.core.base_auth import SourceAuth
-from shenas_plugins.core.base_config import SourceConfig
 from shenas_plugins.core.plugin import Plugin
+from shenas_sources.core.base_auth import SourceAuth
+from shenas_sources.core.base_config import SourceConfig
 
 logger = logging.getLogger("shenas.sources")
 
