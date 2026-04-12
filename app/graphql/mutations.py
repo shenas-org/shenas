@@ -11,8 +11,6 @@ from app.graphql.queries import _data_resource_to_gql, _transform_to_gql
 from app.graphql.types import (
     AuthResponseType,
     CategorySetType,
-    SeedResultType,
-    TransformRunResultType,
     CategoryValueType,
     DataResourceAnnotationInput,
     DataResourceType,
@@ -20,7 +18,9 @@ from app.graphql.types import (
     OkType,
     QualityCheckType,
     RemoveResponseType,
+    SeedResultType,
     TransformCreateInput,
+    TransformRunResultType,
     TransformType,
 )
 

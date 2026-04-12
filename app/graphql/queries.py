@@ -11,6 +11,8 @@ from app.graphql.types import (
     AuthFieldsType,
     CategorySetType,
     CategoryValueType,
+    DashboardType,
+    DependencyEdge,
     ColumnInfoType,
     DataResourceType,
     DBStatusType,
@@ -18,17 +20,17 @@ from app.graphql.types import (
     FreshnessInfoType,
     HypothesisSuggestionType,
     HypothesisType,
+    ParamFieldType,
     PluginInfoType,
     QualityCheckType,
     QualityInfoType,
     ScheduleInfoType,
     SuggestedAnalysisType,
-    ParamFieldType,
     SuggestedDatasetType,
-    TransformerInfoType,
     TableEntry,
     ThemeInfo,
     TimeColumnsInfoType,
+    TransformerInfoType,
     TransformType,
 )
 
@@ -492,7 +494,7 @@ class Query:
         return Workspace.get()  # ty: ignore[invalid-return-type]
 
     @strawberry.field
-    def dashboards(self) -> JSON:
+    def dashboards(self) -> list[DashboardType]:
         from app.api.sources import _load_dashboards
         from shenas_plugins.core.plugin import PluginInstance
 
@@ -502,18 +504,18 @@ class Query:
             if inst is not None and not inst.enabled:
                 continue
             result.append(
-                {
-                    "name": c.name,
-                    "display_name": c.display_name,
-                    "tag": c.tag,
-                    "js": f"/dashboards/{c.name}/{c.entrypoint}",
-                    "description": c.description,
-                }
+                DashboardType(
+                    name=c.name,
+                    display_name=c.display_name,
+                    tag=c.tag,
+                    js=f"/dashboards/{c.name}/{c.entrypoint}",
+                    description=c.description,
+                )
             )
-        return result  # ty: ignore[invalid-return-type]
+        return result
 
     @strawberry.field
-    def dependencies(self) -> JSON:
+    def dependencies(self) -> list[DependencyEdge]:
         from importlib.metadata import distributions
 
         prefixes = {
@@ -546,7 +548,7 @@ class Query:
                         deps.append(f"{dep_kind}:{req_name.removeprefix(dep_prefix)}")
             if deps:
                 result[f"{kind}:{plugin_name}"] = deps
-        return result  # ty: ignore[invalid-return-type]
+        return [DependencyEdge(source=k, targets=v) for k, v in result.items()]
 
     # -- Models --
 

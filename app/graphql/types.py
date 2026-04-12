@@ -145,6 +145,24 @@ class TransformCreateInput:
     description: str = ""
 
 
+# -- Dashboard + Dependency types -----------------------------------------------
+
+
+@strawberry.type
+class DashboardType:
+    name: str
+    display_name: str
+    tag: str = ""
+    js: str = ""
+    description: str = ""
+
+
+@strawberry.type
+class DependencyEdge:
+    source: str
+    targets: list[str]
+
+
 # -- Hypothesis types ----------------------------------------------------------
 
 

@@ -297,7 +297,7 @@ class TestGraphQLQueries:
         mock_cls.description = "Charts"
         mock_cls.return_value.enabled = True
         with patch("app.api.sources._load_dashboards", return_value=[mock_cls]):
-            result = _gql(client, "{ dashboards }")
+            result = _gql(client, "{ dashboards { name displayName tag js description } }")
         assert "errors" not in result
         dashboards = result["data"]["dashboards"]
         assert len(dashboards) == 1
@@ -319,7 +319,7 @@ class TestGraphQLQueries:
             patch("app.api.sources._load_dashboards", return_value=[mock_cls]),
             patch("shenas_plugins.core.plugin.PluginInstance.find", return_value=_DisabledInstance()),
         ):
-            result = _gql(client, "{ dashboards }")
+            result = _gql(client, "{ dashboards { name displayName tag js description } }")
         assert "errors" not in result
         assert result["data"]["dashboards"] == []
 
@@ -386,10 +386,10 @@ class TestGraphQLQueries:
         assert schedules[0]["isDue"] is True
 
     def test_dependencies(self, client: TestClient) -> None:
-        result = _gql(client, "{ dependencies }")
+        result = _gql(client, "{ dependencies { source targets } }")
         assert "errors" not in result
         # Returns a JSON dict, possibly empty
-        assert isinstance(result["data"]["dependencies"], dict)
+        assert isinstance(result["data"]["dependencies"], list)
 
 
 class TestGraphQLMutations:
