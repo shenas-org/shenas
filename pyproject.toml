@@ -219,7 +219,6 @@ replace-imports-with-any = [
     "opentelemetry.instrumentation.**",
     "psycopg.**",
     "shenasctl.**",
-    "shenas_models.**",
     "torch.**",
 ]
 
