@@ -10,7 +10,6 @@ from strawberry.scalars import JSON  # noqa: TC002 - needed at runtime by Strawb
 from app.graphql.types import (
     AuthFieldsType,
     ColumnInfoType,
-    DataResourceRefType,
     DataResourceType,
     DBStatusType,
     FreshnessInfoType,
@@ -85,12 +84,8 @@ def _resource_to_gql(r: DataResource) -> DataResourceType:
         ),
         user_notes=r.user_notes,
         tags=r.tags,
-        upstream=[DataResourceRefType(id=u.id, schema_name=u.schema, table_name=u.table) for u in r.upstream]
-        if r.upstream is not None
-        else None,
-        downstream=[DataResourceRefType(id=d.id, schema_name=d.schema, table_name=d.table) for d in r.downstream]
-        if r.downstream is not None
-        else None,
+        upstream=[_resource_to_gql(u) for u in r.upstream] if r.upstream is not None else None,
+        downstream=[_resource_to_gql(d) for d in r.downstream] if r.downstream is not None else None,
     )
 
 

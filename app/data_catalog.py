@@ -86,8 +86,8 @@ class DataResource:
     quality_checks: list[QualityCheck] = field(default_factory=list)
 
     # Lineage (populated on detail view)
-    upstream: list[DataResourceRef] | None = None
-    downstream: list[DataResourceRef] | None = None
+    upstream: list[DataResource] | None = None
+    downstream: list[DataResource] | None = None
 
     @property
     def id(self) -> str:
@@ -329,10 +329,11 @@ class DataCatalog:
             ]
         except Exception:
             pass
-        # Lineage
-        lineage = self.lineage(data_resource_id)
-        resource.upstream = lineage.get("upstream", [])
-        resource.downstream = lineage.get("downstream", [])
+        # Lineage -- resolve refs to full DataResource objects
+        lineage = self._lineage_refs(data_resource_id)
+        by_id = {r.id: r for r in resources}
+        resource.upstream = [by_id[ref.id] for ref in lineage["upstream"] if ref.id in by_id]
+        resource.downstream = [by_id[ref.id] for ref in lineage["downstream"] if ref.id in by_id]
         return resource
 
     def metadata_by_id(self) -> dict[str, dict[str, Any]]:
@@ -347,7 +348,7 @@ class DataCatalog:
             out[key] = meta
         return out
 
-    def lineage(self, data_resource_id: str) -> dict[str, list[DataResourceRef]]:
+    def _lineage_refs(self, data_resource_id: str) -> dict[str, list[DataResourceRef]]:
         """Upstream and downstream resources connected via transform_instances."""
         from shenas_transformations.core.instance import TransformInstance
 

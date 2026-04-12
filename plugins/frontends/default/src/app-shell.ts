@@ -1793,8 +1793,8 @@ class ShenasApp extends LitElement {
         ${upstream.length || downstream.length ? html`
           <strong>Lineage</strong>
           <div style="margin:0.3rem 0 0.8rem">
-            ${upstream.length ? html`<div><strong>Upstream:</strong> ${upstream.map((u) => html`<span style="font-family:monospace">${u.id}</span> `)}</div>` : ""}
-            ${downstream.length ? html`<div><strong>Downstream:</strong> ${downstream.map((dd) => html`<span style="font-family:monospace">${dd.id}</span> `)}</div>` : ""}
+            ${upstream.length ? html`<div><strong>Upstream:</strong> ${upstream.map((u) => html`<span>${u.displayName || u.id}</span> <span style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)">${u.kind || "table"}</span> `)}</div>` : ""}
+            ${downstream.length ? html`<div><strong>Downstream:</strong> ${downstream.map((dd) => html`<span>${dd.displayName || dd.id}</span> <span style="font-size:0.7rem;padding:1px 4px;border-radius:3px;background:var(--shenas-border-light,#f0f0f0);color:var(--shenas-text-muted,#888)">${dd.kind || "table"}</span> `)}</div>` : ""}
           </div>
         ` : ""}
 

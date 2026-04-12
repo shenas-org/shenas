@@ -221,8 +221,8 @@ class DataResourceType:
     quality: QualityInfoType
     user_notes: str = ""
     tags: list[str]
-    upstream: list[DataResourceRefType] | None = None
-    downstream: list[DataResourceRefType] | None = None
+    upstream: list[DataResourceType] | None = None
+    downstream: list[DataResourceType] | None = None
 
 
 @strawberry.input

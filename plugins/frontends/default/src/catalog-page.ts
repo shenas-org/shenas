@@ -32,8 +32,8 @@ interface DataResource {
   };
   userNotes: string;
   tags: string[];
-  upstream: Array<{ id: string; schemaName: string; tableName: string }> | null;
-  downstream: Array<{ id: string; schemaName: string; tableName: string }> | null;
+  upstream: Array<{ id: string; displayName: string; kind: string | null }> | null;
+  downstream: Array<{ id: string; displayName: string; kind: string | null }> | null;
 }
 
 interface Message {
@@ -53,8 +53,8 @@ const FIELDS = `
 `;
 
 const DETAIL_FIELDS = `${FIELDS}
-  upstream { id schemaName tableName }
-  downstream { id schemaName tableName }
+  upstream { id displayName kind }
+  downstream { id displayName kind }
 `;
 
 class CatalogPage extends LitElement {
