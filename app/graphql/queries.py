@@ -142,7 +142,7 @@ class Query:
 
     @strawberry.field
     def tables(self) -> list[TableEntry]:
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor() as cur:
             rows = cur.execute(
@@ -421,7 +421,7 @@ class Query:
     @strawberry.field
     def table_columns(self, schema: str, table: str) -> list[str]:
         """Return column names for a DuckDB table."""
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor() as cur:
             rows = cur.execute(

@@ -195,7 +195,7 @@ class Transform(Table):
         sql = p.get("sql", "")
         if not sql:
             return []
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor() as cur:
             rows = cur.execute(f"SELECT * FROM ({sql}) AS _preview LIMIT {limit}").fetchall()
@@ -213,7 +213,7 @@ class Transform(Table):
         transform_type: str,
         defaults: list[dict[str, str]],
     ) -> None:
-        from app.db import cursor
+        from app.database import cursor
 
         with cursor() as cur:
             existing = cur.execute(

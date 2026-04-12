@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS shenas_system.sync_state (
 
 def ensure_sync_tables() -> None:
     """Create sync tables if they don't exist."""
-    from app.db import cursor
+    from app.database import cursor
 
     with cursor() as cur:
         cur.execute(_SYNC_LOG_TABLE)
@@ -44,7 +44,7 @@ def ensure_sync_tables() -> None:
 
 def _get_device_id() -> str:
     """Get local device ID from identity table."""
-    from app.db import cursor
+    from app.database import cursor
 
     with cursor() as cur:
         cur.execute("CREATE TABLE IF NOT EXISTS shenas_system.device_identity (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
@@ -69,7 +69,7 @@ def append_event(
     """Append a change event to the sync log. Returns the event ID."""
     import time
 
-    from app.db import cursor
+    from app.database import cursor
 
     event_id = uuid.uuid4().hex
     device_id = _get_device_id()
@@ -90,7 +90,7 @@ def append_event(
 
 def get_events_since(last_event_id: str | None = None, limit: int = 1000) -> list[dict[str, Any]]:
     """Get sync log events since a given event ID (exclusive)."""
-    from app.db import cursor
+    from app.database import cursor
 
     with cursor() as cur:
         cur.execute(_SYNC_LOG_TABLE)
@@ -126,7 +126,7 @@ def get_events_since(last_event_id: str | None = None, limit: int = 1000) -> lis
 
 def get_sync_cursor(peer_device_id: str) -> str | None:
     """Get the last synced event ID for a peer."""
-    from app.db import cursor
+    from app.database import cursor
 
     with cursor() as cur:
         cur.execute(_SYNC_STATE_TABLE)
@@ -141,7 +141,7 @@ def set_sync_cursor(peer_device_id: str, last_event_id: str) -> None:
     """Update the sync cursor for a peer."""
     import time
 
-    from app.db import cursor
+    from app.database import cursor
 
     with cursor() as cur:
         cur.execute(_SYNC_STATE_TABLE)

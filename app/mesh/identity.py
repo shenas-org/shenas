@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS shenas_system.device_identity (
 
 def _get_or_create_identity() -> dict[str, str]:
     """Get or create the device identity (Ed25519 keypair + device name)."""
-    from app.db import cursor
+    from app.database import cursor
 
     with cursor() as cur:
         cur.execute(_DEVICE_TABLE)

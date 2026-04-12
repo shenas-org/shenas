@@ -108,7 +108,7 @@ def delete_set(set_id: str) -> bool:
     s = CategorySet.find(set_id)
     if not s:
         return False
-    from app.db import cursor
+    from app.database import cursor
 
     with cursor() as cur:
         cur.execute("DELETE FROM shenas_system.category_values WHERE set_id = ?", [set_id])
@@ -127,7 +127,7 @@ def add_value(set_id: str, value: str, sort_order: int = 0, color: str | None = 
 
 def remove_value(set_id: str, value: str) -> dict[str, Any] | None:
     """Remove a value from a category set."""
-    from app.db import cursor
+    from app.database import cursor
 
     with cursor() as cur:
         cur.execute("DELETE FROM shenas_system.category_values WHERE set_id = ? AND value = ?", [set_id, value])
@@ -138,7 +138,7 @@ def update_values(set_id: str, values: list[dict]) -> dict[str, Any] | None:
     """Replace all values in a category set."""
     if not CategorySet.find(set_id):
         return None
-    from app.db import cursor
+    from app.database import cursor
 
     with cursor() as cur:
         cur.execute("DELETE FROM shenas_system.category_values WHERE set_id = ?", [set_id])

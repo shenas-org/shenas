@@ -25,7 +25,7 @@ log = logging.getLogger("shenas.mesh.relay")
 
 def _get_device_id() -> str | None:
     """Read the local device's server-assigned ID."""
-    from app.db import cursor
+    from app.database import cursor
 
     try:
         with cursor() as cur:

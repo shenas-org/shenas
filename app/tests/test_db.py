@@ -24,7 +24,7 @@ class _FakePlugin(Plugin):
 
 def _query_state(kind: str, name: str) -> dict | None:
     """Helper: look up a single plugin state via direct DB query."""
-    from app.db import cursor
+    from app.database import cursor
 
     with cursor() as cur:
         row = cur.execute(
@@ -47,7 +47,7 @@ def _query_state(kind: str, name: str) -> dict | None:
 
 def _count_states() -> int:
     """Helper: count total plugin state rows."""
-    from app.db import cursor
+    from app.database import cursor
 
     with cursor() as cur:
         return cur.execute("SELECT count(*) FROM shenas_system.plugins").fetchone()[0]  # ty: ignore[not-subscriptable]

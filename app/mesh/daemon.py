@@ -71,7 +71,7 @@ async def run_mesh_daemon() -> None:
 
 
 def _get_server_device_id() -> str | None:
-    from app.db import cursor
+    from app.database import cursor
 
     try:
         with cursor() as cur:
@@ -82,7 +82,7 @@ def _get_server_device_id() -> str | None:
 
 
 def _store_server_device_id(device_id: str) -> None:
-    from app.db import cursor
+    from app.database import cursor
 
     with cursor() as cur:
         cur.execute(

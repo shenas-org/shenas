@@ -164,7 +164,7 @@ def run_recipe(
     sql = ""
 
     if backend is None:
-        from app.db import analytics_backend
+        from app.database import analytics_backend
 
         backend = analytics_backend()
 

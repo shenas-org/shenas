@@ -23,7 +23,7 @@ def test_con() -> duckdb.DuckDBPyConnection:
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
     con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
-    from app.db import _ensure_system_tables
+    from app.database import _ensure_system_tables
 
     _ensure_system_tables(con)
     return con
@@ -40,7 +40,7 @@ def client(test_con: duckdb.DuckDBPyConnection) -> Iterator[TestClient]:
         finally:
             cur.close()
 
-    with patch("app.db.cursor", _fake_cursor):
+    with patch("app.database.cursor", _fake_cursor):
         yield TestClient(app)
 
 

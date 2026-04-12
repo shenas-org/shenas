@@ -5,7 +5,7 @@ from __future__ import annotations
 import duckdb
 from fastapi import APIRouter, Response
 
-from app.db import cursor
+from app.database import cursor
 from app.models import HealthResponse
 
 router = APIRouter()

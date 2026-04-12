@@ -9,8 +9,8 @@ from typing import Any
 import duckdb
 from fastapi import APIRouter, HTTPException
 
-from app.db import SHENAS_DB_PATH as DB_PATH
-from app.db import cursor
+from app.database import SHENAS_DB_PATH as DB_PATH
+from app.database import cursor
 from app.models import DBStatusResponse, OkResponse, SchemaInfo, TableStats
 
 router = APIRouter(prefix="/db", tags=["db"])
@@ -183,7 +183,7 @@ def flush_schema(schema_plugin: str) -> dict[str, Any]:
 @router.post("/keygen")
 def db_keygen() -> OkResponse:
     """Generate a database encryption key and store it in the OS keyring."""
-    from app.db import generate_db_key, set_db_key
+    from app.database import generate_db_key, set_db_key
 
     key = generate_db_key()
     set_db_key(key)
