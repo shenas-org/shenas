@@ -14,7 +14,7 @@ log = logging.getLogger(f"shenas.{__name__}")
 
 
 @router.post("/{source_name}")
-def auth_source(source_name: str, body: AuthRequest | None = None, request: Request | None = None) -> AuthResponse:
+def auth_source(source_name: str, request: Request, body: AuthRequest | None = None) -> AuthResponse:
     """Start or continue a source's auth flow."""
 
     from shenas_sources.core.source import Source
@@ -23,7 +23,7 @@ def auth_source(source_name: str, body: AuthRequest | None = None, request: Requ
     source = Source.load_by_name(source_name)()  # ty: ignore[call-non-callable]
     # Build callback URL for OAuth redirect flow
     redirect_uri = None
-    if source.supports_oauth_redirect and request:
+    if source.supports_oauth_redirect:
         redirect_uri = str(request.url_for("source_auth_callback", name=source_name))
     result = source.handle_auth(body.credentials, redirect_uri=redirect_uri)
     if result.get("ok"):
