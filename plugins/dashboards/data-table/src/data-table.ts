@@ -95,6 +95,13 @@ export class ShenasDataTable extends LitElement {
     }
     .pagination button:disabled { opacity: 0.4; cursor: default; }
     .pagination button:not(:disabled):hover { background: #f0f0f0; }
+    .page-link.active { background: #728f67; color: #fff; border-color: #728f67; }
+    .page-ellipsis { color: #aaa; font-size: 11px; padding: 0 2px; }
+    .page-jump {
+      width: 50px; padding: 2px 4px; font-size: 11px;
+      border: 1px solid #ddd; border-radius: 3px; text-align: center;
+    }
+    .page-jump::-webkit-inner-spin-button { -webkit-appearance: none; }
     .loading { color: #888; padding: 24px; text-align: center; }
     .error { color: #c00; background: #fee; padding: 12px; border-radius: 6px; }
     .page-info { flex: 1; text-align: center; }
@@ -348,11 +355,56 @@ export class ShenasDataTable extends LitElement {
         </table>
       </div>
       <div class="pagination">
+        <button ?disabled=${this._page === 0} @click=${() => (this._page = 0)} title="First">&laquo;</button>
         <button ?disabled=${this._page === 0} @click=${() => this._page--}>&lsaquo;</button>
-        <span class="page-info">${this._page + 1} / ${this._pageCount}</span>
+        ${this._renderPageLinks()}
         <button ?disabled=${this._page >= this._pageCount - 1} @click=${() => this._page++}>&rsaquo;</button>
+        <button ?disabled=${this._page >= this._pageCount - 1} @click=${() => (this._page = this._pageCount - 1)} title="Last">&raquo;</button>
+        ${this._pageCount > 10
+          ? html`<input
+              type="number"
+              class="page-jump"
+              min="1"
+              max=${this._pageCount}
+              placeholder="Go to"
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === "Enter") {
+                  const v = parseInt((e.target as HTMLInputElement).value);
+                  if (v >= 1 && v <= this._pageCount) this._page = v - 1;
+                  (e.target as HTMLInputElement).value = "";
+                }
+              }}
+            />`
+          : ""}
       </div>
     `;
+  }
+
+  _renderPageLinks(): TemplateResult {
+    const total = this._pageCount;
+    const cur = this._page;
+    const pages: (number | "...")[] = [];
+
+    if (total <= 7) {
+      for (let i = 0; i < total; i++) pages.push(i);
+    } else {
+      pages.push(0);
+      if (cur > 2) pages.push("...");
+      for (let i = Math.max(1, cur - 1); i <= Math.min(total - 2, cur + 1); i++) pages.push(i);
+      if (cur < total - 3) pages.push("...");
+      pages.push(total - 1);
+    }
+
+    return html`${pages.map((p) =>
+      p === "..."
+        ? html`<span class="page-ellipsis">...</span>`
+        : html`<button
+            class="page-link ${p === cur ? "active" : ""}"
+            @click=${() => (this._page = p as number)}
+          >
+            ${(p as number) + 1}
+          </button>`,
+    )}`;
   }
 }
 
