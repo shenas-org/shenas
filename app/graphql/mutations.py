@@ -71,8 +71,9 @@ class Mutation:
         if source.supports_oauth_redirect:
             request = info.context.get("request")
             if request:
-                base = str(request.base_url).rstrip("/").replace("://localhost", "://127.0.0.1")
-                redirect_uri = f"{base}/api/auth/source/{pipe}/callback"
+                from app.api.auth import _build_callback_uri
+
+                redirect_uri = _build_callback_uri(request, pipe)
         result = source.handle_auth(credentials, redirect_uri=redirect_uri)  # ty: ignore[invalid-argument-type]
         return AuthResponseType.from_pydantic(AuthResponse(**result))  # ty: ignore[unresolved-attribute]
 
