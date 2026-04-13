@@ -75,16 +75,18 @@ class TileClient:
                 "password": self._password,
             },
         )
+        if resp.status_code == 401:
+            data = resp.json()
+            api_msg = (data.get("result") or {}).get("message", "")
+            msg = api_msg or "Invalid email or password"
+            raise RuntimeError(msg)
         resp.raise_for_status()
         data = resp.json()
         result = data.get("result") or data
         self._session_token = result.get("session_token") or result.get("client_session_token")
         self._user_uuid = result.get("user", {}).get("user_uuid") or result.get("user_uuid")
         if not self._session_token or not self._user_uuid:
-            import logging
-
-            logging.getLogger(__name__).error("Tile login response: %s", data)
-            msg = "Login failed: no session_token or user_uuid in response"
+            msg = "Login failed: unexpected response from Tile"
             raise RuntimeError(msg)
 
         # Update headers with session token for subsequent requests
