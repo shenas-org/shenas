@@ -1,0 +1,26 @@
+[project]
+name = "shenas-source-openmeteo"
+dynamic = ["version"]
+description = "Open-Meteo weather and air quality data for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "httpx>=0.28.0",
+    "shenas-source-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.sources"]
+openmeteo = "shenas_sources.openmeteo.source:OpenMeteoSource"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-openmeteo/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-openmeteo/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]
