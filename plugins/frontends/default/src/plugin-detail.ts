@@ -25,6 +25,7 @@ interface PluginInfo {
   has_config?: boolean;
   has_auth?: boolean;
   has_data?: boolean;
+  is_authenticated?: boolean | null;
   primary_table?: string;
 }
 
@@ -716,7 +717,11 @@ class PluginDetail extends LitElement {
         </h2>
         <div class="title-actions">
           ${this.kind === "source" && enabled
-            ? html`<button @click=${this._sync} ?disabled=${this._syncing}>
+            ? html`<button
+                @click=${this._sync}
+                ?disabled=${this._syncing || (info.has_auth && info.is_authenticated === false)}
+                title=${info.has_auth && info.is_authenticated === false ? "Authenticate first" : ""}
+              >
                 ${this._syncing ? "Syncing..." : "Sync"}
               </button>`
             : ""}
