@@ -182,12 +182,30 @@ class PipelineOverview extends LitElement {
       }
     }
 
-    // Source nodes
+    // Me node (identity)
+    const meId = "me:self";
+    nodeIds.add(meId);
+    elements.push({ data: { id: meId, label: "Me", kind: "me" } });
+
+    // Device node (current machine)
+    const deviceId = "device:local";
+    nodeIds.add(deviceId);
+    elements.push({ data: { id: deviceId, label: "This Device", kind: "device" } });
+
+    // Me -> Device edge
+    elements.push({
+      data: { id: "edge:me:device", source: meId, target: deviceId, edgeType: "identity" },
+    });
+
+    // Source nodes + Device -> Source edges
     for (const p of pipes) {
       const id = `source:${p.name}`;
       nodeIds.add(id);
       elements.push({
         data: { id, label: p.displayName || p.name, kind: "source", enabled: p.enabled !== false ? "yes" : "no" },
+      });
+      elements.push({
+        data: { id: `edge:device:${p.name}`, source: deviceId, target: id, edgeType: "device" },
       });
     }
 
@@ -327,6 +345,14 @@ class PipelineOverview extends LitElement {
           },
         },
         {
+          selector: 'node[kind="me"]',
+          style: { "background-color": "#78909c", shape: "ellipse", width: 60, height: 60 },
+        },
+        {
+          selector: 'node[kind="device"]',
+          style: { "background-color": "#607d8b", shape: "round-rectangle", cursor: "pointer" },
+        },
+        {
           selector: 'node[kind="source"]',
           style: { "background-color": "#4a90d9", cursor: "pointer" },
         },
@@ -373,6 +399,16 @@ class PipelineOverview extends LitElement {
             "line-color": "#ccc",
             "target-arrow-color": "#ccc",
             opacity: 0.5,
+          },
+        },
+        {
+          selector: 'edge[edgeType="identity"], edge[edgeType="device"]',
+          style: {
+            "line-style": "solid",
+            "line-color": "#90a4ae",
+            "target-arrow-color": "#90a4ae",
+            width: 1.5,
+            label: "",
           },
         },
         {
@@ -452,9 +488,13 @@ class PipelineOverview extends LitElement {
       <shenas-page ?loading=${this._loading} loading-text="Loading overview...">
         <div id="cy"></div>
         <div class="legend">
-          <span class="legend-item"><span class="legend-dot pipe"></span> Pipe</span>
-          <span class="legend-item"><span class="legend-dot schema"></span> Schema</span>
-          <span class="legend-item"><span class="legend-dot component"></span> Component</span>
+          <span class="legend-item"
+            ><span class="legend-dot" style="background:#78909c;border-radius:50%"></span> Me</span
+          >
+          <span class="legend-item"><span class="legend-dot" style="background:#607d8b"></span> Device</span>
+          <span class="legend-item"><span class="legend-dot pipe"></span> Source</span>
+          <span class="legend-item"><span class="legend-dot schema"></span> Dataset</span>
+          <span class="legend-item"><span class="legend-dot component"></span> Dashboard</span>
           <span class="legend-item"><span class="legend-dot model"></span> Model</span>
           <span class="legend-item"><span class="legend-line enabled"></span> Transform</span>
           <span class="legend-item"><span class="legend-line disabled"></span> Disabled</span>
