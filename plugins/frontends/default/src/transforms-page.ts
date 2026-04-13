@@ -337,6 +337,7 @@ class TransformsPage extends LitElement {
     );
     this._dbTables = (data?.dbTables as Record<string, string[]>) || {};
     this._schemaTables = (data?.schemaTables as Record<string, string[]>) || {};
+    this._transformTypes = (data?.transformTypes as TransformTypeInfo[]) || [];
     // Show create form in app-shell's right panel
     this._showCreatePanel();
   }

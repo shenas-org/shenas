@@ -84,6 +84,7 @@ describe("shenas-settings", () => {
     const el = mount();
     el._loading = false;
     el.activeKind = "source";
+    el._pluginKinds = [{ id: "source", label: "Sources" }];
     el._plugins = {
       source: [{ name: "garmin", displayName: "Garmin", enabled: true, package: "p", version: "1" }],
     };
@@ -310,5 +311,15 @@ describe("shenas-settings", () => {
     await el._startInstall("source");
     expect(handler).toHaveBeenCalled();
     expect(el._installing).toBe(true);
+  });
+
+  it("dispatches close-panel when install cancelled", async () => {
+    const el = mount();
+    el._installing = true;
+    const handler = vi.fn();
+    el.addEventListener("close-panel", handler);
+    el._installing = false;
+    el.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
+    expect(handler).toHaveBeenCalled();
   });
 });
