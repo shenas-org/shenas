@@ -1266,16 +1266,15 @@ class ShenasApp extends LitElement {
     } catch (e) {
       console.error("Failed to fetch data:", e);
     }
+    try {
+      const authResp = await fetch(`${this.apiBase}/auth/me`);
+      const authData = (await authResp.json()) as Record<string, unknown>;
+      this._remoteUser = (authData.user as Record<string, unknown>) || null;
+    } catch {
+      this._remoteUser = null;
+    }
     this._loading = false;
     this._registerGlobalCommands();
-    fetch(`${this.apiBase}/auth/me`)
-      .then((r) => r.json())
-      .then((d: Record<string, unknown>) => {
-        this._remoteUser = (d.user as Record<string, unknown>) || null;
-      })
-      .catch(() => {
-        this._remoteUser = null;
-      });
   }
 
   async _checkUserSession(): Promise<void> {
