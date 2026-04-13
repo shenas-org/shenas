@@ -5,6 +5,7 @@ import {
   gqlFull,
   openExternal,
   renderMessage,
+  PLUGIN_KINDS,
   buttonStyles,
   formStyles,
   linkStyles,
@@ -323,7 +324,7 @@ class SettingsPage extends LitElement {
     this._availablePlugins = null;
     this._selectedPlugin = "";
     this._menuOpen = false;
-    this._pluginKinds = [];
+    this._pluginKinds = PLUGIN_KINDS;
   }
 
   connectedCallback(): void {
@@ -434,7 +435,7 @@ class SettingsPage extends LitElement {
     const installed = new Set((this._plugins[kind] || []).map((p) => p.name));
     this._availablePlugins = available.filter((n) => !installed.has(n));
 
-    // Build form panel and dispatch to app-shell's right panel
+    // Show install form in app-shell's right panel
     const label = this._pluginKinds.find((k) => k.id === kind)?.label || kind;
     const panel = document.createElement("div");
     panel.style.padding = "1rem";
@@ -478,8 +479,8 @@ class SettingsPage extends LitElement {
     const name = this._selectedPlugin;
     if (!name) return;
     this._actionMessage = null;
-    this._installing = false;
     this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
+    this._installing = false;
     const displayName = this._displayPluginName(name);
     const jobId = `install-${kind}-${name}-${Date.now()}`;
 
@@ -583,7 +584,7 @@ class SettingsPage extends LitElement {
     if (this.activeKind === "entities") return "Entities";
     if (this.activeKind === "categories") return "Categories";
     if (this.activeKind === "hotkeys") return "Hotkeys";
-    const kind = this._pluginKinds.find((k) => k.id === this.activeKind);
+    const kind = PLUGIN_KINDS.find((k) => k.id === this.activeKind);
     return kind ? kind.label : this.activeKind;
   }
 
@@ -749,7 +750,7 @@ class SettingsPage extends LitElement {
 
   _renderKind(kind: string) {
     const plugins = this._plugins[kind] || [];
-    const label = this._pluginKinds.find((k) => k.id === kind)?.label || kind;
+    const label = PLUGIN_KINDS.find((k) => k.id === kind)?.label || kind;
     return html`
       <h3>${label}</h3>
       <shenas-data-list
