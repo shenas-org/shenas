@@ -84,6 +84,7 @@ describe("shenas-settings", () => {
     const el = mount();
     el._loading = false;
     el.activeKind = "source";
+    el._pluginKinds = [{ id: "source", label: "Sources" }];
     el._plugins = {
       source: [{ name: "garmin", displayName: "Garmin", enabled: true, package: "p", version: "1" }],
     };

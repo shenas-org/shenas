@@ -5,7 +5,6 @@ import {
   arrowQuery,
   gql,
   gqlFull,
-  PLUGIN_KINDS,
   matchesHotkey,
   openExternal,
   sortActions,
@@ -132,7 +131,7 @@ class ShenasApp extends LitElement {
   private _registeredCommands = new Map<string, Command[]>();
   private _keyHandler: ((e: KeyboardEvent) => void) | null = null;
   private _schemaPlugins: Record<string, string[]> = {};
-  private _pluginKinds: { id: string; label: string }[] = PLUGIN_KINDS;
+  private _pluginKinds: { id: string; label: string }[] = [];
   private _deviceName = "";
   private _hotkeys: Record<string, string> = {};
   private _pluginDisplayNames: Record<string, string> = {};
@@ -1194,8 +1193,7 @@ class ShenasApp extends LitElement {
     try {
       // Fetch available plugin kinds first, then build the main query dynamically.
       const kindsData = await gql(this.apiBase, `{ pluginKinds }`);
-      const kinds: { id: string; label: string }[] =
-        (kindsData?.pluginKinds as { id: string; label: string }[]) || PLUGIN_KINDS;
+      const kinds: { id: string; label: string }[] = (kindsData?.pluginKinds as { id: string; label: string }[]) || [];
       this._pluginKinds = kinds;
       const fields = `name displayName enabled syncedAt hasAuth isAuthenticated`;
       const kindQueries = kinds.map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`).join("\n        ");

@@ -5,7 +5,6 @@ import {
   gqlFull,
   openExternal,
   renderMessage,
-  PLUGIN_KINDS,
   buttonStyles,
   formStyles,
   linkStyles,
@@ -324,7 +323,7 @@ class SettingsPage extends LitElement {
     this._availablePlugins = null;
     this._selectedPlugin = "";
     this._menuOpen = false;
-    this._pluginKinds = PLUGIN_KINDS;
+    this._pluginKinds = [];
   }
 
   connectedCallback(): void {
@@ -584,7 +583,7 @@ class SettingsPage extends LitElement {
     if (this.activeKind === "entities") return "Entities";
     if (this.activeKind === "categories") return "Categories";
     if (this.activeKind === "hotkeys") return "Hotkeys";
-    const kind = PLUGIN_KINDS.find((k) => k.id === this.activeKind);
+    const kind = this._pluginKinds.find((k) => k.id === this.activeKind);
     return kind ? kind.label : this.activeKind;
   }
 

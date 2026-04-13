@@ -63,12 +63,3 @@ export function sortActions<T extends ActionDescriptor>(
     return (a.label || "").localeCompare(b.label || "");
   });
 }
-
-export const PLUGIN_KINDS: PluginKind[] = [
-  { id: "source", label: "Sources" },
-  { id: "dataset", label: "Datasets" },
-  { id: "dashboard", label: "Dashboards" },
-  { id: "model", label: "Models" },
-  { id: "frontend", label: "Frontends" },
-  { id: "theme", label: "Themes" },
-];

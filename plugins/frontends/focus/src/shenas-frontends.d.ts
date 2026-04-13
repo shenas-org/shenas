@@ -22,7 +22,6 @@ declare module "shenas-frontends" {
     componentId: string,
     commands: Array<{ id: string; label: string; category?: string; description?: string; action?: () => void }>,
   ): void;
-  export const PLUGIN_KINDS: Array<{ id: string; label: string }>;
   export function sortActions(
     actions: Array<Record<string, unknown>>,
     bindings?: Record<string, string>,
