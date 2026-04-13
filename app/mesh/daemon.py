@@ -13,7 +13,7 @@ import asyncio
 import logging
 import os
 
-from app.config import SHENAS_NET_API_URL
+from app.config import SHENAS_NET_URL
 from app.local_users import LocalUser
 
 log = logging.getLogger("shenas.mesh")
@@ -43,7 +43,7 @@ async def run_mesh_daemon() -> None:
 
             if token and not device_id:
                 # Register with server
-                result = register_with_server(SHENAS_NET_API_URL, token)
+                result = register_with_server(SHENAS_NET_URL, token)
                 if result:
                     _store_server_device_id(result["id"])
                     device_id = result["id"]
@@ -54,11 +54,11 @@ async def run_mesh_daemon() -> None:
 
             if token and device_id:
                 # Refresh endpoints
-                await refresh_endpoints(SHENAS_NET_API_URL, device_id, token)
+                await refresh_endpoints(SHENAS_NET_URL, device_id, token)
 
                 # Sync via relay (and try direct connections)
                 try:
-                    result = sync_with_peers(SHENAS_NET_API_URL)
+                    result = sync_with_peers(SHENAS_NET_URL)
                     if result["pushed"] or result["pulled"]:
                         log.info(
                             "Sync: pushed %d, pulled %d",

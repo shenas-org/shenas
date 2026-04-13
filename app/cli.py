@@ -47,10 +47,9 @@ def main(
     os.environ["SHENAS_FRONTEND"] = frontend
     os.environ["SHENAS_DEFAULT_THEME"] = default_theme
     if api_url:
-        os.environ["SHENAS_NET_API_URL"] = api_url
+        os.environ["SHENAS_NET_URL"] = api_url
     os.environ.setdefault("SHENAS_NET_URL", "https://shenas.net")
-    os.environ.setdefault("SHENAS_NET_API_URL", os.environ["SHENAS_NET_URL"] + "/api")
-    os.environ.setdefault("SHENAS_PACKAGE_INDEX", os.environ["SHENAS_NET_API_URL"].rstrip("/"))
+    os.environ.setdefault("SHENAS_PACKAGE_INDEX", os.environ["SHENAS_NET_URL"].rstrip("/"))
 
     if reload:
         app_target = "app.main:app"

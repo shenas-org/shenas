@@ -13,7 +13,7 @@ import urllib.error
 import urllib.request
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
-from app.config import SHENAS_NET_API_URL
+from app.config import SHENAS_NET_URL
 
 if TYPE_CHECKING:
     from app.llm.models import Model
@@ -79,7 +79,7 @@ class ShenasNetProvider:
         ).encode()
 
         req = urllib.request.Request(
-            f"{SHENAS_NET_API_URL}/llm/messages",
+            f"{SHENAS_NET_URL}/api/llm/messages",
             data=payload,
             headers={
                 "Authorization": f"Bearer {self.token}",
@@ -155,7 +155,7 @@ class ShenasProxyBackend(Backend):
             }
         ).encode()
         req = urllib.request.Request(
-            f"{SHENAS_NET_API_URL}/llm/messages",
+            f"{SHENAS_NET_URL}/api/llm/messages",
             data=payload,
             headers={"Authorization": f"Bearer {self._token}", "Content-Type": "application/json"},
         )

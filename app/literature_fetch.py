@@ -23,7 +23,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from app.config import SHENAS_NET_API_URL
+from app.config import SHENAS_NET_URL
 
 log = logging.getLogger(__name__)
 
@@ -224,7 +224,7 @@ def refresh_findings(
     ).encode()
 
     req = urllib.request.Request(
-        f"{SHENAS_NET_API_URL}/literature/refresh",
+        f"{SHENAS_NET_URL}/api/literature/refresh",
         data=payload,
         headers={
             "Authorization": f"Bearer {token}",

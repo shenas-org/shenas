@@ -49,7 +49,7 @@ def push_to_peer(
     payload = json.dumps(events)
     try:
         resp = httpx.post(
-            f"{server_url}/relay/{target_device_id}",
+            f"{server_url}/api/relay/{target_device_id}",
             json={"payload": payload},
             headers={"Authorization": f"Bearer {token}"},
             verify=False,
@@ -73,7 +73,7 @@ def pull_from_relay(server_url: str) -> list[dict[str, Any]]:
 
     try:
         resp = httpx.get(
-            f"{server_url}/relay",
+            f"{server_url}/api/relay",
             params={"device_id": device_id},
             headers={"Authorization": f"Bearer {token}"},
             verify=False,
@@ -119,7 +119,7 @@ def sync_with_peers(server_url: str) -> dict[str, int]:
     # Discover peers
     try:
         resp = httpx.get(
-            f"{server_url}/devices",
+            f"{server_url}/api/devices",
             headers={"Authorization": f"Bearer {token}"},
             verify=False,
             timeout=10,
