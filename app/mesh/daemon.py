@@ -48,6 +48,10 @@ async def run_mesh_daemon() -> None:
                     _store_server_device_id(result["id"])
                     device_id = result["id"]
 
+            if not token and device_id:
+                # Token cleared (logout) -- clear stale device_id
+                _clear_server_device_id()
+
             if token and device_id:
                 # Refresh endpoints
                 await refresh_endpoints(SHENAS_NET_URL, device_id, token)
@@ -90,3 +94,13 @@ def _store_server_device_id(device_id: str) -> None:
             " ON CONFLICT (key) DO UPDATE SET value = ?",
             [device_id, device_id],
         )
+
+
+def _clear_server_device_id() -> None:
+    from app.database import cursor
+
+    try:
+        with cursor() as cur:
+            cur.execute("DELETE FROM shenas_system.device_identity WHERE key = 'server_device_id'")
+    except Exception:
+        pass
