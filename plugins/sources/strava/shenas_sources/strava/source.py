@@ -56,7 +56,7 @@ class StravaSource(Source):
     @property
     def auth_fields(self) -> list[dict[str, str | bool]]:
         return [
-            {"name": "client_id", "prompt": "Client ID", "hide": False},
+            {"name": "client_id", "prompt": "Client ID (numeric, from strava.com/settings/api)", "hide": False},
             {"name": "client_secret", "prompt": "Client Secret", "hide": True},
         ]
 
@@ -108,6 +108,9 @@ class StravaSource(Source):
         client_secret = creds.get("client_secret", "").strip()
         if not client_id or not client_secret:
             msg = "client_id and client_secret are required"
+            raise ValueError(msg)
+        if not client_id.isdigit():
+            msg = "Client ID must be a number (find it at strava.com/settings/api)"
             raise ValueError(msg)
 
         client = Client()
