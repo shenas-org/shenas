@@ -47,6 +47,12 @@ spec:
               value: "300"  # 5 minutes
             - name: SHENAS_NET_URL
               value: "https://shenas.net"
+            - name: SHENAS_REMOTE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: headless-mesh-token
+                  key: token
+                  optional: true
           volumeMounts:
             - name: data
               mountPath: /app/data

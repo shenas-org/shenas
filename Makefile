@@ -253,6 +253,14 @@ headless-deploy: headless-build
 	else \
 		echo "Warning: data/dev_credentials.json not found. Export via Ctrl+P first."; \
 	fi
+	@if ! kubectl -n shenas-runners get secret headless-mesh-token >/dev/null 2>&1; then \
+		echo "To join device mesh, get your token from Settings > Profile > Remote Token."; \
+		read -p "Remote token (or press Enter to skip): " TOKEN; \
+		if [ -n "$$TOKEN" ]; then \
+			kubectl -n shenas-runners create secret generic headless-mesh-token \
+				--from-literal=token=$$TOKEN; \
+		fi; \
+	fi
 	kubectl -n shenas-runners apply -f server/deploy/k8s/headless-worker.yaml
 
 k8s-apply:
