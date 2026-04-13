@@ -16,13 +16,12 @@ const _inspectBtnStyle =
 
 interface Transform {
   id: number;
-  sourceDuckdbSchema: string;
-  sourceDuckdbTable: string;
-  targetDuckdbSchema: string;
-  targetDuckdbTable: string;
+  transformType: string;
+  source: { id: string; schemaName: string; tableName: string; displayName: string };
+  target: { id: string; schemaName: string; tableName: string; displayName: string };
   sourcePlugin: string;
   description: string;
-  sql: string;
+  params: string;
   isDefault: boolean;
   enabled: boolean;
 }
@@ -196,7 +195,7 @@ class TransformsPage extends LitElement {
     this._loading = true;
     const data = await gql(
       this.apiBase,
-      `query($source: String) { transforms(source: $source) { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable sourcePlugin description sql isDefault enabled } }`,
+      `query($source: String) { transforms(source: $source) { id transformType source { id schemaName tableName displayName } target { id schemaName tableName displayName } sourcePlugin params description isDefault enabled sql } }`,
       { source: this.source || null },
     );
     this._transforms = (data?.transforms as Transform[]) || [];
@@ -243,7 +242,7 @@ class TransformsPage extends LitElement {
     const commands: Array<{ id: string; category: string; label: string; description?: string; action: () => void }> =
       [];
     for (const t of this._transforms) {
-      const desc = t.description || `${t.sourceDuckdbTable} -> ${t.targetDuckdbTable}`;
+      const desc = t.description || `${t.source.tableName} -> ${t.target.tableName}`;
       commands.push({
         id: `transform:toggle:${t.id}`,
         category: "Transform",
@@ -407,11 +406,11 @@ class TransformsPage extends LitElement {
               label: "Source",
               class: "mono",
               render: (t: Transform) =>
-                html`${t.sourceDuckdbSchema}.${t.sourceDuckdbTable}
+                html`${t.source.schemaName}.${t.source.tableName}
                   <button
                     style=${_inspectBtnStyle}
                     title="Inspect table"
-                    @click=${() => this._inspectTable(t.sourceDuckdbSchema, t.sourceDuckdbTable)}
+                    @click=${() => this._inspectTable(t.source.schemaName, t.source.tableName)}
                   >
                     &#9655;
                   </button>`,
@@ -420,11 +419,11 @@ class TransformsPage extends LitElement {
               label: "Target",
               class: "mono",
               render: (t: Transform) =>
-                html`${t.targetDuckdbSchema}.${t.targetDuckdbTable}
+                html`${t.target.schemaName}.${t.target.tableName}
                   <button
                     style=${_inspectBtnStyle}
                     title="Inspect table"
-                    @click=${() => this._inspectTable(t.targetDuckdbSchema, t.targetDuckdbTable)}
+                    @click=${() => this._inspectTable(t.target.schemaName, t.target.tableName)}
                   >
                     &#9655;
                   </button>`,
@@ -520,8 +519,8 @@ class TransformsPage extends LitElement {
     return html`
       <div class="edit-panel">
         <h3>
-          ${readonly ? "View" : "Edit"}: ${t.sourceDuckdbSchema}.${t.sourceDuckdbTable} ->
-          ${t.targetDuckdbSchema}.${t.targetDuckdbTable}
+          ${readonly ? "View" : "Edit"}: ${t.source.schemaName}.${t.source.tableName} ->
+          ${t.target.schemaName}.${t.target.tableName}
         </h3>
         <textarea
           .value=${this._editSql}
