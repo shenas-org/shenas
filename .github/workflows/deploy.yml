@@ -204,33 +204,3 @@ jobs:
           sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" server/deploy/k8s/shenas-net-api.yaml | \
             sed "s|:latest|:${TAG}|g" | kubectl apply -f -
           kubectl rollout status deployment/api -n shenas --timeout=120s
-
-  deploy-ingress:
-    name: Apply ingress
-    runs-on: gcp-runners
-    timeout-minutes: 5
-    needs: [deploy-fl-server, deploy-shenas-net, deploy-shenas-org, deploy-shenas-net-api]
-    if: always() && (needs.deploy-fl-server.result == 'success' || needs.deploy-shenas-net.result == 'success' || needs.deploy-shenas-org.result == 'success' || needs.deploy-shenas-net-api.result == 'success')
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
-
-      - uses: google-github-actions/get-gke-credentials@v2
-        with:
-          cluster_name: ${{ env.CLUSTER_NAME }}
-          location: ${{ env.REGION }}
-
-      - name: Install kubectl
-        run: curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-
-      - name: Apply ingress
-        run: |
-          kubectl apply -f server/deploy/k8s/namespace.yaml
-          kubectl apply -f server/deploy/k8s/ingress.yaml
