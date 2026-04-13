@@ -934,11 +934,6 @@ class PluginDetail extends LitElement {
       <shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>
 
       <h4 class="section-title">Suggested Metrics</h4>
-      <div style="margin-bottom:0.8rem">
-        <button @click=${this._suggestDatasets} ?disabled=${this._suggesting}>
-          ${this._suggesting ? "Generating..." : "Suggest Metrics"}
-        </button>
-      </div>
       ${this._suggestions.length > 0
         ? this._suggestions.map(
             (s) => html`
@@ -955,9 +950,12 @@ class PluginDetail extends LitElement {
               </div>
             `,
           )
-        : html`<p style="color:var(--shenas-text-muted,#888)">
-            No pending suggestions. Click "Suggest Metrics" to generate dataset recommendations.
-          </p>`}
+        : ""}
+      <div style="margin-top:0.5rem">
+        <button @click=${this._suggestDatasets} ?disabled=${this._suggesting}>
+          ${this._suggesting ? "Generating..." : "Suggest Metrics"}
+        </button>
+      </div>
     `;
   }
 
