@@ -82,18 +82,47 @@ class TestBuildClient:
         assert saved["refresh_token"] == "new_refresh"
 
 
-class TestAuthenticate:
-    def test_missing_credentials_raises(self, pipe: WithingsSource, auth_mock) -> None:
+class TestOAuth:
+    def test_start_oauth_missing_credentials_raises(self, pipe: WithingsSource, auth_mock) -> None:
         with pytest.raises(ValueError, match="client_id and client_secret are required"):
-            pipe.authenticate({"client_id": "", "client_secret": ""})
+            pipe.start_oauth("http://localhost/callback", credentials={"client_id": "", "client_secret": ""})
 
-    def test_initial_auth_raises_oauth_url(self, pipe: WithingsSource, auth_mock) -> None:
-        with pytest.raises(ValueError, match="OAUTH_URL:"):
-            pipe.authenticate({"client_id": "cid", "client_secret": "csec"})
+    def test_start_oauth_returns_url(self, pipe: WithingsSource, auth_mock) -> None:
+        url = pipe.start_oauth(
+            "http://localhost/callback",
+            credentials={"client_id": "cid", "client_secret": "csec"},
+        )
+        assert "account.withings.com" in url
+        assert "client_id=cid" in url
 
-    def test_auth_complete_no_pending_raises(self, pipe: WithingsSource, auth_mock) -> None:
-        from shenas_sources.withings.source import _pending_auth
+    def test_complete_oauth_no_pending_raises(self, pipe: WithingsSource, auth_mock) -> None:
+        from shenas_sources.withings.source import _pending_oauth
 
-        _pending_auth.pop("withings", None)  # clear any leftover from prior test
-        with pytest.raises(ValueError, match="No pending auth flow"):
-            pipe.authenticate({"auth_complete": "true"})
+        _pending_oauth.pop("withings", None)
+        with pytest.raises(RuntimeError, match="No pending Withings OAuth flow"):
+            pipe.complete_oauth(code="test_code")
+
+    @patch("shenas_sources.withings.client.WithingsClient.exchange_code")
+    def test_complete_oauth_stores_tokens(self, mock_exchange: MagicMock, pipe: WithingsSource, auth_mock) -> None:
+        from shenas_sources.withings.source import _pending_oauth
+
+        _pending_oauth["withings"] = {
+            "client_id": "cid",
+            "client_secret": "csec",
+            "redirect_uri": "http://localhost/callback",
+        }
+        mock_exchange.return_value = {
+            "access_token": "at",
+            "refresh_token": "rt",
+            "expires_in": 10800,
+            "userid": "12345",
+        }
+
+        pipe.complete_oauth(code="test_code")
+
+        mock_exchange.assert_called_once_with("cid", "csec", "test_code", "http://localhost/callback")
+        auth_mock.write.assert_called_once()
+        saved = json.loads(auth_mock.write.call_args.kwargs["tokens"])
+        assert saved["access_token"] == "at"
+        assert saved["client_id"] == "cid"
+        assert saved["userid"] == "12345"

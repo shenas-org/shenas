@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import threading
+import logging
 import time
 from dataclasses import dataclass
 from typing import Annotated, Any
@@ -13,11 +13,13 @@ from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.source import Source
 
-REDIRECT_URI = "http://127.0.0.1:8092/callback"
+log = logging.getLogger(__name__)
+
 SCOPES = "user.info,user.metrics,user.activity,user.sleepevents"
 AUTHORIZE_URL = "https://account.withings.com/oauth2_user/authorize2"
 
-_pending_auth: dict[str, Any] = {}
+# Pending OAuth state for the redirect flow
+_pending_oauth: dict[str, dict[str, Any]] = {}
 
 
 class WithingsSource(Source):
@@ -49,7 +51,8 @@ class WithingsSource(Source):
         "\n"
         "  1. Go to https://developer.withings.com/dashboard\n"
         "  2. Create an app (any name is fine)\n"
-        "  3. Set Callback URL to: http://127.0.0.1:8092/callback\n"
+        "  3. Set Callback URL to match your shenas URL + /api/auth/source/withings/callback\n"
+        "     (e.g. http://127.0.0.1:5173/api/auth/source/withings/callback)\n"
         "  4. Enter the Client ID and Consumer Secret below"
     )
 
@@ -89,21 +92,16 @@ class WithingsSource(Source):
 
         return WithingsClient(tokens["access_token"])
 
-    def authenticate(self, credentials: dict[str, str]) -> None:
-        from shenas_sources.withings.client import WithingsClient
+    # -- OAuth redirect flow --
 
-        if credentials.get("auth_complete") == "true":
-            state = _pending_auth.pop("withings", None)
-            if state is None:
-                msg = "No pending auth flow. Start auth again."
-                raise ValueError(msg)
-            state["thread"].join(timeout=120)
-            if state.get("error"):
-                raise RuntimeError(state["error"])
-            return
+    @property
+    def supports_oauth_redirect(self) -> bool:
+        return True
 
-        client_id = (credentials.get("client_id") or "").strip()
-        client_secret = (credentials.get("client_secret") or "").strip()
+    def start_oauth(self, redirect_uri: str, credentials: dict[str, str] | None = None) -> str:
+        creds = credentials or {}
+        client_id = creds.get("client_id", "").strip()
+        client_secret = creds.get("client_secret", "").strip()
         if not client_id or not client_secret:
             msg = "client_id and client_secret are required"
             raise ValueError(msg)
@@ -115,78 +113,50 @@ class WithingsSource(Source):
                 {
                     "response_type": "code",
                     "client_id": client_id,
-                    "redirect_uri": REDIRECT_URI,
+                    "redirect_uri": redirect_uri,
                     "scope": SCOPES,
                     "state": "withings",
                 }
             )
         )
 
-        state: dict[str, Any] = {}
-        save_tokens = self._save_tokens
+        _pending_oauth[self.name] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+        }
+        log.info("Withings OAuth started, redirect_uri=%s", redirect_uri)
+        return auth_url
 
-        def _run_flow() -> None:
-            from http.server import BaseHTTPRequestHandler, HTTPServer
-            from urllib.parse import parse_qs, urlparse
+    def complete_oauth(self, *, code: str, state: str | None = None) -> None:  # noqa: ARG002
+        from shenas_sources.withings.client import WithingsClient
 
-            code_result: dict[str, str] = {}
+        entry = _pending_oauth.pop(self.name, None)
+        if not entry:
+            msg = "No pending Withings OAuth flow. Start auth again."
+            raise RuntimeError(msg)
 
-            class Handler(BaseHTTPRequestHandler):
-                def do_GET(self) -> None:
-                    qs = parse_qs(urlparse(self.path).query)
-                    if "code" in qs:
-                        code_result["code"] = qs["code"][0]
-                        self.send_response(200)
-                        self.send_header("Content-Type", "text/html")
-                        self.end_headers()
-                        self.wfile.write(b"<html><body><h2>Authorization complete. You can close this tab.</h2></body></html>")
-                    else:
-                        code_result["error"] = qs.get("error", ["unknown"])[0]
-                        self.send_response(400)
-                        self.end_headers()
+        client_id = entry["client_id"]
+        client_secret = entry["client_secret"]
+        redirect_uri = entry["redirect_uri"]
 
-                def log_message(self, fmt: str, *args: Any) -> None:  # ty: ignore[invalid-method-override]
-                    pass
-
-            try:
-                server = HTTPServer(("127.0.0.1", 8092), Handler)
-                server.timeout = 120
-                server.handle_request()
-                server.server_close()
-
-                if "error" in code_result:
-                    state["error"] = f"Authorization denied: {code_result['error']}"
-                    return
-                if "code" not in code_result:
-                    state["error"] = "Authorization timed out"
-                    return
-
-                token_response = WithingsClient.exchange_code(
-                    client_id,
-                    client_secret,
-                    code_result["code"],
-                    REDIRECT_URI,
-                )
-                save_tokens(
-                    {
-                        "access_token": token_response["access_token"],
-                        "refresh_token": token_response["refresh_token"],
-                        "expires_at": time.time() + token_response.get("expires_in", 10800),
-                        "client_id": client_id,
-                        "client_secret": client_secret,
-                        "userid": token_response.get("userid"),
-                    }
-                )
-            except Exception as exc:
-                state["error"] = str(exc)
-
-        thread = threading.Thread(target=_run_flow, daemon=True)
-        thread.start()
-        state["thread"] = thread
-        _pending_auth["withings"] = state
-
-        msg = f"OAUTH_URL:{auth_url}"
-        raise ValueError(msg)
+        token_response = WithingsClient.exchange_code(
+            client_id,
+            client_secret,
+            code,
+            redirect_uri,
+        )
+        self._save_tokens(
+            {
+                "access_token": token_response["access_token"],
+                "refresh_token": token_response["refresh_token"],
+                "expires_at": time.time() + token_response.get("expires_in", 10800),
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "userid": token_response.get("userid"),
+            }
+        )
+        log.info("Withings OAuth completed")
 
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.withings.tables import TABLES

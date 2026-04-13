@@ -250,8 +250,6 @@ class PluginDetail extends LitElement {
         this._loading = false;
         this._showLoading = false;
       }
-      this._fetchInfo();
-
       if (authResult) {
         if (authResult === "success") {
           this._message = { type: "success", text: "Authentication successful" };
@@ -263,6 +261,11 @@ class PluginDetail extends LitElement {
         // Clean up the URL
         window.history.replaceState({}, "", window.location.pathname);
       }
+      // Fetch after setting auth message so _fetchInfo doesn't clear it
+      const authMsg = this._message;
+      this._fetchInfo().then(() => {
+        if (authMsg) this._message = authMsg;
+      });
     }
     if (changed.has("_loading")) {
       if (this._loadingTimer) clearTimeout(this._loadingTimer);

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import threading
+import logging
 import time
 from dataclasses import dataclass
 from typing import Annotated, Any, cast
@@ -12,10 +12,12 @@ from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.source import Source
 
-REDIRECT_URI = "http://127.0.0.1:8091/callback"
+log = logging.getLogger(__name__)
+
 SCOPES = ["read", "activity:read_all", "profile:read_all"]
 
-_pending_auth: dict[str, Any] = {}
+# Pending OAuth state for the redirect flow
+_pending_oauth: dict[str, dict[str, Any]] = {}
 
 
 class StravaSource(Source):
@@ -46,7 +48,8 @@ class StravaSource(Source):
         "\n"
         "  1. Go to https://www.strava.com/settings/api\n"
         "  2. Create an app (any name/website is fine)\n"
-        "  3. Set Authorization Callback Domain to: 127.0.0.1\n"
+        "  3. Set Authorization Callback Domain to match your shenas host\n"
+        "     (e.g. 127.0.0.1 for local development)\n"
         "  4. Enter the Client ID and Client Secret below"
     )
 
@@ -91,98 +94,67 @@ class StravaSource(Source):
 
         return client
 
-    def authenticate(self, credentials: dict[str, str]) -> None:
-        if credentials.get("auth_complete") == "true":
-            state = _pending_auth.pop("strava", None)
-            if state is None:
-                msg = "No pending auth flow. Start auth again."
-                raise ValueError(msg)
-            state["thread"].join(timeout=120)
-            if state.get("error"):
-                raise RuntimeError(state["error"])
-            return
+    # -- OAuth redirect flow --
 
-        client_id = (credentials.get("client_id") or "").strip()
-        client_secret = (credentials.get("client_secret") or "").strip()
+    @property
+    def supports_oauth_redirect(self) -> bool:
+        return True
+
+    def start_oauth(self, redirect_uri: str, credentials: dict[str, str] | None = None) -> str:
+        from stravalib.client import Client
+
+        creds = credentials or {}
+        client_id = creds.get("client_id", "").strip()
+        client_secret = creds.get("client_secret", "").strip()
         if not client_id or not client_secret:
             msg = "client_id and client_secret are required"
             raise ValueError(msg)
 
-        from stravalib.client import Client
-
         client = Client()
         auth_url = client.authorization_url(
             client_id=int(client_id),
-            redirect_uri=REDIRECT_URI,
+            redirect_uri=redirect_uri,
             scope=SCOPES,  # ty: ignore[invalid-argument-type]
         )
 
-        state: dict[str, Any] = {}
-        save_tokens = self._save_tokens
+        _pending_oauth[self.name] = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+        }
+        log.info("Strava OAuth started, redirect_uri=%s", redirect_uri)
+        return auth_url
 
-        def _run_flow() -> None:
-            from http.server import BaseHTTPRequestHandler, HTTPServer
-            from urllib.parse import parse_qs, urlparse
+    def complete_oauth(self, *, code: str, state: str | None = None) -> None:  # noqa: ARG002
+        from stravalib.client import Client
 
-            code_result: dict[str, str] = {}
+        entry = _pending_oauth.pop(self.name, None)
+        if not entry:
+            msg = "No pending Strava OAuth flow. Start auth again."
+            raise RuntimeError(msg)
 
-            class Handler(BaseHTTPRequestHandler):
-                def do_GET(self) -> None:
-                    qs = parse_qs(urlparse(self.path).query)
-                    if "code" in qs:
-                        code_result["code"] = qs["code"][0]
-                        self.send_response(200)
-                        self.send_header("Content-Type", "text/html")
-                        self.end_headers()
-                        self.wfile.write(b"<html><body><h2>Authorization complete. You can close this tab.</h2></body></html>")
-                    else:
-                        code_result["error"] = qs.get("error", ["unknown"])[0]
-                        self.send_response(400)
-                        self.end_headers()
+        client_id = entry["client_id"]
+        client_secret = entry["client_secret"]
 
-                def log_message(self, fmt: str, *args: Any) -> None:  # ty: ignore[invalid-method-override]
-                    pass
-
-            try:
-                server = HTTPServer(("127.0.0.1", 8091), Handler)
-                server.timeout = 120
-                server.handle_request()
-                server.server_close()
-
-                if "error" in code_result:
-                    state["error"] = f"Authorization denied: {code_result['error']}"
-                    return
-                if "code" not in code_result:
-                    state["error"] = "Authorization timed out"
-                    return
-
-                token_response = cast(
-                    "dict[str, Any]",
-                    client.exchange_code_for_token(
-                        client_id=int(client_id),
-                        client_secret=client_secret,
-                        code=code_result["code"],
-                    ),
-                )
-                save_tokens(
-                    {
-                        "access_token": token_response["access_token"],
-                        "refresh_token": token_response["refresh_token"],
-                        "expires_at": token_response["expires_at"],
-                        "client_id": client_id,
-                        "client_secret": client_secret,
-                    }
-                )
-            except Exception as exc:
-                state["error"] = str(exc)
-
-        thread = threading.Thread(target=_run_flow, daemon=True)
-        thread.start()
-        state["thread"] = thread
-        _pending_auth["strava"] = state
-
-        msg = f"OAUTH_URL:{auth_url}"
-        raise ValueError(msg)
+        client = Client()
+        token_response = cast(
+            "dict[str, Any]",
+            client.exchange_code_for_token(
+                client_id=int(client_id),
+                client_secret=client_secret,
+                code=code,
+            ),
+        )
+        self._save_tokens(
+            {
+                "access_token": token_response["access_token"],
+                "refresh_token": token_response["refresh_token"],
+                "expires_at": token_response["expires_at"],
+                "client_id": client_id,
+                "client_secret": client_secret,
+            }
+        )
+        log.info("Strava OAuth completed")
 
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.strava.tables import TABLES, fetch_detailed_activities
