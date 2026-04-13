@@ -81,6 +81,9 @@ class TileClient:
         self._session_token = result.get("session_token") or result.get("client_session_token")
         self._user_uuid = result.get("user", {}).get("user_uuid") or result.get("user_uuid")
         if not self._session_token or not self._user_uuid:
+            import logging
+
+            logging.getLogger(__name__).error("Tile login response: %s", data)
             msg = "Login failed: no session_token or user_uuid in response"
             raise RuntimeError(msg)
 
