@@ -17,10 +17,13 @@ __pycache__/
 .claude/
 .shenas/
 .moon/cache/
-app/vendor/node_modules/
+app/vendor/
 app/desktop/
 app/mobile/
 app/fl/
+app/static/
 server/
-plugins/dashboards/*/node_modules/
-plugins/frontends/*/node_modules/
+plugins/dashboards/
+plugins/frontends/
+plugins/themes/
+plugins/models/
