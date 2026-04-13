@@ -10,6 +10,15 @@ import Dashboard from "../layouts/Dashboard.astro";
 
   <div id="devices-list" class="devices-grid"></div>
 
+  <div class="header" style="margin-top: 2.5rem">
+    <h2>Cloud Workers</h2>
+    <p class="subtitle" id="workers-status">Loading...</p>
+  </div>
+
+  <div id="workers-list" class="devices-grid"></div>
+
+  <button id="deploy-worker-btn" class="btn" style="display:none; margin-top: 1rem">Deploy Worker</button>
+
   <div id="not-signed-in" class="notice" style="display:none">
     <p>Sign in to view your devices.</p>
     <a href="/api/auth/login" class="btn">Sign in with Google</a>
@@ -106,6 +115,18 @@ import Dashboard from "../layouts/Dashboard.astro";
     color: var(--color-text-muted);
     font-size: 0.9rem;
   }
+  .status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .status-Running { background: #e8f5e9; color: #2e7d32; }
+  .status-Pending { background: #fff3e0; color: #e65100; }
+  .status-Failed, .status-NotFound { background: #ffebee; color: #c62828; }
+  .status-Unknown { background: #f5f5f5; color: #757575; }
 </style>
 
 <script>
@@ -185,6 +206,84 @@ import Dashboard from "../layouts/Dashboard.astro";
     }
   }
 
+  // Workers
+  const workersList = document.getElementById("workers-list")!;
+  const workersStatus = document.getElementById("workers-status")!;
+  const deployBtn = document.getElementById("deploy-worker-btn")!;
+
+  async function loadWorkers() {
+    try {
+      const resp = await fetch("/api/workers", { credentials: "include" });
+      if (!resp.ok) return;
+      const workers: Array<{
+        id: string;
+        name: string;
+        status: string;
+        created_at: string;
+      }> = await resp.json();
+
+      workersStatus.textContent = `${workers.length} worker${workers.length !== 1 ? "s" : ""} deployed`;
+      deployBtn.style.display = "inline-block";
+
+      if (workers.length === 0) {
+        workersList.innerHTML = '<div class="empty">No cloud workers deployed. Click "Deploy Worker" to create one.</div>';
+        return;
+      }
+
+      workersList.innerHTML = workers
+        .map(
+          (w) => `
+        <div class="device-card">
+          <div class="device-icon">\u{2601}</div>
+          <div class="device-info">
+            <div class="device-name">${w.name} <span class="status-badge status-${w.status}">${w.status}</span></div>
+            <div class="device-meta">cloud worker &middot; created ${timeAgo(w.created_at)}</div>
+          </div>
+          <div class="device-actions">
+            <button class="btn-remove" onclick="window.__deleteWorker('${w.id}')">Delete</button>
+          </div>
+        </div>
+      `,
+        )
+        .join("");
+    } catch {
+      workersStatus.textContent = "Failed to load workers";
+    }
+  }
+
+  async function deployWorker() {
+    deployBtn.textContent = "Deploying...";
+    (deployBtn as HTMLButtonElement).disabled = true;
+    try {
+      const resp = await fetch("/api/workers", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "cloud-worker" }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        alert(`Deploy failed: ${err.error || "Unknown error"}`);
+        return;
+      }
+      loadWorkers();
+    } catch (e) {
+      alert(`Deploy failed: ${e}`);
+    } finally {
+      deployBtn.textContent = "Deploy Worker";
+      (deployBtn as HTMLButtonElement).disabled = false;
+    }
+  }
+
+  async function deleteWorker(id: string) {
+    if (!confirm("Delete this worker? This will stop and remove the container.")) return;
+    await fetch(`/api/workers/${id}`, { method: "DELETE", credentials: "include" });
+    loadWorkers();
+  }
+
+  deployBtn.addEventListener("click", deployWorker);
   (window as any).__removeDevice = removeDevice;
+  (window as any).__deleteWorker = deleteWorker;
   loadDevices();
+  loadWorkers();
 </script>
