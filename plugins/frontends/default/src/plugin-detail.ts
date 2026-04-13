@@ -388,34 +388,14 @@ class PluginDetail extends LitElement {
   private async _loadPluginInfo() {
     this._loading = true;
     try {
-      const query = `
-        query GetPluginInfo($name: String!, $kind: String!) {
-          plugin(name: $name, kind: $kind) {
-            name
-            display_name
-            kind
-            version
-            description
-            enabled
-            synced_at
-            added_at
-            updated_at
-            status_changed_at
-            has_config
-            has_auth
-            has_data
-            primary_table
-          }
-        }
-      `;
+      const response = (await gql(
+        this.apiBase,
+        `query($name: String!, $kind: String!) { pluginInfo(kind: $kind, name: $name) }`,
+        { name: this.name, kind: this.kind },
+      )) as { pluginInfo?: Record<string, unknown> } | null;
 
-      const response = (await gql(this.apiBase, query, {
-        name: this.name,
-        kind: this.kind,
-      })) as { plugin?: Record<string, unknown> } | null;
-
-      if (response?.plugin) {
-        this._info = response.plugin;
+      if (response?.pluginInfo) {
+        this._info = response.pluginInfo;
         this._loadTables();
         this._loadSchemaTransforms();
       }
@@ -434,7 +414,7 @@ class PluginDetail extends LitElement {
       const schema = `${this.name.replace(/[^a-z0-9_]/gi, "_")}`;
       const response = await gql(
         this.apiBase,
-        `query { dbStatus { schemas(name: "${schema}") { tables { name rows cols earliest latest } } } }`,
+        `query { dbStatus { schemas { name tables { name rows cols earliest latest } } } }`,
       );
 
       const data = response as { dbStatus?: { schemas?: Array<{ name: string; tables: TableInfo[] }> } } | null;
@@ -450,7 +430,8 @@ class PluginDetail extends LitElement {
     try {
       const response = await gql(
         this.apiBase,
-        `query { transforms(sourcePlugin: "${this.name}") { id sourceDuckdbSchema sourceDuckdbTable targetDuckdbSchema targetDuckdbTable description enabled } }`,
+        `query($source: String) { transforms(source: $source) { id transformType source { id schemaName tableName } target { id schemaName tableName } sourcePlugin description enabled } }`,
+        { source: this.name },
       );
       const data = response as { transforms?: Record<string, unknown>[] } | null;
       this._schemaTransforms = data?.transforms || [];
@@ -462,30 +443,70 @@ class PluginDetail extends LitElement {
   private async _syncPlugin() {
     this._syncing = true;
     this._message = null;
-    try {
-      const response = await gqlFull(
-        this.apiBase,
-        `mutation { syncPlugin(name: "${this.name}", kind: "${this.kind}") { success message synced_at } }`,
-      );
+    const displayName =
+      (this._info?.display_name as string) || this.name.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const jobId = `sync-${this.kind}-${this.name}-${Date.now()}`;
 
-      const result = response as { data?: { syncPlugin?: { success: boolean; message?: string } } };
-      if (result.data?.syncPlugin?.success) {
-        this._message = {
-          type: "success",
-          text: result.data.syncPlugin.message || "Plugin synced successfully",
-        };
-        this._loadPluginInfo();
-      } else {
-        this._message = {
-          type: "error",
-          text: result.data?.syncPlugin?.message || "Sync failed",
-        };
+    this.dispatchEvent(
+      new CustomEvent("job-start", {
+        bubbles: true,
+        composed: true,
+        detail: { id: jobId, label: `Syncing ${displayName}` },
+      }),
+    );
+
+    try {
+      const resp = await fetch(`${this.apiBase}/sync/${this.name}`, { method: "POST" });
+      const reader = resp.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let lastMessage = "";
+      let eventType = "message";
+      let ok = true;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop()!;
+        for (const line of lines) {
+          if (line.startsWith("event:")) eventType = line.slice(6).trim();
+          else if (line.startsWith("data:")) {
+            try {
+              const data = JSON.parse(line.slice(5).trim());
+              lastMessage = data.message || lastMessage;
+              if (eventType === "error") ok = false;
+              this.dispatchEvent(
+                new CustomEvent("job-log", { bubbles: true, composed: true, detail: { id: jobId, text: lastMessage } }),
+              );
+            } catch {
+              /* skip */
+            }
+            eventType = "message";
+          }
+        }
       }
+
+      this.dispatchEvent(
+        new CustomEvent("job-finish", {
+          bubbles: true,
+          composed: true,
+          detail: { id: jobId, ok, message: lastMessage },
+        }),
+      );
+      this._message = { type: ok ? "success" : "error", text: lastMessage || "Sync complete" };
+      if (ok) this._loadPluginInfo();
     } catch (error) {
-      this._message = {
-        type: "error",
-        text: `Sync failed: ${error instanceof Error ? error.message : String(error)}`,
-      };
+      const msg = error instanceof Error ? error.message : String(error);
+      this.dispatchEvent(
+        new CustomEvent("job-finish", {
+          bubbles: true,
+          composed: true,
+          detail: { id: jobId, ok: false, message: msg },
+        }),
+      );
+      this._message = { type: "error", text: `Sync failed: ${msg}` };
     } finally {
       this._syncing = false;
     }
@@ -721,8 +742,13 @@ class PluginDetail extends LitElement {
                   </label>
                 </div>
                 <div class="transform-path">
-                  ${transform.sourceDuckdbSchema}.${transform.sourceDuckdbTable} →
-                  ${transform.targetDuckdbSchema}.${transform.targetDuckdbTable}
+                  ${(transform.source as Record<string, string>)?.schemaName}.${(
+                    transform.source as Record<string, string>
+                  )?.tableName}
+                  →
+                  ${(transform.target as Record<string, string>)?.schemaName}.${(
+                    transform.target as Record<string, string>
+                  )?.tableName}
                 </div>
                 ${transform.description ? html`<div class="transform-description">${transform.description}</div>` : ""}
               </div>
