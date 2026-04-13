@@ -349,10 +349,33 @@ class TransformsPage extends LitElement {
     this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
   }
 
-  _updateNewForm(field: keyof TransformForm, value: string): void {
+  async _updateNewForm(field: keyof TransformForm, value: string): Promise<void> {
     this._newForm = { ...this._newForm, [field]: value };
+    // Auto-generate SQL when source table changes
+    if (field === "source_duckdb_table" && value && this._newForm.transform_type === "sql") {
+      const cols = await this._fetchColumns(this.source, value);
+      if (cols.length > 0) {
+        const colList = cols.filter((c) => !c.startsWith("_dlt_")).join(",\n       ");
+        const target = this._newForm.target_duckdb_table;
+        const deleteClause = target ? `DELETE FROM metrics.${target} WHERE source = '${this.source}';\n` : "";
+        const insertInto = target ? `INSERT INTO metrics.${target}\n` : "";
+        this._newForm = {
+          ...this._newForm,
+          sql: `${deleteClause}${insertInto}SELECT ${colList}\nFROM ${this.source}.${value}`,
+        };
+      }
+    }
     // Re-render the panel if open
     if (this._creating && this._panelEl) this._showCreatePanel();
+  }
+
+  async _fetchColumns(schema: string, table: string): Promise<string[]> {
+    if (!schema || !table) return [];
+    const data = await gql(this.apiBase, `query($s: String!, $t: String!) { tableColumns(schema: $s, table: $t) }`, {
+      s: schema,
+      t: table,
+    });
+    return (data?.tableColumns as string[]) || [];
   }
 
   private _panelEl: HTMLElement | null = null;
