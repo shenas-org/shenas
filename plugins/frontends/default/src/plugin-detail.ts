@@ -656,7 +656,7 @@ class PluginDetail extends LitElement {
       schema="${schema}"
       table="${table}"
       page-size="100"
-      style="height:calc(100vh - 140px);min-height:300px"
+      style="height:calc(100vh - 180px);min-height:300px"
     ></shenas-data-table>`;
   }
 
