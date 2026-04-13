@@ -17,7 +17,6 @@ override-dependencies = ["typer>=0.24.1", "rich>=14.3.3"]
 members = [
     "app",
     "shenasctl",
-    "scheduler",
     "server/repository",
     "plugins/sources/*",
     "plugins/datasets/*",
@@ -32,7 +31,6 @@ members = [
 [tool.uv.sources]
 shenas-app = { workspace = true }
 shenas-cli = { workspace = true }
-shenas-scheduler = { workspace = true }
 shenas-repository = { workspace = true }
 shenas-plugin-core = { workspace = true }
 shenas-source-core = { workspace = true }
@@ -91,7 +89,6 @@ shenas-theme-dark = { workspace = true }
 dev = [
     "shenas-app",
     "shenas-cli",
-    "shenas-scheduler",
     "shenas-source-garmin",
     "shenas-source-lunchmoney",
     "shenas-source-obsidian",
@@ -148,7 +145,6 @@ fl = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["shenasctl/tests", "app/tests", "app/fl/tests", "scheduler/tests", "server/repository/repository/tests", "app/telemetry/tests", "plugins/sources/core/tests", "plugins/sources/garmin/tests", "plugins/sources/gmail/tests", "plugins/sources/gcalendar/tests", "plugins/sources/gtakeout/tests", "plugins/sources/lunchmoney/tests", "plugins/sources/obsidian/tests", "plugins/sources/duolingo/tests", "plugins/sources/spotify/tests", "plugins/sources/tile/tests", "plugins/sources/withings/tests", "plugins/sources/goodreads/tests", "plugins/sources/chrome/tests", "plugins/sources/shell_history/tests", "plugins/sources/firefox/tests", "plugins/sources/cronometer/tests", "plugins/sources/github/tests", "plugins/sources/rescuetime/tests", "plugins/datasets/fitness/tests", "plugins/datasets/finance/tests", "plugins/datasets/outcomes/tests", "plugins/datasets/habits/tests", "plugins/datasets/events/tests"]
 addopts = "--import-mode=importlib"
 pythonpath = [".", "server/repository"]
 filterwarnings = [

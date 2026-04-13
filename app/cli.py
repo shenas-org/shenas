@@ -32,6 +32,7 @@ def main(
     default_theme: str = typer.Option("default", "--default-theme", help="Theme to enable if none is set"),
     api_url: str = typer.Option("https://shenas.net", "--api-url", help="shenas.net API server URL"),
     reload: bool = typer.Option(False, "--reload", help="Auto-reload on file changes (development)"),
+    headless: bool = typer.Option(False, "--headless", help="Skip UI, run as sync/transform worker only"),
 ) -> None:
     """Start the shenas server."""
     if ctx.invoked_subcommand is not None:
@@ -39,6 +40,8 @@ def main(
 
     import os
 
+    if headless:
+        os.environ["SHENAS_HEADLESS"] = "1"
     os.environ["SHENAS_FRONTEND"] = frontend
     os.environ["SHENAS_DEFAULT_THEME"] = default_theme
     os.environ["SHENAS_NET_URL"] = api_url
