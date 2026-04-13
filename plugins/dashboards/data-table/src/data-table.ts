@@ -270,13 +270,21 @@ export class ShenasDataTable extends LitElement {
     }
     if (typeof value === "bigint") {
       if (isTimestamp) {
-        const ms = value > 1e15 ? Number(value / 1000n) : Number(value);
+        // bigint timestamps: >1e15 = microseconds, >1e12 = milliseconds, else seconds
+        let ms: number;
+        if (value > 1_000_000_000_000_000n) ms = Number(value / 1000n);
+        else if (value > 1_000_000_000_000n) ms = Number(value);
+        else ms = Number(value) * 1000;
         return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
       }
       return value.toString();
     }
     if (typeof value === "number" && isTimestamp) {
-      const ms = value > 1e12 ? value / 1000 : value;
+      // number timestamps: >1e15 = microseconds, >1e12 = milliseconds, else seconds
+      let ms: number;
+      if (value > 1e15) ms = value / 1000;
+      else if (value > 1e12) ms = value;
+      else ms = value * 1000;
       return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
     }
     return String(value);
