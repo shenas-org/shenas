@@ -83,8 +83,9 @@ class TileClient:
         resp.raise_for_status()
         data = resp.json()
         result = data.get("result") or data
-        self._session_token = result.get("session_token") or result.get("client_session_token")
         self._user_uuid = result.get("user", {}).get("user_uuid") or result.get("user_uuid")
+        # The API returns client_uuid as the session identifier
+        self._session_token = result.get("session_token") or result.get("client_session_token") or result.get("client_uuid")
         if not self._session_token or not self._user_uuid:
             msg = "Login failed: unexpected response from Tile"
             raise RuntimeError(msg)
