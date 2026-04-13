@@ -681,7 +681,8 @@ class PluginDetail extends LitElement {
 
       <div class="title-row">
         <h2>
-          ${info.display_name || info.name} <span class="kind-badge">${info.kind}</span>${info.version
+          <span style="font-size:1.6rem;vertical-align:middle;margin-right:0.4rem">&#x1F4E6;</span
+          >${info.display_name || info.name} <span class="kind-badge">${info.kind}</span>${info.version
             ? html` <span class="version">${info.version}</span>`
             : ""}
         </h2>
