@@ -357,6 +357,23 @@ class Plugin(abc.ABC):
         """Get or create the :class:`PluginInstance` row. Use for mutations."""
         return PluginInstance.get_or_create(self._kind, self.name, enabled=self.enabled_by_default)
 
+    @property
+    def icon_url(self) -> str | None:
+        """URL for the plugin's brand icon, or None if no icon exists."""
+        from pathlib import Path
+
+        try:
+            pkg_name = self.package_name.replace("-", "_")
+            mod = __import__(pkg_name, fromlist=["__file__"])
+            pkg_dir = Path(mod.__file__).parent.parent if mod.__file__ else None
+            if pkg_dir:
+                icon_path = pkg_dir / "icon.svg"
+                if icon_path.exists():
+                    return f"/plugins/{self._kind}s/{self.name}/icon.svg"
+        except Exception:
+            pass
+        return None
+
     def get_info(self) -> dict[str, Any]:
         s = self.instance()
         return {
@@ -365,6 +382,7 @@ class Plugin(abc.ABC):
             "kind": self._kind,
             "version": self.version,
             "description": self.description,
+            "icon_url": self.icon_url,
             "has_config": self.has_config,
             "has_data": self.has_data,
             "has_auth": self.has_auth,

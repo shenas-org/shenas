@@ -18,7 +18,7 @@ if getattr(_sys, "_MEIPASS", None):
         if str(_p) not in _sys.path:
             _sys.path.insert(0, str(_p))
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -144,6 +144,28 @@ app.mount("/static", StaticFiles(directory=str(_app_dir / "static")), name="stat
 _vendor_dir = _app_dir / "vendor" / "dist"
 if _vendor_dir.is_dir():
     app.mount("/vendor", StaticFiles(directory=str(_vendor_dir)), name="vendor")
+
+
+# Plugin icon endpoint
+@app.get("/plugins/{kind}/{name}/icon.svg")
+async def plugin_icon(kind: str, name: str) -> Response:
+    """Serve a plugin's icon.svg from its package directory."""
+    from app.plugin import Plugin
+
+    singular = kind.rstrip("s")
+    cls = Plugin.load_by_name_and_kind(name, singular)
+    if cls:
+        try:
+            pkg_name = cls.pkg(singular, name).replace("-", "_")
+            mod = __import__(pkg_name, fromlist=["__file__"])
+            mod_file = mod.__file__ or ""
+            icon_path = _pathlib.Path(mod_file).parent.parent / "icon.svg"
+            if icon_path.exists():
+                return Response(content=icon_path.read_text(), media_type="image/svg+xml")
+        except Exception:
+            pass
+    return JSONResponse(status_code=404, content={"detail": "Icon not found"})
+
 
 # Plugin static dirs
 _mount_static("dashboard", "dashboards")
