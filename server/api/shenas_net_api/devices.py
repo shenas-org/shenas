@@ -153,8 +153,11 @@ async def mesh_topology(request: Request) -> dict:
     with get_conn() as conn:
         devices = conn.execute(
             "SELECT d.id, d.name, d.device_type, d.last_seen, d.created_at,"
-            " u.name AS owner_name, u.email AS owner_email"
-            " FROM devices d JOIN users u ON d.user_id = u.id"
+            " u.name AS owner_name, u.email AS owner_email,"
+            " w.id IS NOT NULL AS is_worker, w.deployment_name"
+            " FROM devices d"
+            " JOIN users u ON d.user_id = u.id"
+            " LEFT JOIN workers w ON w.user_id = d.user_id AND d.device_type = 'server'"
             " ORDER BY d.last_seen DESC NULLS LAST",
         ).fetchall()
         endpoints = conn.execute(
