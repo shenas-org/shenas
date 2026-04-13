@@ -52,6 +52,7 @@ shenas-source-firefox = { workspace = true }
 shenas-source-cronometer = { workspace = true }
 shenas-source-github = { workspace = true }
 shenas-source-rescuetime = { workspace = true }
+shenas-source-openmeteo = { workspace = true }
 shenas-dataset-core = { workspace = true }
 shenas-dataset-fitness = { workspace = true }
 shenas-dataset-events = { workspace = true }
@@ -107,6 +108,7 @@ dev = [
     "shenas-source-cronometer",
     "shenas-source-github",
     "shenas-source-rescuetime",
+    "shenas-source-openmeteo",
     "shenas-dataset-fitness",
     "shenas-dataset-finance",
     "shenas-dataset-outcomes",
