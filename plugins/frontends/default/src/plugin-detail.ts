@@ -246,6 +246,20 @@ class PluginDetail extends LitElement {
         this._showLoading = false;
       }
       this._fetchInfo();
+      // Check for OAuth callback result in URL
+      const params = new URLSearchParams(window.location.search);
+      const authResult = params.get("auth");
+      if (authResult) {
+        if (authResult === "success") {
+          this._message = { type: "success", text: "Authentication successful" };
+          this.activeTab = "auth";
+        } else {
+          this._message = { type: "error", text: params.get("message") || "Authentication failed" };
+          this.activeTab = "auth";
+        }
+        // Clean up the URL
+        window.history.replaceState({}, "", window.location.pathname);
+      }
     }
     if (changed.has("_loading")) {
       if (this._loadingTimer) clearTimeout(this._loadingTimer);

@@ -78,8 +78,15 @@ class GTakeoutSource(Source):
     def build_client(self) -> Any:
         return self._google_auth().build_client()
 
-    def authenticate(self, credentials: dict[str, str]) -> None:
-        self._google_auth().authenticate(credentials)
+    @property
+    def supports_oauth_redirect(self) -> bool:
+        return True
+
+    def start_oauth(self, redirect_uri: str, credentials: dict[str, str] | None = None) -> str:  # noqa: ARG002
+        return self._google_auth().start_oauth(redirect_uri)
+
+    def complete_oauth(self, *, code: str, state: str | None = None) -> None:
+        self._google_auth().complete_oauth(code, state)
 
     def sync(self, *, full_refresh: bool = False, **_kwargs: Any) -> None:
         """Custom sync: downloads and processes archives one at a time."""

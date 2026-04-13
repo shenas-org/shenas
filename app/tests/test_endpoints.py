@@ -150,18 +150,14 @@ class TestRemoteAuth:
         assert resp.status_code in (302, 307)
         assert "shenas" in resp.headers["location"].lower() or "redirect_uri" in resp.headers["location"]
 
-    def test_callback_stores_token(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
-        resp = client.get("/api/auth/callback?token=abc123")
-        assert resp.status_code == 200
-        assert "Signed in" in resp.text
-        row = test_con.execute("SELECT value FROM shenas_system.remote_auth WHERE key = 'token'").fetchone()
-        assert row is not None
-        assert row[0] == "abc123"
+    def test_callback_stores_token(self, client: TestClient) -> None:
+        resp = client.get("/api/auth/callback?token=abc123", follow_redirects=False)
+        assert resp.status_code == 307
+        assert "/settings/profile" in resp.headers["location"]
 
     def test_callback_no_token(self, client: TestClient) -> None:
-        resp = client.get("/api/auth/callback")
-        assert resp.status_code == 200
-        assert "Signed in" in resp.text
+        resp = client.get("/api/auth/callback", follow_redirects=False)
+        assert resp.status_code == 307
 
     def test_me_no_token(self, client: TestClient) -> None:
         resp = client.get("/api/auth/me")
@@ -169,8 +165,10 @@ class TestRemoteAuth:
         assert resp.json() == {"user": None}
 
     def test_me_with_token(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
-        test_con.execute("CREATE TABLE IF NOT EXISTS shenas_system.remote_auth (key TEXT PRIMARY KEY, value TEXT)")
-        test_con.execute("INSERT INTO shenas_system.remote_auth VALUES ('token', 'tok')")
+        test_con.execute(
+            "INSERT INTO shenas_system.local_users (id, username, remote_token) VALUES (0, 'default', 'tok')"
+            " ON CONFLICT (id) DO UPDATE SET remote_token = 'tok'"
+        )
 
         fake_resp = MagicMock()
         fake_resp.json.return_value = {"user": {"id": 1, "name": "alex"}}
@@ -180,8 +178,10 @@ class TestRemoteAuth:
         assert resp.json() == {"user": {"id": 1, "name": "alex"}}
 
     def test_me_handles_httpx_error(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
-        test_con.execute("CREATE TABLE IF NOT EXISTS shenas_system.remote_auth (key TEXT PRIMARY KEY, value TEXT)")
-        test_con.execute("INSERT INTO shenas_system.remote_auth VALUES ('token', 'tok')")
+        test_con.execute(
+            "INSERT INTO shenas_system.local_users (id, username, remote_token) VALUES (0, 'default', 'tok')"
+            " ON CONFLICT (id) DO UPDATE SET remote_token = 'tok'"
+        )
 
         with patch("httpx.get", side_effect=Exception("network down")):
             resp = client.get("/api/auth/me")

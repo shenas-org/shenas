@@ -133,12 +133,17 @@ class AuthPage extends LitElement {
 
     const { data } = await gqlFull(
       this.apiBase,
-      `mutation($pipe: String!, $creds: JSON!) { authenticate(pipe: $pipe, credentials: $creds) { ok message error needsMfa oauthUrl } }`,
+      `mutation($pipe: String!, $creds: JSON!) { authenticate(pipe: $pipe, credentials: $creds) { ok message error needsMfa oauthUrl oauthRedirect } }`,
       { pipe: this.pipeName, creds: credentials },
     );
     this._submitting = false;
     const auth = data?.authenticate as Record<string, unknown> | undefined;
 
+    if (auth?.oauthRedirect) {
+      // Server-side redirect flow: navigate directly to the provider
+      window.location.href = auth.oauthRedirect as string;
+      return;
+    }
     if (auth?.ok) {
       this._message = { type: "success", text: auth.message as string };
       this._needsMfa = false;
@@ -148,6 +153,7 @@ class AuthPage extends LitElement {
       this._needsMfa = true;
       this._message = { type: "success", text: "MFA code required" };
     } else if (auth?.oauthUrl) {
+      // Legacy flow (non-redirect OAuth sources)
       this._oauthUrl = auth.oauthUrl as string;
       this._message = { type: "success", text: auth.message as string };
     } else {
