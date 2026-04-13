@@ -18,7 +18,7 @@ if getattr(_sys, "_MEIPASS", None):
         if str(_p) not in _sys.path:
             _sys.path.insert(0, str(_p))
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -56,6 +56,19 @@ async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:
             for ep in entry_points(group="shenas.sources"):
                 with contextlib.suppress(Exception):
                     plugin.seed_defaults_for_source(ep.name)
+    except Exception:
+        pass
+
+    # In dev mode, seed auth/config from data/dev_credentials.json
+    try:
+        from app.dev_credentials import is_dev_mode, seed_from_json
+
+        if is_dev_mode():
+            seeded = seed_from_json()
+            if seeded:
+                import logging as _log
+
+                _log.getLogger("shenas").info("Seeded %d source(s) from dev_credentials.json", seeded)
     except Exception:
         pass
 
@@ -352,6 +365,24 @@ async def update_system_settings(request: Request) -> JSONResponse:
     multiuser_enabled = bool(body.get("multiuser_enabled", False))
     SystemSettings.write_row(multiuser_enabled=multiuser_enabled)
     return JSONResponse(content=SystemSettings.read_row() or {"id": 1, "multiuser_enabled": False})
+
+
+# ---------------------------------------------------------------------------
+# Dev credentials (dev mode only)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/api/dev/export-credentials")
+def export_dev_credentials() -> JSONResponse:
+    """Export all source auth/config to data/dev_credentials.json (dev mode only)."""
+    from app.dev_credentials import export_current_credentials, is_dev_mode, save_dev_credentials
+
+    if not is_dev_mode():
+        raise HTTPException(status_code=403, detail="Only available in development mode")
+
+    data = export_current_credentials()
+    save_dev_credentials(data)
+    return JSONResponse(content={"ok": True, "sources": list(data.keys())})
 
 
 # ---------------------------------------------------------------------------

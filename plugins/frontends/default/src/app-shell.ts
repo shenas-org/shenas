@@ -980,6 +980,25 @@ class ShenasApp extends LitElement {
         },
       },
       { id: "new-tab", category: "System", label: "New Tab", action: () => this._addTab() },
+      {
+        id: "export-dev-credentials",
+        category: "Dev",
+        label: "Export Credentials to JSON",
+        action: async () => {
+          try {
+            const resp = await fetch(`${this.apiBase}/dev/export-credentials`, { method: "POST" });
+            if (!resp.ok) {
+              const body = await resp.json().catch(() => ({}));
+              alert(body.detail || "Failed to export");
+              return;
+            }
+            const data = await resp.json();
+            alert(`Exported credentials for: ${data.sources.join(", ") || "none"}`);
+          } catch (err) {
+            alert(`Export failed: ${err}`);
+          }
+        },
+      },
     );
     this._registeredCommands.set("global", commands);
   }
