@@ -318,9 +318,9 @@ SHENAS_NET_URL = _os.environ.get("SHENAS_NET_URL", "https://shenas.net")
 
 
 @app.get("/api/auth/login")
-def remote_login() -> RedirectResponse:
+def remote_login(request: Request) -> RedirectResponse:
     """Redirect to shenas.net OAuth, which will redirect back with a token."""
-    callback = "https://localhost:7280/api/auth/callback"
+    callback = str(request.url_for("remote_callback"))
     return RedirectResponse(url=f"{SHENAS_NET_URL}/api/auth/login?redirect_uri={callback}")
 
 
