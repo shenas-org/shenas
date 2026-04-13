@@ -13,7 +13,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: shenas-headless
-  namespace: shenas-runners
+  namespace: shenas-workers
   labels:
     app: shenas-headless
 spec:
@@ -91,7 +91,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: shenas-headless
-  namespace: shenas-runners
+  namespace: shenas-workers
 spec:
   selector:
     app: shenas-headless

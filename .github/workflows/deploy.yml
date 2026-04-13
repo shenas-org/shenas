@@ -67,7 +67,7 @@ jobs:
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           BUILD_ID=$(gcloud builds submit --async --format='value(id)' --config server/deploy/docker/cloudbuild.yaml \
-                               --substitutions=_TAG="${REGISTRY}/fl-server:${TAG}",_TAG_LATEST="${REGISTRY}/fl-server:latest",_VERSION="${{ steps.version.outputs.version }}",_DOCKERFILE="server/deploy/docker/Dockerfile.fl-server" . 2>&1 | grep -oP '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+                               --substitutions=_TAG="${REGISTRY}/fl-server:${TAG}",_TAG_LATEST="${REGISTRY}/fl-server:latest",_VERSION="${{ steps.version.outputs.version }}",_DOCKERFILE="server/deploy/docker/Dockerfile.fl-server" .)
           echo "Waiting for Cloud Build $BUILD_ID..."
           while true; do
             STATUS=$(gcloud builds describe "$BUILD_ID" --format='value(status)' 2>/dev/null || echo "UNKNOWN")
@@ -121,7 +121,7 @@ jobs:
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           BUILD_ID=$(gcloud builds submit --async --format='value(id)' --config server/deploy/docker/cloudbuild.yaml \
-                               --substitutions=_TAG="${REGISTRY}/shenas-net:${TAG}",_TAG_LATEST="${REGISTRY}/shenas-net:latest",_VERSION="0.0.0",_DOCKERFILE="server/deploy/docker/Dockerfile.shenas-net" . 2>&1 | grep -oP '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+                               --substitutions=_TAG="${REGISTRY}/shenas-net:${TAG}",_TAG_LATEST="${REGISTRY}/shenas-net:latest",_VERSION="0.0.0",_DOCKERFILE="server/deploy/docker/Dockerfile.shenas-net" .)
           echo "Waiting for Cloud Build $BUILD_ID..."
           while true; do
             STATUS=$(gcloud builds describe "$BUILD_ID" --format='value(status)' 2>/dev/null || echo "UNKNOWN")
@@ -175,7 +175,7 @@ jobs:
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           BUILD_ID=$(gcloud builds submit --async --format='value(id)' --config server/deploy/docker/cloudbuild.yaml \
-                               --substitutions=_TAG="${REGISTRY}/shenas-org:${TAG}",_TAG_LATEST="${REGISTRY}/shenas-org:latest",_VERSION="0.0.0",_DOCKERFILE="server/deploy/docker/Dockerfile.shenas-org" . 2>&1 | grep -oP '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+                               --substitutions=_TAG="${REGISTRY}/shenas-org:${TAG}",_TAG_LATEST="${REGISTRY}/shenas-org:latest",_VERSION="0.0.0",_DOCKERFILE="server/deploy/docker/Dockerfile.shenas-org" .)
           echo "Waiting for Cloud Build $BUILD_ID..."
           while true; do
             STATUS=$(gcloud builds describe "$BUILD_ID" --format='value(status)' 2>/dev/null || echo "UNKNOWN")
@@ -230,7 +230,7 @@ jobs:
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           BUILD_ID=$(gcloud builds submit --async --format='value(id)' --config server/deploy/docker/cloudbuild.yaml \
-                               --substitutions=_TAG="${REGISTRY}/shenas-net-api:${TAG}",_TAG_LATEST="${REGISTRY}/shenas-net-api:latest",_VERSION="${{ steps.version.outputs.version }}",_DOCKERFILE="server/deploy/docker/Dockerfile.shenas-net-api" . 2>&1 | grep -oP '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+                               --substitutions=_TAG="${REGISTRY}/shenas-net-api:${TAG}",_TAG_LATEST="${REGISTRY}/shenas-net-api:latest",_VERSION="${{ steps.version.outputs.version }}",_DOCKERFILE="server/deploy/docker/Dockerfile.shenas-net-api" .)
           echo "Waiting for Cloud Build $BUILD_ID..."
           while true; do
             STATUS=$(gcloud builds describe "$BUILD_ID" --format='value(status)' 2>/dev/null || echo "UNKNOWN")
