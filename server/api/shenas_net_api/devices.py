@@ -50,6 +50,22 @@ async def list_devices(request: Request) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+@router.get("/all")
+async def list_all_devices(request: Request) -> list[dict]:
+    """List all registered devices across all users (admin view)."""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT d.id, d.name, d.device_type, d.last_seen, d.created_at,"
+            " u.name AS owner_name, u.email AS owner_email"
+            " FROM devices d JOIN users u ON d.user_id = u.id"
+            " ORDER BY d.last_seen DESC",
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 @router.delete("/{device_id}")
 async def remove_device(device_id: str, request: Request) -> dict:
     user = await get_current_user(request)

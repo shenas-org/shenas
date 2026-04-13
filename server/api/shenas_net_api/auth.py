@@ -6,7 +6,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 from authlib.integrations.starlette_client import OAuth
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from itsdangerous import URLSafeTimedSerializer
 
@@ -107,6 +107,19 @@ async def me(request: Request) -> dict:
     if not user:
         return {"user": None}
     return {"user": user}
+
+
+@router.get("/users")
+async def list_users(request: Request) -> list[dict]:
+    """List all registered users."""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, email, name, picture, created_at, updated_at FROM users ORDER BY created_at",
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 @router.get("/logout")
