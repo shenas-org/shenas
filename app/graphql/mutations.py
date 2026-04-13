@@ -76,7 +76,7 @@ class Mutation:
         redirect_uri = None
         if source.supports_oauth_redirect:
             if callback_url:
-                redirect_uri = callback_url.replace("://localhost", "://127.0.0.1")
+                redirect_uri = callback_url
             else:
                 request = info.context.get("request")
                 if request:
