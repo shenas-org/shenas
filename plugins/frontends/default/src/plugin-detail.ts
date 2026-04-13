@@ -297,10 +297,10 @@ class PluginDetail extends LitElement {
     const db = this.dbStatus;
     const ownership = this.schemaPlugins;
     const allTransforms = data?.transforms as SchemaTransform[] | undefined;
-    const ownedTables = ownership ? ownership[this.name] || [] : [];
+    const pluginName = this._info?.name || this.name;
+    const ownedTables = ownership ? ownership[pluginName] || [] : [];
     if (db) {
       if (this.kind === "source") {
-        const pluginName = this._info?.name || this.name;
         const schema = (db.schemas || []).find((s) => s.name === pluginName);
         this._tables = schema ? schema.tables.filter((t) => !t.name.startsWith("_dlt_")) : [];
       } else if (this.kind === "dataset") {
@@ -482,7 +482,7 @@ class PluginDetail extends LitElement {
     this._message = null;
     try {
       const { data } = await gqlFull(this.apiBase, `mutation($s: String!) { runSchemaTransforms(schema: $s) }`, {
-        s: this.name,
+        s: this._info?.name || this.name,
       });
       const tResult = data?.runSchemaTransforms as Record<string, unknown> | undefined;
       if (tResult?.count != null) {
@@ -601,7 +601,7 @@ class PluginDetail extends LitElement {
     this._previewLoading = true;
     this._previewRows = null;
     try {
-      const dbSchema = this.kind === "dataset" ? "metrics" : this.name;
+      const dbSchema = this.kind === "dataset" ? "metrics" : this._info?.name || this.name;
       this._previewRows = (await arrowQuery(
         this.apiBase,
         `SELECT * FROM "${dbSchema}"."${tableName}" ORDER BY 1 DESC LIMIT 100`,
