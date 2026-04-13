@@ -133,8 +133,12 @@ class AuthPage extends LitElement {
 
     const { data } = await gqlFull(
       this.apiBase,
-      `mutation($pipe: String!, $creds: JSON!) { authenticate(pipe: $pipe, credentials: $creds) { ok message error needsMfa oauthUrl oauthRedirect } }`,
-      { pipe: this.pipeName, creds: credentials },
+      `mutation($pipe: String!, $creds: JSON!, $callbackUrl: String) { authenticate(pipe: $pipe, credentials: $creds, callbackUrl: $callbackUrl) { ok message error needsMfa oauthUrl oauthRedirect } }`,
+      {
+        pipe: this.pipeName,
+        creds: credentials,
+        callbackUrl: `${window.location.origin}/api/auth/source/${this.pipeName}/callback`,
+      },
     );
     this._submitting = false;
     const auth = data?.authenticate as Record<string, unknown> | undefined;
