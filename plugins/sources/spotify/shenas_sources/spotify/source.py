@@ -39,12 +39,7 @@ class SpotifySource(Source):
     name = "spotify"
     display_name = "Spotify"
     primary_table = "recently_played"
-    description = (
-        "Syncs listening data from Spotify.\n\n"
-        "Uses OAuth2 PKCE flow (no client secret needed). Create an app at "
-        "developer.spotify.com/dashboard.\n\n"
-        "Poll frequently (~1-2 hours) to build complete listening history."
-    )
+    description = "Syncs listening data from Spotify.\n\nPoll frequently (~1-2 hours) to build complete listening history."
 
     @dataclass
     class Auth(SourceAuth):
@@ -61,6 +56,10 @@ class SpotifySource(Source):
         ) = None
 
     auth_instructions = "Click Authenticate to sign in with your Spotify account."
+
+    @property
+    def auth_fields(self) -> list[dict[str, str | bool]]:
+        return []
 
     def build_client(self) -> Any:
         import spotipy
