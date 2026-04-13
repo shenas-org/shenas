@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { mockResponse } from "./setup.ts";
 
 globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
@@ -17,10 +18,9 @@ describe("shenas-auth", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.resetAllMocks();
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { plugins: [{ name: "garmin", authFields: [], authInstructions: "" }] } }),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockResponse({ data: { plugins: [{ name: "garmin", authFields: [], authInstructions: "" }] } }),
+    );
   });
 
   it("creates the element", () => {
@@ -33,7 +33,7 @@ describe("shenas-auth", () => {
     expect(el.apiBase).toBe("/api");
     expect(el.pipeName).toBe("");
     expect(el._fields).toEqual([]);
-    expect(el._loading).toBe(true);
+    expect(el._loading).toBe(false);
     expect(el._needsMfa).toBe(false);
     expect(el._submitting).toBe(false);
     expect(el._stored).toEqual([]);
@@ -57,7 +57,6 @@ describe("shenas-auth", () => {
   it("setting _message updates shadow DOM", async () => {
     const el = mount() as AnyEl;
     await el.updateComplete;
-    el._loading = false;
     el._message = { type: "error", text: "boom" };
     await el.updateComplete;
     expect(el.shadowRoot?.textContent || "").toContain("boom");

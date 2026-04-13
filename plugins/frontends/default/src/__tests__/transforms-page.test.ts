@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { mockResponse } from "./setup.ts";
 
 globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
@@ -16,10 +17,7 @@ describe("shenas-transforms", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.resetAllMocks();
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { transforms: [] } }),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse({ data: { transforms: [] } }));
   });
 
   it("creates the element", () => {

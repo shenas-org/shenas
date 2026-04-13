@@ -3,7 +3,8 @@ import cytoscape from "cytoscape";
 // The vendor bundle re-exports cytoscape-dagre as `dagre` from "cytoscape".
 // @ts-expect-error dagre is provided by the vendor bundle, not the real cytoscape package
 import { dagre } from "cytoscape";
-import { gql, utilityStyles } from "shenas-frontends";
+import { ApolloQueryController, getClient, utilityStyles } from "shenas-frontends";
+import { GET_FLOW_DATA } from "./graphql/queries.ts";
 
 interface PluginInfo {
   name: string;
@@ -32,7 +33,6 @@ class PipelineOverview extends LitElement {
     apiBase: { type: String, attribute: "api-base" },
     allPlugins: { type: Object },
     schemaPlugins: { type: Object },
-    _loading: { state: true },
     _empty: { state: true },
   };
 
@@ -98,24 +98,25 @@ class PipelineOverview extends LitElement {
   declare apiBase: string;
   declare allPlugins: Record<string, PluginInfo[]>;
   declare schemaPlugins: Record<string, string[]>;
-  declare _loading: boolean;
   declare _empty: boolean;
   private _cy: cytoscape.Core | null = null;
   private _elements: CyElement[] | null = null;
   private _resizeObserver: ResizeObserver | null = null;
+
+  private _overviewQuery = new ApolloQueryController(this, GET_FLOW_DATA, {
+    client: getClient(),
+  });
+
+  get _loading(): boolean {
+    return this._overviewQuery.loading;
+  }
 
   constructor() {
     super();
     this.apiBase = "/api";
     this.allPlugins = {};
     this.schemaPlugins = {};
-    this._loading = true;
     this._empty = false;
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._fetchData();
   }
 
   disconnectedCallback(): void {
@@ -130,36 +131,21 @@ class PipelineOverview extends LitElement {
     }
   }
 
-  async _fetchData(): Promise<void> {
-    this._loading = true;
-    try {
-      // Only fetch transforms + dependencies (plugins and schemaPlugins come from parent)
-      const data = await gql(
-        this.apiBase,
-        `{
-        transforms { id transformType source { id schemaName tableName } target { id schemaName tableName } sourcePlugin enabled }
-        dependencies { source targets }
-      }`,
-      );
-      const ap = this.allPlugins || {};
-      this._buildElements(
-        (ap.source || []) as PluginInfo[],
-        (ap.dataset || []) as PluginInfo[],
-        (data?.transforms || []) as Transform[],
-        this.schemaPlugins || {},
-        (ap.dashboard || []) as PluginInfo[],
-        Object.fromEntries(
-          ((data?.dependencies || []) as Array<{ source: string; targets: string[] }>).map((d) => [
-            d.source,
-            d.targets,
-          ]),
-        ),
-        (ap.model || []) as PluginInfo[],
-      );
-    } catch (e) {
-      console.error("Failed to fetch overview data:", e);
-    }
-    this._loading = false;
+  private _processQueryData(): void {
+    const data = this._overviewQuery.data as Record<string, unknown> | undefined;
+    if (!data) return;
+    const ap = this.allPlugins || {};
+    this._buildElements(
+      (ap.source || []) as PluginInfo[],
+      (ap.dataset || []) as PluginInfo[],
+      (data?.transforms || []) as Transform[],
+      this.schemaPlugins || {},
+      (ap.dashboard || []) as PluginInfo[],
+      Object.fromEntries(
+        ((data?.dependencies || []) as Array<{ source: string; targets: string[] }>).map((d) => [d.source, d.targets]),
+      ),
+      (ap.model || []) as PluginInfo[],
+    );
   }
 
   _buildElements(
@@ -471,14 +457,11 @@ class PipelineOverview extends LitElement {
     this._resizeObserver.observe(container);
   }
 
-  firstUpdated(): void {
-    if (!this._loading && this._elements) {
-      this._initCytoscape();
+  updated(): void {
+    if (!this._loading && !this._elements) {
+      this._processQueryData();
     }
-  }
-
-  updated(changed: Map<string, unknown>): void {
-    if (changed.has("_loading") && !this._loading && this._elements) {
+    if (!this._loading && this._elements) {
       requestAnimationFrame(() => this._initCytoscape());
     }
   }

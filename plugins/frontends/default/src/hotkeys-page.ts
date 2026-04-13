@@ -1,5 +1,16 @@
 import { LitElement, html, css } from "lit";
-import { gql, gqlFull, buttonStyles, messageStyles, utilityStyles, formatHotkey, sortActions } from "shenas-frontends";
+import {
+  ApolloQueryController,
+  ApolloMutationController,
+  getClient,
+  buttonStyles,
+  messageStyles,
+  utilityStyles,
+  formatHotkey,
+  sortActions,
+} from "shenas-frontends";
+import { GET_HOTKEYS } from "./graphql/queries.ts";
+import { SET_HOTKEY, DELETE_HOTKEY, RESET_HOTKEYS } from "./graphql/mutations.ts";
 
 interface HotkeyAction {
   id: string;
@@ -15,7 +26,6 @@ class HotkeysPage extends LitElement {
     _recording: { state: true },
     _recordedKey: { state: true },
     _conflict: { state: true },
-    _loading: { state: true },
     _filter: { state: true },
   };
 
@@ -118,9 +128,30 @@ class HotkeysPage extends LitElement {
   declare _recording: string | null;
   declare _recordedKey: string;
   declare _conflict: string | null;
-  declare _loading: boolean;
   declare _filter: string;
   private _boundKeydown: ((e: KeyboardEvent) => void) | null = null;
+
+  private _client = getClient();
+
+  private _hotkeysQuery = new ApolloQueryController(this, GET_HOTKEYS, {
+    client: this._client,
+  });
+
+  private _setHotkeyMutation = new ApolloMutationController(this, SET_HOTKEY, {
+    client: this._client,
+  });
+
+  private _deleteHotkeyMutation = new ApolloMutationController(this, DELETE_HOTKEY, {
+    client: this._client,
+  });
+
+  private _resetHotkeysMutation = new ApolloMutationController(this, RESET_HOTKEYS, {
+    client: this._client,
+  });
+
+  private get _loading(): boolean {
+    return this._hotkeysQuery.loading;
+  }
 
   constructor() {
     super();
@@ -130,13 +161,11 @@ class HotkeysPage extends LitElement {
     this._recording = null;
     this._recordedKey = "";
     this._conflict = null;
-    this._loading = true;
     this._filter = "";
   }
 
   connectedCallback(): void {
     super.connectedCallback();
-    this._loadBindings();
     this._boundKeydown = (e: KeyboardEvent) => this._onKeydown(e);
     document.addEventListener("keydown", this._boundKeydown, true);
   }
@@ -148,22 +177,25 @@ class HotkeysPage extends LitElement {
     }
   }
 
-  async _loadBindings(): Promise<void> {
-    this._loading = true;
-    const data = await gql(this.apiBase, `{ hotkeys }`);
-    this._bindings = (data?.hotkeys as Record<string, string>) || {};
-    this._loading = false;
+  private _lastQueryData: Record<string, string> | null = null;
+
+  willUpdate(): void {
+    const hotkeys = this._hotkeysQuery.data?.hotkeys as Record<string, string> | undefined;
+    if (hotkeys && hotkeys !== this._lastQueryData) {
+      this._lastQueryData = hotkeys;
+      this._bindings = { ...hotkeys };
+    }
   }
 
   async _saveBinding(actionId: string, binding: string): Promise<void> {
     if (binding) {
-      await gqlFull(
-        this.apiBase,
-        `mutation($id: String!, $b: String!) { setHotkey(actionId: $id, binding: $b) { ok } }`,
-        { id: actionId, b: binding },
-      );
+      await this._setHotkeyMutation.mutate({
+        variables: { id: actionId, b: binding },
+      });
     } else {
-      await gqlFull(this.apiBase, `mutation($id: String!) { deleteHotkey(actionId: $id) { ok } }`, { id: actionId });
+      await this._deleteHotkeyMutation.mutate({
+        variables: { id: actionId },
+      });
     }
     this.dispatchEvent(new CustomEvent("hotkeys-changed", { bubbles: true, composed: true }));
   }
@@ -212,8 +244,9 @@ class HotkeysPage extends LitElement {
   }
 
   async _resetDefaults(): Promise<void> {
-    await gqlFull(this.apiBase, `mutation { resetHotkeys { ok } }`);
-    await this._loadBindings();
+    await this._resetHotkeysMutation.mutate();
+    this._lastQueryData = null;
+    this._hotkeysQuery.refetch();
     this.dispatchEvent(new CustomEvent("hotkeys-changed", { bubbles: true, composed: true }));
   }
 

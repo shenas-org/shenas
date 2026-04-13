@@ -4,7 +4,16 @@
  * promote it to a canonical metric. Iterate / branch is deferred to PR 4.7.
  */
 import { LitElement, html, css } from "lit";
-import { gql, gqlFull, buttonStyles, messageStyles, utilityStyles } from "shenas-frontends";
+import {
+  ApolloQueryController,
+  ApolloMutationController,
+  getClient,
+  buttonStyles,
+  messageStyles,
+  utilityStyles,
+} from "shenas-frontends";
+import { GET_HYPOTHESES, GET_ANALYSIS_MODES } from "./graphql/queries.ts";
+import { ASK_HYPOTHESIS, PROMOTE_HYPOTHESIS, FORK_HYPOTHESIS } from "./graphql/mutations.ts";
 
 interface AnalysisModeInfo {
   name: string;
@@ -28,25 +37,19 @@ interface HypothesisRow {
 
 class HypothesesPage extends LitElement {
   static properties = {
-    apiBase: { type: String, attribute: "api-base" },
-    _hypotheses: { state: true },
     _selectedId: { state: true },
     _question: { state: true },
     _busy: { state: true },
     _error: { state: true },
     _promoteName: { state: true },
-    _modes: { state: true },
     _selectedMode: { state: true },
   };
 
-  declare apiBase: string;
-  declare _hypotheses: HypothesisRow[];
   declare _selectedId: number | null;
   declare _question: string;
   declare _busy: boolean;
   declare _error: string;
   declare _promoteName: string;
-  declare _modes: AnalysisModeInfo[];
   declare _selectedMode: string;
 
   static styles = [
@@ -176,39 +179,36 @@ class HypothesesPage extends LitElement {
     `,
   ];
 
+  private _hypothesesQuery = new ApolloQueryController(this, GET_HYPOTHESES, { client: getClient() });
+  private _modesQuery = new ApolloQueryController(this, GET_ANALYSIS_MODES, { client: getClient() });
+  private _askMutation = new ApolloMutationController(this, ASK_HYPOTHESIS, { client: getClient() });
+  private _promoteMutation = new ApolloMutationController(this, PROMOTE_HYPOTHESIS, { client: getClient() });
+  private _forkMutation = new ApolloMutationController(this, FORK_HYPOTHESIS, { client: getClient() });
+
+  get _hypotheses(): HypothesisRow[] {
+    return ((this._hypothesesQuery.data as Record<string, unknown>)?.hypotheses as HypothesisRow[]) || [];
+  }
+
+  get _modes(): AnalysisModeInfo[] {
+    return ((this._modesQuery.data as Record<string, unknown>)?.analysisModes as AnalysisModeInfo[]) || [];
+  }
+
   constructor() {
     super();
-    this.apiBase = "";
-    this._hypotheses = [];
     this._selectedId = null;
     this._question = "";
     this._busy = false;
     this._error = "";
     this._promoteName = "";
-    this._modes = [];
     this._selectedMode = "hypothesis";
   }
 
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._load();
-    this._loadModes();
-  }
-
-  async _load(): Promise<void> {
-    const data = await gql(
-      this.apiBase,
-      `{ hypotheses { id question plan inputs interpretation model mode promotedTo createdAt recipeJson resultJson } }`,
-    );
-    this._hypotheses = (data?.hypotheses as HypothesisRow[]) || [];
+  updated(): void {
+    // Auto-select first hypothesis when data arrives
     if (this._hypotheses.length > 0 && this._selectedId === null) {
       this._selectedId = this._hypotheses[0].id;
     }
-  }
-
-  async _loadModes(): Promise<void> {
-    const data = await gql(this.apiBase, `{ analysisModes }`);
-    this._modes = (data?.analysisModes as AnalysisModeInfo[]) || [];
+    // Fix mode selection if current mode is not in the list
     if (this._modes.length > 0 && !this._modes.find((m) => m.name === this._selectedMode)) {
       this._selectedMode = this._modes[0].name;
     }
@@ -220,19 +220,17 @@ class HypothesesPage extends LitElement {
     this._busy = true;
     this._error = "";
     try {
-      const data = await gqlFull(
-        this.apiBase,
-        `mutation($q: String!, $mode: String!) { askHypothesis(question: $q, mode: $mode) }`,
-        { q, mode: this._selectedMode },
-      );
-      const body = (data?.data?.["askHypothesis"] ?? {}) as { id?: number; error?: { message?: string } };
+      const { data } = await this._askMutation.mutate({
+        variables: { q, mode: this._selectedMode },
+      });
+      const body = (data?.askHypothesis ?? {}) as { id?: number; error?: { message?: string } };
       if (body?.error) {
         this._error = body.error.message || "LLM call failed";
       } else if (body?.id) {
         this._selectedId = body.id;
       }
       this._question = "";
-      await this._load();
+      this._hypothesesQuery.refetch();
     } catch (exc) {
       this._error = String(exc);
     } finally {
@@ -242,31 +240,37 @@ class HypothesesPage extends LitElement {
 
   async _promote(): Promise<void> {
     if (!this._selectedId || !this._promoteName) return;
-    const data = await gqlFull(
-      this.apiBase,
-      `mutation($id: Int!, $name: String!) { promoteHypothesis(hypothesisId: $id, name: $name) }`,
-      { id: this._selectedId, name: this._promoteName },
-    );
-    const body = (data?.data?.["promoteHypothesis"] ?? {}) as { error?: string };
-    if (body?.error) {
-      this._error = body.error;
-    } else {
-      this._promoteName = "";
-      await this._load();
+    try {
+      const { data } = await this._promoteMutation.mutate({
+        variables: { id: this._selectedId, name: this._promoteName },
+      });
+      const body = (data?.promoteHypothesis ?? {}) as { error?: string };
+      if (body?.error) {
+        this._error = body.error;
+      } else {
+        this._promoteName = "";
+        this._hypothesesQuery.refetch();
+      }
+    } catch (exc) {
+      this._error = String(exc);
     }
   }
 
   async _fork(): Promise<void> {
     if (!this._selectedId) return;
-    const data = await gqlFull(this.apiBase, `mutation($id: Int!) { forkHypothesis(hypothesisId: $id) }`, {
-      id: this._selectedId,
-    });
-    const body = (data?.data?.["forkHypothesis"] ?? {}) as { id?: number; error?: string };
-    if (body?.error) {
-      this._error = body.error;
-    } else if (body?.id) {
-      this._selectedId = body.id;
-      await this._load();
+    try {
+      const { data } = await this._forkMutation.mutate({
+        variables: { id: this._selectedId },
+      });
+      const body = (data?.forkHypothesis ?? {}) as { id?: number; error?: string };
+      if (body?.error) {
+        this._error = body.error;
+      } else if (body?.id) {
+        this._selectedId = body.id;
+        this._hypothesesQuery.refetch();
+      }
+    } catch (exc) {
+      this._error = String(exc);
     }
   }
 

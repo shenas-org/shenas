@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { mockResponse } from "./setup.ts";
 
 globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
@@ -16,10 +17,7 @@ describe("shenas-hotkeys", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.resetAllMocks();
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { hotkeys: {} } }),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse({ data: { hotkeys: {} } }));
   });
 
   it("creates the element", () => {
@@ -56,8 +54,8 @@ describe("shenas-hotkeys", () => {
 
   it("renders filter input in shadow DOM", async () => {
     const el = mount();
-    el._loading = false;
     el.actions = [{ id: "a.b", label: "Do thing", category: "Test" }];
+    await new Promise((r) => setTimeout(r, 20));
     await el.updateComplete;
     const input = el.shadowRoot?.querySelector(".filter-input");
     expect(input).toBeTruthy();

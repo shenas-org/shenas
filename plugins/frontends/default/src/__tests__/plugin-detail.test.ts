@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { mockResponse } from "./setup.ts";
 
 globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
@@ -16,10 +17,7 @@ describe("shenas-plugin-detail", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.resetAllMocks();
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { plugins: [] } }),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse({ data: { plugins: [] } }));
   });
 
   it("creates the element", () => {
@@ -217,10 +215,7 @@ describe("shenas-plugin-detail", () => {
     el.kind = "source";
     el.name = "garmin";
     el._info = { name: "garmin", kind: "source", enabled: true };
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { disablePlugin: { ok: true, message: "ok" } } }),
-    });
+    (globalThis.fetch as any).mockResolvedValue(mockResponse({ data: { disablePlugin: { ok: true, message: "ok" } } }));
     await el._toggle();
     const calls = (globalThis.fetch as any).mock.calls;
     const body = JSON.parse(calls[0][1].body);
@@ -232,10 +227,7 @@ describe("shenas-plugin-detail", () => {
     el.kind = "source";
     el.name = "garmin";
     el._info = { name: "garmin", kind: "source", enabled: false };
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { enablePlugin: { ok: true, message: "ok" } } }),
-    });
+    (globalThis.fetch as any).mockResolvedValue(mockResponse({ data: { enablePlugin: { ok: true, message: "ok" } } }));
     await el._toggle();
     const calls = (globalThis.fetch as any).mock.calls;
     const body = JSON.parse(calls[0][1].body);
@@ -247,11 +239,7 @@ describe("shenas-plugin-detail", () => {
     el.kind = "source";
     el.name = "garmin";
     el._info = { name: "garmin", kind: "source", enabled: true };
-    (globalThis.fetch as any).mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      json: () => Promise.resolve({ detail: "boom" }),
-    });
+    (globalThis.fetch as any).mockResolvedValueOnce(mockResponse({ detail: "boom" }, false));
     await el._sync();
     expect(el._message?.type).toBe("error");
     expect(el._syncing).toBe(false);
@@ -262,10 +250,9 @@ describe("shenas-plugin-detail", () => {
     el.kind = "source";
     el.name = "garmin";
     el._info = { name: "garmin", kind: "source", enabled: true };
-    (globalThis.fetch as any).mockResolvedValueOnce(sseResponse(['data: {"message":"hi"}\n\n'])).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { pluginInfo: { name: "garmin", kind: "source" } } }),
-    });
+    (globalThis.fetch as any)
+      .mockResolvedValueOnce(sseResponse(['data: {"message":"hi"}\n\n']))
+      .mockResolvedValue(mockResponse({ data: { pluginInfo: { name: "garmin", kind: "source" } } }));
     await el._sync();
     expect(el._syncing).toBe(false);
     // _fetchInfo runs after success and clears message
@@ -276,10 +263,7 @@ describe("shenas-plugin-detail", () => {
     const el = mount();
     el.kind = "dataset";
     el.name = "fitness";
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { runSchemaTransforms: { count: 3 } } }),
-    });
+    (globalThis.fetch as any).mockResolvedValue(mockResponse({ data: { runSchemaTransforms: { count: 3 } } }));
     await new Promise((r) => setTimeout(r, 20));
     await el._runTransforms();
     expect(el._transforming).toBe(false);
@@ -291,10 +275,7 @@ describe("shenas-plugin-detail", () => {
     el.kind = "dataset";
     el.name = "fitness";
     await new Promise((r) => setTimeout(r, 20));
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { runSchemaTransforms: {} } }),
-    });
+    (globalThis.fetch as any).mockResolvedValue(mockResponse({ data: { runSchemaTransforms: {} } }));
     await el._runTransforms();
     expect(el._message?.type).toBe("error");
   });
@@ -303,10 +284,7 @@ describe("shenas-plugin-detail", () => {
     const el = mount();
     el.kind = "dataset";
     el.name = "fitness";
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { flushSchema: { rows_deleted: 5 } } }),
-    });
+    (globalThis.fetch as any).mockResolvedValue(mockResponse({ data: { flushSchema: { rows_deleted: 5 } } }));
     await new Promise((r) => setTimeout(r, 20));
     await el._flush();
     // success triggers fetchInfo which clears message; just assert no exception
@@ -317,10 +295,7 @@ describe("shenas-plugin-detail", () => {
     el.kind = "dataset";
     el.name = "fitness";
     await new Promise((r) => setTimeout(r, 20));
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { flushSchema: {} } }),
-    });
+    (globalThis.fetch as any).mockResolvedValue(mockResponse({ data: { flushSchema: {} } }));
     await el._flush();
     expect(el._message?.type).toBe("error");
   });
@@ -353,10 +328,9 @@ describe("shenas-plugin-detail", () => {
     el.dbStatus = {
       schemas: [{ name: "garmin", tables: [{ name: "activities" }, { name: "_dlt_loads" }] }],
     };
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { pluginInfo: { name: "garmin", kind: "source" } } }),
-    });
+    (globalThis.fetch as any).mockResolvedValue(
+      mockResponse({ data: { pluginInfo: { name: "garmin", kind: "source" } } }),
+    );
     await el._fetchInfo();
     expect(el._tables.length).toBe(1);
     expect(el._tables[0].name).toBe("activities");
@@ -370,13 +344,11 @@ describe("shenas-plugin-detail", () => {
       schemas: [{ name: "metrics", tables: [{ name: "hrv" }, { name: "transactions" }] }],
     };
     el.schemaPlugins = { fitness: ["hrv"] };
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          data: { pluginInfo: { name: "fitness", kind: "dataset" }, transforms: [] },
-        }),
-    });
+    (globalThis.fetch as any).mockResolvedValue(
+      mockResponse({
+        data: { pluginInfo: { name: "fitness", kind: "dataset" }, transforms: [] },
+      }),
+    );
     await el._fetchInfo();
     expect(el._tables.map((t: any) => t.name)).toEqual(["hrv"]);
   });

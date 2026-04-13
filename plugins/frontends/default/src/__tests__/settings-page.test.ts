@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { mockResponse } from "./setup.ts";
 
 globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
@@ -16,13 +17,11 @@ describe("shenas-settings", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.resetAllMocks();
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          data: { sources: [], datasets: [], dashboardPlugins: [], frontends: [], themes: [], models: [] },
-        }),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      mockResponse({
+        data: { sources: [], datasets: [], dashboardPlugins: [], frontends: [], themes: [], models: [] },
+      }),
+    );
   });
 
   it("creates the element", () => {
@@ -150,21 +149,19 @@ describe("shenas-settings", () => {
     document.body.appendChild(el);
     await el.updateComplete;
     (globalThis.fetch as any).mockClear();
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          data: {
-            disablePlugin: { ok: true, message: "" },
-            sources: [],
-            datasets: [],
-            dashboardPlugins: [],
-            frontends: [],
-            themes: [],
-            models: [],
-          },
-        }),
-    });
+    (globalThis.fetch as any).mockResolvedValue(
+      mockResponse({
+        data: {
+          disablePlugin: { ok: true, message: "" },
+          sources: [],
+          datasets: [],
+          dashboardPlugins: [],
+          frontends: [],
+          themes: [],
+          models: [],
+        },
+      }),
+    );
     await el._togglePlugin("source", "garmin", true);
     const calls = (globalThis.fetch as any).mock.calls;
     expect(JSON.parse(calls[0][1].body).query).toContain("disablePlugin");
@@ -172,21 +169,19 @@ describe("shenas-settings", () => {
 
   it("_togglePlugin sets error on failure", async () => {
     const el = mount();
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          data: {
-            enablePlugin: { ok: false, message: "fail" },
-            sources: [],
-            datasets: [],
-            dashboardPlugins: [],
-            frontends: [],
-            themes: [],
-            models: [],
-          },
-        }),
-    });
+    (globalThis.fetch as any).mockResolvedValue(
+      mockResponse({
+        data: {
+          enablePlugin: { ok: false, message: "fail" },
+          sources: [],
+          datasets: [],
+          dashboardPlugins: [],
+          frontends: [],
+          themes: [],
+          models: [],
+        },
+      }),
+    );
     await el._togglePlugin("source", "garmin", false);
     expect(el._actionMessage?.type).toBe("error");
   });
@@ -196,10 +191,7 @@ describe("shenas-settings", () => {
     el.allPlugins = { source: [{ name: "garmin" }] };
     document.body.appendChild(el);
     await el.updateComplete;
-    (globalThis.fetch as any).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { availablePlugins: ["garmin", "lunchmoney"] } }),
-    });
+    (globalThis.fetch as any).mockResolvedValue(mockResponse({ data: { availablePlugins: ["garmin", "lunchmoney"] } }));
     await el._startInstall("source");
     expect(el._installing).toBe(true);
     expect(el._availablePlugins).toEqual(["lunchmoney"]);
@@ -221,20 +213,18 @@ describe("shenas-settings", () => {
     el._selectedPlugin = "garmin";
     (globalThis.fetch as any)
       .mockResolvedValueOnce(sseResponse(['data: {"event":"done","ok":true,"message":"installed"}\n']))
-      .mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            data: {
-              sources: [],
-              datasets: [],
-              dashboardPlugins: [],
-              frontends: [],
-              themes: [],
-              models: [],
-            },
-          }),
-      });
+      .mockResolvedValue(
+        mockResponse({
+          data: {
+            sources: [],
+            datasets: [],
+            dashboardPlugins: [],
+            frontends: [],
+            themes: [],
+            models: [],
+          },
+        }),
+      );
     await el._install("source");
     expect(el._actionMessage?.type).toBe("success");
   });

@@ -1,5 +1,15 @@
 import { LitElement, html, css } from "lit";
-import { gql, gqlFull, renderMessage, buttonStyles, formStyles, messageStyles } from "shenas-frontends";
+import {
+  ApolloQueryController,
+  ApolloMutationController,
+  getClient,
+  renderMessage,
+  buttonStyles,
+  formStyles,
+  messageStyles,
+} from "shenas-frontends";
+import { GET_AUTH_FIELDS } from "./graphql/queries.ts";
+import { AUTHENTICATE } from "./graphql/mutations.ts";
 
 interface AuthField {
   name: string;
@@ -18,7 +28,6 @@ class AuthPage extends LitElement {
     pipeName: { type: String, attribute: "pipe-name" },
     _fields: { state: true },
     _instructions: { state: true },
-    _loading: { state: true },
     _message: { state: true },
     _needsMfa: { state: true },
     _oauthUrl: { state: true },
@@ -67,12 +76,24 @@ class AuthPage extends LitElement {
   declare pipeName: string;
   declare _fields: AuthField[];
   declare _instructions: string;
-  declare _loading: boolean;
   declare _message: Message | null;
   declare _needsMfa: boolean;
   declare _oauthUrl: string | null;
   declare _submitting: boolean;
   declare _stored: string[];
+
+  private _authFieldsQuery = new ApolloQueryController(this, GET_AUTH_FIELDS, {
+    client: getClient(),
+    noAutoSubscribe: true,
+  });
+
+  private _authenticateMutation = new ApolloMutationController(this, AUTHENTICATE, {
+    client: getClient(),
+  });
+
+  get _loading(): boolean {
+    return this._authFieldsQuery.loading;
+  }
 
   constructor() {
     super();
@@ -80,7 +101,6 @@ class AuthPage extends LitElement {
     this.pipeName = "";
     this._fields = [];
     this._instructions = "";
-    this._loading = true;
     this._message = null;
     this._needsMfa = false;
     this._oauthUrl = null;
@@ -89,28 +109,27 @@ class AuthPage extends LitElement {
   }
 
   willUpdate(changed: Map<string, unknown>): void {
-    if (changed.has("pipeName")) {
+    if (changed.has("pipeName") && this.pipeName) {
       this._fetchFields();
     }
   }
 
   async _fetchFields(): Promise<void> {
     if (!this.pipeName) return;
-    this._loading = true;
     this._needsMfa = false;
     this._oauthUrl = null;
-    const data = await gql(
-      this.apiBase,
-      `query($pipe: String!) { authFields(pipe: $pipe) { fields { name prompt hide } instructions stored } }`,
-      { pipe: this.pipeName },
-    );
-    if (data?.authFields) {
-      const authFields = data.authFields as Record<string, unknown>;
+    const result = await this._authFieldsQuery.client!.query({
+      query: GET_AUTH_FIELDS,
+      variables: { pipe: this.pipeName },
+      fetchPolicy: "network-only",
+    });
+    const authFields = result.data?.authFields as Record<string, unknown> | undefined;
+    if (authFields) {
       this._fields = (authFields.fields as AuthField[]) || [];
       this._instructions = (authFields.instructions as string) || "";
       this._stored = (authFields.stored as string[]) || [];
     }
-    this._loading = false;
+    this.requestUpdate();
   }
 
   async _submit(): Promise<void> {
@@ -131,17 +150,15 @@ class AuthPage extends LitElement {
       }
     }
 
-    const { data } = await gqlFull(
-      this.apiBase,
-      `mutation($pipe: String!, $creds: JSON!, $callbackUrl: String) { authenticate(pipe: $pipe, credentials: $creds, callbackUrl: $callbackUrl) { ok message error needsMfa oauthUrl oauthRedirect } }`,
-      {
+    const result = await this._authenticateMutation.mutate({
+      variables: {
         pipe: this.pipeName,
         creds: credentials,
         callbackUrl: `${window.location.origin}/api/auth/source/${this.pipeName}/callback`,
       },
-    );
+    });
     this._submitting = false;
-    const auth = data?.authenticate as Record<string, unknown> | undefined;
+    const auth = result.data?.authenticate as Record<string, unknown> | undefined;
 
     if (auth?.oauthRedirect) {
       // Server-side redirect flow: navigate directly to the provider

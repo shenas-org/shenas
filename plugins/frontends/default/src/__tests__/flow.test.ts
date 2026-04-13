@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { mockResponse } from "./setup.ts";
 
 globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
@@ -32,10 +33,7 @@ describe("shenas-pipeline-overview", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.resetAllMocks();
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: {} }),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse({ data: {} }));
   });
 
   it("creates the element", () => {
@@ -60,7 +58,7 @@ describe("shenas-pipeline-overview", () => {
 
   it("renders cy container in shadow DOM", async () => {
     const el = mount();
-    el._loading = false;
+    await new Promise((r) => setTimeout(r, 20));
     await el.updateComplete;
     const container = el.shadowRoot?.querySelector("#cy");
     expect(container).toBeTruthy();
@@ -68,7 +66,7 @@ describe("shenas-pipeline-overview", () => {
 
   it("renders legend items", async () => {
     const el = mount();
-    el._loading = false;
+    await new Promise((r) => setTimeout(r, 20));
     await el.updateComplete;
     const legend = el.shadowRoot?.querySelector(".legend");
     expect(legend).toBeTruthy();

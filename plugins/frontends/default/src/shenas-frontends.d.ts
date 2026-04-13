@@ -1,4 +1,49 @@
 declare module "shenas-frontends" {
+  // Apollo Client
+  import type { ApolloClient, DocumentNode } from "@apollo/client/core";
+  import type { ReactiveController, ReactiveControllerHost } from "lit";
+
+  export function getClient(apiBase?: string): ApolloClient<unknown>;
+  export function gqlTag(strings: TemplateStringsArray, ...values: unknown[]): DocumentNode;
+
+  interface ApolloControllerOptions {
+    client?: ApolloClient<unknown>;
+    variables?: Record<string, unknown>;
+    fetchPolicy?: string;
+    noAutoSubscribe?: boolean;
+    [key: string]: unknown;
+  }
+
+  interface MutateParams {
+    variables?: Record<string, unknown>;
+    refetchQueries?: Array<{ query: DocumentNode; variables?: Record<string, unknown> }>;
+    [key: string]: unknown;
+  }
+
+  export class ApolloQueryController<TData = Record<string, unknown>> implements ReactiveController {
+    constructor(host: ReactiveControllerHost, query: DocumentNode, options?: ApolloControllerOptions);
+    data: TData | null;
+    loading: boolean;
+    error: Error | null;
+    client: ApolloClient<unknown> | null;
+    subscribe(options?: ApolloControllerOptions): void;
+    refetch(variables?: Record<string, unknown>): Promise<{ data: TData }>;
+    hostConnected(): void;
+    hostDisconnected(): void;
+  }
+
+  export class ApolloMutationController<TData = Record<string, unknown>> implements ReactiveController {
+    constructor(host: ReactiveControllerHost, mutation: DocumentNode, options?: ApolloControllerOptions);
+    data: TData | null;
+    loading: boolean;
+    error: Error | null;
+    called: boolean;
+    client: ApolloClient<unknown> | null;
+    mutate(params?: MutateParams): Promise<{ data?: TData | null }>;
+    hostConnected(): void;
+    hostDisconnected(): void;
+  }
+
   export function gql(
     base: string,
     query: string,

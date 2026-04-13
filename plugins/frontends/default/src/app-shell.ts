@@ -4,13 +4,23 @@ import { Router } from "@lit-labs/router";
 import {
   arrowQuery,
   gql,
-  gqlFull,
+  getClient,
   matchesHotkey,
   openExternal,
   sortActions,
   linkStyles,
   utilityStyles,
 } from "shenas-frontends";
+import { GET_HOTKEYS, GET_WORKSPACE, GET_DASHBOARDS } from "./graphql/queries.ts";
+import {
+  SAVE_WORKSPACE,
+  SEED_TRANSFORMS,
+  REFRESH_LITERATURE,
+  RUN_PIPE_TRANSFORMS,
+  RUN_SCHEMA_TRANSFORMS,
+  ENABLE_PLUGIN,
+  DISABLE_PLUGIN,
+} from "./graphql/mutations.ts";
 import { SETTINGS_NAV_ITEMS } from "./settings-page.ts";
 import "./user-select-dialog.ts";
 
@@ -139,6 +149,7 @@ class ShenasApp extends LitElement {
   private _pluginDisplayNames: Record<string, string> = {};
   private _nextTabId = 1;
   private _saveWorkspaceTimer: ReturnType<typeof setTimeout> | null = null;
+  private _client = getClient();
 
   _router = new Router(this, [
     { path: "/", render: () => this._renderDynamicHome() },
@@ -818,7 +829,7 @@ class ShenasApp extends LitElement {
   }
 
   async _loadHotkeys(): Promise<void> {
-    const data = await gql(this.apiBase, `{ hotkeys }`);
+    const { data } = await this._client.query({ query: GET_HOTKEYS, fetchPolicy: "network-only" });
     this._hotkeys = (data?.hotkeys as Record<string, string>) || {};
   }
 
@@ -890,10 +901,8 @@ class ShenasApp extends LitElement {
             category: k.label,
             label: `Toggle ${name}`,
             action: async () => {
-              const mutation = enabled
-                ? `mutation($k: String!, $n: String!) { disablePlugin(kind: $k, name: $n) { ok } }`
-                : `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok } }`;
-              await gqlFull(this.apiBase, mutation, { k: k.id, n: p.name });
+              const mutation = enabled ? DISABLE_PLUGIN : ENABLE_PLUGIN;
+              await this._client.mutate({ mutation, variables: { k: k.id, n: p.name } });
               if (k.id === "ui" && !enabled) {
                 window.location.replace(window.location.pathname + "?_switch=" + Date.now());
                 return;
@@ -908,11 +917,7 @@ class ShenasApp extends LitElement {
               label: `${name}${enabled ? " (active)" : ""}`,
               action: async () => {
                 if (enabled) return;
-                await gqlFull(
-                  this.apiBase,
-                  `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok } }`,
-                  { k: "ui", n: p.name },
-                );
+                await this._client.mutate({ mutation: ENABLE_PLUGIN, variables: { k: "ui", n: p.name } });
                 window.location.replace(window.location.pathname + "?_switch=" + Date.now());
               },
             });
@@ -929,9 +934,7 @@ class ShenasApp extends LitElement {
               category: "Transform",
               label: `Run Transforms: ${name}`,
               action: () => {
-                gqlFull(this.apiBase, `mutation($pipe: String!) { runPipeTransforms(pipe: $pipe) { name count } }`, {
-                  pipe: p.name,
-                });
+                this._client.mutate({ mutation: RUN_PIPE_TRANSFORMS, variables: { pipe: p.name } });
               },
             });
           }
@@ -948,7 +951,7 @@ class ShenasApp extends LitElement {
         category: "Transform",
         label: "Seed Default Transforms",
         action: () => {
-          gqlFull(this.apiBase, `mutation { seedTransforms { seeded count } }`);
+          this._client.mutate({ mutation: SEED_TRANSFORMS });
         },
       });
       commands.push({
@@ -960,7 +963,7 @@ class ShenasApp extends LitElement {
           const panel = this._getJobPanel();
           panel?.addJob(jobId, "Refreshing Literature Findings");
           try {
-            const { data } = await gqlFull(this.apiBase, `mutation { refreshLiterature }`);
+            const { data } = await this._client.mutate({ mutation: REFRESH_LITERATURE });
             const stats = data?.refreshLiterature as Record<string, number> | undefined;
             const msg = stats
               ? `${stats.findings_extracted || 0} findings from ${stats.papers_fetched || 0} papers`
@@ -980,13 +983,7 @@ class ShenasApp extends LitElement {
             category: "Transform",
             label: `Run Transforms -> ${s.displayName || s.name}: ${table}`,
             action: () => {
-              gqlFull(
-                this.apiBase,
-                `mutation($schema: String!) { runSchemaTransforms(schema: $schema) { name count } }`,
-                {
-                  schema: table,
-                },
-              );
+              this._client.mutate({ mutation: RUN_SCHEMA_TRANSFORMS, variables: { schema: table } });
             },
           });
         }
@@ -1117,15 +1114,13 @@ class ShenasApp extends LitElement {
         nextTabId: this._nextTabId,
         rightPanelOpen: this._rightOpen,
       };
-      gqlFull(this.apiBase, `mutation($data: JSON!) { saveWorkspace(data: $data) { ok } }`, { data: state }).catch(
-        () => {},
-      );
+      this._client.mutate({ mutation: SAVE_WORKSPACE, variables: { data: state } }).catch(() => {});
     }, 300);
   }
 
   async _loadWorkspace(): Promise<void> {
     try {
-      const data = await gql(this.apiBase, `{ workspace }`);
+      const { data } = await this._client.query({ query: GET_WORKSPACE, fetchPolicy: "network-only" });
       const state = data?.workspace as Record<string, unknown> | undefined;
       if (!state) return;
       if (state.tabs && (state.tabs as TabInfo[]).length > 0) {
@@ -1179,7 +1174,7 @@ class ShenasApp extends LitElement {
   }
 
   async _refreshDashboards(): Promise<void> {
-    const data = await gql(this.apiBase, `{ dashboards { name displayName tag js description } }`);
+    const { data } = await this._client.query({ query: GET_DASHBOARDS, fetchPolicy: "network-only" });
     this._dashboards = (data?.dashboards as DashboardInfo[]) || [];
   }
 
