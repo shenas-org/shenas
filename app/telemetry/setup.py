@@ -17,6 +17,25 @@ from app.jobs import JobIdLogFilter
 from app.telemetry.exporters import DuckDBLogExporter, DuckDBSpanExporter
 from app.telemetry.processors import DispatchingLogProcessor, DispatchingSpanProcessor
 
+
+def _cloud_json_formatter() -> logging.Formatter:
+    """Build a JSON formatter compatible with Google Cloud Logging.
+
+    Uses ``python-json-logger`` to output structured JSON that Cloud Logging
+    and Cloud Error Reporting understand. Maps ``levelname`` to ``severity``
+    and includes source location and stack traces.
+    """
+    from pythonjsonlogger.json import JsonFormatter
+
+    return JsonFormatter(
+        fmt="%(asctime)s %(levelname)s %(name)s %(message)s %(pathname)s %(lineno)d %(funcName)s",
+        rename_fields={
+            "levelname": "severity",
+            "asctime": "time",
+        },
+    )
+
+
 _lock = threading.Lock()
 _initialized = False
 _tracer_provider: TracerProvider | None = None
@@ -62,7 +81,10 @@ def init_telemetry(service_name: str) -> None:
 
     # Also log to stdout for visibility in terminal/container logs
     console = logging.StreamHandler()
-    console.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s", datefmt="%H:%M:%S"))
+    if os.environ.get("SHENAS_JSON_LOGS", "") == "1" or os.environ.get("SHENAS_HEADLESS", "") == "1":
+        console.setFormatter(_cloud_json_formatter())
+    else:
+        console.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s", datefmt="%H:%M:%S"))
     shenas_logger.addHandler(console)
     shenas_logger.setLevel(logging.DEBUG)
 
