@@ -1,0 +1,9 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+id: 'source-openmeteo'
+
+language: 'python'
+stack: 'data'
+tags: ['plugin', 'source']
+
+dependsOn:
+  - 'source-core'

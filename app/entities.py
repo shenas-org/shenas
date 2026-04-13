@@ -410,6 +410,13 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "is_human": False,
         "description": "A company, gym, or other group.",
     },
+    {
+        "name": "city",
+        "display_name": "City",
+        "icon": "map-pin",
+        "is_human": False,
+        "description": "A city or metropolitan area.",
+    },
 ]
 
 
@@ -422,6 +429,7 @@ DEFAULT_RELATIONSHIP_TYPES: list[dict[str, Any]] = [
     {"name": "paired_with", "display_name": "Paired with", "inverse_name": "paired with", "is_symmetric": True},
     {"name": "sibling_of", "display_name": "Sibling of", "inverse_name": "sibling of", "is_symmetric": True},
     {"name": "friend_of", "display_name": "Friend of", "inverse_name": "friend of", "is_symmetric": True},
+    {"name": "located_in", "display_name": "Located in", "inverse_name": "location of", "is_symmetric": False},
 ]
 
 
