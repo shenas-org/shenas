@@ -94,9 +94,10 @@ class PluginDetail extends LitElement {
         display: block;
       }
       .back {
-        font-size: 0.9rem;
-        display: inline-block;
-        margin-bottom: 1rem;
+        font-size: 1rem;
+        margin-right: 0.4rem;
+        text-decoration: none;
+        vertical-align: middle;
       }
       .title-row {
         display: flex;
@@ -689,19 +690,18 @@ class PluginDetail extends LitElement {
     const basePath = `/settings/${this.kind}/${this.name}`;
 
     return html`
-      <a
-        class="back"
-        href="/settings/${this.kind}"
-        @click=${(e: MouseEvent) => {
-          e.preventDefault();
-          window.history.pushState({}, "", `/settings/${this.kind}`);
-          window.dispatchEvent(new PopStateEvent("popstate"));
-        }}
-        >&larr; Back to ${this.kind}s</a
-      >
-
       <div class="title-row">
         <h2>
+          <a
+            class="back"
+            href="/settings/${this.kind}"
+            @click=${(e: MouseEvent) => {
+              e.preventDefault();
+              window.history.pushState({}, "", `/settings/${this.kind}`);
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            }}
+            >&larr;</a
+          >
           ${(info as Record<string, unknown>).icon_url
             ? html`<img
                 src="${(info as Record<string, unknown>).icon_url}"
