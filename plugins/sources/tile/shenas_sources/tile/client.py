@@ -40,6 +40,7 @@ class TileClient:
         self._http = httpx.Client(
             base_url=BASE_URL,
             headers={
+                "Content-Type": "application/json",
                 "Tile_app_id": TILE_APP_ID,
                 "Tile_app_version": TILE_APP_VERSION,
                 "Tile_client_uuid": self._client_uuid,
@@ -57,7 +58,7 @@ class TileClient:
     def login(self) -> None:
         """Register the client and create an authenticated session."""
         # Step 1: Register client
-        self._http.put(
+        resp = self._http.put(
             f"/clients/{self._client_uuid}",
             json={
                 "app_id": TILE_APP_ID,
@@ -65,6 +66,7 @@ class TileClient:
                 "locale": DEFAULT_LOCALE,
             },
         )
+        resp.raise_for_status()
 
         # Step 2: Create session (login)
         resp = self._http.post(
