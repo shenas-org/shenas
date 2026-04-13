@@ -197,6 +197,38 @@ async def proxy_messages(request: Request) -> StreamingResponse | dict:
     )
 
 
+@router.get("/usage/all")
+async def get_all_usage(request: Request) -> list[dict]:
+    """Return LLM usage for all users (admin only)."""
+    from shenas_net_api.auth import require_admin
+
+    await require_admin(request)
+    month = datetime.now(UTC).strftime("%Y-%m")
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT u.email, u.name, l.month, l.tokens_used, l.monthly_limit"
+            " FROM llm_usage l JOIN users u ON l.user_id = u.id"
+            " ORDER BY l.month DESC, l.tokens_used DESC",
+        ).fetchall()
+    # Also include users with no usage this month
+    with get_conn() as conn:
+        all_users = conn.execute("SELECT id, email, name FROM users").fetchall()
+    user_months: set[tuple[str, str]] = {(r["email"], r["month"]) for r in rows}
+    result = [dict(r) for r in rows]
+    for u in all_users:
+        if (u["email"], month) not in user_months:
+            result.append(
+                {
+                    "email": u["email"],
+                    "name": u["name"],
+                    "month": month,
+                    "tokens_used": 0,
+                    "monthly_limit": DEFAULT_MONTHLY_LIMIT,
+                }
+            )
+    return result
+
+
 @router.get("/usage")
 async def get_usage(request: Request) -> dict:
     """Return the current user's LLM usage for this month."""
