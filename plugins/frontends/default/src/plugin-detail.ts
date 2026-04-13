@@ -241,15 +241,17 @@ class PluginDetail extends LitElement {
 
   willUpdate(changed: Map<string, unknown>): void {
     if (changed.has("kind") || changed.has("name")) {
-      if (this.initialInfo && !this._info) {
+      // Check for OAuth callback result in URL
+      const params = new URLSearchParams(window.location.search);
+      const authResult = params.get("auth");
+
+      if (!authResult && this.initialInfo && !this._info) {
         this._info = this.initialInfo;
         this._loading = false;
         this._showLoading = false;
       }
       this._fetchInfo();
-      // Check for OAuth callback result in URL
-      const params = new URLSearchParams(window.location.search);
-      const authResult = params.get("auth");
+
       if (authResult) {
         if (authResult === "success") {
           this._message = { type: "success", text: "Authentication successful" };
