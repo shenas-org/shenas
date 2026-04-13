@@ -734,7 +734,16 @@ class SettingsPage extends LitElement {
         </div>
         <div class="profile-actions">
           <button @click=${() => openExternal("https://shenas.net/dashboard")}>Dashboard</button>
-          <button class="danger" @click=${() => (window.location.href = "/api/auth/logout")}>Logout</button>
+          <button
+            class="danger"
+            @click=${async () => {
+              await fetch("/api/auth/logout", { method: "POST" });
+              this._actionMessage = { type: "success", text: "Logged out from shenas.net" };
+              this.requestUpdate();
+            }}
+          >
+            Logout
+          </button>
         </div>
       </div>
     `;
