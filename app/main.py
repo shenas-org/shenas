@@ -150,23 +150,13 @@ if _vendor_dir.is_dir():
 @app.get("/plugins/{kind}/{name}/icon.svg")
 async def plugin_icon(kind: str, name: str) -> Response:
     """Serve a plugin's icon.svg from its package directory."""
-    import inspect
-
     from app.plugin import Plugin
 
-    singular = kind.rstrip("s")
-    cls = Plugin.load_by_name_and_kind(name, singular)
+    cls = Plugin.load_by_name_and_kind(name, kind.rstrip("s"))
     if cls:
-        try:
-            mod_file = _pathlib.Path(inspect.getfile(cls))
-            for parent in mod_file.parents:
-                icon_path = parent / "icon.svg"
-                if icon_path.exists():
-                    return Response(content=icon_path.read_text(), media_type="image/svg+xml")
-                if (parent / "pyproject.toml").exists():
-                    break
-        except Exception:
-            pass
+        path = cls().icon_path
+        if path:
+            return Response(content=path.read_text(), media_type="image/svg+xml")
     return JSONResponse(status_code=404, content={"detail": "Icon not found"})
 
 

@@ -358,21 +358,27 @@ class Plugin(abc.ABC):
         return PluginInstance.get_or_create(self._kind, self.name, enabled=self.enabled_by_default)
 
     @property
-    def icon_url(self) -> str | None:
-        """URL for the plugin's brand icon, or None if no icon exists."""
+    def icon_path(self) -> Path | None:
+        """Absolute path to the plugin's icon.svg, or None if not found."""
         import inspect
-        from pathlib import Path
 
         try:
             mod_file = Path(inspect.getfile(type(self)))
-            # Walk up from source.py until we find icon.svg or hit the repo root
             for parent in mod_file.parents:
-                if (parent / "icon.svg").exists():
-                    return f"/plugins/{self._kind}s/{self.name}/icon.svg"
+                candidate = parent / "icon.svg"
+                if candidate.exists():
+                    return candidate
                 if (parent / "pyproject.toml").exists():
                     break
         except Exception:
             pass
+        return None
+
+    @property
+    def icon_url(self) -> str | None:
+        """URL for the plugin's brand icon, or None if no icon exists."""
+        if self.icon_path:
+            return f"/plugins/{self._kind}s/{self.name}/icon.svg"
         return None
 
     def get_info(self) -> dict[str, Any]:
