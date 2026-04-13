@@ -67,6 +67,7 @@ async def remove_device(device_id: str, request: Request) -> dict:
         ).fetchone()
     if not result:
         raise HTTPException(status_code=404, detail="Device not found")
+    log.info("Device removed: %s by user %s", device_id[:8], user["email"])
     return {"ok": True}
 
 
@@ -106,6 +107,7 @@ async def update_endpoints(device_id: str, body: EndpointUpdate, request: Reques
         else:
             conn.execute("DELETE FROM device_endpoints WHERE device_id = %(did)s", {"did": device_id})
         conn.execute("UPDATE devices SET last_seen = now() WHERE id = %(did)s", {"did": device_id})
+    log.info("Endpoints updated: device %s, %d endpoint(s)", device_id[:8], len(body.endpoints))
     return {"ok": True}
 
 

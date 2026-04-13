@@ -7,11 +7,15 @@ ciphertext.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from shenas_net_api.auth import get_current_user
 from shenas_net_api.db import get_conn
+
+log = logging.getLogger("shenas-net-api.relay")
 
 router = APIRouter(prefix="/relay")
 
@@ -56,6 +60,7 @@ async def send_relay(device_id: str, body: RelayMessage, request: Request) -> di
             "INSERT INTO relay_messages (from_device_id, to_device_id, payload) VALUES (%(from)s, %(to)s, %(payload)s)",
             {"from": sender["id"], "to": device_id, "payload": body.payload},
         )
+    log.info("Relay push: %s -> %s (%d bytes)", sender["id"][:8], device_id[:8], len(body.payload))
     return {"ok": True}
 
 
@@ -90,4 +95,5 @@ async def poll_relay(request: Request, device_id: str | None = None) -> list[dic
                 "DELETE FROM relay_messages WHERE id = ANY(%(ids)s)",
                 {"ids": ids},
             )
+    log.info("Relay poll: device %s got %d message(s)", device_id[:8], len(rows))
     return [dict(r) for r in rows]
