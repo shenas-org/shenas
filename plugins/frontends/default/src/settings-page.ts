@@ -435,7 +435,8 @@ class SettingsPage extends LitElement {
     this._availablePlugins = available.filter((n) => !installed.has(n));
 
     // Build form panel and dispatch to app-shell's right panel
-    const label = this._pluginKinds.find((k) => k.id === kind)?.label || kind;
+    const label =
+      this._pluginKinds.find((k) => k.id === kind)?.label || kind.charAt(0).toUpperCase() + kind.slice(1) + "s";
     const panel = document.createElement("div");
     panel.style.padding = "1rem";
     this._renderInstallPanel(panel, kind, label);
@@ -584,7 +585,7 @@ class SettingsPage extends LitElement {
     if (this.activeKind === "categories") return "Categories";
     if (this.activeKind === "hotkeys") return "Hotkeys";
     const kind = this._pluginKinds.find((k) => k.id === this.activeKind);
-    return kind ? kind.label : this.activeKind;
+    return kind ? kind.label : this.activeKind.charAt(0).toUpperCase() + this.activeKind.slice(1) + "s";
   }
 
   render() {
@@ -759,7 +760,8 @@ class SettingsPage extends LitElement {
 
   _renderKind(kind: string) {
     const plugins = this._plugins[kind] || [];
-    const label = this._pluginKinds.find((k) => k.id === kind)?.label || kind;
+    const label =
+      this._pluginKinds.find((k) => k.id === kind)?.label || kind.charAt(0).toUpperCase() + kind.slice(1) + "s";
     return html`
       <h3>${label}</h3>
       <shenas-data-list

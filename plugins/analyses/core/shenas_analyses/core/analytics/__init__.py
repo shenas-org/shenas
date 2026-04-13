@@ -24,9 +24,6 @@ shapes (lag this, window that, join AS-OF, correlate the two).
 """
 
 from shenas_analyses.core.analytics.llm import (
-    AnthropicProvider,
-    FakeProvider,
-    LLMProvider,
     ask_for_interpretation,
     ask_for_recipe,
     ask_for_recipe_with_retry,
@@ -61,9 +58,10 @@ from shenas_analyses.core.analytics.runner import (
     run_recipe,
 )
 
+from app.llm import FakeProvider, LLMProvider
+
 __all__ = [
     "AnalysisMode",
-    "AnthropicProvider",
     "Correlate",
     "ErrorResult",
     "FakeProvider",

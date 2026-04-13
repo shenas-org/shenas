@@ -1,11 +1,18 @@
-"""LLM inference backends: local (llama.cpp) and cloud (shenas.net proxy)."""
+"""LLM inference backends: local (llama.cpp) and cloud (shenas.net proxy).
+
+All cloud LLM calls go through the shenas.net proxy. The user must be
+signed in (remote_token stored) for cloud features to work.
+"""
 
 from __future__ import annotations
 
 import abc
+import json
 import logging
 import os
-from typing import TYPE_CHECKING, ClassVar
+import urllib.error
+import urllib.request
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
 if TYPE_CHECKING:
     from app.llm.models import Model
@@ -15,13 +22,103 @@ log = logging.getLogger(f"shenas.{__name__}")
 SHENAS_NET_URL = os.environ.get("SHENAS_NET_URL", "https://shenas.net")
 
 
-class Backend(abc.ABC):
-    """One LLM provider invocation. Stateful (singletons OK)."""
+# -- LLM provider protocol (tool-use interface) ----------------------------
 
-    name: str  # short identifier persisted as llm_cache.model
+
+class LLMProvider(Protocol):
+    """Minimal interface for tool-use LLM calls (hypothesis analysis, suggestions)."""
+
+    name: str
+    last_input_tokens: int
+    last_output_tokens: int
+
+    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]], tool_name: str | None = None) -> dict[str, Any]:
+        """Send prompt + tools to the LLM and return the parsed tool-use payload."""
+        ...
+
+
+class FakeProvider:
+    """In-process provider for tests. Returns a pre-canned payload."""
+
+    name: ClassVar[str] = "fake@v0"
+
+    def __init__(self, payload: dict[str, Any], *, input_tokens: int = 100, output_tokens: int = 50) -> None:
+        self._payload = payload
+        self._in = input_tokens
+        self._out = output_tokens
+        self.calls: list[tuple[str, str]] = []
+        self.last_input_tokens = 0
+        self.last_output_tokens = 0
+
+    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]], tool_name: str | None = None) -> dict[str, Any]:  # noqa: ARG002
+        self.calls.append((system, user))
+        self.last_input_tokens = self._in
+        self.last_output_tokens = self._out
+        return self._payload
+
+
+class ShenasNetProvider:
+    """LLM provider that proxies tool-use calls through shenas.net."""
+
+    def __init__(self, *, token: str, model: str = "claude-sonnet-4-6") -> None:
+        self.token = token
+        self.model = model
+        self.name = f"shenas-net@{model}"
+        self.last_input_tokens: int = 0
+        self.last_output_tokens: int = 0
+
+    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]], tool_name: str | None = None) -> dict[str, Any]:
+        forced_name = tool_name or (tools[0]["name"] if tools else None)
+        payload = json.dumps(
+            {
+                "model": self.model,
+                "max_tokens": 4096,
+                "system": system,
+                "messages": [{"role": "user", "content": user}],
+                "tools": tools,
+                "tool_choice": {"type": "tool", "name": forced_name} if forced_name else {"type": "auto"},
+            }
+        ).encode()
+
+        req = urllib.request.Request(
+            f"{SHENAS_NET_URL}/api/llm/messages",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json",
+            },
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                data = json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode() if exc.fp else ""
+            msg = f"shenas.net LLM proxy error: {exc.code} -- {body}"
+            raise RuntimeError(msg) from exc
+
+        usage = data.get("usage", {})
+        self.last_input_tokens = int(usage.get("input_tokens", 0))
+        self.last_output_tokens = int(usage.get("output_tokens", 0))
+
+        for block in data.get("content", []):
+            if block.get("type") == "tool_use" and (not forced_name or block.get("name") == forced_name):
+                return dict(block.get("input", {}))
+
+        msg = f"LLM did not call {forced_name}; got {data.get('content', [])!r}"
+        raise RuntimeError(msg)
+
+
+# -- Categorization backend (text classification) --------------------------
+
+
+class Backend(abc.ABC):
+    """LLM backend for simple text classification (no tool-use)."""
+
+    name: str
 
     @classmethod
-    def from_config(cls, config: dict) -> Backend:
+    def from_config(cls, config: dict) -> Backend:  # type: ignore[type-arg]
         backend = config.get("backend") or "local"
         if backend == "local":
             from .models import ModelStore
@@ -44,12 +141,7 @@ class Backend(abc.ABC):
 
 
 class ShenasProxyBackend(Backend):
-    """Routes through the shenas.net LLM proxy at /api/llm/messages.
-
-    Same endpoint used by ShenasNetProvider in app/graphql/llm_provider.py
-    for hypothesis analysis, but without tool-use (classification is a
-    plain text completion).
-    """
+    """Routes classification calls through the shenas.net LLM proxy."""
 
     def __init__(self, *, token: str, model: str) -> None:
         self._token = token
@@ -57,9 +149,6 @@ class ShenasProxyBackend(Backend):
         self.name = f"shenas-net@{model}"
 
     def categorize(self, text: str, *, prompt: str) -> str | None:
-        import json
-        import urllib.request
-
         payload = json.dumps(
             {
                 "model": self._model,

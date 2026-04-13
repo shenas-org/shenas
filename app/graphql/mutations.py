@@ -58,7 +58,13 @@ class Mutation:
     # -- Auth --
 
     @strawberry.mutation
-    def authenticate(self, info: strawberry.types.Info, pipe: str, credentials: JSON) -> AuthResponseType:
+    def authenticate(
+        self,
+        info: strawberry.types.Info,
+        pipe: str,
+        credentials: JSON,
+        callback_url: str | None = None,
+    ) -> AuthResponseType:
         from app.models import AuthResponse
         from shenas_sources.core.source import Source
 
@@ -69,10 +75,13 @@ class Mutation:
         # Build callback URL for OAuth redirect flow
         redirect_uri = None
         if source.supports_oauth_redirect:
-            request = info.context.get("request")
-            if request:
-                base = str(request.base_url).rstrip("/")
-                redirect_uri = f"{base}/api/auth/source/{pipe}/callback"
+            if callback_url:
+                redirect_uri = callback_url
+            else:
+                request = info.context.get("request")
+                if request:
+                    base = str(request.base_url).rstrip("/")
+                    redirect_uri = f"{base}/api/auth/source/{pipe}/callback"
         result = source.handle_auth(credentials, redirect_uri=redirect_uri)  # ty: ignore[invalid-argument-type]
         return AuthResponseType.from_pydantic(AuthResponse(**result))  # ty: ignore[unresolved-attribute]
 
@@ -541,9 +550,8 @@ class Mutation:
     def ask_hypothesis(self, question: str, mode: str = "hypothesis") -> JSON:  # noqa: PLR0915 -- linear narrative is clearer than splitting
         """End-to-end: create a hypothesis, ask the LLM for a recipe, run it, persist.
 
-        The LLM provider is constructed from environment / settings; the
-        default is :class:`AnthropicProvider` which reads
-        ``ANTHROPIC_API_KEY``. The ``mode`` parameter selects which
+        The LLM provider is constructed via ``get_llm_provider()`` which
+        uses the shenas.net proxy. The ``mode`` parameter selects which
         analysis strategy the LLM uses (operation vocabulary, system
         prompt framing). Returns the hypothesis id, the LLM's plan,
         the recipe payload, the run result, and a per-turn cost block
@@ -563,8 +571,8 @@ class Mutation:
         from shenas_analyses.core.analytics.mode import get_mode
 
         from app.database import analytics_backend
-        from app.graphql.llm_provider import get_llm_provider
         from app.hypotheses import Hypothesis, _extract_input_tables, _serialize_recipe
+        from app.llm import get_llm_provider
 
         Analysis.discover()
         try:
@@ -701,7 +709,7 @@ class Mutation:
         from shenas_transformers.core.transform import Transform
 
         from app.data_catalog import _walk_metrics, _walk_sources
-        from app.graphql.llm_provider import get_llm_provider
+        from app.llm import get_llm_provider
         from app.plugin import PluginInstance
         from shenas_datasets.core.suggest import ask_for_dataset_suggestions, validate_dataset_payload
 
@@ -791,8 +799,8 @@ class Mutation:
         from shenas_analyses.suggestion import ask_for_analysis_suggestions, validate_analysis_payload
 
         from app.data_catalog import _walk_metrics
-        from app.graphql.llm_provider import get_llm_provider
         from app.hypotheses import Hypothesis
+        from app.llm import get_llm_provider
 
         provider = get_llm_provider()
         wall_start = time.monotonic()
