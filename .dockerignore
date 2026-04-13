@@ -1,5 +1,9 @@
 .venv/
 .git/
+pyproject.toml
+uv.lock
+shenasctl/
+scheduler/
 data/
 docs/
 dist/

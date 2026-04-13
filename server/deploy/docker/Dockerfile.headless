@@ -8,13 +8,16 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 COPY app/ app/
 COPY plugins/ plugins/
 
-# Install app and all plugin packages directly (not via workspace)
+# Pretend version for all hatch-vcs packages (no .git in container)
 ARG VERSION=0.0.0
-RUN find . -name "pyproject.toml" -path "*/plugins/*" -exec dirname {} \; > /tmp/plugin_dirs.txt \
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION}
+
+# Install app and all plugin packages directly
+RUN find . -name "pyproject.toml" -path "*/plugins/*" -exec dirname {} \; > /tmp/dirs.txt \
     && uv pip install --system --no-cache \
         ./app/ \
-        $(cat /tmp/plugin_dirs.txt | sed 's|^|./|' | tr '\n' ' ') \
-    && rm /tmp/plugin_dirs.txt
+        $(cat /tmp/dirs.txt | tr '\n' ' ') \
+    && rm /tmp/dirs.txt
 
 # Create data directory for DuckDB
 RUN mkdir -p /app/data
