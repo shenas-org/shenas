@@ -740,6 +740,7 @@ class SettingsPage extends LitElement {
               await fetch("/api/auth/logout", { method: "POST" });
               this.remoteUser = null;
               this._actionMessage = { type: "success", text: "Logged out from shenas.net" };
+              this.dispatchEvent(new CustomEvent("auth-changed", { bubbles: true, composed: true }));
             }}
           >
             Logout
