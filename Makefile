@@ -239,20 +239,21 @@ headless-build:
 	docker build -f server/deploy/docker/Dockerfile.headless -t shenas-headless .
 
 headless-deploy: headless-build
-	@if ! kubectl -n shenas get secret headless-db-key >/dev/null 2>&1; then \
+	@kubectl create namespace shenas-runners 2>/dev/null || true
+	@if ! kubectl -n shenas-runners get secret headless-db-key >/dev/null 2>&1; then \
 		echo "Creating DB encryption key..."; \
-		kubectl -n shenas create secret generic headless-db-key \
+		kubectl -n shenas-runners create secret generic headless-db-key \
 			--from-literal=key=$$(openssl rand -hex 32); \
 	fi
 	@if [ -f data/dev_credentials.json ]; then \
 		echo "Uploading credentials..."; \
-		kubectl -n shenas create secret generic headless-credentials \
+		kubectl -n shenas-runners create secret generic headless-credentials \
 			--from-file=dev_credentials.json=data/dev_credentials.json \
 			--dry-run=client -o yaml | kubectl apply -f -; \
 	else \
-		echo "Warning: data/dev_credentials.json not found. Run 'make headless-export-creds' first."; \
+		echo "Warning: data/dev_credentials.json not found. Export via Ctrl+P first."; \
 	fi
-	kubectl -n shenas apply -f server/deploy/k8s/headless-worker.yaml
+	kubectl -n shenas-runners apply -f server/deploy/k8s/headless-worker.yaml
 
 k8s-apply:
 	kubectl apply -f server/deploy/k8s/namespace.yaml
