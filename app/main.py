@@ -350,6 +350,27 @@ def remote_callback(token: str | None = None) -> RedirectResponse:
     return RedirectResponse(url="/settings/profile")
 
 
+@app.get("/api/auth/source/{name}/callback")
+def source_auth_callback(name: str, request: Request) -> RedirectResponse:
+    """OAuth callback for source plugin authentication."""
+    from shenas_sources.core.source import Source
+
+    code = request.query_params.get("code", "")
+    state = request.query_params.get("state")
+    try:
+        cls = Source.load_by_name(name)
+        if not cls:
+            return RedirectResponse(url=f"/settings/source/{name}?auth=error&message=Source+not+found")
+        source = cls()
+        source.complete_oauth(code=code, state=state)
+        return RedirectResponse(url=f"/settings/source/{name}?auth=success")
+    except Exception as exc:
+        import urllib.parse
+
+        msg = urllib.parse.quote(str(exc))
+        return RedirectResponse(url=f"/settings/source/{name}?auth=error&message={msg}")
+
+
 @app.get("/api/auth/me")
 def remote_me() -> dict:
     """Check if locally stored remote token is valid."""

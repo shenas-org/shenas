@@ -25,6 +25,7 @@ interface PluginInfo {
   has_config?: boolean;
   has_auth?: boolean;
   has_data?: boolean;
+  is_authenticated?: boolean | null;
   primary_table?: string;
 }
 
@@ -240,12 +241,28 @@ class PluginDetail extends LitElement {
 
   willUpdate(changed: Map<string, unknown>): void {
     if (changed.has("kind") || changed.has("name")) {
-      if (this.initialInfo && !this._info) {
+      // Check for OAuth callback result in URL
+      const params = new URLSearchParams(window.location.search);
+      const authResult = params.get("auth");
+
+      if (!authResult && this.initialInfo && !this._info) {
         this._info = this.initialInfo;
         this._loading = false;
         this._showLoading = false;
       }
       this._fetchInfo();
+
+      if (authResult) {
+        if (authResult === "success") {
+          this._message = { type: "success", text: "Authentication successful" };
+          this.activeTab = "auth";
+        } else {
+          this._message = { type: "error", text: params.get("message") || "Authentication failed" };
+          this.activeTab = "auth";
+        }
+        // Clean up the URL
+        window.history.replaceState({}, "", window.location.pathname);
+      }
     }
     if (changed.has("_loading")) {
       if (this._loadingTimer) clearTimeout(this._loadingTimer);
@@ -702,7 +719,11 @@ class PluginDetail extends LitElement {
         </h2>
         <div class="title-actions">
           ${this.kind === "source" && enabled
-            ? html`<button @click=${this._sync} ?disabled=${this._syncing}>
+            ? html`<button
+                @click=${this._sync}
+                ?disabled=${this._syncing || (info.has_auth && info.is_authenticated === false)}
+                title=${info.has_auth && info.is_authenticated === false ? "Authenticate first" : ""}
+              >
                 ${this._syncing ? "Syncing..." : "Sync"}
               </button>`
             : ""}

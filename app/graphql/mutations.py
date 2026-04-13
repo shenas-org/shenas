@@ -58,14 +58,22 @@ class Mutation:
     # -- Auth --
 
     @strawberry.mutation
-    def authenticate(self, pipe: str, credentials: JSON) -> AuthResponseType:
+    def authenticate(self, info: strawberry.types.Info, pipe: str, credentials: JSON) -> AuthResponseType:
         from app.models import AuthResponse
         from shenas_sources.core.source import Source
 
         cls = Source.load_by_name(pipe)
         if not cls:
             return AuthResponseType.from_pydantic(AuthResponse(ok=False, error=f"Source not found: {pipe}"))  # ty: ignore[unresolved-attribute]
-        result = cls().handle_auth(credentials)  # ty: ignore[invalid-argument-type]
+        source = cls()
+        # Build callback URL for OAuth redirect flow
+        redirect_uri = None
+        if source.supports_oauth_redirect:
+            request = info.context.get("request")
+            if request:
+                base = str(request.base_url).rstrip("/")
+                redirect_uri = f"{base}/api/auth/source/{pipe}/callback"
+        result = source.handle_auth(credentials, redirect_uri=redirect_uri)  # ty: ignore[invalid-argument-type]
         return AuthResponseType.from_pydantic(AuthResponse(**result))  # ty: ignore[unresolved-attribute]
 
     # -- Config --

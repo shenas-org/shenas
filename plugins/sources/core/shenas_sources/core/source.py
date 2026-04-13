@@ -447,10 +447,33 @@ class Source(Plugin):
         except Exception:
             return []
 
-    def handle_auth(self, credentials: dict[str, str]) -> dict[str, Any]:  # noqa: PLR0911
+    # -- OAuth redirect flow (new) --
+
+    @property
+    def supports_oauth_redirect(self) -> bool:
+        """True if this source supports the server-side OAuth redirect flow."""
+        return False
+
+    def start_oauth(self, redirect_uri: str, credentials: dict[str, str] | None = None) -> str:
+        """Generate an OAuth authorization URL. Override for OAuth sources.
+
+        ``credentials`` may contain user-provided values (client_id, etc.)
+        collected from auth_fields before the redirect.
+        ``redirect_uri`` is the server callback URL the provider should return to.
+        Returns the full authorization URL to redirect the browser to.
+        """
+        msg = f"{self.name} does not support OAuth redirect flow"
+        raise NotImplementedError(msg)
+
+    def complete_oauth(self, *, code: str, state: str | None = None) -> None:
+        """Exchange an auth code for tokens and store them. Override for OAuth sources."""
+        msg = f"{self.name} does not support OAuth redirect flow"
+        raise NotImplementedError(msg)
+
+    def handle_auth(self, credentials: dict[str, str], *, redirect_uri: str | None = None) -> dict[str, Any]:  # noqa: PLR0911
         """Dispatch auth flow. Returns a result dict for the API response.
 
-        Result keys: ok, message, error, needs_mfa, oauth_url.
+        Result keys: ok, message, error, needs_mfa, oauth_url, oauth_redirect.
         """
         # MFA completion
         if "mfa_code" in credentials:
@@ -463,7 +486,15 @@ class Source(Plugin):
             except Exception as exc:
                 return {"ok": False, "error": str(exc)}
 
-        # OAuth completion
+        # OAuth redirect flow (new)
+        if self.supports_oauth_redirect and redirect_uri:
+            try:
+                url = self.start_oauth(redirect_uri, credentials or None)
+                return {"ok": False, "oauth_redirect": url, "message": "Redirecting to authorize..."}
+            except Exception as exc:
+                return {"ok": False, "error": str(exc)}
+
+        # Legacy OAuth completion (auth_complete flag)
         if "auth_complete" in credentials:
             try:
                 self.authenticate(credentials)
@@ -471,7 +502,7 @@ class Source(Plugin):
             except Exception as exc:
                 return {"ok": False, "error": str(exc)}
 
-        # Initial auth
+        # Initial auth (API key, email/password, or legacy OAuth)
         try:
             self.authenticate(credentials)
             return {"ok": True, "message": f"Authenticated {self.name}"}

@@ -54,6 +54,7 @@ class AuthResponse(BaseModel):
     error: str | None = None
     needs_mfa: bool = False
     oauth_url: str | None = None
+    oauth_redirect: str | None = None
 
 
 # --- Config ---
