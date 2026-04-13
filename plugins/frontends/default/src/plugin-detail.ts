@@ -681,8 +681,22 @@ class PluginDetail extends LitElement {
 
       <div class="title-row">
         <h2>
-          <span style="font-size:1.6rem;vertical-align:middle;margin-right:0.4rem">&#x1F4E6;</span
-          >${info.display_name || info.name} <span class="kind-badge">${info.kind}</span>${info.version
+          ${(info as Record<string, unknown>).icon_url
+            ? html`<img
+                src="${(info as Record<string, unknown>).icon_url}"
+                alt=""
+                style="width:1.6rem;height:1.6rem;vertical-align:middle;margin-right:0.4rem"
+                @error=${(e: Event) => {
+                  const img = e.target as HTMLImageElement;
+                  const span = document.createElement("span");
+                  span.textContent = "\u{1F4E6}";
+                  span.style.cssText = "font-size:1.4rem;vertical-align:middle;margin-right:0.4rem";
+                  img.replaceWith(span);
+                }}
+              />`
+            : html`<span style="font-size:1.4rem;vertical-align:middle;margin-right:0.4rem"
+                >&#x1F4E6;</span
+              >`}${info.display_name || info.name} <span class="kind-badge">${info.kind}</span>${info.version
             ? html` <span class="version">${info.version}</span>`
             : ""}
         </h2>
