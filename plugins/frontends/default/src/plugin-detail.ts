@@ -446,12 +446,26 @@ class PluginDetail extends LitElement {
   private async _syncPlugin() {
     this._syncing = true;
     this._message = null;
+    const displayName =
+      (this._info?.display_name as string) || this.name.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const jobId = `sync-${this.kind}-${this.name}-${Date.now()}`;
+
+    this.dispatchEvent(
+      new CustomEvent("job-start", {
+        bubbles: true,
+        composed: true,
+        detail: { id: jobId, label: `Syncing ${displayName}` },
+      }),
+    );
+
     try {
       const resp = await fetch(`${this.apiBase}/sync/${this.name}`, { method: "POST" });
       const reader = resp.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       let lastMessage = "";
+      let eventType = "message";
+      let ok = true;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -460,24 +474,48 @@ class PluginDetail extends LitElement {
         const lines = buffer.split("\n");
         buffer = lines.pop()!;
         for (const line of lines) {
-          if (line.startsWith("data:")) {
+          if (line.startsWith("event:")) {
+            eventType = line.slice(6).trim();
+          } else if (line.startsWith("data:")) {
             try {
-              const evt = JSON.parse(line.slice(5).trim());
-              lastMessage = evt.message || lastMessage;
+              const data = JSON.parse(line.slice(5).trim());
+              lastMessage = data.message || lastMessage;
+              if (eventType === "error") ok = false;
+              this.dispatchEvent(
+                new CustomEvent("job-log", {
+                  bubbles: true,
+                  composed: true,
+                  detail: { id: jobId, text: lastMessage },
+                }),
+              );
             } catch {
               /* skip */
             }
+            eventType = "message";
           }
         }
       }
 
-      this._message = { type: "success", text: lastMessage || "Sync complete" };
-      this._loadPluginInfo();
+      this.dispatchEvent(
+        new CustomEvent("job-finish", {
+          bubbles: true,
+          composed: true,
+          detail: { id: jobId, ok, message: lastMessage },
+        }),
+      );
+
+      this._message = { type: ok ? "success" : "error", text: lastMessage || "Sync complete" };
+      if (ok) this._loadPluginInfo();
     } catch (error) {
-      this._message = {
-        type: "error",
-        text: `Sync failed: ${error instanceof Error ? error.message : String(error)}`,
-      };
+      const msg = error instanceof Error ? error.message : String(error);
+      this.dispatchEvent(
+        new CustomEvent("job-finish", {
+          bubbles: true,
+          composed: true,
+          detail: { id: jobId, ok: false, message: msg },
+        }),
+      );
+      this._message = { type: "error", text: `Sync failed: ${msg}` };
     } finally {
       this._syncing = false;
     }
