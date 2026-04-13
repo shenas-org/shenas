@@ -203,13 +203,16 @@ class PluginDetail extends LitElement {
       .tab-select {
         border: none;
         background: transparent;
-        font-size: 0.85rem;
-        color: var(--shenas-text-secondary, #666);
-        padding: 0.4rem 0.3rem;
+        font-size: 0.8rem;
+        color: var(--shenas-text-muted, #888);
+        padding: 0.4rem 0.2rem;
         cursor: pointer;
         border-bottom: 2px solid transparent;
         align-self: stretch;
+        -webkit-appearance: none;
+        appearance: none;
       }
+      .tab-select:focus { outline: none; }
       .suggestion-card {
         border: 1px solid var(--shenas-border, #ccc);
         border-radius: 6px;

@@ -21,6 +21,7 @@ export class ShenasDataTable extends LitElement {
     _sortCol: { state: true },
     _sortDesc: { state: true },
     _filters: { state: true },
+    _searchTerm: { state: true },
     _page: { state: true },
     _colWidths: { state: true },
     _loading: { state: true },
@@ -38,6 +39,7 @@ export class ShenasDataTable extends LitElement {
   declare _sortCol: string | null;
   declare _sortDesc: boolean;
   declare _filters: Record<string, string>;
+  declare _searchTerm: string;
   declare _page: number;
   declare _colWidths: Record<string, number>;
   declare _loading: boolean;
@@ -47,146 +49,61 @@ export class ShenasDataTable extends LitElement {
     :host {
       display: flex;
       flex-direction: column;
-      font-family:
-        system-ui,
-        -apple-system,
-        sans-serif;
+      font-family: system-ui, -apple-system, sans-serif;
       height: 100%;
       overflow: hidden;
     }
-    h1 {
-      font-size: 20px;
-      font-weight: 600;
-      color: #222;
-      margin: 0 0 12px 0;
-    }
+    h1 { font-size: 20px; font-weight: 600; color: #222; margin: 0 0 12px 0; }
     .controls {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-      flex-shrink: 0;
+      display: flex; gap: 12px; align-items: center;
+      margin-bottom: 12px; flex-wrap: wrap; flex-shrink: 0;
     }
-    select,
-    input {
-      padding: 6px 10px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 13px;
+    select, input {
+      padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;
     }
-    select {
-      min-width: 200px;
-    }
-    .compact-select {
-      margin-bottom: 8px;
-      font-size: 12px;
-      padding: 4px 8px;
-    }
+    select { min-width: 200px; }
+    .compact-select { margin-bottom: 6px; font-size: 12px; padding: 3px 6px; }
     .table-wrap {
-      overflow: auto;
-      flex: 1;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      background: #fff;
+      overflow: auto; flex: 1;
+      border: 1px solid #e0e0e0; border-radius: 4px; background: #fff;
     }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      font-size: 13px;
-      table-layout: fixed;
-    }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; table-layout: fixed; }
     th {
-      position: relative;
-      background: #f5f5f5;
-      border-bottom: 2px solid #ddd;
-      padding: 8px 12px;
-      text-align: left;
-      font-weight: 600;
-      color: #333;
-      white-space: nowrap;
-      overflow: hidden;
-      cursor: pointer;
-      user-select: none;
+      position: relative; background: #f5f5f5; border-bottom: 1px solid #ddd;
+      padding: 4px 8px; text-align: left; font-weight: 600; color: #555;
+      white-space: nowrap; overflow: hidden; cursor: pointer; user-select: none;
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em;
     }
-    th:hover {
-      background: #eee;
-    }
-    .sort-indicator {
-      margin-left: 4px;
-      color: #999;
-    }
+    th:hover { background: #eee; }
+    .sort-indicator { margin-left: 3px; color: #999; }
     .resize-handle {
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      width: 4px;
-      cursor: col-resize;
+      position: absolute; right: 0; top: 0; bottom: 0; width: 4px; cursor: col-resize;
     }
-    .resize-handle:hover {
-      background: #4a90d9;
-    }
-    .filter-row th {
-      padding: 4px 8px;
-      background: #fafafa;
-      border-bottom: 1px solid #eee;
-      cursor: default;
-    }
-    .filter-row input {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 4px 6px;
-      font-size: 12px;
-    }
+    .resize-handle:hover { background: #4a90d9; }
     td {
-      padding: 6px 12px;
-      border-bottom: 1px solid #f0f0f0;
-      color: #444;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      padding: 3px 8px; border-bottom: 1px solid #f0f0f0; color: #444;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    tr:hover td {
-      background: #f8f8ff;
-    }
+    tr:hover td { background: #f8f8ff; }
     .pagination {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-top: 8px;
-      font-size: 13px;
-      color: #666;
-      flex-shrink: 0;
+      display: flex; gap: 6px; align-items: center;
+      padding: 4px 0; font-size: 11px; color: #888; flex-shrink: 0;
     }
     .pagination button {
-      padding: 4px 12px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      background: #fff;
-      cursor: pointer;
+      padding: 2px 8px; border: 1px solid #ddd; border-radius: 3px;
+      background: #fff; cursor: pointer; font-size: 11px;
     }
-    .pagination button:disabled {
-      opacity: 0.4;
-      cursor: default;
+    .pagination button:disabled { opacity: 0.4; cursor: default; }
+    .pagination button:not(:disabled):hover { background: #f0f0f0; }
+    .loading { color: #888; padding: 24px; text-align: center; }
+    .error { color: #c00; background: #fee; padding: 12px; border-radius: 6px; }
+    .page-info { flex: 1; text-align: center; }
+    .search-bar {
+      display: flex; align-items: center; gap: 6px; padding: 4px 0; flex-shrink: 0;
     }
-    .pagination button:not(:disabled):hover {
-      background: #f0f0f0;
-    }
-    .loading {
-      color: #888;
-      padding: 24px;
-      text-align: center;
-    }
-    .error {
-      color: #c00;
-      background: #fee;
-      padding: 12px;
-      border-radius: 6px;
-    }
-    .page-info {
-      flex: 1;
-      text-align: center;
+    .search-bar input {
+      flex: 1; padding: 3px 8px; font-size: 12px;
+      border: 1px solid #ddd; border-radius: 3px;
     }
   `;
 
@@ -203,6 +120,7 @@ export class ShenasDataTable extends LitElement {
     this._sortCol = null;
     this._sortDesc = false;
     this._filters = {};
+    this._searchTerm = "";
     this._page = 0;
     this._colWidths = {};
     this._loading = false;
@@ -255,6 +173,7 @@ export class ShenasDataTable extends LitElement {
       this._data = arrowToRows(table);
       this._page = 0;
       this._filters = {};
+      this._searchTerm = "";
       this._sortCol = null;
     } catch (e) {
       this._error = (e as Error).message;
@@ -263,11 +182,12 @@ export class ShenasDataTable extends LitElement {
   }
 
   get _filteredData(): RowData[] {
+    const term = this._searchTerm.toLowerCase();
+    if (!term) return this._data;
     return this._data.filter((row) =>
-      Object.entries(this._filters).every(([col, val]) => {
-        if (!val) return true;
+      this._columns.some((col) => {
         const cell = row[col];
-        return cell != null && String(cell).toLowerCase().includes(val.toLowerCase());
+        return cell != null && String(cell).toLowerCase().includes(term);
       }),
     );
   }
@@ -377,15 +297,32 @@ export class ShenasDataTable extends LitElement {
 
     const rows = this._pagedData;
 
+    // Hide numeric-only "id" columns that are just PKs
+    const visibleCols = this._columns.filter(
+      (c) => !(c === "id" && this._data.length > 0 && typeof this._data[0][c] === "number"),
+    );
+
     return html`
       ${tableSelector}
+      <div class="search-bar">
+        <input
+          type="text"
+          placeholder="Search..."
+          .value=${this._searchTerm}
+          @input=${(e: Event) => {
+            this._searchTerm = (e.target as HTMLInputElement).value;
+            this._page = 0;
+          }}
+        />
+        <span style="color:#aaa;font-size:11px">${this._sortedData.length} rows</span>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              ${this._columns.map(
+              ${visibleCols.map(
                 (col) => html`
-                  <th style="width:${this._colWidths[col] || 150}px" @click=${() => this._onSort(col)}>
+                  <th style="width:${this._colWidths[col] || 120}px" @click=${() => this._onSort(col)}>
                     ${col}
                     ${this._sortCol === col
                       ? html`<span class="sort-indicator">${this._sortDesc ? "v" : "^"}</span>`
@@ -395,28 +332,14 @@ export class ShenasDataTable extends LitElement {
                 `,
               )}
             </tr>
-            <tr class="filter-row">
-              ${this._columns.map(
-                (col) => html`
-                  <th>
-                    <input
-                      type="text"
-                      placeholder="Filter..."
-                      .value=${this._filters[col] || ""}
-                      @input=${(e: Event) => this._onFilter(col, (e.target as HTMLInputElement).value)}
-                    />
-                  </th>
-                `,
-              )}
-            </tr>
           </thead>
           <tbody>
             ${rows.map(
               (row) => html`
                 <tr>
-                  ${this._columns.map(
+                  ${visibleCols.map(
                     (col) =>
-                      html`<td style="width:${this._colWidths[col] || 150}px">${this._formatCell(row[col])}</td>`,
+                      html`<td style="width:${this._colWidths[col] || 120}px">${this._formatCell(row[col])}</td>`,
                   )}
                 </tr>
               `,
@@ -425,9 +348,9 @@ export class ShenasDataTable extends LitElement {
         </table>
       </div>
       <div class="pagination">
-        <button ?disabled=${this._page === 0} @click=${() => this._page--}>Previous</button>
-        <span class="page-info"> Page ${this._page + 1} of ${this._pageCount} (${this._sortedData.length} rows) </span>
-        <button ?disabled=${this._page >= this._pageCount - 1} @click=${() => this._page++}>Next</button>
+        <button ?disabled=${this._page === 0} @click=${() => this._page--}>&lsaquo;</button>
+        <span class="page-info">${this._page + 1} / ${this._pageCount}</span>
+        <button ?disabled=${this._page >= this._pageCount - 1} @click=${() => this._page++}>&rsaquo;</button>
       </div>
     `;
   }
