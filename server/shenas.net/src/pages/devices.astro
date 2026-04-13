@@ -16,11 +16,11 @@ import Dashboard from "../layouts/Dashboard.astro";
   </div>
 </Dashboard>
 
-<style>
+<style is:global>
   .header {
     margin-bottom: 2rem;
   }
-  h1 {
+  .devices-page h1 {
     font-size: 1.8rem;
     color: var(--color-text);
     margin-bottom: 0.25rem;
@@ -35,8 +35,8 @@ import Dashboard from "../layouts/Dashboard.astro";
     gap: 1rem;
   }
   .device-card {
-    background: var(--color-bg-card);
-    border: 1px solid var(--color-border);
+    background: var(--color-bg-card, #fff);
+    border: 1px solid var(--color-border, #d8d4cc);
     border-radius: 12px;
     padding: 1.2rem 1.5rem;
     display: flex;
@@ -47,7 +47,7 @@ import Dashboard from "../layouts/Dashboard.astro";
     width: 40px;
     height: 40px;
     border-radius: 10px;
-    background: var(--color-accent-glow);
+    background: var(--color-accent-glow, rgba(114, 143, 103, 0.12));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -58,12 +58,12 @@ import Dashboard from "../layouts/Dashboard.astro";
     flex: 1;
   }
   .device-name {
-    color: var(--color-text);
+    color: var(--color-text, #2c2c28);
     font-weight: 600;
     font-size: 1rem;
   }
   .device-meta {
-    color: var(--color-text-muted);
+    color: var(--color-text-muted, #8a8780);
     font-size: 0.8rem;
     margin-top: 0.2rem;
   }
@@ -72,8 +72,8 @@ import Dashboard from "../layouts/Dashboard.astro";
   }
   .btn-remove {
     background: none;
-    border: 1px solid var(--color-border);
-    color: var(--color-text-muted);
+    border: 1px solid var(--color-border, #d8d4cc);
+    color: var(--color-text-muted, #8a8780);
     padding: 0.3rem 0.8rem;
     border-radius: 6px;
     font-size: 0.75rem;
