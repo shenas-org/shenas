@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
 import {
+  arrowQuery,
   gql,
   gqlFull,
   registerCommands,
@@ -10,12 +11,48 @@ import {
   tabStyles,
 } from "shenas-frontends";
 
+interface PluginInfo {
+  name: string;
+  display_name?: string;
+  kind: string;
+  version?: string;
+  description?: string;
+  enabled?: boolean;
+  synced_at?: string;
+  added_at?: string;
+  updated_at?: string;
+  status_changed_at?: string;
+  has_config?: boolean;
+  has_auth?: boolean;
+  has_data?: boolean;
+  primary_table?: string;
+}
+
 interface TableInfo {
   name: string;
   rows?: number;
   cols?: number;
   earliest?: string;
   latest?: string;
+}
+
+interface SchemaTransform {
+  id: number;
+  source: { id: string; schemaName: string; tableName: string };
+  target: { id: string; schemaName: string; tableName: string };
+  sourcePlugin: string;
+  description?: string;
+  enabled: boolean;
+}
+
+interface DbStatus {
+  schemas: Array<{ name: string; tables: TableInfo[] }>;
+  [key: string]: unknown;
+}
+
+interface Message {
+  type: string;
+  text: string;
 }
 
 class PluginDetail extends LitElement {
@@ -48,301 +85,148 @@ class PluginDetail extends LitElement {
     css`
       :host {
         display: block;
-        color: var(--text-color);
-        background: var(--bg-color);
       }
-
-      .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 1rem;
+      .back {
+        font-size: 0.9rem;
+        display: inline-block;
+        margin-bottom: 1rem;
       }
-
-      .header {
+      .title-row {
         display: flex;
+        justify-content: space-between;
         align-items: center;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 1px solid var(--border-color);
       }
-
-      .plugin-icon {
-        font-size: 2rem;
-      }
-
-      .plugin-info {
-        flex: 1;
-      }
-
-      .plugin-name {
-        font-size: 1.5rem;
-        font-weight: 600;
-      }
-
-      .plugin-kind {
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-        text-transform: capitalize;
-      }
-
-      .plugin-version {
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-        margin-left: 0.5rem;
-      }
-
-      .plugin-description {
-        margin-top: 0.5rem;
-        font-size: 0.95rem;
-        color: var(--text-secondary);
-      }
-
-      .header-actions {
+      .title-actions {
         display: flex;
         gap: 0.5rem;
       }
-
-      .status-indicator {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 0.5rem;
+      h2 {
+        margin: 0;
+        font-size: 1.3rem;
       }
-
-      .status-indicator.enabled {
-        background-color: #4ade80;
+      .kind-badge {
+        background: var(--shenas-border-light, #f0f0f0);
+        color: var(--shenas-text-secondary, #666);
+        padding: 0.15rem 0.5rem;
+        border-radius: 3px;
+        font-size: 0.65rem;
+        font-weight: 400;
+        vertical-align: middle;
+        margin-left: 0.3rem;
       }
-
-      .status-indicator.disabled {
-        background-color: #ef4444;
+      .version {
+        color: var(--shenas-text-muted, #999);
+        font-size: 0.7rem;
+        font-weight: 400;
+        vertical-align: middle;
       }
-
-      .status-indicator.error {
-        background-color: #f59e0b;
+      .description {
+        color: var(--shenas-text-secondary, #666);
+        line-height: 1.6;
+        margin: 1rem 0;
+        white-space: pre-line;
       }
-
-      .tabs {
+      .state-table {
+        margin: 1.5rem 0;
+      }
+      .state-row {
         display: flex;
-        gap: 0;
-        border-bottom: 1px solid var(--border-color);
-        margin-bottom: 1.5rem;
+        padding: 0.4rem 0;
+        border-bottom: 1px solid var(--shenas-border-light, #f0f0f0);
+        font-size: 0.9rem;
       }
-
-      .tab {
-        padding: 0.75rem 1rem;
-        border: none;
-        background: none;
-        color: var(--text-secondary);
-        cursor: pointer;
-        font-size: 0.95rem;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -1px;
+      .state-row:last-child {
+        border-bottom: none;
       }
-
-      .tab.active {
-        color: var(--text-color);
-        border-bottom-color: var(--accent-color);
+      .state-label {
+        width: 120px;
+        color: var(--shenas-text-muted, #888);
+        flex-shrink: 0;
       }
-
-      .tab:hover {
-        color: var(--text-color);
+      .state-value {
+        color: var(--shenas-text, #222);
       }
-
-      .tab-content {
-        animation: fadeIn 0.2s ease-in;
+      button {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
       }
-
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-        }
-        to {
-          opacity: 1;
-        }
+      .section-title {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        color: var(--shenas-text-muted, #888);
+        letter-spacing: 0.05em;
+        margin: 1.5rem 0 0.5rem;
       }
-
-      .sync-status {
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-bottom: 1rem;
-        background: var(--bg-secondary);
-        border-left: 4px solid var(--accent-color);
-      }
-
-      .sync-status.error {
-        background: rgba(239, 68, 68, 0.1);
-        border-left-color: #ef4444;
-      }
-
-      .table-list {
-        display: grid;
-        gap: 0.75rem;
-      }
-
-      .table-item {
-        padding: 0.75rem;
-        border: 1px solid var(--border-color);
-        border-radius: 0.5rem;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-
-      .table-item:hover {
-        background: var(--bg-secondary);
-        border-color: var(--accent-color);
-      }
-
-      .table-item.selected {
-        background: var(--bg-secondary);
-        border-color: var(--accent-color);
-      }
-
-      .table-name {
-        font-weight: 500;
-        margin-bottom: 0.25rem;
-      }
-
-      .table-stats {
-        display: flex;
-        gap: 1rem;
-        font-size: 0.85rem;
-        color: var(--text-secondary);
-      }
-
-      .table-stat {
+      .data-toolbar {
         display: flex;
         align-items: center;
-        gap: 0.25rem;
+        gap: 0.5rem;
+        margin: 1rem 0;
       }
-
-      .preview {
-        border: 1px solid var(--border-color);
-        border-radius: 0.5rem;
-        overflow: hidden;
+      .data-toolbar select {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.9rem;
+        border: 1px solid var(--shenas-border, #ccc);
+        border-radius: 4px;
       }
-
-      .preview-loading {
-        padding: 2rem;
-        text-align: center;
-        color: var(--text-secondary);
-      }
-
-      .preview-table {
+      .data-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.875rem;
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+        overflow-x: auto;
+        display: block;
       }
-
-      .preview-table thead {
-        background: var(--bg-secondary);
-        border-bottom: 1px solid var(--border-color);
-      }
-
-      .preview-table th,
-      .preview-table td {
-        padding: 0.5rem;
+      .data-table th,
+      .data-table td {
+        padding: 0.35rem 0.6rem;
+        border: 1px solid var(--shenas-border-light, #e8e8e8);
         text-align: left;
-        border-bottom: 1px solid var(--border-color);
+        white-space: nowrap;
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
-
-      .preview-table tbody tr:hover {
-        background: var(--bg-secondary);
-      }
-
-      .transform-list {
-        display: grid;
-        gap: 0.75rem;
-      }
-
-      .transform-item {
-        padding: 0.75rem;
-        border: 1px solid var(--border-color);
-        border-radius: 0.5rem;
-      }
-
-      .transform-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 0.5rem;
-      }
-
-      .transform-name {
-        font-weight: 500;
-      }
-
-      .transform-path {
-        font-size: 0.85rem;
-        color: var(--text-secondary);
-        font-family: monospace;
-      }
-
-      .transform-description {
-        font-size: 0.85rem;
-        color: var(--text-secondary);
-        margin-top: 0.25rem;
-      }
-
-      .transform-toggle {
-        font-size: 0.85rem;
-      }
-
-      .empty-state {
-        padding: 2rem;
-        text-align: center;
-        color: var(--text-secondary);
-      }
-
-      .config-form {
-        display: grid;
-        gap: 1rem;
-      }
-
-      .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-
-      .form-label {
-        font-weight: 500;
-        font-size: 0.95rem;
-      }
-
-      .form-input {
-        padding: 0.5rem;
-        border: 1px solid var(--border-color);
-        border-radius: 0.375rem;
-        font-size: 0.95rem;
-        background: var(--bg-color);
-        color: var(--text-color);
-      }
-
-      .form-input:focus {
-        outline: none;
-        border-color: var(--accent-color);
-      }
-
-      .form-help {
-        font-size: 0.85rem;
-        color: var(--text-secondary);
+      .data-table th {
+        background: var(--shenas-bg-secondary, #f5f5f5);
+        font-weight: 600;
+        position: sticky;
+        top: 0;
       }
     `,
   ];
 
+  declare apiBase: string;
+  declare kind: string;
+  declare name: string;
+  declare activeTab: string;
+  declare dbStatus: DbStatus | null;
+  declare schemaPlugins: Record<string, string[]>;
+  declare initialInfo: PluginInfo | null;
+  declare _info: PluginInfo | null;
+  declare _loading: boolean;
+  declare _showLoading: boolean;
+  declare _message: Message | null;
+  declare _tables: TableInfo[];
+  declare _syncing: boolean;
+  declare _transforming: boolean;
+  declare _schemaTransforms: SchemaTransform[];
+  declare _selectedTable: string | null;
+  declare _previewRows: Record<string, unknown>[] | null;
+  declare _previewLoading: boolean;
+  private _loadingTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor() {
     super();
-    this.apiBase = "http://localhost:3000";
-    this.kind = "source";
+    this.apiBase = "/api";
+    this.kind = "";
     this.name = "";
-    this.activeTab = "overview";
-    this.dbStatus = {};
+    this.activeTab = "details";
+    this.dbStatus = null;
     this.schemaPlugins = {};
-    this.initialInfo = {};
+    this.initialInfo = null;
     this._info = null;
-    this._loading = false;
+    this._loading = true;
     this._showLoading = false;
     this._message = null;
     this._tables = [];
@@ -350,103 +234,142 @@ class PluginDetail extends LitElement {
     this._transforming = false;
     this._schemaTransforms = [];
     this._selectedTable = null;
-    this._previewRows = [];
+    this._previewRows = null;
     this._previewLoading = false;
   }
 
-  declare apiBase: string;
-  declare kind: string;
-  declare name: string;
-  declare activeTab: string;
-  declare dbStatus: Record<string, unknown>;
-  declare schemaPlugins: Record<string, unknown>;
-  declare initialInfo: Record<string, unknown>;
-  declare _info: Record<string, unknown> | null;
-  declare _loading: boolean;
-  declare _showLoading: boolean;
-  declare _message: { type: string; text: string } | null;
-  declare _tables: TableInfo[];
-  declare _syncing: boolean;
-  declare _transforming: boolean;
-  declare _schemaTransforms: Record<string, unknown>[];
-  declare _selectedTable: TableInfo | null;
-  declare _previewRows: Record<string, unknown>[];
-  declare _previewLoading: boolean;
-
-  connectedCallback() {
-    super.connectedCallback();
-    this._loadPluginInfo();
-    registerCommands(this, "plugin-detail", [{ command: "refresh", action: () => this._loadPluginInfo() }]);
-  }
-
-  updated(changedProperties: Map<string, unknown>) {
-    if (changedProperties.has("name") || changedProperties.has("kind")) {
-      this._loadPluginInfo();
-    }
-  }
-
-  private async _loadPluginInfo() {
-    this._loading = true;
-    try {
-      const response = (await gql(
-        this.apiBase,
-        `query($name: String!, $kind: String!) { pluginInfo(kind: $kind, name: $name) }`,
-        { name: this.name, kind: this.kind },
-      )) as { pluginInfo?: Record<string, unknown> } | null;
-
-      if (response?.pluginInfo) {
-        this._info = response.pluginInfo;
-        this._loadTables();
-        this._loadSchemaTransforms();
+  willUpdate(changed: Map<string, unknown>): void {
+    if (changed.has("kind") || changed.has("name")) {
+      if (this.initialInfo && !this._info) {
+        this._info = this.initialInfo;
+        this._loading = false;
+        this._showLoading = false;
       }
-    } catch (error) {
-      this._message = {
-        type: "error",
-        text: `Failed to load plugin info: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    } finally {
-      this._loading = false;
+      this._fetchInfo();
+    }
+    if (changed.has("_loading")) {
+      if (this._loadingTimer) clearTimeout(this._loadingTimer);
+      if (this._loading) {
+        this._loadingTimer = setTimeout(() => {
+          this._showLoading = true;
+        }, 200);
+      } else {
+        this._showLoading = false;
+      }
     }
   }
 
-  private async _loadTables() {
-    try {
-      const schema = `${this.name.replace(/[^a-z0-9_]/gi, "_")}`;
-      const response = await gql(
-        this.apiBase,
-        `query { dbStatus { schemas { name tables { name rows cols earliest latest } } } }`,
+  async _fetchInfo(): Promise<void> {
+    if (!this.kind || !this.name) return;
+    this._loading = true;
+    this._message = null;
+    const needsSchema = this.kind === "dataset";
+    const fields = [
+      `pluginInfo(kind: $kind, name: $name)`,
+      needsSchema
+        ? `transforms { id source { id schemaName tableName } target { id schemaName tableName } sourcePlugin description enabled }`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const data = await gql(this.apiBase, `query($kind: String!, $name: String!) { ${fields} }`, {
+      kind: this.kind,
+      name: this.name,
+    });
+    this._info = data?.pluginInfo as PluginInfo | null;
+    const db = this.dbStatus;
+    const ownership = this.schemaPlugins;
+    const allTransforms = data?.transforms as SchemaTransform[] | undefined;
+    const ownedTables = ownership ? ownership[this.name] || [] : [];
+    if (db) {
+      if (this.kind === "source") {
+        const schema = (db.schemas || []).find((s) => s.name === this.name);
+        this._tables = schema ? schema.tables.filter((t) => !t.name.startsWith("_dlt_")) : [];
+      } else if (this.kind === "dataset") {
+        const metricsSchema = (db.schemas || []).find((s) => s.name === "metrics");
+        this._tables = metricsSchema ? metricsSchema.tables.filter((t) => ownedTables.includes(t.name)) : [];
+      }
+    }
+    if (allTransforms) {
+      this._schemaTransforms = allTransforms.filter((t) => ownedTables.includes(t.target.tableName));
+    }
+    this._loading = false;
+    this._registerCommands();
+  }
+
+  _registerCommands(): void {
+    if (!this._info) return;
+    const label = this._info.display_name || this.name;
+    const cmds = [
+      {
+        id: `remove:${this.kind}:${this.name}`,
+        category: "Plugin",
+        label: `Remove ${label}`,
+        action: () => this._remove(),
+      },
+    ];
+    if (this.kind === "dataset") {
+      cmds.unshift(
+        {
+          id: `flush:${this.kind}:${this.name}`,
+          category: "Plugin",
+          label: `Flush ${label}`,
+          action: () => this._flush(),
+        },
+        {
+          id: `transform:${this.kind}:${this.name}`,
+          category: "Plugin",
+          label: `Transform ${label}`,
+          action: () => this._runTransforms(),
+        },
       );
-
-      const data = response as { dbStatus?: { schemas?: Array<{ name: string; tables: TableInfo[] }> } } | null;
-      const schemas = data?.dbStatus?.schemas || [];
-      const schema_data = schemas.find((s: { name: string }) => s.name === schema);
-      this._tables = schema_data?.tables || [];
-    } catch (error) {
-      console.error("Failed to load tables:", error);
     }
+    registerCommands(this, `plugin-detail:${this.kind}:${this.name}`, cmds);
   }
 
-  private async _loadSchemaTransforms() {
-    try {
-      const response = await gql(
-        this.apiBase,
-        `query($source: String) { transforms(source: $source) { id transformType source { id schemaName tableName } target { id schemaName tableName } sourcePlugin description enabled } }`,
-        { source: this.name },
-      );
-      const data = response as { transforms?: Record<string, unknown>[] } | null;
-      this._schemaTransforms = data?.transforms || [];
-    } catch (error) {
-      console.error("Failed to load schema transforms:", error);
+  async _toggle(): Promise<void> {
+    const action = this._info?.enabled !== false ? "disable" : "enable";
+    const mutation =
+      action === "enable"
+        ? `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok message } }`
+        : `mutation($k: String!, $n: String!) { disablePlugin(kind: $k, name: $n) { ok message } }`;
+    const { data } = await gqlFull(this.apiBase, mutation, { k: this.kind, n: this.name });
+    const result = (action === "enable" ? data?.enablePlugin : data?.disablePlugin) as
+      | Record<string, unknown>
+      | undefined;
+    this._message = {
+      type: result?.ok ? "success" : "error",
+      text: (result?.message as string) || `${action} failed`,
+    };
+    await this._fetchInfo();
+    if (this.kind === "theme") {
+      const themeData = await gql(this.apiBase, `{ theme { css } }`);
+      const themeCss = (themeData?.theme as Record<string, unknown>)?.css as string | undefined;
+      let link = document.querySelector("link[data-shenas-theme]") as HTMLLinkElement | null;
+      if (themeCss) {
+        if (!link) {
+          link = document.createElement("link");
+          link.rel = "stylesheet";
+          link.setAttribute("data-shenas-theme", "");
+          document.head.appendChild(link);
+        }
+        link.href = themeCss;
+      } else if (link) {
+        link.remove();
+      }
     }
+    if (this.kind === "ui" && action === "enable") {
+      window.location.replace(window.location.pathname + "?_switch=" + Date.now());
+      return;
+    }
+    this.dispatchEvent(new CustomEvent("plugin-state-changed", { bubbles: true, composed: true }));
   }
 
-  private async _syncPlugin() {
+  async _sync(): Promise<void> {
     this._syncing = true;
     this._message = null;
-    const displayName =
-      (this._info?.display_name as string) || this.name.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-    const jobId = `sync-${this.kind}-${this.name}-${Date.now()}`;
-
+    const displayName = this._info?.display_name || this.name;
+    const jobId = `sync-${this.name}-${Date.now()}`;
     this.dispatchEvent(
       new CustomEvent("job-start", {
         bubbles: true,
@@ -454,15 +377,145 @@ class PluginDetail extends LitElement {
         detail: { id: jobId, label: `Syncing ${displayName}` },
       }),
     );
-
     try {
       const resp = await fetch(`${this.apiBase}/sync/${this.name}`, { method: "POST" });
+      if (!resp.ok) {
+        const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>;
+        const errMsg = (data.detail as string) || `Sync failed (${resp.status})`;
+        this._message = { type: "error", text: errMsg };
+        this.dispatchEvent(
+          new CustomEvent("job-finish", {
+            bubbles: true,
+            composed: true,
+            detail: { id: jobId, ok: false, message: errMsg },
+          }),
+        );
+        this._syncing = false;
+        return;
+      }
+      const reader = resp.body!.getReader();
+      const decoder = new TextDecoder();
+      let lastEvent = "";
+      let lastData = "";
+      let lastLogged = "";
+      let hadError = false;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const text = decoder.decode(value, { stream: true });
+        for (const line of text.split("\n")) {
+          if (line.startsWith("event: ")) lastEvent = line.slice(7).trim();
+          if (line.startsWith("data: ")) {
+            lastData = line.slice(6);
+            try {
+              const d = JSON.parse(lastData) as Record<string, unknown>;
+              // Use the message; do NOT fall back to source -- that just echoes
+              // the source name and produces noise. Skip empty + duplicate-of-last.
+              const msg = d.message;
+              const logText = typeof msg === "string" ? msg : "";
+              if (logText && logText !== lastLogged) {
+                lastLogged = logText;
+                this.dispatchEvent(
+                  new CustomEvent("job-log", {
+                    bubbles: true,
+                    composed: true,
+                    detail: { id: jobId, text: logText },
+                  }),
+                );
+              }
+            } catch {
+              /* skip */
+            }
+          }
+        }
+        if (lastEvent === "error") hadError = true;
+      }
+      let msg = "Sync complete";
+      try {
+        msg = ((JSON.parse(lastData) as Record<string, unknown>).message as string) || msg;
+      } catch {
+        /* use default */
+      }
+      this._message = { type: hadError ? "error" : "success", text: msg };
+      this.dispatchEvent(
+        new CustomEvent("job-finish", {
+          bubbles: true,
+          composed: true,
+          detail: { id: jobId, ok: !hadError, message: msg },
+        }),
+      );
+      if (!hadError) await this._fetchInfo();
+    } catch (e) {
+      const err = e as Error;
+      this._message = { type: "error", text: `Sync failed: ${err.message}` };
+      this.dispatchEvent(
+        new CustomEvent("job-finish", {
+          bubbles: true,
+          composed: true,
+          detail: { id: jobId, ok: false, message: err.message },
+        }),
+      );
+    }
+    this._syncing = false;
+  }
+
+  async _runTransforms(): Promise<void> {
+    this._transforming = true;
+    this._message = null;
+    try {
+      const { data } = await gqlFull(this.apiBase, `mutation($s: String!) { runSchemaTransforms(schema: $s) }`, {
+        s: this.name,
+      });
+      const tResult = data?.runSchemaTransforms as Record<string, unknown> | undefined;
+      if (tResult?.count != null) {
+        this._message = { type: "success", text: `Ran ${tResult.count} transform(s)` };
+        await this._fetchInfo();
+      } else {
+        this._message = { type: "error", text: "Transform failed" };
+      }
+    } catch (e) {
+      this._message = { type: "error", text: `Transform failed: ${(e as Error).message}` };
+    }
+    this._transforming = false;
+  }
+
+  async _flush(): Promise<void> {
+    this._message = null;
+    try {
+      const { data } = await gqlFull(this.apiBase, `mutation($s: String!) { flushSchema(schemaPlugin: $s) }`, {
+        s: this.name,
+      });
+      const fResult = data?.flushSchema as Record<string, unknown> | undefined;
+      if (fResult?.rows_deleted != null) {
+        this._message = { type: "success", text: `Flushed ${fResult.rows_deleted} rows` };
+        await this._fetchInfo();
+      } else {
+        this._message = { type: "error", text: "Flush failed" };
+      }
+    } catch (e) {
+      this._message = { type: "error", text: `Flush failed: ${(e as Error).message}` };
+    }
+  }
+
+  async _remove(): Promise<void> {
+    const displayName =
+      this._info?.display_name || this.name.replace("-", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const jobId = `remove-${this.kind}-${this.name}-${Date.now()}`;
+
+    this.dispatchEvent(
+      new CustomEvent("job-start", {
+        bubbles: true,
+        composed: true,
+        detail: { id: jobId, label: `Removing ${displayName}` },
+      }),
+    );
+
+    try {
+      const resp = await fetch(`${this.apiBase}/plugins/${this.kind}/${this.name}/remove-stream`, { method: "POST" });
       const reader = resp.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let lastMessage = "";
-      let eventType = "message";
-      let ok = true;
+      let ok = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -471,310 +524,343 @@ class PluginDetail extends LitElement {
         const lines = buffer.split("\n");
         buffer = lines.pop()!;
         for (const line of lines) {
-          if (line.startsWith("event:")) eventType = line.slice(6).trim();
-          else if (line.startsWith("data:")) {
-            try {
-              const data = JSON.parse(line.slice(5).trim());
-              lastMessage = data.message || lastMessage;
-              if (eventType === "error") ok = false;
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const evt = JSON.parse(line.slice(6)) as Record<string, unknown>;
+            if (evt.event === "log") {
               this.dispatchEvent(
-                new CustomEvent("job-log", { bubbles: true, composed: true, detail: { id: jobId, text: lastMessage } }),
+                new CustomEvent("job-log", { bubbles: true, composed: true, detail: { id: jobId, text: evt.text } }),
               );
-            } catch {
-              /* skip */
+            } else if (evt.event === "done") {
+              ok = evt.ok as boolean;
+              this.dispatchEvent(
+                new CustomEvent("job-finish", {
+                  bubbles: true,
+                  composed: true,
+                  detail: { id: jobId, ok: evt.ok, message: evt.message },
+                }),
+              );
             }
-            eventType = "message";
+          } catch {
+            /* skip */
           }
         }
       }
 
-      this.dispatchEvent(
-        new CustomEvent("job-finish", {
-          bubbles: true,
-          composed: true,
-          detail: { id: jobId, ok, message: lastMessage },
-        }),
-      );
-      this._message = { type: ok ? "success" : "error", text: lastMessage || "Sync complete" };
-      if (ok) this._loadPluginInfo();
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      this.dispatchEvent(
-        new CustomEvent("job-finish", {
-          bubbles: true,
-          composed: true,
-          detail: { id: jobId, ok: false, message: msg },
-        }),
-      );
-      this._message = { type: "error", text: `Sync failed: ${msg}` };
-    } finally {
-      this._syncing = false;
-    }
-  }
-
-  private async _toggleTransform(transformId: number, enabled: boolean) {
-    this._transforming = true;
-    try {
-      const response = await gqlFull(
-        this.apiBase,
-        `mutation { updateTransform(id: ${transformId}, enabled: ${!enabled}) { id enabled } }`,
-      );
-
-      const result = response as { data?: { updateTransform?: unknown } };
-      if (result.data?.updateTransform) {
-        this._loadSchemaTransforms();
+      if (ok) {
+        this.dispatchEvent(new CustomEvent("plugins-changed", { bubbles: true, composed: true, detail: null }));
+        window.history.pushState({}, "", `/settings/${this.kind}`);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      } else {
+        this._message = { type: "error", text: "Remove failed" };
       }
-    } catch (error) {
-      this._message = {
-        type: "error",
-        text: `Failed to update transform: ${error instanceof Error ? error.message : String(error)}`,
-      };
-    } finally {
-      this._transforming = false;
+    } catch (err) {
+      const error = err as Error;
+      this.dispatchEvent(
+        new CustomEvent("job-finish", {
+          bubbles: true,
+          composed: true,
+          detail: { id: jobId, ok: false, message: error.message },
+        }),
+      );
+      this._message = { type: "error", text: error.message };
     }
   }
 
-  private _selectTable(table: TableInfo) {
-    this._selectedTable = table;
-    this._previewRows = [];
-    this._previewLoading = true;
+  _switchTab(tab: string): void {
+    this.activeTab = tab;
+    const base = `/settings/${this.kind}/${this.name}`;
+    const path = tab === "details" ? base : `${base}/${tab}`;
+    window.history.pushState({}, "", path);
+  }
 
-    // Simulate preview loading
-    setTimeout(() => {
-      this._previewLoading = false;
-      // In real implementation, fetch preview from API
-    }, 500);
+  async _fetchPreview(tableName: string): Promise<void> {
+    this._selectedTable = tableName;
+    if (!tableName) {
+      this._previewRows = null;
+      return;
+    }
+    this._previewLoading = true;
+    this._previewRows = null;
+    try {
+      const dbSchema = this.kind === "dataset" ? "metrics" : this.name;
+      this._previewRows = (await arrowQuery(
+        this.apiBase,
+        `SELECT * FROM "${dbSchema}"."${tableName}" ORDER BY 1 DESC LIMIT 100`,
+      )) as Record<string, unknown>[] | null;
+    } catch (e) {
+      console.error("Preview query failed:", e);
+      this._previewRows = null;
+    }
+    this._previewLoading = false;
+  }
+
+  _renderPreviewTable() {
+    const cols = Object.keys(this._previewRows![0]).filter((c) => !c.startsWith("_dlt"));
+    return html` <table class="data-table">
+      <thead>
+        <tr>
+          ${cols.map((col) => html`<th>${col}</th>`)}
+        </tr>
+      </thead>
+      <tbody>
+        ${this._previewRows!.map(
+          (row) => html`
+            <tr>
+              ${cols.map((col) => html`<td title="${row[col] ?? ""}">${row[col] ?? ""}</td>`)}
+            </tr>
+          `,
+        )}
+      </tbody>
+    </table>`;
+  }
+
+  _renderData() {
+    const tables = this._tables || [];
+    if (tables.length === 0) return html`<p style="color:var(--shenas-text-muted,#888)">No tables synced yet.</p>`;
+    if (!this._selectedTable) {
+      const primary = this._info?.primary_table;
+      const target = primary && tables.some((t) => t.name === primary) ? primary : tables[0]?.name;
+      if (target) {
+        // Defer to avoid state changes during render
+        requestAnimationFrame(() => this._fetchPreview(target));
+        return html`<p style="color:var(--shenas-text-muted,#888)">Loading...</p>`;
+      }
+    }
+    return html`
+      <div class="data-toolbar">
+        <select @change=${(e: Event) => this._fetchPreview((e.target as HTMLSelectElement).value)}>
+          <option value="">Select a table</option>
+          ${tables.map(
+            (t) =>
+              html`<option value=${t.name} ?selected=${this._selectedTable === t.name}>
+                ${t.name}${t.rows ? ` (${t.rows})` : ""}
+              </option>`,
+          )}
+        </select>
+        ${this._previewLoading ? html`<span style="color:var(--shenas-text-muted,#888)">Loading...</span>` : ""}
+      </div>
+      ${this._previewRows && this._previewRows.length > 0
+        ? this._renderPreviewTable()
+        : this._selectedTable && !this._previewLoading
+          ? html`<p style="color:var(--shenas-text-muted,#888)">Table is empty.</p>`
+          : ""}
+    `;
   }
 
   render() {
-    if (this._loading) {
-      return html`
-        <div class="container">
-          <div class="empty-state">Loading plugin information...</div>
-        </div>
-      `;
-    }
+    return html`
+      <shenas-page
+        ?loading=${this._showLoading}
+        ?empty=${!this._loading && !this._info}
+        empty-text="Plugin not found."
+        display-name="${this._info?.display_name || this._info?.name || this.name}"
+      >
+        ${this._info ? this._renderContent() : ""}
+      </shenas-page>
+    `;
+  }
 
-    if (!this._info) {
-      return html`
-        <div class="container">
-          <div class="empty-state">Plugin not found</div>
-        </div>
-      `;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guarded by null check above
+  _renderContent() {
     const info = this._info!;
+    const enabled = info.enabled !== false;
+
+    const basePath = `/settings/${this.kind}/${this.name}`;
+
     return html`
-      <div class="container">
-        ${this._message ? renderMessage(this._message) : ""}
+      <a
+        class="back"
+        href="/settings/${this.kind}"
+        @click=${(e: MouseEvent) => {
+          e.preventDefault();
+          window.history.pushState({}, "", `/settings/${this.kind}`);
+          window.dispatchEvent(new PopStateEvent("popstate"));
+        }}
+        >&larr; Back to ${this.kind}s</a
+      >
 
-        <div class="header">
-          <div class="plugin-icon">
-            ${info.icon_url
-              ? html`<img src="${info.icon_url}" alt="" style="width:2rem;height:2rem" />`
-              : html`&#x1F4E6;`}
-          </div>
-          <div class="plugin-info">
-            <div class="plugin-name">${info.display_name || info.name}</div>
-            <div>
-              <span class="plugin-kind">${info.kind}</span>
-              ${info.version ? html`<span class="plugin-version">v${info.version}</span>` : ""}
-            </div>
-            ${info.description ? html`<div class="plugin-description">${info.description}</div>` : ""}
-          </div>
-          <div class="header-actions">
-            ${info.enabled
-              ? html`<span class="status-indicator enabled" title="Enabled"></span>`
-              : html`<span class="status-indicator disabled" title="Disabled"></span>`}
-            <button ?disabled=${this._syncing} @click=${() => this._syncPlugin()} class="btn-primary">
-              ${this._syncing ? "Syncing..." : "Sync Now"}
-            </button>
-          </div>
-        </div>
-
-        <div class="tabs">
-          <button
-            class="tab ${this.activeTab === "overview" ? "active" : ""}"
-            @click=${() => (this.activeTab = "overview")}
-          >
-            Overview
-          </button>
-          <button
-            class="tab ${this.activeTab === "tables" ? "active" : ""}"
-            @click=${() => (this.activeTab = "tables")}
-          >
-            Tables
-          </button>
-          <button
-            class="tab ${this.activeTab === "transforms" ? "active" : ""}"
-            @click=${() => (this.activeTab = "transforms")}
-          >
-            Transforms
-          </button>
-          ${info.has_config || info.has_auth
-            ? html`
-                <button
-                  class="tab ${this.activeTab === "config" ? "active" : ""}"
-                  @click=${() => (this.activeTab = "config")}
-                >
-                  Config
-                </button>
-              `
+      <div class="title-row">
+        <h2>
+          ${(info as Record<string, unknown>).icon_url
+            ? html`<img
+                src="${(info as Record<string, unknown>).icon_url}"
+                alt=""
+                style="width:1.6rem;height:1.6rem;vertical-align:middle;margin-right:0.4rem"
+              />`
+            : html`<span style="font-size:1.4rem;vertical-align:middle;margin-right:0.4rem"
+                >&#x1F4E6;</span
+              >`}${info.display_name || info.name} <span class="kind-badge">${info.kind}</span>${info.version
+            ? html` <span class="version">${info.version}</span>`
             : ""}
-        </div>
-
-        <div class="tab-content">
-          ${this.activeTab === "overview" ? this._renderOverview() : ""}
-          ${this.activeTab === "tables" ? this._renderTables() : ""}
-          ${this.activeTab === "transforms" ? this._renderTransforms() : ""}
-          ${this.activeTab === "config" ? this._renderConfig() : ""}
+        </h2>
+        <div class="title-actions">
+          ${this.kind === "source" && enabled
+            ? html`<button @click=${this._sync} ?disabled=${this._syncing}>
+                ${this._syncing ? "Syncing..." : "Sync"}
+              </button>`
+            : ""}
+          ${this.kind === "dataset"
+            ? html`<button @click=${this._runTransforms} ?disabled=${this._transforming}>
+                ${this._transforming ? "Transforming..." : "Transform"}
+              </button>`
+            : ""}
+          ${this.kind === "dataset" ? html`<button class="danger" @click=${this._flush}>Flush</button>` : ""}
+          <button class="danger" @click=${this._remove}>Remove</button>
         </div>
       </div>
-    `;
-  }
 
-  private _renderOverview() {
-    return html`
-      <div>
-        <h3>Plugin Information</h3>
-        <div class="sync-status">
-          ${this._info!.synced_at
-            ? html`<p>Last synced: ${new Date(this._info!.synced_at as string).toLocaleString()}</p>`
-            : html`<p>Never synced</p>`}
-          ${this._info!.updated_at
-            ? html`<p>Last updated: ${new Date(this._info!.updated_at as string).toLocaleString()}</p>`
-            : ""}
-        </div>
-        <div class="config-form">
-          <div class="form-group">
-            <label class="form-label">Status</label>
-            <div>${this._info!.enabled ? "Enabled" : "Disabled"}</div>
-          </div>
-          ${this._info!.has_data
-            ? html`
-                <div class="form-group">
-                  <label class="form-label">Primary Table</label>
-                  <div>${this._info!.primary_table || "N/A"}</div>
-                </div>
-              `
-            : ""}
-        </div>
-      </div>
-    `;
-  }
+      ${renderMessage(this._message)}
 
-  private _renderTables() {
-    if (this._tables.length === 0) {
-      return html`<div class="empty-state">No tables found</div>`;
-    }
-
-    return html`
-      <div>
-        <h3>Schema Tables</h3>
-        <div class="table-list">
-          ${this._tables.map(
-            (table) => html`
-              <div
-                class="table-item ${this._selectedTable?.name === table.name ? "selected" : ""}"
-                @click=${() => this._selectTable(table)}
-              >
-                <div class="table-name">${table.name}</div>
-                <div class="table-stats">
-                  ${table.rows ? html`<div class="table-stat"><span>Rows:</span> ${table.rows}</div>` : ""}
-                  ${table.cols ? html`<div class="table-stat"><span>Columns:</span> ${table.cols}</div>` : ""}
-                </div>
-              </div>
-            `,
-          )}
-        </div>
-        ${this._selectedTable
+      <div class="tabs">
+        <a
+          class="tab"
+          href="${basePath}"
+          aria-selected=${this.activeTab === "details"}
+          @click=${(e: MouseEvent) => {
+            e.preventDefault();
+            this._switchTab("details");
+          }}
+          >Details</a
+        >
+        ${this._info?.has_config
           ? html`
-              <h4 style="margin-top: 1.5rem">Preview: ${this._selectedTable.name}</h4>
-              <div class="preview">
-                ${this._previewLoading
-                  ? html`<div class="preview-loading">Loading preview...</div>`
-                  : html`
-                      <table class="preview-table">
-                        <thead>
-                          <tr>
-                            <th>Column Name</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          ${this._previewRows.map(
-                            (row) =>
-                              html`<tr>
-                                <td>${row}</td>
-                              </tr>`,
-                          )}
-                        </tbody>
-                      </table>
-                    `}
-              </div>
+              <a
+                class="tab"
+                href="${basePath}/config"
+                aria-selected=${this.activeTab === "config"}
+                @click=${(e: MouseEvent) => {
+                  e.preventDefault();
+                  this._switchTab("config");
+                }}
+                >Config</a
+              >
             `
           : ""}
+        ${this._info?.has_auth
+          ? html`
+              <a
+                class="tab"
+                href="${basePath}/auth"
+                aria-selected=${this.activeTab === "auth"}
+                @click=${(e: MouseEvent) => {
+                  e.preventDefault();
+                  this._switchTab("auth");
+                }}
+                >Auth</a
+              >
+            `
+          : ""}
+        ${this._info?.has_data !== false
+          ? html`
+              <a
+                class="tab"
+                href="${basePath}/data"
+                aria-selected=${this.activeTab === "data"}
+                @click=${(e: MouseEvent) => {
+                  e.preventDefault();
+                  this._switchTab("data");
+                }}
+                >Data</a
+              >
+            `
+          : ""}
+        <a
+          class="tab"
+          href="${basePath}/logs"
+          aria-selected=${this.activeTab === "logs"}
+          @click=${(e: MouseEvent) => {
+            e.preventDefault();
+            this._switchTab("logs");
+          }}
+          >Logs</a
+        >
       </div>
+
+      ${this.activeTab === "config"
+        ? html`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`
+        : this.activeTab === "auth"
+          ? html`<shenas-auth api-base="${this.apiBase}" pipe-name="${this.name}"></shenas-auth>`
+          : this.activeTab === "data"
+            ? this._renderData()
+            : this.activeTab === "logs"
+              ? html`<shenas-logs api-base="${this.apiBase}" pipe="${this.name}"></shenas-logs>`
+              : this._renderDetails(info, enabled)}
     `;
   }
 
-  private _renderTransforms() {
-    if (this._schemaTransforms.length === 0) {
-      return html`<div class="empty-state">No transforms configured</div>`;
-    }
-
+  _renderDetails(info: PluginInfo, enabled: boolean) {
     return html`
-      <div>
-        <h3>Schema Transforms</h3>
-        <div class="transform-list">
-          ${this._schemaTransforms.map(
-            (transform) => html`
-              <div class="transform-item">
-                <div class="transform-header">
-                  <div class="transform-name">Transform #${transform.id}</div>
-                  <label class="transform-toggle">
-                    <input
-                      type="checkbox"
-                      ?checked=${transform.enabled}
-                      @change=${() => this._toggleTransform(transform.id as number, transform.enabled as boolean)}
-                    />
-                    ${transform.enabled ? "Enabled" : "Disabled"}
-                  </label>
-                </div>
-                <div class="transform-path">
-                  ${(transform.source as Record<string, string>)?.schemaName}.${(
-                    transform.source as Record<string, string>
-                  )?.tableName}
-                  →
-                  ${(transform.target as Record<string, string>)?.schemaName}.${(
-                    transform.target as Record<string, string>
-                  )?.tableName}
-                </div>
-                ${transform.description ? html`<div class="transform-description">${transform.description}</div>` : ""}
-              </div>
-            `,
-          )}
+      ${info.description ? html`<div class="description">${info.description}</div>` : ""}
+
+      <div class="state-table">
+        <div class="state-row">
+          <span class="state-label">Status</span>
+          <span class="state-value">
+            <status-toggle ?enabled=${enabled} toggleable @toggle=${this._toggle}></status-toggle>
+          </span>
         </div>
+        ${this._stateRow("Last synced", info.synced_at)} ${this._stateRow("Added", info.added_at)}
+        ${this._stateRow("Updated", info.updated_at)} ${this._stateRow("Status changed", info.status_changed_at)}
       </div>
+
+      ${this.kind === "source" || this.kind === "dataset"
+        ? html` <h4 class="section-title">Resources</h4>
+            <shenas-data-list
+              .columns=${[
+                { key: "name", label: "Table", class: "mono" },
+                { key: "rows", label: "Rows", class: "muted" },
+                {
+                  label: "Range",
+                  class: "muted",
+                  render: (t: TableInfo) => (t.earliest ? `${t.earliest} - ${t.latest}` : ""),
+                },
+              ]}
+              .rows=${this._tables}
+              empty-text="No tables synced yet"
+            ></shenas-data-list>`
+        : ""}
+      ${this.kind === "source"
+        ? html` <h4 class="section-title">Transforms</h4>
+            <shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`
+        : ""}
+      ${this.kind === "dataset" && this._schemaTransforms.length > 0
+        ? html` <h4 class="section-title">Transforms</h4>
+            <shenas-data-list
+              .columns=${[
+                { key: "id", label: "ID", class: "muted" },
+                {
+                  label: "Source",
+                  class: "mono",
+                  render: (t: SchemaTransform) => `${t.source.schemaName}.${t.source.tableName}`,
+                },
+                {
+                  label: "Target",
+                  class: "mono",
+                  render: (t: SchemaTransform) => `${t.target.schemaName}.${t.target.tableName}`,
+                },
+                { label: "Description", render: (t: SchemaTransform) => t.description || "" },
+                {
+                  label: "Status",
+                  render: (t: SchemaTransform) => html`<status-toggle ?enabled=${t.enabled}></status-toggle>`,
+                },
+              ]}
+              .rows=${this._schemaTransforms}
+              .rowClass=${(t: SchemaTransform) => (t.enabled ? "" : "disabled-row")}
+              empty-text="No transforms"
+            ></shenas-data-list>`
+        : ""}
     `;
   }
 
-  private _renderConfig() {
+  _stateRow(label: string, value?: string) {
+    if (!value) return "";
     return html`
-      <div>
-        <h3>Configuration</h3>
-        <div class="config-form">
-          ${this._info!.has_auth
-            ? html`<div class="form-group"><label class="form-label">Authentication</label></div>`
-            : ""}
-          ${this._info!.has_config
-            ? html`<div class="form-group"><label class="form-label">Settings</label></div>`
-            : ""}
-        </div>
+      <div class="state-row">
+        <span class="state-label">${label}</span>
+        <span class="state-value">${value.slice(0, 19)}</span>
       </div>
     `;
   }
 }
 
 customElements.define("shenas-plugin-detail", PluginDetail);
-export { PluginDetail };
