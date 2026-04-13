@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
 import type { TemplateResult, CSSResult } from "lit";
-import { query as arrowQuery, arrowToRows } from "shenas-frontends";
+import { gql, query as arrowQuery, arrowToRows } from "shenas-frontends";
 import type { RowData } from "shenas-frontends";
 
 interface TableInfo {
@@ -24,6 +24,7 @@ export class ShenasDataTable extends LitElement {
     _searchTerm: { state: true },
     _page: { state: true },
     _colWidths: { state: true },
+    _colTypes: { state: true },
     _loading: { state: true },
     _error: { state: true },
   };
@@ -42,6 +43,7 @@ export class ShenasDataTable extends LitElement {
   declare _searchTerm: string;
   declare _page: number;
   declare _colWidths: Record<string, number>;
+  declare _colTypes: Record<string, string>;
   declare _loading: boolean;
   declare _error: string | null;
 
@@ -130,6 +132,7 @@ export class ShenasDataTable extends LitElement {
     this._searchTerm = "";
     this._page = 0;
     this._colWidths = {};
+    this._colTypes = {};
     this._loading = false;
     this._error = null;
   }
@@ -178,6 +181,19 @@ export class ShenasDataTable extends LitElement {
 
       this._columns = table.schema.fields.map((f) => f.name).filter((c) => !c.startsWith("_dlt_"));
       this._data = arrowToRows(table);
+
+      // Fetch column type metadata from plugin Field declarations
+      const [s, t] = this._selectedTable.split(".");
+      const meta = await gql(
+        this.apiBase,
+        `query($s: String!, $t: String!) { tableColumnInfo(schema: $s, table: $t) { name dbType } }`,
+        { s, t },
+      );
+      const cols = (meta?.tableColumnInfo as Array<{ name: string; dbType: string }>) || [];
+      this._colTypes = {};
+      for (const c of cols) {
+        this._colTypes[c.name] = c.dbType;
+      }
       this._page = 0;
       this._filters = {};
       this._searchTerm = "";
@@ -244,10 +260,25 @@ export class ShenasDataTable extends LitElement {
     this._page = 0;
   }
 
-  _formatCell(value: unknown): string {
+  _formatCell(value: unknown, col?: string): string {
     if (value == null) return "";
-    if (value instanceof Date) return value.toISOString().slice(0, 10);
-    if (typeof value === "bigint") return value.toString();
+    const dbType = col ? (this._colTypes[col] || "").toUpperCase() : "";
+    const isTimestamp = dbType.includes("TIMESTAMP");
+    const isDate = dbType === "DATE";
+    if (value instanceof Date) {
+      return isDate ? value.toISOString().slice(0, 10) : value.toISOString().replace("T", " ").slice(0, 19);
+    }
+    if (typeof value === "bigint") {
+      if (isTimestamp) {
+        const ms = value > 1e15 ? Number(value / 1000n) : Number(value);
+        return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
+      }
+      return value.toString();
+    }
+    if (typeof value === "number" && isTimestamp) {
+      const ms = value > 1e12 ? value / 1000 : value;
+      return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
+    }
     return String(value);
   }
 
@@ -346,7 +377,7 @@ export class ShenasDataTable extends LitElement {
                 <tr>
                   ${visibleCols.map(
                     (col) =>
-                      html`<td style="width:${this._colWidths[col] || 120}px">${this._formatCell(row[col])}</td>`,
+                      html`<td style="width:${this._colWidths[col] || 120}px">${this._formatCell(row[col], col)}</td>`,
                   )}
                 </tr>
               `,

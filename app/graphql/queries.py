@@ -448,6 +448,53 @@ class Query:
         return [r[0] for r in rows]
 
     @strawberry.field
+    def table_column_info(self, schema: str, table: str) -> list[ColumnInfoType]:
+        """Return column metadata from plugin Field declarations.
+
+        Includes db_type, description, unit, and category for each column.
+        Falls back to DuckDB introspection if no plugin metadata is available.
+        """
+        from app.database import cursor
+        from app.plugin import Plugin
+
+        # Try plugin metadata first
+        for kind in ("source", "dataset"):
+            try:
+                for cls in Plugin.load_by_kind(kind):
+                    plugin_name = getattr(cls, "name", "")
+                    target_schema = "metrics" if kind == "dataset" else plugin_name
+                    if target_schema != schema:
+                        continue
+                    try:
+                        import importlib
+
+                        pkg = cls.__module__.rsplit(".", 1)[0]
+                        tables_mod = importlib.import_module(f"{pkg}.tables")
+                    except Exception:
+                        continue
+                    for t in getattr(tables_mod, "TABLES", ()):
+                        if hasattr(t, "_Meta") and t._Meta.name == table:
+                            meta = t.table_metadata()
+                            return [
+                                ColumnInfoType(
+                                    name=c["name"],
+                                    db_type=c.get("db_type", ""),
+                                    description=c.get("description", ""),
+                                    unit=c.get("unit", ""),
+                                    nullable=c.get("nullable", True),
+                                    category=c.get("category", ""),
+                                )
+                                for c in meta.get("columns", [])
+                            ]
+            except Exception:
+                continue
+
+        # Fallback: DuckDB introspection
+        with cursor() as cur:
+            rows = cur.execute(f'DESCRIBE "{schema}"."{table}"').fetchall()
+        return [ColumnInfoType(name=r[0], db_type=r[1]) for r in rows]
+
+    @strawberry.field
     async def transforms(self, info: strawberry.types.Info, source: str | None = None) -> list[TransformType]:
         from shenas_transformers.core.transform import Transform
 
