@@ -52,10 +52,8 @@ async def list_devices(request: Request) -> list[dict]:
 
 @router.get("/all")
 async def list_all_devices(request: Request) -> list[dict]:
-    """List all registered devices across all users (admin view)."""
-    user = await get_current_user(request)
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    """List all registered devices across all users (admin only)."""
+    await require_admin(request)
     with get_conn() as conn:
         rows = conn.execute(
             "SELECT d.id, d.name, d.device_type, d.last_seen, d.created_at,"
