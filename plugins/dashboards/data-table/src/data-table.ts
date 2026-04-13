@@ -11,6 +11,7 @@ interface TableInfo {
 export class ShenasDataTable extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
+    schema: { type: String },
     pageSize: { type: Number, attribute: "page-size" },
     _tables: { state: true },
     _selectedTable: { state: true },
@@ -26,6 +27,7 @@ export class ShenasDataTable extends LitElement {
   };
 
   declare apiBase: string;
+  declare schema: string;
   declare pageSize: number;
   declare _tables: TableInfo[];
   declare _selectedTable: string;
@@ -184,6 +186,7 @@ export class ShenasDataTable extends LitElement {
   constructor() {
     super();
     this.apiBase = "/api";
+    this.schema = "";
     this.pageSize = 25;
     this._tables = [];
     this._selectedTable = "";
@@ -206,7 +209,11 @@ export class ShenasDataTable extends LitElement {
   async _fetchTables(): Promise<void> {
     try {
       const res = await fetch(`${this.apiBase}/tables`);
-      this._tables = await res.json();
+      let tables: TableInfo[] = await res.json();
+      if (this.schema) {
+        tables = tables.filter((t) => t.schema === this.schema);
+      }
+      this._tables = tables;
       if (this._tables.length > 0) {
         this._selectedTable = `${this._tables[0].schema}.${this._tables[0].table}`;
         this._fetchData();
@@ -317,7 +324,7 @@ export class ShenasDataTable extends LitElement {
 
     const tableSelector = html`
       <div class="controls">
-        <h1>data table</h1>
+        ${this.schema ? "" : html`<h1>data table</h1>`}
         <select @change=${this._onTableChange}>
           ${this._tables.map(
             (t) => html`
