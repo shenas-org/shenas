@@ -731,6 +731,16 @@ class ShenasApp extends LitElement {
         this._tabs = this._tabs.map((t) => (t.id === this._activeTabId ? { ...t, label: e.detail.title } : t));
       }
     }) as EventListener);
+    this.addEventListener("auth-changed", (() => {
+      fetch(`${this.apiBase}/auth/me`)
+        .then((r) => r.json())
+        .then((d: Record<string, unknown>) => {
+          this._remoteUser = (d.user as Record<string, unknown>) || null;
+        })
+        .catch(() => {
+          this._remoteUser = null;
+        });
+    }) as EventListener);
     this.addEventListener("navigate", ((e: CustomEvent) =>
       this._navigateTo(e.detail.path, e.detail.label)) as EventListener);
     this.addEventListener("register-command", ((e: CustomEvent) => {
