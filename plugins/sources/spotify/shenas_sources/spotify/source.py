@@ -7,6 +7,8 @@ import logging
 from dataclasses import dataclass
 from typing import Annotated, Any
 
+from spotipy.cache_handler import CacheHandler
+
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.source import Source
@@ -19,7 +21,7 @@ SCOPES = "user-read-recently-played user-top-read user-library-read"
 _pending_pkce: dict[str, Any] = {}
 
 
-class _MemoryCacheHandler:
+class _MemoryCacheHandler(CacheHandler):
     """In-memory token cache for SpotifyPKCE."""
 
     def __init__(self) -> None:
