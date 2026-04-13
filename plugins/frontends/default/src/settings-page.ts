@@ -5,7 +5,6 @@ import {
   gqlFull,
   openExternal,
   renderMessage,
-  PLUGIN_KINDS,
   buttonStyles,
   formStyles,
   linkStyles,
@@ -324,7 +323,7 @@ class SettingsPage extends LitElement {
     this._availablePlugins = null;
     this._selectedPlugin = "";
     this._menuOpen = false;
-    this._pluginKinds = PLUGIN_KINDS;
+    this._pluginKinds = [];
   }
 
   connectedCallback(): void {
@@ -434,6 +433,45 @@ class SettingsPage extends LitElement {
     const available = (data?.availablePlugins as string[]) || [];
     const installed = new Set((this._plugins[kind] || []).map((p) => p.name));
     this._availablePlugins = available.filter((n) => !installed.has(n));
+
+    // Build form panel and dispatch to app-shell's right panel
+    const label = this._pluginKinds.find((k) => k.id === kind)?.label || kind;
+    const panel = document.createElement("div");
+    panel.style.padding = "1rem";
+    this._renderInstallPanel(panel, kind, label);
+    this.dispatchEvent(
+      new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 340 } }),
+    );
+  }
+
+  _renderInstallPanel(container: HTMLElement, kind: string, label: string): void {
+    const plugins = this._availablePlugins;
+    const singular = label.endsWith("s") ? label.slice(0, -1) : label;
+    container.innerHTML = `
+      <h3 style="margin:0 0 1rem;font-size:1rem">Add ${singular}</h3>
+      ${
+        plugins === null
+          ? '<p style="color:#888">Loading available plugins...</p>'
+          : plugins.length === 0
+            ? `<p style="color:#888">No new ${label.toLowerCase()} available</p>`
+            : `<select id="plugin-select" style="width:100%;padding:0.5rem;border:1px solid #ddd;border-radius:6px;font-size:0.9rem;margin-bottom:1rem">
+              <option value="">Select a ${singular.toLowerCase()}...</option>
+              ${plugins.map((n) => `<option value="${n}">${this._displayPluginName(n)}</option>`).join("")}
+            </select>`
+      }
+      <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+        <button id="install-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Add</button>
+        <button id="cancel-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Cancel</button>
+      </div>
+    `;
+    container.querySelector("#plugin-select")?.addEventListener("change", (e) => {
+      this._selectedPlugin = (e.target as HTMLSelectElement).value;
+    });
+    container.querySelector("#install-btn")?.addEventListener("click", () => this._install(kind));
+    container.querySelector("#cancel-btn")?.addEventListener("click", () => {
+      this._installing = false;
+      this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
+    });
   }
 
   async _install(kind: string): Promise<void> {
@@ -441,6 +479,7 @@ class SettingsPage extends LitElement {
     if (!name) return;
     this._actionMessage = null;
     this._installing = false;
+    this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
     const displayName = this._displayPluginName(name);
     const jobId = `install-${kind}-${name}-${Date.now()}`;
 
@@ -544,7 +583,7 @@ class SettingsPage extends LitElement {
     if (this.activeKind === "entities") return "Entities";
     if (this.activeKind === "categories") return "Categories";
     if (this.activeKind === "hotkeys") return "Hotkeys";
-    const kind = PLUGIN_KINDS.find((k) => k.id === this.activeKind);
+    const kind = this._pluginKinds.find((k) => k.id === this.activeKind);
     return kind ? kind.label : this.activeKind;
   }
 
@@ -710,7 +749,7 @@ class SettingsPage extends LitElement {
 
   _renderKind(kind: string) {
     const plugins = this._plugins[kind] || [];
-    const label = PLUGIN_KINDS.find((k) => k.id === kind)?.label || kind;
+    const label = this._pluginKinds.find((k) => k.id === kind)?.label || kind;
     return html`
       <h3>${label}</h3>
       <shenas-data-list
@@ -759,38 +798,10 @@ class SettingsPage extends LitElement {
         ]}
         .rows=${plugins}
         .rowClass=${(p: PluginSummary) => (p.enabled === false ? "disabled-row" : "")}
-        ?show-add=${!this._installing}
+        ?show-add=${true}
         @add=${() => this._startInstall(kind)}
         empty-text="No ${label.toLowerCase()} added"
       ></shenas-data-list>
-      ${this._installing
-        ? html`<shenas-form-panel
-            title="Add ${label.slice(0, -1)}"
-            submit-label="Add"
-            @submit=${() => this._install(kind)}
-            @cancel=${() => {
-              this._installing = false;
-            }}
-          >
-            <div class="field">
-              ${this._availablePlugins === null
-                ? html`<span style="color:var(--shenas-text-muted)">Loading available plugins...</span>`
-                : this._availablePlugins.length === 0
-                  ? html`<span style="color:var(--shenas-text-muted)">No new ${label.toLowerCase()} available</span>`
-                  : html`<select
-                      @change=${(e: Event) => {
-                        this._selectedPlugin = (e.target as HTMLSelectElement).value;
-                      }}
-                      style="width:100%;padding:0.5rem;border:1px solid var(--shenas-border-input,#ddd);border-radius:6px;font-size:0.9rem"
-                    >
-                      <option value="">Select a ${label.slice(0, -1).toLowerCase()}...</option>
-                      ${this._availablePlugins.map(
-                        (n) => html`<option value=${n}>${this._displayPluginName(n)}</option>`,
-                      )}
-                    </select>`}
-            </div>
-          </shenas-form-panel>`
-        : ""}
     `;
   }
 }

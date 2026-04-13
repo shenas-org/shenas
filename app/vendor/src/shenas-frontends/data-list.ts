@@ -66,33 +66,26 @@ class DataList extends LitElement {
       .disabled-row {
         opacity: 0.5;
       }
-      .add-row {
+      .top-bar {
         display: flex;
         justify-content: flex-end;
-        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
       }
       .add-btn {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        border: 2px solid var(--shenas-primary, #0066cc);
+        padding: 0.35rem 0.8rem;
+        border-radius: 4px;
+        border: 1px solid var(--shenas-border, #ccc);
         background: var(--shenas-bg, #fff);
-        color: var(--shenas-primary, #0066cc);
-        font-size: 1.2rem;
-        font-weight: 600;
-        line-height: 1;
+        color: var(--shenas-text, #222);
+        font-size: 0.85rem;
         cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
         transition:
           background 0.15s,
-          color 0.15s;
+          border-color 0.15s;
       }
       .add-btn:hover {
-        background: var(--shenas-primary, #0066cc);
-        color: var(--shenas-bg, #fff);
+        background: var(--shenas-bg-secondary, #f5f5f5);
+        border-color: var(--shenas-text-muted, #888);
       }
     `,
   ];
@@ -113,16 +106,17 @@ class DataList extends LitElement {
 
   render(): TemplateResult | unknown {
     const hasActions = typeof this.actions === "function";
-    const addRow = this.showAdd
-      ? html`<div class="add-row"><button class="add-btn" title="Add" @click=${this._onAdd}>+</button></div>`
+    const topBar = this.showAdd
+      ? html`<div class="top-bar"><button class="add-btn" @click=${this._onAdd}>Add</button></div>`
       : "";
 
     if (!this.rows || this.rows.length === 0) {
-      return html`<p class="empty">${this.emptyText}</p>
-        ${addRow}`;
+      return html`${topBar}
+        <p class="empty">${this.emptyText}</p>`;
     }
 
     return html`
+      ${topBar}
       <table>
         <thead>
           <tr>
@@ -142,7 +136,6 @@ class DataList extends LitElement {
           )}
         </tbody>
       </table>
-      ${addRow}
     `;
   }
 }
