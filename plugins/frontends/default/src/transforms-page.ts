@@ -56,6 +56,8 @@ class TransformsPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
     source: { type: String },
+    showSuggest: { type: Boolean, attribute: "show-suggest" },
+    suggesting: { type: Boolean },
     _transforms: { state: true },
     _loading: { state: true },
     _editing: { state: true },
@@ -146,6 +148,8 @@ class TransformsPage extends LitElement {
 
   declare apiBase: string;
   declare source: string;
+  declare showSuggest: boolean;
+  declare suggesting: boolean;
   declare _transforms: Transform[];
   declare _loading: boolean;
   declare _editing: number | null;
@@ -164,6 +168,8 @@ class TransformsPage extends LitElement {
     super();
     this.apiBase = "/api";
     this.source = "";
+    this.showSuggest = false;
+    this.suggesting = false;
     this._transforms = [];
     this._loading = true;
     this._editing = null;
@@ -324,6 +330,10 @@ class TransformsPage extends LitElement {
     } else {
       this._message = { type: "error", text: "Update failed" };
     }
+  }
+
+  _onSuggest(): void {
+    this.dispatchEvent(new CustomEvent("suggest", { bubbles: true, composed: true }));
   }
 
   async _startCreate(): Promise<void> {
@@ -542,8 +552,18 @@ class TransformsPage extends LitElement {
     return html`
       <div>
         ${renderMessage(this._message)} ${this._editing ? this._renderEditor() : ""}
+        ${this.showSuggest || !this._creating
+          ? html`<div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-bottom:0.5rem">
+              ${this.showSuggest
+                ? html`<button @click=${this._onSuggest} ?disabled=${this.suggesting}>
+                    ${this.suggesting ? "Generating..." : "Suggest Metrics"}
+                  </button>`
+                : ""}
+              ${!this._creating && !this._editing ? html`<button @click=${this._startCreate}>Add</button>` : ""}
+            </div>`
+          : ""}
         <shenas-data-list
-          ?show-add=${!this._creating && !this._editing}
+          .showAdd=${false}
           @add=${this._startCreate}
           .columns=${[
             { key: "id", label: "ID", class: "muted" },

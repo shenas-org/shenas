@@ -931,31 +931,34 @@ class PluginDetail extends LitElement {
 
   _renderTransforms() {
     return html`
-      <shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>
+      <shenas-transforms
+        api-base="${this.apiBase}"
+        source="${this.name}"
+        ?show-suggest=${true}
+        ?suggesting=${this._suggesting}
+        @suggest=${this._suggestDatasets}
+      ></shenas-transforms>
 
-      <h4 class="section-title">Suggested Metrics</h4>
       ${this._suggestions.length > 0
-        ? this._suggestions.map(
-            (s) => html`
-              <div class="suggestion-card">
-                <h5>${s.title || s.name}</h5>
-                <div class="suggestion-meta">
-                  ${s.tableName ? html`Table: <code>${s.tableName}</code>` : ""}
-                  ${s.grain ? html` &middot; Grain: ${s.grain}` : ""}
+        ? html`
+            <h4 class="section-title">Suggested Metrics</h4>
+            ${this._suggestions.map(
+              (s) => html`
+                <div class="suggestion-card">
+                  <h5>${s.title || s.name}</h5>
+                  <div class="suggestion-meta">
+                    ${s.tableName ? html`Table: <code>${s.tableName}</code>` : ""}
+                    ${s.grain ? html` &middot; Grain: ${s.grain}` : ""}
+                  </div>
+                  <div class="suggestion-actions">
+                    <button @click=${() => this._acceptSuggestion(s.name)}>Accept</button>
+                    <button class="danger" @click=${() => this._dismissSuggestion(s.name)}>Dismiss</button>
+                  </div>
                 </div>
-                <div class="suggestion-actions">
-                  <button @click=${() => this._acceptSuggestion(s.name)}>Accept</button>
-                  <button class="danger" @click=${() => this._dismissSuggestion(s.name)}>Dismiss</button>
-                </div>
-              </div>
-            `,
-          )
+              `,
+            )}
+          `
         : ""}
-      <div style="margin-top:0.5rem">
-        <button @click=${this._suggestDatasets} ?disabled=${this._suggesting}>
-          ${this._suggesting ? "Generating..." : "Suggest Metrics"}
-        </button>
-      </div>
     `;
   }
 
