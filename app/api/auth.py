@@ -29,6 +29,7 @@ def _build_callback_uri(request: Request, source_name: str) -> str:
             origin = f"{parsed.scheme}://{parsed.netloc}"
     if not origin:
         origin = str(request.base_url).rstrip("/")
+    origin = origin.replace("://localhost", "://127.0.0.1")
     return f"{origin}/api/auth/source/{source_name}/callback"
 
 
