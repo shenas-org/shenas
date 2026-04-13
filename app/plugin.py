@@ -426,10 +426,14 @@ class Plugin(abc.ABC):
 
     @classmethod
     def load_by_name_and_kind(cls, name: str, kind: str) -> type[Plugin] | None:
-        """Load a single plugin class by kind and name."""
+        """Load a single plugin class by kind and name.
 
+        Normalizes hyphens and underscores so both ``claude-code`` and
+        ``claude_code`` resolve to the same entry point.
+        """
+        normalized = name.replace("-", "_")
         for ep in entry_points(group=cls._ep_group(kind)):
-            if ep.name == name:
+            if ep.name.replace("-", "_") == normalized:
                 try:
                     obj = ep.load()
                     if isinstance(obj, type) and issubclass(obj, Plugin):
@@ -455,7 +459,7 @@ class Plugin(abc.ABC):
             for dist_info in site.glob("*.dist-info"):
                 dist = PathDistribution(dist_info)
                 for ep in dist.entry_points:
-                    if ep.group == group and ep.name == name:
+                    if ep.group == group and ep.name.replace("-", "_") == name.replace("-", "_"):
                         try:
                             mod_name, attr = ep.value.rsplit(":", 1)
                             mod = importlib.import_module(mod_name)
