@@ -39,10 +39,12 @@ describe("shenas-transforms", () => {
     expect(el._previewRows).toBeNull();
     expect(el._creating).toBe(false);
     expect(el._newForm).toEqual({
+      transform_type: "sql",
       source_duckdb_table: "",
       target_duckdb_table: "",
       description: "",
       sql: "",
+      params: {},
     });
     expect(el._dbTables).toEqual({});
     expect(el._schemaTables).toEqual({});
@@ -57,8 +59,10 @@ describe("shenas-transforms", () => {
   it("_emptyForm returns blank form", () => {
     const el = mount();
     const f = el._emptyForm();
+    expect(f.transform_type).toBe("sql");
     expect(f.source_duckdb_table).toBe("");
     expect(f.target_duckdb_table).toBe("");
+    expect(f.params).toEqual({});
     expect(f.description).toBe("");
     expect(f.sql).toBe("");
   });

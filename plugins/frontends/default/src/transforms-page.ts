@@ -27,10 +27,12 @@ interface Transform {
 }
 
 interface TransformForm {
+  transform_type: string;
   source_duckdb_table: string;
   target_duckdb_table: string;
   description: string;
   sql: string;
+  params: Record<string, string>;
 }
 
 interface ParamField {
@@ -179,10 +181,12 @@ class TransformsPage extends LitElement {
 
   _emptyForm(): TransformForm {
     return {
+      transform_type: "sql",
       source_duckdb_table: "",
       target_duckdb_table: "",
       description: "",
       sql: "",
+      params: {},
     };
   }
 
@@ -363,37 +367,68 @@ class TransformsPage extends LitElement {
       this._panelEl.style.padding = "1rem";
     }
     const panel = this._panelEl;
+    const types = this._transformTypes;
+    const selectedType = this._typeInfoFor(f.transform_type || "sql");
+    const paramFields = selectedType?.paramSchema || [];
+    const _lbl = "display:flex;flex-direction:column;gap:0.2rem;font-size:0.85rem";
+    const _inp = "padding:0.4rem;border:1px solid #ddd;border-radius:4px";
+
     panel.innerHTML = `
       <h3 style="margin:0 0 1rem;font-size:1rem">New transform</h3>
       <div style="display:flex;flex-direction:column;gap:0.8rem">
-        <label style="display:flex;flex-direction:column;gap:0.2rem;font-size:0.85rem">
-          Pipe table
-          <select id="src-table" style="padding:0.4rem;border:1px solid #ddd;border-radius:4px">
+        <label style="${_lbl}">
+          Transform type
+          <select id="xform-type" style="${_inp}">
+            ${types.map((t) => `<option value="${t.name}" ${(f.transform_type || "sql") === t.name ? "selected" : ""}>${t.displayName}</option>`).join("")}
+          </select>
+          ${selectedType?.description ? `<span style="font-size:0.75rem;color:#888">${selectedType.description}</span>` : ""}
+        </label>
+        <label style="${_lbl}">
+          Source table
+          <select id="src-table" style="${_inp}">
             <option value="">-- select --</option>
             ${sourceTables.map((t) => `<option value="${t}" ${f.source_duckdb_table === t ? "selected" : ""}>${t}</option>`).join("")}
           </select>
         </label>
-        <label style="display:flex;flex-direction:column;gap:0.2rem;font-size:0.85rem">
-          Schema table
-          <select id="tgt-table" style="padding:0.4rem;border:1px solid #ddd;border-radius:4px">
+        <label style="${_lbl}">
+          Target table
+          <select id="tgt-table" style="${_inp}">
             <option value="">-- select --</option>
             ${allSchemaTables.map((t) => `<option value="${t}" ${f.target_duckdb_table === t ? "selected" : ""}>${t}</option>`).join("")}
           </select>
         </label>
-        <label style="display:flex;flex-direction:column;gap:0.2rem;font-size:0.85rem">
+        <label style="${_lbl}">
           Description
-          <input id="desc" value="${f.description}" style="padding:0.4rem;border:1px solid #ddd;border-radius:4px" />
+          <input id="desc" value="${f.description}" style="${_inp}" />
         </label>
-        <label style="display:flex;flex-direction:column;gap:0.2rem;font-size:0.85rem">
-          SQL
-          <textarea id="sql" rows="6" style="padding:0.4rem;border:1px solid #ddd;border-radius:4px;font-family:monospace;font-size:0.85rem" placeholder="SELECT ... FROM ${pipe}.${f.source_duckdb_table || "table_name"}">${f.sql}</textarea>
-        </label>
-        <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+        ${paramFields
+          .map(
+            (p) => `
+          <label style="${_lbl}">
+            ${p.label || _humanize(p.name)}${p.required ? " *" : ""}
+            ${
+              p.type === "select" && p.options
+                ? `<select id="param-${p.name}" style="${_inp}">
+                  ${p.options.map((o) => `<option value="${o}" ${(f.params[p.name] || p.default || "") === o ? "selected" : ""}>${o}</option>`).join("")}
+                </select>`
+                : p.type === "textarea"
+                  ? `<textarea id="param-${p.name}" rows="4" style="${_inp};font-family:monospace;font-size:0.85rem">${f.params[p.name] || p.default || ""}</textarea>`
+                  : `<input id="param-${p.name}" value="${f.params[p.name] || p.default || ""}" style="${_inp}" ${p.type === "number" ? 'type="number"' : ""} />`
+            }
+            ${p.description ? `<span style="font-size:0.75rem;color:#888">${p.description}</span>` : ""}
+          </label>
+        `,
+          )
+          .join("")}
+        <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.5rem">
           <button id="create-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Create</button>
           <button id="cancel-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Cancel</button>
         </div>
       </div>
     `;
+    panel.querySelector("#xform-type")?.addEventListener("change", (e) => {
+      this._updateNewForm("transform_type", (e.target as HTMLSelectElement).value);
+    });
     panel
       .querySelector("#src-table")
       ?.addEventListener("change", (e) =>
@@ -407,9 +442,16 @@ class TransformsPage extends LitElement {
     panel
       .querySelector("#desc")
       ?.addEventListener("input", (e) => this._updateNewForm("description", (e.target as HTMLInputElement).value));
-    panel
-      .querySelector("#sql")
-      ?.addEventListener("input", (e) => this._updateNewForm("sql", (e.target as HTMLTextAreaElement).value));
+    for (const p of paramFields) {
+      panel.querySelector(`#param-${p.name}`)?.addEventListener("input", (e) => {
+        const val = (e.target as HTMLInputElement).value;
+        this._newForm = { ...this._newForm, params: { ...this._newForm.params, [p.name]: val } };
+      });
+      panel.querySelector(`#param-${p.name}`)?.addEventListener("change", (e) => {
+        const val = (e.target as HTMLSelectElement).value;
+        this._newForm = { ...this._newForm, params: { ...this._newForm.params, [p.name]: val } };
+      });
+    }
     panel.querySelector("#create-btn")?.addEventListener("click", () => this._saveCreate());
     panel.querySelector("#cancel-btn")?.addEventListener("click", () => this._cancelCreate());
 
@@ -420,22 +462,26 @@ class TransformsPage extends LitElement {
 
   async _saveCreate(): Promise<void> {
     const f = this._newForm;
-    if (!f.source_duckdb_table || !f.target_duckdb_table || !f.sql) {
-      this._message = { type: "error", text: "Fill in all required fields" };
+    if (!f.source_duckdb_table || !f.target_duckdb_table) {
+      this._message = { type: "error", text: "Source and target tables are required" };
       return;
     }
+    // Build params JSON from form fields + sql
+    const params: Record<string, string> = { ...f.params };
+    if (f.sql) params.sql = f.sql;
     const { ok, data } = await gqlFull(
       this.apiBase,
       `mutation($input: TransformCreateInput!) { createTransform(transformInput: $input) { id } }`,
       {
         input: {
+          transformType: f.transform_type || "sql",
           sourceDuckdbSchema: this.source,
           sourceDuckdbTable: f.source_duckdb_table,
           targetDuckdbSchema: "metrics",
           targetDuckdbTable: f.target_duckdb_table,
           sourcePlugin: this.source,
+          params: JSON.stringify(params),
           description: f.description,
-          sql: f.sql,
         },
       },
     );
