@@ -10,8 +10,8 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from shenas_web_api.auth import get_current_user
-from shenas_web_api.db import get_conn
+from shenas_net_api.auth import get_current_user
+from shenas_net_api.db import get_conn
 
 router = APIRouter(prefix="/relay")
 

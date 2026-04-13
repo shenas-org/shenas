@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: web-api
+  name: shenas-net-api
   namespace: shenas
   labels:
-    app: web-api
+    app: shenas-net-api
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: web-api
+      app: shenas-net-api
   template:
     metadata:
       labels:
-        app: web-api
+        app: shenas-net-api
     spec:
       containers:
-        - name: web-api
-          image: REGION-docker.pkg.dev/PROJECT_ID/shenas/web-api:latest
+        - name: shenas-net-api
+          image: REGION-docker.pkg.dev/PROJECT_ID/shenas/shenas-net-api:latest
           ports:
             - containerPort: 8000
               name: http
@@ -26,7 +26,7 @@ spec:
               value: shenas-packages
           envFrom:
             - secretRef:
-                name: web-api-secrets
+                name: shenas-net-api-secrets
           resources:
             requests:
               cpu: 50m
@@ -50,11 +50,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: web-api
+  name: shenas-net-api
   namespace: shenas
 spec:
   selector:
-    app: web-api
+    app: shenas-net-api
   ports:
     - port: 80
       targetPort: 8000

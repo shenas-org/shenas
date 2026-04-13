@@ -5,7 +5,7 @@ from __future__ import annotations
 import psycopg
 from psycopg.rows import dict_row
 
-from shenas_web_api.config import DATABASE_URL
+from shenas_net_api.config import DATABASE_URL
 
 _SCHEMA = """\
 CREATE TABLE IF NOT EXISTS users (

@@ -9,14 +9,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from shenas_web_api.auth import router as auth_router
-from shenas_web_api.config import FRONTEND_URL, SESSION_SECRET
-from shenas_web_api.db import ensure_schema
-from shenas_web_api.devices import router as devices_router
-from shenas_web_api.literature import router as literature_router
-from shenas_web_api.llm import router as llm_router
-from shenas_web_api.packages import router as packages_router
-from shenas_web_api.relay import router as relay_router
+from shenas_net_api.auth import router as auth_router
+from shenas_net_api.config import FRONTEND_URL, SESSION_SECRET
+from shenas_net_api.db import ensure_schema
+from shenas_net_api.devices import router as devices_router
+from shenas_net_api.literature import router as literature_router
+from shenas_net_api.llm import router as llm_router
+from shenas_net_api.packages import router as packages_router
+from shenas_net_api.relay import router as relay_router
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
