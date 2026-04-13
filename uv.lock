@@ -41,7 +41,6 @@ members = [
     "shenas-frontend-focus",
     "shenas-model-core",
     "shenas-model-sleep-forecast",
-    "shenas-scheduler",
     "shenas-source-chrome",
     "shenas-source-claude-code",
     "shenas-source-core",
@@ -3226,20 +3225,6 @@ requires-dist = [
 ]
 
 [[package]]
-name = "shenas-scheduler"
-source = { editable = "scheduler" }
-dependencies = [
-    { name = "httpx" },
-    { name = "typer" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "typer", specifier = ">=0.24.1" },
-]
-
-[[package]]
 name = "shenas-source-chrome"
 source = { editable = "plugins/sources/chrome" }
 dependencies = [
@@ -3746,7 +3731,6 @@ dev = [
     { name = "shenas-frontend-default" },
     { name = "shenas-frontend-focus" },
     { name = "shenas-model-core" },
-    { name = "shenas-scheduler" },
     { name = "shenas-source-chrome" },
     { name = "shenas-source-cronometer" },
     { name = "shenas-source-duolingo" },
@@ -3809,7 +3793,6 @@ dev = [
     { name = "shenas-frontend-default", editable = "plugins/frontends/default" },
     { name = "shenas-frontend-focus", editable = "plugins/frontends/focus" },
     { name = "shenas-model-core", editable = "plugins/models/core" },
-    { name = "shenas-scheduler", editable = "scheduler" },
     { name = "shenas-source-chrome", editable = "plugins/sources/chrome" },
     { name = "shenas-source-cronometer", editable = "plugins/sources/cronometer" },
     { name = "shenas-source-duolingo", editable = "plugins/sources/duolingo" },

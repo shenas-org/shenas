@@ -81,8 +81,20 @@ async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:
     except Exception:
         pass  # mesh not configured yet
 
+    # Start embedded sync scheduler
+    scheduler_task = None
+    try:
+        from app.sync_scheduler import run_sync_scheduler
+
+        interval = int(_os.environ.get("SHENAS_SYNC_INTERVAL", "60"))
+        scheduler_task = _asyncio.create_task(run_sync_scheduler(interval))
+    except Exception:
+        pass
+
     yield
 
+    if scheduler_task:
+        scheduler_task.cancel()
     if mesh_task:
         mesh_task.cancel()
 
@@ -119,34 +131,41 @@ async def session_middleware(request: Request, call_next):
 app.include_router(api_router)
 
 
+_headless = _os.environ.get("SHENAS_HEADLESS", "").lower() in ("1", "true")
+
+
 # ---------------------------------------------------------------------------
-# Static plugin mounting
+# Static plugin mounting (skipped in headless mode)
 # ---------------------------------------------------------------------------
 
+if not _headless:
 
-def _mount_static(kind: str, url_prefix: str) -> None:
-    """Mount static dirs for all plugins of a given kind."""
-    from app.plugin import Plugin
+    def _mount_static(kind: str, url_prefix: str) -> None:
+        """Mount static dirs for all plugins of a given kind."""
+        from app.plugin import Plugin
 
-    for plugin in Plugin.load_by_kind(kind):
-        if plugin.static_dir.is_dir():  # ty: ignore[unresolved-attribute]
-            app.mount(
-                f"/{url_prefix}/{plugin.name}",
-                StaticFiles(directory=str(plugin.static_dir)),  # ty: ignore[unresolved-attribute]
-                name=f"{url_prefix}-{plugin.name}",
-            )
+        for plugin in Plugin.load_by_kind(kind):
+            if plugin.static_dir.is_dir():  # ty: ignore[unresolved-attribute]
+                app.mount(
+                    f"/{url_prefix}/{plugin.name}",
+                    StaticFiles(directory=str(plugin.static_dir)),  # ty: ignore[unresolved-attribute]
+                    name=f"{url_prefix}-{plugin.name}",
+                )
+
+    # App-level static dirs
+    _app_dir = _pathlib.Path(__file__).parent
+    app.mount("/static", StaticFiles(directory=str(_app_dir / "static")), name="static")
+    _vendor_dir = _app_dir / "vendor" / "dist"
+    if _vendor_dir.is_dir():
+        app.mount("/vendor", StaticFiles(directory=str(_vendor_dir)), name="vendor")
+
+    # Plugin static dirs
+    _mount_static("dashboard", "dashboards")
+    _mount_static("frontend", "frontend")
+    _mount_static("theme", "themes")
 
 
-# App-level static dirs
-
-_app_dir = _pathlib.Path(__file__).parent
-app.mount("/static", StaticFiles(directory=str(_app_dir / "static")), name="static")
-_vendor_dir = _app_dir / "vendor" / "dist"
-if _vendor_dir.is_dir():
-    app.mount("/vendor", StaticFiles(directory=str(_vendor_dir)), name="vendor")
-
-
-# Plugin icon endpoint
+# Plugin icon endpoint (always available -- it's an API route)
 @app.get("/api/plugins/{kind}/{name}/icon.svg")
 async def plugin_icon(kind: str, name: str) -> Response:
     """Serve a plugin's icon.svg from its package directory."""
@@ -158,12 +177,6 @@ async def plugin_icon(kind: str, name: str) -> Response:
         if path:
             return Response(content=path.read_text(), media_type="image/svg+xml")
     return JSONResponse(status_code=404, content={"detail": "Icon not found"})
-
-
-# Plugin static dirs
-_mount_static("dashboard", "dashboards")
-_mount_static("frontend", "frontend")
-_mount_static("theme", "themes")
 
 
 # ---------------------------------------------------------------------------
@@ -401,17 +414,17 @@ def export_dev_credentials() -> JSONResponse:
 
 
 # ---------------------------------------------------------------------------
-# HTML routes
+# HTML routes (skipped in headless mode)
 # ---------------------------------------------------------------------------
 
+if not _headless:
 
-@app.get("/", response_class=HTMLResponse)
-def index() -> HTMLResponse:
-    """Serve the active UI plugin as the app shell."""
-    return _serve_ui_html()
+    @app.get("/", response_class=HTMLResponse)
+    def index() -> HTMLResponse:
+        """Serve the active UI plugin as the app shell."""
+        return _serve_ui_html()
 
-
-@app.get("/{path:path}", response_class=HTMLResponse, include_in_schema=False)
-def spa_fallback(path: str) -> HTMLResponse:  # noqa: ARG001
-    """SPA fallback -- serve UI HTML for any unmatched route."""
-    return _serve_ui_html()
+    @app.get("/{path:path}", response_class=HTMLResponse, include_in_schema=False)
+    def spa_fallback(path: str) -> HTMLResponse:  # noqa: ARG001
+        """SPA fallback -- serve UI HTML for any unmatched route."""
+        return _serve_ui_html()
