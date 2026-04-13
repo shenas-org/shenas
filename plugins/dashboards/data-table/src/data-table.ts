@@ -11,6 +11,7 @@ interface TableInfo {
 interface ColMeta {
   dbType: string;
   description: string;
+  displayName: string;
   unit: string;
   nullable: boolean;
   valueRange: number[] | null;
@@ -301,7 +302,7 @@ export class ShenasDataTable extends LitElement {
       const [s, t] = this._selectedTable.split(".");
       const meta = await gql(
         this.apiBase,
-        `query($s: String!, $t: String!) { tableColumnInfo(schema: $s, table: $t) { name dbType description unit nullable valueRange exampleValue interpretation } }`,
+        `query($s: String!, $t: String!) { tableColumnInfo(schema: $s, table: $t) { name dbType displayName description unit nullable valueRange exampleValue interpretation } }`,
         { s, t },
       );
       this._colMeta = {};
@@ -499,7 +500,7 @@ export class ShenasDataTable extends LitElement {
                     title="${this._colTooltip(col)}"
                     @click=${() => this._onSort(col)}
                   >
-                    ${col}
+                    ${this._colMeta[col]?.displayName || col}
                     ${this._sortCol === col
                       ? html`<span class="sort-indicator">${this._sortDesc ? "v" : "^"}</span>`
                       : ""}

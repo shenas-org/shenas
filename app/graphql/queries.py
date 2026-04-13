@@ -480,6 +480,7 @@ class Query:
                                     name=c["name"],
                                     db_type=c.get("db_type", ""),
                                     description=c.get("description", ""),
+                                    display_name=c.get("display_name", ""),
                                     unit=c.get("unit", ""),
                                     nullable=c.get("nullable", True),
                                     category=c.get("category", ""),
