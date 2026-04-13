@@ -364,12 +364,13 @@ class Plugin(abc.ABC):
         from pathlib import Path
 
         try:
-            # Use the class's own module to find the package directory
-            mod_file = inspect.getfile(type(self))
-            pkg_dir = Path(mod_file).parent.parent
-            icon_path = pkg_dir / "icon.svg"
-            if icon_path.exists():
-                return f"/plugins/{self._kind}s/{self.name}/icon.svg"
+            mod_file = Path(inspect.getfile(type(self)))
+            # Walk up from source.py until we find icon.svg or hit the repo root
+            for parent in mod_file.parents:
+                if (parent / "icon.svg").exists():
+                    return f"/plugins/{self._kind}s/{self.name}/icon.svg"
+                if (parent / "pyproject.toml").exists():
+                    break
         except Exception:
             pass
         return None

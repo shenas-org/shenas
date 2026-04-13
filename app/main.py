@@ -158,10 +158,13 @@ async def plugin_icon(kind: str, name: str) -> Response:
     cls = Plugin.load_by_name_and_kind(name, singular)
     if cls:
         try:
-            mod_file = inspect.getfile(cls)
-            icon_path = _pathlib.Path(mod_file).parent.parent / "icon.svg"
-            if icon_path.exists():
-                return Response(content=icon_path.read_text(), media_type="image/svg+xml")
+            mod_file = _pathlib.Path(inspect.getfile(cls))
+            for parent in mod_file.parents:
+                icon_path = parent / "icon.svg"
+                if icon_path.exists():
+                    return Response(content=icon_path.read_text(), media_type="image/svg+xml")
+                if (parent / "pyproject.toml").exists():
+                    break
         except Exception:
             pass
     return JSONResponse(status_code=404, content={"detail": "Icon not found"})
