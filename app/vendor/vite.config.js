@@ -18,7 +18,7 @@ export default defineConfig({
       input: {
         lit: "src/lit.js",
         "apache-arrow": "src/apache-arrow.js",
-        uplot: "src/uplot.js",
+        echarts: "src/echarts.js",
         cytoscape: "src/cytoscape.js",
         "shenas-frontends": "src/shenas-frontends.ts",
       },

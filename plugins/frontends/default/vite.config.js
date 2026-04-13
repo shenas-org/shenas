@@ -91,7 +91,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ["lit", "cytoscape", "apache-arrow", "uplot", "shenas-frontends"],
+    exclude: ["lit", "cytoscape", "apache-arrow", "echarts", "shenas-frontends"],
   },
   plugins: [
     {
@@ -102,7 +102,7 @@ export default defineConfig({
         const vendorMap = {
           cytoscape: "/vendor/cytoscape.js",
           "apache-arrow": "/vendor/apache-arrow.js",
-          uplot: "/vendor/uplot.js",
+          echarts: "/vendor/echarts.js",
           "shenas-frontends": "/vendor/shenas-frontends.js",
           "/vendor/apache-arrow.js": "/vendor/apache-arrow.js",
         };

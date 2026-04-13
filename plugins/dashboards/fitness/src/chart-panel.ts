@@ -1,8 +1,12 @@
-import { LitElement, html, css, unsafeCSS } from "lit";
+import { LitElement, html, css } from "lit";
 import type { TemplateResult, CSSResult } from "lit";
 import type { PropertyValues } from "lit";
-import uPlot from "uplot";
-import uPlotCSS from "uplot/dist/uPlot.min.css?inline";
+import * as echarts from "echarts/core";
+import { LineChart } from "echarts/charts";
+import { GridComponent, TooltipComponent, LegendComponent, DataZoomComponent } from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+
+echarts.use([LineChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, CanvasRenderer]);
 
 interface SeriesConfig {
   label: string;
@@ -32,7 +36,6 @@ export class ChartPanel extends LitElement {
   declare axes: AxisConfig[];
 
   static styles: CSSResult[] = [
-    unsafeCSS(uPlotCSS),
     css`
       :host {
         display: block;
@@ -50,7 +53,7 @@ export class ChartPanel extends LitElement {
       }
       .chart-wrap {
         width: 100%;
-        overflow: hidden;
+        height: 220px;
       }
       .no-data {
         color: #999;
@@ -61,7 +64,7 @@ export class ChartPanel extends LitElement {
     `,
   ];
 
-  private _chart: uPlot | null;
+  private _chart: echarts.ECharts | null;
   private _ro: ResizeObserver | null;
 
   constructor() {
@@ -82,59 +85,97 @@ export class ChartPanel extends LitElement {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    if (this._chart) this._chart.destroy();
+    if (this._chart) this._chart.dispose();
     if (this._ro) this._ro.disconnect();
   }
 
   _renderChart(): void {
     if (!this.data || this.data.length < 2 || this.data[0].length === 0) return;
-    if (this._chart) {
-      this._chart.destroy();
-      this._chart = null;
-    }
 
     const wrap = this.renderRoot.querySelector(".chart-wrap") as HTMLElement | null;
     if (!wrap) return;
 
-    const width = wrap.clientWidth || 600;
+    if (this._chart) {
+      this._chart.dispose();
+      this._chart = null;
+    }
 
-    const opts: uPlot.Options = {
-      width,
-      height: 200,
-      cursor: { show: true, drag: { x: true, y: false } },
-      scales: { x: { time: true } },
-      axes: [
+    this._chart = echarts.init(wrap);
+
+    // Convert unix timestamps to date strings for the x-axis
+    const timestamps = Array.from(this.data[0]);
+    const xData = timestamps.map((t) => {
+      const d = new Date(t * 1000);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    });
+
+    const axisLabel = this.axes[0]?.label || "";
+
+    const ecSeries: echarts.EChartsCoreOption[] = this.series.map((s, i) => {
+      const values = Array.from(this.data![i + 1] || []);
+      return {
+        name: s.label,
+        type: "line",
+        data: values.map((v) => (v == null || isNaN(v as number) ? null : v)),
+        smooth: true,
+        symbol: "none",
+        lineStyle: { width: 2, color: s.color || "#4a90d9" },
+        itemStyle: { color: s.color || "#4a90d9" },
+        areaStyle: s.fill ? { color: s.fill } : undefined,
+      };
+    });
+
+    const option: echarts.EChartsCoreOption = {
+      tooltip: {
+        trigger: "axis",
+        backgroundColor: "rgba(255,255,255,0.95)",
+        borderColor: "#ddd",
+        textStyle: { fontSize: 12, color: "#333" },
+      },
+      legend: {
+        show: this.series.length > 1,
+        bottom: 0,
+        textStyle: { fontSize: 11, color: "#888" },
+        itemWidth: 12,
+        itemHeight: 8,
+      },
+      grid: {
+        left: 45,
+        right: 16,
+        top: 8,
+        bottom: this.series.length > 1 ? 40 : 24,
+        containLabel: false,
+      },
+      xAxis: {
+        type: "category",
+        data: xData,
+        axisLine: { lineStyle: { color: "#ddd" } },
+        axisLabel: { fontSize: 10, color: "#888" },
+        axisTick: { show: false },
+      },
+      yAxis: {
+        type: "value",
+        name: axisLabel,
+        nameTextStyle: { fontSize: 10, color: "#888" },
+        axisLine: { show: false },
+        axisLabel: { fontSize: 10, color: "#888" },
+        splitLine: { lineStyle: { color: "#f0f0f0" } },
+      },
+      dataZoom: [
         {
-          stroke: "#888",
-          grid: { stroke: "#eee" },
-          values: (_u: uPlot, vals: number[]) =>
-            vals.map((v) => {
-              const d = new Date(v * 1000);
-              return `${d.getMonth() + 1}/${d.getDate()}`;
-            }),
+          type: "inside",
+          start: 0,
+          end: 100,
         },
-        ...(this.axes.length ? this.axes : [{ stroke: "#888", grid: { stroke: "#f4f4f4" } }]),
       ],
-      series: [
-        {},
-        ...this.series.map((s) => ({
-          stroke: s.color || "#4a90d9",
-          width: 2,
-          points: { show: false },
-          ...s,
-          label: s.label,
-        })),
-      ],
+      series: ecSeries,
     };
 
-    this._chart = new uPlot(opts, this.data as uPlot.AlignedData, wrap);
+    this._chart.setOption(option);
 
     if (!this._ro) {
       this._ro = new ResizeObserver(() => {
-        if (this._chart) {
-          const w = wrap.clientWidth;
-          if (w > 0) this._chart.setSize({ width: w, height: 200 });
-        }
+        if (this._chart) this._chart.resize();
       });
       this._ro.observe(wrap);
     }
