@@ -200,6 +200,10 @@ class PluginDetail extends LitElement {
         position: sticky;
         top: 0;
       }
+      shenas-data-table {
+        margin: 0 -1rem;
+        width: calc(100% + 2rem);
+      }
       .tab-select {
         border: none;
         background: transparent;
@@ -650,8 +654,8 @@ class PluginDetail extends LitElement {
       api-base="${this.apiBase}"
       schema="${schema}"
       table="${table}"
-      page-size="50"
-      style="height:500px"
+      page-size="100"
+      style="height:calc(100vh - 200px);min-height:300px"
     ></shenas-data-table>`;
   }
 
