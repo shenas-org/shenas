@@ -8,6 +8,16 @@ interface TableInfo {
   table: string;
 }
 
+interface ColMeta {
+  dbType: string;
+  description: string;
+  unit: string;
+  nullable: boolean;
+  valueRange: number[] | null;
+  exampleValue: string;
+  interpretation: string;
+}
+
 export class ShenasDataTable extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
@@ -24,7 +34,7 @@ export class ShenasDataTable extends LitElement {
     _searchTerm: { state: true },
     _page: { state: true },
     _colWidths: { state: true },
-    _colTypes: { state: true },
+    _colMeta: { state: true },
     _loading: { state: true },
     _error: { state: true },
   };
@@ -43,7 +53,7 @@ export class ShenasDataTable extends LitElement {
   declare _searchTerm: string;
   declare _page: number;
   declare _colWidths: Record<string, number>;
-  declare _colTypes: Record<string, string>;
+  declare _colMeta: Record<string, ColMeta>;
   declare _loading: boolean;
   declare _error: string | null;
 
@@ -132,7 +142,7 @@ export class ShenasDataTable extends LitElement {
     this._searchTerm = "";
     this._page = 0;
     this._colWidths = {};
-    this._colTypes = {};
+    this._colMeta = {};
     this._loading = false;
     this._error = null;
   }
@@ -186,13 +196,12 @@ export class ShenasDataTable extends LitElement {
       const [s, t] = this._selectedTable.split(".");
       const meta = await gql(
         this.apiBase,
-        `query($s: String!, $t: String!) { tableColumnInfo(schema: $s, table: $t) { name dbType } }`,
+        `query($s: String!, $t: String!) { tableColumnInfo(schema: $s, table: $t) { name dbType description unit nullable valueRange exampleValue interpretation } }`,
         { s, t },
       );
-      const cols = (meta?.tableColumnInfo as Array<{ name: string; dbType: string }>) || [];
-      this._colTypes = {};
-      for (const c of cols) {
-        this._colTypes[c.name] = c.dbType;
+      this._colMeta = {};
+      for (const c of (meta?.tableColumnInfo || []) as Array<ColMeta & { name: string }>) {
+        this._colMeta[c.name] = c;
       }
       this._page = 0;
       this._filters = {};
@@ -262,7 +271,7 @@ export class ShenasDataTable extends LitElement {
 
   _formatCell(value: unknown, col?: string): string {
     if (value == null) return "";
-    const dbType = col ? (this._colTypes[col] || "").toUpperCase() : "";
+    const dbType = col ? (this._colMeta[col]?.dbType || "").toUpperCase() : "";
     const isTimestamp = dbType.includes("TIMESTAMP");
     const isDate = dbType === "DATE";
     if (value instanceof Date) {
@@ -368,7 +377,7 @@ export class ShenasDataTable extends LitElement {
             <tr>
               ${visibleCols.map(
                 (col) => html`
-                  <th style="width:${this._colWidths[col] || 120}px" @click=${() => this._onSort(col)}>
+                  <th style="width:${this._colWidths[col] || 120}px" title="${this._colTooltip(col)}" @click=${() => this._onSort(col)}>
                     ${col}
                     ${this._sortCol === col
                       ? html`<span class="sort-indicator">${this._sortDesc ? "v" : "^"}</span>`
@@ -417,6 +426,22 @@ export class ShenasDataTable extends LitElement {
           : ""}
       </div>
     `;
+  }
+
+  _colTooltip(col: string): string {
+    const m = this._colMeta[col];
+    if (!m) return col;
+    const lines: string[] = [];
+    if (m.description) lines.push(m.description);
+    const parts: string[] = [];
+    if (m.dbType) parts.push(m.dbType);
+    if (m.valueRange?.length) parts.push(`range: ${m.valueRange.join("-")}`);
+    if (!m.nullable) parts.push("NOT NULL");
+    if (m.exampleValue) parts.push(`e.g. ${m.exampleValue}`);
+    if (m.unit) parts.push(`[${m.unit}]`);
+    if (parts.length) lines.push(parts.join(", "));
+    if (m.interpretation) lines.push(m.interpretation);
+    return lines.join("\n");
   }
 
   _renderPageLinks(): TemplateResult {
