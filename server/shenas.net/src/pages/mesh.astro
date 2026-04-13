@@ -1,0 +1,276 @@
+---
+import Dashboard from "../layouts/Dashboard.astro";
+---
+
+<Dashboard title="Mesh Topology -- shenas" description="Device mesh network topology and sync status" active="mesh">
+  <div class="header">
+    <h1>Mesh Topology</h1>
+    <p class="subtitle" id="status">Loading...</p>
+  </div>
+
+  <div id="summary" class="summary-cards"></div>
+
+  <div id="graph-container" class="graph-container">
+    <svg id="graph" width="100%" height="400"></svg>
+  </div>
+
+  <h2 class="section-title">Devices</h2>
+  <div id="devices-detail"></div>
+
+  <h2 class="section-title">Relay Queue</h2>
+  <div id="relay-queue"></div>
+
+  <div id="not-signed-in" class="notice" style="display:none">
+    <p>Sign in to view mesh topology.</p>
+    <a href="/api/auth/login" class="btn">Sign in with Google</a>
+  </div>
+</Dashboard>
+
+<style is:global>
+  .header { margin-bottom: 2rem; }
+  .subtitle { color: var(--color-text-muted); font-size: 0.95rem; }
+  .section-title {
+    font-size: 1rem; font-weight: 600; color: var(--color-text, #2c2c28);
+    margin: 2rem 0 1rem; padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-border, #d8d4cc);
+  }
+  .summary-cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem; margin-bottom: 1.5rem;
+  }
+  .summary-card {
+    background: var(--color-bg-card, #fff);
+    border: 1px solid var(--color-border, #d8d4cc);
+    border-radius: 12px; padding: 1rem 1.2rem; text-align: center;
+  }
+  .summary-value { font-size: 1.6rem; font-weight: 700; color: var(--color-accent, #728f67); }
+  .summary-label { font-size: 0.75rem; color: var(--color-text-muted, #8a8780); margin-top: 0.2rem; }
+  .graph-container {
+    background: var(--color-bg-card, #fff);
+    border: 1px solid var(--color-border, #d8d4cc);
+    border-radius: 12px; padding: 1rem; margin-bottom: 1rem;
+  }
+  .device-card {
+    background: var(--color-bg-card, #fff);
+    border: 1px solid var(--color-border, #d8d4cc);
+    border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 0.75rem;
+  }
+  .device-header {
+    display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.5rem;
+  }
+  .device-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--color-accent-glow, rgba(114, 143, 103, 0.12));
+    display: flex; align-items: center; justify-content: center; font-size: 1rem;
+  }
+  .device-name { font-weight: 600; font-size: 0.95rem; }
+  .device-owner { font-size: 0.8rem; color: var(--color-text-muted); }
+  .status-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.3rem;
+  }
+  .status-dot.online { background: #4caf50; }
+  .status-dot.offline { background: #bbb; }
+  .endpoint-list { margin-top: 0.4rem; font-size: 0.8rem; color: var(--color-text-muted); }
+  .endpoint-item {
+    display: flex; gap: 0.5rem; padding: 0.15rem 0;
+    font-family: monospace; font-size: 0.75rem;
+  }
+  .ep-type {
+    background: var(--color-surface, #edeae4); padding: 0 0.4rem;
+    border-radius: 3px; font-size: 0.7rem; font-weight: 600;
+  }
+  .sync-peers { margin-top: 0.5rem; font-size: 0.8rem; }
+  .sync-peer { padding: 0.15rem 0; color: var(--color-text-muted); }
+  .relay-row {
+    background: var(--color-bg-card, #fff);
+    border: 1px solid var(--color-border, #d8d4cc);
+    border-radius: 8px; padding: 0.8rem 1rem; margin-bottom: 0.5rem;
+    display: flex; align-items: center; gap: 1rem; font-size: 0.85rem;
+  }
+  .relay-arrow { color: var(--color-accent); font-weight: 600; }
+  .relay-count { font-weight: 600; color: var(--color-text); }
+  .relay-age { color: var(--color-text-muted); font-size: 0.8rem; }
+  .notice { text-align: center; padding: 3rem; color: var(--color-text-muted); }
+  .btn {
+    display: inline-block; margin-top: 1rem; padding: 0.6rem 1.5rem;
+    background: var(--color-accent); color: white; border-radius: 8px;
+    text-decoration: none; font-weight: 600; font-size: 0.9rem;
+  }
+  .empty { text-align: center; padding: 1.5rem; color: var(--color-text-muted); font-size: 0.85rem; }
+</style>
+
+<script>
+  const statusEl = document.getElementById("status")!;
+  const summaryEl = document.getElementById("summary")!;
+  const graphSvg = document.getElementById("graph") as unknown as SVGSVGElement;
+  const devicesEl = document.getElementById("devices-detail")!;
+  const relayEl = document.getElementById("relay-queue")!;
+  const notSignedIn = document.getElementById("not-signed-in")!;
+
+  const ICONS: Record<string, string> = {
+    desktop: "\u{1F5A5}", laptop: "\u{1F4BB}", mobile: "\u{1F4F1}", server: "\u{2601}",
+  };
+
+  function timeAgo(d: string | null): string {
+    if (!d) return "never";
+    const ms = Date.now() - new Date(d).getTime();
+    const m = Math.floor(ms / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  function isOnline(lastSeen: string | null): boolean {
+    if (!lastSeen) return false;
+    return Date.now() - new Date(lastSeen).getTime() < 5 * 60 * 1000;
+  }
+
+  interface Device { id: string; name: string; device_type: string; last_seen: string; created_at: string; owner_name: string; owner_email: string; }
+  interface Endpoint { device_id: string; endpoint_type: string; address: string; priority: number; updated_at: string; }
+  interface SyncEdge { device_id: string; peer_device_id: string; last_sync_at: string | null; last_event_id: string | null; }
+  interface RelayItem { from_device_id: string; to_device_id: string; pending: number; oldest: string; }
+
+  async function load() {
+    try {
+      const authResp = await fetch("/api/auth/me", { credentials: "include" });
+      const authData = await authResp.json();
+      if (!authData.user) { notSignedIn.style.display = "block"; statusEl.style.display = "none"; return; }
+      if (!authData.user.is_admin) { statusEl.textContent = "Admin access required"; return; }
+
+      const resp = await fetch("/api/devices/mesh/topology", { credentials: "include" });
+      if (!resp.ok) { statusEl.textContent = "Failed to load"; return; }
+      const data: { devices: Device[]; endpoints: Endpoint[]; sync_edges: SyncEdge[]; relay_queue: RelayItem[] } = await resp.json();
+
+      const { devices, endpoints, sync_edges, relay_queue } = data;
+      const online = devices.filter(d => isOnline(d.last_seen)).length;
+      const totalEndpoints = endpoints.length;
+      const pendingRelay = relay_queue.reduce((s, r) => s + r.pending, 0);
+
+      statusEl.textContent = `${devices.length} device${devices.length !== 1 ? "s" : ""} in mesh`;
+
+      summaryEl.innerHTML = `
+        <div class="summary-card"><div class="summary-value">${online}</div><div class="summary-label">Online</div></div>
+        <div class="summary-card"><div class="summary-value">${devices.length - online}</div><div class="summary-label">Offline</div></div>
+        <div class="summary-card"><div class="summary-value">${totalEndpoints}</div><div class="summary-label">Endpoints</div></div>
+        <div class="summary-card"><div class="summary-value">${sync_edges.length}</div><div class="summary-label">Sync pairs</div></div>
+        <div class="summary-card"><div class="summary-value">${pendingRelay}</div><div class="summary-label">Relay pending</div></div>
+      `;
+
+      // Draw graph
+      drawGraph(devices, sync_edges, relay_queue);
+
+      // Device details with endpoints
+      const epByDevice: Record<string, Endpoint[]> = {};
+      for (const ep of endpoints) { (epByDevice[ep.device_id] ||= []).push(ep); }
+      const syncByDevice: Record<string, SyncEdge[]> = {};
+      for (const e of sync_edges) { (syncByDevice[e.device_id] ||= []).push(e); }
+      const nameMap: Record<string, string> = {};
+      for (const d of devices) nameMap[d.id] = d.name;
+
+      devicesEl.innerHTML = devices.map(d => {
+        const eps = epByDevice[d.id] || [];
+        const syncs = syncByDevice[d.id] || [];
+        const on = isOnline(d.last_seen);
+        return `
+          <div class="device-card">
+            <div class="device-header">
+              <div class="device-icon">${ICONS[d.device_type] || "\u{1F4BB}"}</div>
+              <div>
+                <div class="device-name"><span class="status-dot ${on ? "online" : "offline"}"></span>${d.name}</div>
+                <div class="device-owner">${d.owner_name || d.owner_email} &middot; ${d.device_type} &middot; seen ${timeAgo(d.last_seen)}</div>
+              </div>
+            </div>
+            ${eps.length > 0 ? `
+              <div class="endpoint-list">
+                ${eps.map(ep => `<div class="endpoint-item"><span class="ep-type">${ep.endpoint_type}</span> ${ep.address} <span style="color:#aaa">p${ep.priority}</span></div>`).join("")}
+              </div>
+            ` : '<div class="endpoint-list">No endpoints</div>'}
+            ${syncs.length > 0 ? `
+              <div class="sync-peers">
+                ${syncs.map(s => `<div class="sync-peer">&#8594; ${nameMap[s.peer_device_id] || s.peer_device_id.slice(0, 8)} &middot; last sync ${timeAgo(s.last_sync_at)}</div>`).join("")}
+              </div>
+            ` : ""}
+          </div>
+        `;
+      }).join("");
+
+      // Relay queue
+      if (relay_queue.length === 0) {
+        relayEl.innerHTML = '<div class="empty">No pending relay messages.</div>';
+      } else {
+        relayEl.innerHTML = relay_queue.map(r => `
+          <div class="relay-row">
+            <span>${nameMap[r.from_device_id] || r.from_device_id.slice(0, 8)}</span>
+            <span class="relay-arrow">&#8594;</span>
+            <span>${nameMap[r.to_device_id] || r.to_device_id.slice(0, 8)}</span>
+            <span class="relay-count">${r.pending} msg${r.pending !== 1 ? "s" : ""}</span>
+            <span class="relay-age">oldest ${timeAgo(r.oldest)}</span>
+          </div>
+        `).join("");
+      }
+    } catch { statusEl.textContent = "Failed to load"; }
+  }
+
+  function drawGraph(devices: Device[], edges: SyncEdge[], relay: RelayItem[]) {
+    const W = 700, H = 400, R = 150;
+    const cx = W / 2, cy = H / 2;
+    graphSvg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+
+    const positions: Record<string, { x: number; y: number }> = {};
+    devices.forEach((d, i) => {
+      const angle = (2 * Math.PI * i) / devices.length - Math.PI / 2;
+      positions[d.id] = { x: cx + R * Math.cos(angle), y: cy + R * Math.sin(angle) };
+    });
+
+    let svg = "";
+
+    // Draw sync edges
+    const edgeSet = new Set<string>();
+    for (const e of edges) {
+      const key = [e.device_id, e.peer_device_id].sort().join("-");
+      if (edgeSet.has(key)) continue;
+      edgeSet.add(key);
+      const from = positions[e.device_id], to = positions[e.peer_device_id];
+      if (from && to) {
+        svg += `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="#728f67" stroke-width="1.5" opacity="0.4"/>`;
+      }
+    }
+
+    // Draw relay edges (dashed)
+    for (const r of relay) {
+      const from = positions[r.from_device_id], to = positions[r.to_device_id];
+      if (from && to) {
+        svg += `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="#e65100" stroke-width="1" stroke-dasharray="4 3" opacity="0.6"/>`;
+      }
+    }
+
+    // Draw device nodes
+    for (const d of devices) {
+      const p = positions[d.id];
+      if (!p) continue;
+      const on = isOnline(d.last_seen);
+      const fill = on ? "#728f67" : "#bbb";
+      svg += `<circle cx="${p.x}" cy="${p.y}" r="18" fill="${fill}" opacity="0.9"><title>${d.name} (${d.device_type})\n${d.owner_name || d.owner_email}\nSeen ${timeAgo(d.last_seen)}</title></circle>`;
+      svg += `<text x="${p.x}" y="${p.y + 32}" text-anchor="middle" font-size="11" fill="#555">${d.name}</text>`;
+      // Device type icon
+      const icon = d.device_type === "desktop" ? "\u{1F5A5}" : d.device_type === "mobile" ? "\u{1F4F1}" : "\u{1F4BB}";
+      svg += `<text x="${p.x}" y="${p.y + 5}" text-anchor="middle" font-size="14">${icon}</text>`;
+    }
+
+    // Legend
+    svg += `<line x1="20" y1="${H - 30}" x2="40" y2="${H - 30}" stroke="#728f67" stroke-width="1.5" opacity="0.4"/>`;
+    svg += `<text x="45" y="${H - 26}" font-size="10" fill="#888">Sync</text>`;
+    svg += `<line x1="80" y1="${H - 30}" x2="100" y2="${H - 30}" stroke="#e65100" stroke-width="1" stroke-dasharray="4 3"/>`;
+    svg += `<text x="105" y="${H - 26}" font-size="10" fill="#888">Relay queue</text>`;
+    svg += `<circle cx="170" cy="${H - 30}" r="5" fill="#728f67"/>`;
+    svg += `<text x="180" y="${H - 26}" font-size="10" fill="#888">Online</text>`;
+    svg += `<circle cx="220" cy="${H - 30}" r="5" fill="#bbb"/>`;
+    svg += `<text x="230" y="${H - 26}" font-size="10" fill="#888">Offline</text>`;
+
+    graphSvg.innerHTML = svg;
+  }
+
+  load();
+</script>

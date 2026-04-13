@@ -130,3 +130,40 @@ async def get_endpoints(device_id: str, request: Request) -> list[dict]:
             {"did": device_id},
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+@router.get("/mesh/topology")
+async def mesh_topology(request: Request) -> dict:
+    """Return the full mesh topology: devices, endpoints, sync cursors, relay queue (admin only)."""
+    await require_admin(request)
+    with get_conn() as conn:
+        devices = conn.execute(
+            "SELECT d.id, d.name, d.device_type, d.last_seen, d.created_at,"
+            " u.name AS owner_name, u.email AS owner_email"
+            " FROM devices d JOIN users u ON d.user_id = u.id"
+            " ORDER BY d.last_seen DESC NULLS LAST",
+        ).fetchall()
+        endpoints = conn.execute(
+            "SELECT device_id, endpoint_type, address, priority, updated_at"
+            " FROM device_endpoints ORDER BY device_id, priority DESC",
+        ).fetchall()
+        cursors = conn.execute(
+            "SELECT device_id, peer_device_id, last_sync_at, last_event_id FROM sync_cursors ORDER BY device_id",
+        ).fetchall()
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS relay_messages ("
+            " id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,"
+            " from_device_id TEXT NOT NULL, to_device_id TEXT NOT NULL,"
+            " payload TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT now())"
+        )
+        relay = conn.execute(
+            "SELECT from_device_id, to_device_id, COUNT(*) AS pending,"
+            " MIN(created_at) AS oldest"
+            " FROM relay_messages GROUP BY from_device_id, to_device_id",
+        ).fetchall()
+    return {
+        "devices": [dict(d) for d in devices],
+        "endpoints": [dict(e) for e in endpoints],
+        "sync_edges": [dict(c) for c in cursors],
+        "relay_queue": [dict(r) for r in relay],
+    }
