@@ -118,6 +118,7 @@ class ShenasApp extends LitElement {
   declare _navPaletteOpen: boolean;
   declare _settingsOpen: boolean | undefined;
   declare _remoteUser: Record<string, unknown> | null;
+  declare _serverUrl: string;
   declare _navCommands: Command[];
   declare _tabs: TabInfo[];
   declare _activeTabId: number | null;
@@ -676,6 +677,7 @@ class ShenasApp extends LitElement {
   constructor() {
     super();
     this.apiBase = "/api";
+    this._serverUrl = "https://shenas.net";
     this._dashboards = [];
     this._loading = true;
     this._loadedScripts = new Set();
@@ -741,6 +743,7 @@ class ShenasApp extends LitElement {
         .then((r) => r.json())
         .then((d: Record<string, unknown>) => {
           this._remoteUser = (d.user as Record<string, unknown>) || null;
+          if (d.server_url) this._serverUrl = d.server_url as string;
         })
         .catch(() => {
           this._remoteUser = null;
@@ -1275,6 +1278,7 @@ class ShenasApp extends LitElement {
       const authResp = await fetch(`${this.apiBase}/auth/me`);
       const authData = (await authResp.json()) as Record<string, unknown>;
       this._remoteUser = (authData.user as Record<string, unknown>) || null;
+      if (authData.server_url) this._serverUrl = authData.server_url as string;
     } catch {
       this._remoteUser = null;
     }
@@ -1426,11 +1430,11 @@ class ShenasApp extends LitElement {
           <div class="sidebar-footer">
             <a
               class="auth-link"
-              href=${this._remoteUser ? "https://shenas.net/dashboard" : "/api/auth/login"}
+              href=${this._remoteUser ? `${this._serverUrl}/dashboard` : "/api/auth/login"}
               @click=${(e: MouseEvent) => {
                 e.preventDefault();
                 if (this._remoteUser) {
-                  openExternal("https://shenas.net/dashboard");
+                  openExternal(`${this._serverUrl}/dashboard`);
                 } else {
                   window.location.href = "/api/auth/login";
                 }
@@ -1765,6 +1769,7 @@ class ShenasApp extends LitElement {
       .allPlugins=${this._allPlugins}
       .schemaPlugins=${this._schemaPlugins}
       .remoteUser=${this._remoteUser}
+      server-url=${this._serverUrl}
       device-name=${this._deviceName || ""}
       .multiuserEnabled=${this._multiuserEnabled}
       .localUser=${this._localUser}

@@ -388,9 +388,11 @@ def remote_me() -> dict:
             verify=False,
             timeout=5,
         )
-        return resp.json()
+        data = resp.json()
+        data["server_url"] = SHENAS_NET_URL
+        return data
     except Exception:
-        return {"user": None}
+        return {"user": None, "server_url": SHENAS_NET_URL}
 
 
 # ---------------------------------------------------------------------------
