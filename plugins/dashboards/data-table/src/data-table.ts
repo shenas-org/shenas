@@ -76,6 +76,11 @@ export class ShenasDataTable extends LitElement {
     select {
       min-width: 200px;
     }
+    .compact-select {
+      margin-bottom: 8px;
+      font-size: 12px;
+      padding: 4px 8px;
+    }
     .table-wrap {
       overflow: auto;
       flex: 1;
@@ -322,20 +327,28 @@ export class ShenasDataTable extends LitElement {
   render(): TemplateResult {
     if (this._error) return html`<div class="error">${this._error}</div>`;
 
-    const tableSelector = html`
-      <div class="controls">
-        ${this.schema ? "" : html`<h1>data table</h1>`}
-        <select @change=${this._onTableChange}>
+    const tableSelector = this.schema
+      ? html`<select class="compact-select" @change=${this._onTableChange}>
           ${this._tables.map(
             (t) => html`
               <option value="${t.schema}.${t.table}" ?selected=${`${t.schema}.${t.table}` === this._selectedTable}>
-                ${t.schema}.${t.table}
+                ${t.table}
               </option>
             `,
           )}
-        </select>
-      </div>
-    `;
+        </select>`
+      : html`<div class="controls">
+          <h1>data table</h1>
+          <select @change=${this._onTableChange}>
+            ${this._tables.map(
+              (t) => html`
+                <option value="${t.schema}.${t.table}" ?selected=${`${t.schema}.${t.table}` === this._selectedTable}>
+                  ${t.schema}.${t.table}
+                </option>
+              `,
+            )}
+          </select>
+        </div>`;
 
     if (this._loading)
       return html`${tableSelector}
