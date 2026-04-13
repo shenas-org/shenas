@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import UTC, datetime, timedelta
 
@@ -18,6 +19,8 @@ from shenas_net_api.config import (
     SESSION_SECRET,
 )
 from shenas_net_api.db import get_conn
+
+log = logging.getLogger("shenas-net-api.auth")
 
 router = APIRouter(prefix="/auth")
 
@@ -42,6 +45,7 @@ async def login(request: Request) -> RedirectResponse:
     app_redirect = request.query_params.get("redirect_uri", "")
     if app_redirect:
         request.session["app_redirect"] = app_redirect
+    log.info("Login redirect, app_redirect=%s", app_redirect or "(website)")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
@@ -55,6 +59,7 @@ async def callback(request: Request) -> RedirectResponse:
     picture = userinfo.get("picture", "")
     google_id = userinfo["sub"]
 
+    log.info("OAuth callback for %s", email)
     session_token = _create_session(email, name, picture, google_id)
 
     # If an app requested this login, redirect to it with the token

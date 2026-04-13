@@ -37,7 +37,6 @@ describe("shenas-plugin-detail", () => {
     expect(el._tables).toEqual([]);
     expect(el._syncing).toBe(false);
     expect(el._transforming).toBe(false);
-    expect(el._previewRows).toBeNull();
   });
 
   it("fetches when kind and name set", async () => {
@@ -358,12 +357,6 @@ describe("shenas-plugin-detail", () => {
     el._tables = [];
     const result = el._renderData();
     expect(result).toBeDefined();
-  });
-
-  it("_fetchPreview clears when name empty", async () => {
-    const el = mount();
-    await el._fetchPreview("");
-    expect(el._previewRows).toBeNull();
   });
 
   it("renders dataset transforms list", async () => {

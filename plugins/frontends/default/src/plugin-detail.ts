@@ -1,7 +1,6 @@
 import { LitElement, html, css } from "lit";
 import {
   ApolloMutationController,
-  arrowQuery,
   gql,
   getClient,
   registerCommands,
@@ -91,11 +90,9 @@ class PluginDetail extends LitElement {
     _syncing: { state: true },
     _transforming: { state: true },
     _schemaTransforms: { state: true },
-    _selectedTable: { state: true },
-    _previewRows: { state: true },
-    _previewLoading: { state: true },
     _suggestions: { state: true },
     _suggesting: { state: true },
+    _dataTable: { state: true },
   };
 
   static styles = [
@@ -108,9 +105,10 @@ class PluginDetail extends LitElement {
         display: block;
       }
       .back {
-        font-size: 0.9rem;
-        display: inline-block;
-        margin-bottom: 1rem;
+        font-size: 1rem;
+        margin-right: 0.4rem;
+        text-decoration: none;
+        vertical-align: middle;
       }
       .title-row {
         display: flex;
@@ -214,6 +212,25 @@ class PluginDetail extends LitElement {
         position: sticky;
         top: 0;
       }
+      shenas-data-table {
+        margin: 0 -1rem;
+        width: calc(100% + 2rem);
+      }
+      .tab-select {
+        border: none;
+        background: transparent;
+        font-size: 0.8rem;
+        color: var(--shenas-text-muted, #888);
+        padding: 0.4rem 0.2rem;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        align-self: stretch;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      .tab-select:focus {
+        outline: none;
+      }
       .suggestion-card {
         border: 1px solid var(--shenas-border, #ccc);
         border-radius: 6px;
@@ -255,11 +272,9 @@ class PluginDetail extends LitElement {
   declare _syncing: boolean;
   declare _transforming: boolean;
   declare _schemaTransforms: SchemaTransform[];
-  declare _selectedTable: string | null;
-  declare _previewRows: Record<string, unknown>[] | null;
-  declare _previewLoading: boolean;
   declare _suggestions: SuggestedDataset[];
   declare _suggesting: boolean;
+  declare _dataTable: string;
   private _loadingTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _client = getClient();
@@ -292,11 +307,9 @@ class PluginDetail extends LitElement {
     this._syncing = false;
     this._transforming = false;
     this._schemaTransforms = [];
-    this._selectedTable = null;
-    this._previewRows = null;
-    this._previewLoading = false;
     this._suggestions = [];
     this._suggesting = false;
+    this._dataTable = "";
   }
 
   willUpdate(changed: Map<string, unknown>): void {
@@ -645,78 +658,34 @@ class PluginDetail extends LitElement {
     if (tab === "transforms") this._fetchSuggestions();
   }
 
-  async _fetchPreview(tableName: string): Promise<void> {
-    this._selectedTable = tableName;
-    if (!tableName) {
-      this._previewRows = null;
-      return;
-    }
-    this._previewLoading = true;
-    this._previewRows = null;
-    try {
-      const dbSchema = this.kind === "dataset" ? "metrics" : this.name;
-      this._previewRows = (await arrowQuery(
-        this.apiBase,
-        `SELECT * FROM "${dbSchema}"."${tableName}" ORDER BY 1 DESC LIMIT 100`,
-      )) as Record<string, unknown>[] | null;
-    } catch (e) {
-      console.error("Preview query failed:", e);
-      this._previewRows = null;
-    }
-    this._previewLoading = false;
-  }
-
-  _renderPreviewTable() {
-    const cols = Object.keys(this._previewRows![0]).filter((c) => !c.startsWith("_dlt"));
-    return html` <table class="data-table">
-      <thead>
-        <tr>
-          ${cols.map((col) => html`<th>${col}</th>`)}
-        </tr>
-      </thead>
-      <tbody>
-        ${this._previewRows!.map(
-          (row) => html`
-            <tr>
-              ${cols.map((col) => html`<td title="${row[col] ?? ""}">${row[col] ?? ""}</td>`)}
-            </tr>
-          `,
-        )}
-      </tbody>
-    </table>`;
-  }
-
   _renderData() {
-    const tables = this._tables || [];
+    const tables = (this._tables || []).filter((t) => !t.name.startsWith("_dlt_"));
     if (tables.length === 0) return html`<p style="color:var(--shenas-text-muted,#888)">No tables synced yet.</p>`;
-    if (!this._selectedTable) {
-      const primary = this._info?.primary_table;
-      const target = primary && tables.some((t) => t.name === primary) ? primary : tables[0]?.name;
-      if (target) {
-        // Defer to avoid state changes during render
-        requestAnimationFrame(() => this._fetchPreview(target));
-        return html`<p style="color:var(--shenas-text-muted,#888)">Loading...</p>`;
-      }
+    const schema = this.kind === "dataset" ? "metrics" : this._info?.name || this.name;
+    const table = this._dataTable || this._info?.primary_table || tables[0]?.name || "";
+    if (!this._dataTable && table) {
+      requestAnimationFrame(() => {
+        this._dataTable = table;
+      });
     }
-    return html`
-      <div class="data-toolbar">
-        <select @change=${(e: Event) => this._fetchPreview((e.target as HTMLSelectElement).value)}>
-          <option value="">Select a table</option>
-          ${tables.map(
-            (t) =>
-              html`<option value=${t.name} ?selected=${this._selectedTable === t.name}>
-                ${t.name}${t.rows ? ` (${t.rows})` : ""}
-              </option>`,
-          )}
-        </select>
-        ${this._previewLoading ? html`<span style="color:var(--shenas-text-muted,#888)">Loading...</span>` : ""}
-      </div>
-      ${this._previewRows && this._previewRows.length > 0
-        ? this._renderPreviewTable()
-        : this._selectedTable && !this._previewLoading
-          ? html`<p style="color:var(--shenas-text-muted,#888)">Table is empty.</p>`
-          : ""}
-    `;
+    this._ensureDataTableScript();
+    return html`<shenas-data-table
+      api-base="${this.apiBase}"
+      schema="${schema}"
+      table="${table}"
+      page-size="100"
+      style="height:calc(100vh - 180px);min-height:300px"
+    ></shenas-data-table>`;
+  }
+
+  _ensureDataTableScript(): void {
+    if (customElements.get("shenas-data-table")) return;
+    const src = "/dashboards/data-table/data-table.js";
+    if (document.querySelector(`script[src="${src}"]`)) return;
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = src;
+    document.head.appendChild(script);
   }
 
   render() {
@@ -739,19 +708,18 @@ class PluginDetail extends LitElement {
     const basePath = `/settings/${this.kind}/${this.name}`;
 
     return html`
-      <a
-        class="back"
-        href="/settings/${this.kind}"
-        @click=${(e: MouseEvent) => {
-          e.preventDefault();
-          window.history.pushState({}, "", `/settings/${this.kind}`);
-          window.dispatchEvent(new PopStateEvent("popstate"));
-        }}
-        >&larr; Back to ${this.kind}s</a
-      >
-
       <div class="title-row">
         <h2>
+          <a
+            class="back"
+            href="/settings/${this.kind}"
+            @click=${(e: MouseEvent) => {
+              e.preventDefault();
+              window.history.pushState({}, "", `/settings/${this.kind}`);
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            }}
+            >&larr;</a
+          >
           ${(info as Record<string, unknown>).icon_url
             ? html`<img
                 src="${(info as Record<string, unknown>).icon_url}"
@@ -858,6 +826,23 @@ class PluginDetail extends LitElement {
                 }}
                 >Data</a
               >
+              ${this.activeTab === "data" && this._tables.length > 0
+                ? html`<select
+                    class="tab-select"
+                    @change=${(e: Event) => {
+                      this._dataTable = (e.target as HTMLSelectElement).value;
+                    }}
+                  >
+                    ${this._tables
+                      .filter((t) => !t.name.startsWith("_dlt_"))
+                      .map(
+                        (t) =>
+                          html`<option value=${t.name} ?selected=${this._dataTable === t.name}>
+                            ${t.name}${t.rows ? ` (${t.rows})` : ""}
+                          </option>`,
+                      )}
+                  </select>`
+                : ""}
             `
           : ""}
         <a
