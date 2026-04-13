@@ -144,6 +144,14 @@ class DatabaseManager:
         except Exception:
             pass
 
+        # Ensure the default single-user row exists (id=0) so auth
+        # token storage works without multi-user mode enabled.
+        row = con.execute("SELECT 1 FROM shenas_system.local_users WHERE id = 0").fetchone()
+        if not row:
+            con.execute(
+                "INSERT INTO shenas_system.local_users (id, username) VALUES (0, 'default')",
+            )
+
     # -- User DB resolver --------------------------------------------------
 
     def _current_user_db(self) -> DB:
