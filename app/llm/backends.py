@@ -70,7 +70,7 @@ class ShenasNetProvider:
         payload = json.dumps(
             {
                 "model": self.model,
-                "max_tokens": 4096,
+                "max_tokens": 16384,
                 "system": system,
                 "messages": [{"role": "user", "content": user}],
                 "tools": tools,

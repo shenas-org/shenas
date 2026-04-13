@@ -75,17 +75,7 @@ app-clean:
 app-dev:
 	@fuser -k 7280/tcp 5173/tcp 2>/dev/null; sleep 0.3; \
 	uv sync --group fl --quiet; \
-	(cd app/vendor && npm install --silent && npm run build --silent); \
-	for pkg in plugins/frontends/* plugins/dashboards/*; do \
-		[ -f "$$pkg/package.json" ] || continue; \
-		[ -f "$$pkg/vite.config.js" ] || continue; \
-		static=$$(find "$$pkg" -path '*/static' -type d 2>/dev/null | head -1); \
-		if [ -z "$$static" ] || [ -z "$$(ls -A $$static 2>/dev/null)" ]; then \
-			echo "Building $$pkg (missing static/)..."; \
-			(cd "$$pkg" && npm install --silent && npm run build); \
-		fi; \
-	done; \
-	trap 'kill 0' EXIT; \
+	moon run frontend*:build dashboard*:build; \
 	uv run shenas --reload --no-tls & \
 	while ! curl -s http://127.0.0.1:7280/api/health > /dev/null 2>&1; do sleep 0.2; done; \
 	cd plugins/frontends/default && npx vite & \
@@ -187,7 +177,8 @@ test:
 coverage:
 	uv run --no-sync pytest --cov=app \
 		--cov=shenas_sources --cov=shenas_datasets \
-		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
+		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json \
+		--ignore=server/fl --ignore=server/api
 
 pyinstaller:
 	uv run python build/pyinstaller_build.py
