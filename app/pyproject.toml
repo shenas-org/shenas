@@ -22,14 +22,16 @@ dependencies = [
   "watchfiles>=0.21.0",
   "shenas-source-core",
   "shenas-dataset-core",
-  "shenas-dashboard-core",
   "shenas-transformer-core",
-  "shenas-theme-default",
-  "shenas-frontend-default",
 ]
 
 [project.optional-dependencies]
 local = ["llama-cpp-python>=0.3.0"]
+ui = [
+  "shenas-dashboard-core",
+  "shenas-theme-default",
+  "shenas-frontend-default",
+]
 
 [project.scripts]
 shenas = "app.cli:app"
