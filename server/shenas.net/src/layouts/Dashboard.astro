@@ -2,7 +2,7 @@
 interface Props {
   title: string;
   description: string;
-  active: "overview" | "devices" | "all-devices" | "users";
+  active: "overview" | "devices" | "all-devices" | "users" | "all-workers";
 }
 
 const { title, description, active } = Astro.props;
@@ -32,11 +32,15 @@ const { title, description, active } = Astro.props;
           </a>
           <a href="/devices" class:list={["nav-item", { active: active === "devices" }]}>
             <span class="nav-icon">💻</span>
-            <span>Devices</span>
+            <span>My Devices & Workers</span>
           </a>
           <a href="/all-devices" class:list={["nav-item admin-only", { active: active === "all-devices" }]} style="display:none">
             <span class="nav-icon">🌐</span>
-            <span>All Devices</span>
+            <span>Devices</span>
+          </a>
+          <a href="/all-workers" class:list={["nav-item admin-only", { active: active === "all-workers" }]} style="display:none">
+            <span class="nav-icon">☁️</span>
+            <span>Workers</span>
           </a>
           <a href="/users" class:list={["nav-item admin-only", { active: active === "users" }]} style="display:none">
             <span class="nav-icon">👥</span>
