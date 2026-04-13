@@ -24,7 +24,7 @@ def auth_source(source_name: str, request: Request, body: AuthRequest | None = N
     # Build callback URL for OAuth redirect flow
     redirect_uri = None
     if source.supports_oauth_redirect:
-        redirect_uri = str(request.url_for("source_auth_callback", name=source_name))
+        redirect_uri = str(request.url_for("source_auth_callback", name=source_name)).replace("://localhost", "://127.0.0.1")
     result = source.handle_auth(body.credentials, redirect_uri=redirect_uri)
     if result.get("ok"):
         log.info("Auth success: %s", source_name)
