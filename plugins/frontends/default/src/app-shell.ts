@@ -91,6 +91,7 @@ class ShenasApp extends LitElement {
     _navPaletteOpen: { state: true },
     _settingsOpen: { state: true },
     _remoteUser: { state: true },
+    _serverUrl: { state: true },
     _navCommands: { state: true },
     _tabs: { state: true },
     _activeTabId: { state: true },
