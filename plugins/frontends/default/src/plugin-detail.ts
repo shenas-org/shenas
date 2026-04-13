@@ -300,7 +300,8 @@ class PluginDetail extends LitElement {
     const ownedTables = ownership ? ownership[this.name] || [] : [];
     if (db) {
       if (this.kind === "source") {
-        const schema = (db.schemas || []).find((s) => s.name === this.name);
+        const pluginName = this._info?.name || this.name;
+        const schema = (db.schemas || []).find((s) => s.name === pluginName);
         this._tables = schema ? schema.tables.filter((t) => !t.name.startsWith("_dlt_")) : [];
       } else if (this.kind === "dataset") {
         const metricsSchema = (db.schemas || []).find((s) => s.name === "metrics");
