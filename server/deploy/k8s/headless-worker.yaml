@@ -30,8 +30,8 @@ spec:
     spec:
       containers:
         - name: shenas
-          image: shenas-headless:latest
-          args: ["shenas", "serve", "--headless", "--no-tls", "--host", "0.0.0.0"]
+          image: REGION-docker.pkg.dev/PROJECT_ID/shenas/shenas-headless:latest
+          args: ["shenas", "--headless", "--no-tls", "--host", "0.0.0.0"]
           ports:
             - containerPort: 7280
               name: api
