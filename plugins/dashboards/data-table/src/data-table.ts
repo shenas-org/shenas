@@ -12,6 +12,7 @@ export class ShenasDataTable extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
     schema: { type: String },
+    table: { type: String },
     pageSize: { type: Number, attribute: "page-size" },
     _tables: { state: true },
     _selectedTable: { state: true },
@@ -28,6 +29,7 @@ export class ShenasDataTable extends LitElement {
 
   declare apiBase: string;
   declare schema: string;
+  declare table: string;
   declare pageSize: number;
   declare _tables: TableInfo[];
   declare _selectedTable: string;
@@ -192,6 +194,7 @@ export class ShenasDataTable extends LitElement {
     super();
     this.apiBase = "/api";
     this.schema = "";
+    this.table = "";
     this.pageSize = 25;
     this._tables = [];
     this._selectedTable = "";
@@ -208,13 +211,26 @@ export class ShenasDataTable extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-    this._fetchTables();
+    if (this.table && this.schema) {
+      this._selectedTable = `${this.schema}.${this.table}`;
+      this._fetchData();
+    } else {
+      this._fetchTables();
+    }
+  }
+
+  willUpdate(changed: Map<string, unknown>): void {
+    if (changed.has("table") && this.table && this.schema) {
+      this._selectedTable = `${this.schema}.${this.table}`;
+      this._fetchData();
+    }
   }
 
   async _fetchTables(): Promise<void> {
     try {
       const res = await fetch(`${this.apiBase}/tables`);
       let tables: TableInfo[] = await res.json();
+      tables = tables.filter((t) => !t.table.startsWith("_dlt_"));
       if (this.schema) {
         tables = tables.filter((t) => t.schema === this.schema);
       }
@@ -235,7 +251,7 @@ export class ShenasDataTable extends LitElement {
       const sql = `SELECT * FROM ${this._selectedTable}`;
       const table = await arrowQuery(this.apiBase, sql);
 
-      this._columns = table.schema.fields.map((f) => f.name);
+      this._columns = table.schema.fields.map((f) => f.name).filter((c) => !c.startsWith("_dlt_"));
       this._data = arrowToRows(table);
       this._page = 0;
       this._filters = {};
@@ -327,28 +343,30 @@ export class ShenasDataTable extends LitElement {
   render(): TemplateResult {
     if (this._error) return html`<div class="error">${this._error}</div>`;
 
-    const tableSelector = this.schema
-      ? html`<select class="compact-select" @change=${this._onTableChange}>
-          ${this._tables.map(
-            (t) => html`
-              <option value="${t.schema}.${t.table}" ?selected=${`${t.schema}.${t.table}` === this._selectedTable}>
-                ${t.table}
-              </option>
-            `,
-          )}
-        </select>`
-      : html`<div class="controls">
-          <h1>data table</h1>
-          <select @change=${this._onTableChange}>
+    const tableSelector = this.table
+      ? ""
+      : this.schema
+        ? html`<select class="compact-select" @change=${this._onTableChange}>
             ${this._tables.map(
               (t) => html`
                 <option value="${t.schema}.${t.table}" ?selected=${`${t.schema}.${t.table}` === this._selectedTable}>
-                  ${t.schema}.${t.table}
+                  ${t.table}
                 </option>
               `,
             )}
-          </select>
-        </div>`;
+          </select>`
+        : html`<div class="controls">
+            <h1>data table</h1>
+            <select @change=${this._onTableChange}>
+              ${this._tables.map(
+                (t) => html`
+                  <option value="${t.schema}.${t.table}" ?selected=${`${t.schema}.${t.table}` === this._selectedTable}>
+                    ${t.schema}.${t.table}
+                  </option>
+                `,
+              )}
+            </select>
+          </div>`;
 
     if (this._loading)
       return html`${tableSelector}

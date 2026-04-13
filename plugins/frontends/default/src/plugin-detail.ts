@@ -81,6 +81,7 @@ class PluginDetail extends LitElement {
     _schemaTransforms: { state: true },
     _suggestions: { state: true },
     _suggesting: { state: true },
+    _dataTable: { state: true },
   };
 
   static styles = [
@@ -199,6 +200,16 @@ class PluginDetail extends LitElement {
         position: sticky;
         top: 0;
       }
+      .tab-select {
+        border: none;
+        background: transparent;
+        font-size: 0.85rem;
+        color: var(--shenas-text-secondary, #666);
+        padding: 0.4rem 0.3rem;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        align-self: stretch;
+      }
       .suggestion-card {
         border: 1px solid var(--shenas-border, #ccc);
         border-radius: 6px;
@@ -242,6 +253,7 @@ class PluginDetail extends LitElement {
   declare _schemaTransforms: SchemaTransform[];
   declare _suggestions: SuggestedDataset[];
   declare _suggesting: boolean;
+  declare _dataTable: string;
   private _loadingTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
@@ -263,6 +275,7 @@ class PluginDetail extends LitElement {
     this._schemaTransforms = [];
     this._suggestions = [];
     this._suggesting = false;
+    this._dataTable = "";
   }
 
   willUpdate(changed: Map<string, unknown>): void {
@@ -620,13 +633,20 @@ class PluginDetail extends LitElement {
 
 
   _renderData() {
-    const tables = this._tables || [];
+    const tables = (this._tables || []).filter((t) => !t.name.startsWith("_dlt_"));
     if (tables.length === 0) return html`<p style="color:var(--shenas-text-muted,#888)">No tables synced yet.</p>`;
     const schema = this.kind === "dataset" ? "metrics" : this._info?.name || this.name;
+    const table = this._dataTable || this._info?.primary_table || tables[0]?.name || "";
+    if (!this._dataTable && table) {
+      requestAnimationFrame(() => {
+        this._dataTable = table;
+      });
+    }
     this._ensureDataTableScript();
     return html`<shenas-data-table
       api-base="${this.apiBase}"
       schema="${schema}"
+      table="${table}"
       page-size="50"
       style="height:500px"
     ></shenas-data-table>`;
@@ -781,6 +801,23 @@ class PluginDetail extends LitElement {
                 }}
                 >Data</a
               >
+              ${this.activeTab === "data" && this._tables.length > 0
+                ? html`<select
+                    class="tab-select"
+                    @change=${(e: Event) => {
+                      this._dataTable = (e.target as HTMLSelectElement).value;
+                    }}
+                  >
+                    ${this._tables
+                      .filter((t) => !t.name.startsWith("_dlt_"))
+                      .map(
+                        (t) =>
+                          html`<option value=${t.name} ?selected=${this._dataTable === t.name}>
+                            ${t.name}${t.rows ? ` (${t.rows})` : ""}
+                          </option>`,
+                      )}
+                  </select>`
+                : ""}
             `
           : ""}
         <a
