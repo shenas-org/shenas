@@ -378,7 +378,7 @@ class Plugin(abc.ABC):
     def icon_url(self) -> str | None:
         """URL for the plugin's brand icon, or None if no icon exists."""
         if self.icon_path:
-            return f"/plugins/{self._kind}s/{self.name}/icon.svg"
+            return f"/api/plugins/{self._kind}s/{self.name}/icon.svg"
         return None
 
     def get_info(self) -> dict[str, Any]:

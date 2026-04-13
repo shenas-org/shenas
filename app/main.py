@@ -147,7 +147,7 @@ if _vendor_dir.is_dir():
 
 
 # Plugin icon endpoint
-@app.get("/plugins/{kind}/{name}/icon.svg")
+@app.get("/api/plugins/{kind}/{name}/icon.svg")
 async def plugin_icon(kind: str, name: str) -> Response:
     """Serve a plugin's icon.svg from its package directory."""
     from app.plugin import Plugin
