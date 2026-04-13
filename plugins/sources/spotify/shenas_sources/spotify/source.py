@@ -16,6 +16,7 @@ from shenas_sources.core.source import Source
 log = logging.getLogger(__name__)
 
 SCOPES = "user-read-recently-played user-top-read user-library-read"
+CLIENT_ID = "07f7c412747c406ca429189cb724ec36"
 
 # Pending PKCE state for the redirect flow
 _pending_pkce: dict[str, Any] = {}
@@ -59,22 +60,7 @@ class SpotifySource(Source):
             | None
         ) = None
 
-    auth_instructions = (
-        "Spotify requires an API application for OAuth2 access.\n"
-        "\n"
-        "  1. Go to https://developer.spotify.com/dashboard\n"
-        "  2. Create an app (select 'Web API')\n"
-        "  3. In the app settings, add a Redirect URI that matches your\n"
-        "     shenas URL + /api/auth/source/spotify/callback\n"
-        "     (e.g. http://localhost:5173/api/auth/source/spotify/callback)\n"
-        "  4. Enter the Client ID below"
-    )
-
-    @property
-    def auth_fields(self) -> list[dict[str, str | bool]]:
-        return [
-            {"name": "client_id", "prompt": "Client ID", "hide": False},
-        ]
+    auth_instructions = "Click Authenticate to sign in with your Spotify account."
 
     def build_client(self) -> Any:
         import spotipy
@@ -101,7 +87,7 @@ class SpotifySource(Source):
 
         redirect_uri = tokens.get("redirect_uri", "http://localhost")
         pkce = SpotifyPKCE(
-            client_id=tokens["client_id"],
+            client_id=CLIENT_ID,
             redirect_uri=redirect_uri,
             scope=SCOPES,
             cache_handler=cache,
@@ -114,16 +100,10 @@ class SpotifySource(Source):
             raise RuntimeError(msg)
 
         if token_info["access_token"] != tokens["access_token"]:
-            self.Auth.write_row(
-                tokens=json.dumps(
-                    {
-                        **tokens,
-                        "access_token": token_info["access_token"],
-                        "refresh_token": token_info.get("refresh_token", tokens["refresh_token"]),
-                        "expires_at": token_info["expires_at"],
-                    }
-                ),
-            )
+            tokens["access_token"] = token_info["access_token"]
+            tokens["refresh_token"] = token_info.get("refresh_token", tokens["refresh_token"])
+            tokens["expires_at"] = token_info["expires_at"]
+            self.Auth.write_row(tokens=json.dumps(tokens))
 
         return spotipy.Spotify(auth=token_info["access_token"])
 
@@ -133,17 +113,12 @@ class SpotifySource(Source):
     def supports_oauth_redirect(self) -> bool:
         return True
 
-    def start_oauth(self, redirect_uri: str, credentials: dict[str, str] | None = None) -> str:
+    def start_oauth(self, redirect_uri: str, credentials: dict[str, str] | None = None) -> str:  # noqa: ARG002
         from spotipy.oauth2 import SpotifyPKCE
-
-        client_id = (credentials or {}).get("client_id", "").strip()
-        if not client_id:
-            msg = "client_id is required"
-            raise ValueError(msg)
 
         cache = _MemoryCacheHandler()
         pkce = SpotifyPKCE(
-            client_id=client_id,
+            client_id=CLIENT_ID,
             redirect_uri=redirect_uri,
             scope=SCOPES,
             open_browser=False,
@@ -154,7 +129,6 @@ class SpotifySource(Source):
         _pending_pkce[self.name] = {
             "pkce": pkce,
             "cache": cache,
-            "client_id": client_id,
             "redirect_uri": redirect_uri,
         }
         log.info("Spotify OAuth started, redirect_uri=%s", redirect_uri)
@@ -168,7 +142,6 @@ class SpotifySource(Source):
 
         pkce = entry["pkce"]
         cache = entry["cache"]
-        client_id = entry["client_id"]
         redirect_uri = entry["redirect_uri"]
 
         pkce.get_access_token(code, check_cache=False)
@@ -183,7 +156,6 @@ class SpotifySource(Source):
                     "access_token": token_info["access_token"],
                     "refresh_token": token_info["refresh_token"],
                     "expires_at": token_info["expires_at"],
-                    "client_id": client_id,
                     "redirect_uri": redirect_uri,
                 }
             ),
