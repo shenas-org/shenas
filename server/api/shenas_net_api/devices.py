@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from shenas_net_api.auth import get_current_user
 from shenas_net_api.db import get_conn
+
+log = logging.getLogger("shenas-net-api.devices")
 
 router = APIRouter(prefix="/devices")
 
@@ -33,6 +37,7 @@ async def register_device(body: DeviceRegister, request: Request) -> dict:
                RETURNING id, name, device_type, public_key, last_seen, created_at""",
             {"uid": user["id"], "name": body.name, "type": body.device_type, "key": body.public_key},
         ).fetchone()
+    log.info("Device registered: %s (%s) for user %s", body.name, body.device_type, user["email"])
     return dict(row)
 
 

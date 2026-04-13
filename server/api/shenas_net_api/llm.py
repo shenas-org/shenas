@@ -16,6 +16,7 @@ transparent except for auth + metering.
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import UTC, datetime
 
@@ -25,6 +26,8 @@ from fastapi.responses import StreamingResponse
 
 from shenas_net_api.auth import get_current_user
 from shenas_net_api.db import get_conn
+
+log = logging.getLogger("shenas-net-api.llm")
 
 router = APIRouter(prefix="/llm")
 
@@ -88,6 +91,7 @@ async def proxy_messages(request: Request) -> StreamingResponse | dict:
         )
 
     body = await request.body()
+    log.info("LLM proxy request from %s (usage %d/%d)", user.get("email"), used, limit)
 
     # Forward to Anthropic
     headers = {
@@ -108,13 +112,12 @@ async def proxy_messages(request: Request) -> StreamingResponse | dict:
         try:
             data = resp.json()
             usage = data.get("usage", {})
-            _record_usage(
-                user_id,
-                usage.get("input_tokens", 0),
-                usage.get("output_tokens", 0),
-            )
+            input_t = usage.get("input_tokens", 0)
+            output_t = usage.get("output_tokens", 0)
+            _record_usage(user_id, input_t, output_t)
+            log.info("LLM response: %d input + %d output tokens", input_t, output_t)
         except Exception:
-            pass
+            log.warning("Failed to parse LLM usage from response")
 
     return StreamingResponse(
         content=iter([resp.content]),
