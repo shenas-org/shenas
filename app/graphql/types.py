@@ -403,6 +403,68 @@ class DataResourceAnnotationInput:
     expected_row_count_max: int | None = None
 
 
+# -- Entity types --------------------------------------------------------------
+
+
+@strawberry.type
+class EntityTypeType:
+    name: str
+    display_name: str
+    description: str = ""
+    icon: str = ""
+    is_human: bool = False
+
+
+@strawberry.type
+class EntityRelationshipTypeType:
+    name: str
+    display_name: str
+    description: str = ""
+    inverse_name: str | None = None
+    is_symmetric: bool = False
+
+
+@strawberry.type
+class GqlEntityType:
+    uuid: str
+    type: str
+    name: str
+    description: str = ""
+    status: str = "enabled"
+    birth_year: int | None = None
+    added_at: str | None = None
+    updated_at: str | None = None
+    is_me: bool = False
+
+
+@strawberry.type
+class GqlEntityRelationshipType:
+    from_uuid: str
+    to_uuid: str
+    type: str
+    description: str = ""
+    added_at: str | None = None
+    updated_at: str | None = None
+
+
+@strawberry.input
+class EntityCreateInput:
+    name: str
+    type: str = "human"
+    description: str = ""
+    status: str = "enabled"
+    birth_year: int | None = None
+
+
+@strawberry.input
+class EntityUpdateInput:
+    name: str | None = None
+    type: str | None = None
+    description: str | None = None
+    status: str | None = None
+    birth_year: int | None = None
+
+
 __all__ = [
     "JSON",
     "AuthFieldType",
@@ -414,7 +476,13 @@ __all__ = [
     "DataResourceAnnotationInput",
     "DataResourceRefType",
     "DataResourceType",
+    "EntityCreateInput",
+    "EntityRelationshipTypeType",
+    "EntityTypeType",
+    "EntityUpdateInput",
     "FreshnessInfoType",
+    "GqlEntityRelationshipType",
+    "GqlEntityType",
     "InstallResponseType",
     "InstallResultType",
     "OkType",

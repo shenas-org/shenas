@@ -2,6 +2,7 @@ import "shenas-frontends";
 import "./flow.ts";
 import "./auth-page.ts";
 import "./config-page.ts";
+import "./entities-page.ts";
 import "./hotkeys-page.ts";
 import "./hypotheses-page.ts";
 import "./logs-page.ts";

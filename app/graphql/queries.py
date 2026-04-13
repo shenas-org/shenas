@@ -16,8 +16,12 @@ from app.graphql.types import (
     DataResourceType,
     DBStatusType,
     DependencyEdge,
+    EntityRelationshipTypeType,
+    EntityTypeType,
     FindingType,
     FreshnessInfoType,
+    GqlEntityRelationshipType,
+    GqlEntityType,
     HypothesisSuggestionType,
     HypothesisType,
     ModelInfoType,
@@ -735,6 +739,110 @@ class Query:
 
         h = Hypothesis.find(hypothesis_id)
         return _hypothesis_to_gql(h) if h else None
+
+    # -- Entities --
+
+    @strawberry.field
+    def entity_types(self) -> list[EntityTypeType]:
+        from app.entities import EntityType
+
+        return [
+            EntityTypeType(
+                name=t.name,
+                display_name=t.display_name,
+                description=t.description,
+                icon=t.icon,
+                is_human=t.is_human,
+            )
+            for t in EntityType.all(order_by="name")
+        ]
+
+    @strawberry.field
+    def entity_relationship_types(self) -> list[EntityRelationshipTypeType]:
+        from app.entities import EntityRelationshipType
+
+        return [
+            EntityRelationshipTypeType(
+                name=t.name,
+                display_name=t.display_name,
+                description=t.description,
+                inverse_name=t.inverse_name,
+                is_symmetric=t.is_symmetric,
+            )
+            for t in EntityRelationshipType.all(order_by="name")
+        ]
+
+    @strawberry.field
+    def entities(self, info: strawberry.types.Info, status: str | None = None) -> list[GqlEntityType]:  # noqa: ARG002
+        from app.entities import Entity
+
+        # Find the "me" entity: the first human entity created at bootstrap.
+        me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
+        me_uuid = me_candidates[0].uuid if me_candidates else None
+        where = f"status = '{status}'" if status else None
+        return [
+            GqlEntityType(
+                uuid=e.uuid,
+                type=e.type,
+                name=e.name,
+                description=e.description,
+                status=e.status,
+                birth_year=e.birth_year,
+                added_at=str(e.added_at) if e.added_at else None,
+                updated_at=str(e.updated_at) if e.updated_at else None,
+                is_me=(e.uuid == me_uuid),
+            )
+            for e in Entity.all(where=where, order_by="name")
+        ]
+
+    @strawberry.field
+    def entity(self, info: strawberry.types.Info, uuid: str | None = None) -> GqlEntityType | None:  # noqa: ARG002
+        from app.entities import Entity
+
+        me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
+        me_uuid = me_candidates[0].uuid if me_candidates else None
+        if uuid is None:
+            if me_uuid is None:
+                return None
+            uuid = me_uuid
+        e = Entity.find_by_uuid(uuid)
+        if e is None:
+            return None
+        return GqlEntityType(
+            uuid=e.uuid,
+            type=e.type,
+            name=e.name,
+            description=e.description,
+            status=e.status,
+            birth_year=e.birth_year,
+            added_at=str(e.added_at) if e.added_at else None,
+            updated_at=str(e.updated_at) if e.updated_at else None,
+            is_me=(e.uuid == me_uuid),
+        )
+
+    @strawberry.field
+    def entity_relationships(
+        self,
+        info: strawberry.types.Info,  # noqa: ARG002
+        entity_uuid: str | None = None,
+    ) -> list[GqlEntityRelationshipType]:
+        from app.entities import EntityRelationship
+
+        if entity_uuid is not None:
+            rels = EntityRelationship.for_entity(entity_uuid)
+        else:
+            rels = EntityRelationship.all(order_by="from_uuid")
+        return [
+            GqlEntityRelationshipType(
+                from_uuid=r.from_uuid,
+                to_uuid=r.to_uuid,
+                type=r.type,
+                description=r.description,
+                added_at=str(r.added_at) if r.added_at else None,
+                updated_at=str(r.updated_at) if r.updated_at else None,
+            )
+            for r in rels
+        ]
 
 
 def _hypothesis_to_gql(h: Any) -> HypothesisType:

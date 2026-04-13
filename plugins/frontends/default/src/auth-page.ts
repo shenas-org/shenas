@@ -1,253 +1,262 @@
 import { LitElement, html, css } from "lit";
-import type { TemplateResult, CSSResult } from "lit";
+import { gql, gqlFull, renderMessage, buttonStyles, formStyles, messageStyles } from "shenas-frontends";
 
-interface AuthRequest {
-  code: string;
-  challenge: string;
+interface AuthField {
+  name: string;
+  prompt: string;
+  hide: boolean;
 }
 
-export class AuthPage extends LitElement {
+interface Message {
+  type: string;
+  text: string;
+}
+
+class AuthPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
-    _authRequest: { state: true },
-    _error: { state: true },
+    pipeName: { type: String, attribute: "pipe-name" },
+    _fields: { state: true },
+    _instructions: { state: true },
     _loading: { state: true },
+    _message: { state: true },
+    _needsMfa: { state: true },
+    _oauthUrl: { state: true },
+    _submitting: { state: true },
+    _stored: { state: true },
   };
 
+  static styles = [
+    buttonStyles,
+    formStyles,
+    messageStyles,
+    css`
+      :host {
+        display: block;
+      }
+      .instructions {
+        font-size: 0.85rem;
+        color: var(--shenas-text-secondary, #666);
+        line-height: 1.6;
+        margin-bottom: 1rem;
+        white-space: pre-line;
+      }
+      .oauth-link {
+        display: inline-block;
+        margin-top: 0.5rem;
+        color: var(--shenas-primary, #0066cc);
+      }
+      .stored-creds {
+        margin-bottom: 1rem;
+        padding: 0.6rem 0.8rem;
+        background: var(--shenas-success-bg, #e8f5e9);
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: var(--shenas-success, #2e7d32);
+      }
+      .stored-item {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.15rem 0;
+      }
+    `,
+  ];
+
   declare apiBase: string;
-  declare _authRequest: AuthRequest | null;
-  declare _error: string | null;
+  declare pipeName: string;
+  declare _fields: AuthField[];
+  declare _instructions: string;
   declare _loading: boolean;
-
-  get deviceCodeInput(): HTMLInputElement | null {
-    return this.renderRoot?.querySelector("#device-code") as HTMLInputElement | null;
-  }
-
-  static styles: CSSResult = css`
-    :host {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      font-family: var(--shenas-font, system-ui, sans-serif);
-    }
-
-    .container {
-      background: var(--shenas-surface, #22222f);
-      border: 1px solid var(--shenas-border, #2a2a3a);
-      border-radius: 12px;
-      padding: 2rem;
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    }
-
-    .logo {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-
-    .logo h1 {
-      font-size: 1.8rem;
-      margin: 0;
-      color: var(--shenas-accent, #6c5ce7);
-      font-weight: 700;
-    }
-
-    .logo p {
-      color: var(--shenas-text-muted, #a8a8c0);
-      margin: 0.5rem 0 0 0;
-      font-size: 0.9rem;
-    }
-
-    .form-group {
-      margin-bottom: 1.5rem;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 0.5rem;
-      color: var(--shenas-text, #e8e8ef);
-      font-size: 0.9rem;
-      font-weight: 500;
-    }
-
-    input {
-      width: 100%;
-      padding: 0.75rem;
-      border: 1px solid var(--shenas-border, #2a2a3a);
-      border-radius: 6px;
-      background: var(--shenas-surface-alt, #2a2a3a);
-      color: var(--shenas-text, #e8e8ef);
-      font-size: 0.95rem;
-      box-sizing: border-box;
-    }
-
-    input:focus {
-      outline: none;
-      border-color: var(--shenas-accent, #6c5ce7);
-      box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.1);
-    }
-
-    button {
-      width: 100%;
-      padding: 0.75rem;
-      background: var(--shenas-accent, #6c5ce7);
-      border: none;
-      border-radius: 6px;
-      color: white;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition:
-        opacity 0.2s,
-        transform 0.2s;
-    }
-
-    button:hover {
-      opacity: 0.9;
-      transform: translateY(-2px);
-    }
-
-    button:active {
-      transform: translateY(0);
-    }
-
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .error {
-      background: rgba(239, 68, 68, 0.1);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      color: #ef4444;
-      padding: 0.75rem;
-      border-radius: 6px;
-      margin-bottom: 1rem;
-      font-size: 0.9rem;
-    }
-
-    .success {
-      background: rgba(34, 197, 94, 0.1);
-      border: 1px solid rgba(34, 197, 94, 0.3);
-      color: #22c55e;
-      padding: 0.75rem;
-      border-radius: 6px;
-      margin-bottom: 1rem;
-      font-size: 0.9rem;
-    }
-
-    .info {
-      background: rgba(59, 130, 246, 0.1);
-      border: 1px solid rgba(59, 130, 246, 0.3);
-      color: #3b82f6;
-      padding: 0.75rem;
-      border-radius: 6px;
-      margin-bottom: 1rem;
-      font-size: 0.9rem;
-    }
-  `;
+  declare _message: Message | null;
+  declare _needsMfa: boolean;
+  declare _oauthUrl: string | null;
+  declare _submitting: boolean;
+  declare _stored: string[];
 
   constructor() {
     super();
-    this.apiBase = "";
-    this._authRequest = null;
-    this._error = null;
+    this.apiBase = "/api";
+    this.pipeName = "";
+    this._fields = [];
+    this._instructions = "";
+    this._loading = true;
+    this._message = null;
+    this._needsMfa = false;
+    this._oauthUrl = null;
+    this._submitting = false;
+    this._stored = [];
+  }
+
+  willUpdate(changed: Map<string, unknown>): void {
+    if (changed.has("pipeName")) {
+      this._fetchFields();
+    }
+  }
+
+  async _fetchFields(): Promise<void> {
+    if (!this.pipeName) return;
+    this._loading = true;
+    this._needsMfa = false;
+    this._oauthUrl = null;
+    const data = await gql(
+      this.apiBase,
+      `query($pipe: String!) { authFields(pipe: $pipe) { fields { name prompt hide } instructions stored } }`,
+      { pipe: this.pipeName },
+    );
+    if (data?.authFields) {
+      const authFields = data.authFields as Record<string, unknown>;
+      this._fields = (authFields.fields as AuthField[]) || [];
+      this._instructions = (authFields.instructions as string) || "";
+      this._stored = (authFields.stored as string[]) || [];
+    }
     this._loading = false;
   }
 
-  connectedCallback() {
-    super.connectedCallback();
-    this.initializeAuth();
-  }
+  async _submit(): Promise<void> {
+    this._submitting = true;
+    this._message = null;
+    const credentials: Record<string, string> = {};
 
-  private async initializeAuth() {
-    this._loading = true;
-    this._error = null;
-
-    try {
-      const response = await fetch(`${this.apiBase}/api/auth/request`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to initialize authentication");
+    if (this._needsMfa) {
+      const input = this.renderRoot.querySelector("#mfa-code") as HTMLInputElement | null;
+      credentials.mfa_code = input?.value?.trim() || "";
+    } else if (this._oauthUrl) {
+      credentials.auth_complete = "true";
+    } else {
+      for (const field of this._fields) {
+        const input = this.renderRoot.querySelector(`#field-${field.name}`) as HTMLInputElement | null;
+        const val = input?.value?.trim();
+        if (val) credentials[field.name] = val;
       }
+    }
 
-      const data = await response.json();
-      this._authRequest = data;
-    } catch (error) {
-      this._error = error instanceof Error ? error.message : String(error);
-    } finally {
-      this._loading = false;
+    const { data } = await gqlFull(
+      this.apiBase,
+      `mutation($pipe: String!, $creds: JSON!) { authenticate(pipe: $pipe, credentials: $creds) { ok message error needsMfa oauthUrl } }`,
+      { pipe: this.pipeName, creds: credentials },
+    );
+    this._submitting = false;
+    const auth = data?.authenticate as Record<string, unknown> | undefined;
+
+    if (auth?.ok) {
+      this._message = { type: "success", text: auth.message as string };
+      this._needsMfa = false;
+      this._oauthUrl = null;
+      this._fetchFields();
+    } else if (auth?.needsMfa) {
+      this._needsMfa = true;
+      this._message = { type: "success", text: "MFA code required" };
+    } else if (auth?.oauthUrl) {
+      this._oauthUrl = auth.oauthUrl as string;
+      this._message = { type: "success", text: auth.message as string };
+    } else {
+      this._message = { type: "error", text: (auth?.error as string) || "Authentication failed" };
+      this._needsMfa = false;
+      this._oauthUrl = null;
     }
   }
 
-  private async handleSubmit(event: Event) {
-    event.preventDefault();
-    this._loading = true;
-    this._error = null;
-
-    try {
-      const code = this.deviceCodeInput?.value;
-      if (!code) {
-        throw new Error("Device code is required");
-      }
-
-      const response = await fetch(`${this.apiBase}/api/auth/verify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code,
-          challenge: this._authRequest?.challenge,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Invalid device code");
-      }
-
-      const data = await response.json();
-      if (data.token) {
-        localStorage.setItem("auth_token", data.token);
-        window.location.href = "/";
-      }
-    } catch (error) {
-      this._error = error instanceof Error ? error.message : String(error);
-    } finally {
-      this._loading = false;
-    }
-  }
-
-  render(): TemplateResult {
+  render() {
+    const empty = this._fields.length === 0 && !this._instructions;
     return html`
-      <div class="container">
-        <div class="logo">
-          <h1>Shenas</h1>
-          <p>Personal data integration</p>
-        </div>
-
-        ${this._error ? html`<div class="error">${this._error}</div>` : ""}
-        ${this._authRequest
-          ? html`
-              <div class="info">Enter your device code below to authenticate</div>
-              <form @submit=${this.handleSubmit.bind(this)}>
-                <div class="form-group">
-                  <label for="device-code">Device Code</label>
-                  <input id="device-code" type="text" placeholder="Enter device code" required />
-                </div>
-                <button type="submit" ?disabled=${this._loading}>
-                  ${this._loading ? "Authenticating..." : "Authenticate"}
-                </button>
-              </form>
-            `
+      <shenas-page
+        ?loading=${this._loading}
+        ?empty=${empty}
+        loading-text="Loading auth..."
+        empty-text="No authentication required for this plugin."
+      >
+        ${renderMessage(this._message)}
+        ${this._stored.length > 0
+          ? html`<div class="stored-creds">
+              ${this._stored.map((s) => html`<div class="stored-item">&#10003; ${s} configured</div>`)}
+            </div>`
           : ""}
+        ${this._instructions
+          ? html`<div class="instructions">${this._renderInstructions(this._instructions)}</div>`
+          : ""}
+        ${this._oauthUrl ? this._renderOAuth() : this._needsMfa ? this._renderMfa() : this._renderFields()}
+      </shenas-page>
+    `;
+  }
+
+  _renderInstructions(text: string) {
+    // Auto-linkify URLs in plain-text instructions. Splits on http(s):// URLs
+    // and renders them as <a target="_blank">; everything else stays as text
+    // (Lit auto-escapes), so the white-space: pre-line still produces line breaks.
+    const parts: (string | ReturnType<typeof html>)[] = [];
+    const re = /(https?:\/\/[^\s)<>]+[^\s)<>.,;:!?])/g;
+    let last = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) parts.push(text.slice(last, m.index));
+      parts.push(html`<a href=${m[0]} target="_blank" rel="noopener noreferrer">${m[0]}</a>`);
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) parts.push(text.slice(last));
+    return parts;
+  }
+
+  _renderFields() {
+    return html`
+      ${this._fields.map(
+        (f) => html`
+          <div class="field">
+            <label for="field-${f.name}">${f.prompt}</label>
+            <input
+              id="field-${f.name}"
+              type="${f.hide ? "password" : "text"}"
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === "Enter") this._submit();
+              }}
+            />
+          </div>
+        `,
+      )}
+      <div class="actions">
+        <button @click=${this._submit} ?disabled=${this._submitting}>
+          ${this._submitting ? "Authenticating..." : "Authenticate"}
+        </button>
+      </div>
+    `;
+  }
+
+  _renderMfa() {
+    return html`
+      <div class="field">
+        <label for="mfa-code">MFA Code</label>
+        <input
+          id="mfa-code"
+          type="text"
+          autocomplete="one-time-code"
+          @keydown=${(e: KeyboardEvent) => {
+            if (e.key === "Enter") this._submit();
+          }}
+        />
+      </div>
+      <div class="actions">
+        <button @click=${this._submit} ?disabled=${this._submitting}>
+          ${this._submitting ? "Verifying..." : "Verify"}
+        </button>
+      </div>
+    `;
+  }
+
+  _renderOAuth() {
+    return html`
+      <p>
+        <a class="oauth-link" href="${this._oauthUrl}" target="_blank" rel="noopener"> Open authorization page </a>
+      </p>
+      <p style="font-size:0.85rem;color:var(--shenas-text-secondary, #666)">
+        After authorizing in your browser, click Complete below.
+      </p>
+      <div class="actions">
+        <button @click=${this._submit} ?disabled=${this._submitting}>
+          ${this._submitting ? "Completing..." : "Complete"}
+        </button>
       </div>
     `;
   }
 }
 
-customElements.define("shenas-auth-page", AuthPage);
+customElements.define("shenas-auth", AuthPage);

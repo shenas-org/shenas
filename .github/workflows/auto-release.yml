@@ -12,7 +12,10 @@ permissions:
 jobs:
   release:
     name: Detect changes and tag releases
-    if: github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push'
     runs-on: gcp-runners
     timeout-minutes: 5
     steps:
@@ -25,6 +28,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Verify we are on main
+        run: |
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$BRANCH" != "main" ]; then
+            echo "::error::Not on main (on $BRANCH), refusing to tag"
+            exit 1
+          fi
 
       - name: Detect changes and create tags
         run: |
