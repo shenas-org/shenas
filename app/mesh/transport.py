@@ -93,7 +93,7 @@ async def refresh_endpoints(server_url: str, device_id: str, token: str) -> None
     try:
         async with httpx.AsyncClient(verify=False, timeout=10) as client:
             await client.put(
-                f"{server_url}/api/devices/{device_id}/endpoints",
+                f"{server_url}/devices/{device_id}/endpoints",
                 json={"endpoints": endpoints},
                 headers={"Authorization": f"Bearer {token}"},
             )

@@ -89,7 +89,7 @@ def register_with_server(server_url: str, token: str) -> dict[str, Any] | None:
     info = get_device_info()
     try:
         resp = httpx.post(
-            f"{server_url}/api/devices",
+            f"{server_url}/devices",
             json={
                 "name": info["device_name"],
                 "device_type": info["device_type"],

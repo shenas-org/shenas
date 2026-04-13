@@ -17,16 +17,15 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import urllib.error
 import urllib.request
 from typing import Any, Literal
 
 from pydantic import BaseModel
 
-log = logging.getLogger(__name__)
+from app.config import SHENAS_NET_API_URL
 
-SHENAS_NET_URL = os.environ.get("SHENAS_NET_URL", "https://shenas.net")
+log = logging.getLogger(__name__)
 
 
 class Paper(BaseModel):
@@ -225,7 +224,7 @@ def refresh_findings(
     ).encode()
 
     req = urllib.request.Request(
-        f"{SHENAS_NET_URL}/api/literature/refresh",
+        f"{SHENAS_NET_API_URL}/literature/refresh",
         data=payload,
         headers={
             "Authorization": f"Bearer {token}",

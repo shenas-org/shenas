@@ -137,7 +137,7 @@ class AuthPage extends LitElement {
       {
         pipe: this.pipeName,
         creds: credentials,
-        callbackUrl: `${window.location.origin.replace("://localhost", "://127.0.0.1")}/api/auth/source/${this.pipeName}/callback`,
+        callbackUrl: `${window.location.origin}/api/auth/source/${this.pipeName}/callback`,
       },
     );
     this._submitting = false;

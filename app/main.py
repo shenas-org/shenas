@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Stre
 from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
+from app.config import SHENAS_NET_API_URL, SHENAS_NET_URL
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -314,14 +315,12 @@ async def stream_spans() -> StreamingResponse:
 # Remote auth (shenas.net login from the local app)
 # ---------------------------------------------------------------------------
 
-SHENAS_NET_URL = _os.environ.get("SHENAS_NET_URL", "https://shenas.net")
-
 
 @app.get("/api/auth/login")
 def remote_login(request: Request) -> RedirectResponse:
     """Redirect to shenas.net OAuth, which will redirect back with a token."""
     callback = str(request.url_for("remote_callback"))
-    return RedirectResponse(url=f"{SHENAS_NET_URL}/api/auth/login?redirect_uri={callback}")
+    return RedirectResponse(url=f"{SHENAS_NET_API_URL}/auth/login?redirect_uri={callback}")
 
 
 @app.post("/api/auth/logout")
@@ -383,7 +382,7 @@ def remote_me() -> dict:
         if not token:
             return {"user": None}
         resp = httpx.get(
-            f"{SHENAS_NET_URL}/api/auth/me",
+            f"{SHENAS_NET_API_URL}/auth/me",
             headers={"Authorization": f"Bearer {token}"},
             verify=False,
             timeout=5,
