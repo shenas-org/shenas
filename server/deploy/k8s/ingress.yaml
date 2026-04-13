@@ -16,7 +16,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: shenas-net-api
+                name: api
                 port:
                   number: 80
           - path: /
@@ -43,7 +43,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: shenas-net-api
+                name: api
                 port:
                   number: 80
     - host: fl.shenas.net

@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: shenas-net-api
+  name: api
   namespace: shenas
   labels:
-    app: shenas-net-api
+    app: api
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: shenas-net-api
+      app: api
   template:
     metadata:
       labels:
-        app: shenas-net-api
+        app: api
     spec:
       serviceAccountName: shenas-net-api
       containers:
-        - name: shenas-net-api
+        - name: api
           image: REGION-docker.pkg.dev/PROJECT_ID/shenas/shenas-net-api:latest
           ports:
             - containerPort: 8000
@@ -51,11 +51,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: shenas-net-api
+  name: api
   namespace: shenas
 spec:
   selector:
-    app: shenas-net-api
+    app: api
   ports:
     - port: 80
       targetPort: 8000

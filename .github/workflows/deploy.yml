@@ -243,7 +243,7 @@ jobs:
           kubectl apply -f server/deploy/k8s/namespace.yaml
           sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" server/deploy/k8s/shenas-net-api.yaml | \
             sed "s|:latest|:${TAG}|g" | kubectl apply -f -
-          kubectl rollout status deployment/shenas-net-api -n shenas --timeout=120s
+          kubectl rollout status deployment/api -n shenas --timeout=120s
 
   deploy-ingress:
     name: Apply ingress
