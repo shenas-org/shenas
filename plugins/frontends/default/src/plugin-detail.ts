@@ -766,17 +766,12 @@ class PluginDetail extends LitElement {
 
   private _renderConfig() {
     return html`
-      <div>
-        <h3>Configuration</h3>
-        <div class="config-form">
-          ${this._info!.has_auth
-            ? html`<div class="form-group"><label class="form-label">Authentication</label></div>`
-            : ""}
-          ${this._info!.has_config
-            ? html`<div class="form-group"><label class="form-label">Settings</label></div>`
-            : ""}
-        </div>
-      </div>
+      ${this._info!.has_auth
+        ? html`<shenas-auth api-base="${this.apiBase}" pipe-name="${this.name}"></shenas-auth>`
+        : ""}
+      ${this._info!.has_config
+        ? html`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`
+        : ""}
     `;
   }
 }
