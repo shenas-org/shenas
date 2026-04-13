@@ -6,7 +6,7 @@ on:
       - 'fl-server/v*'
       - 'shenas-net/v*'
       - 'shenas-org/v*'
-      - 'web-api/v*'
+      - 'shenas-net-api/v*'
   workflow_dispatch:
     inputs:
       service:
@@ -18,7 +18,7 @@ on:
           - fl-server
           - shenas-net
           - shenas-org
-          - web-api
+          - shenas-net-api
 
 env:
   PROJECT_ID: shenas-491609
@@ -163,13 +163,13 @@ jobs:
             sed "s|:latest|:${TAG}|g" | kubectl apply -f -
           kubectl rollout status deployment/shenas-org -n shenas --timeout=120s
 
-  deploy-web-api:
-    name: Deploy web-api
+  deploy-shenas-net-api:
+    name: Deploy shenas-net-api
     runs-on: gcp-runners
     timeout-minutes: 10
     if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/web-api/v')) ||
-      (github.event_name == 'workflow_dispatch' && (inputs.service == 'all' || inputs.service == 'web-api'))
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/shenas-net-api/v')) ||
+      (github.event_name == 'workflow_dispatch' && (inputs.service == 'all' || inputs.service == 'shenas-net-api'))
     permissions:
       contents: read
       id-token: write
@@ -203,18 +203,18 @@ jobs:
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           gcloud builds submit --config server/deploy/docker/cloudbuild.yaml \
-                               --substitutions=_TAG="${REGISTRY}/web-api:${TAG}",_TAG_LATEST="${REGISTRY}/web-api:latest",_VERSION="${{ steps.version.outputs.version }}",_DOCKERFILE="server/deploy/docker/Dockerfile.web-api" .
+                               --substitutions=_TAG="${REGISTRY}/shenas-net-api:${TAG}",_TAG_LATEST="${REGISTRY}/shenas-net-api:latest",_VERSION="${{ steps.version.outputs.version }}",_DOCKERFILE="server/deploy/docker/Dockerfile.shenas-net-api" .
           kubectl apply -f server/deploy/k8s/namespace.yaml
-          sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" server/deploy/k8s/web-api.yaml | \
+          sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" server/deploy/k8s/shenas-net-api.yaml | \
             sed "s|:latest|:${TAG}|g" | kubectl apply -f -
-          kubectl rollout status deployment/web-api -n shenas --timeout=120s
+          kubectl rollout status deployment/shenas-net-api -n shenas --timeout=120s
 
   deploy-ingress:
     name: Apply ingress
     runs-on: gcp-runners
     timeout-minutes: 5
-    needs: [deploy-fl-server, deploy-shenas-net, deploy-shenas-org, deploy-web-api]
-    if: always() && (needs.deploy-fl-server.result == 'success' || needs.deploy-shenas-net.result == 'success' || needs.deploy-shenas-org.result == 'success' || needs.deploy-web-api.result == 'success')
+    needs: [deploy-fl-server, deploy-shenas-net, deploy-shenas-org, deploy-shenas-net-api]
+    if: always() && (needs.deploy-fl-server.result == 'success' || needs.deploy-shenas-net.result == 'success' || needs.deploy-shenas-org.result == 'success' || needs.deploy-shenas-net-api.result == 'success')
     permissions:
       contents: read
       id-token: write
