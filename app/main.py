@@ -150,15 +150,15 @@ if _vendor_dir.is_dir():
 @app.get("/plugins/{kind}/{name}/icon.svg")
 async def plugin_icon(kind: str, name: str) -> Response:
     """Serve a plugin's icon.svg from its package directory."""
+    import inspect
+
     from app.plugin import Plugin
 
     singular = kind.rstrip("s")
     cls = Plugin.load_by_name_and_kind(name, singular)
     if cls:
         try:
-            pkg_name = cls.pkg(singular, name).replace("-", "_")
-            mod = __import__(pkg_name, fromlist=["__file__"])
-            mod_file = mod.__file__ or ""
+            mod_file = inspect.getfile(cls)
             icon_path = _pathlib.Path(mod_file).parent.parent / "icon.svg"
             if icon_path.exists():
                 return Response(content=icon_path.read_text(), media_type="image/svg+xml")

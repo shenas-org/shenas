@@ -360,16 +360,16 @@ class Plugin(abc.ABC):
     @property
     def icon_url(self) -> str | None:
         """URL for the plugin's brand icon, or None if no icon exists."""
+        import inspect
         from pathlib import Path
 
         try:
-            pkg_name = self.package_name.replace("-", "_")
-            mod = __import__(pkg_name, fromlist=["__file__"])
-            pkg_dir = Path(mod.__file__).parent.parent if mod.__file__ else None
-            if pkg_dir:
-                icon_path = pkg_dir / "icon.svg"
-                if icon_path.exists():
-                    return f"/plugins/{self._kind}s/{self.name}/icon.svg"
+            # Use the class's own module to find the package directory
+            mod_file = inspect.getfile(type(self))
+            pkg_dir = Path(mod_file).parent.parent
+            icon_path = pkg_dir / "icon.svg"
+            if icon_path.exists():
+                return f"/plugins/{self._kind}s/{self.name}/icon.svg"
         except Exception:
             pass
         return None
