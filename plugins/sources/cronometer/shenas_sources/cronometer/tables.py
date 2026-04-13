@@ -94,13 +94,23 @@ class DailyNutrition(AggregateTable):
 
     time_at: ClassVar[str] = "date"
 
-    date: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
-    energy_kcal: Annotated[float | None, Field(db_type="DOUBLE", description="Total energy", unit="kcal")] = None
-    protein_g: Annotated[float | None, Field(db_type="DOUBLE", description="Total protein", unit="g")] = None
-    carbs_g: Annotated[float | None, Field(db_type="DOUBLE", description="Total carbohydrates", unit="g")] = None
-    fat_g: Annotated[float | None, Field(db_type="DOUBLE", description="Total fat", unit="g")] = None
-    fiber_g: Annotated[float | None, Field(db_type="DOUBLE", description="Total dietary fiber", unit="g")] = None
-    sugar_g: Annotated[float | None, Field(db_type="DOUBLE", description="Total sugars", unit="g")] = None
+    date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
+    energy_kcal: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Total energy", display_name="Energy", unit="kcal")
+    ] = None
+    protein_g: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Total protein", display_name="Protein", unit="g")
+    ] = None
+    carbs_g: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Total carbohydrates", display_name="Carbs", unit="g")
+    ] = None
+    fat_g: Annotated[float | None, Field(db_type="DOUBLE", description="Total fat", display_name="Fat", unit="g")] = None
+    fiber_g: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Total dietary fiber", display_name="Fiber", unit="g")
+    ] = None
+    sugar_g: Annotated[float | None, Field(db_type="DOUBLE", description="Total sugars", display_name="Sugar", unit="g")] = (
+        None
+    )
 
     @classmethod
     def extract(cls, client: str, **_: Any) -> Iterator[dict[str, Any]]:
@@ -126,15 +136,23 @@ class Servings(EventTable):
 
     time_at: ClassVar[str] = "day"
 
-    id: Annotated[str, Field(db_type="VARCHAR", description="Content-hash ID")] = ""
-    day: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
-    meal: Annotated[str | None, Field(db_type="VARCHAR", description="Meal group (Breakfast, Lunch, ...)")] = None
-    food_name: Annotated[str, Field(db_type="VARCHAR", description="Food item name")] = ""
-    amount: Annotated[float | None, Field(db_type="DOUBLE", description="Serving amount")] = None
-    energy_kcal: Annotated[float | None, Field(db_type="DOUBLE", description="Energy per serving", unit="kcal")] = None
-    protein_g: Annotated[float | None, Field(db_type="DOUBLE", description="Protein per serving", unit="g")] = None
-    carbs_g: Annotated[float | None, Field(db_type="DOUBLE", description="Carbs per serving", unit="g")] = None
-    fat_g: Annotated[float | None, Field(db_type="DOUBLE", description="Fat per serving", unit="g")] = None
+    id: Annotated[str, Field(db_type="VARCHAR", description="Content-hash ID", display_name="ID")] = ""
+    day: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Day")] = ""
+    meal: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Meal group (Breakfast, Lunch, ...)", display_name="Meal")
+    ] = None
+    food_name: Annotated[str, Field(db_type="VARCHAR", description="Food item name", display_name="Food Name")] = ""
+    amount: Annotated[float | None, Field(db_type="DOUBLE", description="Serving amount", display_name="Amount")] = None
+    energy_kcal: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Energy per serving", display_name="Energy", unit="kcal")
+    ] = None
+    protein_g: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Protein per serving", display_name="Protein", unit="g")
+    ] = None
+    carbs_g: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Carbs per serving", display_name="Carbs", unit="g")
+    ] = None
+    fat_g: Annotated[float | None, Field(db_type="DOUBLE", description="Fat per serving", display_name="Fat", unit="g")] = None
 
     @classmethod
     def extract(cls, client: str, **_: Any) -> Iterator[dict[str, Any]]:

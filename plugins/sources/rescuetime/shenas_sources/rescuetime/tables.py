@@ -38,31 +38,37 @@ class DailySummary(AggregateTable):
 
     time_at: ClassVar[str] = "date"
 
-    date: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
+    date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
     productivity_pulse: Annotated[
         float | None,
-        Field(db_type="DOUBLE", description="RescueTime productivity pulse (0-100)"),
+        Field(db_type="DOUBLE", description="RescueTime productivity pulse (0-100)", display_name="Productivity Pulse"),
     ] = None
-    total_s: Annotated[float | None, Field(db_type="DOUBLE", description="Total tracked time", unit="s")] = None
+    total_s: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Total tracked time", display_name="Total Time", unit="s")
+    ] = None
     very_productive_s: Annotated[
         float | None,
-        Field(db_type="DOUBLE", description="Time on very productive activities", unit="s"),
+        Field(
+            db_type="DOUBLE", description="Time on very productive activities", display_name="Very Productive Time", unit="s"
+        ),
     ] = None
     productive_s: Annotated[
         float | None,
-        Field(db_type="DOUBLE", description="Time on productive activities", unit="s"),
+        Field(db_type="DOUBLE", description="Time on productive activities", display_name="Productive Time", unit="s"),
     ] = None
     neutral_s: Annotated[
         float | None,
-        Field(db_type="DOUBLE", description="Time on neutral activities", unit="s"),
+        Field(db_type="DOUBLE", description="Time on neutral activities", display_name="Neutral Time", unit="s"),
     ] = None
     distracting_s: Annotated[
         float | None,
-        Field(db_type="DOUBLE", description="Time on distracting activities", unit="s"),
+        Field(db_type="DOUBLE", description="Time on distracting activities", display_name="Distracting Time", unit="s"),
     ] = None
     very_distracting_s: Annotated[
         float | None,
-        Field(db_type="DOUBLE", description="Time on very distracting activities", unit="s"),
+        Field(
+            db_type="DOUBLE", description="Time on very distracting activities", display_name="Very Distracting Time", unit="s"
+        ),
     ] = None
 
     @classmethod
@@ -91,13 +97,21 @@ class Activities(AggregateTable):
 
     time_at: ClassVar[str] = "date"
 
-    date: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
-    activity: Annotated[str, Field(db_type="VARCHAR", description="Application or website name")] = ""
-    category: Annotated[str | None, Field(db_type="VARCHAR", description="RescueTime category")] = None
-    duration_s: Annotated[float | None, Field(db_type="DOUBLE", description="Time spent", unit="s")] = None
+    date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
+    activity: Annotated[str, Field(db_type="VARCHAR", description="Application or website name", display_name="Activity")] = ""
+    category: Annotated[str | None, Field(db_type="VARCHAR", description="RescueTime category", display_name="Category")] = (
+        None
+    )
+    duration_s: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Time spent", display_name="Duration", unit="s")
+    ] = None
     productivity: Annotated[
         int | None,
-        Field(db_type="INTEGER", description="Productivity score (-2=very distracting to 2=very productive)"),
+        Field(
+            db_type="INTEGER",
+            description="Productivity score (-2=very distracting to 2=very productive)",
+            display_name="Productivity Score",
+        ),
     ] = None
 
     @classmethod

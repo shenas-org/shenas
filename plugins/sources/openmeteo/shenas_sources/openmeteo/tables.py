@@ -31,42 +31,68 @@ class DailyWeather(AggregateTable):
 
     time_at: ClassVar[str] = "date"
 
-    date: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
-    temp_max_degc: Annotated[float | None, Field(db_type="DOUBLE", description="Maximum temperature at 2m", unit="degC")] = (
-        None
-    )
-    temp_min_degc: Annotated[float | None, Field(db_type="DOUBLE", description="Minimum temperature at 2m", unit="degC")] = (
-        None
-    )
-    temp_mean_degc: Annotated[float | None, Field(db_type="DOUBLE", description="Mean temperature at 2m", unit="degC")] = None
+    date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
+    temp_max_degc: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Maximum temperature at 2m", display_name="Max Temp", unit="degC")
+    ] = None
+    temp_min_degc: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Minimum temperature at 2m", display_name="Min Temp", unit="degC")
+    ] = None
+    temp_mean_degc: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Mean temperature at 2m", display_name="Mean Temp", unit="degC")
+    ] = None
     apparent_temp_max_degc: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Maximum apparent (feels-like) temperature", unit="degC")
+        float | None,
+        Field(
+            db_type="DOUBLE",
+            description="Maximum apparent (feels-like) temperature",
+            display_name="Max Feels-Like",
+            unit="degC",
+        ),
     ] = None
     apparent_temp_min_degc: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Minimum apparent (feels-like) temperature", unit="degC")
+        float | None,
+        Field(
+            db_type="DOUBLE",
+            description="Minimum apparent (feels-like) temperature",
+            display_name="Min Feels-Like",
+            unit="degC",
+        ),
     ] = None
     precipitation_mm: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Total precipitation (rain + snow)", unit="mm")
+        float | None,
+        Field(db_type="DOUBLE", description="Total precipitation (rain + snow)", display_name="Precipitation", unit="mm"),
     ] = None
-    rain_mm: Annotated[float | None, Field(db_type="DOUBLE", description="Rainfall", unit="mm")] = None
-    snowfall_mm: Annotated[float | None, Field(db_type="DOUBLE", description="Snowfall (water equivalent)", unit="mm")] = None
+    rain_mm: Annotated[float | None, Field(db_type="DOUBLE", description="Rainfall", display_name="Rain", unit="mm")] = None
+    snowfall_mm: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Snowfall (water equivalent)", display_name="Snowfall", unit="mm")
+    ] = None
     wind_speed_max_ms: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Maximum wind speed at 10m", unit="m/s")
+        float | None,
+        Field(db_type="DOUBLE", description="Maximum wind speed at 10m", display_name="Max Wind Speed", unit="m/s"),
     ] = None
     wind_gusts_max_ms: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Maximum wind gusts at 10m", unit="m/s")
+        float | None,
+        Field(db_type="DOUBLE", description="Maximum wind gusts at 10m", display_name="Max Wind Gusts", unit="m/s"),
     ] = None
     wind_direction_dominant_deg: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Dominant wind direction", unit="deg")
+        float | None, Field(db_type="DOUBLE", description="Dominant wind direction", display_name="Wind Direction", unit="deg")
     ] = None
-    sunshine_duration_s: Annotated[float | None, Field(db_type="DOUBLE", description="Sunshine duration", unit="s")] = None
-    daylight_duration_s: Annotated[float | None, Field(db_type="DOUBLE", description="Daylight duration", unit="s")] = None
-    uv_index_max: Annotated[float | None, Field(db_type="DOUBLE", description="Maximum UV index")] = None
+    sunshine_duration_s: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Sunshine duration", display_name="Sunshine", unit="s")
+    ] = None
+    daylight_duration_s: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Daylight duration", display_name="Daylight", unit="s")
+    ] = None
+    uv_index_max: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Maximum UV index", display_name="Max UV Index")
+    ] = None
     humidity_mean_pct: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Mean relative humidity at 2m", unit="percent")
+        float | None,
+        Field(db_type="DOUBLE", description="Mean relative humidity at 2m", display_name="Mean Humidity", unit="percent"),
     ] = None
     pressure_msl_mean_hpa: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Mean sea-level pressure", unit="hPa")
+        float | None, Field(db_type="DOUBLE", description="Mean sea-level pressure", display_name="Mean Pressure", unit="hPa")
     ] = None
 
     @classmethod
@@ -114,15 +140,30 @@ class DailyAirQuality(AggregateTable):
 
     time_at: ClassVar[str] = "date"
 
-    date: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
-    pm25: Annotated[float | None, Field(db_type="DOUBLE", description="Mean PM2.5 concentration", unit="ug/m3")] = None
-    pm10: Annotated[float | None, Field(db_type="DOUBLE", description="Mean PM10 concentration", unit="ug/m3")] = None
-    no2: Annotated[float | None, Field(db_type="DOUBLE", description="Mean nitrogen dioxide", unit="ug/m3")] = None
-    so2: Annotated[float | None, Field(db_type="DOUBLE", description="Mean sulphur dioxide", unit="ug/m3")] = None
-    co: Annotated[float | None, Field(db_type="DOUBLE", description="Mean carbon monoxide", unit="ug/m3")] = None
-    o3: Annotated[float | None, Field(db_type="DOUBLE", description="Mean ozone", unit="ug/m3")] = None
-    european_aqi: Annotated[float | None, Field(db_type="DOUBLE", description="European Air Quality Index (daily max)")] = None
-    us_aqi: Annotated[float | None, Field(db_type="DOUBLE", description="US Air Quality Index (daily max)")] = None
+    date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
+    pm25: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Mean PM2.5 concentration", display_name="PM2.5", unit="ug/m3")
+    ] = None
+    pm10: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Mean PM10 concentration", display_name="PM10", unit="ug/m3")
+    ] = None
+    no2: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Mean nitrogen dioxide", display_name="NO2", unit="ug/m3")
+    ] = None
+    so2: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Mean sulphur dioxide", display_name="SO2", unit="ug/m3")
+    ] = None
+    co: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Mean carbon monoxide", display_name="CO", unit="ug/m3")
+    ] = None
+    o3: Annotated[float | None, Field(db_type="DOUBLE", description="Mean ozone", display_name="Ozone", unit="ug/m3")] = None
+    european_aqi: Annotated[
+        float | None,
+        Field(db_type="DOUBLE", description="European Air Quality Index (daily max)", display_name="European AQI"),
+    ] = None
+    us_aqi: Annotated[
+        float | None, Field(db_type="DOUBLE", description="US Air Quality Index (daily max)", display_name="US AQI")
+    ] = None
 
     @classmethod
     def extract(

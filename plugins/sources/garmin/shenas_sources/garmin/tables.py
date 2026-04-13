@@ -58,19 +58,35 @@ class Activities(IntervalTable):
     time_end: ClassVar[str] = "end_time_local"
     cursor_column: ClassVar[str] = "startTimeLocal"
 
-    activity_id: Annotated[str, Field(db_type="VARCHAR", description="Unique activity identifier")] = ""
-    activityName: Annotated[str | None, Field(db_type="VARCHAR", description="Activity name")] = None
-    startTimeLocal: Annotated[str | None, Field(db_type="TIMESTAMP", description="Local start time")] = None
+    activity_id: Annotated[
+        str, Field(db_type="VARCHAR", description="Unique activity identifier", display_name="Activity ID")
+    ] = ""
+    activityName: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Activity name", display_name="Activity Name")
+    ] = None
+    startTimeLocal: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Local start time", display_name="Start Time")
+    ] = None
     end_time_local: Annotated[
         str | None,
-        Field(db_type="TIMESTAMP", description="Local end time (start + duration)"),
+        Field(db_type="TIMESTAMP", description="Local end time (start + duration)", display_name="End Time"),
     ] = None
-    activityType: Annotated[str | None, Field(db_type="VARCHAR", description="Activity type name")] = None
-    distance: Annotated[float | None, Field(db_type="DOUBLE", description="Distance in meters")] = None
-    duration: Annotated[float | None, Field(db_type="DOUBLE", description="Duration in seconds")] = None
-    calories: Annotated[float | None, Field(db_type="DOUBLE", description="Calories burned", unit="kcal")] = None
-    averageHR: Annotated[float | None, Field(db_type="DOUBLE", description="Average heart rate")] = None
-    maxHR: Annotated[float | None, Field(db_type="DOUBLE", description="Maximum heart rate")] = None
+    activityType: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Activity type name", display_name="Activity Type")
+    ] = None
+    distance: Annotated[float | None, Field(db_type="DOUBLE", description="Distance in meters", display_name="Distance")] = (
+        None
+    )
+    duration: Annotated[float | None, Field(db_type="DOUBLE", description="Duration in seconds", display_name="Duration")] = (
+        None
+    )
+    calories: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Calories burned", display_name="Calories", unit="kcal")
+    ] = None
+    averageHR: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Average heart rate", display_name="Average HR")
+    ] = None
+    maxHR: Annotated[float | None, Field(db_type="DOUBLE", description="Maximum heart rate", display_name="Max HR")] = None
 
     @staticmethod
     def _compute_end(start: str | None, duration_seconds: float | None) -> str | None:
@@ -121,15 +137,23 @@ class DailyStats(_DailyAggregate):
         display_name = "Daily Stats"
         description = "Per-day Garmin user summary (steps, calories, RHR)."
 
-    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
-    totalSteps: Annotated[int | None, Field(db_type="INTEGER", description="Total steps")] = None
-    totalDistanceMeters: Annotated[int | None, Field(db_type="INTEGER", description="Total distance in meters", unit="m")] = (
-        None
-    )
-    activeKilocalories: Annotated[float | None, Field(db_type="DOUBLE", description="Active kilocalories", unit="kcal")] = None
-    restingHeartRate: Annotated[int | None, Field(db_type="INTEGER", description="Resting heart rate", unit="bpm")] = None
-    maxHeartRate: Annotated[int | None, Field(db_type="INTEGER", description="Max heart rate", unit="bpm")] = None
-    stressQualifier: Annotated[str | None, Field(db_type="VARCHAR", description="Stress qualifier")] = None
+    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
+    totalSteps: Annotated[int | None, Field(db_type="INTEGER", description="Total steps", display_name="Total Steps")] = None
+    totalDistanceMeters: Annotated[
+        int | None, Field(db_type="INTEGER", description="Total distance in meters", display_name="Total Distance", unit="m")
+    ] = None
+    activeKilocalories: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Active kilocalories", display_name="Active Calories", unit="kcal")
+    ] = None
+    restingHeartRate: Annotated[
+        int | None, Field(db_type="INTEGER", description="Resting heart rate", display_name="Resting HR", unit="bpm")
+    ] = None
+    maxHeartRate: Annotated[
+        int | None, Field(db_type="INTEGER", description="Max heart rate", display_name="Max HR", unit="bpm")
+    ] = None
+    stressQualifier: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Stress qualifier", display_name="Stress Qualifier")
+    ] = None
 
     @classmethod
     def extract(
@@ -156,7 +180,7 @@ class Sleep(_DailyAggregate):
         display_name = "Sleep"
         description = "Per-day sleep data."
 
-    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
+    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
 
     @classmethod
     def extract(
@@ -184,7 +208,7 @@ class Hrv(_DailyAggregate):
         display_name = "HRV"
         description = "Per-day heart rate variability data."
 
-    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
+    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
 
     @classmethod
     def extract(
@@ -212,7 +236,7 @@ class Spo2(_DailyAggregate):
         display_name = "SpO2"
         description = "Per-day blood oxygen saturation data."
 
-    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
+    calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
 
     @classmethod
     def extract(
@@ -240,7 +264,7 @@ class BodyComposition(AggregateTable):
         description = "Body composition entries (weight, body fat, etc)."
         pk = ("samplePk",)
 
-    samplePk: Annotated[int, Field(db_type="INTEGER", description="Sample primary key")] = 0
+    samplePk: Annotated[int, Field(db_type="INTEGER", description="Sample primary key", display_name="Sample ID")] = 0
 
     @classmethod
     def extract(

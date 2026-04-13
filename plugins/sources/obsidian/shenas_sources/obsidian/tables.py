@@ -69,7 +69,7 @@ class DailyNotes(AggregateTable):
 
     time_at: ClassVar[str] = "date"
 
-    date: Annotated[str, Field(db_type="DATE", description="Daily note date from filename")] = ""
+    date: Annotated[str, Field(db_type="DATE", description="Daily note date from filename", display_name="Date")] = ""
 
     @staticmethod
     def _parse_frontmatter(text: str) -> dict[str, Any] | None:
@@ -110,24 +110,28 @@ class Habits(EventTable):
 
     time_at: ClassVar[str] = "date"
 
-    date: Annotated[str, Field(db_type="DATE", description="Daily note date from filename")] = ""
-    habit_name: Annotated[str, Field(db_type="VARCHAR", description="Checkbox label, links + metadata stripped")] = ""
-    completed: Annotated[bool, Field(db_type="BOOLEAN", description="Whether the checkbox is ticked")] = False
+    date: Annotated[str, Field(db_type="DATE", description="Daily note date from filename", display_name="Date")] = ""
+    habit_name: Annotated[
+        str, Field(db_type="VARCHAR", description="Checkbox label, links + metadata stripped", display_name="Habit Name")
+    ] = ""
+    completed: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Whether the checkbox is ticked", display_name="Completed")
+    ] = False
     scheduled: Annotated[
         str | None,
-        Field(db_type="DATE", description="From [scheduled:: YYYY-MM-DD]"),
+        Field(db_type="DATE", description="From [scheduled:: YYYY-MM-DD]", display_name="Scheduled Date"),
     ] = None
     completion: Annotated[
         str | None,
-        Field(db_type="DATE", description="From [completion:: YYYY-MM-DD]"),
+        Field(db_type="DATE", description="From [completion:: YYYY-MM-DD]", display_name="Completion Date"),
     ] = None
     url: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Embedded markdown link URL if any"),
+        Field(db_type="VARCHAR", description="Embedded markdown link URL if any", display_name="URL"),
     ] = None
     raw: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="The full original checkbox label"),
+        Field(db_type="VARCHAR", description="The full original checkbox label", display_name="Raw Label"),
     ] = None
 
     _CHECKBOX_RE: ClassVar[re.Pattern[str]] = re.compile(r"^- \[([ xX])\] (.+)$")

@@ -40,14 +40,22 @@ class Tiles(DimensionTable):
         description = "Registered Tile Bluetooth tracker devices."
         pk = ("tile_uuid",)
 
-    tile_uuid: Annotated[str, Field(db_type="VARCHAR", description="Tile device UUID")]
-    name: Annotated[str | None, Field(db_type="VARCHAR", description="User-assigned device name")] = None
+    tile_uuid: Annotated[str, Field(db_type="VARCHAR", description="Tile device UUID", display_name="Tile UUID")]
+    name: Annotated[
+        str | None, Field(db_type="VARCHAR", description="User-assigned device name", display_name="Device Name")
+    ] = None
     tile_type: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Tile product type (e.g. TILE, SLIM, MATE, PRO, STICKER)"),
+        Field(
+            db_type="VARCHAR", description="Tile product type (e.g. TILE, SLIM, MATE, PRO, STICKER)", display_name="Tile Type"
+        ),
     ] = None
-    firmware_version: Annotated[str | None, Field(db_type="VARCHAR", description="Current firmware version")] = None
-    hardware_version: Annotated[str | None, Field(db_type="VARCHAR", description="Hardware version")] = None
+    firmware_version: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Current firmware version", display_name="Firmware Version")
+    ] = None
+    hardware_version: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Hardware version", display_name="Hardware Version")
+    ] = None
 
     @classmethod
     def extract(cls, client: TileClient, **_: Any) -> Iterator[dict[str, Any]]:
@@ -78,17 +86,27 @@ class TileLocations(EventTable):
 
     time_at: ClassVar[str] = "last_timestamp"
 
-    tile_uuid: Annotated[str, Field(db_type="VARCHAR", description="Tile device UUID")]
+    tile_uuid: Annotated[str, Field(db_type="VARCHAR", description="Tile device UUID", display_name="Tile UUID")]
     last_timestamp: Annotated[
         str | None,
-        Field(db_type="TIMESTAMP", description="Timestamp of the location observation"),
+        Field(db_type="TIMESTAMP", description="Timestamp of the location observation", display_name="Last Seen Time"),
     ] = None
-    latitude: Annotated[float | None, Field(db_type="DOUBLE", description="Latitude in decimal degrees")] = None
-    longitude: Annotated[float | None, Field(db_type="DOUBLE", description="Longitude in decimal degrees")] = None
-    altitude: Annotated[float | None, Field(db_type="DOUBLE", description="Altitude", unit="m")] = None
+    latitude: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Latitude in decimal degrees", display_name="Latitude")
+    ] = None
+    longitude: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Longitude in decimal degrees", display_name="Longitude")
+    ] = None
+    altitude: Annotated[float | None, Field(db_type="DOUBLE", description="Altitude", display_name="Altitude", unit="m")] = (
+        None
+    )
     is_approximate: Annotated[
         bool | None,
-        Field(db_type="BOOLEAN", description="Whether the location is approximate (community find vs GPS)"),
+        Field(
+            db_type="BOOLEAN",
+            description="Whether the location is approximate (community find vs GPS)",
+            display_name="Approximate",
+        ),
     ] = None
 
     @classmethod
@@ -126,21 +144,33 @@ class TileState(SnapshotTable):
         description = "Battery level, connection state, and ring state for each Tile."
         pk = ("tile_uuid",)
 
-    tile_uuid: Annotated[str, Field(db_type="VARCHAR", description="Tile device UUID")]
+    tile_uuid: Annotated[str, Field(db_type="VARCHAR", description="Tile device UUID", display_name="Tile UUID")]
     battery_level: Annotated[
         int | None,
-        Field(db_type="INTEGER", description="Battery level", unit="percent", value_range=(0, 100)),
+        Field(
+            db_type="INTEGER", description="Battery level", display_name="Battery Level", unit="percent", value_range=(0, 100)
+        ),
     ] = None
-    battery_state: Annotated[str | None, Field(db_type="VARCHAR", description="Battery state (e.g. OK, LOW, DEAD)")] = None
+    battery_state: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Battery state (e.g. OK, LOW, DEAD)", display_name="Battery State")
+    ] = None
     connection_state: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Connection state (e.g. CONNECTED, DISCONNECTED, READY)"),
+        Field(
+            db_type="VARCHAR",
+            description="Connection state (e.g. CONNECTED, DISCONNECTED, READY)",
+            display_name="Connection State",
+        ),
     ] = None
-    is_dead: Annotated[bool, Field(db_type="BOOLEAN", description="Whether the Tile battery is depleted")] = False
-    ring_state: Annotated[str | None, Field(db_type="VARCHAR", description="Ring state (e.g. RINGING, STOPPED)")] = None
+    is_dead: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Whether the Tile battery is depleted", display_name="Dead")
+    ] = False
+    ring_state: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Ring state (e.g. RINGING, STOPPED)", display_name="Ring State")
+    ] = None
     last_tile_state_timestamp: Annotated[
         str | None,
-        Field(db_type="TIMESTAMP", description="Timestamp of the last state update"),
+        Field(db_type="TIMESTAMP", description="Timestamp of the last state update", display_name="Last State Update"),
     ] = None
 
     @classmethod

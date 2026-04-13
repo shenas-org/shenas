@@ -3,8 +3,10 @@ from typing import Annotated, ClassVar
 from app.table import Field
 from shenas_datasets.core import DailyMetricTable, EventMetricTable, MonthlyMetricTable
 
-Date = Annotated[str, Field(db_type="DATE", description="Calendar date", category="time")]
-Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier (e.g. lunchmoney)")]
+Date = Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date", category="time")]
+Source = Annotated[
+    str, Field(db_type="VARCHAR", description="Data source identifier (e.g. lunchmoney)", display_name="Source")
+]
 
 
 class Transaction(EventMetricTable):
@@ -23,6 +25,7 @@ class Transaction(EventMetricTable):
         Field(
             db_type="VARCHAR",
             description="Unique transaction identifier from the source system",
+            display_name="Transaction ID",
         ),
     ]
     source: Source
@@ -33,6 +36,7 @@ class Transaction(EventMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Transaction amount in base currency (negative = expense, positive = income)",
+                display_name="Amount",
                 unit="currency",
                 example_value=-42.50,
                 category="spending",
@@ -47,6 +51,7 @@ class Transaction(EventMetricTable):
             Field(
                 db_type="VARCHAR",
                 description="Merchant or counterparty name",
+                display_name="Payee",
                 category="spending",
             ),
         ]
@@ -58,6 +63,7 @@ class Transaction(EventMetricTable):
             Field(
                 db_type="VARCHAR",
                 description="Spending category (e.g. groceries, rent, entertainment)",
+                display_name="Category",
                 category="spending",
             ),
         ]
@@ -69,6 +75,7 @@ class Transaction(EventMetricTable):
             Field(
                 db_type="VARCHAR",
                 description="Parent category group (e.g. food, housing, leisure)",
+                display_name="Category Group",
                 category="spending",
             ),
         ]
@@ -80,6 +87,7 @@ class Transaction(EventMetricTable):
             Field(
                 db_type="VARCHAR",
                 description="Account name (e.g. checking, credit card, savings)",
+                display_name="Account",
                 category="account",
             ),
         ]
@@ -91,6 +99,7 @@ class Transaction(EventMetricTable):
             Field(
                 db_type="VARCHAR",
                 description="ISO 4217 currency code",
+                display_name="Currency",
                 example_value="USD",
             ),
         ]
@@ -102,6 +111,7 @@ class Transaction(EventMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Whether this transaction is income (1) or expense (0)",
+                display_name="Is Income",
                 value_range=(0, 1),
                 category="spending",
             ),
@@ -114,6 +124,7 @@ class Transaction(EventMetricTable):
             Field(
                 db_type="VARCHAR",
                 description="User-added notes or memo",
+                display_name="Notes",
             ),
         ]
         | None
@@ -124,6 +135,7 @@ class Transaction(EventMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Whether this is a recurring transaction (1) or one-time (0)",
+                display_name="Recurring",
                 value_range=(0, 1),
                 category="spending",
             ),
@@ -149,6 +161,7 @@ class DailySpending(DailyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Total amount spent (sum of expense transactions)",
+                display_name="Total Spent",
                 unit="currency",
                 example_value=85.30,
                 category="spending",
@@ -163,6 +176,7 @@ class DailySpending(DailyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Total income received",
+                display_name="Total Income",
                 unit="currency",
                 example_value=0.0,
                 category="income",
@@ -177,6 +191,7 @@ class DailySpending(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Number of transactions for the day",
+                display_name="Transaction Count",
                 example_value=5,
                 category="spending",
                 interpretation="Fewer transactions may indicate more intentional spending",
@@ -200,6 +215,7 @@ class MonthlyCategory(MonthlyMetricTable):
         Field(
             db_type="VARCHAR",
             description="Month in YYYY-MM format",
+            display_name="Month",
             category="time",
         ),
     ]
@@ -208,6 +224,7 @@ class MonthlyCategory(MonthlyMetricTable):
         Field(
             db_type="VARCHAR",
             description="Spending category",
+            display_name="Category",
             category="spending",
         ),
     ]
@@ -218,6 +235,7 @@ class MonthlyCategory(MonthlyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Total spent in this category for the month",
+                display_name="Amount Spent",
                 unit="currency",
                 example_value=320.50,
                 category="spending",
@@ -232,6 +250,7 @@ class MonthlyCategory(MonthlyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Number of transactions in this category",
+                display_name="Transaction Count",
                 example_value=12,
                 category="spending",
             ),
@@ -244,6 +263,7 @@ class MonthlyCategory(MonthlyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Budget allocated for this category this month",
+                display_name="Budget Amount",
                 unit="currency",
                 example_value=400.0,
                 category="budget",
@@ -268,6 +288,7 @@ class MonthlyOverview(MonthlyMetricTable):
         Field(
             db_type="VARCHAR",
             description="Month in YYYY-MM format",
+            display_name="Month",
             category="time",
         ),
     ]
@@ -278,6 +299,7 @@ class MonthlyOverview(MonthlyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Total income for the month",
+                display_name="Total Income",
                 unit="currency",
                 example_value=5000.0,
                 category="income",
@@ -292,6 +314,7 @@ class MonthlyOverview(MonthlyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Total spending for the month",
+                display_name="Total Spent",
                 unit="currency",
                 example_value=3200.0,
                 category="spending",
@@ -306,6 +329,7 @@ class MonthlyOverview(MonthlyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Net cash flow (income minus spending)",
+                display_name="Net Cash Flow",
                 unit="currency",
                 example_value=1800.0,
                 category="savings",
@@ -320,6 +344,7 @@ class MonthlyOverview(MonthlyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Total number of transactions for the month",
+                display_name="Transaction Count",
                 example_value=87,
                 category="spending",
             ),
@@ -332,6 +357,7 @@ class MonthlyOverview(MonthlyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Percentage of income saved (net / income * 100)",
+                display_name="Savings Rate",
                 unit="percent",
                 value_range=(-100, 100),
                 example_value=36.0,

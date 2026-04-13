@@ -65,33 +65,57 @@ class Transactions(EventTable):
     time_at: ClassVar[str] = "date"
     cursor_column: ClassVar[str] = "date"
 
-    id: Annotated[int, Field(db_type="INTEGER", description="Transaction ID")]
-    date: Annotated[str, Field(db_type="DATE", description="Transaction date")]
-    payee: Annotated[str | None, Field(db_type="VARCHAR", description="Payee name (user-edited)")] = None
-    original_name: Annotated[str | None, Field(db_type="VARCHAR", description="Original payee from source")] = None
-    amount: Annotated[float, Field(db_type="DOUBLE", description="Transaction amount")] = 0.0
-    currency: Annotated[str | None, Field(db_type="VARCHAR", description="Currency code")] = None
-    to_base: Annotated[float | None, Field(db_type="DOUBLE", description="Amount in primary currency")] = None
-    category_id: Annotated[int | None, Field(db_type="INTEGER", description="Category ID")] = None
-    category_name: Annotated[str | None, Field(db_type="VARCHAR", description="Category name")] = None
-    asset_id: Annotated[int | None, Field(db_type="INTEGER", description="Linked manual asset ID")] = None
-    plaid_account_id: Annotated[int | None, Field(db_type="INTEGER", description="Linked Plaid account ID")] = None
-    recurring_id: Annotated[int | None, Field(db_type="INTEGER", description="Linked recurring item ID")] = None
-    type: Annotated[str | None, Field(db_type="VARCHAR", description="Transaction type")] = None
-    parent_id: Annotated[int | None, Field(db_type="INTEGER", description="Parent transaction ID (for splits)")] = None
-    has_children: Annotated[bool, Field(db_type="BOOLEAN", description="Has split children")] = False
+    id: Annotated[int, Field(db_type="INTEGER", description="Transaction ID", display_name="Transaction ID")]
+    date: Annotated[str, Field(db_type="DATE", description="Transaction date", display_name="Date")]
+    payee: Annotated[str | None, Field(db_type="VARCHAR", description="Payee name (user-edited)", display_name="Payee")] = None
+    original_name: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Original payee from source", display_name="Original Name")
+    ] = None
+    amount: Annotated[float, Field(db_type="DOUBLE", description="Transaction amount", display_name="Amount")] = 0.0
+    currency: Annotated[str | None, Field(db_type="VARCHAR", description="Currency code", display_name="Currency")] = None
+    to_base: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Amount in primary currency", display_name="Base Amount")
+    ] = None
+    category_id: Annotated[int | None, Field(db_type="INTEGER", description="Category ID", display_name="Category ID")] = None
+    category_name: Annotated[str | None, Field(db_type="VARCHAR", description="Category name", display_name="Category")] = None
+    asset_id: Annotated[
+        int | None, Field(db_type="INTEGER", description="Linked manual asset ID", display_name="Asset ID")
+    ] = None
+    plaid_account_id: Annotated[
+        int | None, Field(db_type="INTEGER", description="Linked Plaid account ID", display_name="Plaid Account ID")
+    ] = None
+    recurring_id: Annotated[
+        int | None, Field(db_type="INTEGER", description="Linked recurring item ID", display_name="Recurring ID")
+    ] = None
+    type: Annotated[str | None, Field(db_type="VARCHAR", description="Transaction type", display_name="Type")] = None
+    parent_id: Annotated[
+        int | None, Field(db_type="INTEGER", description="Parent transaction ID (for splits)", display_name="Parent ID")
+    ] = None
+    has_children: Annotated[bool, Field(db_type="BOOLEAN", description="Has split children", display_name="Has Children")] = (
+        False
+    )
     group_id: Annotated[
         int | None,
-        Field(db_type="INTEGER", description="Transaction group ID (e.g. transfers)"),
+        Field(db_type="INTEGER", description="Transaction group ID (e.g. transfers)", display_name="Group ID"),
     ] = None
-    is_group: Annotated[bool, Field(db_type="BOOLEAN", description="Is itself a group transaction")] = False
-    external_id: Annotated[str | None, Field(db_type="VARCHAR", description="External / Plaid ID")] = None
-    is_income: Annotated[bool | None, Field(db_type="BOOLEAN", description="Whether this is income")] = None
-    is_pending: Annotated[bool, Field(db_type="BOOLEAN", description="Pending transaction")] = False
-    status: Annotated[str | None, Field(db_type="VARCHAR", description="Transaction status")] = None
-    notes: Annotated[str | None, Field(db_type="TEXT", description="Notes")] = None
-    created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp")] = None
-    updated_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Last updated timestamp")] = None
+    is_group: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Is itself a group transaction", display_name="Is Group")
+    ] = False
+    external_id: Annotated[
+        str | None, Field(db_type="VARCHAR", description="External / Plaid ID", display_name="External ID")
+    ] = None
+    is_income: Annotated[
+        bool | None, Field(db_type="BOOLEAN", description="Whether this is income", display_name="Is Income")
+    ] = None
+    is_pending: Annotated[bool, Field(db_type="BOOLEAN", description="Pending transaction", display_name="Is Pending")] = False
+    status: Annotated[str | None, Field(db_type="VARCHAR", description="Transaction status", display_name="Status")] = None
+    notes: Annotated[str | None, Field(db_type="TEXT", description="Notes", display_name="Notes")] = None
+    created_at: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Creation timestamp", display_name="Created At")
+    ] = None
+    updated_at: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Last updated timestamp", display_name="Updated At")
+    ] = None
 
     @classmethod
     def extract(
@@ -133,8 +157,8 @@ class TransactionTags(M2MTable):
         description = "(transaction_id, tag_id) link rows from tagged transactions."
         pk = ("transaction_id", "tag_id")
 
-    transaction_id: Annotated[int, Field(db_type="INTEGER", description="Transaction ID")]
-    tag_id: Annotated[int, Field(db_type="INTEGER", description="Tag ID")]
+    transaction_id: Annotated[int, Field(db_type="INTEGER", description="Transaction ID", display_name="Transaction ID")]
+    tag_id: Annotated[int, Field(db_type="INTEGER", description="Tag ID", display_name="Tag ID")]
 
     @classmethod
     def extract(
@@ -178,12 +202,18 @@ class Categories(DimensionTable):
         description = "Spending and income categories the user has defined."
         pk = ("id",)
 
-    id: Annotated[int, Field(db_type="INTEGER", description="Category ID")]
-    category_name: Annotated[str, Field(db_type="VARCHAR", description="Category name")]
-    is_income: Annotated[bool, Field(db_type="BOOLEAN", description="Whether this is an income category")] = False
-    exclude_from_budget: Annotated[bool, Field(db_type="BOOLEAN", description="Excluded from budget")] = False
-    exclude_from_totals: Annotated[bool, Field(db_type="BOOLEAN", description="Excluded from totals")] = False
-    archived: Annotated[bool, Field(db_type="BOOLEAN", description="Whether archived")] = False
+    id: Annotated[int, Field(db_type="INTEGER", description="Category ID", display_name="Category ID")]
+    category_name: Annotated[str, Field(db_type="VARCHAR", description="Category name", display_name="Category Name")]
+    is_income: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Whether this is an income category", display_name="Is Income")
+    ] = False
+    exclude_from_budget: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Excluded from budget", display_name="Exclude Budget")
+    ] = False
+    exclude_from_totals: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Excluded from totals", display_name="Exclude Totals")
+    ] = False
+    archived: Annotated[bool, Field(db_type="BOOLEAN", description="Whether archived", display_name="Archived")] = False
 
     @classmethod
     def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:
@@ -205,9 +235,9 @@ class Tags(DimensionTable):
         description = "User-defined transaction tags."
         pk = ("id",)
 
-    id: Annotated[int, Field(db_type="INTEGER", description="Tag ID")]
-    tag_name: Annotated[str, Field(db_type="VARCHAR", description="Tag name")]
-    archived: Annotated[bool, Field(db_type="BOOLEAN", description="Whether archived")] = False
+    id: Annotated[int, Field(db_type="INTEGER", description="Tag ID", display_name="Tag ID")]
+    tag_name: Annotated[str, Field(db_type="VARCHAR", description="Tag name", display_name="Tag Name")]
+    archived: Annotated[bool, Field(db_type="BOOLEAN", description="Whether archived", display_name="Archived")] = False
 
     @classmethod
     def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:
@@ -232,12 +262,16 @@ class Assets(DimensionTable):
         description = "Manually-tracked assets (cash accounts, brokerage, etc.)."
         pk = ("id",)
 
-    id: Annotated[int, Field(db_type="INTEGER", description="Asset ID")]
-    asset_name: Annotated[str, Field(db_type="VARCHAR", description="Asset name")]
-    type_name: Annotated[str, Field(db_type="VARCHAR", description="Asset type")]
-    currency: Annotated[str, Field(db_type="VARCHAR", description="Currency code")] = ""
-    institution_name: Annotated[str | None, Field(db_type="VARCHAR", description="Institution name")] = None
-    created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp")] = None
+    id: Annotated[int, Field(db_type="INTEGER", description="Asset ID", display_name="Asset ID")]
+    asset_name: Annotated[str, Field(db_type="VARCHAR", description="Asset name", display_name="Asset Name")]
+    type_name: Annotated[str, Field(db_type="VARCHAR", description="Asset type", display_name="Asset Type")]
+    currency: Annotated[str, Field(db_type="VARCHAR", description="Currency code", display_name="Currency")] = ""
+    institution_name: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Institution name", display_name="Institution")
+    ] = None
+    created_at: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Creation timestamp", display_name="Created At")
+    ] = None
 
     @classmethod
     def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:
@@ -263,14 +297,14 @@ class PlaidAccounts(DimensionTable):
         description = "Connected bank/credit card accounts via Plaid."
         pk = ("id",)
 
-    id: Annotated[int, Field(db_type="INTEGER", description="Plaid account ID")]
-    account_name: Annotated[str, Field(db_type="VARCHAR", description="Account name")]
-    type: Annotated[str, Field(db_type="VARCHAR", description="Account type")] = ""
-    subtype: Annotated[str, Field(db_type="VARCHAR", description="Account subtype")] = ""
-    institution_name: Annotated[str, Field(db_type="VARCHAR", description="Institution name")] = ""
-    status: Annotated[str, Field(db_type="VARCHAR", description="Account status")] = ""
-    currency: Annotated[str, Field(db_type="VARCHAR", description="Currency code")] = ""
-    date_linked: Annotated[str, Field(db_type="DATE", description="Date linked")] = ""
+    id: Annotated[int, Field(db_type="INTEGER", description="Plaid account ID", display_name="Account ID")]
+    account_name: Annotated[str, Field(db_type="VARCHAR", description="Account name", display_name="Account Name")]
+    type: Annotated[str, Field(db_type="VARCHAR", description="Account type", display_name="Account Type")] = ""
+    subtype: Annotated[str, Field(db_type="VARCHAR", description="Account subtype", display_name="Subtype")] = ""
+    institution_name: Annotated[str, Field(db_type="VARCHAR", description="Institution name", display_name="Institution")] = ""
+    status: Annotated[str, Field(db_type="VARCHAR", description="Account status", display_name="Status")] = ""
+    currency: Annotated[str, Field(db_type="VARCHAR", description="Currency code", display_name="Currency")] = ""
+    date_linked: Annotated[str, Field(db_type="DATE", description="Date linked", display_name="Date Linked")] = ""
 
     @classmethod
     def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:
@@ -296,11 +330,17 @@ class Budgets(SnapshotTable):
         description = "Per-category budget configuration."
         pk = ("category_name",)
 
-    category_name: Annotated[str, Field(db_type="VARCHAR", description="Budget category name")]
-    category_id: Annotated[int | None, Field(db_type="INTEGER", description="Category ID")] = None
-    is_income: Annotated[bool, Field(db_type="BOOLEAN", description="Whether this is an income category")] = False
-    exclude_from_budget: Annotated[bool, Field(db_type="BOOLEAN", description="Excluded from budget")] = False
-    exclude_from_totals: Annotated[bool, Field(db_type="BOOLEAN", description="Excluded from totals")] = False
+    category_name: Annotated[str, Field(db_type="VARCHAR", description="Budget category name", display_name="Category")]
+    category_id: Annotated[int | None, Field(db_type="INTEGER", description="Category ID", display_name="Category ID")] = None
+    is_income: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Whether this is an income category", display_name="Is Income")
+    ] = False
+    exclude_from_budget: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Excluded from budget", display_name="Exclude Budget")
+    ] = False
+    exclude_from_totals: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Excluded from totals", display_name="Exclude Totals")
+    ] = False
 
     @classmethod
     def extract(
@@ -332,14 +372,16 @@ class RecurringItems(DimensionTable):
         description = "Recurring transaction templates (subscriptions, bills, etc.)."
         pk = ("id",)
 
-    id: Annotated[int, Field(db_type="INTEGER", description="Recurring item ID")]
-    payee: Annotated[str, Field(db_type="VARCHAR", description="Payee name")]
-    amount: Annotated[float, Field(db_type="DOUBLE", description="Recurring amount")] = 0.0
-    currency: Annotated[str, Field(db_type="VARCHAR", description="Currency code")] = ""
-    cadence: Annotated[str | None, Field(db_type="VARCHAR", description="Recurrence cadence")] = None
-    billing_date: Annotated[str, Field(db_type="DATE", description="Next billing date")] = ""
-    source: Annotated[str, Field(db_type="VARCHAR", description="Source")] = ""
-    created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp")] = None
+    id: Annotated[int, Field(db_type="INTEGER", description="Recurring item ID", display_name="Recurring ID")]
+    payee: Annotated[str, Field(db_type="VARCHAR", description="Payee name", display_name="Payee")]
+    amount: Annotated[float, Field(db_type="DOUBLE", description="Recurring amount", display_name="Amount")] = 0.0
+    currency: Annotated[str, Field(db_type="VARCHAR", description="Currency code", display_name="Currency")] = ""
+    cadence: Annotated[str | None, Field(db_type="VARCHAR", description="Recurrence cadence", display_name="Cadence")] = None
+    billing_date: Annotated[str, Field(db_type="DATE", description="Next billing date", display_name="Billing Date")] = ""
+    source: Annotated[str, Field(db_type="VARCHAR", description="Source", display_name="Source")] = ""
+    created_at: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Creation timestamp", display_name="Created At")
+    ] = None
 
     @classmethod
     def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:
@@ -356,12 +398,14 @@ class User(SnapshotTable):
         description = "Authenticated user / account info."
         pk = ("user_id",)
 
-    user_id: Annotated[int, Field(db_type="INTEGER", description="User ID")]
-    user_name: Annotated[str | None, Field(db_type="VARCHAR", description="User name")] = None
-    user_email: Annotated[str | None, Field(db_type="VARCHAR", description="User email")] = None
-    account_id: Annotated[int | None, Field(db_type="INTEGER", description="Account ID")] = None
-    budget_name: Annotated[str | None, Field(db_type="VARCHAR", description="Budget name")] = None
-    api_key_label: Annotated[str | None, Field(db_type="VARCHAR", description="API key label")] = None
+    user_id: Annotated[int, Field(db_type="INTEGER", description="User ID", display_name="User ID")]
+    user_name: Annotated[str | None, Field(db_type="VARCHAR", description="User name", display_name="User Name")] = None
+    user_email: Annotated[str | None, Field(db_type="VARCHAR", description="User email", display_name="Email")] = None
+    account_id: Annotated[int | None, Field(db_type="INTEGER", description="Account ID", display_name="Account ID")] = None
+    budget_name: Annotated[str | None, Field(db_type="VARCHAR", description="Budget name", display_name="Budget Name")] = None
+    api_key_label: Annotated[
+        str | None, Field(db_type="VARCHAR", description="API key label", display_name="API Key Label")
+    ] = None
 
     @classmethod
     def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:
@@ -383,14 +427,24 @@ class Crypto(SnapshotTable):
         description = "Crypto holdings (manual + connected exchange accounts)."
         pk = ("id",)
 
-    id: Annotated[int, Field(db_type="INTEGER", description="Crypto holding ID")]
-    crypto_name: Annotated[str | None, Field(db_type="VARCHAR", description="Asset name")] = None
-    currency: Annotated[str | None, Field(db_type="VARCHAR", description="Crypto symbol/currency")] = None
-    institution_name: Annotated[str | None, Field(db_type="VARCHAR", description="Institution name")] = None
-    source: Annotated[str | None, Field(db_type="VARCHAR", description="Source: manual or synced")] = None
-    status: Annotated[str | None, Field(db_type="VARCHAR", description="Status")] = None
-    zabo_account_id: Annotated[str | None, Field(db_type="VARCHAR", description="Zabo account ID")] = None
-    created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp")] = None
+    id: Annotated[int, Field(db_type="INTEGER", description="Crypto holding ID", display_name="Crypto ID")]
+    crypto_name: Annotated[str | None, Field(db_type="VARCHAR", description="Asset name", display_name="Crypto Name")] = None
+    currency: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Crypto symbol/currency", display_name="Currency")
+    ] = None
+    institution_name: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Institution name", display_name="Institution")
+    ] = None
+    source: Annotated[str | None, Field(db_type="VARCHAR", description="Source: manual or synced", display_name="Source")] = (
+        None
+    )
+    status: Annotated[str | None, Field(db_type="VARCHAR", description="Status", display_name="Status")] = None
+    zabo_account_id: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Zabo account ID", display_name="Zabo Account ID")
+    ] = None
+    created_at: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Creation timestamp", display_name="Created At")
+    ] = None
 
     @classmethod
     def extract(cls, client: LunchMoney, **_: Any) -> Iterator[dict[str, Any]]:

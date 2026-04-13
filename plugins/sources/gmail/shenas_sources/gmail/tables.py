@@ -182,37 +182,58 @@ class Messages(EventTable):
     time_at: ClassVar[str] = "internal_date"
     cursor_column: ClassVar[str] = "internal_date"
 
-    id: Annotated[str, Field(db_type="VARCHAR", description="Message ID")]
-    thread_id: Annotated[str | None, Field(db_type="VARCHAR", description="Thread ID")] = None
-    internal_date: Annotated[int, Field(db_type="BIGINT", description="Internal date as epoch milliseconds")] = 0
-    date: Annotated[str | None, Field(db_type="VARCHAR", description="Date header value")] = None
-    from_address: Annotated[str | None, Field(db_type="VARCHAR", description="From address")] = None
-    to_address: Annotated[str | None, Field(db_type="VARCHAR", description="To address")] = None
-    cc_address: Annotated[str | None, Field(db_type="VARCHAR", description="Cc address(es)")] = None
-    bcc_address: Annotated[str | None, Field(db_type="VARCHAR", description="Bcc address(es)")] = None
-    reply_to: Annotated[str | None, Field(db_type="VARCHAR", description="Reply-To address")] = None
-    message_id_header: Annotated[str | None, Field(db_type="VARCHAR", description="SMTP Message-ID header")] = None
-    in_reply_to: Annotated[str | None, Field(db_type="VARCHAR", description="In-Reply-To header")] = None
-    references: Annotated[str | None, Field(db_type="TEXT", description="References header")] = None
-    list_id: Annotated[str | None, Field(db_type="VARCHAR", description="List-Id header (mailing list marker)")] = None
-    list_unsubscribe: Annotated[str | None, Field(db_type="VARCHAR", description="List-Unsubscribe header")] = None
-    subject: Annotated[str | None, Field(db_type="VARCHAR", description="Subject line")] = None
-    snippet: Annotated[str | None, Field(db_type="TEXT", description="Message snippet")] = None
-    labels: Annotated[str | None, Field(db_type="VARCHAR", description="Comma-separated label IDs")] = None
+    id: Annotated[str, Field(db_type="VARCHAR", description="Message ID", display_name="Message ID")]
+    thread_id: Annotated[str | None, Field(db_type="VARCHAR", description="Thread ID", display_name="Thread ID")] = None
+    internal_date: Annotated[
+        int, Field(db_type="BIGINT", description="Internal date as epoch milliseconds", display_name="Internal Date")
+    ] = 0
+    date: Annotated[str | None, Field(db_type="VARCHAR", description="Date header value", display_name="Date")] = None
+    from_address: Annotated[str | None, Field(db_type="VARCHAR", description="From address", display_name="From")] = None
+    to_address: Annotated[str | None, Field(db_type="VARCHAR", description="To address", display_name="To")] = None
+    cc_address: Annotated[str | None, Field(db_type="VARCHAR", description="Cc address(es)", display_name="Cc")] = None
+    bcc_address: Annotated[str | None, Field(db_type="VARCHAR", description="Bcc address(es)", display_name="Bcc")] = None
+    reply_to: Annotated[str | None, Field(db_type="VARCHAR", description="Reply-To address", display_name="Reply-To")] = None
+    message_id_header: Annotated[
+        str | None, Field(db_type="VARCHAR", description="SMTP Message-ID header", display_name="Message-ID Header")
+    ] = None
+    in_reply_to: Annotated[
+        str | None, Field(db_type="VARCHAR", description="In-Reply-To header", display_name="In-Reply-To")
+    ] = None
+    references: Annotated[str | None, Field(db_type="TEXT", description="References header", display_name="References")] = None
+    list_id: Annotated[
+        str | None, Field(db_type="VARCHAR", description="List-Id header (mailing list marker)", display_name="List ID")
+    ] = None
+    list_unsubscribe: Annotated[
+        str | None, Field(db_type="VARCHAR", description="List-Unsubscribe header", display_name="List-Unsubscribe")
+    ] = None
+    subject: Annotated[str | None, Field(db_type="VARCHAR", description="Subject line", display_name="Subject")] = None
+    snippet: Annotated[str | None, Field(db_type="TEXT", description="Message snippet", display_name="Snippet")] = None
+    labels: Annotated[str | None, Field(db_type="VARCHAR", description="Comma-separated label IDs", display_name="Labels")] = (
+        None
+    )
     category: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Inbox category: PROMOTIONS / SOCIAL / UPDATES / FORUMS / PERSONAL"),
+        Field(
+            db_type="VARCHAR",
+            description="Inbox category: PROMOTIONS / SOCIAL / UPDATES / FORUMS / PERSONAL",
+            display_name="Category",
+        ),
     ] = None
-    is_read: Annotated[bool, Field(db_type="BOOLEAN", description="Message has been read")] = False
-    is_starred: Annotated[bool, Field(db_type="BOOLEAN", description="Starred")] = False
-    is_important: Annotated[bool, Field(db_type="BOOLEAN", description="Marked important by Gmail")] = False
-    is_inbox: Annotated[bool, Field(db_type="BOOLEAN", description="Currently in inbox")] = False
-    is_sent: Annotated[bool, Field(db_type="BOOLEAN", description="Sent by the user")] = False
-    is_draft: Annotated[bool, Field(db_type="BOOLEAN", description="Is a draft")] = False
-    is_trash: Annotated[bool, Field(db_type="BOOLEAN", description="In trash")] = False
-    is_spam: Annotated[bool, Field(db_type="BOOLEAN", description="In spam")] = False
-    is_chat: Annotated[bool, Field(db_type="BOOLEAN", description="Chat message")] = False
-    size_estimate: Annotated[int, Field(db_type="INTEGER", description="Estimated message size in bytes", unit="bytes")] = 0
+    is_read: Annotated[bool, Field(db_type="BOOLEAN", description="Message has been read", display_name="Read")] = False
+    is_starred: Annotated[bool, Field(db_type="BOOLEAN", description="Starred", display_name="Starred")] = False
+    is_important: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Marked important by Gmail", display_name="Important")
+    ] = False
+    is_inbox: Annotated[bool, Field(db_type="BOOLEAN", description="Currently in inbox", display_name="In Inbox")] = False
+    is_sent: Annotated[bool, Field(db_type="BOOLEAN", description="Sent by the user", display_name="Sent")] = False
+    is_draft: Annotated[bool, Field(db_type="BOOLEAN", description="Is a draft", display_name="Draft")] = False
+    is_trash: Annotated[bool, Field(db_type="BOOLEAN", description="In trash", display_name="Trash")] = False
+    is_spam: Annotated[bool, Field(db_type="BOOLEAN", description="In spam", display_name="Spam")] = False
+    is_chat: Annotated[bool, Field(db_type="BOOLEAN", description="Chat message", display_name="Chat")] = False
+    size_estimate: Annotated[
+        int,
+        Field(db_type="INTEGER", description="Estimated message size in bytes", display_name="Size Estimate", unit="bytes"),
+    ] = 0
 
     @classmethod
     def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:
@@ -229,9 +250,11 @@ class Labels(DimensionTable):
         description = "Labels defined on the user's mailbox."
         pk = ("id",)
 
-    id: Annotated[str, Field(db_type="VARCHAR", description="Label ID")]
-    label_name: Annotated[str | None, Field(db_type="VARCHAR", description="Label name")] = None
-    type: Annotated[str | None, Field(db_type="VARCHAR", description="Label type (system or user)")] = None
+    id: Annotated[str, Field(db_type="VARCHAR", description="Label ID", display_name="Label ID")]
+    label_name: Annotated[str | None, Field(db_type="VARCHAR", description="Label name", display_name="Label Name")] = None
+    type: Annotated[str | None, Field(db_type="VARCHAR", description="Label type (system or user)", display_name="Type")] = (
+        None
+    )
 
     @classmethod
     def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:
@@ -253,10 +276,16 @@ class Profile(SnapshotTable):
         description = "Per-account mailbox totals snapshot."
         pk = ("email_address",)
 
-    email_address: Annotated[str, Field(db_type="VARCHAR", description="Account email")]
-    messages_total: Annotated[int | None, Field(db_type="BIGINT", description="Total messages in mailbox")] = None
-    threads_total: Annotated[int | None, Field(db_type="BIGINT", description="Total threads in mailbox")] = None
-    history_id: Annotated[str | None, Field(db_type="VARCHAR", description="Current history ID")] = None
+    email_address: Annotated[str, Field(db_type="VARCHAR", description="Account email", display_name="Email Address")]
+    messages_total: Annotated[
+        int | None, Field(db_type="BIGINT", description="Total messages in mailbox", display_name="Total Messages")
+    ] = None
+    threads_total: Annotated[
+        int | None, Field(db_type="BIGINT", description="Total threads in mailbox", display_name="Total Threads")
+    ] = None
+    history_id: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Current history ID", display_name="History ID")
+    ] = None
 
     @classmethod
     def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:
@@ -278,16 +307,26 @@ class Filters(SnapshotTable):
         description = "Server-side filter rules."
         pk = ("id",)
 
-    id: Annotated[str, Field(db_type="VARCHAR", description="Filter ID")]
-    from_criteria: Annotated[str | None, Field(db_type="VARCHAR", description="Match: from")] = None
-    to_criteria: Annotated[str | None, Field(db_type="VARCHAR", description="Match: to")] = None
-    subject_criteria: Annotated[str | None, Field(db_type="VARCHAR", description="Match: subject")] = None
-    query_criteria: Annotated[str | None, Field(db_type="TEXT", description="Match: raw query")] = None
-    add_label_ids: Annotated[str | None, Field(db_type="VARCHAR", description="Action: add label IDs (comma sep)")] = None
-    remove_label_ids: Annotated[str | None, Field(db_type="VARCHAR", description="Action: remove label IDs (comma sep)")] = (
+    id: Annotated[str, Field(db_type="VARCHAR", description="Filter ID", display_name="Filter ID")]
+    from_criteria: Annotated[str | None, Field(db_type="VARCHAR", description="Match: from", display_name="From Criteria")] = (
         None
     )
-    forward_to: Annotated[str | None, Field(db_type="VARCHAR", description="Action: forward to address")] = None
+    to_criteria: Annotated[str | None, Field(db_type="VARCHAR", description="Match: to", display_name="To Criteria")] = None
+    subject_criteria: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Match: subject", display_name="Subject Criteria")
+    ] = None
+    query_criteria: Annotated[
+        str | None, Field(db_type="TEXT", description="Match: raw query", display_name="Query Criteria")
+    ] = None
+    add_label_ids: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Action: add label IDs (comma sep)", display_name="Add Labels")
+    ] = None
+    remove_label_ids: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Action: remove label IDs (comma sep)", display_name="Remove Labels")
+    ] = None
+    forward_to: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Action: forward to address", display_name="Forward To")
+    ] = None
 
     @staticmethod
     def _action_labels(action: dict[str, Any], key: str) -> str | None:
@@ -324,14 +363,28 @@ class Vacation(SnapshotTable):
         description = "Vacation responder configuration."
         pk = ("singleton",)
 
-    singleton: Annotated[int, Field(db_type="INTEGER", description="Always 1 -- single-row table")] = 1
-    enabled: Annotated[bool, Field(db_type="BOOLEAN", description="Vacation responder enabled")] = False
-    response_subject: Annotated[str | None, Field(db_type="VARCHAR", description="Auto-reply subject")] = None
-    response_body_plain: Annotated[str | None, Field(db_type="TEXT", description="Auto-reply plain body")] = None
-    restrict_to_contacts: Annotated[bool, Field(db_type="BOOLEAN", description="Only contacts get a reply")] = False
-    restrict_to_domain: Annotated[bool, Field(db_type="BOOLEAN", description="Only same-domain users get a reply")] = False
-    start_time: Annotated[int | None, Field(db_type="BIGINT", description="Start (epoch ms)")] = None
-    end_time: Annotated[int | None, Field(db_type="BIGINT", description="End (epoch ms)")] = None
+    singleton: Annotated[
+        int, Field(db_type="INTEGER", description="Always 1 -- single-row table", display_name="Singleton")
+    ] = 1
+    enabled: Annotated[bool, Field(db_type="BOOLEAN", description="Vacation responder enabled", display_name="Enabled")] = (
+        False
+    )
+    response_subject: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Auto-reply subject", display_name="Reply Subject")
+    ] = None
+    response_body_plain: Annotated[
+        str | None, Field(db_type="TEXT", description="Auto-reply plain body", display_name="Reply Body")
+    ] = None
+    restrict_to_contacts: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Only contacts get a reply", display_name="Contacts Only")
+    ] = False
+    restrict_to_domain: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Only same-domain users get a reply", display_name="Domain Only")
+    ] = False
+    start_time: Annotated[int | None, Field(db_type="BIGINT", description="Start (epoch ms)", display_name="Start Time")] = (
+        None
+    )
+    end_time: Annotated[int | None, Field(db_type="BIGINT", description="End (epoch ms)", display_name="End Time")] = None
 
     @classmethod
     def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:
@@ -360,13 +413,23 @@ class SendAs(SnapshotTable):
         description = "Send-mail-as identities configured on the account."
         pk = ("send_as_email",)
 
-    send_as_email: Annotated[str, Field(db_type="VARCHAR", description="The email address to send as")]
-    display_name_: Annotated[str | None, Field(db_type="VARCHAR", description="Display name")] = None
-    reply_to_address: Annotated[str | None, Field(db_type="VARCHAR", description="Reply-To address")] = None
-    is_default: Annotated[bool, Field(db_type="BOOLEAN", description="Default identity")] = False
-    is_primary: Annotated[bool, Field(db_type="BOOLEAN", description="Primary identity")] = False
-    treat_as_alias: Annotated[bool, Field(db_type="BOOLEAN", description="Treat as alias")] = False
-    verification_status: Annotated[str | None, Field(db_type="VARCHAR", description="Verification status")] = None
+    send_as_email: Annotated[
+        str, Field(db_type="VARCHAR", description="The email address to send as", display_name="Send-As Email")
+    ]
+    display_name_: Annotated[str | None, Field(db_type="VARCHAR", description="Display name", display_name="Display Name")] = (
+        None
+    )
+    reply_to_address: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Reply-To address", display_name="Reply-To")
+    ] = None
+    is_default: Annotated[bool, Field(db_type="BOOLEAN", description="Default identity", display_name="Default")] = False
+    is_primary: Annotated[bool, Field(db_type="BOOLEAN", description="Primary identity", display_name="Primary")] = False
+    treat_as_alias: Annotated[bool, Field(db_type="BOOLEAN", description="Treat as alias", display_name="Treat As Alias")] = (
+        False
+    )
+    verification_status: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Verification status", display_name="Verification")
+    ] = None
 
     @classmethod
     def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:

@@ -3,8 +3,10 @@ from typing import Annotated
 from app.table import Field
 from shenas_datasets.core import DailyMetricTable
 
-Date = Annotated[str, Field(db_type="DATE", description="Calendar date", category="time")]
-Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier (e.g. garmin, oura)")]
+Date = Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date", category="time")]
+Source = Annotated[
+    str, Field(db_type="VARCHAR", description="Data source identifier (e.g. garmin, oura)", display_name="Source")
+]
 
 
 class DailyHRV(DailyMetricTable):
@@ -24,6 +26,7 @@ class DailyHRV(DailyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Root mean square of successive differences between heartbeats",
+                display_name="RMSSD",
                 unit="ms",
                 value_range=(0, 200),
                 example_value=42.0,
@@ -39,6 +42,7 @@ class DailyHRV(DailyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Standard deviation of NN intervals",
+                display_name="SDNN",
                 unit="ms",
                 value_range=(0, 250),
                 example_value=55.0,
@@ -67,6 +71,7 @@ class DailySleep(DailyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Total sleep duration",
+                display_name="Total Sleep",
                 unit="hours",
                 value_range=(0, 24),
                 example_value=7.5,
@@ -82,6 +87,7 @@ class DailySleep(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Overall sleep quality score",
+                display_name="Sleep Score",
                 value_range=(0, 100),
                 example_value=78,
                 category="sleep",
@@ -96,6 +102,7 @@ class DailySleep(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Time spent in deep (slow-wave) sleep",
+                display_name="Deep Sleep",
                 unit="minutes",
                 value_range=(0, 300),
                 example_value=65,
@@ -111,6 +118,7 @@ class DailySleep(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Time spent in REM sleep",
+                display_name="REM Sleep",
                 unit="minutes",
                 value_range=(0, 300),
                 example_value=90,
@@ -126,6 +134,7 @@ class DailySleep(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Time spent in light sleep",
+                display_name="Light Sleep",
                 unit="minutes",
                 value_range=(0, 600),
                 example_value=210,
@@ -141,6 +150,7 @@ class DailySleep(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Time spent awake during the sleep period",
+                display_name="Awake Time",
                 unit="minutes",
                 value_range=(0, 300),
                 example_value=25,
@@ -169,6 +179,7 @@ class DailyVitals(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Resting heart rate",
+                display_name="Resting HR",
                 unit="bpm",
                 value_range=(30, 120),
                 example_value=62,
@@ -184,6 +195,7 @@ class DailyVitals(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Total step count for the day",
+                display_name="Steps",
                 value_range=(0, 100000),
                 example_value=8500,
                 category="activity",
@@ -198,6 +210,7 @@ class DailyVitals(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Calories burned through active movement (excluding basal metabolic rate)",
+                display_name="Active Calories",
                 unit="kcal",
                 value_range=(0, 5000),
                 example_value=450,
@@ -214,6 +227,7 @@ class DailyVitals(DailyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Blood oxygen saturation level",
+                display_name="SpO2",
                 unit="percent",
                 value_range=(70, 100),
                 example_value=97.0,
@@ -242,6 +256,7 @@ class DailyBody(DailyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Body weight",
+                display_name="Weight",
                 unit="kg",
                 value_range=(20, 300),
                 example_value=75.0,
@@ -257,6 +272,7 @@ class DailyBody(DailyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Body Mass Index (weight / height squared)",
+                display_name="BMI",
                 value_range=(10, 60),
                 example_value=24.5,
                 category="body_composition",
@@ -271,6 +287,7 @@ class DailyBody(DailyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Body fat percentage",
+                display_name="Body Fat",
                 unit="percent",
                 value_range=(3, 60),
                 example_value=18.5,
@@ -286,6 +303,7 @@ class DailyBody(DailyMetricTable):
             Field(
                 db_type="DOUBLE",
                 description="Skeletal muscle mass",
+                display_name="Muscle Mass",
                 unit="kg",
                 value_range=(10, 100),
                 example_value=32.0,

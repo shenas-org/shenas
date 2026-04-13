@@ -57,10 +57,14 @@ class DailyXp(AggregateTable):
     time_at: ClassVar[str] = "date"
     cursor_column: ClassVar[str] = "date"
 
-    date: Annotated[date | None, Field(db_type="DATE", description="Day of activity")] = None
-    xp_gained: Annotated[int, Field(db_type="INTEGER", description="XP earned")] = 0
-    num_sessions: Annotated[int, Field(db_type="INTEGER", description="Number of practice sessions")] = 0
-    total_session_time_sec: Annotated[int, Field(db_type="INTEGER", description="Total session time in seconds", unit="s")] = 0
+    date: Annotated[date | None, Field(db_type="DATE", description="Day of activity", display_name="Date")] = None
+    xp_gained: Annotated[int, Field(db_type="INTEGER", description="XP earned", display_name="XP Gained")] = 0
+    num_sessions: Annotated[
+        int, Field(db_type="INTEGER", description="Number of practice sessions", display_name="Sessions")
+    ] = 0
+    total_session_time_sec: Annotated[
+        int, Field(db_type="INTEGER", description="Total session time in seconds", display_name="Session Time", unit="s")
+    ] = 0
 
     @staticmethod
     def _epoch_to_date(epoch: int) -> date:
@@ -98,12 +102,16 @@ class Courses(SnapshotTable):
         description = "Active language courses."
         pk = ("id",)
 
-    id: Annotated[str, Field(db_type="VARCHAR", description="Course ID")]
-    title: Annotated[str | None, Field(db_type="VARCHAR", description="Course title")] = None
-    from_language: Annotated[str | None, Field(db_type="VARCHAR", description="Source language")] = None
-    learning_language: Annotated[str | None, Field(db_type="VARCHAR", description="Target language")] = None
-    xp: Annotated[int | None, Field(db_type="INTEGER", description="Total XP in course")] = None
-    crowns: Annotated[int | None, Field(db_type="INTEGER", description="Crowns earned")] = None
+    id: Annotated[str, Field(db_type="VARCHAR", description="Course ID", display_name="Course ID")]
+    title: Annotated[str | None, Field(db_type="VARCHAR", description="Course title", display_name="Title")] = None
+    from_language: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Source language", display_name="From Language")
+    ] = None
+    learning_language: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Target language", display_name="Learning Language")
+    ] = None
+    xp: Annotated[int | None, Field(db_type="INTEGER", description="Total XP in course", display_name="XP")] = None
+    crowns: Annotated[int | None, Field(db_type="INTEGER", description="Crowns earned", display_name="Crowns")] = None
 
     @classmethod
     def extract(cls, client: DuolingoClient, **_: Any) -> Iterator[dict[str, Any]]:
@@ -119,20 +127,40 @@ class UserProfile(SnapshotTable):
         description = "Authenticated Duolingo user profile."
         pk = ("username",)
 
-    username: Annotated[str, Field(db_type="VARCHAR", description="Duolingo username")]
-    display_name_: Annotated[str | None, Field(db_type="VARCHAR", description="Display name")] = None
-    streak: Annotated[int | None, Field(db_type="INTEGER", description="Current streak in days")] = None
-    longest_streak: Annotated[int | None, Field(db_type="INTEGER", description="Longest streak ever (days)")] = None
-    streak_start: Annotated[str | None, Field(db_type="DATE", description="Current streak start date")] = None
-    streak_freezes_used: Annotated[int | None, Field(db_type="INTEGER", description="Streak freezes used")] = None
-    daily_goal_xp: Annotated[int | None, Field(db_type="INTEGER", description="Daily XP goal")] = None
-    total_xp: Annotated[int | None, Field(db_type="INTEGER", description="Lifetime XP")] = None
-    created_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Account creation date")] = None
-    current_course: Annotated[str | None, Field(db_type="VARCHAR", description="Active learning language")] = None
-    from_language: Annotated[str | None, Field(db_type="VARCHAR", description="Interface language")] = None
-    has_super: Annotated[bool, Field(db_type="BOOLEAN", description="Has Super Duolingo subscription")] = False
-    following_count: Annotated[int | None, Field(db_type="INTEGER", description="Accounts followed")] = None
-    followers_count: Annotated[int | None, Field(db_type="INTEGER", description="Followers")] = None
+    username: Annotated[str, Field(db_type="VARCHAR", description="Duolingo username", display_name="Username")]
+    display_name_: Annotated[str | None, Field(db_type="VARCHAR", description="Display name", display_name="Display Name")] = (
+        None
+    )
+    streak: Annotated[int | None, Field(db_type="INTEGER", description="Current streak in days", display_name="Streak")] = None
+    longest_streak: Annotated[
+        int | None, Field(db_type="INTEGER", description="Longest streak ever (days)", display_name="Longest Streak")
+    ] = None
+    streak_start: Annotated[
+        str | None, Field(db_type="DATE", description="Current streak start date", display_name="Streak Start")
+    ] = None
+    streak_freezes_used: Annotated[
+        int | None, Field(db_type="INTEGER", description="Streak freezes used", display_name="Freezes Used")
+    ] = None
+    daily_goal_xp: Annotated[
+        int | None, Field(db_type="INTEGER", description="Daily XP goal", display_name="Daily XP Goal")
+    ] = None
+    total_xp: Annotated[int | None, Field(db_type="INTEGER", description="Lifetime XP", display_name="Total XP")] = None
+    created_at: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Account creation date", display_name="Created At")
+    ] = None
+    current_course: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Active learning language", display_name="Current Course")
+    ] = None
+    from_language: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Interface language", display_name="From Language")
+    ] = None
+    has_super: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Has Super Duolingo subscription", display_name="Has Super")
+    ] = False
+    following_count: Annotated[
+        int | None, Field(db_type="INTEGER", description="Accounts followed", display_name="Following")
+    ] = None
+    followers_count: Annotated[int | None, Field(db_type="INTEGER", description="Followers", display_name="Followers")] = None
 
     @classmethod
     def extract(cls, client: DuolingoClient, **_: Any) -> Iterator[dict[str, Any]]:
@@ -171,12 +199,16 @@ class Achievements(EventTable):
 
     time_at: ClassVar[str] = "unlocked_at"
 
-    achievement_name: Annotated[str, Field(db_type="VARCHAR", description="Achievement key")]
-    tier: Annotated[int, Field(db_type="INTEGER", description="Tier (0-based)")]
-    title: Annotated[str | None, Field(db_type="VARCHAR", description="Display title")] = None
-    achievement_description: Annotated[str | None, Field(db_type="VARCHAR", description="Description")] = None
-    count: Annotated[int | None, Field(db_type="INTEGER", description="Counter value")] = None
-    unlocked_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Unlocked timestamp (UTC)")] = None
+    achievement_name: Annotated[str, Field(db_type="VARCHAR", description="Achievement key", display_name="Achievement")]
+    tier: Annotated[int, Field(db_type="INTEGER", description="Tier (0-based)", display_name="Tier")]
+    title: Annotated[str | None, Field(db_type="VARCHAR", description="Display title", display_name="Title")] = None
+    achievement_description: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Description", display_name="Description")
+    ] = None
+    count: Annotated[int | None, Field(db_type="INTEGER", description="Counter value", display_name="Count")] = None
+    unlocked_at: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Unlocked timestamp (UTC)", display_name="Unlocked At")
+    ] = None
 
     @classmethod
     def extract(cls, client: DuolingoClient, **_: Any) -> Iterator[dict[str, Any]]:
@@ -202,13 +234,23 @@ class League(AggregateTable):
 
     time_at: ClassVar[str] = "cohort_end"
 
-    cohort_id: Annotated[str, Field(db_type="VARCHAR", description="Cohort ID for this week")]
-    league_tier: Annotated[int | None, Field(db_type="INTEGER", description="League tier (0=Bronze ... 9=Diamond)")] = None
-    league_name: Annotated[str | None, Field(db_type="VARCHAR", description="Human-readable league name")] = None
-    rank: Annotated[int | None, Field(db_type="INTEGER", description="User's rank in cohort")] = None
-    weekly_xp: Annotated[int | None, Field(db_type="INTEGER", description="XP earned this week")] = None
-    cohort_size: Annotated[int | None, Field(db_type="INTEGER", description="Number of users in cohort")] = None
-    cohort_end: Annotated[str | None, Field(db_type="TIMESTAMP", description="Cohort end time (UTC)")] = None
+    cohort_id: Annotated[str, Field(db_type="VARCHAR", description="Cohort ID for this week", display_name="Cohort ID")]
+    league_tier: Annotated[
+        int | None, Field(db_type="INTEGER", description="League tier (0=Bronze ... 9=Diamond)", display_name="League Tier")
+    ] = None
+    league_name: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Human-readable league name", display_name="League Name")
+    ] = None
+    rank: Annotated[int | None, Field(db_type="INTEGER", description="User's rank in cohort", display_name="Rank")] = None
+    weekly_xp: Annotated[int | None, Field(db_type="INTEGER", description="XP earned this week", display_name="Weekly XP")] = (
+        None
+    )
+    cohort_size: Annotated[
+        int | None, Field(db_type="INTEGER", description="Number of users in cohort", display_name="Cohort Size")
+    ] = None
+    cohort_end: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Cohort end time (UTC)", display_name="Cohort End")
+    ] = None
 
     LEAGUE_NAMES: ClassVar[tuple[str, ...]] = (
         "Bronze",
@@ -262,13 +304,23 @@ class Friends(SnapshotTable):
         description = "Users this user follows; flagged is_follower if mutual."
         pk = ("user_id",)
 
-    user_id: Annotated[int, Field(db_type="BIGINT", description="Friend's user ID")]
-    username: Annotated[str | None, Field(db_type="VARCHAR", description="Friend's username")] = None
-    display_name_: Annotated[str | None, Field(db_type="VARCHAR", description="Friend's display name")] = None
-    total_xp: Annotated[int | None, Field(db_type="INTEGER", description="Friend's lifetime XP")] = None
-    streak: Annotated[int | None, Field(db_type="INTEGER", description="Friend's current streak")] = None
-    has_subscription: Annotated[bool, Field(db_type="BOOLEAN", description="Friend has Super")] = False
-    is_follower: Annotated[bool, Field(db_type="BOOLEAN", description="Friend also follows back")] = False
+    user_id: Annotated[int, Field(db_type="BIGINT", description="Friend's user ID", display_name="User ID")]
+    username: Annotated[str | None, Field(db_type="VARCHAR", description="Friend's username", display_name="Username")] = None
+    display_name_: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Friend's display name", display_name="Display Name")
+    ] = None
+    total_xp: Annotated[int | None, Field(db_type="INTEGER", description="Friend's lifetime XP", display_name="Total XP")] = (
+        None
+    )
+    streak: Annotated[int | None, Field(db_type="INTEGER", description="Friend's current streak", display_name="Streak")] = (
+        None
+    )
+    has_subscription: Annotated[bool, Field(db_type="BOOLEAN", description="Friend has Super", display_name="Has Super")] = (
+        False
+    )
+    is_follower: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Friend also follows back", display_name="Follows Back")
+    ] = False
 
     @classmethod
     def extract(cls, client: DuolingoClient, **_: Any) -> Iterator[dict[str, Any]]:

@@ -128,17 +128,19 @@ class Commands(EventTable):
 
     time_at: ClassVar[str] = "executed_at"
 
-    id: Annotated[str, Field(db_type="VARCHAR", description="Content-hash ID (sha256[:16])")] = ""
-    command: Annotated[str, Field(db_type="VARCHAR", description="The shell command")] = ""
+    id: Annotated[str, Field(db_type="VARCHAR", description="Content-hash ID (sha256[:16])", display_name="ID")] = ""
+    command: Annotated[str, Field(db_type="VARCHAR", description="The shell command", display_name="Command")] = ""
     executed_at: Annotated[
         str | None,
-        Field(db_type="TIMESTAMP", description="Command execution timestamp (UTC)"),
+        Field(db_type="TIMESTAMP", description="Command execution timestamp (UTC)", display_name="Executed At"),
     ] = None
     duration_s: Annotated[
         float | None,
-        Field(db_type="DOUBLE", description="Command duration (zsh extended history only)", unit="s"),
+        Field(db_type="DOUBLE", description="Command duration (zsh extended history only)", display_name="Duration", unit="s"),
     ] = None
-    shell: Annotated[str | None, Field(db_type="VARCHAR", description="Shell type (bash, zsh, fish)")] = None
+    shell: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Shell type (bash, zsh, fish)", display_name="Shell")
+    ] = None
 
     @classmethod
     def extract(cls, client: str, **_: Any) -> Iterator[dict[str, Any]]:

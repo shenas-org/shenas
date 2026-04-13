@@ -67,6 +67,7 @@ class Field:
 
     db_type: str
     description: str
+    display_name: str | None = None
     unit: str | None = None
     value_range: tuple[float, float] | None = None
     example_value: float | str | None = None

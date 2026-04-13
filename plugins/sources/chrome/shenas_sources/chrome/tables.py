@@ -91,25 +91,31 @@ class Visits(IntervalTable):
     time_end: ClassVar[str] = "end_time"
     cursor_column: ClassVar[str] = "visit_time"
 
-    id: Annotated[int, Field(db_type="BIGINT", description="Chrome visit ID")] = 0
-    url: Annotated[str, Field(db_type="VARCHAR", description="Full URL of the visited page")] = ""
-    title: Annotated[str | None, Field(db_type="VARCHAR", description="Page title")] = None
-    visit_time: Annotated[str | None, Field(db_type="TIMESTAMP", description="Visit start timestamp (UTC)")] = None
+    id: Annotated[int, Field(db_type="BIGINT", description="Chrome visit ID", display_name="Visit ID")] = 0
+    url: Annotated[str, Field(db_type="VARCHAR", description="Full URL of the visited page", display_name="URL")] = ""
+    title: Annotated[str | None, Field(db_type="VARCHAR", description="Page title", display_name="Page Title")] = None
+    visit_time: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Visit start timestamp (UTC)", display_name="Visit Time")
+    ] = None
     end_time: Annotated[
         str | None,
-        Field(db_type="TIMESTAMP", description="Visit end timestamp (start + duration, UTC)"),
+        Field(db_type="TIMESTAMP", description="Visit end timestamp (start + duration, UTC)", display_name="End Time"),
     ] = None
     visit_duration_s: Annotated[
         float | None,
-        Field(db_type="DOUBLE", description="Time spent on page", unit="s"),
+        Field(db_type="DOUBLE", description="Time spent on page", display_name="Visit Duration", unit="s"),
     ] = None
     transition: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="How the user navigated here (link, typed, reload, ...)"),
+        Field(
+            db_type="VARCHAR",
+            description="How the user navigated here (link, typed, reload, ...)",
+            display_name="Navigation Type",
+        ),
     ] = None
     from_visit_id: Annotated[
         int | None,
-        Field(db_type="BIGINT", description="Visit ID of the referring page (0 if none)"),
+        Field(db_type="BIGINT", description="Visit ID of the referring page (0 if none)", display_name="Referring Visit ID"),
     ] = None
 
     @classmethod
@@ -161,24 +167,44 @@ class Downloads(IntervalTable):
     time_end: ClassVar[str] = "end_time"
     cursor_column: ClassVar[str] = "start_time"
 
-    id: Annotated[int, Field(db_type="BIGINT", description="Chrome download ID")] = 0
-    tab_url: Annotated[str | None, Field(db_type="VARCHAR", description="URL of the tab that initiated the download")] = None
+    id: Annotated[int, Field(db_type="BIGINT", description="Chrome download ID", display_name="Download ID")] = 0
+    tab_url: Annotated[
+        str | None, Field(db_type="VARCHAR", description="URL of the tab that initiated the download", display_name="Tab URL")
+    ] = None
     target_path: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Local file path where the download was saved"),
+        Field(db_type="VARCHAR", description="Local file path where the download was saved", display_name="Target Path"),
     ] = None
-    start_time: Annotated[str | None, Field(db_type="TIMESTAMP", description="Download start timestamp (UTC)")] = None
-    end_time: Annotated[str | None, Field(db_type="TIMESTAMP", description="Download end timestamp (UTC)")] = None
-    total_bytes: Annotated[int | None, Field(db_type="BIGINT", description="Total file size", unit="bytes")] = None
-    received_bytes: Annotated[int | None, Field(db_type="BIGINT", description="Bytes received so far", unit="bytes")] = None
+    start_time: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Download start timestamp (UTC)", display_name="Start Time")
+    ] = None
+    end_time: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Download end timestamp (UTC)", display_name="End Time")
+    ] = None
+    total_bytes: Annotated[
+        int | None, Field(db_type="BIGINT", description="Total file size", display_name="Total Size", unit="bytes")
+    ] = None
+    received_bytes: Annotated[
+        int | None, Field(db_type="BIGINT", description="Bytes received so far", display_name="Received Bytes", unit="bytes")
+    ] = None
     state: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Download state (complete, cancelled, interrupted, in_progress)"),
+        Field(
+            db_type="VARCHAR",
+            description="Download state (complete, cancelled, interrupted, in_progress)",
+            display_name="State",
+        ),
     ] = None
-    mime_type: Annotated[str | None, Field(db_type="VARCHAR", description="MIME type of the downloaded file")] = None
+    mime_type: Annotated[
+        str | None, Field(db_type="VARCHAR", description="MIME type of the downloaded file", display_name="MIME Type")
+    ] = None
     original_mime_type: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Original MIME type before any content-type sniffing"),
+        Field(
+            db_type="VARCHAR",
+            description="Original MIME type before any content-type sniffing",
+            display_name="Original MIME Type",
+        ),
     ] = None
 
     @classmethod
@@ -228,17 +254,23 @@ class SearchTerms(EventTable):
 
     time_at: ClassVar[str] = "last_visit_time"
 
-    url_id: Annotated[int, Field(db_type="BIGINT", description="Chrome URL ID linking to the search result page")] = 0
-    term: Annotated[str, Field(db_type="VARCHAR", description="The search query text")] = ""
+    url_id: Annotated[
+        int, Field(db_type="BIGINT", description="Chrome URL ID linking to the search result page", display_name="URL ID")
+    ] = 0
+    term: Annotated[str, Field(db_type="VARCHAR", description="The search query text", display_name="Search Term")] = ""
     normalized_term: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Lowercased/normalized form of the search term"),
+        Field(db_type="VARCHAR", description="Lowercased/normalized form of the search term", display_name="Normalized Term"),
     ] = None
-    url: Annotated[str | None, Field(db_type="VARCHAR", description="URL of the search result page")] = None
-    title: Annotated[str | None, Field(db_type="VARCHAR", description="Title of the search result page")] = None
+    url: Annotated[str | None, Field(db_type="VARCHAR", description="URL of the search result page", display_name="URL")] = (
+        None
+    )
+    title: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Title of the search result page", display_name="Page Title")
+    ] = None
     last_visit_time: Annotated[
         str | None,
-        Field(db_type="TIMESTAMP", description="Last time this search URL was visited (UTC)"),
+        Field(db_type="TIMESTAMP", description="Last time this search URL was visited (UTC)", display_name="Last Visit Time"),
     ] = None
 
     @classmethod

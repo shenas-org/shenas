@@ -36,13 +36,17 @@ class Books(DimensionTable):
         description = "Book metadata scraped from Goodreads RSS feeds."
         pk = ("book_id",)
 
-    book_id: Annotated[str, Field(db_type="VARCHAR", description="Goodreads Book ID")]
-    title: Annotated[str | None, Field(db_type="VARCHAR", description="Book title")] = None
-    author: Annotated[str | None, Field(db_type="VARCHAR", description="Primary author")] = None
-    isbn: Annotated[str | None, Field(db_type="VARCHAR", description="ISBN")] = None
-    num_pages: Annotated[int | None, Field(db_type="INTEGER", description="Number of pages")] = None
-    year_published: Annotated[int | None, Field(db_type="INTEGER", description="Year published")] = None
-    average_rating: Annotated[float | None, Field(db_type="DOUBLE", description="Goodreads average rating")] = None
+    book_id: Annotated[str, Field(db_type="VARCHAR", description="Goodreads Book ID", display_name="Book ID")]
+    title: Annotated[str | None, Field(db_type="VARCHAR", description="Book title", display_name="Title")] = None
+    author: Annotated[str | None, Field(db_type="VARCHAR", description="Primary author", display_name="Author")] = None
+    isbn: Annotated[str | None, Field(db_type="VARCHAR", description="ISBN", display_name="ISBN")] = None
+    num_pages: Annotated[int | None, Field(db_type="INTEGER", description="Number of pages", display_name="Page Count")] = None
+    year_published: Annotated[
+        int | None, Field(db_type="INTEGER", description="Year published", display_name="Year Published")
+    ] = None
+    average_rating: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Goodreads average rating", display_name="Average Rating")
+    ] = None
 
     @classmethod
     def extract(cls, client: Any, *, entries: list[dict[str, Any]] | None = None, **_: Any) -> Iterator[dict[str, Any]]:  # noqa: ARG003
@@ -78,18 +82,24 @@ class Readings(EventTable):
 
     time_at: ClassVar[str] = "date_read"
 
-    book_id: Annotated[str, Field(db_type="VARCHAR", description="Goodreads Book ID")]
-    date_read: Annotated[str | None, Field(db_type="DATE", description="Date the book was finished")] = None
-    date_added: Annotated[str | None, Field(db_type="DATE", description="Date added to Goodreads")] = None
+    book_id: Annotated[str, Field(db_type="VARCHAR", description="Goodreads Book ID", display_name="Book ID")]
+    date_read: Annotated[
+        str | None, Field(db_type="DATE", description="Date the book was finished", display_name="Date Read")
+    ] = None
+    date_added: Annotated[
+        str | None, Field(db_type="DATE", description="Date added to Goodreads", display_name="Date Added")
+    ] = None
     my_rating: Annotated[
         int | None,
-        Field(db_type="INTEGER", description="Personal rating", value_range=(0, 5)),
+        Field(db_type="INTEGER", description="Personal rating", display_name="My Rating", value_range=(0, 5)),
     ] = None
     exclusive_shelf: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Shelf (read, currently-reading, to-read)"),
+        Field(db_type="VARCHAR", description="Shelf (read, currently-reading, to-read)", display_name="Shelf"),
     ] = None
-    my_review: Annotated[str | None, Field(db_type="VARCHAR", description="Personal review text")] = None
+    my_review: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Personal review text", display_name="My Review")
+    ] = None
 
     @classmethod
     def extract(cls, client: Any, *, entries: list[dict[str, Any]] | None = None, **_: Any) -> Iterator[dict[str, Any]]:  # noqa: ARG003
@@ -118,14 +128,14 @@ class Shelves(SnapshotTable):
         description = "Current shelf assignment for each book."
         pk = ("book_id",)
 
-    book_id: Annotated[str, Field(db_type="VARCHAR", description="Goodreads Book ID")]
+    book_id: Annotated[str, Field(db_type="VARCHAR", description="Goodreads Book ID", display_name="Book ID")]
     exclusive_shelf: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Exclusive shelf (read, currently-reading, to-read)"),
+        Field(db_type="VARCHAR", description="Exclusive shelf (read, currently-reading, to-read)", display_name="Shelf"),
     ] = None
     user_shelves: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="All shelves (comma-separated, includes custom)"),
+        Field(db_type="VARCHAR", description="All shelves (comma-separated, includes custom)", display_name="User Shelves"),
     ] = None
 
     @classmethod

@@ -3,8 +3,8 @@ from typing import Annotated
 from app.table import Field
 from shenas_datasets.core import DailyMetricTable
 
-Date = Annotated[str, Field(db_type="DATE", description="Calendar date", category="time")]
-Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier (e.g. obsidian)")]
+Date = Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date", category="time")]
+Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier (e.g. obsidian)", display_name="Source")]
 
 
 class DailyOutcome(DailyMetricTable):
@@ -24,6 +24,7 @@ class DailyOutcome(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Overall mood rating for the day",
+                display_name="Mood",
                 value_range=(0, 9),
                 example_value=7,
                 category="wellbeing",
@@ -38,6 +39,7 @@ class DailyOutcome(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Perceived stress level for the day",
+                display_name="Stress",
                 value_range=(0, 9),
                 example_value=4,
                 category="wellbeing",
@@ -52,6 +54,7 @@ class DailyOutcome(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Self-assessed productivity rating",
+                display_name="Productivity",
                 value_range=(0, 9),
                 example_value=6,
                 category="performance",
@@ -66,6 +69,7 @@ class DailyOutcome(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Exercise performed (1 = yes, 0 = no, or intensity rating)",
+                display_name="Exercise",
                 value_range=(0, 9),
                 example_value=1,
                 category="health",
@@ -80,6 +84,7 @@ class DailyOutcome(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Social interaction with friends (0 = none, higher = more)",
+                display_name="Friends",
                 value_range=(0, 9),
                 example_value=3,
                 category="social",
@@ -94,6 +99,7 @@ class DailyOutcome(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Time or interaction with family",
+                display_name="Family",
                 value_range=(0, 9),
                 example_value=2,
                 category="social",
@@ -108,6 +114,7 @@ class DailyOutcome(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Quality time or interaction with partner",
+                display_name="Partner",
                 value_range=(0, 9),
                 example_value=4,
                 category="social",
@@ -122,6 +129,7 @@ class DailyOutcome(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Time spent learning or studying",
+                display_name="Learning",
                 value_range=(0, 9),
                 example_value=2,
                 category="growth",
@@ -136,6 +144,7 @@ class DailyOutcome(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Career-focused activity or progress",
+                display_name="Career",
                 value_range=(0, 9),
                 example_value=5,
                 category="growth",
@@ -150,6 +159,7 @@ class DailyOutcome(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Rosacea skin condition severity",
+                display_name="Rosacea",
                 value_range=(0, 9),
                 example_value=2,
                 category="health",
@@ -164,6 +174,7 @@ class DailyOutcome(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Left ankle pain or condition level",
+                display_name="Left Ankle",
                 value_range=(0, 9),
                 example_value=1,
                 category="health",
@@ -178,6 +189,7 @@ class DailyOutcome(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Duolingo XP earned today",
+                display_name="Daily Duolingo XP",
                 unit="xp",
                 value_range=(0, 5000),
                 example_value=150,
