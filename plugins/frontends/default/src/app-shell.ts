@@ -86,6 +86,7 @@ class ShenasApp extends LitElement {
     _inspectTable: { state: true },
     _inspectRows: { state: true },
     _catalogDetail: { state: true },
+    _rightPanelComponent: { state: true },
     _paletteOpen: { state: true },
     _paletteCommands: { state: true },
     _navPaletteOpen: { state: true },
@@ -112,6 +113,7 @@ class ShenasApp extends LitElement {
   declare _inspectTable: string | null;
   declare _inspectRows: Record<string, unknown>[] | null;
   declare _catalogDetail: Record<string, unknown> | null;
+  declare _rightPanelComponent: HTMLElement | null;
   declare _paletteOpen: boolean;
   declare _paletteCommands: Command[];
   declare _navPaletteOpen: boolean;
@@ -679,6 +681,7 @@ class ShenasApp extends LitElement {
     this._inspectTable = null;
     this._inspectRows = null;
     this._catalogDetail = null;
+    this._rightPanelComponent = null;
     this._paletteOpen = false;
     this._paletteCommands = [];
     this._navPaletteOpen = false;
@@ -707,11 +710,23 @@ class ShenasApp extends LitElement {
       this._inspect(e.detail.schema, e.detail.table)) as unknown as EventListener);
     this.addEventListener("show-resource", ((e: CustomEvent) => {
       this._catalogDetail = e.detail;
+      this._rightPanelComponent = null;
       this._inspectTable = null;
       this._inspectRows = null;
       this._rightOpen = true;
       this._rightWidth = Math.max(this._rightWidth, 400);
     }) as unknown as EventListener);
+    this.addEventListener("show-panel", ((e: CustomEvent) => {
+      this._rightPanelComponent = e.detail.component as HTMLElement;
+      this._catalogDetail = null;
+      this._inspectTable = null;
+      this._inspectRows = null;
+      this._rightOpen = true;
+      this._rightWidth = Math.max(this._rightWidth, e.detail.width || 380);
+    }) as unknown as EventListener);
+    this.addEventListener("close-panel", (() => {
+      this._rightPanelComponent = null;
+    }) as EventListener);
     this.addEventListener("page-title", ((e: CustomEvent) => {
       if (this._activeTabId != null) {
         this._tabs = this._tabs.map((t) => (t.id === this._activeTabId ? { ...t, label: e.detail.title } : t));
@@ -1473,7 +1488,11 @@ class ShenasApp extends LitElement {
           class="panel-right ${this._rightOpen ? "" : "collapsed"} ${this._mobileDrawerOpen ? "mobile-open" : ""}"
           style="width: ${this._rightWidth}px"
         >
-          ${this._catalogDetail ? this._renderCatalogDetail() : this._renderDbStats()}
+          ${this._rightPanelComponent
+            ? this._rightPanelComponent
+            : this._catalogDetail
+              ? this._renderCatalogDetail()
+              : this._renderDbStats()}
         </div>
         <div class="bottom-nav">
           <nav>
