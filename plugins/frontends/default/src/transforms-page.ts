@@ -333,16 +333,89 @@ class TransformsPage extends LitElement {
     );
     this._dbTables = (data?.dbTables as Record<string, string[]>) || {};
     this._schemaTables = (data?.schemaTables as Record<string, string[]>) || {};
-    this.requestUpdate();
+    // Show create form in app-shell's right panel
+    this._showCreatePanel();
   }
 
   _cancelCreate(): void {
     this._creating = false;
     this._newForm = this._emptyForm();
+    this._panelEl = null;
+    this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
   }
 
   _updateNewForm(field: keyof TransformForm, value: string): void {
     this._newForm = { ...this._newForm, [field]: value };
+    // Re-render the panel if open
+    if (this._creating && this._panelEl) this._showCreatePanel();
+  }
+
+  private _panelEl: HTMLElement | null = null;
+
+  _showCreatePanel(): void {
+    const pipe = this.source;
+    const f = this._newForm;
+    const sourceTables = this._dbTables[pipe] || [];
+    const allSchemaTables = Object.values(this._schemaTables || {}).flat();
+
+    if (!this._panelEl) {
+      this._panelEl = document.createElement("div");
+      this._panelEl.style.padding = "1rem";
+    }
+    const panel = this._panelEl;
+    panel.innerHTML = `
+      <h3 style="margin:0 0 1rem;font-size:1rem">New transform</h3>
+      <div style="display:flex;flex-direction:column;gap:0.8rem">
+        <label style="display:flex;flex-direction:column;gap:0.2rem;font-size:0.85rem">
+          Pipe table
+          <select id="src-table" style="padding:0.4rem;border:1px solid #ddd;border-radius:4px">
+            <option value="">-- select --</option>
+            ${sourceTables.map((t) => `<option value="${t}" ${f.source_duckdb_table === t ? "selected" : ""}>${t}</option>`).join("")}
+          </select>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:0.2rem;font-size:0.85rem">
+          Schema table
+          <select id="tgt-table" style="padding:0.4rem;border:1px solid #ddd;border-radius:4px">
+            <option value="">-- select --</option>
+            ${allSchemaTables.map((t) => `<option value="${t}" ${f.target_duckdb_table === t ? "selected" : ""}>${t}</option>`).join("")}
+          </select>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:0.2rem;font-size:0.85rem">
+          Description
+          <input id="desc" value="${f.description}" style="padding:0.4rem;border:1px solid #ddd;border-radius:4px" />
+        </label>
+        <label style="display:flex;flex-direction:column;gap:0.2rem;font-size:0.85rem">
+          SQL
+          <textarea id="sql" rows="6" style="padding:0.4rem;border:1px solid #ddd;border-radius:4px;font-family:monospace;font-size:0.85rem" placeholder="SELECT ... FROM ${pipe}.${f.source_duckdb_table || "table_name"}">${f.sql}</textarea>
+        </label>
+        <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+          <button id="create-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Create</button>
+          <button id="cancel-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Cancel</button>
+        </div>
+      </div>
+    `;
+    panel
+      .querySelector("#src-table")
+      ?.addEventListener("change", (e) =>
+        this._updateNewForm("source_duckdb_table", (e.target as HTMLSelectElement).value),
+      );
+    panel
+      .querySelector("#tgt-table")
+      ?.addEventListener("change", (e) =>
+        this._updateNewForm("target_duckdb_table", (e.target as HTMLSelectElement).value),
+      );
+    panel
+      .querySelector("#desc")
+      ?.addEventListener("input", (e) => this._updateNewForm("description", (e.target as HTMLInputElement).value));
+    panel
+      .querySelector("#sql")
+      ?.addEventListener("input", (e) => this._updateNewForm("sql", (e.target as HTMLTextAreaElement).value));
+    panel.querySelector("#create-btn")?.addEventListener("click", () => this._saveCreate());
+    panel.querySelector("#cancel-btn")?.addEventListener("click", () => this._cancelCreate());
+
+    this.dispatchEvent(
+      new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 420 } }),
+    );
   }
 
   async _saveCreate(): Promise<void> {
@@ -370,6 +443,8 @@ class TransformsPage extends LitElement {
       this._message = { type: "success", text: "Transform created" };
       this._creating = false;
       this._newForm = this._emptyForm();
+      this._panelEl = null;
+      this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
       await this._fetchAll();
     } else {
       this._message = { type: "error", text: (data?.detail as string) || "Create failed" };
@@ -395,78 +470,65 @@ class TransformsPage extends LitElement {
   render() {
     if (this._loading) return html``;
     return html`
-      <div style="display:flex;gap:1.5rem">
-        <div style="flex:1;min-width:0">
-          ${renderMessage(this._message)} ${this._editing ? this._renderEditor() : ""}
-          <shenas-data-list
-            ?show-add=${!this._creating && !this._editing}
-            @add=${this._startCreate}
-            .columns=${[
-              { key: "id", label: "ID", class: "muted" },
-              {
-                label: "Source",
-                class: "mono",
-                render: (t: Transform) =>
-                  html`${t.source.schemaName}.${t.source.tableName}
-                    <button
-                      style=${_inspectBtnStyle}
-                      title="Inspect table"
-                      @click=${() => this._inspectTable(t.source.schemaName, t.source.tableName)}
-                    >
-                      &#9655;
-                    </button>`,
-              },
-              {
-                label: "Target",
-                class: "mono",
-                render: (t: Transform) =>
-                  html`${t.target.schemaName}.${t.target.tableName}
-                    <button
-                      style=${_inspectBtnStyle}
-                      title="Inspect table"
-                      @click=${() => this._inspectTable(t.target.schemaName, t.target.tableName)}
-                    >
-                      &#9655;
-                    </button>`,
-              },
-              {
-                label: "Description",
-                render: (t: Transform) =>
-                  html`${t.description || ""}${t.isDefault
-                    ? html`<span
-                        style="font-size:0.75rem;color:var(--shenas-text-muted, #888);background:var(--shenas-border-light, #f0f0f0);padding:1px 5px;border-radius:3px;margin-left:4px"
-                        >default</span
-                      >`
-                    : ""}`,
-              },
-              {
-                label: "Status",
-                render: (t: Transform) =>
-                  html`<status-toggle
-                    ?enabled=${t.enabled}
-                    toggleable
-                    @toggle=${() => this._toggle(t)}
-                  ></status-toggle>`,
-              },
-            ]}
-            .rows=${this._transforms}
-            .rowClass=${(t: Transform) => (t.enabled ? "" : "disabled-row")}
-            .actions=${(t: Transform) => html`
-              ${!t.isDefault
-                ? html`<button @click=${() => this._startEdit(t)}>Edit</button>`
-                : html`<button @click=${() => this._startEdit(t)}>View</button>`}
-              ${!t.isDefault ? html`<button class="danger" @click=${() => this._delete(t)}>Delete</button>` : ""}
-            `}
-            empty-text="No transforms"
-          ></shenas-data-list>
-        </div>
-        ${this._creating
-          ? html`<div
-              style="width:380px;flex-shrink:0;border-left:1px solid var(--shenas-border-light,#e8e8e8);padding-left:1.5rem"
-            >
-              ${this._renderCreateForm()}
-            </div>`
-          : ""}
+      <div>
+        ${renderMessage(this._message)} ${this._editing ? this._renderEditor() : ""}
+        <shenas-data-list
+          ?show-add=${!this._creating && !this._editing}
+          @add=${this._startCreate}
+          .columns=${[
+            { key: "id", label: "ID", class: "muted" },
+            {
+              label: "Source",
+              class: "mono",
+              render: (t: Transform) =>
+                html`${t.source.schemaName}.${t.source.tableName}
+                  <button
+                    style=${_inspectBtnStyle}
+                    title="Inspect table"
+                    @click=${() => this._inspectTable(t.source.schemaName, t.source.tableName)}
+                  >
+                    &#9655;
+                  </button>`,
+            },
+            {
+              label: "Target",
+              class: "mono",
+              render: (t: Transform) =>
+                html`${t.target.schemaName}.${t.target.tableName}
+                  <button
+                    style=${_inspectBtnStyle}
+                    title="Inspect table"
+                    @click=${() => this._inspectTable(t.target.schemaName, t.target.tableName)}
+                  >
+                    &#9655;
+                  </button>`,
+            },
+            {
+              label: "Description",
+              render: (t: Transform) =>
+                html`${t.description || ""}${t.isDefault
+                  ? html`<span
+                      style="font-size:0.75rem;color:var(--shenas-text-muted, #888);background:var(--shenas-border-light, #f0f0f0);padding:1px 5px;border-radius:3px;margin-left:4px"
+                      >default</span
+                    >`
+                  : ""}`,
+            },
+            {
+              label: "Status",
+              render: (t: Transform) =>
+                html`<status-toggle ?enabled=${t.enabled} toggleable @toggle=${() => this._toggle(t)}></status-toggle>`,
+            },
+          ]}
+          .rows=${this._transforms}
+          .rowClass=${(t: Transform) => (t.enabled ? "" : "disabled-row")}
+          .actions=${(t: Transform) => html`
+            ${!t.isDefault
+              ? html`<button @click=${() => this._startEdit(t)}>Edit</button>`
+              : html`<button @click=${() => this._startEdit(t)}>View</button>`}
+            ${!t.isDefault ? html`<button class="danger" @click=${() => this._delete(t)}>Delete</button>` : ""}
+          `}
+          empty-text="No transforms"
+        ></shenas-data-list>
       </div>
     `;
   }
