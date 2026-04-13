@@ -693,7 +693,7 @@ class ShenasApp extends LitElement {
     this._tabs = [];
     this._activeTabId = null;
     this._allPlugins = {};
-    this._rightOpen = true;
+    this._rightOpen = false;
     this._mobileDrawerOpen = false;
     this._multiuserEnabled = false;
     this._localUser = null;
@@ -1813,25 +1813,53 @@ class ShenasApp extends LitElement {
   _renderDbStats() {
     const db = this._dbStatus;
     if (!db) return html`<p class="empty">No database</p>`;
+    const INTERNAL = new Set(["auth", "config", "shenas_system", "telemetry"]);
+    const perSource: { name: string; rows: number }[] = [];
+    for (const s of db.schemas || []) {
+      if (INTERNAL.has(s.name)) continue;
+      const total = s.tables.reduce((sum, t) => sum + (t.rows || 0), 0);
+      if (total > 0) perSource.push({ name: s.name, rows: total });
+    }
+    perSource.sort((a, b) => b.rows - a.rows);
+    const grandTotal = perSource.reduce((s, d) => s + d.rows, 0);
+    if (grandTotal === 0) return html`<p class="empty">No data synced yet</p>`;
+
+    const COLORS = [
+      "#728f67", "#a67c52", "#5b8fa8", "#c4956a", "#7a6f8e",
+      "#6b9e76", "#c07070", "#8faab5", "#b8a060", "#6d8b74",
+    ];
+    const cx = 80, cy = 80, r = 70;
+    let angle = -Math.PI / 2;
+    const arcs = perSource.map((d, i) => {
+      const frac = d.rows / grandTotal;
+      const start = angle;
+      angle += frac * 2 * Math.PI;
+      const end = angle;
+      const large = frac > 0.5 ? 1 : 0;
+      const x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start);
+      const x2 = cx + r * Math.cos(end), y2 = cy + r * Math.sin(end);
+      return { d: `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2} Z`, color: COLORS[i % COLORS.length], ...d };
+    });
+
     return html`
-      <div class="db-section">
-        <div class="db-meta">
-          ${db.size_mb != null ? html`<code>${db.size_mb} MB</code>` : html`<span>Not created</span>`}
+      <div style="padding:0.5rem;font-size:0.8rem">
+        <div style="text-align:center;color:var(--shenas-text-muted,#888);margin-bottom:0.3rem">
+          ${db.size_mb != null ? html`${db.size_mb} MB` : ""}
         </div>
-        ${(db.schemas || []).map(
-          (s) => html`
-            <h4>${s.name}</h4>
-            ${s.tables.map(
-              (t) => html`
-                <div class="db-table-row">
-                  <span class="db-table-name">${t.name}</span>
-                  <span class="db-table-count">${t.rows}</span>
-                </div>
-                ${t.earliest ? html`<span class="db-date-range">${t.earliest} - ${t.latest}</span>` : ""}
-              `,
-            )}
-          `,
-        )}
+        <svg viewBox="0 0 160 160" style="width:100%;max-width:160px;margin:0 auto;display:block">
+          ${arcs.map((a) => html`<path d="${a.d}" fill="${a.color}"><title>${a.name}: ${a.rows.toLocaleString()}</title></path>`)}
+        </svg>
+        <div style="margin-top:0.6rem">
+          ${arcs.map(
+            (a) => html`
+              <div style="display:flex;align-items:center;gap:0.4rem;padding:0.15rem 0;font-size:0.75rem">
+                <span style="width:8px;height:8px;border-radius:2px;background:${a.color};flex-shrink:0"></span>
+                <span style="flex:1;color:var(--shenas-text,#222)">${a.name}</span>
+                <span style="color:var(--shenas-text-muted,#888)">${a.rows.toLocaleString()}</span>
+              </div>
+            `,
+          )}
+        </div>
       </div>
     `;
   }
