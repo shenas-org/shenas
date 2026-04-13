@@ -76,22 +76,53 @@ def _record_usage(user_id: str, input_tokens: int, output_tokens: int) -> None:
 @router.post("/messages", response_model=None)
 async def proxy_messages(request: Request) -> StreamingResponse | dict:
     """Proxy a request to Anthropic's /v1/messages endpoint."""
+    import json
+    import time
+
     if not ANTHROPIC_API_KEY:
+        log.warning("LLM proxy called but ANTHROPIC_API_KEY not configured")
         raise HTTPException(status_code=503, detail="LLM service not configured")
 
     user = await _require_user(request)
     user_id = user["id"]
+    email = user.get("email", "unknown")
 
     # Check usage limit
     used, limit = _get_monthly_usage(user_id)
     if used >= limit:
+        log.warning("Rate limit hit for %s: %d/%d tokens used", email, used, limit)
         raise HTTPException(
             status_code=429,
             detail=f"Monthly token limit reached ({used:,}/{limit:,}). Upgrade your plan.",
         )
 
     body = await request.body()
-    log.info("LLM proxy request from %s (usage %d/%d)", user.get("email"), used, limit)
+
+    # Parse request for logging (model, tool names, message length)
+    try:
+        req_data = json.loads(body)
+        model = req_data.get("model", "unknown")
+        max_tokens = req_data.get("max_tokens", "?")
+        tools = [t.get("name", "?") for t in req_data.get("tools", [])]
+        tool_choice = req_data.get("tool_choice", {})
+        forced_tool = tool_choice.get("name", "") if isinstance(tool_choice, dict) else ""
+        msg_chars = sum(len(str(m.get("content", ""))) for m in req_data.get("messages", []))
+        sys_chars = len(str(req_data.get("system", "")))
+    except Exception:
+        model, max_tokens, tools, forced_tool, msg_chars, sys_chars = "?", "?", [], "", 0, 0
+
+    log.info(
+        "LLM request: user=%s model=%s max_tokens=%s tools=[%s] forced=%s system=%d chars messages=%d chars (usage %d/%d)",
+        email,
+        model,
+        max_tokens,
+        ", ".join(tools),
+        forced_tool or "-",
+        sys_chars,
+        msg_chars,
+        used,
+        limit,
+    )
 
     # Forward to Anthropic
     headers = {
@@ -100,12 +131,23 @@ async def proxy_messages(request: Request) -> StreamingResponse | dict:
         "content-type": "application/json",
     }
 
-    async with httpx.AsyncClient(timeout=120) as client:
-        resp = await client.post(
-            f"{ANTHROPIC_BASE}/v1/messages",
-            content=body,
-            headers=headers,
-        )
+    start = time.monotonic()
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            resp = await client.post(
+                f"{ANTHROPIC_BASE}/v1/messages",
+                content=body,
+                headers=headers,
+            )
+    except httpx.TimeoutException:
+        elapsed = (time.monotonic() - start) * 1000
+        log.error("LLM request timed out after %.0fms for %s", elapsed, email)
+        raise HTTPException(status_code=504, detail="LLM request timed out")
+    except httpx.ConnectError as exc:
+        log.error("LLM connection failed for %s: %s", email, exc)
+        raise HTTPException(status_code=502, detail="Failed to connect to LLM provider")
+
+    elapsed = (time.monotonic() - start) * 1000
 
     # Record usage from response
     if resp.status_code == 200:
@@ -114,10 +156,39 @@ async def proxy_messages(request: Request) -> StreamingResponse | dict:
             usage = data.get("usage", {})
             input_t = usage.get("input_tokens", 0)
             output_t = usage.get("output_tokens", 0)
+            cache_read = usage.get("cache_read_input_tokens", 0)
+            cache_create = usage.get("cache_creation_input_tokens", 0)
+            stop = data.get("stop_reason", "?")
+            tool_calls = [b.get("name", "?") for b in data.get("content", []) if b.get("type") == "tool_use"]
             _record_usage(user_id, input_t, output_t)
-            log.info("LLM response: %d input + %d output tokens", input_t, output_t)
+            log.info(
+                "LLM response: %d input + %d output tokens (cache read=%d create=%d) stop=%s tools_called=[%s] %.0fms user=%s",
+                input_t,
+                output_t,
+                cache_read,
+                cache_create,
+                stop,
+                ", ".join(tool_calls),
+                elapsed,
+                email,
+            )
         except Exception:
-            log.warning("Failed to parse LLM usage from response")
+            log.warning("LLM response 200 but failed to parse usage (%.0fms)", elapsed)
+    else:
+        # Log error responses
+        error_body = ""
+        try:
+            error_data = resp.json()
+            error_body = error_data.get("error", {}).get("message", resp.text[:200])
+        except Exception:
+            error_body = resp.text[:200]
+        log.error(
+            "LLM error: status=%d %.0fms user=%s error=%s",
+            resp.status_code,
+            elapsed,
+            email,
+            error_body,
+        )
 
     return StreamingResponse(
         content=iter([resp.content]),
@@ -131,6 +202,7 @@ async def get_usage(request: Request) -> dict:
     """Return the current user's LLM usage for this month."""
     user = await _require_user(request)
     used, limit = _get_monthly_usage(user["id"])
+    log.info("Usage query: %s %d/%d tokens", user.get("email"), used, limit)
     return {
         "tokens_used": used,
         "monthly_limit": limit,
