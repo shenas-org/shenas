@@ -1,0 +1,36 @@
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Copy workspace root and all packages needed for the headless worker
+COPY pyproject.toml uv.lock ./
+COPY app/ app/
+COPY plugins/ plugins/
+
+# Install everything in a single layer
+ARG VERSION=0.0.0
+RUN uv sync --frozen --no-dev --no-editable \
+    && uv pip install --system --no-cache .
+
+# ---
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Create data directory for DuckDB
+RUN mkdir -p /app/data
+
+# Default: run headless with plain HTTP on port 7280
+ENV SHENAS_HEADLESS=1
+ENV SHENAS_SYNC_INTERVAL=300
+
+EXPOSE 7280
+
+CMD ["shenas", "serve", "--headless", "--no-tls", "--host", "0.0.0.0"]
