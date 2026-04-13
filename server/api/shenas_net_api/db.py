@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT,
     picture TEXT,
     google_id TEXT UNIQUE,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -79,3 +80,11 @@ def get_conn() -> psycopg.Connection:
 def ensure_schema() -> None:
     with get_conn() as conn:
         conn.execute(_SCHEMA)
+        # Migration: add is_admin column if missing (existing DBs)
+        conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE")
+        # Promote the first registered user to admin
+        conn.execute(
+            "UPDATE users SET is_admin = TRUE"
+            " WHERE id = (SELECT id FROM users ORDER BY created_at LIMIT 1)"
+            " AND NOT EXISTS (SELECT 1 FROM users WHERE is_admin = TRUE)"
+        )

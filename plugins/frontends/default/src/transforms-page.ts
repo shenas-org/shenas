@@ -379,15 +379,6 @@ class TransformsPage extends LitElement {
     if (this._creating && this._panelEl) this._showCreatePanel();
   }
 
-  async _fetchColumns(schema: string, table: string): Promise<string[]> {
-    if (!schema || !table) return [];
-    const data = await gql(this.apiBase, `query($s: String!, $t: String!) { tableColumns(schema: $s, table: $t) }`, {
-      s: schema,
-      t: table,
-    });
-    return (data?.tableColumns as string[]) || [];
-  }
-
   private _panelEl: HTMLElement | null = null;
 
   _showCreatePanel(): void {

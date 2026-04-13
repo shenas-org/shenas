@@ -64,6 +64,7 @@ class SettingsPage extends LitElement {
     allPlugins: { type: Object },
     schemaPlugins: { type: Object },
     remoteUser: { type: Object },
+    serverUrl: { type: String, attribute: "server-url" },
     deviceName: { type: String, attribute: "device-name" },
     multiuserEnabled: { type: Boolean },
     localUser: { type: Object },
@@ -287,6 +288,7 @@ class SettingsPage extends LitElement {
   declare allPlugins: Record<string, PluginSummary[]>;
   declare schemaPlugins: Record<string, string[]>;
   declare remoteUser: Record<string, unknown> | null;
+  declare serverUrl: string;
   declare deviceName: string;
   declare multiuserEnabled: boolean;
   declare localUser: { id: number; username: string } | null;
@@ -312,6 +314,7 @@ class SettingsPage extends LitElement {
     this.allPlugins = {};
     this.schemaPlugins = {};
     this.remoteUser = null;
+    this.serverUrl = "https://shenas.net";
     this.deviceName = "";
     this.multiuserEnabled = false;
     this.localUser = null;
@@ -734,7 +737,7 @@ class SettingsPage extends LitElement {
           </span>
         </div>
         <div class="profile-actions">
-          <button @click=${() => openExternal("https://shenas.net/dashboard")}>Dashboard</button>
+          <button @click=${() => openExternal(`${this.serverUrl}/dashboard`)}>Dashboard</button>
           <button
             class="danger"
             @click=${async () => {

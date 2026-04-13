@@ -9,18 +9,16 @@ from __future__ import annotations
 import abc
 import json
 import logging
-import os
 import urllib.error
 import urllib.request
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol
+
+from app.config import SHENAS_NET_URL
 
 if TYPE_CHECKING:
     from app.llm.models import Model
 
 log = logging.getLogger(f"shenas.{__name__}")
-
-SHENAS_NET_URL = os.environ.get("SHENAS_NET_URL", "https://shenas.net")
-
 
 # -- LLM provider protocol (tool-use interface) ----------------------------
 

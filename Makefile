@@ -63,7 +63,7 @@ api-dev:
 	cd server/api && uv pip install -e . --quiet && \
 		DATABASE_URL=postgres://postgres@localhost:5432/shenas_net \
 		LOCAL_PACKAGES_DIR=$(CURDIR)/packages \
-		uv run uvicorn shenas_net_api.main:app --reload --port 8000
+		uv run uvicorn shenas_net_api.main:app --reload --host 127.0.0.1 --port 8000
 
 plugins-build:
 	moon run :build --query "tag=plugin"
@@ -396,4 +396,4 @@ shenas-net-api-release:
 # ---------------------------------------------------------------------------
 
 shenas-net-dev:
-	cd server/shenas.net && npm install --silent && npm run dev
+	cd server/shenas.net && npm install --silent && npx astro dev --host 127.0.0.1

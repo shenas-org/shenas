@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Stre
 from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
+from app.config import SHENAS_NET_URL
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -314,8 +315,6 @@ async def stream_spans() -> StreamingResponse:
 # Remote auth (shenas.net login from the local app)
 # ---------------------------------------------------------------------------
 
-SHENAS_NET_URL = _os.environ.get("SHENAS_NET_URL", "https://shenas.net")
-
 
 @app.get("/api/auth/login")
 def remote_login(request: Request) -> RedirectResponse:
@@ -388,9 +387,11 @@ def remote_me() -> dict:
             verify=False,
             timeout=5,
         )
-        return resp.json()
+        data = resp.json()
+        data["server_url"] = SHENAS_NET_URL
+        return data
     except Exception:
-        return {"user": None}
+        return {"user": None, "server_url": SHENAS_NET_URL}
 
 
 # ---------------------------------------------------------------------------
