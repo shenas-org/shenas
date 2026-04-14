@@ -11,6 +11,7 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "itsdangerous>=2.2",
     "google-cloud-storage>=2.18",
+    "kubernetes>=31.0.0",
 ]
 
 [project.scripts]

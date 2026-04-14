@@ -15,6 +15,7 @@ spec:
       labels:
         app: shenas-net-api
     spec:
+      serviceAccountName: shenas-net-api
       containers:
         - name: shenas-net-api
           image: REGION-docker.pkg.dev/PROJECT_ID/shenas/shenas-net-api:latest

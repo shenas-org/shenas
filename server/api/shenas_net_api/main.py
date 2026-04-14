@@ -17,6 +17,7 @@ from shenas_net_api.literature import router as literature_router
 from shenas_net_api.llm import router as llm_router
 from shenas_net_api.packages import router as packages_router
 from shenas_net_api.relay import router as relay_router
+from shenas_net_api.workers import router as workers_router
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -45,6 +46,7 @@ app.include_router(devices_router, prefix="/api")
 app.include_router(literature_router, prefix="/api")
 app.include_router(llm_router, prefix="/api")
 app.include_router(relay_router, prefix="/api")
+app.include_router(workers_router, prefix="/api")
 app.include_router(packages_router)
 
 

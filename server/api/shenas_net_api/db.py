@@ -54,6 +54,14 @@ CREATE TABLE IF NOT EXISTS sync_cursors (
     PRIMARY KEY (device_id, peer_device_id)
 );
 
+CREATE TABLE IF NOT EXISTS workers (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    deployment_name TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS llm_usage (
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     month TEXT NOT NULL,
