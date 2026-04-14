@@ -55,6 +55,7 @@ class CommandPalette extends LitElement {
       color: var(--shenas-text-faint, #aaa);
       font-size: 0.9rem;
       margin-right: 0.5rem;
+      text-decoration: none;
     }
     input {
       flex: 1;
@@ -64,6 +65,7 @@ class CommandPalette extends LitElement {
       outline: none;
       background: transparent;
       color: var(--shenas-text, #222);
+      text-decoration: none;
     }
     .hint {
       font-size: 0.7rem;
