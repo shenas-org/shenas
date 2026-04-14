@@ -10,4 +10,10 @@ declare module "shenas-frontends" {
   export function arrowToRows(table: Table): RowData[];
   export function arrowToColumns(table: Table): Record<string, ArrayLike<unknown>>;
   export function arrowDatesToUnix(arr: ArrayLike<unknown>): Float64Array;
+  export function getClient(apiBase?: string): {
+    query(opts: { query: unknown; variables?: Record<string, unknown>; fetchPolicy?: string }): Promise<{
+      data: Record<string, unknown>;
+    }>;
+  };
+  export function gqlTag(strings: TemplateStringsArray, ...values: unknown[]): unknown;
 }

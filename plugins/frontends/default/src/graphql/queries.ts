@@ -31,7 +31,83 @@ export const GET_PLUGIN_KINDS = gql`
   }
 `;
 
-// GET_ALL_PLUGINS and GET_APP_DATA are dynamic (built from pluginKinds), keep as string builders
+// --- Dynamic query builders (depend on discovered pluginKinds) ---
+// These build a DocumentNode from a runtime string. Apollo's gql tag only
+// accepts DocumentNode fragments as interpolation values, so we call it with
+// a single-element TemplateStringsArray containing the already-assembled query.
+
+const PLUGIN_FIELDS = `name displayName enabled syncedAt hasAuth isAuthenticated`;
+
+function dynamicGql(query: string) {
+  return gql(Object.assign([query], { raw: [query] }) as unknown as TemplateStringsArray);
+}
+
+export function buildAppDataQuery(kinds: { id: string }[]) {
+  const kindQueries = kinds.map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${PLUGIN_FIELDS} }`).join("\n    ");
+  return dynamicGql(`{
+    dashboards { name displayName tag js description }
+    hotkeys
+    workspace
+    dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } }
+    ${kindQueries}
+    theme { css }
+    deviceName
+    schemaPlugins
+  }`);
+}
+
+export function buildPluginStatsQuery(kinds: { id: string }[]) {
+  const kindQueries = kinds
+    .map(
+      ({ id }) =>
+        `p_${id}: plugins(kind: "${id}") { name displayName package version enabled description syncedAt hasAuth isAuthenticated }`,
+    )
+    .join("\n    ");
+  return dynamicGql(`{ ${kindQueries} dbStatus { schemas { name tables { name rows earliest latest } } } }`);
+}
+
+export const GET_PLUGIN_INFO = gql`
+  query GetPluginInfo($kind: String!, $name: String!) {
+    pluginInfo(kind: $kind, name: $name)
+  }
+`;
+
+export const GET_PLUGIN_INFO_WITH_TRANSFORMS = gql`
+  query GetPluginInfoWithTransforms($kind: String!, $name: String!) {
+    pluginInfo(kind: $kind, name: $name)
+    transforms {
+      id
+      source {
+        id
+        schemaName
+        tableName
+      }
+      target {
+        id
+        schemaName
+        tableName
+      }
+      sourcePlugin
+      description
+      enabled
+    }
+  }
+`;
+
+export const GET_TABLE_COLUMN_INFO = gql`
+  query GetTableColumnInfo($s: String!, $t: String!) {
+    tableColumnInfo(schema: $s, table: $t) {
+      name
+      dbType
+      description
+      unit
+      nullable
+      valueRange
+      exampleValue
+      interpretation
+    }
+  }
+`;
 
 // --- Catalog ---
 export const GET_DATA_RESOURCES = gql`

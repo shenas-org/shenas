@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
 import type { TemplateResult, CSSResult } from "lit";
-import { gql, query as arrowQuery, arrowToRows } from "shenas-frontends";
+import { getClient, gqlTag, query as arrowQuery, arrowToRows } from "shenas-frontends";
 import type { RowData } from "shenas-frontends";
 
 interface TableInfo {
@@ -300,11 +300,10 @@ export class ShenasDataTable extends LitElement {
 
       // Fetch column type metadata from plugin Field declarations
       const [s, t] = this._selectedTable.split(".");
-      const meta = await gql(
-        this.apiBase,
-        `query($s: String!, $t: String!) { tableColumnInfo(schema: $s, table: $t) { name dbType displayName description unit nullable valueRange exampleValue interpretation } }`,
-        { s, t },
-      );
+      const { data: meta } = await getClient(this.apiBase).query({
+        query: gqlTag`query($s: String!, $t: String!) { tableColumnInfo(schema: $s, table: $t) { name dbType displayName description unit nullable valueRange exampleValue interpretation } }`,
+        variables: { s, t },
+      });
       this._colMeta = {};
       for (const c of (meta?.tableColumnInfo || []) as Array<ColMeta & { name: string }>) {
         this._colMeta[c.name] = c;

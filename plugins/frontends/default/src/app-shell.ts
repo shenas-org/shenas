@@ -3,15 +3,15 @@ import { LitElement, html, css } from "lit";
 import { Router } from "@lit-labs/router";
 import {
   arrowQuery,
-  gql,
   getClient,
+  gqlTag,
   matchesHotkey,
   openExternal,
   sortActions,
   linkStyles,
   utilityStyles,
 } from "shenas-frontends";
-import { GET_HOTKEYS, GET_WORKSPACE, GET_DASHBOARDS } from "./graphql/queries.ts";
+import { GET_HOTKEYS, GET_WORKSPACE, GET_DASHBOARDS, GET_PLUGIN_KINDS } from "./graphql/queries.ts";
 import {
   SAVE_WORKSPACE,
   SEED_TRANSFORMS,
@@ -1179,17 +1179,17 @@ class ShenasApp extends LitElement {
   }
 
   async _refreshPlugins(): Promise<void> {
-    const data = await gql(
-      this.apiBase,
-      `{
-      sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth isAuthenticated }
-      datasets: plugins(kind: "dataset") { name displayName enabled }
-      dashboardPlugins: plugins(kind: "dashboard") { name displayName enabled }
-      frontends: plugins(kind: "frontend") { name displayName enabled }
-      themes: plugins(kind: "theme") { name displayName enabled }
-      models: plugins(kind: "model") { name displayName enabled }
-    }`,
-    );
+    const { data } = await this._client.query({
+      query: gqlTag`{
+        sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth isAuthenticated }
+        datasets: plugins(kind: "dataset") { name displayName enabled }
+        dashboardPlugins: plugins(kind: "dashboard") { name displayName enabled }
+        frontends: plugins(kind: "frontend") { name displayName enabled }
+        themes: plugins(kind: "theme") { name displayName enabled }
+        models: plugins(kind: "model") { name displayName enabled }
+      }`,
+      fetchPolicy: "network-only",
+    });
     if (data) {
       this._allPlugins = {
         source: (data.sources as PluginSummary[]) || [],
@@ -1206,26 +1206,26 @@ class ShenasApp extends LitElement {
     this._loading = true;
     try {
       // Fetch available plugin kinds first, then build the main query dynamically.
-      const kindsData = await gql(this.apiBase, `{ pluginKinds }`);
+      const { data: kindsData } = await this._client.query({ query: GET_PLUGIN_KINDS });
       const kinds: { id: string; label: string }[] = (kindsData?.pluginKinds as { id: string; label: string }[]) || [];
       this._pluginKinds = kinds;
       const fields = `name displayName enabled syncedAt hasAuth isAuthenticated`;
       const kindQueries = kinds.map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`).join("\n        ");
-      const data = await gql(
-        this.apiBase,
-        `{
+      const { data } = await this._client.query({
+        query: gqlTag([
+          `{
         dashboards { name displayName tag js description }
         hotkeys
         workspace
-        dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } }
         ${kindQueries}
         theme { css }
         deviceName
         schemaPlugins
       }`,
-      );
+        ] as unknown as TemplateStringsArray),
+        fetchPolicy: "network-only",
+      });
       this._dashboards = (data?.dashboards as DashboardInfo[]) || [];
-      this._dbStatus = data?.dbStatus as DbStatus | null;
       this._deviceName = (data?.deviceName as string) || "";
       this._hotkeys = (data?.hotkeys as Record<string, string>) || {};
       const allPlugins: Record<string, PluginSummary[]> = {};
@@ -1280,6 +1280,23 @@ class ShenasApp extends LitElement {
     }
     this._loading = false;
     this._registerGlobalCommands();
+  }
+
+  private _dbStatusPending = false;
+
+  async _fetchDbStatus(): Promise<void> {
+    if (this._dbStatus || this._dbStatusPending) return;
+    this._dbStatusPending = true;
+    try {
+      const { data } = await this._client.query({
+        query: gqlTag`{ dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } } }`,
+        fetchPolicy: "network-only",
+      });
+      this._dbStatus = (data?.dbStatus as DbStatus | null) ?? null;
+    } catch {
+      /* ignore */
+    }
+    this._dbStatusPending = false;
   }
 
   async _checkUserSession(): Promise<void> {
@@ -1813,7 +1830,10 @@ class ShenasApp extends LitElement {
 
   _renderDbStats() {
     const db = this._dbStatus;
-    if (!db) return html`<p class="empty">No database</p>`;
+    if (!db) {
+      this._fetchDbStatus();
+      return html`<p class="empty">Loading...</p>`;
+    }
     const INTERNAL = new Set(["auth", "config", "shenas_system", "telemetry"]);
     const perSource: { name: string; rows: number }[] = [];
     for (const s of db.schemas || []) {

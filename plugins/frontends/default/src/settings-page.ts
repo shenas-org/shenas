@@ -4,7 +4,7 @@ import {
   ApolloQueryController,
   ApolloMutationController,
   getClient,
-  gql,
+  gqlTag,
   openExternal,
   renderMessage,
   buttonStyles,
@@ -361,10 +361,12 @@ class SettingsPage extends LitElement {
     const kindQueries = this._pluginKinds
       .map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`)
       .join("\n      ");
-    const data = await gql(
-      this.apiBase,
-      `{ ${kindQueries} dbStatus { schemas { name tables { name rows earliest latest } } } }`,
-    );
+    const { data } = await getClient().query({
+      query: gqlTag([
+        `{ ${kindQueries} dbStatus { schemas { name tables { name rows earliest latest } } } }`,
+      ] as unknown as TemplateStringsArray),
+      fetchPolicy: "network-only",
+    });
     const result: Record<string, PluginSummary[]> = {};
     for (const { id } of this._pluginKinds) {
       result[id] = (data?.[`p_${id}`] as PluginSummary[]) || [];
