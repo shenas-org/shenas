@@ -332,6 +332,7 @@ class ColumnInfoType:
     db_type: str
     nullable: bool = True
     description: str = ""
+    display_name: str = ""
     unit: str | None = None
     category: str = ""
     value_range: list[float] | None = None
