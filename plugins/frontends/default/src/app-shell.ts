@@ -167,6 +167,10 @@ class ShenasApp extends LitElement {
       render: (params: { [key: string]: string | undefined }) => this._renderSettings(params?.kind ?? ""),
     },
     {
+      path: "/settings/entities/:view",
+      render: (params: { [key: string]: string | undefined }) => this._renderSettings("entities", params?.view ?? ""),
+    },
+    {
       path: "/settings/:kind/:name",
       render: (params: { [key: string]: string | undefined }) =>
         this._renderPluginDetail(params?.kind ?? "", params?.name ?? ""),
@@ -1786,10 +1790,11 @@ class ShenasApp extends LitElement {
     }
   }
 
-  _renderSettings(kind: string) {
+  _renderSettings(kind: string, entitiesView = "") {
     return html`<shenas-settings
       api-base="${this.apiBase}"
       active-kind="${kind || "flow"}"
+      entities-view="${entitiesView}"
       .allActions=${this._getAllActions()}
       .allPlugins=${this._allPlugins}
       .schemaPlugins=${this._schemaPlugins}
