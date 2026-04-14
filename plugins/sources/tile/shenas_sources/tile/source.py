@@ -86,6 +86,22 @@ class TileSource(Source):
         )
 
     def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.tile.tables import TABLES
+        from shenas_sources.tile.tables import TABLES, TileInfo
 
-        return [t.to_resource(client) for t in TABLES]
+        # TileInfo is populated by the bundled SQL transform, not by dlt.
+        return [t.to_resource(client) for t in TABLES if t is not TileInfo]
+
+    def sync(self, **kwargs: Any) -> None:
+        # Ensure the derived TileInfo table exists before super().sync() runs
+        # the SQL transform that populates it -- the SqlTransformer's DELETE
+        # + INSERT path needs a target table.
+        from shenas_sources.core.db import connect
+        from shenas_sources.tile.tables import TileInfo
+
+        con = connect()
+        try:
+            con.execute(f"CREATE SCHEMA IF NOT EXISTS {self.dataset_name}")
+            TileInfo.ensure(con, schema=self.dataset_name)
+        finally:
+            con.close()
+        super().sync(**kwargs)
