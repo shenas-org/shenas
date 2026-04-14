@@ -339,23 +339,15 @@ def remote_logout() -> JSONResponse:
 
 
 @app.get("/api/auth/callback")
-def remote_callback(token: str | None = None) -> HTMLResponse:
-    """Receive the token from shenas.net after OAuth and store it."""
+def remote_callback(token: str | None = None) -> RedirectResponse:
+    """Receive the token from shenas.net after OAuth and redirect to profile."""
     if token:
         from app.database import current_user_id
         from app.local_users import LocalUser
 
         user_id = current_user_id.get()
         LocalUser.set_remote_token(user_id, token)
-    return HTMLResponse(
-        content="""
-        <html><body style="font-family:system-ui;text-align:center;padding:4rem">
-        <h2>Signed in</h2>
-        <p>You can close this tab and return to shenas.</p>
-        <script>setTimeout(() => window.close(), 2000)</script>
-        </body></html>
-    """
-    )
+    return RedirectResponse(url="/settings/profile")
 
 
 @app.get("/api/auth/me")
