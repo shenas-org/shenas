@@ -80,20 +80,18 @@ class TestDelete:
 
 class TestMetadata:
     def test_returns_columns(self) -> None:
-        meta = SampleConfig.table_metadata()
-        assert meta["table"] == "test_pkg"
-        names = [c["name"] for c in meta["columns"]]
+        names = [c["name"] for c in SampleConfig.column_metadata()]
         assert "api_key" in names
         assert "start_date" in names
 
     def test_secret_category(self) -> None:
-        meta = SampleConfig.table_metadata()
-        api_key = next(c for c in meta["columns"] if c["name"] == "api_key")
+        columns = SampleConfig.column_metadata()
+        api_key = next(c for c in columns if c["name"] == "api_key")
         assert api_key["category"] == "secret"
         assert api_key["ui_widget"] == "password"
 
     def test_default_value(self) -> None:
-        meta = SampleConfig.table_metadata()
-        start = next(c for c in meta["columns"] if c["name"] == "start_date")
+        columns = SampleConfig.column_metadata()
+        start = next(c for c in columns if c["name"] == "start_date")
         assert start.get("default") == "30 days ago"
         assert start["ui_widget"] == "text"

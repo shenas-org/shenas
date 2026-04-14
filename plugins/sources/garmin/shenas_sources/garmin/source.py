@@ -19,6 +19,7 @@ class GarminSource(Source):
     name = "garmin"
     display_name = "Garmin Connect"
     primary_table = "daily_stats"
+    default_update_frequency = "R/P1D"
     description = (
         "Syncs health and fitness data from Garmin Connect.\n\n"
         "Authenticates via email/password with MFA support. Tokens are stored "

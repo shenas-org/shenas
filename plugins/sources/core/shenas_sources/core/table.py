@@ -52,7 +52,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from app.table import Table
+from app.table import DataTable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -77,7 +77,7 @@ _DLT_TYPE_MAP: dict[str, str] = {
 }
 
 
-class SourceTable(Table):
+class SourceTable(DataTable):
     """Abstract base class for raw source tables.
 
     **Don't inherit from this directly** -- use one of the seven kind-specific

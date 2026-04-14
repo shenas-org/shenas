@@ -19,6 +19,7 @@ class OpenMeteoSource(Source):
     display_name = "Open-Meteo"
     primary_table = "daily_weather"
     entity_types: ClassVar[list[str]] = ["city"]
+    default_update_frequency = "R/P1D"
     description = (
         "Daily weather and air quality data from Open-Meteo.\n\n"
         "Uses the ERA5 reanalysis archive (back to 1940) and the CAMS "

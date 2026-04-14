@@ -79,33 +79,6 @@ class Field:
     options: tuple[str, ...] | None = None  # choices for select widgets
 
 
-@dataclass(frozen=True)
-class DataResourceRef:
-    """Lightweight typed reference to a DuckDB table.
-
-    Lives at the plugin-core level so transforms, recipes, catalog, and
-    any other code can reference tables without raw strings.
-    """
-
-    schema: str
-    table: str
-
-    @property
-    def id(self) -> str:
-        return f"{self.schema}.{self.table}"
-
-    @classmethod
-    def from_id(cls, data_resource_id: str) -> DataResourceRef:
-        schema, table = data_resource_id.split(".", 1)
-        return cls(schema=schema, table=table)
-
-    def __str__(self) -> str:
-        return self.id
-
-    def quoted_sql(self) -> str:
-        return f'"{self.schema}"."{self.table}"'
-
-
 class Table:
     """Slim common base for source-side and dataset-side plugin tables.
 
@@ -147,53 +120,6 @@ class Table:
     # system tables explicitly opt in. Resolved at query time via
     # :meth:`_resolve_database`.
     database: ClassVar[str] = "user"
-
-    # Map of kind base class names to the kind string. Used by ``table_kind()``
-    # to walk the MRO without importing the SourceTable / MetricTable subclasses
-    # (which would create a circular dep). Inspecting class names instead of
-    # identities keeps this in shenas-plugin-core.
-    #
-    # Source-side kinds describe *load semantics* (how dlt writes the table);
-    # metric-side kinds describe *query semantics* (how a downstream consumer
-    # asks questions of an already-projected metric).
-    _KIND_BY_BASE_NAME: ClassVar[dict[str, str]] = {
-        # Source-side: load semantics
-        "EventTable": "event",
-        "IntervalTable": "interval",
-        "AggregateTable": "aggregate",
-        "DimensionTable": "dimension",
-        "SnapshotTable": "snapshot",
-        "CounterTable": "counter",
-        "M2MTable": "m2m_relation",
-        # Dataset-side: query semantics for derived metric tables
-        "DailyMetricTable": "daily_metric",
-        "WeeklyMetricTable": "weekly_metric",
-        "MonthlyMetricTable": "monthly_metric",
-        "EventMetricTable": "event_metric",
-    }
-
-    # One-line query hints, keyed by kind string. The LLM-facing catalog
-    # surfaces these so a model can pick the right primitive without having
-    # to know the SCD2 / observed_at / interval-overlap conventions itself.
-    _QUERY_HINT_BY_KIND: ClassVar[dict[str, str]] = {
-        # Source-side load-semantics hints
-        "event": "Filter or window by `time_at` (or `observed_at` if no native timestamp). Merge on PK.",
-        "interval": "Filter where `time_start <= ts AND time_end > ts` for overlap. Merge on PK.",
-        "aggregate": "Point lookup on the window key (`time_at`). Merge on the PK that includes the window key.",
-        "dimension": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro. Never naive equi-join.",
-        "snapshot": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to read the value at time ts.",
-        "counter": "ORDER BY `observed_at` and use `lag()` to compute per-period deltas; raw values are cumulative.",
-        "m2m_relation": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to find which entities were linked at ts.",
-        # Dataset-side query-semantics hints
-        "daily_metric": "Per-day rollup. Filter or join on `date` (DATE). PK includes (date, source). Lag in days.",
-        "weekly_metric": "Per-week rollup. Filter or join on `week` (DATE/VARCHAR). PK includes (week, source). Lag in weeks.",
-        "monthly_metric": (
-            "Per-month rollup. Filter or join on `month` (VARCHAR YYYY-MM). PK includes (month, source). Lag in months."
-        ),
-        "event_metric": (
-            "Discrete event in the unified timeline. Filter or window by `occurred_at`. PK is typically (source, source_id)."
-        ),
-    }
 
     # Internal: True on Table itself and on every abstract intermediate base
     # (SourceTable, MetricTable, EventTable, IntervalTable, ...). False on
@@ -259,43 +185,15 @@ class Table:
         cls._validate()
 
     @classmethod
-    def table_kind(cls) -> str | None:
-        """Return the kind string ("event" / "interval" / ... / "m2m_relation"),
-        or ``None`` for non-source tables (``MetricTable`` subclasses, system tables).
-
-        Walks the MRO to find the first source-side kind base class. Inspects
-        class names rather than identities so this stays in ``shenas-plugin-core``
-        without depending on ``shenas-source-core``.
-        """
-        for base in cls.__mro__:
-            kind = cls._KIND_BY_BASE_NAME.get(base.__name__)
-            if kind is not None:
-                return kind
-        return None
-
-    @classmethod
-    def table_metadata(cls) -> dict[str, Any]:
-        """Return structured metadata for this table.
+    def column_metadata(cls) -> list[dict[str, Any]]:
+        """Return the list of column metadata dicts for this table.
 
         Walks the dataclass fields, extracts ``Field()`` metadata from each
-        ``Annotated[type, Field(...)]`` hint, and returns a dict suitable
-        for the frontend / LLM catalog. Includes:
-
-        - Identity: ``table``, ``schema``, ``description``, ``primary_key``, ``columns``.
-        - Kind: ``kind`` (one of seven source-side kind strings, or ``None``).
-        - Time semantics: ``time_columns`` -- ``time_at`` / ``time_start`` /
-          ``time_end`` / ``cursor_column`` / ``observed_at_injected`` keys, only
-          present when the underlying class declares them. The LLM uses these
-          to know which column is "the time axis" for windowing and lagging.
-        - SCD2 access: ``as_of_macro`` -- the qualified macro name (built by
-          ``apply_as_of_macros()``) to use instead of a naive equi-join, set
-          only on dimension / snapshot / m2m tables.
-        - ``query_hint`` -- a one-line natural-language hint about the natural
-          read pattern for this kind, copied from ``_QUERY_HINT_BY_KIND``.
-
-        Used by :meth:`shenas_datasets.core.dataset.Dataset.metadata`, the
-        per-source ``Source.get_*_metadata`` helpers, and (eventually) the
-        analytics catalog endpoint that feeds the LLM.
+        ``Annotated[type, Field(...)]`` hint. Used by system tables
+        (SourceAuth / SourceConfig / SingletonTable subclasses) that need
+        column-level UI/introspection but don't have a data-table kind.
+        Data tables use :meth:`DataTable.table_metadata` which composes
+        this with identity + kind + time_columns + as_of_macro.
         """
         # Don't pass `globalns=` here. ``get_type_hints`` walks the MRO and
         # resolves each base class's annotations against THAT base's own
@@ -307,51 +205,14 @@ class Table:
         # leaf's namespace, which often doesn't import ``ClassVar`` and
         # crashes with a NameError at request time.
         hints: dict[str, Any] = get_type_hints(cls, include_extras=True)
-        columns: list[dict[str, Any]] = []
-        for f in dataclasses.fields(cls):
-            col_meta = cls._extract_field_meta(hints[f.name])
-            columns.append({"name": f.name, "nullable": f.name not in cls._Meta.pk, **col_meta})
-
-        meta: dict[str, Any] = {
-            "table": cls._Meta.name,
-            "display_name": cls._Meta.display_name,
-            "schema": cls._Meta.schema,
-            "description": cls._Meta.description or cls.__doc__,
-            "primary_key": list(cls._Meta.pk),
-            "columns": columns,
-        }
-
-        kind = cls.table_kind()
-        if kind is not None:
-            meta["kind"] = kind
-            meta["query_hint"] = cls._QUERY_HINT_BY_KIND[kind]
-
-        # Time-axis columns. Only emit keys whose ClassVars are actually set on
-        # this class (most kind bases declare a subset). ``observed_at_injected``
-        # comes from the ``_needs_observed_at`` classmethod that EventTable and
-        # CounterTable override.
-        time_cols: dict[str, Any] = {}
-        for attr in ("time_at", "time_start", "time_end", "cursor_column"):
-            val = getattr(cls, attr, None)
-            if val:
-                time_cols[attr] = val
-        needs_observed_at = getattr(cls, "_needs_observed_at", None)
-        if callable(needs_observed_at):
-            try:
-                injected = bool(needs_observed_at())
-            except Exception:
-                injected = False
-            if injected:
-                time_cols["observed_at_injected"] = True
-        if time_cols:
-            meta["time_columns"] = time_cols
-
-        # AS-OF macro: only for SCD2 tables (dimension / snapshot / m2m_relation),
-        # generated by apply_as_of_macros() on every Source.sync().
-        if kind in ("dimension", "snapshot", "m2m_relation") and cls._Meta.schema:
-            meta["as_of_macro"] = f"{cls._Meta.schema}.{cls._Meta.name}_as_of"
-
-        return meta
+        return [
+            {
+                "name": f.name,
+                "nullable": f.name not in cls._Meta.pk,
+                **cls._extract_field_meta(hints[f.name]),
+            }
+            for f in dataclasses.fields(cls)
+        ]
 
     @classmethod
     def to_ddl(cls, *, schema: str = "metrics") -> str:
@@ -660,6 +521,148 @@ class Table:
         con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
         for t in all_tables:
             t.ensure(con, schema=schema)
+
+
+class DataTable(Table):
+    """Base for tables that hold user-observable data with a typed ``kind``.
+
+    Splits the Table hierarchy into two families:
+
+    - :class:`Table` -- system / registry / config tables (entity types,
+      plugin install state, workspaces, hotkeys, singletons). Structural
+      bookkeeping; no kind taxonomy.
+    - :class:`DataTable` -- raw source data (via ``SourceTable`` and its
+      kind subclasses) and derived metrics (via ``MetricTable`` and its
+      grain subclasses). Every concrete subclass has a ``table_kind()``
+      string from :data:`DataTable._KIND_BY_BASE_NAME`.
+    """
+
+    _abstract: ClassVar[bool] = True
+
+    # Map of kind base class names to the kind string. Used by ``table_kind()``
+    # to walk the MRO without importing the SourceTable / MetricTable subclasses
+    # (which would create a circular dep). Inspecting class names instead of
+    # identities keeps this in this module.
+    #
+    # Source-side kinds describe *load semantics* (how dlt writes the table);
+    # metric-side kinds describe *query semantics* (how a downstream consumer
+    # asks questions of an already-projected metric).
+    _KIND_BY_BASE_NAME: ClassVar[dict[str, str]] = {
+        # Source-side: load semantics
+        "EventTable": "event",
+        "IntervalTable": "interval",
+        "AggregateTable": "aggregate",
+        "DimensionTable": "dimension",
+        "SnapshotTable": "snapshot",
+        "CounterTable": "counter",
+        "M2MTable": "m2m_relation",
+        # Dataset-side: query semantics for derived metric tables
+        "DailyMetricTable": "daily_metric",
+        "WeeklyMetricTable": "weekly_metric",
+        "MonthlyMetricTable": "monthly_metric",
+        "EventMetricTable": "event_metric",
+    }
+
+    # One-line query hints, keyed by kind string. The LLM-facing catalog
+    # surfaces these so a model can pick the right primitive without having
+    # to know the SCD2 / observed_at / interval-overlap conventions itself.
+    _QUERY_HINT_BY_KIND: ClassVar[dict[str, str]] = {
+        # Source-side load-semantics hints
+        "event": "Filter or window by `time_at` (or `observed_at` if no native timestamp). Merge on PK.",
+        "interval": "Filter where `time_start <= ts AND time_end > ts` for overlap. Merge on PK.",
+        "aggregate": "Point lookup on the window key (`time_at`). Merge on the PK that includes the window key.",
+        "dimension": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro. Never naive equi-join.",
+        "snapshot": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to read the value at time ts.",
+        "counter": "ORDER BY `observed_at` and use `lag()` to compute per-period deltas; raw values are cumulative.",
+        "m2m_relation": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to find which entities were linked at ts.",
+        # Dataset-side query-semantics hints
+        "daily_metric": "Per-day rollup. Filter or join on `date` (DATE). PK includes (date, source). Lag in days.",
+        "weekly_metric": "Per-week rollup. Filter or join on `week` (DATE/VARCHAR). PK includes (week, source). Lag in weeks.",
+        "monthly_metric": (
+            "Per-month rollup. Filter or join on `month` (VARCHAR YYYY-MM). PK includes (month, source). Lag in months."
+        ),
+        "event_metric": (
+            "Discrete event in the unified timeline. Filter or window by `occurred_at`. PK is typically (source, source_id)."
+        ),
+    }
+
+    @classmethod
+    def table_kind(cls) -> str | None:
+        """Return the kind string ("event" / "interval" / ... / "event_metric").
+
+        Walks the MRO to find the first kind base class from
+        :data:`_KIND_BY_BASE_NAME`. Returns ``None`` for abstract intermediate
+        bases that haven't picked a kind yet.
+        """
+        for base in cls.__mro__:
+            kind = cls._KIND_BY_BASE_NAME.get(base.__name__)
+            if kind is not None:
+                return kind
+        return None
+
+    @classmethod
+    def table_metadata(cls) -> dict[str, Any]:
+        """Return structured metadata for this data table.
+
+        Composes :meth:`Table.column_metadata` with identity keys plus
+        DataTable-specific enrichment:
+
+        - Identity: ``table``, ``display_name``, ``schema``,
+          ``description``, ``primary_key``, ``columns``.
+        - ``kind`` -- one of the seven source-side kind strings or four
+          metric-grain strings; omitted when ``None``.
+        - ``query_hint`` -- one-line natural-language hint from
+          :data:`_QUERY_HINT_BY_KIND` for the LLM-facing catalog.
+        - ``time_columns`` -- ``time_at`` / ``time_start`` / ``time_end`` /
+          ``cursor_column`` / ``observed_at_injected`` keys (only those
+          actually set on the class).
+        - ``as_of_macro`` -- the qualified SCD2 macro name, set only on
+          dimension / snapshot / m2m tables.
+
+        Used by :meth:`shenas_datasets.core.dataset.Dataset.metadata`, the
+        per-source ``Source.get_*_metadata`` helpers, and (eventually) the
+        analytics catalog endpoint that feeds the LLM.
+        """
+        meta: dict[str, Any] = {
+            "table": cls._Meta.name,
+            "display_name": cls._Meta.display_name,
+            "schema": cls._Meta.schema,
+            "description": cls._Meta.description or cls.__doc__,
+            "primary_key": list(cls._Meta.pk),
+            "columns": cls.column_metadata(),
+        }
+
+        kind = cls.table_kind()
+        if kind is not None:
+            meta["kind"] = kind
+            meta["query_hint"] = cls._QUERY_HINT_BY_KIND[kind]
+
+        # Time-axis columns. Only emit keys whose ClassVars are actually set on
+        # this class (most kind bases declare a subset). ``observed_at_injected``
+        # comes from the ``_needs_observed_at`` classmethod that EventTable and
+        # CounterTable override.
+        time_cols: dict[str, Any] = {}
+        for attr in ("time_at", "time_start", "time_end", "cursor_column"):
+            val = getattr(cls, attr, None)
+            if val:
+                time_cols[attr] = val
+        needs_observed_at = getattr(cls, "_needs_observed_at", None)
+        if callable(needs_observed_at):
+            try:
+                injected = bool(needs_observed_at())
+            except Exception:
+                injected = False
+            if injected:
+                time_cols["observed_at_injected"] = True
+        if time_cols:
+            meta["time_columns"] = time_cols
+
+        # AS-OF macro: only for SCD2 tables (dimension / snapshot / m2m_relation),
+        # generated by apply_as_of_macros() on every Source.sync().
+        if kind in ("dimension", "snapshot", "m2m_relation") and cls._Meta.schema:
+            meta["as_of_macro"] = f"{cls._Meta.schema}.{cls._Meta.name}_as_of"
+
+        return meta
 
 
 class SingletonTable(Table):

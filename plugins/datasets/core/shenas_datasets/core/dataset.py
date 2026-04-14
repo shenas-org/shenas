@@ -32,6 +32,10 @@ class Dataset(Plugin):
     has_data = True
     all_tables: ClassVar[list[type]]
     primary_table: ClassVar[str] = ""
+    # ISO 8601 recurring interval describing how often this dataset refreshes
+    # once its feeding transforms have run (e.g. "R/P1D" for daily rollups).
+    # Mirrors DCAT's `dct:accrualPeriodicity`. Empty string means unspecified.
+    default_update_frequency: ClassVar[str] = ""
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -41,6 +45,7 @@ class Dataset(Plugin):
     def get_info(self) -> dict[str, Any]:
         info = super().get_info()
         info["primary_table"] = self.primary_table
+        info["default_update_frequency"] = self.default_update_frequency
         return info
 
     @classmethod

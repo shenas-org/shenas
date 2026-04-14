@@ -503,12 +503,12 @@ class TestTableKindAndMetadata:
 
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
-        assert _Plain.table_kind() is None
-        meta = _Plain.table_metadata()
-        assert "kind" not in meta
-        assert "query_hint" not in meta
-        assert "time_columns" not in meta
-        assert "as_of_macro" not in meta
+        # table_kind / table_metadata now live on DataTable; a plain Table
+        # subclass exposes only column_metadata() (no kind taxonomy).
+        assert not hasattr(_Plain, "table_kind")
+        assert not hasattr(_Plain, "table_metadata")
+        columns = _Plain.column_metadata()
+        assert [c["name"] for c in columns] == ["id"]
 
     def test_schema_field_present_for_all_tables(self) -> None:
         # The catalog needs the schema for every table so consumers can

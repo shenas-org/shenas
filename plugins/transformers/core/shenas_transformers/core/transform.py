@@ -14,7 +14,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any
 
-from app.table import DataResourceRef, Field, Table
+from app.catalog import DataResourceRef
+from app.table import Field, Table
 
 if TYPE_CHECKING:
     import duckdb
@@ -271,6 +272,14 @@ class Transform(Table):
         for inst in instances:
             if not inst.enabled:
                 continue
+            if not inst.source_data_resource_id or not inst.target_data_resource_id:
+                log.warning(
+                    "Transform #%d missing source/target resource id, skipping (source=%r target=%r)",
+                    inst.id,
+                    inst.source_data_resource_id,
+                    inst.target_data_resource_id,
+                )
+                continue
             plugin = _get_transform_plugin(inst.transform_type, plugin_cache)
             if plugin is None:
                 log.warning(
@@ -292,7 +301,11 @@ class Transform(Table):
 
     @staticmethod
     def run_for_target(con: duckdb.DuckDBPyConnection, target_table: str) -> int:
-        matching = [t for t in Transform.all(order_by="id") if t.target_ref.table == target_table and t.enabled]
+        matching = [
+            t
+            for t in Transform.all(order_by="id")
+            if t.enabled and t.target_data_resource_id and t.target_ref.table == target_table
+        ]
         log.info("Running transforms targeting %s (%d total)", target_table, len(matching))
         device_id = _get_device_id()
         plugin_cache: dict[str, Any] = {}
