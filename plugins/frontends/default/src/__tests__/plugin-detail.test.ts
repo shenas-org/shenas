@@ -18,7 +18,7 @@ describe("shenas-plugin-detail", () => {
     vi.resetAllMocks();
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ data: {} }),
+      json: () => Promise.resolve({ data: { plugins: [] } }),
     });
   });
 
@@ -28,26 +28,18 @@ describe("shenas-plugin-detail", () => {
   });
 
   it("has default property values", () => {
-    // Check constructor defaults before connectedCallback triggers loading
-    const el = document.createElement("shenas-plugin-detail") as AnyEl;
-    expect(el.apiBase).toBe("http://localhost:3000");
-    expect(el.kind).toBe("source");
+    const el = mount();
+    expect(el.apiBase).toBe("/api");
+    expect(el.kind).toBe("");
     expect(el.name).toBe("");
-    expect(el.activeTab).toBe("overview");
-    expect(el.dbStatus).toEqual({});
-    expect(el.schemaPlugins).toEqual({});
-    expect(el.initialInfo).toEqual({});
+    expect(el.activeTab).toBe("details");
     expect(el._info).toBeNull();
-    expect(el._loading).toBe(false);
+    expect(el._loading).toBe(true);
     expect(el._showLoading).toBe(false);
-    expect(el._message).toBeNull();
     expect(el._tables).toEqual([]);
     expect(el._syncing).toBe(false);
     expect(el._transforming).toBe(false);
-    expect(el._schemaTransforms).toEqual([]);
-    expect(el._selectedTable).toBeNull();
-    expect(el._previewRows).toEqual([]);
-    expect(el._previewLoading).toBe(false);
+    expect(el._previewRows).toBeNull();
   });
 
   it("fetches when kind and name set", async () => {
@@ -59,21 +51,28 @@ describe("shenas-plugin-detail", () => {
     expect(globalThis.fetch).toHaveBeenCalled();
   });
 
+  it("uses initialInfo synchronously", async () => {
+    const el = mount();
+    el.initialInfo = { name: "garmin", displayName: "Garmin", kind: "source" };
+    el.kind = "source";
+    el.name = "garmin";
+    await el.updateComplete;
+    expect(el._info).toEqual({ name: "garmin", displayName: "Garmin", kind: "source" });
+  });
+
   it("renders shadow root", async () => {
     const el = mount();
     await el.updateComplete;
     expect(el.shadowRoot).toBeTruthy();
   });
 
-  it("switches activeTab", () => {
+  it("_switchTab updates activeTab", () => {
     const el = mount();
-    el.activeTab = "tables";
-    expect(el.activeTab).toBe("tables");
-    el.activeTab = "transforms";
-    expect(el.activeTab).toBe("transforms");
+    el._switchTab("data");
+    expect(el.activeTab).toBe("data");
   });
 
-  it("renders plugin name when info populated", async () => {
+  it("renders details when info populated", async () => {
     const el = mount();
     el._loading = false;
     el._info = {
@@ -89,39 +88,46 @@ describe("shenas-plugin-detail", () => {
     expect(text).toContain("Garmin");
   });
 
-  it("renders description when info has it", async () => {
+  it("_stateRow returns a template result", () => {
     const el = mount();
-    el._loading = false;
-    el._info = {
-      name: "garmin",
-      display_name: "Garmin",
-      kind: "source",
-      description: "Garmin Connect data",
-      enabled: true,
-    };
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Garmin Connect data");
+    const tr = el._stateRow("Status", "Active");
+    expect(tr).toBeDefined();
   });
 
-  it("renders loading state when _loading is true", async () => {
+  it("_stateRow returns empty string when value missing", () => {
     const el = mount();
-    el._loading = true;
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Loading");
+    expect(el._stateRow("Status", undefined)).toBe("");
   });
 
-  it("renders empty state when info is null and not loading", async () => {
+  function sseResponse(events: string[]) {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        for (const e of events) controller.enqueue(encoder.encode(e));
+        controller.close();
+      },
+    });
+    return { ok: true, body: stream, headers: new Headers({ "content-type": "text/event-stream" }) };
+  }
+
+  it("_switchTab updates history path", () => {
     const el = mount();
-    el._loading = false;
-    el._info = null;
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("not found");
+    el.kind = "source";
+    el.name = "garmin";
+    el._switchTab("config");
+    expect(el.activeTab).toBe("config");
+    expect(window.location.pathname).toContain("/settings/source/garmin/config");
   });
 
-  it("renders Sync Now button when info is populated", async () => {
+  it("_switchTab details uses base path", () => {
+    const el = mount();
+    el.kind = "source";
+    el.name = "garmin";
+    el._switchTab("details");
+    expect(window.location.pathname).toContain("/settings/source/garmin");
+  });
+
+  it("renders sync button for enabled source", async () => {
     const el = mount();
     el.kind = "source";
     el.name = "garmin";
@@ -129,268 +135,281 @@ describe("shenas-plugin-detail", () => {
     el._info = { name: "garmin", kind: "source", enabled: true };
     await el.updateComplete;
     const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Sync Now");
+    expect(text).toContain("Sync");
   });
 
-  it("renders Overview tab content by default", async () => {
+  it("renders Transform and Flush buttons for dataset", async () => {
     const el = mount();
+    el.kind = "dataset";
+    el.name = "fitness";
     el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true };
+    el._info = { name: "fitness", kind: "dataset", enabled: true };
     await el.updateComplete;
     const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Plugin Information");
+    expect(text).toContain("Transform");
+    expect(text).toContain("Flush");
   });
 
-  it("renders Tables tab content", async () => {
+  it("renders config tab when has_config", async () => {
     const el = mount();
-    el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true };
-    el.activeTab = "tables";
-    el._tables = [{ name: "activities", rows: 100, cols: 5 }];
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("activities");
-  });
-
-  it("renders empty tables state", async () => {
-    const el = mount();
-    el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true };
-    el.activeTab = "tables";
-    el._tables = [];
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("No tables found");
-  });
-
-  it("renders Transforms tab content", async () => {
-    const el = mount();
-    el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true };
-    el.activeTab = "transforms";
-    el._schemaTransforms = [
-      {
-        id: 1,
-        sourceDuckdbSchema: "garmin",
-        sourceDuckdbTable: "hr",
-        targetDuckdbSchema: "metrics",
-        targetDuckdbTable: "hrv",
-        sourcePlugin: "garmin",
-        enabled: true,
-      },
-    ];
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Schema Transforms");
-    expect(text).toContain("garmin.hr");
-  });
-
-  it("renders empty transforms state", async () => {
-    const el = mount();
-    el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true };
-    el.activeTab = "transforms";
-    el._schemaTransforms = [];
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("No transforms configured");
-  });
-
-  it("renders Config tab when has_config or has_auth", async () => {
-    const el = mount();
+    el.kind = "source";
+    el.name = "garmin";
     el._loading = false;
     el._info = { name: "garmin", kind: "source", enabled: true, has_config: true };
     await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Config");
+    expect(el.shadowRoot?.textContent || "").toContain("Config");
   });
 
-  it("does not render Config tab when no config or auth", async () => {
+  it("renders auth tab when has_auth", async () => {
     const el = mount();
+    el.kind = "source";
+    el.name = "garmin";
     el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true, has_config: false, has_auth: false };
+    el._info = { name: "garmin", kind: "source", enabled: true, has_auth: true };
     await el.updateComplete;
-    const tabs = el.shadowRoot?.querySelectorAll(".tab") || [];
-    const tabTexts = Array.from(tabs).map((t: Element) => t.textContent?.trim());
-    expect(tabTexts).not.toContain("Config");
+    expect(el.shadowRoot?.textContent || "").toContain("Auth");
   });
 
-  it("renders Config tab content", async () => {
+  it("renders config component when activeTab=config", async () => {
     const el = mount();
+    el.kind = "source";
+    el.name = "garmin";
     el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true, has_config: true, has_auth: true };
+    el._info = { name: "garmin", kind: "source", enabled: true, has_config: true };
     el.activeTab = "config";
     await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Configuration");
-    expect(text).toContain("Authentication");
-    expect(text).toContain("Settings");
+    expect(el.shadowRoot?.querySelector("shenas-config")).toBeTruthy();
   });
 
-  it("renders enabled status indicator", async () => {
+  it("renders logs component when activeTab=logs", async () => {
     const el = mount();
+    el.kind = "source";
+    el.name = "garmin";
     el._loading = false;
     el._info = { name: "garmin", kind: "source", enabled: true };
+    el.activeTab = "logs";
     await el.updateComplete;
-    const indicator = el.shadowRoot?.querySelector(".status-indicator.enabled");
-    expect(indicator).toBeTruthy();
+    expect(el.shadowRoot?.querySelector("shenas-logs")).toBeTruthy();
   });
 
-  it("renders disabled status indicator", async () => {
+  it("renders auth component when activeTab=auth", async () => {
+    const el = mount();
+    el.kind = "source";
+    el.name = "garmin";
+    el._loading = false;
+    el._info = { name: "garmin", kind: "source", enabled: true, has_auth: true };
+    el.activeTab = "auth";
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector("shenas-auth")).toBeTruthy();
+  });
+
+  it("renders empty state when info is null and not loading", async () => {
     const el = mount();
     el._loading = false;
+    el._info = null;
+    await el.updateComplete;
+    const page = el.shadowRoot?.querySelector("shenas-page");
+    expect(page?.hasAttribute("empty")).toBe(true);
+  });
+
+  it("_toggle calls disable when currently enabled", async () => {
+    const el = mount();
+    el.kind = "source";
+    el.name = "garmin";
+    el._info = { name: "garmin", kind: "source", enabled: true };
+    (globalThis.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { disablePlugin: { ok: true, message: "ok" } } }),
+    });
+    await el._toggle();
+    const calls = (globalThis.fetch as any).mock.calls;
+    const body = JSON.parse(calls[0][1].body);
+    expect(body.query).toContain("disablePlugin");
+  });
+
+  it("_toggle calls enable when currently disabled", async () => {
+    const el = mount();
+    el.kind = "source";
+    el.name = "garmin";
     el._info = { name: "garmin", kind: "source", enabled: false };
-    await el.updateComplete;
-    const indicator = el.shadowRoot?.querySelector(".status-indicator.disabled");
-    expect(indicator).toBeTruthy();
+    (globalThis.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { enablePlugin: { ok: true, message: "ok" } } }),
+    });
+    await el._toggle();
+    const calls = (globalThis.fetch as any).mock.calls;
+    const body = JSON.parse(calls[0][1].body);
+    expect(body.query).toContain("enablePlugin");
   });
 
-  it("renders version when present", async () => {
+  it("_sync handles error response", async () => {
     const el = mount();
-    el._loading = false;
-    el._info = { name: "garmin", kind: "source", version: "2.3.1", enabled: true };
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("v2.3.1");
+    el.kind = "source";
+    el.name = "garmin";
+    el._info = { name: "garmin", kind: "source", enabled: true };
+    (globalThis.fetch as any).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ detail: "boom" }),
+    });
+    await el._sync();
+    expect(el._message?.type).toBe("error");
+    expect(el._syncing).toBe(false);
   });
 
-  it("_selectTable sets selected table and triggers preview loading", () => {
+  it("_sync streams SSE successfully", async () => {
     const el = mount();
-    const table = { name: "activities", rows: 50 };
-    el._selectTable(table);
-    expect(el._selectedTable).toEqual(table);
-    expect(el._previewRows).toEqual([]);
-    expect(el._previewLoading).toBe(true);
+    el.kind = "source";
+    el.name = "garmin";
+    el._info = { name: "garmin", kind: "source", enabled: true };
+    (globalThis.fetch as any).mockResolvedValueOnce(sseResponse(['data: {"message":"hi"}\n\n'])).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { pluginInfo: { name: "garmin", kind: "source" } } }),
+    });
+    await el._sync();
+    expect(el._syncing).toBe(false);
+    // _fetchInfo runs after success and clears message
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/sync/garmin"), expect.any(Object));
   });
 
-  it("renders synced_at in overview", async () => {
+  it("_runTransforms success", async () => {
     const el = mount();
-    el._loading = false;
-    el._info = {
-      name: "garmin",
-      kind: "source",
-      enabled: true,
-      synced_at: "2026-01-15T10:00:00Z",
+    el.kind = "dataset";
+    el.name = "fitness";
+    (globalThis.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { runSchemaTransforms: { count: 3 } } }),
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    await el._runTransforms();
+    expect(el._transforming).toBe(false);
+    // success path triggers _fetchInfo which clears message
+  });
+
+  it("_runTransforms error path", async () => {
+    const el = mount();
+    el.kind = "dataset";
+    el.name = "fitness";
+    await new Promise((r) => setTimeout(r, 20));
+    (globalThis.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { runSchemaTransforms: {} } }),
+    });
+    await el._runTransforms();
+    expect(el._message?.type).toBe("error");
+  });
+
+  it("_flush success", async () => {
+    const el = mount();
+    el.kind = "dataset";
+    el.name = "fitness";
+    (globalThis.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { flushSchema: { rows_deleted: 5 } } }),
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    await el._flush();
+    // success triggers fetchInfo which clears message; just assert no exception
+  });
+
+  it("_flush error path", async () => {
+    const el = mount();
+    el.kind = "dataset";
+    el.name = "fitness";
+    await new Promise((r) => setTimeout(r, 20));
+    (globalThis.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { flushSchema: {} } }),
+    });
+    await el._flush();
+    expect(el._message?.type).toBe("error");
+  });
+
+  it("_remove streams SSE done event", async () => {
+    const el = mount();
+    el.kind = "source";
+    el.name = "garmin";
+    (globalThis.fetch as any).mockResolvedValueOnce(
+      sseResponse(['data: {"event":"log","text":"removing"}\n', 'data: {"event":"done","ok":true,"message":"gone"}\n']),
+    );
+    await el._remove();
+  });
+
+  it("_remove handles failure event", async () => {
+    const el = mount();
+    el.kind = "source";
+    el.name = "garmin";
+    (globalThis.fetch as any).mockResolvedValueOnce(
+      sseResponse(['data: {"event":"done","ok":false,"message":"nope"}\n']),
+    );
+    await el._remove();
+    expect(el._message?.type).toBe("error");
+  });
+
+  it("_fetchInfo filters source tables", async () => {
+    const el = mount();
+    el.kind = "source";
+    el.name = "garmin";
+    el.dbStatus = {
+      schemas: [{ name: "garmin", tables: [{ name: "activities" }, { name: "_dlt_loads" }] }],
     };
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Last synced");
+    (globalThis.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { pluginInfo: { name: "garmin", kind: "source" } } }),
+    });
+    await el._fetchInfo();
+    expect(el._tables.length).toBe(1);
+    expect(el._tables[0].name).toBe("activities");
   });
 
-  it("renders never synced when no synced_at", async () => {
+  it("_fetchInfo for dataset filters by ownership", async () => {
     const el = mount();
-    el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true };
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Never synced");
-  });
-
-  it("renders primary table in overview when has_data", async () => {
-    const el = mount();
-    el._loading = false;
-    el._info = {
-      name: "garmin",
-      kind: "source",
-      enabled: true,
-      has_data: true,
-      primary_table: "activities",
+    el.kind = "dataset";
+    el.name = "fitness";
+    el.dbStatus = {
+      schemas: [{ name: "metrics", tables: [{ name: "hrv" }, { name: "transactions" }] }],
     };
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Primary Table");
-    expect(text).toContain("activities");
+    el.schemaPlugins = { fitness: ["hrv"] };
+    (globalThis.fetch as any).mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          data: { pluginInfo: { name: "fitness", kind: "dataset" }, transforms: [] },
+        }),
+    });
+    await el._fetchInfo();
+    expect(el._tables.map((t: any) => t.name)).toEqual(["hrv"]);
   });
 
-  it("renders selected table preview section", async () => {
+  it("_renderData empty when no tables", () => {
     const el = mount();
-    el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true };
-    el.activeTab = "tables";
-    el._tables = [{ name: "activities", rows: 10 }];
-    el._selectedTable = { name: "activities", rows: 10 };
-    el._previewLoading = false;
-    el._previewRows = [];
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Preview: activities");
+    el._tables = [];
+    const result = el._renderData();
+    expect(result).toBeDefined();
   });
 
-  it("renders preview loading state", async () => {
+  it("_fetchPreview clears when name empty", async () => {
     const el = mount();
-    el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true };
-    el.activeTab = "tables";
-    el._tables = [{ name: "activities" }];
-    el._selectedTable = { name: "activities" };
-    el._previewLoading = true;
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Loading preview");
+    await el._fetchPreview("");
+    expect(el._previewRows).toBeNull();
   });
 
-  it("renders transform toggle checkbox", async () => {
+  it("renders dataset transforms list", async () => {
     const el = mount();
+    el.kind = "dataset";
+    el.name = "fitness";
     el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true };
-    el.activeTab = "transforms";
+    el._info = { name: "fitness", kind: "dataset", enabled: true };
     el._schemaTransforms = [
       {
         id: 1,
-        sourceDuckdbSchema: "garmin",
-        sourceDuckdbTable: "hr",
-        targetDuckdbSchema: "metrics",
-        targetDuckdbTable: "hrv",
+        source: { id: "garmin.hr", schemaName: "garmin", tableName: "hr" },
+        target: { id: "metrics.hrv", schemaName: "metrics", tableName: "hrv" },
         sourcePlugin: "garmin",
         enabled: true,
       },
     ];
     await el.updateComplete;
-    const checkbox = el.shadowRoot?.querySelector('input[type="checkbox"]');
-    expect(checkbox).toBeTruthy();
-    expect((checkbox as HTMLInputElement)?.checked).toBe(true);
-  });
-
-  it("renders Syncing state on button when _syncing", async () => {
-    const el = mount();
-    el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true };
-    el._syncing = true;
-    await el.updateComplete;
-    const text = el.shadowRoot?.textContent || "";
-    expect(text).toContain("Syncing...");
-  });
-
-  it("renders message banner when _message is set", async () => {
-    const el = mount();
-    el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true };
-    el._message = { type: "success", text: "Sync completed" };
-    await el.updateComplete;
-    // renderMessage is called from shenas-frontends; just verify render does not throw
-    expect(el.shadowRoot).toBeTruthy();
-  });
-
-  it("tab buttons are rendered for info with config", async () => {
-    const el = mount();
-    el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true, has_config: true };
-    await el.updateComplete;
-    const tabs = el.shadowRoot?.querySelectorAll(".tab") || [];
-    const tabTexts = Array.from(tabs).map((t: Element) => t.textContent?.trim());
-    expect(tabTexts).toContain("Overview");
-    expect(tabTexts).toContain("Tables");
-    expect(tabTexts).toContain("Transforms");
-    expect(tabTexts).toContain("Config");
-  });
-
-  it("tab buttons are rendered without config tab", async () => {
-    const el = mount();
-    el._loading = false;
-    el._info = { name: "garmin", kind: "source", enabled: true };
-    await el.updateComplete;
-    const tabs = el.shadowRoot?.querySelectorAll(".tab") || [];
-    const tabTexts = Array.from(tabs).map((t: Element) => t.textContent?.trim());
-    expect(tabTexts).toEqual(["Overview", "Tables", "Transforms"]);
+    expect(el.shadowRoot?.textContent || "").toContain("Transforms");
   });
 });

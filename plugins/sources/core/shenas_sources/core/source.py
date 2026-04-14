@@ -231,6 +231,27 @@ class Source(Plugin):
         """Build an API client from stored credentials. Override for auth."""
         return None
 
+    @property
+    def dataset_name(self) -> str:
+        """DuckDB schema name for this source's raw data.
+
+        When ``current_entity_uuid`` is set to a non-primary entity, the
+        schema is suffixed with ``__e<uuid8>`` so each entity's raw data
+        lives in its own namespace.
+        """
+        from app.database import current_entity_uuid, current_user_id
+        from app.local_users import LocalUser
+
+        entity_uuid = current_entity_uuid.get()
+        if entity_uuid is None:
+            return self.name
+        # Check if this is the primary (current user's) entity
+        user_id = current_user_id.get()
+        user = LocalUser.get_by_id(user_id) if user_id else None
+        if user and getattr(user, "uuid", None) == entity_uuid:
+            return self.name
+        return f"{self.name}__e{entity_uuid[:8]}"
+
     def acquire_sync_lock(self) -> bool:
         """Try to acquire the sync lock for this pipe. Returns False if already locked."""
         with self._sync_locks_guard:
@@ -277,12 +298,12 @@ class Source(Plugin):
 
         client = self.build_client()
         res = self.resources(client)
-        run_sync(self.name, self.name, res, full_refresh, self._auto_transform, on_progress=on_progress)
+        run_sync(self.name, self.dataset_name, res, full_refresh, self._auto_transform, on_progress=on_progress)
         # Refresh AS-OF macros for any SCD2 tables in this source's schema.
         try:
             con = connect()
             try:
-                apply_as_of_macros(con, self.name)
+                apply_as_of_macros(con, self.dataset_name)
             finally:
                 con.close()
         except Exception:

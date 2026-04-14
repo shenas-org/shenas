@@ -15,6 +15,10 @@ from app.graphql.types import (
     CategoryValueType,
     DataResourceAnnotationInput,
     DataResourceType,
+    EntityCreateInput,
+    EntityUpdateInput,
+    GqlEntityRelationshipType,
+    GqlEntityType,
     InstallResponseType,
     OkType,
     QualityCheckType,
@@ -895,3 +899,101 @@ class Mutation:
             return {"ok": False, "error": f"No suggested analysis #{hypothesis_id}"}  # ty: ignore[invalid-return-type]
         h.dismiss_suggestion()
         return {"ok": True, "id": hypothesis_id}  # ty: ignore[invalid-return-type]
+
+    # -- Entities --
+
+    @strawberry.mutation
+    def create_entity(self, entity_input: EntityCreateInput) -> GqlEntityType:
+        from app.entities import Entity
+
+        e = Entity.create(
+            type=entity_input.type,
+            name=entity_input.name,
+            description=entity_input.description,
+            status=entity_input.status,
+            birth_year=entity_input.birth_year,
+        )
+        me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
+        me_uuid = me_candidates[0].uuid if me_candidates else None
+        return GqlEntityType(
+            uuid=e.uuid,
+            type=e.type,
+            name=e.name,
+            description=e.description,
+            status=e.status,
+            birth_year=e.birth_year,
+            added_at=str(e.added_at) if e.added_at else None,
+            updated_at=str(e.updated_at) if e.updated_at else None,
+            is_me=(e.uuid == me_uuid),
+        )
+
+    @strawberry.mutation
+    def update_entity(self, uuid: str, entity_input: EntityUpdateInput) -> GqlEntityType | None:
+        from app.entities import Entity
+
+        e = Entity.find_by_uuid(uuid)
+        if e is None:
+            return None
+        if entity_input.name is not None:
+            e.name = entity_input.name
+        if entity_input.type is not None:
+            e.type = entity_input.type
+        if entity_input.description is not None:
+            e.description = entity_input.description
+        if entity_input.status is not None:
+            e.status = entity_input.status
+        if entity_input.birth_year is not None:
+            e.birth_year = entity_input.birth_year
+        e.save()
+        me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
+        me_uuid = me_candidates[0].uuid if me_candidates else None
+        return GqlEntityType(
+            uuid=e.uuid,
+            type=e.type,
+            name=e.name,
+            description=e.description,
+            status=e.status,
+            birth_year=e.birth_year,
+            added_at=str(e.added_at) if e.added_at else None,
+            updated_at=str(e.updated_at) if e.updated_at else None,
+            is_me=(e.uuid == me_uuid),
+        )
+
+    @strawberry.mutation
+    def delete_entity(self, uuid: str) -> OkType:
+        from app.entities import Entity
+        from app.models import OkResponse
+
+        e = Entity.find_by_uuid(uuid)
+        if e is None:
+            return OkType.from_pydantic(OkResponse(ok=False, message="Entity not found"))  # ty: ignore[unresolved-attribute]
+        e.delete()
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
+
+    @strawberry.mutation
+    def create_entity_relationship(
+        self, from_uuid: str, to_uuid: str, relationship_type: str, description: str = ""
+    ) -> GqlEntityRelationshipType:
+        from app.entities import EntityRelationship
+
+        r = EntityRelationship(from_uuid=from_uuid, to_uuid=to_uuid, type=relationship_type, description=description)
+        r.upsert()
+        return GqlEntityRelationshipType(
+            from_uuid=r.from_uuid,
+            to_uuid=r.to_uuid,
+            type=r.type,
+            description=r.description,
+            added_at=str(r.added_at) if r.added_at else None,
+            updated_at=str(r.updated_at) if r.updated_at else None,
+        )
+
+    @strawberry.mutation
+    def delete_entity_relationship(self, from_uuid: str, to_uuid: str, relationship_type: str) -> OkType:
+        from app.entities import EntityRelationship
+        from app.models import OkResponse
+
+        r = EntityRelationship.find(from_uuid, to_uuid, relationship_type)
+        if r is None:
+            return OkType.from_pydantic(OkResponse(ok=False, message="Relationship not found"))  # ty: ignore[unresolved-attribute]
+        r.delete()
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]

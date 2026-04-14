@@ -1,336 +1,292 @@
 import { LitElement, html, css } from "lit";
-import type { TemplateResult, CSSResult } from "lit";
+import { gql, gqlFull, renderMessage, buttonStyles, formStyles, messageStyles } from "shenas-frontends";
 
-interface ConfigValue {
+interface ConfigEntry {
   key: string;
+  label: string;
   value: string;
-  description?: string;
+  description: string;
 }
 
-export class ConfigPage extends LitElement {
+interface PluginConfig {
+  kind: string;
+  name: string;
+  entries: ConfigEntry[];
+}
+
+interface Message {
+  type: string;
+  text: string;
+}
+
+class ConfigPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
-    _configs: { state: true },
-    _error: { state: true },
+    kind: { type: String },
+    name: { type: String },
+    _config: { state: true },
     _loading: { state: true },
-    _editingKey: { state: true },
+    _message: { state: true },
+    _editing: { state: true },
+    _editValue: { state: true },
+    _freqNum: { state: true },
+    _freqUnit: { state: true },
   };
 
+  static styles = [
+    buttonStyles,
+    formStyles,
+    messageStyles,
+    css`
+      :host {
+        display: block;
+      }
+      .config-row {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--shenas-border-light, #f0f0f0);
+        font-size: 0.9rem;
+        gap: 1rem;
+      }
+      .config-row:last-child {
+        border-bottom: none;
+      }
+      .config-key {
+        min-width: 140px;
+        font-weight: 600;
+        color: var(--shenas-text, #222);
+        flex-shrink: 0;
+      }
+      .config-value {
+        flex: 1;
+        color: var(--shenas-text-secondary, #666);
+        font-family: monospace;
+        font-size: 0.85rem;
+      }
+      .config-value.empty {
+        color: var(--shenas-text-faint, #aaa);
+        font-style: italic;
+        font-family: inherit;
+      }
+      .config-desc {
+        font-size: 0.8rem;
+        color: var(--shenas-text-muted, #888);
+        margin-top: 0.2rem;
+      }
+      .config-detail {
+        flex: 1;
+      }
+      .config-input {
+        font-family: monospace;
+      }
+      .edit-row {
+        display: flex;
+        gap: 0.4rem;
+        align-items: center;
+        flex: 1;
+      }
+    `,
+  ];
+
+  static _UNIT_MULTIPLIERS: Record<string, number> = { seconds: 1 / 60, minutes: 1, hours: 60, days: 1440 };
+  static _DURATION_FIELDS = new Set(["sync_frequency", "lookback_period"]);
+
   declare apiBase: string;
-  declare _configs: ConfigValue[];
-  declare _error: string | null;
+  declare kind: string;
+  declare name: string;
+  declare _config: PluginConfig | null;
   declare _loading: boolean;
-  declare _editingKey: string | null;
-
-  get configValueInput(): HTMLInputElement | null {
-    return this.renderRoot?.querySelector("#config-value") as HTMLInputElement | null;
-  }
-
-  static styles: CSSResult = css`
-    :host {
-      display: block;
-      font-family: var(--shenas-font, system-ui, sans-serif);
-      color: var(--shenas-text, #e8e8ef);
-    }
-
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 2rem;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--shenas-text-bright, #ffffff);
-    }
-
-    .controls {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .controls button {
-      background: var(--shenas-accent, #6c5ce7);
-      border: none;
-      color: white;
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      font-weight: 600;
-      transition: opacity 0.2s;
-    }
-
-    .controls button:hover {
-      opacity: 0.9;
-    }
-
-    .controls button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .config-list {
-      background: var(--shenas-surface, #22222f);
-      border: 1px solid var(--shenas-border, #2a2a3a);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .config-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1rem;
-      border-bottom: 1px solid var(--shenas-border, #2a2a3a);
-    }
-
-    .config-item:last-child {
-      border-bottom: none;
-    }
-
-    .config-item.editing {
-      background: var(--shenas-surface-alt, #2a2a3a);
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 1rem;
-    }
-
-    .config-key {
-      font-weight: 600;
-      color: var(--shenas-text-bright, #ffffff);
-    }
-
-    .config-value {
-      color: var(--shenas-text-muted, #a8a8c0);
-      font-family: monospace;
-      font-size: 0.9rem;
-      word-break: break-all;
-    }
-
-    .config-description {
-      color: var(--shenas-text-muted, #a8a8c0);
-      font-size: 0.85rem;
-      margin-top: 0.25rem;
-    }
-
-    .config-actions {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .config-actions button {
-      background: var(--shenas-surface-alt, #2a2a3a);
-      border: 1px solid var(--shenas-border, #2a2a3a);
-      color: var(--shenas-text, #e8e8ef);
-      padding: 0.4rem 0.8rem;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.8rem;
-      transition: all 0.2s;
-    }
-
-    .config-actions button:hover {
-      background: var(--shenas-accent, #6c5ce7);
-      border-color: var(--shenas-accent, #6c5ce7);
-    }
-
-    .edit-form {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    label {
-      color: var(--shenas-text, #e8e8ef);
-      font-size: 0.9rem;
-      font-weight: 500;
-    }
-
-    input {
-      padding: 0.5rem;
-      background: var(--shenas-surface, #22222f);
-      border: 1px solid var(--shenas-border, #2a2a3a);
-      border-radius: 4px;
-      color: var(--shenas-text, #e8e8ef);
-      font-family: monospace;
-      font-size: 0.9rem;
-    }
-
-    input:focus {
-      outline: none;
-      border-color: var(--shenas-accent, #6c5ce7);
-    }
-
-    .error {
-      background: rgba(239, 68, 68, 0.1);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      color: #ef4444;
-      padding: 1rem;
-      border-radius: 6px;
-      margin-bottom: 1rem;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 2rem;
-      color: var(--shenas-text-muted, #a8a8c0);
-    }
-  `;
+  declare _message: Message | null;
+  declare _editing: string | null;
+  declare _editValue: string;
+  declare _freqNum: string;
+  declare _freqUnit: string;
 
   constructor() {
     super();
-    this.apiBase = "";
-    this._configs = [];
-    this._error = null;
-    this._loading = false;
-    this._editingKey = null;
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    this.loadConfigs();
-  }
-
-  private async loadConfigs() {
+    this.apiBase = "/api";
+    this.kind = "";
+    this.name = "";
+    this._config = null;
     this._loading = true;
-    this._error = null;
+    this._message = null;
+    this._editing = null;
+    this._editValue = "";
+    this._freqNum = "";
+    this._freqUnit = "hours";
+  }
 
-    try {
-      const response = await fetch(`${this.apiBase}/api/config`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to load configuration");
-      }
-
-      const data = await response.json();
-      this._configs = data.configs || [];
-    } catch (error) {
-      this._error = error instanceof Error ? error.message : String(error);
-    } finally {
-      this._loading = false;
+  willUpdate(changed: Map<string, unknown>): void {
+    if (changed.has("kind") || changed.has("name")) {
+      this._fetchConfig();
     }
   }
 
-  private startEdit(key: string) {
-    this._editingKey = key;
+  async _fetchConfig(): Promise<void> {
+    if (!this.kind || !this.name) return;
+    this._loading = true;
+    const data = await gql(
+      this.apiBase,
+      `query($kind: String!) { plugins(kind: $kind) { name hasConfig configEntries { key label value description } } }`,
+      { kind: this.kind },
+    );
+    const plugins = (data?.plugins as Array<Record<string, unknown>>) || [];
+    const match = plugins.find((p) => p.name === this.name && p.hasConfig);
+    this._config = match
+      ? { kind: this.kind, name: match.name as string, entries: match.configEntries as ConfigEntry[] }
+      : null;
+    this._loading = false;
   }
 
-  private cancelEdit() {
-    this._editingKey = null;
+  _startEdit(key: string, currentValue: string): void {
+    this._editing = key;
+    this._editValue = currentValue || "";
+    if (ConfigPage._DURATION_FIELDS.has(key) && currentValue) {
+      const mins = parseFloat(currentValue);
+      if (mins >= 1440 && mins % 1440 === 0) {
+        this._freqNum = String(mins / 1440);
+        this._freqUnit = "days";
+      } else if (mins >= 60 && mins % 60 === 0) {
+        this._freqNum = String(mins / 60);
+        this._freqUnit = "hours";
+      } else if (mins >= 1) {
+        this._freqNum = String(mins);
+        this._freqUnit = "minutes";
+      } else {
+        this._freqNum = String(mins * 60);
+        this._freqUnit = "seconds";
+      }
+    } else if (ConfigPage._DURATION_FIELDS.has(key)) {
+      this._freqNum = "";
+      this._freqUnit = "hours";
+    }
   }
 
-  private async saveEdit(event: Event) {
-    event.preventDefault();
-    const value = this.configValueInput?.value;
+  _cancelEdit(): void {
+    this._editing = null;
+    this._editValue = "";
+  }
 
-    if (!this._editingKey || !value) {
+  _freqToMinutes(): string | null {
+    const num = parseFloat(this._freqNum);
+    if (isNaN(num) || num <= 0) return null;
+    return String(Math.round(num * ConfigPage._UNIT_MULTIPLIERS[this._freqUnit]));
+  }
+
+  _formatFreq(minutes: string): string {
+    const m = parseFloat(minutes);
+    if (isNaN(m)) return minutes;
+    if (m >= 1440 && m % 1440 === 0) return `${m / 1440} day${m / 1440 !== 1 ? "s" : ""}`;
+    if (m >= 60 && m % 60 === 0) return `${m / 60} hour${m / 60 !== 1 ? "s" : ""}`;
+    if (m >= 1) return `${m} minute${m !== 1 ? "s" : ""}`;
+    return `${m * 60} second${m * 60 !== 1 ? "s" : ""}`;
+  }
+
+  async _saveEdit(key: string): Promise<void> {
+    const value = ConfigPage._DURATION_FIELDS.has(key) ? this._freqToMinutes() : this._editValue;
+    if (ConfigPage._DURATION_FIELDS.has(key) && value === null) {
+      this._message = { type: "error", text: "Enter a positive number" };
       return;
     }
-
-    this._loading = true;
-    this._error = null;
-
-    try {
-      const response = await fetch(`${this.apiBase}/api/config/${this._editingKey}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
-        },
-        body: JSON.stringify({ value }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update configuration");
-      }
-
-      await this.loadConfigs();
-      this._editingKey = null;
-    } catch (error) {
-      this._error = error instanceof Error ? error.message : String(error);
-    } finally {
-      this._loading = false;
+    const { ok, data } = await gqlFull(
+      this.apiBase,
+      `mutation($kind: String!, $name: String!, $key: String!, $value: String!) { setConfig(kind: $kind, name: $name, key: $key, value: $value) { ok } }`,
+      { kind: this.kind, name: this.name, key, value },
+    );
+    if (ok) {
+      this._message = { type: "success", text: `Updated ${key}` };
+      this._editing = null;
+      await this._fetchConfig();
+    } else {
+      this._message = { type: "error", text: (data?.detail as string) || "Update failed" };
     }
   }
 
-  render(): TemplateResult {
+  render() {
+    const empty = !this._config || this._config.entries.length === 0;
     return html`
-      <div class="container">
-        <div class="header">
-          <h1>Configuration</h1>
-          <div class="controls">
-            <button @click=${this.loadConfigs.bind(this)} ?disabled=${this._loading}>Refresh</button>
-          </div>
-        </div>
+      <shenas-page
+        ?loading=${this._loading}
+        ?empty=${empty}
+        loading-text="Loading config..."
+        empty-text="No configuration settings for this plugin."
+      >
+        ${renderMessage(this._message)} ${this._config?.entries.map((e) => this._renderEntry(e))}
+      </shenas-page>
+    `;
+  }
 
-        ${this._error ? html`<div class="error">${this._error}</div>` : ""}
-        ${this._loading && this._configs.length === 0
-          ? html`<div class="loading">Loading configuration...</div>`
-          : html`
-              <div class="config-list">
-                ${this._configs.map((config) =>
-                  this._editingKey === config.key
-                    ? html`
-                        <div class="config-item editing">
-                          <div>
-                            <div class="config-key">${config.key}</div>
-                            ${config.description
-                              ? html`<div class="config-description">${config.description}</div>`
-                              : ""}
-                          </div>
-                          <form @submit=${this.saveEdit.bind(this)} class="edit-form">
-                            <div class="form-group">
-                              <label for="config-value">Value</label>
-                              <input id="config-value" type="text" .value=${config.value} required />
-                            </div>
-                            <div class="config-actions">
-                              <button type="submit" ?disabled=${this._loading}>Save</button>
-                              <button type="button" @click=${this.cancelEdit.bind(this)}>Cancel</button>
-                            </div>
-                          </form>
-                        </div>
-                      `
-                    : html`
-                        <div class="config-item">
-                          <div>
-                            <div class="config-key">${config.key}</div>
-                            <div class="config-value">${config.value}</div>
-                            ${config.description
-                              ? html`<div class="config-description">${config.description}</div>`
-                              : ""}
-                          </div>
-                          <div class="config-actions">
-                            <button @click=${() => this.startEdit(config.key)}>Edit</button>
-                          </div>
-                        </div>
-                      `,
-                )}
+  _renderFreqEdit(entry: ConfigEntry) {
+    return html` <div class="edit-row">
+      <input
+        class="config-input"
+        type="number"
+        min="0"
+        step="any"
+        style="width: 80px"
+        .value=${this._freqNum}
+        @input=${(ev: InputEvent) => {
+          this._freqNum = (ev.target as HTMLInputElement).value;
+        }}
+        @keydown=${(ev: KeyboardEvent) => {
+          if (ev.key === "Enter") this._saveEdit(entry.key);
+          if (ev.key === "Escape") this._cancelEdit();
+        }}
+      />
+      <select
+        @change=${(ev: Event) => {
+          this._freqUnit = (ev.target as HTMLSelectElement).value;
+        }}
+      >
+        ${Object.keys(ConfigPage._UNIT_MULTIPLIERS).map(
+          (u) => html` <option value=${u} ?selected=${this._freqUnit === u}>${u}</option> `,
+        )}
+      </select>
+      <button @click=${() => this._saveEdit(entry.key)}>Save</button>
+      <button @click=${this._cancelEdit}>Cancel</button>
+    </div>`;
+  }
+
+  _renderEntry(entry: ConfigEntry) {
+    const isEditing = this._editing === entry.key;
+    const isFreq = ConfigPage._DURATION_FIELDS.has(entry.key);
+    const displayValue = isFreq && entry.value ? this._formatFreq(entry.value) : entry.value;
+    return html`
+      <div class="config-row">
+        <div class="config-key">${entry.label || entry.key}</div>
+        ${isEditing
+          ? isFreq
+            ? this._renderFreqEdit(entry)
+            : html` <div class="edit-row">
+                <input
+                  class="config-input"
+                  .value=${this._editValue}
+                  @input=${(ev: InputEvent) => {
+                    this._editValue = (ev.target as HTMLInputElement).value;
+                  }}
+                  @keydown=${(ev: KeyboardEvent) => {
+                    if (ev.key === "Enter") this._saveEdit(entry.key);
+                    if (ev.key === "Escape") this._cancelEdit();
+                  }}
+                />
+                <button @click=${() => this._saveEdit(entry.key)}>Save</button>
+                <button @click=${this._cancelEdit}>Cancel</button>
+              </div>`
+          : html` <div class="config-detail">
+              <div
+                class="config-value ${displayValue ? "" : "empty"}"
+                @click=${() => this._startEdit(entry.key, entry.value)}
+                style="cursor: pointer"
+                title="Click to edit"
+              >
+                ${displayValue || "not set"}
               </div>
-            `}
+              ${entry.description ? html`<div class="config-desc">${entry.description}</div>` : ""}
+            </div>`}
       </div>
     `;
   }
 }
 
-customElements.define("shenas-config-page", ConfigPage);
+customElements.define("shenas-config", ConfigPage);

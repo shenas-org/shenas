@@ -38,6 +38,9 @@ if TYPE_CHECKING:
 # Request-scoped user id. Set by middleware, defaults to 0 (single-user).
 current_user_id: contextvars.ContextVar[int] = contextvars.ContextVar("current_user_id", default=0)
 
+# Request-scoped entity UUID. None means "the current user's primary entity".
+current_entity_uuid: contextvars.ContextVar[str | None] = contextvars.ContextVar("current_entity_uuid", default=None)
+
 
 class DatabaseManager:
     """Owns the shenas DB singleton, key management, and convenience accessors."""
@@ -162,6 +165,16 @@ class DatabaseManager:
                 )
                 LocalUser._attached[0] = db
                 db.connect()
+                # Seed "me" + device entities for the default single-user.
+                import platform
+
+                from app.entities import Entity, EntityRelationship
+
+                if not Entity.all(where="type = 'human'", limit=1):
+                    me = Entity.create(name="me", type="human", description="Default user")
+                    device_name = platform.node() or "unknown"
+                    device = Entity.create(name=device_name, type="device", description="This device")
+                    EntityRelationship(from_uuid=me.uuid, to_uuid=device.uuid, type="uses").upsert()
         if db is None:
             msg = f"no user DB attached for user_id={user_id}; call user.attach() first"
             raise RuntimeError(msg)
@@ -252,6 +265,15 @@ class DatabaseManager:
 
         from app.categories import CategorySet, CategoryValue
         from app.data_catalog import QualityCheckResult, ResourceAnnotation
+        from app.entities import (
+            Entity,
+            EntityIndex,
+            EntityRelationship,
+            EntityRelationshipType,
+            EntityType,
+            seed_entity_types,
+            seed_relationship_types,
+        )
         from app.finding import Finding
         from app.hotkeys import Hotkey
         from app.hypotheses import Hypothesis
@@ -269,6 +291,7 @@ class DatabaseManager:
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.finding_seq START 1")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.local_user_seq START 1")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.geofence_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.entity_seq START 1")
         tables: list[type[Table]] = [
             Transform,
             PluginInstance,
@@ -286,9 +309,16 @@ class DatabaseManager:
             QualityCheckResult,
             CategorySet,
             CategoryValue,
+            EntityType,
+            EntityRelationshipType,
+            Entity,
+            EntityIndex,
+            EntityRelationship,
         ]
         Table.ensure_schema(con, tables, schema="shenas_system")
         Hotkey.seed()
+        seed_entity_types(con)
+        seed_relationship_types(con)
         from shenas_datasets.core.dataset import Dataset
 
         Dataset.ensure_all(con)
