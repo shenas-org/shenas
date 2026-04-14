@@ -65,7 +65,7 @@ class FirefoxSource(Source):
     name = "firefox"
     display_name = "Firefox"
     primary_table = "visits"
-    entity_types: ClassVar[list[str]] = ["device"]
+    entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Extracts browsing history and bookmarks from a local Firefox profile.\n\n"
         "Reads Firefox's SQLite places.sqlite database directly from disk. "

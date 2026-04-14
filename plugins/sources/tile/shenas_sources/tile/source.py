@@ -15,7 +15,7 @@ class TileSource(Source):
     name = "tile"
     display_name = "Tile"
     primary_table = "tile_locations"
-    entity_types: ClassVar[list[str]] = ["device"]
+    entity_types: ClassVar[list[str]] = ["physical_entity"]
     description = (
         "Syncs device info, location history, and battery/connectivity state "
         "from Tile Bluetooth trackers.\n\n"

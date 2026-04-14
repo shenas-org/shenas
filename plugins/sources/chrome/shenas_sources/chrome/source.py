@@ -34,7 +34,7 @@ class ChromeSource(Source):
     name = "chrome"
     display_name = "Google Chrome"
     primary_table = "visits"
-    entity_types: ClassVar[list[str]] = ["device"]
+    entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Extracts browsing history, downloads, and search terms from a local "
         "Google Chrome profile.\n\n"

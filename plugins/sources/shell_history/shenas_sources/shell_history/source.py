@@ -31,7 +31,7 @@ class ShellHistorySource(Source):
     name = "shell_history"
     display_name = "Shell History"
     primary_table = "commands"
-    entity_types: ClassVar[list[str]] = ["device"]
+    entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Extracts command history from bash, zsh, or fish shell history files.\n\n"
         "Parses timestamps (where available) and commands. Zsh extended history "

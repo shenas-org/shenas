@@ -415,6 +415,8 @@ class EntityTypeType:
     description: str = ""
     icon: str = ""
     is_human: bool = False
+    parent: str | None = None
+    is_abstract: bool = False
 
 
 @strawberry.type
