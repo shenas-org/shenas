@@ -43,3 +43,8 @@ app/desktop/src-tauri/gen/
 app/desktop/src-tauri/Cargo.lock
 app/desktop/pkg/
 app/desktop/*.pkg.tar.zst
+
+# Accidental shell redirect; a command like `cmd > \` creates a file
+# literally named "\". Belt-and-braces so a stray keystroke never
+# commits secrets again.
+/\
