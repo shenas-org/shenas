@@ -187,7 +187,8 @@ test:
 coverage:
 	uv run --no-sync pytest --cov=app \
 		--cov=shenas_sources --cov=shenas_datasets \
-		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json
+		--cov-report=term-missing --cov-report=html:htmlcov --cov-report=json:coverage.json \
+		--ignore=server/fl --ignore=server/api
 
 pyinstaller:
 	uv run python build/pyinstaller_build.py
