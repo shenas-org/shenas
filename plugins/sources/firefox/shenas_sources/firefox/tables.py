@@ -71,17 +71,23 @@ class Visits(EventTable):
     time_at: ClassVar[str] = "visit_time"
     cursor_column: ClassVar[str] = "visit_time"
 
-    id: Annotated[int, Field(db_type="BIGINT", description="Firefox visit ID")] = 0
-    url: Annotated[str, Field(db_type="VARCHAR", description="Full URL of the visited page")] = ""
-    title: Annotated[str | None, Field(db_type="VARCHAR", description="Page title")] = None
-    visit_time: Annotated[str | None, Field(db_type="TIMESTAMP", description="Visit timestamp (UTC)")] = None
+    id: Annotated[int, Field(db_type="BIGINT", description="Firefox visit ID", display_name="Visit ID")] = 0
+    url: Annotated[str, Field(db_type="VARCHAR", description="Full URL of the visited page", display_name="URL")] = ""
+    title: Annotated[str | None, Field(db_type="VARCHAR", description="Page title", display_name="Page Title")] = None
+    visit_time: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Visit timestamp (UTC)", display_name="Visit Time")
+    ] = None
     visit_type: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Navigation type (link, typed, bookmark, redirect, ...)"),
+        Field(
+            db_type="VARCHAR",
+            description="Navigation type (link, typed, bookmark, redirect, ...)",
+            display_name="Navigation Type",
+        ),
     ] = None
     from_visit_id: Annotated[
         int | None,
-        Field(db_type="BIGINT", description="Visit ID of the referring page (0 if none)"),
+        Field(db_type="BIGINT", description="Visit ID of the referring page (0 if none)", display_name="Referring Visit ID"),
     ] = None
 
     @classmethod
@@ -125,16 +131,16 @@ class Bookmarks(DimensionTable):
         description = "Firefox bookmarks with folder hierarchy."
         pk = ("id",)
 
-    id: Annotated[int, Field(db_type="BIGINT", description="Firefox bookmark ID")] = 0
-    title: Annotated[str | None, Field(db_type="VARCHAR", description="Bookmark title")] = None
-    url: Annotated[str | None, Field(db_type="VARCHAR", description="Bookmarked URL")] = None
+    id: Annotated[int, Field(db_type="BIGINT", description="Firefox bookmark ID", display_name="Bookmark ID")] = 0
+    title: Annotated[str | None, Field(db_type="VARCHAR", description="Bookmark title", display_name="Title")] = None
+    url: Annotated[str | None, Field(db_type="VARCHAR", description="Bookmarked URL", display_name="URL")] = None
     parent_title: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Parent folder name"),
+        Field(db_type="VARCHAR", description="Parent folder name", display_name="Parent Folder"),
     ] = None
     date_added: Annotated[
         str | None,
-        Field(db_type="TIMESTAMP", description="When the bookmark was created (UTC)"),
+        Field(db_type="TIMESTAMP", description="When the bookmark was created (UTC)", display_name="Date Added"),
     ] = None
 
     @classmethod

@@ -90,43 +90,73 @@ class Events(IntervalTable):
     time_start: ClassVar[str] = "start_date"
     time_end: ClassVar[str] = "end_date"
 
-    id: Annotated[str, Field(db_type="VARCHAR", description="Event ID")]
-    calendar_id: Annotated[str | None, Field(db_type="VARCHAR", description="Calendar ID")] = None
-    summary: Annotated[str | None, Field(db_type="VARCHAR", description="Event title")] = None
-    event_description: Annotated[str | None, Field(db_type="TEXT", description="Event description")] = None
-    location: Annotated[str | None, Field(db_type="VARCHAR", description="Event location")] = None
-    start_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="Start datetime")] = None
-    end_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="End datetime")] = None
-    all_day: Annotated[bool, Field(db_type="BOOLEAN", description="Whether this is an all-day event")] = False
-    status: Annotated[str | None, Field(db_type="VARCHAR", description="Event status")] = None
-    creator_email: Annotated[str | None, Field(db_type="VARCHAR", description="Creator email")] = None
-    organizer_email: Annotated[str | None, Field(db_type="VARCHAR", description="Organizer email")] = None
-    attendees_count: Annotated[int, Field(db_type="INTEGER", description="Number of attendees")] = 0
+    id: Annotated[str, Field(db_type="VARCHAR", description="Event ID", display_name="Event ID")]
+    calendar_id: Annotated[str | None, Field(db_type="VARCHAR", description="Calendar ID", display_name="Calendar ID")] = None
+    summary: Annotated[str | None, Field(db_type="VARCHAR", description="Event title", display_name="Title")] = None
+    event_description: Annotated[
+        str | None, Field(db_type="TEXT", description="Event description", display_name="Description")
+    ] = None
+    location: Annotated[str | None, Field(db_type="VARCHAR", description="Event location", display_name="Location")] = None
+    start_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="Start datetime", display_name="Start")] = None
+    end_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="End datetime", display_name="End")] = None
+    all_day: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Whether this is an all-day event", display_name="All Day")
+    ] = False
+    status: Annotated[str | None, Field(db_type="VARCHAR", description="Event status", display_name="Status")] = None
+    creator_email: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Creator email", display_name="Creator Email")
+    ] = None
+    organizer_email: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Organizer email", display_name="Organizer Email")
+    ] = None
+    attendees_count: Annotated[int, Field(db_type="INTEGER", description="Number of attendees", display_name="Attendees")] = 0
     event_type: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Type: default | focusTime | outOfOffice | workingLocation"),
+        Field(
+            db_type="VARCHAR",
+            description="Type: default | focusTime | outOfOffice | workingLocation",
+            display_name="Event Type",
+        ),
     ] = None
-    visibility: Annotated[str | None, Field(db_type="VARCHAR", description="default | public | private | confidential")] = None
-    transparency: Annotated[str | None, Field(db_type="VARCHAR", description="busy | transparent (free)")] = None
-    color_id: Annotated[str | None, Field(db_type="VARCHAR", description="Color ID (joins to colors table)")] = None
-    is_video_call: Annotated[bool, Field(db_type="BOOLEAN", description="Has a Meet/Zoom/etc link")] = False
-    conference_url: Annotated[str | None, Field(db_type="VARCHAR", description="First conference entry-point URL")] = None
+    visibility: Annotated[
+        str | None,
+        Field(db_type="VARCHAR", description="default | public | private | confidential", display_name="Visibility"),
+    ] = None
+    transparency: Annotated[
+        str | None, Field(db_type="VARCHAR", description="busy | transparent (free)", display_name="Transparency")
+    ] = None
+    color_id: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Color ID (joins to colors table)", display_name="Color ID")
+    ] = None
+    is_video_call: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Has a Meet/Zoom/etc link", display_name="Video Call")
+    ] = False
+    conference_url: Annotated[
+        str | None, Field(db_type="VARCHAR", description="First conference entry-point URL", display_name="Conference URL")
+    ] = None
     conference_type: Annotated[
-        str | None, Field(db_type="VARCHAR", description="Conference solution name (e.g. Google Meet)")
+        str | None,
+        Field(db_type="VARCHAR", description="Conference solution name (e.g. Google Meet)", display_name="Conference Type"),
     ] = None
     recurrence_rule: Annotated[
-        str | None, Field(db_type="VARCHAR", description="RRULE string for recurring events (joined)")
+        str | None,
+        Field(db_type="VARCHAR", description="RRULE string for recurring events (joined)", display_name="Recurrence Rule"),
     ] = None
-    recurring_event_id: Annotated[str | None, Field(db_type="VARCHAR", description="Parent recurring event ID")] = None
+    recurring_event_id: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Parent recurring event ID", display_name="Recurring Event ID")
+    ] = None
     original_start_time: Annotated[
-        str | None, Field(db_type="TIMESTAMP", description="Original start of a moved recurring instance")
+        str | None,
+        Field(db_type="TIMESTAMP", description="Original start of a moved recurring instance", display_name="Original Start"),
     ] = None
     html_link: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Link to event in Google Calendar"),
+        Field(db_type="VARCHAR", description="Link to event in Google Calendar", display_name="Link"),
     ] = None
-    created: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp")] = None
-    updated: Annotated[str | None, Field(db_type="TIMESTAMP", description="Last updated timestamp")] = None
+    created: Annotated[str | None, Field(db_type="TIMESTAMP", description="Creation timestamp", display_name="Created")] = None
+    updated: Annotated[
+        str | None, Field(db_type="TIMESTAMP", description="Last updated timestamp", display_name="Updated")
+    ] = None
 
     @staticmethod
     def _event_row(event: dict[str, Any], calendar_id: str) -> dict[str, Any]:
@@ -192,16 +222,16 @@ class EventAttendees(M2MTable):
         description = "Attendees on calendar events (m2m bridge)."
         pk = ("event_id", "email")
 
-    event_id: Annotated[str, Field(db_type="VARCHAR", description="Parent event ID")]
-    email: Annotated[str, Field(db_type="VARCHAR", description="Attendee email")]
-    attendee_name: Annotated[str | None, Field(db_type="VARCHAR", description="Display name")] = None
+    event_id: Annotated[str, Field(db_type="VARCHAR", description="Parent event ID", display_name="Event ID")]
+    email: Annotated[str, Field(db_type="VARCHAR", description="Attendee email", display_name="Email")]
+    attendee_name: Annotated[str | None, Field(db_type="VARCHAR", description="Display name", display_name="Name")] = None
     response_status: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="needsAction | declined | tentative | accepted"),
+        Field(db_type="VARCHAR", description="needsAction | declined | tentative | accepted", display_name="RSVP Status"),
     ] = None
-    optional: Annotated[bool, Field(db_type="BOOLEAN", description="Optional attendee")] = False
-    organizer: Annotated[bool, Field(db_type="BOOLEAN", description="Organizer flag")] = False
-    is_self: Annotated[bool, Field(db_type="BOOLEAN", description="The authenticated user")] = False
+    optional: Annotated[bool, Field(db_type="BOOLEAN", description="Optional attendee", display_name="Optional")] = False
+    organizer: Annotated[bool, Field(db_type="BOOLEAN", description="Organizer flag", display_name="Organizer")] = False
+    is_self: Annotated[bool, Field(db_type="BOOLEAN", description="The authenticated user", display_name="Is Self")] = False
 
     @staticmethod
     def _attendee_rows(event: dict[str, Any]) -> Iterator[dict[str, Any]]:
@@ -240,17 +270,25 @@ class Calendars(DimensionTable):
         description = "Calendars the user has access to."
         pk = ("id",)
 
-    id: Annotated[str, Field(db_type="VARCHAR", description="Calendar ID")]
-    summary: Annotated[str | None, Field(db_type="VARCHAR", description="Calendar name")] = None
-    calendar_description: Annotated[str | None, Field(db_type="TEXT", description="Calendar description")] = None
+    id: Annotated[str, Field(db_type="VARCHAR", description="Calendar ID", display_name="Calendar ID")]
+    summary: Annotated[str | None, Field(db_type="VARCHAR", description="Calendar name", display_name="Name")] = None
+    calendar_description: Annotated[
+        str | None, Field(db_type="TEXT", description="Calendar description", display_name="Description")
+    ] = None
     primary: Annotated[
         bool,
-        Field(db_type="BOOLEAN", description="Whether this is the primary calendar"),
+        Field(db_type="BOOLEAN", description="Whether this is the primary calendar", display_name="Primary"),
     ] = False
-    access_role: Annotated[str | None, Field(db_type="VARCHAR", description="Access role")] = None
-    time_zone: Annotated[str | None, Field(db_type="VARCHAR", description="Calendar time zone")] = None
-    background_color: Annotated[str | None, Field(db_type="VARCHAR", description="Background color")] = None
-    foreground_color: Annotated[str | None, Field(db_type="VARCHAR", description="Foreground color")] = None
+    access_role: Annotated[str | None, Field(db_type="VARCHAR", description="Access role", display_name="Access Role")] = None
+    time_zone: Annotated[str | None, Field(db_type="VARCHAR", description="Calendar time zone", display_name="Time Zone")] = (
+        None
+    )
+    background_color: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Background color", display_name="Background Color")
+    ] = None
+    foreground_color: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Foreground color", display_name="Foreground Color")
+    ] = None
 
     @classmethod
     def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:
@@ -287,9 +325,13 @@ class Colors(DimensionTable):
         description = "Global event color palette."
         pk = ("id",)
 
-    id: Annotated[str, Field(db_type="VARCHAR", description="Color ID")]
-    background: Annotated[str | None, Field(db_type="VARCHAR", description="Background hex color")] = None
-    foreground: Annotated[str | None, Field(db_type="VARCHAR", description="Foreground hex color")] = None
+    id: Annotated[str, Field(db_type="VARCHAR", description="Color ID", display_name="Color ID")]
+    background: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Background hex color", display_name="Background")
+    ] = None
+    foreground: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Foreground hex color", display_name="Foreground")
+    ] = None
 
     @classmethod
     def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:

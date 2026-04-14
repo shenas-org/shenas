@@ -59,19 +59,19 @@ class Prompts(EventTable):
 
     time_at: ClassVar[str] = "prompted_at"
 
-    id: Annotated[str, Field(db_type="VARCHAR", description="Content-hash ID (sha256[:16])")] = ""
-    prompt: Annotated[str, Field(db_type="VARCHAR", description="The user prompt text")] = ""
+    id: Annotated[str, Field(db_type="VARCHAR", description="Content-hash ID (sha256[:16])", display_name="Prompt ID")] = ""
+    prompt: Annotated[str, Field(db_type="VARCHAR", description="The user prompt text", display_name="Prompt Text")] = ""
     project: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Project working directory"),
+        Field(db_type="VARCHAR", description="Project working directory", display_name="Project"),
     ] = None
     session_id: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Claude Code session ID"),
+        Field(db_type="VARCHAR", description="Claude Code session ID", display_name="Session ID"),
     ] = None
     prompted_at: Annotated[
         str | None,
-        Field(db_type="TIMESTAMP", description="Prompt submission timestamp (UTC)"),
+        Field(db_type="TIMESTAMP", description="Prompt submission timestamp (UTC)", display_name="Prompted At"),
     ] = None
 
     @classmethod
@@ -119,30 +119,30 @@ class Turns(EventTable):
 
     time_at: ClassVar[str] = "completed_at"
 
-    id: Annotated[str, Field(db_type="VARCHAR", description="Content-hash ID (sha256[:16])")] = ""
+    id: Annotated[str, Field(db_type="VARCHAR", description="Content-hash ID (sha256[:16])", display_name="Turn ID")] = ""
     session_id: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Claude Code session ID"),
+        Field(db_type="VARCHAR", description="Claude Code session ID", display_name="Session ID"),
     ] = None
     duration_ms: Annotated[
         int | None,
-        Field(db_type="INTEGER", description="Turn duration in milliseconds", unit="ms"),
+        Field(db_type="INTEGER", description="Turn duration in milliseconds", display_name="Turn Duration", unit="ms"),
     ] = None
     message_count: Annotated[
         int | None,
-        Field(db_type="INTEGER", description="Number of messages in the turn"),
+        Field(db_type="INTEGER", description="Number of messages in the turn", display_name="Message Count"),
     ] = None
     project: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Project working directory"),
+        Field(db_type="VARCHAR", description="Project working directory", display_name="Project"),
     ] = None
     entrypoint: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="How Claude Code was launched (cli, ide, etc.)"),
+        Field(db_type="VARCHAR", description="How Claude Code was launched (cli, ide, etc.)", display_name="Entrypoint"),
     ] = None
     completed_at: Annotated[
         str | None,
-        Field(db_type="TIMESTAMP", description="Turn completion timestamp (UTC)"),
+        Field(db_type="TIMESTAMP", description="Turn completion timestamp (UTC)", display_name="Completed At"),
     ] = None
 
     @classmethod

@@ -3,8 +3,8 @@ from typing import Annotated
 from app.table import Field
 from shenas_datasets.core import DailyMetricTable
 
-Date = Annotated[str, Field(db_type="DATE", description="Calendar date", category="time")]
-Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier")]
+Date = Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date", category="time")]
+Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier", display_name="Source")]
 
 
 class DailyHabits(DailyMetricTable):
@@ -24,6 +24,7 @@ class DailyHabits(DailyMetricTable):
             Field(
                 db_type="BOOLEAN",
                 description="Completed at least one Duolingo lesson today",
+                display_name="Duolingo",
                 category="growth",
                 interpretation="True if any XP was earned; track streaks and consistency over time",
             ),
