@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
@@ -15,7 +15,7 @@ class TileSource(Source):
     name = "tile"
     display_name = "Tile"
     primary_table = "tile_locations"
-    entity_type = "device"
+    entity_types: ClassVar[list[str]] = ["device"]
     description = (
         "Syncs device info, location history, and battery/connectivity state "
         "from Tile Bluetooth trackers.\n\n"

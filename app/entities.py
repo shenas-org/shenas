@@ -498,6 +498,15 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "is_abstract": False,
         "description": "A company, gym, or other group.",
     },
+    {
+        "name": "project",
+        "display_name": "Project",
+        "parent": "virtual_entity",
+        "icon": "folder",
+        "is_human": False,
+        "is_abstract": False,
+        "description": "A software project, repository, or workspace.",
+    },
 ]
 
 

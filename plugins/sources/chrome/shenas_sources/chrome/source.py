@@ -8,7 +8,7 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_config import SourceConfig
@@ -34,7 +34,7 @@ class ChromeSource(Source):
     name = "chrome"
     display_name = "Google Chrome"
     primary_table = "visits"
-    entity_type = "device"
+    entity_types: ClassVar[list[str]] = ["device"]
     description = (
         "Extracts browsing history, downloads, and search terms from a local "
         "Google Chrome profile.\n\n"

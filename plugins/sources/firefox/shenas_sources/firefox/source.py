@@ -9,7 +9,7 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_config import SourceConfig
@@ -65,7 +65,7 @@ class FirefoxSource(Source):
     name = "firefox"
     display_name = "Firefox"
     primary_table = "visits"
-    entity_type = "device"
+    entity_types: ClassVar[list[str]] = ["device"]
     description = (
         "Extracts browsing history and bookmarks from a local Firefox profile.\n\n"
         "Reads Firefox's SQLite places.sqlite database directly from disk. "

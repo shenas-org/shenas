@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_config import SourceConfig
@@ -20,7 +20,7 @@ class ClaudeCodeSource(Source):
     name = "claude_code"
     display_name = "Claude Code"
     primary_table = "prompts"
-    entity_type = "device"
+    entity_types: ClassVar[list[str]] = ["device"]
     description = (
         "Extracts usage history from local Claude Code data files.\n\n"
         "Parses prompt history (what you asked) and turn statistics "
