@@ -229,6 +229,48 @@ class ShenasApp extends LitElement {
         display: flex;
         height: 100%;
         box-sizing: border-box;
+        position: relative;
+      }
+      .shell-auth {
+        position: absolute;
+        top: 6px;
+        right: 10px;
+        z-index: 20;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 8px;
+        max-width: 220px;
+        font-size: 0.75rem;
+        color: var(--shenas-text-secondary, #666);
+        background: var(--shenas-bg, transparent);
+        border: 1px solid var(--shenas-border, #e0e0e0);
+        border-radius: 999px;
+        cursor: pointer;
+        font-family: inherit;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .shell-auth:hover {
+        background: var(--shenas-bg-hover, #f5f5f5);
+        color: var(--shenas-text, #222);
+      }
+      .shell-auth .device-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--shenas-text-faint, #ccc);
+        flex-shrink: 0;
+      }
+      .shell-auth .device-dot.connected {
+        background: var(--shenas-success, #2e7d32);
+      }
+      .shell-auth .shell-auth-label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .panel-left {
         flex-shrink: 0;
@@ -458,41 +500,6 @@ class ShenasApp extends LitElement {
         text-transform: uppercase;
         letter-spacing: 0.05em;
         color: var(--shenas-text-faint, #aaa);
-      }
-      .sidebar-footer {
-        margin-top: auto;
-        padding: 0.8rem;
-        border-top: 1px solid var(--shenas-border, #e0e0e0);
-      }
-      .auth-link {
-        display: block;
-        padding: 0.5rem 0.8rem;
-        font-size: 0.85rem;
-        color: var(--shenas-text-secondary, #666);
-        text-decoration: none;
-        border-radius: 4px;
-      }
-      .auth-link:hover {
-        background: var(--shenas-bg-hover, #f5f5f5);
-        color: var(--shenas-text, #222);
-      }
-      .device-name {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        padding: 0.2rem 0.8rem;
-        font-size: 0.7rem;
-        color: var(--shenas-text-faint, #aaa);
-      }
-      .device-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--shenas-text-faint, #ccc);
-        flex-shrink: 0;
-      }
-      .device-dot.connected {
-        background: var(--shenas-success, #2e7d32);
       }
       .component-host {
         height: calc(100vh - 4rem);
@@ -1427,8 +1434,27 @@ class ShenasApp extends LitElement {
     // Auto-expand settings on first navigation to a settings route
     if (activePath.startsWith("/settings") && this._settingsOpen === undefined) this._settingsOpen = true;
 
+    const authLabel = this._remoteUser
+      ? (this._remoteUser.name as string) || (this._remoteUser.email as string)
+      : "Sign in";
+    const authTitle = this._deviceName ? `${authLabel} - ${this._deviceName}` : authLabel;
+
     return html`
       <div class="layout">
+        <button
+          class="shell-auth"
+          title=${authTitle}
+          @click=${() => {
+            if (this._remoteUser) {
+              openExternal(`${this._serverUrl}/dashboard`);
+            } else {
+              window.location.href = "/api/auth/login";
+            }
+          }}
+        >
+          ${this._deviceName ? html`<span class="device-dot ${this._remoteUser ? "connected" : ""}"></span>` : ""}
+          <span class="shell-auth-label">${authLabel}</span>
+        </button>
         <div class="panel-left" style="width: ${this._leftWidth}px">
           <div class="header">
             <img src="/static/images/shenas.svg" alt="shenas" />
@@ -1461,27 +1487,6 @@ class ShenasApp extends LitElement {
                 `
               : ""}
           </nav>
-          <div class="sidebar-footer">
-            <a
-              class="auth-link"
-              href=${this._remoteUser ? `${this._serverUrl}/dashboard` : "/api/auth/login"}
-              @click=${(e: MouseEvent) => {
-                e.preventDefault();
-                if (this._remoteUser) {
-                  openExternal(`${this._serverUrl}/dashboard`);
-                } else {
-                  window.location.href = "/api/auth/login";
-                }
-              }}
-            >
-              ${this._remoteUser ? (this._remoteUser.name as string) || (this._remoteUser.email as string) : "Sign in"}
-            </a>
-            ${this._deviceName
-              ? html`<span class="device-name"
-                  ><span class="device-dot ${this._remoteUser ? "connected" : ""}"></span>${this._deviceName}</span
-                >`
-              : ""}
-          </div>
         </div>
         <div class="divider" @mousedown=${this._startDrag("left")}></div>
         <div class="panel-middle">
