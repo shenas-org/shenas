@@ -191,4 +191,4 @@ def _parse_conversation_turns(path: Path) -> Iterator[dict[str, Any]]:
         }
 
 
-TABLES: tuple[type, ...] = (Prompts, Turns)
+TABLES = (Prompts, Turns)
