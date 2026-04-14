@@ -75,6 +75,11 @@ import Dashboard from "../layouts/Dashboard.astro";
     display: flex; gap: 0.5rem; padding: 0.15rem 0;
     font-family: monospace; font-size: 0.75rem;
   }
+  .worker-badge {
+    display: inline-block; padding: 0.1rem 0.4rem; border-radius: 3px;
+    font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+    background: #e3f2fd; color: #1565c0; vertical-align: middle; margin-left: 0.3rem;
+  }
   .ep-type {
     background: var(--color-surface, #edeae4); padding: 0 0.4rem;
     border-radius: 3px; font-size: 0.7rem; font-weight: 600;
@@ -127,7 +132,7 @@ import Dashboard from "../layouts/Dashboard.astro";
     return Date.now() - new Date(lastSeen).getTime() < 5 * 60 * 1000;
   }
 
-  interface Device { id: string; name: string; device_type: string; last_seen: string; created_at: string; owner_name: string; owner_email: string; }
+  interface Device { id: string; name: string; device_type: string; last_seen: string; created_at: string; owner_name: string; owner_email: string; is_worker: boolean; deployment_name: string | null; }
   interface Endpoint { device_id: string; endpoint_type: string; address: string; priority: number; updated_at: string; }
   interface SyncEdge { device_id: string; peer_device_id: string; last_sync_at: string | null; last_event_id: string | null; }
   interface RelayItem { from_device_id: string; to_device_id: string; pending: number; oldest: string; }
@@ -145,14 +150,16 @@ import Dashboard from "../layouts/Dashboard.astro";
 
       const { devices, endpoints, sync_edges, relay_queue } = data;
       const online = devices.filter(d => isOnline(d.last_seen)).length;
+      const workers = devices.filter(d => d.is_worker).length;
       const totalEndpoints = endpoints.length;
       const pendingRelay = relay_queue.reduce((s, r) => s + r.pending, 0);
 
-      statusEl.textContent = `${devices.length} device${devices.length !== 1 ? "s" : ""} in mesh`;
+      statusEl.textContent = `${devices.length} node${devices.length !== 1 ? "s" : ""} in mesh`;
 
       summaryEl.innerHTML = `
         <div class="summary-card"><div class="summary-value">${online}</div><div class="summary-label">Online</div></div>
-        <div class="summary-card"><div class="summary-value">${devices.length - online}</div><div class="summary-label">Offline</div></div>
+        <div class="summary-card"><div class="summary-value">${devices.length - workers}</div><div class="summary-label">Devices</div></div>
+        <div class="summary-card"><div class="summary-value">${workers}</div><div class="summary-label">Workers</div></div>
         <div class="summary-card"><div class="summary-value">${totalEndpoints}</div><div class="summary-label">Endpoints</div></div>
         <div class="summary-card"><div class="summary-value">${sync_edges.length}</div><div class="summary-label">Sync pairs</div></div>
         <div class="summary-card"><div class="summary-value">${pendingRelay}</div><div class="summary-label">Relay pending</div></div>
@@ -178,8 +185,8 @@ import Dashboard from "../layouts/Dashboard.astro";
             <div class="device-header">
               <div class="device-icon">${ICONS[d.device_type] || "\u{1F4BB}"}</div>
               <div>
-                <div class="device-name"><span class="status-dot ${on ? "online" : "offline"}"></span>${d.name}</div>
-                <div class="device-owner">${d.owner_name || d.owner_email} &middot; ${d.device_type} &middot; seen ${timeAgo(d.last_seen)}</div>
+                <div class="device-name"><span class="status-dot ${on ? "online" : "offline"}"></span>${d.name}${d.is_worker ? ' <span class="worker-badge">worker</span>' : ""}</div>
+                <div class="device-owner">${d.owner_name || d.owner_email} &middot; ${d.device_type}${d.deployment_name ? ` &middot; ${d.deployment_name}` : ""} &middot; seen ${timeAgo(d.last_seen)}</div>
               </div>
             </div>
             ${eps.length > 0 ? `
@@ -251,11 +258,16 @@ import Dashboard from "../layouts/Dashboard.astro";
       const p = positions[d.id];
       if (!p) continue;
       const on = isOnline(d.last_seen);
-      const fill = on ? "#728f67" : "#bbb";
-      svg += `<circle cx="${p.x}" cy="${p.y}" r="18" fill="${fill}" opacity="0.9"><title>${d.name} (${d.device_type})\n${d.owner_name || d.owner_email}\nSeen ${timeAgo(d.last_seen)}</title></circle>`;
+      const fill = on ? (d.is_worker ? "#5b8fa8" : "#728f67") : "#bbb";
+      const title = `${d.name} (${d.device_type}${d.is_worker ? " - worker" : ""})\n${d.owner_name || d.owner_email}\nSeen ${timeAgo(d.last_seen)}`;
+      if (d.is_worker) {
+        // Workers as rounded squares
+        svg += `<rect x="${p.x - 16}" y="${p.y - 16}" width="32" height="32" rx="6" fill="${fill}" opacity="0.9"><title>${title}</title></rect>`;
+      } else {
+        svg += `<circle cx="${p.x}" cy="${p.y}" r="18" fill="${fill}" opacity="0.9"><title>${title}</title></circle>`;
+      }
       svg += `<text x="${p.x}" y="${p.y + 32}" text-anchor="middle" font-size="11" fill="#555">${d.name}</text>`;
-      // Device type icon
-      const icon = d.device_type === "desktop" ? "\u{1F5A5}" : d.device_type === "mobile" ? "\u{1F4F1}" : "\u{1F4BB}";
+      const icon = d.is_worker ? "\u{2601}" : d.device_type === "desktop" ? "\u{1F5A5}" : d.device_type === "mobile" ? "\u{1F4F1}" : "\u{1F4BB}";
       svg += `<text x="${p.x}" y="${p.y + 5}" text-anchor="middle" font-size="14">${icon}</text>`;
     }
 
@@ -265,9 +277,11 @@ import Dashboard from "../layouts/Dashboard.astro";
     svg += `<line x1="80" y1="${H - 30}" x2="100" y2="${H - 30}" stroke="#e65100" stroke-width="1" stroke-dasharray="4 3"/>`;
     svg += `<text x="105" y="${H - 26}" font-size="10" fill="#888">Relay queue</text>`;
     svg += `<circle cx="170" cy="${H - 30}" r="5" fill="#728f67"/>`;
-    svg += `<text x="180" y="${H - 26}" font-size="10" fill="#888">Online</text>`;
-    svg += `<circle cx="220" cy="${H - 30}" r="5" fill="#bbb"/>`;
-    svg += `<text x="230" y="${H - 26}" font-size="10" fill="#888">Offline</text>`;
+    svg += `<text x="180" y="${H - 26}" font-size="10" fill="#888">Device</text>`;
+    svg += `<rect x="215" y="${H - 35}" width="10" height="10" rx="2" fill="#5b8fa8"/>`;
+    svg += `<text x="230" y="${H - 26}" font-size="10" fill="#888">Worker</text>`;
+    svg += `<circle cx="275" cy="${H - 30}" r="5" fill="#bbb"/>`;
+    svg += `<text x="285" y="${H - 26}" font-size="10" fill="#888">Offline</text>`;
 
     graphSvg.innerHTML = svg;
   }
