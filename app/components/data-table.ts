@@ -58,6 +58,7 @@ export class ShenasDataTable extends LitElement {
     schema: { type: String },
     table: { type: String },
     pageSize: { type: Number, attribute: "page-size" },
+    refreshKey: { type: String, attribute: "refresh-key" },
     _tables: { state: true },
     _selectedTable: { state: true },
     _columns: { state: true },
@@ -80,6 +81,7 @@ export class ShenasDataTable extends LitElement {
   declare schema: string;
   declare table: string;
   declare pageSize: number;
+  declare refreshKey: string;
   declare _tables: TableInfo[];
   declare _selectedTable: string;
   declare _columns: string[];
@@ -391,6 +393,9 @@ export class ShenasDataTable extends LitElement {
   }
 
   willUpdate(changed: Map<string, unknown>): void {
+    if (changed.has("refreshKey") && this.refreshKey !== undefined && this._selectedTable) {
+      this._fetchData();
+    }
     if (changed.has("table") && this.table && this.schema) {
       this._selectedTable = `${this.schema}.${this.table}`;
       this._fetchData();
@@ -578,7 +583,6 @@ export class ShenasDataTable extends LitElement {
             )}
           </select>`
         : html`<div class="controls">
-            <h1>data table</h1>
             <select @change=${this._onTableChange}>
               ${this._tables.map(
                 (t) => html`

@@ -1897,7 +1897,7 @@ class ShenasApp extends LitElement {
         grid: { left: 0, right: 0, top: 0, bottom: 0, containLabel: false },
         xAxis: { type: "category", show: false, data: [""] },
         yAxis: { type: "value", show: false, max: grandTotal },
-        series: perSource.toReversed().map((d, i) => ({
+        series: [...perSource].reverse().map((d, i) => ({
           name: d.name,
           type: "bar" as const,
           stack: "total",
