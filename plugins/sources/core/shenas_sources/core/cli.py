@@ -62,6 +62,7 @@ def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally 
             on_progress(evt, msg)
 
     logger.info("Sync started: %s (dataset=%s, full_refresh=%s)", pipeline_name, dataset_name, full_refresh)
+    _emit("sync_started", f"Sync started: {pipeline_name}")
     with tracer.start_as_current_span("pipe.sync", attributes={"pipe.name": pipeline_name, "pipe.dataset": dataset_name}):
         import threading
 
@@ -109,7 +110,9 @@ def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally 
                     t.join(timeout=10)
                     if t.is_alive():
                         elapsed += 10
+                        msg = f"Still fetching {resource_name}... ({elapsed}s elapsed)"
                         logger.info("Still fetching %s/%s... (%ds elapsed)", pipeline_name, resource_name, elapsed)
+                        _emit("fetch_progress", msg)
 
                 if load_error:
                     logger.error("Fetch failed for %s/%s: %s", pipeline_name, resource_name, load_error[0])
