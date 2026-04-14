@@ -84,6 +84,7 @@ metadata:
   namespace: shenas
   annotations:
     cloud.google.com/backend-config: '{"default": "fl-grpc-health"}'
+    cloud.google.com/neg: '{"exposed_ports": {"8080": {"name": "fl-grpc-neg"}}}'
 spec:
   selector:
     app: fl-server
@@ -98,6 +99,8 @@ kind: Service
 metadata:
   name: fl-server-api
   namespace: shenas
+  annotations:
+    cloud.google.com/neg: '{"exposed_ports": {"80": {"name": "fl-api-neg"}}}'
 spec:
   selector:
     app: fl-server

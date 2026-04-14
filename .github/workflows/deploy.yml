@@ -88,7 +88,7 @@ jobs:
   deploy-shenas-net:
     name: Deploy shenas-net
     runs-on: gcp-runners
-    timeout-minutes: 10
+    timeout-minutes: 5
     if: |
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/shenas-net/v')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.service == 'all' || inputs.service == 'shenas-net'))
@@ -98,6 +98,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -105,47 +109,17 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - uses: google-github-actions/get-gke-credentials@v2
-        with:
-          cluster_name: ${{ env.CLUSTER_NAME }}
-          location: ${{ env.REGION }}
-
-      - name: Install kubectl
-        run: curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-
-      - name: Resolve version tag
-        id: version
+      - name: Build and upload to GCS
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/*/v* ]]; then
-            TAG="${GITHUB_REF##*/}"
-          else
-            TAG="v0.0.0-dev"
-          fi
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-
-      - name: Build, push, deploy
-        run: |
-          TAG="${{ steps.version.outputs.tag }}"
-          BUILD_ID=$(gcloud builds submit --async --format='value(id)' --config server/deploy/docker/cloudbuild.yaml \
-                               --substitutions=_TAG="${REGISTRY}/shenas-net:${TAG}",_TAG_LATEST="${REGISTRY}/shenas-net:latest",_VERSION="0.0.0",_DOCKERFILE="server/deploy/docker/Dockerfile.shenas-net" .)
-          echo "Waiting for Cloud Build $BUILD_ID..."
-          while true; do
-            STATUS=$(gcloud builds describe "$BUILD_ID" --format='value(status)' 2>/dev/null || echo "UNKNOWN")
-            case "$STATUS" in
-              SUCCESS) echo "Build succeeded"; break ;;
-              FAILURE|TIMEOUT|CANCELLED) echo "Build failed: $STATUS"; exit 1 ;;
-              *) sleep 10 ;;
-            esac
-          done
-          kubectl apply -f server/deploy/k8s/namespace.yaml
-          sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" server/deploy/k8s/shenas-net.yaml | \
-            sed "s|:latest|:${TAG}|g" | kubectl apply -f -
-          kubectl rollout status deployment/shenas-net -n shenas --timeout=120s
+          cd server/shenas.net
+          npm ci --silent
+          npm run build
+          gsutil -m rsync -d -r dist/ gs://shenas-net-site/
 
   deploy-shenas-org:
     name: Deploy shenas-org
     runs-on: gcp-runners
-    timeout-minutes: 10
+    timeout-minutes: 5
     if: |
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/shenas-org/v')) ||
       (github.event_name == 'workflow_dispatch' && (inputs.service == 'all' || inputs.service == 'shenas-org'))
@@ -155,6 +129,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -162,42 +140,12 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - uses: google-github-actions/get-gke-credentials@v2
-        with:
-          cluster_name: ${{ env.CLUSTER_NAME }}
-          location: ${{ env.REGION }}
-
-      - name: Install kubectl
-        run: curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-
-      - name: Resolve version tag
-        id: version
+      - name: Build and upload to GCS
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/*/v* ]]; then
-            TAG="${GITHUB_REF##*/}"
-          else
-            TAG="v0.0.0-dev"
-          fi
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-
-      - name: Build, push, deploy
-        run: |
-          TAG="${{ steps.version.outputs.tag }}"
-          BUILD_ID=$(gcloud builds submit --async --format='value(id)' --config server/deploy/docker/cloudbuild.yaml \
-                               --substitutions=_TAG="${REGISTRY}/shenas-org:${TAG}",_TAG_LATEST="${REGISTRY}/shenas-org:latest",_VERSION="0.0.0",_DOCKERFILE="server/deploy/docker/Dockerfile.shenas-org" .)
-          echo "Waiting for Cloud Build $BUILD_ID..."
-          while true; do
-            STATUS=$(gcloud builds describe "$BUILD_ID" --format='value(status)' 2>/dev/null || echo "UNKNOWN")
-            case "$STATUS" in
-              SUCCESS) echo "Build succeeded"; break ;;
-              FAILURE|TIMEOUT|CANCELLED) echo "Build failed: $STATUS"; exit 1 ;;
-              *) sleep 10 ;;
-            esac
-          done
-          kubectl apply -f server/deploy/k8s/namespace.yaml
-          sed "s|REGION|${REGION}|g; s|PROJECT_ID|${PROJECT_ID}|g" server/deploy/k8s/shenas-org.yaml | \
-            sed "s|:latest|:${TAG}|g" | kubectl apply -f -
-          kubectl rollout status deployment/shenas-org -n shenas --timeout=120s
+          cd server/shenas.org
+          npm ci --silent
+          npm run build
+          gsutil -m rsync -d -r dist/ gs://shenas-org-site/
 
   deploy-shenas-net-api:
     name: Deploy shenas-net-api
