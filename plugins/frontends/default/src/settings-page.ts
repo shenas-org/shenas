@@ -738,8 +738,8 @@ class SettingsPage extends LitElement {
             class="danger"
             @click=${async () => {
               await fetch("/api/auth/logout", { method: "POST" });
+              this.remoteUser = null;
               this._actionMessage = { type: "success", text: "Logged out from shenas.net" };
-              this.requestUpdate();
             }}
           >
             Logout
