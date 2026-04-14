@@ -13,9 +13,11 @@ function discoverPlugins(base, urlPrefix) {
   for (const name of readdirSync(absBase)) {
     const dir = resolve(absBase, name);
     if (!existsSync(resolve(dir, "vite.config.js"))) continue;
-    const entry = existsSync(resolve(dir, "src/index.ts")) ? resolve(dir, "src/index.ts")
-      : existsSync(resolve(dir, "src/index.js")) ? resolve(dir, "src/index.js")
-      : null;
+    const entry = existsSync(resolve(dir, "src/index.ts"))
+      ? resolve(dir, "src/index.ts")
+      : existsSync(resolve(dir, "src/index.js"))
+        ? resolve(dir, "src/index.js")
+        : null;
     if (entry) {
       aliases[`/${urlPrefix}/${name}/${name}.js`] = entry;
     }
@@ -31,9 +33,11 @@ function discoverFrontends() {
   for (const name of readdirSync(frontendsBase)) {
     const dir = resolve(frontendsBase, name);
     if (name === "core") continue;
-    const entry = existsSync(resolve(dir, "src/index.ts")) ? resolve(dir, "src/index.ts")
-      : existsSync(resolve(dir, "src/index.js")) ? resolve(dir, "src/index.js")
-      : null;
+    const entry = existsSync(resolve(dir, "src/index.ts"))
+      ? resolve(dir, "src/index.ts")
+      : existsSync(resolve(dir, "src/index.js"))
+        ? resolve(dir, "src/index.js")
+        : null;
     if (entry) {
       aliases[`/frontend/${name}/${name}.js`] = entry;
     }
@@ -47,15 +51,21 @@ const devAliases = {
 
 const pythonServer = "http://127.0.0.1:7280";
 
-
 export default defineConfig({
+  resolve: {
+    // Ensure deps imported by aliased files outside this project (e.g. app/components/)
+    // resolve from this project's node_modules, not their own (which may not exist in CI).
+    dedupe: ["lit", "echarts", "apache-arrow"],
+  },
   test: {
     environment: "happy-dom",
     setupFiles: ["src/__tests__/setup.ts"],
     alias: {
       "/vendor/apache-arrow.js": new URL("src/__tests__/mock-arrow.ts", import.meta.url).pathname,
       "/vendor/components.js": new URL("../../../app/components/data-table.ts", import.meta.url).pathname,
+      "/vendor/echarts.js": new URL("../../../app/vendor/src/echarts.js", import.meta.url).pathname,
       "shenas-components": new URL("../../../app/components/data-table.ts", import.meta.url).pathname,
+      echarts: new URL("../../../app/vendor/node_modules/echarts", import.meta.url).pathname,
       "shenas-frontends": new URL("../../../app/vendor/src/shenas-frontends.ts", import.meta.url).pathname,
       "echarts/core": new URL("node_modules/echarts/core.js", import.meta.url).pathname,
       "echarts/charts": new URL("node_modules/echarts/charts.js", import.meta.url).pathname,
@@ -74,11 +84,23 @@ export default defineConfig({
     cssCodeSplit: false,
     rollupOptions: {
       input: "src/index.ts",
-      external: ["lit", /^lit\//, /^@lit-labs\//, "cytoscape", "shenas-components", "shenas-frontends", /^\/vendor\//],
+      external: [
+        "lit",
+        /^lit\//,
+        /^@lit-labs\//,
+        "cytoscape",
+        /^echarts/,
+        "shenas-components",
+        "shenas-frontends",
+        /^\/vendor\//,
+      ],
       output: {
         entryFileNames: "default.js",
         assetFileNames: "default.[ext]",
         format: "es",
+        paths: (id) => {
+          if (id.startsWith("echarts")) return "/vendor/echarts.js";
+        },
       },
     },
   },
@@ -114,6 +136,7 @@ export default defineConfig({
           "/vendor/apache-arrow.js": "/vendor/apache-arrow.js",
         };
         if (vendorMap[source]) return { id: vendorMap[source], external: true };
+        if (source.startsWith("echarts/")) return { id: "/vendor/echarts.js", external: true };
       },
     },
     {
@@ -148,7 +171,9 @@ export default defineConfig({
           if (req.method === "GET" && !isAsset && !isInternal) {
             const proxyReq = http.get(`${pythonServer}/`, (proxyRes) => {
               let body = "";
-              proxyRes.on("data", (chunk) => { body += chunk; });
+              proxyRes.on("data", (chunk) => {
+                body += chunk;
+              });
               proxyRes.on("end", () => {
                 body = body.replace("</head>", '  <script type="module" src="/@vite/client"></script>\n  </head>');
                 res.setHeader("Content-Type", "text/html");

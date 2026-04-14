@@ -20,6 +20,7 @@ class ClaudeCodeSource(Source):
     name = "claude_code"
     display_name = "Claude Code"
     primary_table = "prompts"
+    entity_type = "device"
     description = (
         "Extracts usage history from local Claude Code data files.\n\n"
         "Parses prompt history (what you asked) and turn statistics "

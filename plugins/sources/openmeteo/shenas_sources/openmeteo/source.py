@@ -18,6 +18,7 @@ class OpenMeteoSource(Source):
     name = "openmeteo"
     display_name = "Open-Meteo"
     primary_table = "daily_weather"
+    entity_type = "city"
     description = (
         "Daily weather and air quality data from Open-Meteo.\n\n"
         "Uses the ERA5 reanalysis archive (back to 1940) and the CAMS "

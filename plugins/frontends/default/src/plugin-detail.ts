@@ -1,8 +1,8 @@
 import { LitElement, html, css } from "lit";
 import {
   ApolloMutationController,
-  gql,
   getClient,
+  gqlTag,
   registerCommands,
   renderMessage,
   buttonStyles,
@@ -363,11 +363,23 @@ class PluginDetail extends LitElement {
     ]
       .filter(Boolean)
       .join(" ");
-    const data = await gql(this.apiBase, `query($kind: String!, $name: String!) { ${fields} }`, {
-      kind: this.kind,
-      name: this.name,
+    const { data } = await this._client.query({
+      query: gqlTag([`query($kind: String!, $name: String!) { ${fields} }`] as unknown as TemplateStringsArray),
+      variables: { kind: this.kind, name: this.name },
+      fetchPolicy: "network-only",
     });
     this._info = data?.pluginInfo as PluginInfo | null;
+    if (!this.dbStatus) {
+      try {
+        const { data: dbData } = await this._client.query({
+          query: gqlTag`{ dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } } }`,
+          fetchPolicy: "network-only",
+        });
+        this.dbStatus = (dbData?.dbStatus as DbStatus | null) ?? null;
+      } catch {
+        /* ignore */
+      }
+    }
     const db = this.dbStatus;
     const ownership = this.schemaPlugins;
     const allTransforms = data?.transforms as SchemaTransform[] | undefined;

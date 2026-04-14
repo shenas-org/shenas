@@ -2,7 +2,7 @@ import { ApolloClient, InMemoryCache, HttpLink, gql } from "@apollo/client/core"
 
 export { gql };
 
-let _client: ApolloClient<unknown> | null = null;
+let _client: ApolloClient | null = null;
 
 /**
  * Return the shared Apollo Client singleton.
@@ -11,7 +11,7 @@ let _client: ApolloClient<unknown> | null = null;
  * Session headers are injected by the patched global ``fetch()`` in app-shell,
  * so no custom link middleware is needed here.
  */
-export function getClient(apiBase: string = "/api"): ApolloClient<unknown> {
+export function getClient(apiBase: string = "/api"): ApolloClient {
   if (_client) return _client;
   _client = new ApolloClient({
     link: new HttpLink({ uri: `${apiBase}/graphql` }),

@@ -14,8 +14,6 @@ export {
   apiFetch,
   apiFetchFull,
   arrowQuery,
-  gql,
-  gqlFull,
   openExternal,
   registerCommands,
   renderMessage,

@@ -7,3 +7,8 @@ tags: ['plugin', 'dashboard']
 
 dependsOn:
   - 'vendor'
+
+tasks:
+  js-type-check:
+    deps:
+      - 'vendor:npm-install'

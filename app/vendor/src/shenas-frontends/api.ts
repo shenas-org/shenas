@@ -11,17 +11,6 @@ export interface ApiFetchFullResult<T = unknown> {
   data: T | null;
 }
 
-export interface GqlError {
-  message: string;
-  [key: string]: unknown;
-}
-
-export interface GqlFullResult<T = unknown> {
-  ok: boolean;
-  data: T | null;
-  errors: GqlError[];
-}
-
 export interface MessageBanner {
   type: string;
   text: string;
@@ -76,47 +65,6 @@ export async function apiFetchFull<T = unknown>(
   const resp = await fetch(`${apiBase}${path}`, fetchOptions);
   const data = await resp.json().catch(() => null);
   return { ok: resp.ok, status: resp.status, data: data as T | null };
-}
-
-/**
- * GraphQL fetch wrapper. Posts a query to /graphql and returns the data object,
- * or null on error. Keeps apiFetch for Arrow IPC and SSE endpoints.
- */
-export async function gql<T = Record<string, unknown>>(
-  apiBase: string,
-  query: string,
-  variables: Record<string, unknown> = {},
-): Promise<T | null> {
-  const resp = await fetch(`${apiBase}/graphql`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, variables }),
-  });
-  if (!resp.ok) return null;
-  const json = (await resp.json()) as { data?: T; errors?: GqlError[] };
-  if (json.errors) {
-    console.warn("GraphQL errors:", json.errors);
-    return null;
-  }
-  return json.data ?? null;
-}
-
-/**
- * Like gql() but returns { ok, data, errors } for mutation result checking.
- */
-export async function gqlFull<T = Record<string, unknown>>(
-  apiBase: string,
-  query: string,
-  variables: Record<string, unknown> = {},
-): Promise<GqlFullResult<T>> {
-  const resp = await fetch(`${apiBase}/graphql`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, variables }),
-  });
-  if (!resp.ok) return { ok: false, data: null, errors: [{ message: `HTTP ${resp.status}` }] };
-  const json = (await resp.json()) as { data?: T; errors?: GqlError[] };
-  return { ok: !json.errors, data: json.data ?? null, errors: json.errors || [] };
 }
 
 /**
