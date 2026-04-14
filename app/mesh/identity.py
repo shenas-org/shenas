@@ -83,7 +83,7 @@ def _detect_device_type() -> str:
 
 
 def register_with_server(server_url: str, token: str) -> dict[str, Any] | None:
-    """Register this device with the shenas.net web-api."""
+    """Register this device with the shenas.net shenas-net-api."""
     import httpx
 
     info = get_device_info()

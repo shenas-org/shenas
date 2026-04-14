@@ -23,7 +23,7 @@ BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:4321")
 
 if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-    logging.getLogger("shenas-web-api").warning(
+    logging.getLogger("shenas-net-api").warning(
         "GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set. "
         "Google sign-in will not work. "
         "Add them to server/api/.env or pass as environment variables."

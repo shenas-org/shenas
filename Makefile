@@ -1,4 +1,4 @@
-.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install ci-runner-build coverage db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan hooks-setup lint infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish plugins-build postgres-dev pyinstaller shenas-net-release shenas-org-release test web-api-release website-dev
+.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install ci-runner-build coverage db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan hooks-setup lint infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish plugins-build postgres-dev pyinstaller shenas-net-release shenas-org-release test shenas-net-api-release website-dev
 
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
 NDK_VERSION = 27.2.12479018
@@ -63,7 +63,7 @@ api-dev:
 	cd server/api && uv pip install -e . --quiet && \
 		DATABASE_URL=postgres://postgres@localhost:5432/shenas_net \
 		LOCAL_PACKAGES_DIR=$(CURDIR)/packages \
-		uv run uvicorn shenas_web_api.main:app --reload --port 8000
+		uv run uvicorn shenas_net_api.main:app --reload --port 8000
 
 plugins-build:
 	moon run :build --query "tag=plugin"
@@ -247,7 +247,7 @@ k8s-secrets-set:
 	DBURL="postgres://shenas:$$DB_PASS@$$DB_IP:5432/shenas_net"; \
 	read -p "GOOGLE_CLIENT_ID: " GID; \
 	read -p "GOOGLE_CLIENT_SECRET: " GSEC; \
-	kubectl create secret generic web-api-secrets \
+	kubectl create secret generic shenas-net-api-secrets \
 		--namespace shenas \
 		--from-literal=SESSION_SECRET=$$(openssl rand -hex 32) \
 		--from-literal=BASE_URL=https://shenas.net \
@@ -344,9 +344,9 @@ shenas-org-release:
 		git tag "$$TAG" && git push origin "$$TAG"; \
 	fi
 
-web-api-release:
-	@output=$$(bash scripts/bump-tag.sh web-api server/api/); \
-	if [ -z "$$output" ]; then echo "No web-api changes to release."; exit 0; fi; \
+shenas-net-api-release:
+	@output=$$(bash scripts/bump-tag.sh shenas-net-api server/api/); \
+	if [ -z "$$output" ]; then echo "No shenas-net-api changes to release."; exit 0; fi; \
 	eval "$$output"; \
 	echo "$$TAG ($$BUMP bump from $$PREV, $$COMMIT_COUNT commits)"; \
 	git log "$$PREV"..HEAD --pretty=format:"  %s" -- server/api/ | head -20; \

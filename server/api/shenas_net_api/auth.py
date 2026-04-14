@@ -10,14 +10,14 @@ from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 from itsdangerous import URLSafeTimedSerializer
 
-from shenas_web_api.config import (
+from shenas_net_api.config import (
     BASE_URL,
     FRONTEND_URL,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
     SESSION_SECRET,
 )
-from shenas_web_api.db import get_conn
+from shenas_net_api.db import get_conn
 
 router = APIRouter(prefix="/auth")
 

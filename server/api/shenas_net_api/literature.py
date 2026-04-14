@@ -21,7 +21,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from shenas_web_api.auth import get_current_user
+from shenas_net_api.auth import get_current_user
 
 router = APIRouter(prefix="/literature")
 
