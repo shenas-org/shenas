@@ -1,0 +1,216 @@
+---
+import Dashboard from "../layouts/Dashboard.astro";
+---
+
+<Dashboard title="LLM Proxy -- shenas" description="LLM proxy usage and administration" active="llm">
+  <div class="header">
+    <h1>LLM Proxy</h1>
+    <p class="subtitle" id="status">Loading...</p>
+  </div>
+
+  <div id="summary" class="summary-cards"></div>
+
+  <h2 class="section-title">Usage by User</h2>
+  <div id="usage-list" class="usage-grid"></div>
+
+  <h2 class="section-title">Monthly History</h2>
+  <div id="history-list" class="usage-grid"></div>
+
+  <div id="not-signed-in" class="notice" style="display:none">
+    <p>Sign in to view LLM usage.</p>
+    <a href="/api/auth/login" class="btn">Sign in with Google</a>
+  </div>
+</Dashboard>
+
+<style is:global>
+  .header { margin-bottom: 2rem; }
+  .subtitle { color: var(--color-text-muted); font-size: 0.95rem; }
+  .section-title {
+    font-size: 1rem; font-weight: 600; color: var(--color-text, #2c2c28);
+    margin: 2rem 0 1rem; padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-border, #d8d4cc);
+  }
+  .summary-cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem; margin-bottom: 1rem;
+  }
+  .summary-card {
+    background: var(--color-bg-card, #fff);
+    border: 1px solid var(--color-border, #d8d4cc);
+    border-radius: 12px; padding: 1.2rem 1.5rem; text-align: center;
+  }
+  .summary-value {
+    font-size: 1.8rem; font-weight: 700; color: var(--color-accent, #728f67);
+  }
+  .summary-label {
+    font-size: 0.8rem; color: var(--color-text-muted, #8a8780); margin-top: 0.3rem;
+  }
+  .usage-grid { display: flex; flex-direction: column; gap: 0.75rem; }
+  .usage-row {
+    background: var(--color-bg-card, #fff);
+    border: 1px solid var(--color-border, #d8d4cc);
+    border-radius: 10px; padding: 1rem 1.2rem;
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .usage-info { flex: 1; }
+  .usage-name { font-weight: 600; font-size: 0.95rem; color: var(--color-text, #2c2c28); }
+  .usage-meta { font-size: 0.8rem; color: var(--color-text-muted, #8a8780); margin-top: 0.15rem; }
+  .usage-bar-wrap {
+    width: 120px; height: 6px; background: var(--color-surface, #edeae4);
+    border-radius: 3px; overflow: hidden; flex-shrink: 0;
+  }
+  .usage-bar {
+    height: 100%; border-radius: 3px;
+    background: var(--color-accent, #728f67); transition: width 0.3s;
+  }
+  .usage-bar.high { background: #e65100; }
+  .usage-bar.medium { background: #f9a825; }
+  .usage-tokens {
+    font-size: 0.85rem; font-weight: 600; color: var(--color-text, #2c2c28);
+    min-width: 80px; text-align: right;
+  }
+  .notice { text-align: center; padding: 3rem; color: var(--color-text-muted); }
+  .btn {
+    display: inline-block; margin-top: 1rem; padding: 0.6rem 1.5rem;
+    background: var(--color-accent); color: white; border-radius: 8px;
+    text-decoration: none; font-weight: 600; font-size: 0.9rem;
+  }
+  .empty { text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.9rem; }
+</style>
+
+<script>
+  const summaryEl = document.getElementById("summary")!;
+  const statusEl = document.getElementById("status")!;
+  const usageList = document.getElementById("usage-list")!;
+  const historyList = document.getElementById("history-list")!;
+  const notSignedIn = document.getElementById("not-signed-in")!;
+
+  function fmt(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+    return n.toLocaleString();
+  }
+
+  function barClass(pct: number): string {
+    if (pct >= 90) return "usage-bar high";
+    if (pct >= 70) return "usage-bar medium";
+    return "usage-bar";
+  }
+
+  async function load() {
+    try {
+      const authResp = await fetch("/api/auth/me", { credentials: "include" });
+      const authData = await authResp.json();
+      if (!authData.user) {
+        statusEl.style.display = "none";
+        notSignedIn.style.display = "block";
+        return;
+      }
+      if (!authData.user.is_admin) {
+        statusEl.textContent = "Admin access required";
+        return;
+      }
+
+      const resp = await fetch("/api/llm/usage/all", { credentials: "include" });
+      if (!resp.ok) {
+        statusEl.textContent = "Failed to load usage data";
+        return;
+      }
+      const rows: Array<{
+        email: string;
+        name: string;
+        month: string;
+        tokens_used: number;
+        monthly_limit: number;
+      }> = await resp.json();
+
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+      // Current month summary
+      const thisMonth = rows.filter((r) => r.month === currentMonth);
+      const totalUsed = thisMonth.reduce((s, r) => s + r.tokens_used, 0);
+      const activeUsers = thisMonth.filter((r) => r.tokens_used > 0).length;
+      const allMonths = [...new Set(rows.map((r) => r.month))].sort().reverse();
+
+      statusEl.textContent = `${currentMonth}`;
+
+      summaryEl.innerHTML = `
+        <div class="summary-card">
+          <div class="summary-value">${fmt(totalUsed)}</div>
+          <div class="summary-label">Tokens this month</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value">${activeUsers}</div>
+          <div class="summary-label">Active users</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value">${thisMonth.length}</div>
+          <div class="summary-label">Total users</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-value">${allMonths.length}</div>
+          <div class="summary-label">Months tracked</div>
+        </div>
+      `;
+
+      // Per-user usage for current month
+      const sorted = [...thisMonth].sort((a, b) => b.tokens_used - a.tokens_used);
+      if (sorted.length === 0) {
+        usageList.innerHTML = '<div class="empty">No usage data for this month.</div>';
+      } else {
+        usageList.innerHTML = sorted
+          .map((r) => {
+            const pct = Math.min(100, (r.tokens_used / r.monthly_limit) * 100);
+            return `
+              <div class="usage-row">
+                <div class="usage-info">
+                  <div class="usage-name">${r.name || r.email}</div>
+                  <div class="usage-meta">${r.email}</div>
+                </div>
+                <div class="usage-bar-wrap">
+                  <div class="${barClass(pct)}" style="width:${pct}%"></div>
+                </div>
+                <div class="usage-tokens">${fmt(r.tokens_used)} / ${fmt(r.monthly_limit)}</div>
+              </div>
+            `;
+          })
+          .join("");
+      }
+
+      // Monthly history (aggregate per month)
+      const byMonth: Record<string, { total: number; users: number }> = {};
+      for (const r of rows) {
+        if (!byMonth[r.month]) byMonth[r.month] = { total: 0, users: 0 };
+        byMonth[r.month].total += r.tokens_used;
+        if (r.tokens_used > 0) byMonth[r.month].users++;
+      }
+      const months = Object.entries(byMonth).sort(([a], [b]) => b.localeCompare(a));
+      if (months.length === 0) {
+        historyList.innerHTML = '<div class="empty">No history yet.</div>';
+      } else {
+        const maxTotal = Math.max(...months.map(([, v]) => v.total), 1);
+        historyList.innerHTML = months
+          .map(
+            ([month, v]) => `
+            <div class="usage-row">
+              <div class="usage-info">
+                <div class="usage-name">${month}</div>
+                <div class="usage-meta">${v.users} active user${v.users !== 1 ? "s" : ""}</div>
+              </div>
+              <div class="usage-bar-wrap">
+                <div class="usage-bar" style="width:${(v.total / maxTotal) * 100}%"></div>
+              </div>
+              <div class="usage-tokens">${fmt(v.total)}</div>
+            </div>
+          `,
+          )
+          .join("");
+      }
+    } catch {
+      statusEl.textContent = "Failed to load";
+    }
+  }
+
+  load();
+</script>

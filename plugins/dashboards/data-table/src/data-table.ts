@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
 import type { TemplateResult, CSSResult } from "lit";
-import { query as arrowQuery, arrowToRows } from "shenas-frontends";
+import { gql, query as arrowQuery, arrowToRows } from "shenas-frontends";
 import type { RowData } from "shenas-frontends";
 
 interface TableInfo {
@@ -8,9 +8,21 @@ interface TableInfo {
   table: string;
 }
 
+interface ColMeta {
+  dbType: string;
+  description: string;
+  unit: string;
+  nullable: boolean;
+  valueRange: number[] | null;
+  exampleValue: string;
+  interpretation: string;
+}
+
 export class ShenasDataTable extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
+    schema: { type: String },
+    table: { type: String },
     pageSize: { type: Number, attribute: "page-size" },
     _tables: { state: true },
     _selectedTable: { state: true },
@@ -19,13 +31,17 @@ export class ShenasDataTable extends LitElement {
     _sortCol: { state: true },
     _sortDesc: { state: true },
     _filters: { state: true },
+    _searchTerm: { state: true },
     _page: { state: true },
     _colWidths: { state: true },
+    _colMeta: { state: true },
     _loading: { state: true },
     _error: { state: true },
   };
 
   declare apiBase: string;
+  declare schema: string;
+  declare table: string;
   declare pageSize: number;
   declare _tables: TableInfo[];
   declare _selectedTable: string;
@@ -34,8 +50,10 @@ export class ShenasDataTable extends LitElement {
   declare _sortCol: string | null;
   declare _sortDesc: boolean;
   declare _filters: Record<string, string>;
+  declare _searchTerm: string;
   declare _page: number;
   declare _colWidths: Record<string, number>;
+  declare _colMeta: Record<string, ColMeta>;
   declare _loading: boolean;
   declare _error: string | null;
 
@@ -66,45 +84,53 @@ export class ShenasDataTable extends LitElement {
     }
     select,
     input {
-      padding: 6px 10px;
+      padding: 4px 8px;
       border: 1px solid #ccc;
       border-radius: 4px;
-      font-size: 13px;
+      font-size: 12px;
     }
     select {
       min-width: 200px;
+    }
+    .compact-select {
+      margin-bottom: 6px;
+      font-size: 12px;
+      padding: 3px 6px;
     }
     .table-wrap {
       overflow: auto;
       flex: 1;
       border: 1px solid #e0e0e0;
-      border-radius: 6px;
+      border-radius: 4px;
       background: #fff;
     }
     table {
       border-collapse: collapse;
       width: 100%;
-      font-size: 13px;
+      font-size: 12px;
       table-layout: fixed;
     }
     th {
       position: relative;
       background: #f5f5f5;
-      border-bottom: 2px solid #ddd;
-      padding: 8px 12px;
+      border-bottom: 1px solid #ddd;
+      padding: 4px 8px;
       text-align: left;
       font-weight: 600;
-      color: #333;
+      color: #555;
       white-space: nowrap;
       overflow: hidden;
       cursor: pointer;
       user-select: none;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
     th:hover {
       background: #eee;
     }
     .sort-indicator {
-      margin-left: 4px;
+      margin-left: 3px;
       color: #999;
     }
     .resize-handle {
@@ -118,20 +144,8 @@ export class ShenasDataTable extends LitElement {
     .resize-handle:hover {
       background: #4a90d9;
     }
-    .filter-row th {
-      padding: 4px 8px;
-      background: #fafafa;
-      border-bottom: 1px solid #eee;
-      cursor: default;
-    }
-    .filter-row input {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 4px 6px;
-      font-size: 12px;
-    }
     td {
-      padding: 6px 12px;
+      padding: 3px 8px;
       border-bottom: 1px solid #f0f0f0;
       color: #444;
       overflow: hidden;
@@ -143,19 +157,20 @@ export class ShenasDataTable extends LitElement {
     }
     .pagination {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
-      margin-top: 8px;
-      font-size: 13px;
-      color: #666;
+      padding: 4px 0;
+      font-size: 11px;
+      color: #888;
       flex-shrink: 0;
     }
     .pagination button {
-      padding: 4px 12px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      padding: 2px 8px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
       background: #fff;
       cursor: pointer;
+      font-size: 11px;
     }
     .pagination button:disabled {
       opacity: 0.4;
@@ -163,6 +178,27 @@ export class ShenasDataTable extends LitElement {
     }
     .pagination button:not(:disabled):hover {
       background: #f0f0f0;
+    }
+    .page-link.active {
+      background: #728f67;
+      color: #fff;
+      border-color: #728f67;
+    }
+    .page-ellipsis {
+      color: #aaa;
+      font-size: 11px;
+      padding: 0 2px;
+    }
+    .page-jump {
+      width: 50px;
+      padding: 2px 4px;
+      font-size: 11px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      text-align: center;
+    }
+    .page-jump::-webkit-inner-spin-button {
+      -webkit-appearance: none;
     }
     .loading {
       color: #888;
@@ -179,11 +215,27 @@ export class ShenasDataTable extends LitElement {
       flex: 1;
       text-align: center;
     }
+    .search-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 0;
+      flex-shrink: 0;
+    }
+    .search-bar input {
+      flex: 1;
+      padding: 3px 8px;
+      font-size: 12px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+    }
   `;
 
   constructor() {
     super();
     this.apiBase = "/api";
+    this.schema = "";
+    this.table = "";
     this.pageSize = 25;
     this._tables = [];
     this._selectedTable = "";
@@ -192,21 +244,40 @@ export class ShenasDataTable extends LitElement {
     this._sortCol = null;
     this._sortDesc = false;
     this._filters = {};
+    this._searchTerm = "";
     this._page = 0;
     this._colWidths = {};
+    this._colMeta = {};
     this._loading = false;
     this._error = null;
   }
 
   connectedCallback(): void {
     super.connectedCallback();
-    this._fetchTables();
+    if (this.table && this.schema) {
+      this._selectedTable = `${this.schema}.${this.table}`;
+      this._fetchData();
+    } else {
+      this._fetchTables();
+    }
+  }
+
+  willUpdate(changed: Map<string, unknown>): void {
+    if (changed.has("table") && this.table && this.schema) {
+      this._selectedTable = `${this.schema}.${this.table}`;
+      this._fetchData();
+    }
   }
 
   async _fetchTables(): Promise<void> {
     try {
       const res = await fetch(`${this.apiBase}/tables`);
-      this._tables = await res.json();
+      let tables: TableInfo[] = await res.json();
+      tables = tables.filter((t) => !t.table.startsWith("_dlt_"));
+      if (this.schema) {
+        tables = tables.filter((t) => t.schema === this.schema);
+      }
+      this._tables = tables;
       if (this._tables.length > 0) {
         this._selectedTable = `${this._tables[0].schema}.${this._tables[0].table}`;
         this._fetchData();
@@ -223,10 +294,23 @@ export class ShenasDataTable extends LitElement {
       const sql = `SELECT * FROM ${this._selectedTable}`;
       const table = await arrowQuery(this.apiBase, sql);
 
-      this._columns = table.schema.fields.map((f) => f.name);
+      this._columns = table.schema.fields.map((f) => f.name).filter((c) => !c.startsWith("_dlt_"));
       this._data = arrowToRows(table);
+
+      // Fetch column type metadata from plugin Field declarations
+      const [s, t] = this._selectedTable.split(".");
+      const meta = await gql(
+        this.apiBase,
+        `query($s: String!, $t: String!) { tableColumnInfo(schema: $s, table: $t) { name dbType description unit nullable valueRange exampleValue interpretation } }`,
+        { s, t },
+      );
+      this._colMeta = {};
+      for (const c of (meta?.tableColumnInfo || []) as Array<ColMeta & { name: string }>) {
+        this._colMeta[c.name] = c;
+      }
       this._page = 0;
       this._filters = {};
+      this._searchTerm = "";
       this._sortCol = null;
     } catch (e) {
       this._error = (e as Error).message;
@@ -235,13 +319,26 @@ export class ShenasDataTable extends LitElement {
   }
 
   get _filteredData(): RowData[] {
-    return this._data.filter((row) =>
-      Object.entries(this._filters).every(([col, val]) => {
-        if (!val) return true;
+    let data = this._data;
+    const term = this._searchTerm.toLowerCase();
+    if (term) {
+      data = data.filter((row) =>
+        this._columns.some((col) => {
+          const cell = row[col];
+          return cell != null && String(cell).toLowerCase().includes(term);
+        }),
+      );
+    }
+    const filters = this._filters;
+    for (const col of Object.keys(filters)) {
+      const v = filters[col]?.toLowerCase();
+      if (!v) continue;
+      data = data.filter((row) => {
         const cell = row[col];
-        return cell != null && String(cell).toLowerCase().includes(val.toLowerCase());
-      }),
-    );
+        return cell != null && String(cell).toLowerCase().includes(v);
+      });
+    }
+    return data;
   }
 
   get _sortedData(): RowData[] {
@@ -289,10 +386,33 @@ export class ShenasDataTable extends LitElement {
     this._page = 0;
   }
 
-  _formatCell(value: unknown): string {
+  _formatCell(value: unknown, col?: string): string {
     if (value == null) return "";
-    if (value instanceof Date) return value.toISOString().slice(0, 10);
-    if (typeof value === "bigint") return value.toString();
+    const dbType = col ? (this._colMeta[col]?.dbType || "").toUpperCase() : "";
+    const isTimestamp = dbType.includes("TIMESTAMP");
+    const isDate = dbType === "DATE";
+    if (value instanceof Date) {
+      return isDate ? value.toISOString().slice(0, 10) : value.toISOString().replace("T", " ").slice(0, 19);
+    }
+    if (typeof value === "bigint") {
+      if (isTimestamp) {
+        // bigint timestamps: >1e15 = microseconds, >1e12 = milliseconds, else seconds
+        let ms: number;
+        if (value > 1_000_000_000_000_000n) ms = Number(value / 1000n);
+        else if (value > 1_000_000_000_000n) ms = Number(value);
+        else ms = Number(value) * 1000;
+        return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
+      }
+      return value.toString();
+    }
+    if (typeof value === "number" && isTimestamp) {
+      // number timestamps: >1e15 = microseconds, >1e12 = milliseconds, else seconds
+      let ms: number;
+      if (value > 1e15) ms = value / 1000;
+      else if (value > 1e12) ms = value;
+      else ms = value * 1000;
+      return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
+    }
     return String(value);
   }
 
@@ -315,20 +435,30 @@ export class ShenasDataTable extends LitElement {
   render(): TemplateResult {
     if (this._error) return html`<div class="error">${this._error}</div>`;
 
-    const tableSelector = html`
-      <div class="controls">
-        <h1>data table</h1>
-        <select @change=${this._onTableChange}>
-          ${this._tables.map(
-            (t) => html`
-              <option value="${t.schema}.${t.table}" ?selected=${`${t.schema}.${t.table}` === this._selectedTable}>
-                ${t.schema}.${t.table}
-              </option>
-            `,
-          )}
-        </select>
-      </div>
-    `;
+    const tableSelector = this.table
+      ? ""
+      : this.schema
+        ? html`<select class="compact-select" @change=${this._onTableChange}>
+            ${this._tables.map(
+              (t) => html`
+                <option value="${t.schema}.${t.table}" ?selected=${`${t.schema}.${t.table}` === this._selectedTable}>
+                  ${t.table}
+                </option>
+              `,
+            )}
+          </select>`
+        : html`<div class="controls">
+            <h1>data table</h1>
+            <select @change=${this._onTableChange}>
+              ${this._tables.map(
+                (t) => html`
+                  <option value="${t.schema}.${t.table}" ?selected=${`${t.schema}.${t.table}` === this._selectedTable}>
+                    ${t.schema}.${t.table}
+                  </option>
+                `,
+              )}
+            </select>
+          </div>`;
 
     if (this._loading)
       return html`${tableSelector}
@@ -339,15 +469,36 @@ export class ShenasDataTable extends LitElement {
 
     const rows = this._pagedData;
 
+    // Hide numeric-only "id" columns that are just PKs
+    const visibleCols = this._columns.filter(
+      (c) => !(c === "id" && this._data.length > 0 && typeof this._data[0][c] === "number"),
+    );
+
     return html`
       ${tableSelector}
+      <div class="search-bar">
+        <input
+          type="text"
+          placeholder="Search..."
+          .value=${this._searchTerm}
+          @input=${(e: Event) => {
+            this._searchTerm = (e.target as HTMLInputElement).value;
+            this._page = 0;
+          }}
+        />
+        <span style="color:#aaa;font-size:11px">${this._sortedData.length} rows</span>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              ${this._columns.map(
+              ${visibleCols.map(
                 (col) => html`
-                  <th style="width:${this._colWidths[col] || 150}px" @click=${() => this._onSort(col)}>
+                  <th
+                    style="width:${this._colWidths[col] || 120}px"
+                    title="${this._colTooltip(col)}"
+                    @click=${() => this._onSort(col)}
+                  >
                     ${col}
                     ${this._sortCol === col
                       ? html`<span class="sort-indicator">${this._sortDesc ? "v" : "^"}</span>`
@@ -357,28 +508,14 @@ export class ShenasDataTable extends LitElement {
                 `,
               )}
             </tr>
-            <tr class="filter-row">
-              ${this._columns.map(
-                (col) => html`
-                  <th>
-                    <input
-                      type="text"
-                      placeholder="Filter..."
-                      .value=${this._filters[col] || ""}
-                      @input=${(e: Event) => this._onFilter(col, (e.target as HTMLInputElement).value)}
-                    />
-                  </th>
-                `,
-              )}
-            </tr>
           </thead>
           <tbody>
             ${rows.map(
               (row) => html`
                 <tr>
-                  ${this._columns.map(
+                  ${visibleCols.map(
                     (col) =>
-                      html`<td style="width:${this._colWidths[col] || 150}px">${this._formatCell(row[col])}</td>`,
+                      html`<td style="width:${this._colWidths[col] || 120}px">${this._formatCell(row[col], col)}</td>`,
                   )}
                 </tr>
               `,
@@ -387,11 +524,75 @@ export class ShenasDataTable extends LitElement {
         </table>
       </div>
       <div class="pagination">
-        <button ?disabled=${this._page === 0} @click=${() => this._page--}>Previous</button>
-        <span class="page-info"> Page ${this._page + 1} of ${this._pageCount} (${this._sortedData.length} rows) </span>
-        <button ?disabled=${this._page >= this._pageCount - 1} @click=${() => this._page++}>Next</button>
+        <button ?disabled=${this._page === 0} @click=${() => (this._page = 0)} title="First">&laquo;</button>
+        <button ?disabled=${this._page === 0} @click=${() => this._page--}>&lsaquo;</button>
+        ${this._renderPageLinks()}
+        <button ?disabled=${this._page >= this._pageCount - 1} @click=${() => this._page++}>&rsaquo;</button>
+        <button
+          ?disabled=${this._page >= this._pageCount - 1}
+          @click=${() => (this._page = this._pageCount - 1)}
+          title="Last"
+        >
+          &raquo;
+        </button>
+        ${this._pageCount > 10
+          ? html`<input
+              type="number"
+              class="page-jump"
+              min="1"
+              max=${this._pageCount}
+              placeholder="Go to"
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === "Enter") {
+                  const v = parseInt((e.target as HTMLInputElement).value);
+                  if (v >= 1 && v <= this._pageCount) this._page = v - 1;
+                  (e.target as HTMLInputElement).value = "";
+                }
+              }}
+            />`
+          : ""}
       </div>
     `;
+  }
+
+  _colTooltip(col: string): string {
+    const m = this._colMeta[col];
+    if (!m) return col;
+    const lines: string[] = [];
+    if (m.description) lines.push(m.description);
+    const parts: string[] = [];
+    if (m.dbType) parts.push(m.dbType);
+    if (m.valueRange?.length) parts.push(`range: ${m.valueRange.join("-")}`);
+    if (!m.nullable) parts.push("NOT NULL");
+    if (m.exampleValue) parts.push(`e.g. ${m.exampleValue}`);
+    if (m.unit) parts.push(`[${m.unit}]`);
+    if (parts.length) lines.push(parts.join(", "));
+    if (m.interpretation) lines.push(m.interpretation);
+    return lines.join("\n");
+  }
+
+  _renderPageLinks(): TemplateResult {
+    const total = this._pageCount;
+    const cur = this._page;
+    const pages: (number | "...")[] = [];
+
+    if (total <= 7) {
+      for (let i = 0; i < total; i++) pages.push(i);
+    } else {
+      pages.push(0);
+      if (cur > 2) pages.push("...");
+      for (let i = Math.max(1, cur - 1); i <= Math.min(total - 2, cur + 1); i++) pages.push(i);
+      if (cur < total - 3) pages.push("...");
+      pages.push(total - 1);
+    }
+
+    return html`${pages.map((p) =>
+      p === "..."
+        ? html`<span class="page-ellipsis">...</span>`
+        : html`<button class="page-link ${p === cur ? "active" : ""}" @click=${() => (this._page = p as number)}>
+            ${(p as number) + 1}
+          </button>`,
+    )}`;
   }
 }
 

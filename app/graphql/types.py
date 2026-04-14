@@ -330,9 +330,10 @@ class DataResourceRefType:
 class ColumnInfoType:
     name: str
     db_type: str
-    nullable: bool
-    description: str
+    nullable: bool = True
+    description: str = ""
     unit: str | None = None
+    category: str = ""
     value_range: list[float] | None = None
     example_value: str | None = None
     interpretation: str | None = None

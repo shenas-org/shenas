@@ -63,7 +63,7 @@ api-dev:
 	cd server/api && uv pip install -e . --quiet && \
 		DATABASE_URL=postgres://postgres@localhost:5432/shenas_net \
 		LOCAL_PACKAGES_DIR=$(CURDIR)/packages \
-		uv run uvicorn shenas_net_api.main:app --reload --host 127.0.0.1 --port 8000
+		uv run uvicorn shenas_net_api.main:app --reload --host 127.0.0.1 --port 8000 --no-access-log
 
 plugins-build:
 	moon run :build --query "tag=plugin"
