@@ -51,12 +51,14 @@ def _installed_source_names() -> list[str]:
     for p in packages:
         if not p["name"].startswith(SOURCE_PREFIX):
             continue
-        name = p["name"].removeprefix(SOURCE_PREFIX)
-        cls = Plugin.load_by_name_and_kind(name, "source")
-        if cls and not cls.internal and name != "core":
-            inst = PluginInstance.find("source", name)
+        short_name = p["name"].removeprefix(SOURCE_PREFIX)
+        cls = Plugin.load_by_name_and_kind(short_name, "source")
+        if cls and not cls.internal and short_name != "core":
+            # Use the plugin's canonical name (underscores), not the pip name (hyphens)
+            canonical = getattr(cls, "name", short_name)
+            inst = PluginInstance.find("source", canonical)
             if inst is None or inst.enabled:
-                names.append(name)
+                names.append(canonical)
     return names
 
 
@@ -109,6 +111,7 @@ def sync_source(name: str, body: SyncRequest | None = None) -> StreamingResponse
     from shenas_sources.core.source import Source
 
     body = body or SyncRequest()
+    name = name.replace("-", "_")
 
     if name not in _installed_source_names():
         raise HTTPException(status_code=404, detail=f"Source not found: {name}")
