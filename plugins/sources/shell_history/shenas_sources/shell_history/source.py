@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_config import SourceConfig
@@ -31,7 +31,7 @@ class ShellHistorySource(Source):
     name = "shell_history"
     display_name = "Shell History"
     primary_table = "commands"
-    entity_type = "device"
+    entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Extracts command history from bash, zsh, or fish shell history files.\n\n"
         "Parses timestamps (where available) and commands. Zsh extended history "

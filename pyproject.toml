@@ -54,6 +54,14 @@ shenas-source-github = { workspace = true }
 shenas-source-rescuetime = { workspace = true }
 shenas-source-openmeteo = { workspace = true }
 shenas-source-claude-code = { workspace = true }
+shenas-source-eurostat = { workspace = true }
+shenas-source-freedomhouse = { workspace = true }
+shenas-source-imf = { workspace = true }
+shenas-source-numbeo = { workspace = true }
+shenas-source-oecd = { workspace = true }
+shenas-source-openaq = { workspace = true }
+shenas-source-who = { workspace = true }
+shenas-source-worldbank = { workspace = true }
 shenas-dataset-core = { workspace = true }
 shenas-dataset-fitness = { workspace = true }
 shenas-dataset-events = { workspace = true }
@@ -111,6 +119,14 @@ dev = [
     "shenas-source-rescuetime",
     "shenas-source-openmeteo",
     "shenas-source-claude-code",
+    "shenas-source-eurostat",
+    "shenas-source-freedomhouse",
+    "shenas-source-imf",
+    "shenas-source-numbeo",
+    "shenas-source-oecd",
+    "shenas-source-openaq",
+    "shenas-source-who",
+    "shenas-source-worldbank",
     "shenas-dataset-fitness",
     "shenas-dataset-finance",
     "shenas-dataset-outcomes",

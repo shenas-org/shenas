@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
@@ -14,6 +14,7 @@ class GithubSource(Source):
     name = "github"
     display_name = "GitHub"
     primary_table = "events"
+    entity_types: ClassVar[list[str]] = ["human", "software_project"]
     description = (
         "Extracts your GitHub activity feed, repositories, and pull requests.\n\n"
         "Uses a personal access token (classic or fine-grained) for "

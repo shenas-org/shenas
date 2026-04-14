@@ -251,18 +251,14 @@ class PipelineOverview extends LitElement {
     this._suggesting = true;
     this._message = null;
     try {
-      const { data, errors } = await this._suggestMutation.mutate();
-      if (errors?.length) {
-        this._message = { type: "error", text: errors[0].message };
+      const { data } = await this._suggestMutation.mutate();
+      const payload = data?.suggestDatasets as Record<string, unknown> | undefined;
+      if (payload?.ok === false) {
+        this._message = { type: "error", text: (payload.error as string) || "Suggestion failed" };
       } else {
-        const result = data?.suggestDatasets as Record<string, unknown> | undefined;
-        if (result?.ok === false) {
-          this._message = { type: "error", text: (result.error as string) || "Suggestion failed" };
-        } else {
-          const count = (result?.suggestions as unknown[])?.length || 0;
-          this._message = { type: "success", text: `Generated ${count} suggestion(s)` };
-          await this._fetchSuggestions();
-        }
+        const count = (payload?.suggestions as unknown[])?.length || 0;
+        this._message = { type: "success", text: `Generated ${count} suggestion(s)` };
+        await this._fetchSuggestions();
       }
     } catch (e) {
       this._message = { type: "error", text: (e as Error).message };

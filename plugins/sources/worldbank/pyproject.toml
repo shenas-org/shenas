@@ -1,0 +1,26 @@
+[project]
+name = "shenas-source-worldbank"
+dynamic = ["version"]
+description = "World Bank Open Data indicators for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "httpx>=0.28.0",
+    "shenas-source-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.sources"]
+worldbank = "shenas_sources.worldbank.source:WorldBankSource"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-worldbank/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-worldbank/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]

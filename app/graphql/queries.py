@@ -844,6 +844,8 @@ class Query:
                 description=t.description,
                 icon=t.icon,
                 is_human=t.is_human,
+                parent=t.parent,
+                is_abstract=t.is_abstract,
             )
             for t in EntityType.all(order_by="name")
         ]

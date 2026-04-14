@@ -38,7 +38,11 @@ interface EntityTypeInfo {
   description: string;
   icon: string;
   isHuman: boolean;
+  parent: string | null;
+  isAbstract: boolean;
 }
+
+type GraphView = "entities" | "types";
 
 interface EntityRelationshipRow {
   fromUuid: string;
@@ -86,6 +90,7 @@ class EntitiesPage extends LitElement {
     _editing: { state: true },
     _editForm: { state: true },
     _newRel: { state: true },
+    _view: { state: true },
   };
 
   static styles = [
@@ -180,6 +185,31 @@ class EntitiesPage extends LitElement {
         font-weight: 600;
         margin-left: 0.4rem;
       }
+      .view-switcher {
+        display: flex;
+        gap: 0;
+        margin-bottom: 0.6rem;
+      }
+      .view-switcher button {
+        border: 1px solid var(--shenas-border, #d8d4cc);
+        background: var(--shenas-bg, #faf8f5);
+        color: var(--shenas-text-muted, #666);
+        padding: 0.3rem 0.8rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+      }
+      .view-switcher button:first-child {
+        border-radius: 4px 0 0 4px;
+      }
+      .view-switcher button:last-child {
+        border-radius: 0 4px 4px 0;
+        border-left: none;
+      }
+      .view-switcher button.active {
+        background: var(--shenas-primary, #728f67);
+        color: #fff;
+        border-color: var(--shenas-primary, #728f67);
+      }
     `,
   ];
 
@@ -189,6 +219,7 @@ class EntitiesPage extends LitElement {
   declare _editing: string | null;
   declare _editForm: EntityForm;
   declare _newRel: RelationshipForm;
+  declare _view: GraphView;
 
   private _cy: cytoscape.Core | null = null;
   private _resizeObserver: ResizeObserver | null = null;
@@ -232,6 +263,7 @@ class EntitiesPage extends LitElement {
     this._editing = null;
     this._editForm = this._emptyEntityForm();
     this._newRel = { fromUuid: "", toUuid: "", type: "" };
+    this._view = "entities";
   }
 
   _emptyEntityForm(): EntityForm {
@@ -418,6 +450,17 @@ class EntitiesPage extends LitElement {
     }
   }
 
+  // -- View switching ------------------------------------------------------
+
+  _setView(v: GraphView): void {
+    if (this._view === v) return;
+    if (this._cy) {
+      this._cy.destroy();
+      this._cy = null;
+    }
+    this._view = v;
+  }
+
   // -- Cytoscape ego graph ------------------------------------------------
 
   _buildGraphElements(): CyElement[] {
@@ -449,10 +492,34 @@ class EntitiesPage extends LitElement {
     return elements;
   }
 
+  _buildHierarchyElements(): CyElement[] {
+    const elements: CyElement[] = [];
+    for (const t of this._entityTypes) {
+      elements.push({
+        data: {
+          id: t.name,
+          label: t.displayName,
+          isAbstract: t.isAbstract ? "yes" : "no",
+        },
+      });
+    }
+    for (const t of this._entityTypes) {
+      if (t.parent) {
+        elements.push({
+          data: {
+            id: `edge:${t.parent}:${t.name}`,
+            source: t.parent,
+            target: t.name,
+          },
+        });
+      }
+    }
+    return elements;
+  }
+
   _initCytoscape(): void {
     const container = this.renderRoot.querySelector("#cy") as HTMLElement | null;
     if (!container) return;
-    if (this._entities.length === 0) return;
 
     if (!_dagreRegistered) {
       cytoscape.use(dagre);
@@ -463,6 +530,24 @@ class EntitiesPage extends LitElement {
       this._cy.destroy();
     }
 
+    if (this._view === "types") {
+      this._initHierarchyGraph(container);
+    } else {
+      this._initEntityGraph(container);
+    }
+
+    if (this._resizeObserver) this._resizeObserver.disconnect();
+    this._resizeObserver = new ResizeObserver(() => {
+      if (this._cy) {
+        this._cy.resize();
+        this._cy.fit(undefined, 20);
+      }
+    });
+    this._resizeObserver.observe(container);
+  }
+
+  _initEntityGraph(container: HTMLElement): void {
+    if (this._entities.length === 0) return;
     const meUuid = this._meUuid();
 
     this._cy = cytoscape({
@@ -527,25 +612,71 @@ class EntitiesPage extends LitElement {
       const e = this._entityByUuid(uuid);
       if (e && !e.isMe) this._startEdit(e);
     });
+  }
 
-    if (this._resizeObserver) this._resizeObserver.disconnect();
-    this._resizeObserver = new ResizeObserver(() => {
-      if (this._cy) {
-        this._cy.resize();
-        this._cy.fit(undefined, 20);
-      }
+  _initHierarchyGraph(container: HTMLElement): void {
+    if (this._entityTypes.length === 0) return;
+
+    this._cy = cytoscape({
+      container,
+      elements: this._buildHierarchyElements(),
+      style: [
+        {
+          selector: "node",
+          style: {
+            label: "data(label)",
+            "text-valign": "center",
+            "text-halign": "center",
+            "font-size": 11,
+            color: "#fff",
+            "text-wrap": "wrap",
+            "text-max-width": 90,
+            width: 120,
+            height: 36,
+            shape: "round-rectangle",
+            "background-color": "#728f67",
+          },
+        },
+        {
+          selector: 'node[isAbstract="yes"]',
+          style: {
+            "background-color": "#8a9a84",
+            "border-width": 2,
+            "border-style": "dashed",
+            "border-color": "#666",
+          },
+        },
+        {
+          selector: "edge",
+          style: {
+            "curve-style": "bezier",
+            "target-arrow-shape": "triangle",
+            "target-arrow-color": "#999",
+            "line-color": "#999",
+            width: 2,
+          },
+        },
+      ] as unknown as cytoscape.StylesheetStyle[],
+      layout: {
+        name: "dagre",
+        rankDir: "TB",
+        nodeSep: 40,
+        rankSep: 60,
+        padding: 30,
+      } as unknown as cytoscape.LayoutOptions,
+      userZoomingEnabled: true,
+      userPanningEnabled: true,
     });
-    this._resizeObserver.observe(container);
   }
 
   firstUpdated(): void {
-    if (!this._loading && this._entities.length > 0) {
+    if (!this._loading) {
       this._initCytoscape();
     }
   }
 
   updated(): void {
-    if (!this._loading && this._entities.length > 0) {
+    if (!this._loading) {
       requestAnimationFrame(() => this._initCytoscape());
     }
   }
@@ -556,7 +687,15 @@ class EntitiesPage extends LitElement {
     return html`
       <shenas-page ?loading=${this._loading} loading-text="Loading entities...">
         ${renderMessage(this._message)}
-        ${this._entities.length === 0
+        <div class="view-switcher">
+          <button class=${this._view === "entities" ? "active" : ""} @click=${() => this._setView("entities")}>
+            Entities
+          </button>
+          <button class=${this._view === "types" ? "active" : ""} @click=${() => this._setView("types")}>
+            Type Hierarchy
+          </button>
+        </div>
+        ${this._view === "entities" && this._entities.length === 0
           ? html`<div class="empty-graph">No entities yet.</div>`
           : html`<div id="cy"></div>`}
 
@@ -595,10 +734,14 @@ class EntitiesPage extends LitElement {
               .value=${this._newEntity.type}
               @change=${(e: Event) => this._updateNewField("type", (e.target as HTMLSelectElement).value)}
             >
-              ${this._entityTypes.map(
-                (t) =>
-                  html`<option value=${t.name} ?selected=${t.name === this._newEntity.type}>${t.displayName}</option>`,
-              )}
+              ${this._entityTypes
+                .filter((t) => !t.isAbstract)
+                .map(
+                  (t) =>
+                    html`<option value=${t.name} ?selected=${t.name === this._newEntity.type}>
+                      ${t.displayName}
+                    </option>`,
+                )}
             </select>
           </label>
           <label
@@ -647,10 +790,12 @@ class EntitiesPage extends LitElement {
               .value=${this._editForm.type}
               @change=${(ev: Event) => this._updateEditField("type", (ev.target as HTMLSelectElement).value)}
             >
-              ${this._entityTypes.map(
-                (t) =>
-                  html`<option value=${t.name} ?selected=${t.name === this._editForm.type}>${t.displayName}</option>`,
-              )}
+              ${this._entityTypes
+                .filter((t) => !t.isAbstract)
+                .map(
+                  (t) =>
+                    html`<option value=${t.name} ?selected=${t.name === this._editForm.type}>${t.displayName}</option>`,
+                )}
             </select>
           </label>
           <label
