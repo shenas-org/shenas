@@ -33,9 +33,7 @@ class MetricTable(DataTable):
     external API, and it has no SCD2 / cursor / write-disposition concerns.
     Concrete metric tables should inherit from one of the grain-specific
     subclasses below (``DailyMetricTable`` etc.) so the catalog advertises
-    their time semantics. PROV-style lineage columns
-    (``_generated_by_transform`` / ``_generated_at``) are inherited from
-    :class:`DataTable`.
+    their time semantics.
     """
 
     _abstract: ClassVar[bool] = True
