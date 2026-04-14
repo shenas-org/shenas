@@ -15,19 +15,26 @@
 #   cloud.google.com/neg: '{"exposed_ports": {"80": {"name": "api-neg"}}}'
 # We reference them as data sources.
 
+locals {
+  zones = ["${var.region}-a", "${var.region}-b", "${var.region}-c"]
+}
+
 data "google_compute_network_endpoint_group" "api" {
-  name = "api-neg"
-  zone = "${var.region}-b"
+  for_each = toset(local.zones)
+  name     = "api-neg"
+  zone     = each.value
 }
 
 data "google_compute_network_endpoint_group" "fl_api" {
-  name = "fl-api-neg"
-  zone = "${var.region}-b"
+  for_each = toset(local.zones)
+  name     = "fl-api-neg"
+  zone     = each.value
 }
 
 data "google_compute_network_endpoint_group" "fl_grpc" {
-  name = "fl-grpc-neg"
-  zone = "${var.region}-b"
+  for_each = toset(local.zones)
+  name     = "fl-grpc-neg"
+  zone     = each.value
 }
 
 resource "google_compute_backend_service" "api" {
@@ -38,8 +45,13 @@ resource "google_compute_backend_service" "api" {
   health_checks         = [google_compute_health_check.api.id]
   load_balancing_scheme = "EXTERNAL_MANAGED"
 
-  backend {
-    group = data.google_compute_network_endpoint_group.api.id
+  dynamic "backend" {
+    for_each = data.google_compute_network_endpoint_group.api
+    content {
+      group          = backend.value.id
+      balancing_mode = "RATE"
+      max_rate       = 1000
+    }
   }
 }
 
@@ -51,8 +63,13 @@ resource "google_compute_backend_service" "fl_api" {
   health_checks         = [google_compute_health_check.api.id]
   load_balancing_scheme = "EXTERNAL_MANAGED"
 
-  backend {
-    group = data.google_compute_network_endpoint_group.fl_api.id
+  dynamic "backend" {
+    for_each = data.google_compute_network_endpoint_group.fl_api
+    content {
+      group          = backend.value.id
+      balancing_mode = "RATE"
+      max_rate       = 1000
+    }
   }
 }
 
@@ -64,8 +81,13 @@ resource "google_compute_backend_service" "fl_grpc" {
   health_checks         = [google_compute_health_check.api.id]
   load_balancing_scheme = "EXTERNAL_MANAGED"
 
-  backend {
-    group = data.google_compute_network_endpoint_group.fl_grpc.id
+  dynamic "backend" {
+    for_each = data.google_compute_network_endpoint_group.fl_grpc
+    content {
+      group          = backend.value.id
+      balancing_mode = "RATE"
+      max_rate       = 1000
+    }
   }
 }
 
@@ -76,6 +98,19 @@ resource "google_compute_health_check" "api" {
     port         = 8000
     request_path = "/api/health"
   }
+}
+
+# Allow GCP health check probes to reach GKE pods
+resource "google_compute_firewall" "lb_health_check" {
+  name    = "allow-lb-health-checks"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["8000", "8080", "8081"]
+  }
+
+  source_ranges = ["35.191.0.0/16", "130.211.0.0/22"]
 }
 
 # ---------------------------------------------------------------------------
