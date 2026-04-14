@@ -26,6 +26,8 @@ interface CyElement {
   data: Record<string, unknown>;
 }
 
+type FlowView = "device" | "entity" | "data";
+
 let _dagreRegistered = false;
 
 class PipelineOverview extends LitElement {
@@ -34,6 +36,7 @@ class PipelineOverview extends LitElement {
     allPlugins: { type: Object },
     schemaPlugins: { type: Object },
     _empty: { state: true },
+    _view: { state: true },
   };
 
   static styles = [
@@ -92,6 +95,44 @@ class PipelineOverview extends LitElement {
         border-top: 2px dashed var(--shenas-text-faint, #aaa);
         height: 0;
       }
+      .view-switcher {
+        display: flex;
+        gap: 0;
+        margin-bottom: 0.8rem;
+        border: 1px solid var(--shenas-border, #e0e0e0);
+        border-radius: 6px;
+        overflow: hidden;
+        width: fit-content;
+      }
+      .view-switcher button {
+        padding: 0.4rem 1rem;
+        border: none;
+        background: var(--shenas-bg-secondary, #fafafa);
+        color: var(--shenas-text-secondary, #666);
+        font-size: 0.8rem;
+        cursor: pointer;
+        border-right: 1px solid var(--shenas-border, #e0e0e0);
+      }
+      .view-switcher button:last-child {
+        border-right: none;
+      }
+      .view-switcher button.active {
+        background: var(--shenas-accent, #728f67);
+        color: #fff;
+      }
+      .view-switcher button:not(.active):hover {
+        background: var(--shenas-bg-hover, #f0f0f0);
+      }
+      .placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: calc(100vh - 10rem);
+        border: 1px dashed var(--shenas-border, #e0e0e0);
+        border-radius: 8px;
+        color: var(--shenas-text-muted, #888);
+        font-size: 0.9rem;
+      }
     `,
   ];
 
@@ -99,6 +140,7 @@ class PipelineOverview extends LitElement {
   declare allPlugins: Record<string, PluginInfo[]>;
   declare schemaPlugins: Record<string, string[]>;
   declare _empty: boolean;
+  declare _view: FlowView;
   private _cy: cytoscape.Core | null = null;
   private _elements: CyElement[] | null = null;
   private _resizeObserver: ResizeObserver | null = null;
@@ -117,6 +159,7 @@ class PipelineOverview extends LitElement {
     this.allPlugins = {};
     this.schemaPlugins = {};
     this._empty = false;
+    this._view = "device";
   }
 
   disconnectedCallback(): void {
@@ -168,20 +211,10 @@ class PipelineOverview extends LitElement {
       }
     }
 
-    // Me node (identity)
-    const meId = "me:self";
-    nodeIds.add(meId);
-    elements.push({ data: { id: meId, label: "Me", kind: "me" } });
-
     // Device node (current machine)
     const deviceId = "device:local";
     nodeIds.add(deviceId);
     elements.push({ data: { id: deviceId, label: "This Device", kind: "device" } });
-
-    // Me -> Device edge
-    elements.push({
-      data: { id: "edge:me:device", source: meId, target: deviceId, edgeType: "identity" },
-    });
 
     // Source nodes + Device -> Source edges
     for (const p of pipes) {
@@ -331,10 +364,6 @@ class PipelineOverview extends LitElement {
           },
         },
         {
-          selector: 'node[kind="me"]',
-          style: { "background-color": "#78909c", shape: "ellipse", width: 60, height: 60 },
-        },
-        {
           selector: 'node[kind="device"]',
           style: { "background-color": "#607d8b", shape: "round-rectangle", cursor: "pointer" },
         },
@@ -388,7 +417,7 @@ class PipelineOverview extends LitElement {
           },
         },
         {
-          selector: 'edge[edgeType="identity"], edge[edgeType="device"]',
+          selector: 'edge[edgeType="device"]',
           style: {
             "line-style": "solid",
             "line-color": "#90a4ae",
@@ -457,7 +486,18 @@ class PipelineOverview extends LitElement {
     this._resizeObserver.observe(container);
   }
 
+  private _setView(view: FlowView): void {
+    if (this._view === view) return;
+    this._view = view;
+    this._elements = null;
+    if (this._cy) {
+      this._cy.destroy();
+      this._cy = null;
+    }
+  }
+
   updated(): void {
+    if (this._view !== "device") return;
     if (!this._loading && !this._elements) {
       this._processQueryData();
     }
@@ -466,30 +506,47 @@ class PipelineOverview extends LitElement {
     }
   }
 
-  render() {
+  private _renderDeviceFlow() {
     return html`
-      <shenas-page ?loading=${this._loading} loading-text="Loading overview...">
-        <div id="cy"></div>
-        <div class="legend">
-          <span class="legend-item"
-            ><span class="legend-dot" style="background:#78909c;border-radius:50%"></span> Me</span
-          >
-          <span class="legend-item"><span class="legend-dot" style="background:#607d8b"></span> Device</span>
-          <span class="legend-item"><span class="legend-dot pipe"></span> Source</span>
-          <span class="legend-item"><span class="legend-dot schema"></span> Dataset</span>
-          <span class="legend-item"><span class="legend-dot component"></span> Dashboard</span>
-          <span class="legend-item"><span class="legend-dot model"></span> Model</span>
-          <span class="legend-item"><span class="legend-line enabled"></span> Transform</span>
-          <span class="legend-item"><span class="legend-line disabled"></span> Disabled</span>
-          <span class="legend-item"
-            ><span
-              class="legend-line"
-              style="border-top:2px dotted var(--shenas-text-faint, #aaa);height:0;background:none"
-            ></span>
-            Dependency</span
-          >
+      <div id="cy"></div>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#607d8b"></span> Device</span>
+        <span class="legend-item"><span class="legend-dot pipe"></span> Source</span>
+        <span class="legend-item"><span class="legend-dot schema"></span> Dataset</span>
+        <span class="legend-item"><span class="legend-dot component"></span> Dashboard</span>
+        <span class="legend-item"><span class="legend-dot model"></span> Model</span>
+        <span class="legend-item"><span class="legend-line enabled"></span> Transform</span>
+        <span class="legend-item"><span class="legend-line disabled"></span> Disabled</span>
+        <span class="legend-item"
+          ><span
+            class="legend-line"
+            style="border-top:2px dotted var(--shenas-text-faint, #aaa);height:0;background:none"
+          ></span>
+          Dependency</span
+        >
+      </div>
+      ${this._empty ? html`<p class="empty">No connections found. Add transforms in pipe settings.</p>` : ""}
+    `;
+  }
+
+  render() {
+    const view = this._view;
+    return html`
+      <shenas-page ?loading=${view === "device" && this._loading} loading-text="Loading overview...">
+        <div class="view-switcher">
+          <button class=${view === "device" ? "active" : ""} @click=${() => this._setView("device")}>
+            Device-centric
+          </button>
+          <button class=${view === "entity" ? "active" : ""} @click=${() => this._setView("entity")}>
+            Entity-centric
+          </button>
+          <button class=${view === "data" ? "active" : ""} @click=${() => this._setView("data")}>Data-centric</button>
         </div>
-        ${this._empty ? html`<p class="empty">No connections found. Add transforms in pipe settings.</p>` : ""}
+        ${view === "device"
+          ? this._renderDeviceFlow()
+          : view === "entity"
+            ? html`<div class="placeholder">Entity-centric flow (coming soon)</div>`
+            : html`<div class="placeholder">Data-centric flow (coming soon)</div>`}
       </shenas-page>
     `;
   }

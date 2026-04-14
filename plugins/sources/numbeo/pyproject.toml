@@ -1,0 +1,26 @@
+[project]
+name = "shenas-source-numbeo"
+dynamic = ["version"]
+description = "Numbeo cost-of-living and quality-of-life data for shenas"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb]>=1.24.0",
+    "httpx>=0.28.0",
+    "shenas-source-core",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.sources"]
+numbeo = "shenas_sources.numbeo.source:NumbeoSource"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "source-numbeo/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "source-numbeo/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_sources"]
