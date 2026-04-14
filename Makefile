@@ -239,29 +239,33 @@ headless-build:
 	docker build -f server/deploy/docker/Dockerfile.headless -t shenas-headless .
 
 headless-deploy: headless-build
-	@kubectl create namespace shenas-runners 2>/dev/null || true
-	@if ! kubectl -n shenas-runners get secret headless-db-key >/dev/null 2>&1; then \
+	@kubectl create namespace shenas-workers 2>/dev/null || true
+	@if ! kubectl -n shenas-workers get secret headless-db-key >/dev/null 2>&1; then \
 		echo "Creating DB encryption key..."; \
-		kubectl -n shenas-runners create secret generic headless-db-key \
+		kubectl -n shenas-workers create secret generic headless-db-key \
 			--from-literal=key=$$(openssl rand -hex 32); \
 	fi
 	@if [ -f data/dev_credentials.json ]; then \
 		echo "Uploading credentials..."; \
-		kubectl -n shenas-runners create secret generic headless-credentials \
+		kubectl -n shenas-workers create secret generic headless-credentials \
 			--from-file=dev_credentials.json=data/dev_credentials.json \
 			--dry-run=client -o yaml | kubectl apply -f -; \
 	else \
 		echo "Warning: data/dev_credentials.json not found. Export via Ctrl+P first."; \
 	fi
-	@if ! kubectl -n shenas-runners get secret headless-mesh-token >/dev/null 2>&1; then \
-		echo "To join device mesh, get your token from Settings > Profile > Remote Token."; \
-		read -p "Remote token (or press Enter to skip): " TOKEN; \
-		if [ -n "$$TOKEN" ]; then \
-			kubectl -n shenas-runners create secret generic headless-mesh-token \
-				--from-literal=token=$$TOKEN; \
-		fi; \
+	@TOKEN=$$(uv run python -c "\
+		from app.database import shenas_db; db = shenas_db(); \
+		r = db.cursor().__enter__().execute('SELECT remote_token FROM shenas_system.local_users WHERE id = 0').fetchone(); \
+		print(r[0] if r and r[0] else '')" 2>/dev/null); \
+	if [ -n "$$TOKEN" ]; then \
+		echo "Uploading mesh token for user 0..."; \
+		kubectl -n shenas-workers create secret generic headless-mesh-token \
+			--from-literal=token=$$TOKEN \
+			--dry-run=client -o yaml | kubectl apply -f -; \
+	else \
+		echo "Warning: no remote token for user 0. Sign in to shenas.net first."; \
 	fi
-	kubectl -n shenas-runners apply -f server/deploy/k8s/headless-worker.yaml
+	kubectl -n shenas-workers apply -f server/deploy/k8s/headless-worker.yaml
 
 k8s-apply:
 	kubectl apply -f server/deploy/k8s/namespace.yaml
