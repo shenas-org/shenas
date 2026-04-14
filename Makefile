@@ -1,4 +1,4 @@
-.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install ci-runner-build coverage db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan hooks-setup lint infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish plugins-build postgres-dev pyinstaller shenas-net-release shenas-org-release test shenas-net-api-release shenas-net-dev
+.PHONY: android-clean android-dev android-emulator android-setup api-dev app-clean app-dev app-install ci-runner-build coverage db-flush desktop-build desktop-dev desktop-release discord-apply discord-destroy discord-init discord-output discord-plan github-apply github-destroy github-init github-output github-plan headless-build headless-deploy hooks-setup lint infra-apply infra-destroy infra-gh-vars infra-import infra-init infra-output infra-plan k8s-apply k8s-logs k8s-secrets-set k8s-status logos-generate oss-init oss-sync packages-publish plugins-build postgres-dev pyinstaller shenas-net-release shenas-org-release test shenas-net-api-release shenas-net-dev
 
 ANDROID_SDK_ROOT = $(HOME)/Android/Sdk
 NDK_VERSION = 27.2.12479018
@@ -230,6 +230,38 @@ infra-plan:
 # ---------------------------------------------------------------------------
 # Kubernetes
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Headless worker (cloud deployment)
+# ---------------------------------------------------------------------------
+
+headless-build:
+	docker build -f server/deploy/docker/Dockerfile.headless -t shenas-headless .
+
+headless-deploy: headless-build
+	@kubectl create namespace shenas-runners 2>/dev/null || true
+	@if ! kubectl -n shenas-runners get secret headless-db-key >/dev/null 2>&1; then \
+		echo "Creating DB encryption key..."; \
+		kubectl -n shenas-runners create secret generic headless-db-key \
+			--from-literal=key=$$(openssl rand -hex 32); \
+	fi
+	@if [ -f data/dev_credentials.json ]; then \
+		echo "Uploading credentials..."; \
+		kubectl -n shenas-runners create secret generic headless-credentials \
+			--from-file=dev_credentials.json=data/dev_credentials.json \
+			--dry-run=client -o yaml | kubectl apply -f -; \
+	else \
+		echo "Warning: data/dev_credentials.json not found. Export via Ctrl+P first."; \
+	fi
+	@if ! kubectl -n shenas-runners get secret headless-mesh-token >/dev/null 2>&1; then \
+		echo "To join device mesh, get your token from Settings > Profile > Remote Token."; \
+		read -p "Remote token (or press Enter to skip): " TOKEN; \
+		if [ -n "$$TOKEN" ]; then \
+			kubectl -n shenas-runners create secret generic headless-mesh-token \
+				--from-literal=token=$$TOKEN; \
+		fi; \
+	fi
+	kubectl -n shenas-runners apply -f server/deploy/k8s/headless-worker.yaml
 
 k8s-apply:
 	kubectl apply -f server/deploy/k8s/namespace.yaml

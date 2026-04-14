@@ -1,0 +1,101 @@
+---
+# Headless shenas worker: syncs sources and runs transforms on a schedule.
+# Reads credentials from a Kubernetes secret mounted as dev_credentials.json.
+#
+# Setup:
+#   1. Build: docker build -f server/deploy/docker/Dockerfile.headless -t shenas-headless .
+#   2. Create secrets:
+#        kubectl -n shenas create secret generic headless-db-key --from-literal=key=$(openssl rand -hex 32)
+#        kubectl -n shenas create secret generic headless-credentials --from-file=dev_credentials.json=data/dev_credentials.json
+#   3. Apply: kubectl -n shenas apply -f server/deploy/k8s/headless-worker.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shenas-headless
+  namespace: shenas-runners
+  labels:
+    app: shenas-headless
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate  # Single writer -- DuckDB doesn't support concurrent access
+  selector:
+    matchLabels:
+      app: shenas-headless
+  template:
+    metadata:
+      labels:
+        app: shenas-headless
+    spec:
+      containers:
+        - name: shenas
+          image: REGION-docker.pkg.dev/PROJECT_ID/shenas/shenas-headless:latest
+          args: ["shenas", "--headless", "--no-tls", "--host", "0.0.0.0"]
+          ports:
+            - containerPort: 7280
+              name: api
+          env:
+            - name: SHENAS_DB_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: headless-db-key
+                  key: key
+            - name: SHENAS_HEADLESS
+              value: "1"
+            - name: SHENAS_SYNC_INTERVAL
+              value: "300"  # 5 minutes
+            - name: SHENAS_NET_URL
+              value: "https://shenas.net"
+            - name: SHENAS_REMOTE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: headless-mesh-token
+                  key: token
+                  optional: true
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: credentials
+              mountPath: /app/data/dev_credentials.json
+              subPath: dev_credentials.json
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /api/graphql
+              port: api
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/graphql
+              port: api
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: data
+          emptyDir: {}  # Ephemeral -- data lives only while pod runs. Use a PVC for persistence.
+        - name: credentials
+          secret:
+            secretName: headless-credentials
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shenas-headless
+  namespace: shenas-runners
+spec:
+  selector:
+    app: shenas-headless
+  ports:
+    - port: 7280
+      targetPort: api
+      name: api
