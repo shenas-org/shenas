@@ -12,8 +12,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
+from app.entity import EntityTable, EntityType
 from app.table import Field
-from shenas_sources.core.table import DimensionTable, EventTable, SourceTable
+from shenas_sources.core.table import EventTable, SourceTable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -32,17 +33,42 @@ class Events(EventTable):
 
     time_at: ClassVar[str] = "created_at"
 
-    id: Annotated[str, Field(db_type="VARCHAR", description="GitHub event ID", display_name="Event ID")] = ""
+    id: Annotated[
+        str,
+        Field(db_type="VARCHAR", description="GitHub event ID", display_name="Event ID"),
+    ] = ""
     type: Annotated[
-        str, Field(db_type="VARCHAR", description="Event type (PushEvent, PullRequestEvent, ...)", display_name="Event Type")
+        str,
+        Field(
+            db_type="VARCHAR",
+            description="Event type (PushEvent, PullRequestEvent, ...)",
+            display_name="Event Type",
+        ),
     ] = ""
     repo_name: Annotated[
-        str, Field(db_type="VARCHAR", description="Full repository name (owner/repo)", display_name="Repository")
+        str,
+        Field(
+            db_type="VARCHAR",
+            description="Full repository name (owner/repo)",
+            display_name="Repository",
+        ),
     ] = ""
     created_at: Annotated[
-        str | None, Field(db_type="TIMESTAMP", description="Event timestamp (UTC)", display_name="Created At")
+        str | None,
+        Field(
+            db_type="TIMESTAMP",
+            description="Event timestamp (UTC)",
+            display_name="Created At",
+        ),
     ] = None
-    public: Annotated[bool, Field(db_type="BOOLEAN", description="Whether the event is public", display_name="Public")] = True
+    public: Annotated[
+        bool,
+        Field(
+            db_type="BOOLEAN",
+            description="Whether the event is public",
+            display_name="Public",
+        ),
+    ] = True
 
     @classmethod
     def extract(cls, client: GithubClient, *, username: str = "", **_: Any) -> Iterator[dict[str, Any]]:
@@ -56,35 +82,94 @@ class Events(EventTable):
             }
 
 
-class Repositories(DimensionTable):
-    """GitHub repository owned by the user, loaded as SCD2."""
+class Repositories(EntityTable):
+    """GitHub repository owned by the user, loaded as SCD2. Each row is an entity."""
 
     class _Meta:
         name = "repositories"
         display_name = "Repositories"
         description = "GitHub repositories owned by the authenticated user."
-        pk = ("id",)
+        pk = ("full_name",)
+        entity_type = EntityType(
+            name="repository",
+            display_name="Repository",
+            parent="virtual_entity",
+            icon="git-branch",
+            description="A source-code repository (GitHub / GitLab / Bitbucket).",
+            wikidata_qid="Q170584",
+            wikidata_properties='[{"pid":"P17","label":"country"},{"pid":"P277","label":"programmed in"}]',
+        )
+        entity_name_column = "full_name"
+        entity_description_column = "description"
 
-    id: Annotated[int, Field(db_type="BIGINT", description="GitHub repository ID", display_name="Repository ID")] = 0
-    name: Annotated[str, Field(db_type="VARCHAR", description="Repository name", display_name="Name")] = ""
-    full_name: Annotated[str, Field(db_type="VARCHAR", description="Full name (owner/repo)", display_name="Full Name")] = ""
+    id: Annotated[
+        int,
+        Field(
+            db_type="BIGINT",
+            description="GitHub repository ID",
+            display_name="Repository ID",
+        ),
+    ] = 0
+    name: Annotated[
+        str,
+        Field(db_type="VARCHAR", description="Repository name", display_name="Name"),
+    ] = ""
+    full_name: Annotated[
+        str,
+        Field(
+            db_type="VARCHAR",
+            description="Full name (owner/repo)",
+            display_name="Full Name",
+        ),
+    ] = ""
     description: Annotated[
         str | None,
-        Field(db_type="VARCHAR", description="Repository description", display_name="Description"),
+        Field(
+            db_type="VARCHAR",
+            description="Repository description",
+            display_name="Description",
+        ),
     ] = None
-    language: Annotated[str | None, Field(db_type="VARCHAR", description="Primary language", display_name="Language")] = None
+    language: Annotated[
+        str | None,
+        Field(db_type="VARCHAR", description="Primary language", display_name="Language"),
+    ] = None
     private: Annotated[
-        bool, Field(db_type="BOOLEAN", description="Whether the repository is private", display_name="Private")
+        bool,
+        Field(
+            db_type="BOOLEAN",
+            description="Whether the repository is private",
+            display_name="Private",
+        ),
     ] = False
-    stargazers_count: Annotated[int, Field(db_type="INTEGER", description="Number of stars", display_name="Stars")] = 0
-    forks_count: Annotated[int, Field(db_type="INTEGER", description="Number of forks", display_name="Forks")] = 0
+    stargazers_count: Annotated[
+        int,
+        Field(db_type="INTEGER", description="Number of stars", display_name="Stars"),
+    ] = 0
+    forks_count: Annotated[
+        int,
+        Field(db_type="INTEGER", description="Number of forks", display_name="Forks"),
+    ] = 0
     open_issues_count: Annotated[
-        int, Field(db_type="INTEGER", description="Open issues + PRs", display_name="Open Issues")
+        int,
+        Field(
+            db_type="INTEGER",
+            description="Open issues + PRs",
+            display_name="Open Issues",
+        ),
     ] = 0
     created_at: Annotated[
-        str | None, Field(db_type="TIMESTAMP", description="Repository creation time", display_name="Created At")
+        str | None,
+        Field(
+            db_type="TIMESTAMP",
+            description="Repository creation time",
+            display_name="Created At",
+        ),
     ] = None
-    pushed_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Last push time", display_name="Last Push")] = None
+    pushed_at: Annotated[
+        str | None,
+        Field(db_type="TIMESTAMP", description="Last push time", display_name="Last Push"),
+    ] = None
 
     @classmethod
     def extract(cls, client: GithubClient, **_: Any) -> Iterator[dict[str, Any]]:
@@ -115,20 +200,51 @@ class PullRequests(EventTable):
 
     time_at: ClassVar[str] = "created_at"
 
-    id: Annotated[int, Field(db_type="BIGINT", description="GitHub issue/PR ID", display_name="PR ID")] = 0
+    id: Annotated[
+        int,
+        Field(db_type="BIGINT", description="GitHub issue/PR ID", display_name="PR ID"),
+    ] = 0
     number: Annotated[
-        int, Field(db_type="INTEGER", description="PR number within the repository", display_name="PR Number")
+        int,
+        Field(
+            db_type="INTEGER",
+            description="PR number within the repository",
+            display_name="PR Number",
+        ),
     ] = 0
     title: Annotated[str, Field(db_type="VARCHAR", description="PR title", display_name="Title")] = ""
-    state: Annotated[str, Field(db_type="VARCHAR", description="PR state (open, closed)", display_name="State")] = ""
+    state: Annotated[
+        str,
+        Field(
+            db_type="VARCHAR",
+            description="PR state (open, closed)",
+            display_name="State",
+        ),
+    ] = ""
     repo_full_name: Annotated[
-        str, Field(db_type="VARCHAR", description="Full repository name (owner/repo)", display_name="Repository")
+        str,
+        Field(
+            db_type="VARCHAR",
+            description="Full repository name (owner/repo)",
+            display_name="Repository",
+        ),
     ] = ""
     created_at: Annotated[
-        str | None, Field(db_type="TIMESTAMP", description="PR creation time", display_name="Created At")
+        str | None,
+        Field(
+            db_type="TIMESTAMP",
+            description="PR creation time",
+            display_name="Created At",
+        ),
     ] = None
-    closed_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="PR close time", display_name="Closed At")] = None
-    merged_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="PR merge time", display_name="Merged At")] = None
+    closed_at: Annotated[
+        str | None,
+        Field(db_type="TIMESTAMP", description="PR close time", display_name="Closed At"),
+    ] = None
+    merged_at: Annotated[
+        str | None,
+        Field(db_type="TIMESTAMP", description="PR merge time", display_name="Merged At"),
+    ] = None
 
     @classmethod
     def extract(cls, client: GithubClient, *, username: str = "", **_: Any) -> Iterator[dict[str, Any]]:

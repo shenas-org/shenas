@@ -929,7 +929,7 @@ class Mutation:
 
     @strawberry.mutation
     def create_entity(self, entity_input: EntityCreateInput) -> GqlEntityType:
-        from app.entities import Entity
+        from app.entity import Entity
 
         e = Entity.create(
             type=entity_input.type,
@@ -954,7 +954,7 @@ class Mutation:
 
     @strawberry.mutation
     def update_entity(self, uuid: str, entity_input: EntityUpdateInput) -> GqlEntityType | None:
-        from app.entities import Entity
+        from app.entity import Entity
 
         e = Entity.find_by_uuid(uuid)
         if e is None:
@@ -986,7 +986,7 @@ class Mutation:
 
     @strawberry.mutation
     def delete_entity(self, uuid: str) -> OkType:
-        from app.entities import Entity
+        from app.entity import Entity
         from app.models import OkResponse
 
         e = Entity.find_by_uuid(uuid)
@@ -996,10 +996,64 @@ class Mutation:
         return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
+    def set_entity_status(self, uuid: str, status: str) -> OkType:
+        """Update the enabled/disabled status of an entity (user or virtual).
+
+        For virtual entities the status is stored on ``entity_index``; for
+        user-created entities we also keep the matching ``entities`` row in
+        sync.
+        """
+        from app.entity import Entity, EntityIndex
+        from app.models import OkResponse
+
+        if status not in ("enabled", "disabled"):
+            return OkType.from_pydantic(  # ty: ignore[unresolved-attribute]
+                OkResponse(ok=False, message=f"Invalid status: {status!r}"),
+            )
+        idx = EntityIndex.find(uuid)
+        if idx is None:
+            return OkType.from_pydantic(  # ty: ignore[unresolved-attribute]
+                OkResponse(ok=False, message="Entity not found"),
+            )
+        idx.status = status
+        idx.save()
+        entity = Entity.find_by_uuid(uuid)
+        if entity is not None:
+            entity.status = status
+            entity.save()
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
+
+    @strawberry.mutation
+    def set_entity_mapping(self, source_table: str, source_row_key: str, target_uuid: str | None = None) -> OkType:
+        """Map a row from an ``EntityMapTable`` to a real entity UUID.
+
+        Passing ``target_uuid=None`` removes any existing mapping. The
+        ``(source_table, source_row_key)`` pair is the PK of ``entity_mappings``.
+        """
+        from app.entity import EntityMapping
+        from app.models import OkResponse
+
+        existing = EntityMapping.find(source_table, source_row_key)
+        if target_uuid is None or target_uuid == "":
+            if existing is not None:
+                existing.delete()
+            return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
+        if existing is None:
+            EntityMapping(
+                source_table=source_table,
+                source_row_key=source_row_key,
+                target_uuid=target_uuid,
+            ).insert()
+        else:
+            existing.target_uuid = target_uuid
+            existing.save()
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
+
+    @strawberry.mutation
     def create_entity_relationship(
         self, from_uuid: str, to_uuid: str, relationship_type: str, description: str = ""
     ) -> GqlEntityRelationshipType:
-        from app.entities import EntityRelationship
+        from app.entity import EntityRelationship
 
         r = EntityRelationship(from_uuid=from_uuid, to_uuid=to_uuid, type=relationship_type, description=description)
         r.upsert()
@@ -1014,7 +1068,7 @@ class Mutation:
 
     @strawberry.mutation
     def delete_entity_relationship(self, from_uuid: str, to_uuid: str, relationship_type: str) -> OkType:
-        from app.entities import EntityRelationship
+        from app.entity import EntityRelationship
         from app.models import OkResponse
 
         r = EntityRelationship.find(from_uuid, to_uuid, relationship_type)

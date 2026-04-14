@@ -307,3 +307,21 @@ export const DISMISS_DATASET_SUGGESTION = gql`
     }
   }
 `;
+
+export const SET_ENTITY_STATUS = gql`
+  mutation SetEntityStatus($uuid: String!, $status: String!) {
+    setEntityStatus(uuid: $uuid, status: $status) {
+      ok
+      message
+    }
+  }
+`;
+
+export const SET_ENTITY_MAPPING = gql`
+  mutation SetEntityMapping($sourceTable: String!, $sourceRowKey: String!, $targetUuid: String) {
+    setEntityMapping(sourceTable: $sourceTable, sourceRowKey: $sourceRowKey, targetUuid: $targetUuid) {
+      ok
+      message
+    }
+  }
+`;

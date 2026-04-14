@@ -176,7 +176,7 @@ class DatabaseManager:
                 # Seed "me" + device entities for the default single-user.
                 import platform
 
-                from app.entities import Entity, EntityRelationship
+                from app.entity import Entity, EntityRelationship
 
                 if not Entity.all(where="type = 'human'", limit=1):
                     me = Entity.create(name="me", type="human", description="Default user")
@@ -273,7 +273,7 @@ class DatabaseManager:
 
         from app.categories import CategorySet, CategoryValue
         from app.data_catalog import QualityCheckResult, QualityMeasurement, ResourceAnnotation
-        from app.entities import (
+        from app.entity import (
             Entity,
             EntityIndex,
             EntityRelationship,

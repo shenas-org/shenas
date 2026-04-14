@@ -457,6 +457,20 @@ class GqlEntityType:
 
 
 @strawberry.type
+class GqlMappableEntityType:
+    """A row in a plugin's ``EntityMapTable`` awaiting user mapping to a real entity."""
+
+    source_table: str
+    source_row_key: str
+    name: str
+    description: str = ""
+    suggested_type: str = ""
+    mapped_to_uuid: str | None = None
+    mapped_to_name: str | None = None
+    mapped_to_type: str | None = None
+
+
+@strawberry.type
 class GqlEntityRelationshipType:
     from_uuid: str
     to_uuid: str
@@ -502,6 +516,7 @@ __all__ = [
     "FreshnessInfoType",
     "GqlEntityRelationshipType",
     "GqlEntityType",
+    "GqlMappableEntityType",
     "InstallResponseType",
     "InstallResultType",
     "OkType",
