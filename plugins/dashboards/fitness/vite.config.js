@@ -22,7 +22,7 @@ export default defineConfig({
     cssCodeSplit: false,
     rollupOptions: {
       input: "src/index.ts",
-      external: ["lit", /^lit\//, "apache-arrow", "uplot", "shenas-frontends"],
+      external: ["lit", /^lit\//, "apache-arrow", "shenas-frontends"],
       output: {
         entryFileNames: "fitness-dashboard.js",
         assetFileNames: "fitness-dashboard.[ext]",
