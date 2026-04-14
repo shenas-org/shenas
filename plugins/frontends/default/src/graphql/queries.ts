@@ -296,8 +296,8 @@ export const GET_THEME = gql`
 `;
 
 export const GET_SUGGESTED_DATASETS = gql`
-  {
-    suggestedDatasets {
+  query GetSuggestedDatasets($source: String) {
+    suggestedDatasets(source: $source) {
       name
       title
       grain

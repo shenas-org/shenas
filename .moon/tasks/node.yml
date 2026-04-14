@@ -40,7 +40,7 @@ tasks:
     options:
       runFromWorkspaceRoot: true
   js-type-check:
-    script: '[ -f $MOON_PROJECT_SOURCE/tsconfig.json ] && npx tsc --noEmit -p $MOON_PROJECT_SOURCE/tsconfig.json || echo "No tsconfig.json, skipping"'
+    script: 'if [ -f $MOON_PROJECT_SOURCE/tsconfig.json ]; then npx tsc --noEmit -p $MOON_PROJECT_SOURCE/tsconfig.json; else echo "No tsconfig.json, skipping"; fi'
     inputs:
       - '@group(sources)'
       - 'tsconfig.json'

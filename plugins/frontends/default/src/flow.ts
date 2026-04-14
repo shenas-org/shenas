@@ -3,8 +3,10 @@ import cytoscape from "cytoscape";
 // The vendor bundle re-exports cytoscape-dagre as `dagre` from "cytoscape".
 // @ts-expect-error dagre is provided by the vendor bundle, not the real cytoscape package
 import { dagre } from "cytoscape";
-import { ApolloQueryController, getClient, utilityStyles } from "shenas-frontends";
-import { GET_FLOW_DATA } from "./graphql/queries.ts";
+import { ApolloQueryController, ApolloMutationController, getClient, utilityStyles, buttonStyles, messageStyles, renderMessage } from "shenas-frontends";
+import type { MessageBanner } from "shenas-frontends";
+import { GET_FLOW_DATA, GET_SUGGESTED_DATASETS } from "./graphql/queries.ts";
+import { SUGGEST_DATASETS, ACCEPT_DATASET_SUGGESTION, DISMISS_DATASET_SUGGESTION } from "./graphql/mutations.ts";
 
 interface PluginInfo {
   name: string;
@@ -34,17 +36,22 @@ class PipelineOverview extends LitElement {
     allPlugins: { type: Object },
     schemaPlugins: { type: Object },
     _empty: { state: true },
+    _suggesting: { state: true },
+    _suggestions: { state: true },
+    _message: { state: true },
   };
 
   static styles = [
     utilityStyles,
+    buttonStyles,
+    messageStyles,
     css`
       :host {
         display: block;
       }
       #cy {
         width: 100%;
-        height: calc(100vh - 10rem);
+        height: calc(100vh - 16rem);
         border: 1px solid var(--shenas-border, #e0e0e0);
         border-radius: 8px;
         background: var(--shenas-bg-secondary, #fafafa);
@@ -92,6 +99,36 @@ class PipelineOverview extends LitElement {
         border-top: 2px dashed var(--shenas-text-faint, #aaa);
         height: 0;
       }
+      .toolbar {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.8rem;
+        align-items: center;
+      }
+      .toolbar button { font-size: 0.8rem; padding: 0.35rem 0.8rem; }
+      .suggestions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 0.8rem;
+      }
+      .suggestion-chip {
+        background: var(--shenas-bg-secondary, #f5f5f5);
+        border: 1px solid var(--shenas-border, #ddd);
+        border-radius: 6px;
+        padding: 0.4rem 0.7rem;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .suggestion-chip .name { font-weight: 600; color: var(--shenas-text, #222); }
+      .suggestion-chip .meta { color: var(--shenas-text-muted, #888); font-size: 0.7rem; }
+      .suggestion-chip .action {
+        cursor: pointer; border: none; background: none; padding: 0; font-size: 0.9rem;
+        line-height: 1; opacity: 0.5; transition: opacity 0.15s;
+      }
+      .suggestion-chip .action:hover { opacity: 1; }
     `,
   ];
 
@@ -99,12 +136,19 @@ class PipelineOverview extends LitElement {
   declare allPlugins: Record<string, PluginInfo[]>;
   declare schemaPlugins: Record<string, string[]>;
   declare _empty: boolean;
+  declare _suggesting: boolean;
+  declare _suggestions: Array<{ name: string; title?: string; grain?: string; tableName?: string }>;
+  declare _message: MessageBanner | null;
   private _cy: cytoscape.Core | null = null;
   private _elements: CyElement[] | null = null;
   private _resizeObserver: ResizeObserver | null = null;
+  private _client = getClient();
 
   private _overviewQuery = new ApolloQueryController(this, GET_FLOW_DATA, {
-    client: getClient(),
+    client: this._client,
+  });
+  private _suggestMutation = new ApolloMutationController(this, SUGGEST_DATASETS, {
+    client: this._client,
   });
 
   get _loading(): boolean {
@@ -117,6 +161,69 @@ class PipelineOverview extends LitElement {
     this.allPlugins = {};
     this.schemaPlugins = {};
     this._empty = false;
+    this._suggesting = false;
+    this._suggestions = [];
+    this._message = null;
+  }
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    this._fetchSuggestions();
+  }
+
+  async _fetchSuggestions(): Promise<void> {
+    const { data } = await this._client.query({
+      query: GET_SUGGESTED_DATASETS,
+      fetchPolicy: "network-only",
+    });
+    this._suggestions = (data?.suggestedDatasets as typeof this._suggestions) || [];
+  }
+
+  async _suggest(): Promise<void> {
+    this._suggesting = true;
+    this._message = null;
+    try {
+      const { data, errors } = await this._suggestMutation.mutate();
+      if (errors?.length) {
+        this._message = { type: "error", text: errors[0].message };
+      } else {
+        const result = data?.suggestDatasets as Record<string, unknown> | undefined;
+        if (result?.ok === false) {
+          this._message = { type: "error", text: (result.error as string) || "Suggestion failed" };
+        } else {
+          const count = (result?.suggestions as unknown[])?.length || 0;
+          this._message = { type: "success", text: `Generated ${count} suggestion(s)` };
+          await this._fetchSuggestions();
+        }
+      }
+    } catch (e) {
+      this._message = { type: "error", text: (e as Error).message };
+    }
+    this._suggesting = false;
+  }
+
+  async _clearSuggestions(): Promise<void> {
+    for (const s of this._suggestions) {
+      await this._client.mutate({ mutation: DISMISS_DATASET_SUGGESTION, variables: { name: s.name } });
+    }
+    this._suggestions = [];
+    this._message = { type: "success", text: "Suggestions cleared" };
+  }
+
+  async _acceptSuggestion(name: string): Promise<void> {
+    const { data } = await this._client.mutate({ mutation: ACCEPT_DATASET_SUGGESTION, variables: { name } });
+    const result = data?.acceptDatasetSuggestion as { ok: boolean; message: string } | undefined;
+    if (result?.ok) {
+      this._suggestions = this._suggestions.filter((s) => s.name !== name);
+      this._message = { type: "success", text: result.message || "Accepted" };
+    } else {
+      this._message = { type: "error", text: result?.message || "Accept failed" };
+    }
+  }
+
+  async _dismissSuggestion(name: string): Promise<void> {
+    await this._client.mutate({ mutation: DISMISS_DATASET_SUGGESTION, variables: { name } });
+    this._suggestions = this._suggestions.filter((s) => s.name !== name);
   }
 
   disconnectedCallback(): void {
@@ -469,6 +576,29 @@ class PipelineOverview extends LitElement {
   render() {
     return html`
       <shenas-page ?loading=${this._loading} loading-text="Loading overview...">
+        ${renderMessage(this._message)}
+        <div class="toolbar">
+          <button @click=${this._suggest} ?disabled=${this._suggesting}>
+            ${this._suggesting ? "Generating..." : "Suggest new Datasets"}
+          </button>
+          ${this._suggestions.length > 0
+            ? html`<button class="danger" @click=${this._clearSuggestions}>Clear suggestions</button>`
+            : ""}
+        </div>
+        ${this._suggestions.length > 0
+          ? html`<div class="suggestions">
+              ${this._suggestions.map(
+                (s) => html`
+                  <div class="suggestion-chip">
+                    <span class="name">${s.title || s.name}</span>
+                    ${s.grain ? html`<span class="meta">${s.grain}</span>` : ""}
+                    <button class="action" title="Accept" @click=${() => this._acceptSuggestion(s.name)}>&#10003;</button>
+                    <button class="action" title="Dismiss" @click=${() => this._dismissSuggestion(s.name)}>&#10005;</button>
+                  </div>
+                `,
+              )}
+            </div>`
+          : ""}
         <div id="cy"></div>
         <div class="legend">
           <span class="legend-item"

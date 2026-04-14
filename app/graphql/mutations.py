@@ -746,6 +746,7 @@ class Mutation:
                 "primary_key": s["primary_key"],
                 "transforms": s.get("transforms", []),
                 "description": s.get("description", ""),
+                "source": source_context,
             }
             pi = PluginInstance(
                 kind="dataset",

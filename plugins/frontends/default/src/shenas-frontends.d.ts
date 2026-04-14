@@ -60,6 +60,15 @@ declare module "shenas-frontends" {
     path: string,
     options?: Record<string, unknown>,
   ): Promise<unknown>;
+  export interface RowData {
+    [key: string]: unknown;
+  }
+  export interface Table {
+    schema: { fields: Array<{ name: string }> };
+    batches: unknown[];
+  }
+  export function query(base: string, sql: string): Promise<Table>;
+  export function arrowToRows(table: Table): RowData[];
   export function arrowQuery(base: string, sql: string): Promise<unknown>;
   export function renderMessage(msg: unknown): import("lit").TemplateResult | string;
   export function registerCommands<T>(host: HTMLElement, componentId: string, commands: T[]): void;

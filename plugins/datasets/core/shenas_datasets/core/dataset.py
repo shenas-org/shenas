@@ -184,5 +184,6 @@ def _build_ddl(table_name: str, columns: list[dict[str, Any]], primary_key: list
         db_type = c.get("db_type", "VARCHAR")
         not_null = " NOT NULL" if c["name"] in primary_key else ""
         lines.append(f'    "{c["name"]}" {db_type}{not_null}')
-    lines.append(f"    PRIMARY KEY ({', '.join(f'{pk!r}' for pk in primary_key)})")
+    pk_cols = ", ".join(f'"{pk}"' for pk in primary_key)
+    lines.append(f"    PRIMARY KEY ({pk_cols})")
     return f'CREATE TABLE IF NOT EXISTS "metrics"."{table_name}" (\n' + ",\n".join(lines) + "\n)"

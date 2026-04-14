@@ -10,6 +10,7 @@ import {
   messageStyles,
   tabStyles,
 } from "shenas-frontends";
+import "shenas-components";
 import { GET_THEME, GET_SUGGESTED_DATASETS } from "./graphql/queries.ts";
 import {
   ENABLE_PLUGIN,
@@ -668,7 +669,6 @@ class PluginDetail extends LitElement {
         this._dataTable = table;
       });
     }
-    this._ensureDataTableScript();
     return html`<shenas-data-table
       api-base="${this.apiBase}"
       schema="${schema}"
@@ -676,16 +676,6 @@ class PluginDetail extends LitElement {
       page-size="100"
       style="height:calc(100vh - 180px);min-height:300px"
     ></shenas-data-table>`;
-  }
-
-  _ensureDataTableScript(): void {
-    if (customElements.get("shenas-data-table")) return;
-    const src = "/dashboards/data-table/data-table.js";
-    if (document.querySelector(`script[src="${src}"]`)) return;
-    const script = document.createElement("script");
-    script.type = "module";
-    script.src = src;
-    document.head.appendChild(script);
   }
 
   render() {
@@ -965,7 +955,12 @@ class PluginDetail extends LitElement {
   }
 
   async _fetchSuggestions(): Promise<void> {
-    const { data } = await this._client.query({ query: GET_SUGGESTED_DATASETS, fetchPolicy: "network-only" });
+    const source = this._info?.name || this.name;
+    const { data } = await this._client.query({
+      query: GET_SUGGESTED_DATASETS,
+      variables: { source },
+      fetchPolicy: "network-only",
+    });
     this._suggestions = (data?.suggestedDatasets as SuggestedDataset[]) || [];
   }
 

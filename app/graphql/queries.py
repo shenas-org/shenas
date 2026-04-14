@@ -33,6 +33,7 @@ from app.graphql.types import (
     SuggestedAnalysisType,
     SuggestedDatasetType,
     TableEntry,
+    TableInfoType,
     ThemeInfo,
     TimeColumnsInfoType,
     TransformerInfoType,
@@ -496,6 +497,38 @@ class Query:
         return [ColumnInfoType(name=r[0], db_type=r[1]) for r in rows]
 
     @strawberry.field
+    def table_info(self, schema: str, table: str) -> TableInfoType:
+        """Return table-level metadata: kind, time columns, query hint."""
+        from app.plugin import Plugin
+
+        for kind in ("source", "dataset"):
+            try:
+                for cls in Plugin.load_by_kind(kind):
+                    plugin_name = getattr(cls, "name", "")
+                    target_schema = "metrics" if kind == "dataset" else plugin_name
+                    if target_schema != schema:
+                        continue
+                    try:
+                        import importlib
+
+                        pkg = cls.__module__.rsplit(".", 1)[0]
+                        tables_mod = importlib.import_module(f"{pkg}.tables")
+                    except Exception:
+                        continue
+                    for t in getattr(tables_mod, "TABLES", ()):
+                        if hasattr(t, "_Meta") and t._Meta.name == table:
+                            meta = t.table_metadata()
+                            tc = meta.get("time_columns")
+                            return TableInfoType(
+                                kind=meta.get("kind"),
+                                time_columns=TimeColumnsInfoType(**tc) if tc else None,
+                                query_hint=meta.get("query_hint"),
+                            )
+            except Exception:
+                continue
+        return TableInfoType()
+
+    @strawberry.field
     async def transforms(self, info: strawberry.types.Info, source: str | None = None) -> list[TransformType]:
         from shenas_transformers.core.transform import Transform
 
@@ -735,10 +768,13 @@ class Query:
     # Read-only listing of LLM-suggested datasets, transforms, and analyses.
 
     @strawberry.field
-    def suggested_datasets(self) -> list[SuggestedDatasetType]:
-        """Return all suggested (not yet accepted) datasets."""
+    def suggested_datasets(self, source: str | None = None) -> list[SuggestedDatasetType]:
+        """Return suggested (not yet accepted) datasets, optionally filtered by source."""
         from app.plugin import PluginInstance
 
+        suggestions = PluginInstance.suggested("dataset")
+        if source:
+            suggestions = [pi for pi in suggestions if source in ((pi.metadata or {}).get("source", ""))]
         return [
             SuggestedDatasetType(
                 name=pi.name,
@@ -748,7 +784,7 @@ class Query:
                 grain=(pi.metadata or {}).get("grain"),
                 title=(pi.metadata or {}).get("title"),
             )
-            for pi in PluginInstance.suggested("dataset")
+            for pi in suggestions
         ]
 
     @strawberry.field
