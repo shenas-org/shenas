@@ -17,7 +17,7 @@ export {
   renderMessage,
 } from "./shenas-frontends/api.ts";
 
-export { formatHotkey, matchesHotkey, parseHotkey, PLUGIN_KINDS, sortActions } from "./shenas-frontends/constants.ts";
+export { formatHotkey, matchesHotkey, parseHotkey, sortActions } from "./shenas-frontends/constants.ts";
 
 export { arrowDatesToUnix, arrowToColumns, arrowToRows, query } from "./shenas-frontends/arrow.ts";
 export type { RowData, Table } from "./shenas-frontends/arrow.ts";

@@ -333,6 +333,7 @@ class TransformsPage extends LitElement {
     );
     this._dbTables = (data?.dbTables as Record<string, string[]>) || {};
     this._schemaTables = (data?.schemaTables as Record<string, string[]>) || {};
+    this.requestUpdate();
   }
 
   _cancelCreate(): void {
@@ -394,66 +395,78 @@ class TransformsPage extends LitElement {
   render() {
     if (this._loading) return html``;
     return html`
-      <div>
-        ${renderMessage(this._message)} ${this._editing ? this._renderEditor() : ""}
-        ${this._creating ? this._renderCreateForm() : ""}
-        <shenas-data-list
-          ?show-add=${!this._creating && !this._editing}
-          @add=${this._startCreate}
-          .columns=${[
-            { key: "id", label: "ID", class: "muted" },
-            {
-              label: "Source",
-              class: "mono",
-              render: (t: Transform) =>
-                html`${t.source.schemaName}.${t.source.tableName}
-                  <button
-                    style=${_inspectBtnStyle}
-                    title="Inspect table"
-                    @click=${() => this._inspectTable(t.source.schemaName, t.source.tableName)}
-                  >
-                    &#9655;
-                  </button>`,
-            },
-            {
-              label: "Target",
-              class: "mono",
-              render: (t: Transform) =>
-                html`${t.target.schemaName}.${t.target.tableName}
-                  <button
-                    style=${_inspectBtnStyle}
-                    title="Inspect table"
-                    @click=${() => this._inspectTable(t.target.schemaName, t.target.tableName)}
-                  >
-                    &#9655;
-                  </button>`,
-            },
-            {
-              label: "Description",
-              render: (t: Transform) =>
-                html`${t.description || ""}${t.isDefault
-                  ? html`<span
-                      style="font-size:0.75rem;color:var(--shenas-text-muted, #888);background:var(--shenas-border-light, #f0f0f0);padding:1px 5px;border-radius:3px;margin-left:4px"
-                      >default</span
-                    >`
-                  : ""}`,
-            },
-            {
-              label: "Status",
-              render: (t: Transform) =>
-                html`<status-toggle ?enabled=${t.enabled} toggleable @toggle=${() => this._toggle(t)}></status-toggle>`,
-            },
-          ]}
-          .rows=${this._transforms}
-          .rowClass=${(t: Transform) => (t.enabled ? "" : "disabled-row")}
-          .actions=${(t: Transform) => html`
-            ${!t.isDefault
-              ? html`<button @click=${() => this._startEdit(t)}>Edit</button>`
-              : html`<button @click=${() => this._startEdit(t)}>View</button>`}
-            ${!t.isDefault ? html`<button class="danger" @click=${() => this._delete(t)}>Delete</button>` : ""}
-          `}
-          empty-text="No transforms"
-        ></shenas-data-list>
+      <div style="display:flex;gap:1.5rem">
+        <div style="flex:1;min-width:0">
+          ${renderMessage(this._message)} ${this._editing ? this._renderEditor() : ""}
+          <shenas-data-list
+            ?show-add=${!this._creating && !this._editing}
+            @add=${this._startCreate}
+            .columns=${[
+              { key: "id", label: "ID", class: "muted" },
+              {
+                label: "Source",
+                class: "mono",
+                render: (t: Transform) =>
+                  html`${t.source.schemaName}.${t.source.tableName}
+                    <button
+                      style=${_inspectBtnStyle}
+                      title="Inspect table"
+                      @click=${() => this._inspectTable(t.source.schemaName, t.source.tableName)}
+                    >
+                      &#9655;
+                    </button>`,
+              },
+              {
+                label: "Target",
+                class: "mono",
+                render: (t: Transform) =>
+                  html`${t.target.schemaName}.${t.target.tableName}
+                    <button
+                      style=${_inspectBtnStyle}
+                      title="Inspect table"
+                      @click=${() => this._inspectTable(t.target.schemaName, t.target.tableName)}
+                    >
+                      &#9655;
+                    </button>`,
+              },
+              {
+                label: "Description",
+                render: (t: Transform) =>
+                  html`${t.description || ""}${t.isDefault
+                    ? html`<span
+                        style="font-size:0.75rem;color:var(--shenas-text-muted, #888);background:var(--shenas-border-light, #f0f0f0);padding:1px 5px;border-radius:3px;margin-left:4px"
+                        >default</span
+                      >`
+                    : ""}`,
+              },
+              {
+                label: "Status",
+                render: (t: Transform) =>
+                  html`<status-toggle
+                    ?enabled=${t.enabled}
+                    toggleable
+                    @toggle=${() => this._toggle(t)}
+                  ></status-toggle>`,
+              },
+            ]}
+            .rows=${this._transforms}
+            .rowClass=${(t: Transform) => (t.enabled ? "" : "disabled-row")}
+            .actions=${(t: Transform) => html`
+              ${!t.isDefault
+                ? html`<button @click=${() => this._startEdit(t)}>Edit</button>`
+                : html`<button @click=${() => this._startEdit(t)}>View</button>`}
+              ${!t.isDefault ? html`<button class="danger" @click=${() => this._delete(t)}>Delete</button>` : ""}
+            `}
+            empty-text="No transforms"
+          ></shenas-data-list>
+        </div>
+        ${this._creating
+          ? html`<div
+              style="width:380px;flex-shrink:0;border-left:1px solid var(--shenas-border-light,#e8e8e8);padding-left:1.5rem"
+            >
+              ${this._renderCreateForm()}
+            </div>`
+          : ""}
       </div>
     `;
   }

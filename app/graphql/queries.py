@@ -245,7 +245,14 @@ class Query:
             except Exception:
                 pass
 
-        kinds = [{"id": k, "label": plural_map.get(k, f"{k.title()}s")} for k in sorted(VALID_KINDS)]
+        kinds = [
+            {
+                "id": k,
+                "label": plural_map.get(k, f"{k.title()}s"),
+                "display_name": plural_map.get(k, f"{k.title()}s"),
+            }
+            for k in sorted(VALID_KINDS)
+        ]
         return sorted(kinds, key=lambda x: x["label"])  # ty: ignore[invalid-return-type]
 
     @strawberry.field

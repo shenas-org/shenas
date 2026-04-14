@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseHotkey, formatHotkey, matchesHotkey, sortActions, PLUGIN_KINDS } from "../shenas-frontends/constants.ts";
+import { parseHotkey, formatHotkey, matchesHotkey, sortActions } from "../shenas-frontends/constants.ts";
 import type { ActionDescriptor } from "../shenas-frontends/constants.ts";
 
 describe("parseHotkey", () => {
@@ -112,12 +112,5 @@ describe("sortActions", () => {
     const hotkeys = { b: "Ctrl+B" };
     const result = sortActions(actions, hotkeys);
     expect(result[0]?.id).toBe("b");
-  });
-});
-
-describe("PLUGIN_KINDS", () => {
-  it("contains all 6 kinds", () => {
-    expect(PLUGIN_KINDS).toHaveLength(6);
-    expect(PLUGIN_KINDS.map((k) => k.id)).toEqual(["source", "dataset", "dashboard", "model", "frontend", "theme"]);
   });
 });

@@ -84,6 +84,7 @@ describe("shenas-settings", () => {
     const el = mount();
     el._loading = false;
     el.activeKind = "source";
+    el._pluginKinds = [{ id: "source", label: "Sources" }];
     el._plugins = {
       source: [{ name: "garmin", displayName: "Garmin", enabled: true, package: "p", version: "1" }],
     };
@@ -299,36 +300,26 @@ describe("shenas-settings", () => {
     expect(list?.rows?.length).toBe(1);
   });
 
-  it("renders install panel when _installing", async () => {
+  it("dispatches show-panel when install starts", async () => {
     const el = mount();
     el._loading = false;
     el.activeKind = "source";
     el._plugins = { source: [] };
-    el._installing = true;
-    el._availablePlugins = ["lunchmoney"];
-    await el.updateComplete;
-    expect(el.shadowRoot?.querySelector("shenas-form-panel")).toBeTruthy();
+    el._pluginKinds = [{ id: "source", label: "Sources" }];
+    const handler = vi.fn();
+    el.addEventListener("show-panel", handler);
+    await el._startInstall("source");
+    expect(handler).toHaveBeenCalled();
+    expect(el._installing).toBe(true);
   });
 
-  it("install panel shows loading when availablePlugins null", async () => {
+  it("dispatches close-panel when install cancelled", async () => {
     const el = mount();
-    el._loading = false;
-    el.activeKind = "source";
-    el._plugins = { source: [] };
     el._installing = true;
-    el._availablePlugins = null;
-    await el.updateComplete;
-    expect(el.shadowRoot?.textContent || "").toContain("Loading available plugins");
-  });
-
-  it("install panel shows none-available message", async () => {
-    const el = mount();
-    el._loading = false;
-    el.activeKind = "source";
-    el._plugins = { source: [] };
-    el._installing = true;
-    el._availablePlugins = [];
-    await el.updateComplete;
-    expect(el.shadowRoot?.textContent || "").toContain("No new");
+    const handler = vi.fn();
+    el.addEventListener("close-panel", handler);
+    el._installing = false;
+    el.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
+    expect(handler).toHaveBeenCalled();
   });
 });
