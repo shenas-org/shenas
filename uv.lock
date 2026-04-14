@@ -55,6 +55,7 @@ members = [
     "shenas-source-gtakeout",
     "shenas-source-lunchmoney",
     "shenas-source-obsidian",
+    "shenas-source-openmeteo",
     "shenas-source-rescuetime",
     "shenas-source-shell-history",
     "shenas-source-spotify",
@@ -3472,6 +3473,22 @@ requires-dist = [
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "shenas-dataset-outcomes", editable = "plugins/datasets/outcomes" },
+    { name = "shenas-source-core", editable = "plugins/sources/core" },
+]
+
+[[package]]
+name = "shenas-source-openmeteo"
+source = { editable = "plugins/sources/openmeteo" }
+dependencies = [
+    { name = "dlt", extra = ["duckdb"] },
+    { name = "httpx" },
+    { name = "shenas-source-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dlt", extras = ["duckdb"], specifier = ">=1.24.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
     { name = "shenas-source-core", editable = "plugins/sources/core" },
 ]
 
