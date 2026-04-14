@@ -82,15 +82,16 @@ async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:
     except Exception:
         pass  # mesh not configured yet
 
-    # Start embedded sync scheduler
+    # Start embedded sync scheduler (disabled in dev to avoid noisy syncs on reload)
     scheduler_task = None
-    try:
-        from app.sync_scheduler import run_sync_scheduler
+    if _os.environ.get("SHENAS_DEV") != "1":
+        try:
+            from app.sync_scheduler import run_sync_scheduler
 
-        interval = int(_os.environ.get("SHENAS_SYNC_INTERVAL", "60"))
-        scheduler_task = _asyncio.create_task(run_sync_scheduler(interval))
-    except Exception:
-        pass
+            interval = int(_os.environ.get("SHENAS_SYNC_INTERVAL", "60"))
+            scheduler_task = _asyncio.create_task(run_sync_scheduler(interval))
+        except Exception:
+            pass
 
     yield
 
