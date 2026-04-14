@@ -584,7 +584,7 @@ class TestGraphQLMutations:
             }
         }
         with (
-            patch("app.graphql.llm_provider.get_llm_provider", return_value=FakeProvider(canned)),
+            patch("app.llm.get_llm_provider", return_value=FakeProvider(canned)),
             patch("app.graphql.mutations._build_catalog", return_value=fake_catalog),
         ):
             result = _gql(
@@ -624,7 +624,7 @@ class TestGraphQLMutations:
         }
         provider = FakeProvider(canned, input_tokens=123, output_tokens=45)
         with (
-            patch("app.graphql.llm_provider.get_llm_provider", return_value=provider),
+            patch("app.llm.get_llm_provider", return_value=provider),
             patch("app.graphql.mutations._build_catalog", return_value=catalog),
         ):
             result = _gql(client, 'mutation { askHypothesis(question: "q") }')
@@ -715,7 +715,7 @@ class TestGraphQLMutations:
                 raise RuntimeError("rate limited")
 
         with (
-            patch("app.graphql.llm_provider.get_llm_provider", return_value=_BoomProvider()),
+            patch("app.llm.get_llm_provider", return_value=_BoomProvider()),
             patch("app.graphql.mutations._build_catalog", return_value={}),
         ):
             result = _gql(

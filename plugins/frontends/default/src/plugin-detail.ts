@@ -37,6 +37,13 @@ interface TableInfo {
   latest?: string;
 }
 
+interface SuggestedDataset {
+  name: string;
+  title?: string;
+  grain?: string;
+  tableName?: string;
+}
+
 interface SchemaTransform {
   id: number;
   source: { id: string; schemaName: string; tableName: string };
@@ -76,6 +83,8 @@ class PluginDetail extends LitElement {
     _selectedTable: { state: true },
     _previewRows: { state: true },
     _previewLoading: { state: true },
+    _suggestions: { state: true },
+    _suggesting: { state: true },
   };
 
   static styles = [
@@ -194,6 +203,29 @@ class PluginDetail extends LitElement {
         position: sticky;
         top: 0;
       }
+      .suggestion-card {
+        border: 1px solid var(--shenas-border, #ccc);
+        border-radius: 6px;
+        padding: 0.8rem 1rem;
+        margin-bottom: 0.5rem;
+      }
+      .suggestion-card h5 {
+        margin: 0 0 0.3rem;
+        font-size: 0.9rem;
+      }
+      .suggestion-meta {
+        font-size: 0.8rem;
+        color: var(--shenas-text-muted, #888);
+        margin-bottom: 0.5rem;
+      }
+      .suggestion-actions {
+        display: flex;
+        gap: 0.4rem;
+      }
+      .suggestion-actions button {
+        padding: 0.25rem 0.6rem;
+        font-size: 0.8rem;
+      }
     `,
   ];
 
@@ -215,6 +247,8 @@ class PluginDetail extends LitElement {
   declare _selectedTable: string | null;
   declare _previewRows: Record<string, unknown>[] | null;
   declare _previewLoading: boolean;
+  declare _suggestions: SuggestedDataset[];
+  declare _suggesting: boolean;
   private _loadingTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
@@ -237,6 +271,8 @@ class PluginDetail extends LitElement {
     this._selectedTable = null;
     this._previewRows = null;
     this._previewLoading = false;
+    this._suggestions = [];
+    this._suggesting = false;
   }
 
   willUpdate(changed: Map<string, unknown>): void {
@@ -589,6 +625,7 @@ class PluginDetail extends LitElement {
     const base = `/settings/${this.kind}/${this.name}`;
     const path = tab === "details" ? base : `${base}/${tab}`;
     window.history.pushState({}, "", path);
+    if (tab === "transforms") this._fetchSuggestions();
   }
 
   async _fetchPreview(tableName: string): Promise<void> {
@@ -778,6 +815,20 @@ class PluginDetail extends LitElement {
               >
             `
           : ""}
+        ${this.kind === "source"
+          ? html`
+              <a
+                class="tab"
+                href="${basePath}/transforms"
+                aria-selected=${this.activeTab === "transforms"}
+                @click=${(e: MouseEvent) => {
+                  e.preventDefault();
+                  this._switchTab("transforms");
+                }}
+                >Transforms</a
+              >
+            `
+          : ""}
         ${this._info?.has_data !== false
           ? html`
               <a
@@ -808,11 +859,13 @@ class PluginDetail extends LitElement {
         ? html`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`
         : this.activeTab === "auth"
           ? html`<shenas-auth api-base="${this.apiBase}" pipe-name="${this.name}"></shenas-auth>`
-          : this.activeTab === "data"
-            ? this._renderData()
-            : this.activeTab === "logs"
-              ? html`<shenas-logs api-base="${this.apiBase}" pipe="${this.name}"></shenas-logs>`
-              : this._renderDetails(info, enabled)}
+          : this.activeTab === "transforms"
+            ? this._renderTransforms()
+            : this.activeTab === "data"
+              ? this._renderData()
+              : this.activeTab === "logs"
+                ? html`<shenas-logs api-base="${this.apiBase}" pipe="${this.name}"></shenas-logs>`
+                : this._renderDetails(info, enabled)}
     `;
   }
 
@@ -847,10 +900,6 @@ class PluginDetail extends LitElement {
               empty-text="No tables synced yet"
             ></shenas-data-list>`
         : ""}
-      ${this.kind === "source"
-        ? html` <h4 class="section-title">Transforms</h4>
-            <shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>`
-        : ""}
       ${this.kind === "dataset" && this._schemaTransforms.length > 0
         ? html` <h4 class="section-title">Transforms</h4>
             <shenas-data-list
@@ -878,6 +927,100 @@ class PluginDetail extends LitElement {
             ></shenas-data-list>`
         : ""}
     `;
+  }
+
+  _renderTransforms() {
+    return html`
+      <shenas-transforms api-base="${this.apiBase}" source="${this.name}"></shenas-transforms>
+
+      <h4 class="section-title">Suggested Metrics</h4>
+      <div style="margin-bottom:0.8rem">
+        <button @click=${this._suggestDatasets} ?disabled=${this._suggesting}>
+          ${this._suggesting ? "Generating..." : "Suggest Metrics"}
+        </button>
+      </div>
+      ${this._suggestions.length > 0
+        ? this._suggestions.map(
+            (s) => html`
+              <div class="suggestion-card">
+                <h5>${s.title || s.name}</h5>
+                <div class="suggestion-meta">
+                  ${s.tableName ? html`Table: <code>${s.tableName}</code>` : ""}
+                  ${s.grain ? html` &middot; Grain: ${s.grain}` : ""}
+                </div>
+                <div class="suggestion-actions">
+                  <button @click=${() => this._acceptSuggestion(s.name)}>Accept</button>
+                  <button class="danger" @click=${() => this._dismissSuggestion(s.name)}>Dismiss</button>
+                </div>
+              </div>
+            `,
+          )
+        : html`<p style="color:var(--shenas-text-muted,#888)">
+            No pending suggestions. Click "Suggest Metrics" to generate dataset recommendations.
+          </p>`}
+    `;
+  }
+
+  async _fetchSuggestions(): Promise<void> {
+    const data = await gql(this.apiBase, `{ suggestedDatasets { name title grain tableName } }`);
+    this._suggestions = (data?.suggestedDatasets as SuggestedDataset[]) || [];
+  }
+
+  async _suggestDatasets(): Promise<void> {
+    this._suggesting = true;
+    this._message = null;
+    try {
+      const { ok, data, errors } = await gqlFull(
+        this.apiBase,
+        `mutation($source: String) { suggestDatasets(source: $source) }`,
+        { source: this.name },
+      );
+      if (!ok || !data) {
+        const errMsg = errors?.[0]?.message || "Suggestion failed";
+        this._message = { type: "error", text: errMsg };
+      } else {
+        const result = data.suggestDatasets as Record<string, unknown> | undefined;
+        if (result?.ok === false) {
+          this._message = { type: "error", text: (result.error as string) || "Suggestion failed" };
+        } else {
+          const suggestions = (result?.suggestions as SuggestedDataset[]) || [];
+          this._message = { type: "success", text: `Generated ${suggestions.length} suggestion(s)` };
+          await this._fetchSuggestions();
+        }
+      }
+    } catch (e) {
+      this._message = { type: "error", text: `Suggestion failed: ${(e as Error).message}` };
+    }
+    this._suggesting = false;
+  }
+
+  async _acceptSuggestion(name: string): Promise<void> {
+    const { data } = await gqlFull(
+      this.apiBase,
+      `mutation($name: String!) { acceptDatasetSuggestion(name: $name) { ok message } }`,
+      { name },
+    );
+    const result = data?.acceptDatasetSuggestion as Record<string, unknown> | undefined;
+    if (result?.ok) {
+      this._suggestions = this._suggestions.filter((s) => s.name !== name);
+      this._message = { type: "success", text: (result.message as string) || "Suggestion accepted" };
+    } else {
+      this._message = { type: "error", text: (result?.message as string) || "Accept failed" };
+    }
+  }
+
+  async _dismissSuggestion(name: string): Promise<void> {
+    const { data } = await gqlFull(
+      this.apiBase,
+      `mutation($name: String!) { dismissDatasetSuggestion(name: $name) { ok message } }`,
+      { name },
+    );
+    const result = data?.dismissDatasetSuggestion as Record<string, unknown> | undefined;
+    if (result?.ok) {
+      this._suggestions = this._suggestions.filter((s) => s.name !== name);
+    } else {
+      this._message = { type: "error", text: (result?.message as string) || "Dismiss failed" };
+    }
   }
 
   _stateRow(label: string, value?: string) {

@@ -89,20 +89,6 @@ def test_ask_for_recipe_round_trip_via_fake_provider():
     assert "does coffee affect mood?" in user
 
 
-def test_anthropic_provider_raises_without_api_key(monkeypatch):
-    from shenas_analyses.core.analytics import AnthropicProvider
-
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    p = AnthropicProvider()
-    try:
-        p.ask(system="s", user="u", tools=[])
-    except RuntimeError as exc:
-        msg = str(exc)
-        assert "ANTHROPIC_API_KEY" in msg or "anthropic" in msg.lower()
-        return
-    raise AssertionError("expected RuntimeError")
-
-
 def test_iteration_loop_retries_once_on_validation_error():
     """The retry loop sends the validation error back to the LLM and accepts the second attempt."""
     from shenas_analyses.core.analytics import ask_for_recipe_with_retry

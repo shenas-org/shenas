@@ -8,16 +8,11 @@ JSON payload that the existing runner can execute.
 
 Architecture
 ------------
-1. :class:`LLMProvider` -- thin interface so the Anthropic implementation
-   is swappable for tests (and future providers). One method:
-   ``ask(system, user) -> recipe_json``.
+1. :class:`LLMProvider` -- thin protocol defined in ``app.llm.backends``.
+   Implementations: ``ShenasNetProvider`` (shenas.net proxy),
+   ``FakeProvider`` (tests).
 
-2. :class:`AnthropicProvider` -- wraps the official ``anthropic`` SDK.
-   Reads the API key from the ``ANTHROPIC_API_KEY`` env var. Sends a
-   single tool-use request whose tool is a ``submit_recipe`` schema;
-   the LLM must respond by calling that tool with a recipe payload.
-
-3. :func:`build_system_prompt` -- assembles a static system prompt
+2. :func:`build_system_prompt` -- assembles a static system prompt
    describing the operation vocabulary and the catalog format.
 
 4. :func:`build_user_prompt` -- assembles the per-question payload:
@@ -36,107 +31,13 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import os
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from shenas_analyses.core.analytics.mode import AnalysisMode
     from shenas_analyses.core.analytics.operations import Operation
 
-# ----------------------------------------------------------------------
-# Provider interface
-# ----------------------------------------------------------------------
-
-
-class LLMProvider(Protocol):
-    """Minimal interface every LLM provider must implement."""
-
-    name: str
-    last_input_tokens: int
-    last_output_tokens: int
-
-    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]], tool_name: str | None = None) -> dict[str, Any]:
-        """Send the prompt + tools to the LLM and return the parsed tool-use payload.
-
-        The model is forced to call a specific tool via ``tool_choice``.
-        If ``tool_name`` is given it selects that tool; otherwise the
-        first tool in ``tools`` is used. The return value is the dict
-        the model passed as the tool's input -- caller is responsible
-        for validating it. Implementations should also update
-        ``last_input_tokens`` / ``last_output_tokens`` so the caller
-        can record cost.
-        """
-        ...
-
-
-class FakeProvider:
-    """In-process provider for tests. Returns a pre-canned recipe payload."""
-
-    name: ClassVar[str] = "fake@v0"
-
-    def __init__(self, payload: dict[str, Any], *, input_tokens: int = 100, output_tokens: int = 50) -> None:
-        self._payload = payload
-        self._in = input_tokens
-        self._out = output_tokens
-        self.calls: list[tuple[str, str]] = []
-        self.last_input_tokens = 0
-        self.last_output_tokens = 0
-
-    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]], tool_name: str | None = None) -> dict[str, Any]:  # noqa: ARG002
-        self.calls.append((system, user))
-        self.last_input_tokens = self._in
-        self.last_output_tokens = self._out
-        return self._payload
-
-
-class AnthropicProvider:
-    """Provider backed by the official Anthropic Python SDK.
-
-    Reads the API key from ``ANTHROPIC_API_KEY``. Uses the latest
-    Sonnet model by default; override via the ``model`` arg.
-    """
-
-    def __init__(self, *, model: str = "claude-sonnet-4-6", max_tokens: int = 4096) -> None:
-        self.model = model
-        self.max_tokens = max_tokens
-        self.name = f"anthropic@{model}"
-        self.last_input_tokens: int = 0
-        self.last_output_tokens: int = 0
-
-    def ask(self, *, system: str, user: str, tools: list[dict[str, Any]], tool_name: str | None = None) -> dict[str, Any]:
-        try:
-            import anthropic
-        except ImportError as exc:
-            msg = "anthropic SDK not installed; pip install anthropic"
-            raise RuntimeError(msg) from exc
-
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            msg = "ANTHROPIC_API_KEY not set"
-            raise RuntimeError(msg)
-
-        forced_name = tool_name or tools[0]["name"]
-        client = anthropic.Anthropic(api_key=api_key)
-        # Force the LLM to call the first tool in the list.
-        tool_name = tools[0]["name"] if tools else "submit_recipe"
-        resp = client.messages.create(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-            tools=tools,
-            tool_choice={"type": "tool", "name": forced_name},
-        )
-        usage = getattr(resp, "usage", None)
-        if usage is not None:
-            self.last_input_tokens = int(getattr(usage, "input_tokens", 0))
-            self.last_output_tokens = int(getattr(usage, "output_tokens", 0))
-        # Find the tool_use block matching the forced tool name.
-        for block in resp.content:
-            if getattr(block, "type", None) == "tool_use" and block.name == forced_name:
-                return dict(block.input)
-        msg = f"LLM did not call {forced_name}; got {resp.content!r}"
-        raise RuntimeError(msg)
+    from app.llm import LLMProvider
 
 
 # ----------------------------------------------------------------------

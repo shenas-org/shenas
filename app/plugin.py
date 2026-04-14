@@ -534,7 +534,7 @@ class Plugin(abc.ABC):
             items.append(
                 {
                     **pi,
-                    "name": short_name,
+                    "name": pi.get("name", short_name),
                     "package": p["name"],
                     "version": p["version"],
                     "signature": _check_signature(p["name"], p["version"]),
