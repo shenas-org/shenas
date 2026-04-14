@@ -5,6 +5,10 @@
  * used by both the default and focus frontends (and available to dashboards).
  */
 
+// Apollo Client
+export { getClient, gql as gqlTag } from "./shenas-frontends/apollo.ts";
+export { ApolloQueryController, ApolloMutationController } from "@apollo-elements/core";
+
 // Utilities
 export {
   apiFetch,

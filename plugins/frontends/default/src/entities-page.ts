@@ -3,7 +3,24 @@ import cytoscape from "cytoscape";
 // The vendor bundle re-exports cytoscape-dagre as `dagre` from "cytoscape".
 // @ts-expect-error dagre is provided by the vendor bundle, not the real cytoscape package
 import { dagre } from "cytoscape";
-import { gql, gqlFull, buttonStyles, formStyles, messageStyles, tableStyles, renderMessage } from "shenas-frontends";
+import {
+  ApolloQueryController,
+  ApolloMutationController,
+  getClient,
+  buttonStyles,
+  formStyles,
+  messageStyles,
+  tableStyles,
+  renderMessage,
+} from "shenas-frontends";
+import { GET_ENTITIES_DATA } from "./graphql/queries.ts";
+import {
+  CREATE_ENTITY,
+  UPDATE_ENTITY,
+  DELETE_ENTITY,
+  CREATE_ENTITY_RELATIONSHIP,
+  DELETE_ENTITY_RELATIONSHIP,
+} from "./graphql/mutations.ts";
 
 interface Entity {
   uuid: string;
@@ -63,12 +80,6 @@ let _dagreRegistered = false;
 
 class EntitiesPage extends LitElement {
   static properties = {
-    apiBase: { type: String, attribute: "api-base" },
-    _entities: { state: true },
-    _relationships: { state: true },
-    _entityTypes: { state: true },
-    _relationshipTypes: { state: true },
-    _loading: { state: true },
     _message: { state: true },
     _creating: { state: true },
     _newEntity: { state: true },
@@ -172,12 +183,6 @@ class EntitiesPage extends LitElement {
     `,
   ];
 
-  declare apiBase: string;
-  declare _entities: Entity[];
-  declare _relationships: EntityRelationshipRow[];
-  declare _entityTypes: EntityTypeInfo[];
-  declare _relationshipTypes: RelationshipTypeInfo[];
-  declare _loading: boolean;
   declare _message: Message | null;
   declare _creating: boolean;
   declare _newEntity: EntityForm;
@@ -185,14 +190,42 @@ class EntitiesPage extends LitElement {
   declare _editForm: EntityForm;
   declare _newRel: RelationshipForm;
 
+  private _cy: cytoscape.Core | null = null;
+  private _resizeObserver: ResizeObserver | null = null;
+
+  private _entitiesQuery = new ApolloQueryController(this, GET_ENTITIES_DATA, { client: getClient() });
+  private _createEntityMutation = new ApolloMutationController(this, CREATE_ENTITY, { client: getClient() });
+  private _updateEntityMutation = new ApolloMutationController(this, UPDATE_ENTITY, { client: getClient() });
+  private _deleteEntityMutation = new ApolloMutationController(this, DELETE_ENTITY, { client: getClient() });
+  private _createRelMutation = new ApolloMutationController(this, CREATE_ENTITY_RELATIONSHIP, { client: getClient() });
+  private _deleteRelMutation = new ApolloMutationController(this, DELETE_ENTITY_RELATIONSHIP, { client: getClient() });
+
+  get _loading(): boolean {
+    return this._entitiesQuery.loading;
+  }
+
+  get _entities(): Entity[] {
+    return ((this._entitiesQuery.data as Record<string, unknown>)?.entities as Entity[]) || [];
+  }
+
+  get _relationships(): EntityRelationshipRow[] {
+    return (
+      ((this._entitiesQuery.data as Record<string, unknown>)?.entityRelationships as EntityRelationshipRow[]) || []
+    );
+  }
+
+  get _entityTypes(): EntityTypeInfo[] {
+    return ((this._entitiesQuery.data as Record<string, unknown>)?.entityTypes as EntityTypeInfo[]) || [];
+  }
+
+  get _relationshipTypes(): RelationshipTypeInfo[] {
+    return (
+      ((this._entitiesQuery.data as Record<string, unknown>)?.entityRelationshipTypes as RelationshipTypeInfo[]) || []
+    );
+  }
+
   constructor() {
     super();
-    this.apiBase = "";
-    this._entities = [];
-    this._relationships = [];
-    this._entityTypes = [];
-    this._relationshipTypes = [];
-    this._loading = true;
     this._message = null;
     this._creating = false;
     this._newEntity = this._emptyEntityForm();
@@ -201,16 +234,8 @@ class EntitiesPage extends LitElement {
     this._newRel = { fromUuid: "", toUuid: "", type: "" };
   }
 
-  private _cy: cytoscape.Core | null = null;
-  private _resizeObserver: ResizeObserver | null = null;
-
   _emptyEntityForm(): EntityForm {
     return { name: "", type: "animal", description: "", birthYear: "" };
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._fetchAll();
   }
 
   disconnectedCallback(): void {
@@ -223,29 +248,6 @@ class EntitiesPage extends LitElement {
       this._resizeObserver.disconnect();
       this._resizeObserver = null;
     }
-  }
-
-  async _fetchAll(): Promise<void> {
-    this._loading = true;
-    try {
-      const data = await gql(
-        this.apiBase,
-        `{
-          entities { uuid type name description status birthYear isMe }
-          entityRelationships { fromUuid toUuid type description }
-          entityTypes { name displayName description icon isHuman }
-          entityRelationshipTypes { name displayName inverseName isSymmetric }
-        }`,
-      );
-      this._entities = (data?.entities as Entity[]) || [];
-      this._relationships = (data?.entityRelationships as EntityRelationshipRow[]) || [];
-      this._entityTypes = (data?.entityTypes as EntityTypeInfo[]) || [];
-      this._relationshipTypes = (data?.entityRelationshipTypes as RelationshipTypeInfo[]) || [];
-    } catch (e) {
-      console.error("Failed to fetch entities:", e);
-      this._message = { type: "error", text: "Could not load entities." };
-    }
-    this._loading = false;
   }
 
   _meUuid(): string | null {
@@ -289,25 +291,25 @@ class EntitiesPage extends LitElement {
       this._message = { type: "error", text: "Name is required." };
       return;
     }
-    const { ok, data } = await gqlFull(
-      this.apiBase,
-      `mutation($input: EntityCreateInput!) {
-        createEntity(entityInput: $input) { uuid name }
-      }`,
-      {
-        input: {
-          name: form.name.trim(),
-          type: form.type,
-          description: form.description,
-          birthYear: form.birthYear ? parseInt(form.birthYear, 10) : null,
+    try {
+      const { data } = await this._createEntityMutation.mutate({
+        variables: {
+          input: {
+            name: form.name.trim(),
+            type: form.type,
+            description: form.description,
+            birthYear: form.birthYear ? parseInt(form.birthYear, 10) : null,
+          },
         },
-      },
-    );
-    if (ok && data?.createEntity) {
-      this._message = { type: "success", text: "Entity added." };
-      this._cancelCreate();
-      await this._fetchAll();
-    } else {
+      });
+      if (data?.createEntity) {
+        this._message = { type: "success", text: "Entity added." };
+        this._cancelCreate();
+        this._entitiesQuery.refetch();
+      } else {
+        this._message = { type: "error", text: "Could not add entity." };
+      }
+    } catch {
       this._message = { type: "error", text: "Could not add entity." };
     }
   }
@@ -334,26 +336,22 @@ class EntitiesPage extends LitElement {
   async _saveEdit(): Promise<void> {
     if (!this._editing) return;
     const form = this._editForm;
-    const { ok } = await gqlFull(
-      this.apiBase,
-      `mutation($uuid: String!, $input: EntityUpdateInput!) {
-        updateEntity(uuid: $uuid, entityInput: $input) { uuid }
-      }`,
-      {
-        uuid: this._editing,
-        input: {
-          name: form.name.trim() || null,
-          type: form.type || null,
-          description: form.description,
-          birthYear: form.birthYear ? parseInt(form.birthYear, 10) : null,
+    try {
+      await this._updateEntityMutation.mutate({
+        variables: {
+          uuid: this._editing,
+          input: {
+            name: form.name.trim() || null,
+            type: form.type || null,
+            description: form.description,
+            birthYear: form.birthYear ? parseInt(form.birthYear, 10) : null,
+          },
         },
-      },
-    );
-    if (ok) {
+      });
       this._message = { type: "success", text: "Entity updated." };
       this._cancelEdit();
-      await this._fetchAll();
-    } else {
+      this._entitiesQuery.refetch();
+    } catch {
       this._message = { type: "error", text: "Could not update entity." };
     }
   }
@@ -363,13 +361,17 @@ class EntitiesPage extends LitElement {
       this._message = { type: "error", text: "Cannot delete your own entity." };
       return;
     }
-    const { ok, data } = await gqlFull(this.apiBase, `mutation($uuid: String!) { deleteEntity(uuid: $uuid) { ok } }`, {
-      uuid: e.uuid,
-    });
-    if (ok && (data?.deleteEntity as Record<string, unknown>)?.ok) {
-      this._message = { type: "success", text: "Entity removed." };
-      await this._fetchAll();
-    } else {
+    try {
+      const { data } = await this._deleteEntityMutation.mutate({
+        variables: { uuid: e.uuid },
+      });
+      if ((data?.deleteEntity as Record<string, unknown>)?.ok) {
+        this._message = { type: "success", text: "Entity removed." };
+        this._entitiesQuery.refetch();
+      } else {
+        this._message = { type: "error", text: "Could not remove entity." };
+      }
+    } catch {
       this._message = { type: "error", text: "Could not remove entity." };
     }
   }
@@ -388,34 +390,30 @@ class EntitiesPage extends LitElement {
       this._message = { type: "error", text: "Cannot relate an entity to itself." };
       return;
     }
-    const { ok } = await gqlFull(
-      this.apiBase,
-      `mutation($from: String!, $to: String!, $type: String!) {
-        createEntityRelationship(fromUuid: $from, toUuid: $to, relationshipType: $type) { fromUuid }
-      }`,
-      { from: r.fromUuid, to: r.toUuid, type: r.type },
-    );
-    if (ok) {
+    try {
+      await this._createRelMutation.mutate({
+        variables: { from: r.fromUuid, to: r.toUuid, type: r.type },
+      });
       this._message = { type: "success", text: "Relationship added." };
       this._newRel = { fromUuid: "", toUuid: "", type: "" };
-      await this._fetchAll();
-    } else {
+      this._entitiesQuery.refetch();
+    } catch {
       this._message = { type: "error", text: "Could not add relationship." };
     }
   }
 
   async _deleteRelationship(r: EntityRelationshipRow): Promise<void> {
-    const { ok } = await gqlFull(
-      this.apiBase,
-      `mutation($from: String!, $to: String!, $type: String!) {
-        deleteEntityRelationship(fromUuid: $from, toUuid: $to, relationshipType: $type) { ok }
-      }`,
-      { from: r.fromUuid, to: r.toUuid, type: r.type },
-    );
-    if (ok) {
-      this._message = { type: "success", text: "Relationship removed." };
-      await this._fetchAll();
-    } else {
+    try {
+      const { data } = await this._deleteRelMutation.mutate({
+        variables: { from: r.fromUuid, to: r.toUuid, type: r.type },
+      });
+      if ((data?.deleteEntityRelationship as Record<string, unknown>)?.ok) {
+        this._message = { type: "success", text: "Relationship removed." };
+        this._entitiesQuery.refetch();
+      } else {
+        this._message = { type: "error", text: "Could not remove relationship." };
+      }
+    } catch {
       this._message = { type: "error", text: "Could not remove relationship." };
     }
   }
@@ -546,8 +544,8 @@ class EntitiesPage extends LitElement {
     }
   }
 
-  updated(changed: Map<string, unknown>): void {
-    if ((changed.has("_loading") || changed.has("_entities") || changed.has("_relationships")) && !this._loading) {
+  updated(): void {
+    if (!this._loading && this._entities.length > 0) {
       requestAnimationFrame(() => this._initCytoscape());
     }
   }

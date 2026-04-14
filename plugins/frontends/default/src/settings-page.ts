@@ -1,8 +1,10 @@
 import "./categories-page.ts";
 import { LitElement, html, css } from "lit";
 import {
+  ApolloQueryController,
+  ApolloMutationController,
+  getClient,
   gql,
-  gqlFull,
   openExternal,
   renderMessage,
   buttonStyles,
@@ -10,6 +12,8 @@ import {
   linkStyles,
   messageStyles,
 } from "shenas-frontends";
+import { GET_PLUGIN_KINDS, GET_THEME, GET_AVAILABLE_PLUGINS } from "./graphql/queries.ts";
+import { ENABLE_PLUGIN, DISABLE_PLUGIN } from "./graphql/mutations.ts";
 
 type PluginKind = { id: string; label: string };
 
@@ -302,6 +306,10 @@ class SettingsPage extends LitElement {
   declare _menuOpen: boolean;
   declare _pluginKinds: PluginKind[];
 
+  private _pluginKindsQuery = new ApolloQueryController(this, GET_PLUGIN_KINDS, { client: getClient() });
+  private _enablePluginMutation = new ApolloMutationController(this, ENABLE_PLUGIN, { client: getClient() });
+  private _disablePluginMutation = new ApolloMutationController(this, DISABLE_PLUGIN, { client: getClient() });
+
   constructor() {
     super();
     this.apiBase = "/api";
@@ -335,18 +343,20 @@ class SettingsPage extends LitElement {
       this._plugins = this.allPlugins;
       this._loading = false;
     } else {
+      // pluginKindsQuery auto-fetches; once it resolves, _fetchAll picks up kinds
       this._fetchAll();
     }
   }
 
   async _fetchAll(_options?: { force?: boolean }): Promise<void> {
     this._loading = true;
-    // Fetch available plugin kinds from the API, fall back to hardcoded list.
-    const kindsData = await gql(this.apiBase, `{ pluginKinds }`);
+    // Refresh plugin kinds from the Apollo controller
+    const kindsResult = await this._pluginKindsQuery.refetch();
+    const kindsData = kindsResult?.data as Record<string, unknown> | undefined;
     if (kindsData?.pluginKinds) {
       this._pluginKinds = (kindsData.pluginKinds as PluginKind[]).sort((a, b) => a.label.localeCompare(b.label));
     }
-    // Build a single GraphQL query for all discovered kinds.
+    // Build a single dynamic GraphQL query for all discovered kinds.
     const fields = `name displayName package version enabled description syncedAt hasAuth isAuthenticated`;
     const kindQueries = this._pluginKinds
       .map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`)
@@ -388,11 +398,8 @@ class SettingsPage extends LitElement {
 
   async _togglePlugin(kind: string, name: string, currentlyEnabled: boolean): Promise<void> {
     const action = currentlyEnabled ? "disable" : "enable";
-    const mutation =
-      action === "enable"
-        ? `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok message } }`
-        : `mutation($k: String!, $n: String!) { disablePlugin(kind: $k, name: $n) { ok message } }`;
-    const { data } = await gqlFull(this.apiBase, mutation, { k: kind, n: name });
+    const controller = action === "enable" ? this._enablePluginMutation : this._disablePluginMutation;
+    const { data } = await controller.mutate({ variables: { k: kind, n: name } });
     const result = (action === "enable" ? data?.enablePlugin : data?.disablePlugin) as
       | Record<string, unknown>
       | undefined;
@@ -411,7 +418,8 @@ class SettingsPage extends LitElement {
   }
 
   async _applyActiveTheme(): Promise<void> {
-    const data = await gql(this.apiBase, `{ theme { css } }`);
+    const result = await getClient().query({ query: GET_THEME, fetchPolicy: "network-only" });
+    const data = result?.data as Record<string, unknown> | undefined;
     if (!data?.theme) return;
     const { css } = data.theme as Record<string, string>;
     let link = document.querySelector("link[data-shenas-theme]") as HTMLLinkElement | null;
@@ -432,8 +440,12 @@ class SettingsPage extends LitElement {
     this._installing = true;
     this._selectedPlugin = "";
     this._availablePlugins = null;
-    const data = await gql(this.apiBase, `query($kind: String!) { availablePlugins(kind: $kind) }`, { kind });
-    const available = (data?.availablePlugins as string[]) || [];
+    const result = await getClient().query({
+      query: GET_AVAILABLE_PLUGINS,
+      variables: { kind },
+      fetchPolicy: "network-only",
+    });
+    const available = ((result?.data as Record<string, unknown>)?.availablePlugins as string[]) || [];
     const installed = new Set((this._plugins[kind] || []).map((p) => p.name));
     this._availablePlugins = available.filter((n) => !installed.has(n));
 

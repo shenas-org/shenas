@@ -1,7 +1,8 @@
 import { LitElement, html, css } from "lit";
 import {
-  gql,
-  gqlFull,
+  ApolloQueryController,
+  ApolloMutationController,
+  getClient,
   registerCommands,
   renderMessage,
   buttonStyles,
@@ -10,6 +11,20 @@ import {
   tableStyles,
 } from "shenas-frontends";
 import type { MessageBanner } from "shenas-frontends";
+import {
+  GET_TRANSFORMS,
+  GET_TRANSFORM_TYPES,
+  GET_TABLE_COLUMNS,
+  GET_CREATE_TRANSFORM_DATA,
+} from "./graphql/queries.ts";
+import {
+  CREATE_TRANSFORM,
+  UPDATE_TRANSFORM,
+  DELETE_TRANSFORM,
+  ENABLE_TRANSFORM,
+  DISABLE_TRANSFORM,
+  TEST_TRANSFORM,
+} from "./graphql/mutations.ts";
 
 const _inspectBtnStyle =
   "background:none;border:none;cursor:pointer;color:var(--shenas-text-faint, #aaa);font-size:0.7rem;padding:0 2px";
@@ -164,6 +179,20 @@ class TransformsPage extends LitElement {
   declare _sourceColumns: string[];
   declare _targetColumns: string[];
 
+  private _client = getClient();
+
+  private _transformsQuery = new ApolloQueryController(this, GET_TRANSFORMS, {
+    client: this._client,
+    noAutoSubscribe: true,
+  });
+
+  private _enableTransform = new ApolloMutationController(this, ENABLE_TRANSFORM, { client: this._client });
+  private _disableTransform = new ApolloMutationController(this, DISABLE_TRANSFORM, { client: this._client });
+  private _deleteTransform = new ApolloMutationController(this, DELETE_TRANSFORM, { client: this._client });
+  private _updateTransform = new ApolloMutationController(this, UPDATE_TRANSFORM, { client: this._client });
+  private _createTransform = new ApolloMutationController(this, CREATE_TRANSFORM, { client: this._client });
+  private _testTransform = new ApolloMutationController(this, TEST_TRANSFORM, { client: this._client });
+
   constructor() {
     super();
     this.apiBase = "/api";
@@ -203,11 +232,11 @@ class TransformsPage extends LitElement {
 
   async _fetchAll(): Promise<void> {
     this._loading = true;
-    const data = await gql(
-      this.apiBase,
-      `query($source: String) { transforms(source: $source) { id transformType source { id schemaName tableName displayName } target { id schemaName tableName displayName } sourcePlugin params description isDefault enabled sql } }`,
-      { source: this.source || null },
-    );
+    const { data } = await this._client.query({
+      query: GET_TRANSFORMS,
+      variables: { source: this.source || null },
+      fetchPolicy: "network-only",
+    });
     this._transforms = (data?.transforms as Transform[]) || [];
     this._loading = false;
     this._registerCommands();
@@ -215,18 +244,16 @@ class TransformsPage extends LitElement {
 
   async _ensureTransformTypes(): Promise<void> {
     if (this._transformTypes.length) return;
-    const data = await gql(
-      this.apiBase,
-      `{ transformTypes { name displayName description paramSchema { name label type required description default options } } }`,
-    );
+    const { data } = await this._client.query({ query: GET_TRANSFORM_TYPES });
     this._transformTypes = (data?.transformTypes as TransformTypeInfo[]) || [];
   }
 
   async _fetchColumns(schema: string, table: string): Promise<string[]> {
     if (!schema || !table) return [];
-    const data = await gql(this.apiBase, `query($s: String!, $t: String!) { tableColumns(schema: $s, table: $t) }`, {
-      s: schema,
-      t: table,
+    const { data } = await this._client.query({
+      query: GET_TABLE_COLUMNS,
+      variables: { s: schema, t: table },
+      fetchPolicy: "network-only",
     });
     return (data?.tableColumns as string[]) || [];
   }
@@ -284,23 +311,21 @@ class TransformsPage extends LitElement {
   }
 
   async _toggle(t: Transform): Promise<void> {
-    const mutation = t.enabled
-      ? `mutation($id: Int!) { disableTransform(transformId: $id) { id enabled } }`
-      : `mutation($id: Int!) { enableTransform(transformId: $id) { id enabled } }`;
-    await gqlFull(this.apiBase, mutation, { id: t.id });
+    const controller = t.enabled ? this._disableTransform : this._enableTransform;
+    await controller.mutate({ variables: { id: t.id } });
     await this._fetchAll();
   }
 
   async _delete(t: Transform): Promise<void> {
-    const { ok, data } = await gqlFull(
-      this.apiBase,
-      `mutation($id: Int!) { deleteTransform(transformId: $id) { ok message } }`,
-      { id: t.id },
-    );
-    if (ok && (data?.deleteTransform as Record<string, unknown>)?.ok) {
-      this._message = { type: "success", text: `Deleted transform #${t.id}` };
-      await this._fetchAll();
-    } else {
+    try {
+      const { data } = await this._deleteTransform.mutate({ variables: { id: t.id } });
+      if ((data?.deleteTransform as Record<string, unknown>)?.ok) {
+        this._message = { type: "success", text: `Deleted transform #${t.id}` };
+        await this._fetchAll();
+      } else {
+        this._message = { type: "error", text: "Delete failed" };
+      }
+    } catch {
       this._message = { type: "error", text: "Delete failed" };
     }
   }
@@ -318,16 +343,12 @@ class TransformsPage extends LitElement {
   }
 
   async _saveEdit(): Promise<void> {
-    const { ok } = await gqlFull(
-      this.apiBase,
-      `mutation($id: Int!, $sql: String!) { updateTransform(transformId: $id, sql: $sql) { id } }`,
-      { id: this._editing, sql: this._editSql },
-    );
-    if (ok) {
+    try {
+      await this._updateTransform.mutate({ variables: { id: this._editing, sql: this._editSql } });
       this._message = { type: "success", text: "Transform updated" };
       this._editing = null;
       await this._fetchAll();
-    } else {
+    } catch {
       this._message = { type: "error", text: "Update failed" };
     }
   }
@@ -341,10 +362,7 @@ class TransformsPage extends LitElement {
     this._newForm = this._emptyForm();
     this._editing = null;
     this._previewRows = null;
-    const data = await gql(
-      this.apiBase,
-      `{ dbTables schemaTables transformTypes { name displayName description paramSchema { name label type required description default options } } }`,
-    );
+    const { data } = await this._client.query({ query: GET_CREATE_TRANSFORM_DATA, fetchPolicy: "network-only" });
     this._dbTables = (data?.dbTables as Record<string, string[]>) || {};
     this._schemaTables = (data?.schemaTables as Record<string, string[]>) || {};
     this._transformTypes = (data?.transformTypes as TransformTypeInfo[]) || [];
@@ -494,47 +512,38 @@ class TransformsPage extends LitElement {
     // Build params JSON from form fields + sql
     const params: Record<string, string> = { ...f.params };
     if (f.sql) params.sql = f.sql;
-    const { ok, data } = await gqlFull(
-      this.apiBase,
-      `mutation($input: TransformCreateInput!) { createTransform(transformInput: $input) { id } }`,
-      {
-        input: {
-          transformType: f.transform_type || "sql",
-          sourceDuckdbSchema: this.source,
-          sourceDuckdbTable: f.source_duckdb_table,
-          targetDuckdbSchema: "metrics",
-          targetDuckdbTable: f.target_duckdb_table,
-          sourcePlugin: this.source,
-          params: JSON.stringify(params),
-          description: f.description,
+    try {
+      await this._createTransform.mutate({
+        variables: {
+          input: {
+            transformType: f.transform_type || "sql",
+            sourceDuckdbSchema: this.source,
+            sourceDuckdbTable: f.source_duckdb_table,
+            targetDuckdbSchema: "metrics",
+            targetDuckdbTable: f.target_duckdb_table,
+            sourcePlugin: this.source,
+            params: JSON.stringify(params),
+            description: f.description,
+          },
         },
-      },
-    );
-    if (ok) {
+      });
       this._message = { type: "success", text: "Transform created" };
       this._creating = false;
       this._newForm = this._emptyForm();
       this._panelEl = null;
       this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
       await this._fetchAll();
-    } else {
-      this._message = { type: "error", text: (data?.detail as string) || "Create failed" };
+    } catch {
+      this._message = { type: "error", text: "Create failed" };
     }
   }
 
   async _preview(): Promise<void> {
-    const { ok, data } = await gqlFull(
-      this.apiBase,
-      `mutation($id: Int!) { testTransform(transformId: $id, limit: 5) }`,
-      { id: this._editing },
-    );
-    if (ok) {
+    try {
+      const { data } = await this._testTransform.mutate({ variables: { id: this._editing } });
       this._previewRows = data?.testTransform as Record<string, unknown>[] | null;
-    } else {
-      this._message = {
-        type: "error",
-        text: (data?.detail as string) || "Preview failed",
-      };
+    } catch {
+      this._message = { type: "error", text: "Preview failed" };
     }
   }
 

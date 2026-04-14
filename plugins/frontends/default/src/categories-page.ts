@@ -1,5 +1,21 @@
 import { LitElement, html, css, nothing } from "lit";
-import { gql, gqlFull, renderMessage, buttonStyles, formStyles, messageStyles, tableStyles } from "shenas-frontends";
+import {
+  ApolloQueryController,
+  ApolloMutationController,
+  getClient,
+  renderMessage,
+  buttonStyles,
+  formStyles,
+  messageStyles,
+  tableStyles,
+} from "shenas-frontends";
+import { GET_CATEGORY_SETS } from "./graphql/queries.ts";
+import {
+  CREATE_CATEGORY_SET,
+  UPDATE_CATEGORY_SET,
+  UPDATE_CATEGORY_VALUES,
+  DELETE_CATEGORY_SET,
+} from "./graphql/mutations.ts";
 
 interface CategoryValue {
   value: string;
@@ -22,8 +38,6 @@ interface Message {
 class CategoriesPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
-    _sets: { state: true },
-    _loading: { state: true },
     _editing: { state: true },
     _creating: { state: true },
     _message: { state: true },
@@ -128,8 +142,6 @@ class CategoriesPage extends LitElement {
   ];
 
   declare apiBase: string;
-  declare _sets: CategorySet[];
-  declare _loading: boolean;
   declare _editing: string | null;
   declare _creating: boolean;
   declare _message: Message | null;
@@ -141,11 +153,39 @@ class CategoriesPage extends LitElement {
   declare _editDesc: string;
   declare _addValue: string;
 
+  private _client = getClient();
+
+  private _setsQuery = new ApolloQueryController(this, GET_CATEGORY_SETS, {
+    client: this._client,
+  });
+
+  private _createMutation = new ApolloMutationController(this, CREATE_CATEGORY_SET, {
+    client: this._client,
+  });
+
+  private _updateSetMutation = new ApolloMutationController(this, UPDATE_CATEGORY_SET, {
+    client: this._client,
+  });
+
+  private _updateValuesMutation = new ApolloMutationController(this, UPDATE_CATEGORY_VALUES, {
+    client: this._client,
+  });
+
+  private _deleteMutation = new ApolloMutationController(this, DELETE_CATEGORY_SET, {
+    client: this._client,
+  });
+
+  private get _sets(): CategorySet[] {
+    return (this._setsQuery.data?.categorySets as CategorySet[]) || [];
+  }
+
+  private get _loading(): boolean {
+    return this._setsQuery.loading;
+  }
+
   constructor() {
     super();
     this.apiBase = "/api";
-    this._sets = [];
-    this._loading = true;
     this._editing = null;
     this._creating = false;
     this._message = null;
@@ -156,21 +196,6 @@ class CategoriesPage extends LitElement {
     this._editName = "";
     this._editDesc = "";
     this._addValue = "";
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._fetchAll();
-  }
-
-  async _fetchAll(): Promise<void> {
-    this._loading = true;
-    const data = await gql(
-      this.apiBase,
-      `{ categorySets { id displayName description values { value sortOrder color } } }`,
-    );
-    this._sets = (data?.categorySets as CategorySet[]) || [];
-    this._loading = false;
   }
 
   // -- Create --------------------------------------------------------------
@@ -203,19 +228,15 @@ class CategoriesPage extends LitElement {
       this._message = { type: "error", text: "ID and name are required" };
       return;
     }
-    const { ok } = await gqlFull(
-      this.apiBase,
-      `mutation($id: String!, $name: String!, $desc: String!) {
-        createCategorySet(setId: $id, displayName: $name, description: $desc) { id displayName }
-      }`,
-      { id: this._newId, name: this._newName, desc: this._newDesc },
-    );
-    if (ok) {
+    try {
+      await this._createMutation.mutate({
+        variables: { id: this._newId, name: this._newName, desc: this._newDesc },
+      });
       this._message = { type: "success", text: `Created "${this._newName}"` };
       this._creating = false;
-      await this._fetchAll();
+      this._setsQuery.refetch();
       this._startEdit(this._newId);
-    } else {
+    } catch {
       this._message = { type: "error", text: "Create failed" };
     }
   }
@@ -260,40 +281,28 @@ class CategoriesPage extends LitElement {
         color: v.color,
       })),
     );
-    const [r1, r2] = await Promise.all([
-      gqlFull(
-        this.apiBase,
-        `mutation($id: String!, $name: String!, $desc: String!) {
-          updateCategorySet(setId: $id, displayName: $name, description: $desc) { id displayName }
-        }`,
-        { id: this._editing, name: this._editName, desc: this._editDesc },
-      ),
-      gqlFull(
-        this.apiBase,
-        `mutation($id: String!, $values: String!) {
-          updateCategoryValues(setId: $id, values: $values) { id displayName }
-        }`,
-        { id: this._editing, values: valuesJson },
-      ),
-    ]);
-    if (r1.ok && r2.ok) {
+    try {
+      await Promise.all([
+        this._updateSetMutation.mutate({
+          variables: { id: this._editing, name: this._editName, desc: this._editDesc },
+        }),
+        this._updateValuesMutation.mutate({
+          variables: { id: this._editing, values: valuesJson },
+        }),
+      ]);
       this._message = { type: "success", text: "Saved" };
       this._editing = null;
-      await this._fetchAll();
-    } else {
+      this._setsQuery.refetch();
+    } catch {
       this._message = { type: "error", text: "Save failed" };
     }
   }
 
   async _deleteSet(setId: string): Promise<void> {
-    const { ok } = await gqlFull(this.apiBase, `mutation($id: String!) { deleteCategorySet(setId: $id) { ok } }`, {
-      id: setId,
-    });
-    if (ok) {
-      this._message = { type: "success", text: "Deleted" };
-      if (this._editing === setId) this._editing = null;
-      await this._fetchAll();
-    }
+    await this._deleteMutation.mutate({ variables: { id: setId } });
+    this._message = { type: "success", text: "Deleted" };
+    if (this._editing === setId) this._editing = null;
+    this._setsQuery.refetch();
   }
 
   // -- Render --------------------------------------------------------------

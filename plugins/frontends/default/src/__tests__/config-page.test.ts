@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { mockResponse } from "./setup.ts";
 
 globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
@@ -16,10 +17,7 @@ describe("shenas-config", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     vi.resetAllMocks();
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: { plugins: [] } }),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse({ data: { plugins: [] } }));
   });
 
   it("creates the element", () => {
@@ -32,7 +30,7 @@ describe("shenas-config", () => {
     expect(el.apiBase).toBe("/api");
     expect(el.kind).toBe("");
     expect(el.name).toBe("");
-    expect(el._loading).toBe(true);
+    expect(el._loading).toBe(false);
     expect(el._editing).toBeNull();
     expect(el._editValue).toBe("");
     expect(el._freqUnit).toBe("hours");

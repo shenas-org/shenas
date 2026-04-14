@@ -1,5 +1,16 @@
 import { LitElement, html, css, nothing } from "lit";
-import { gql, gqlFull, renderMessage, buttonStyles, formStyles, messageStyles, tableStyles } from "shenas-frontends";
+import {
+  ApolloQueryController,
+  ApolloMutationController,
+  getClient,
+  renderMessage,
+  buttonStyles,
+  formStyles,
+  messageStyles,
+  tableStyles,
+} from "shenas-frontends";
+import { GET_DATA_RESOURCES, GET_DATA_RESOURCE_DETAIL } from "./graphql/queries.ts";
+import { UPDATE_DATA_RESOURCE, RUN_QUALITY_CHECKS } from "./graphql/mutations.ts";
 
 interface Column {
   name: string;
@@ -50,28 +61,9 @@ interface Message {
   text: string;
 }
 
-const FIELDS = `
-  id schemaName tableName displayName description
-  plugin { name displayName }
-  kind queryHint asOfMacro primaryKey
-  columns { name dbType nullable description unit }
-  timeColumns { timeAt timeStart timeEnd }
-  freshness { lastRefreshed slaMinutes isStale }
-  quality { expectedRowCountMin expectedRowCountMax actualRowCount
-    latestChecks { checkType status message checkedAt } }
-  userNotes tags
-`;
-
-const DETAIL_FIELDS = `${FIELDS}
-  upstreamTransforms { id transformType source { id displayName } description }
-  downstreamTransforms { id transformType target { id displayName } description }
-`;
-
 class CatalogPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
-    _resources: { state: true },
-    _loading: { state: true },
     _expanded: { state: true },
     _detail: { state: true },
     _message: { state: true },
@@ -224,8 +216,6 @@ class CatalogPage extends LitElement {
   ];
 
   declare apiBase: string;
-  declare _resources: DataResource[];
-  declare _loading: boolean;
   declare _expanded: string | null;
   declare _detail: DataResource | null;
   declare _message: Message | null;
@@ -237,11 +227,31 @@ class CatalogPage extends LitElement {
   declare _editRowMin: string;
   declare _editRowMax: string;
 
+  private _client = getClient();
+
+  private _resourcesQuery = new ApolloQueryController(this, GET_DATA_RESOURCES, {
+    client: this._client,
+  });
+
+  private _updateMutation = new ApolloMutationController(this, UPDATE_DATA_RESOURCE, {
+    client: this._client,
+  });
+
+  private _runChecksMutation = new ApolloMutationController(this, RUN_QUALITY_CHECKS, {
+    client: this._client,
+  });
+
+  private get _resources(): DataResource[] {
+    return (this._resourcesQuery.data?.dataResources as DataResource[]) || [];
+  }
+
+  private get _loading(): boolean {
+    return this._resourcesQuery.loading;
+  }
+
   constructor() {
     super();
     this.apiBase = "/api";
-    this._resources = [];
-    this._loading = true;
     this._expanded = null;
     this._detail = null;
     this._message = null;
@@ -254,18 +264,6 @@ class CatalogPage extends LitElement {
     this._editRowMax = "";
   }
 
-  connectedCallback(): void {
-    super.connectedCallback();
-    this._fetchAll();
-  }
-
-  async _fetchAll(): Promise<void> {
-    this._loading = true;
-    const data = await gql(this.apiBase, `{ dataResources { ${FIELDS} } }`);
-    this._resources = (data?.dataResources as DataResource[]) || [];
-    this._loading = false;
-  }
-
   async _expand(id: string): Promise<void> {
     if (this._expanded === id) {
       this._expanded = null;
@@ -273,10 +271,12 @@ class CatalogPage extends LitElement {
       return;
     }
     this._expanded = id;
-    const data = await gql(this.apiBase, `query($id: String!) { dataResource(resourceId: $id) { ${DETAIL_FIELDS} } }`, {
-      id,
+    const result = await this._client.query({
+      query: GET_DATA_RESOURCE_DETAIL,
+      variables: { id },
+      fetchPolicy: "network-only",
     });
-    this._detail = (data?.dataResource as DataResource) || null;
+    this._detail = (result.data?.dataResource as DataResource) || null;
     if (this._detail) {
       this._editNotes = this._detail.userNotes || "";
       this._editTags = this._detail.tags.join(", ");
@@ -296,12 +296,8 @@ class CatalogPage extends LitElement {
 
   async _saveAnnotation(): Promise<void> {
     if (!this._expanded) return;
-    await gqlFull(
-      this.apiBase,
-      `mutation($id: String!, $ann: DataResourceAnnotationInput!) {
-        updateDataResource(resourceId: $id, annotation: $ann) { id }
-      }`,
-      {
+    await this._updateMutation.mutate({
+      variables: {
         id: this._expanded,
         ann: {
           userNotes: this._editNotes,
@@ -311,19 +307,17 @@ class CatalogPage extends LitElement {
           expectedRowCountMax: this._editRowMax ? parseInt(this._editRowMax) : null,
         },
       },
-    );
+    });
     this._message = { type: "success", text: "Saved" };
-    await this._fetchAll();
+    this._resourcesQuery.refetch();
     await this._expand(this._expanded);
   }
 
   async _runChecks(): Promise<void> {
     if (!this._expanded) return;
-    await gqlFull(
-      this.apiBase,
-      `mutation($id: String) { runQualityChecks(resourceId: $id) { checkType status message } }`,
-      { id: this._expanded },
-    );
+    await this._runChecksMutation.mutate({
+      variables: { id: this._expanded },
+    });
     this._message = { type: "success", text: "Quality checks complete" };
     await this._expand(this._expanded);
   }

@@ -1,8 +1,9 @@
 import { LitElement, html, css } from "lit";
 import {
+  ApolloMutationController,
   arrowQuery,
   gql,
-  gqlFull,
+  getClient,
   registerCommands,
   renderMessage,
   buttonStyles,
@@ -10,6 +11,16 @@ import {
   messageStyles,
   tabStyles,
 } from "shenas-frontends";
+import { GET_THEME, GET_SUGGESTED_DATASETS } from "./graphql/queries.ts";
+import {
+  ENABLE_PLUGIN,
+  DISABLE_PLUGIN,
+  RUN_SCHEMA_TRANSFORMS,
+  FLUSH_SCHEMA,
+  SUGGEST_DATASETS,
+  ACCEPT_DATASET_SUGGESTION,
+  DISMISS_DATASET_SUGGESTION,
+} from "./graphql/mutations.ts";
 
 interface PluginInfo {
   name: string;
@@ -251,6 +262,19 @@ class PluginDetail extends LitElement {
   declare _suggesting: boolean;
   private _loadingTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private _client = getClient();
+  private _enablePlugin = new ApolloMutationController(this, ENABLE_PLUGIN, { client: this._client });
+  private _disablePlugin = new ApolloMutationController(this, DISABLE_PLUGIN, { client: this._client });
+  private _runSchemaTransforms = new ApolloMutationController(this, RUN_SCHEMA_TRANSFORMS, { client: this._client });
+  private _flushSchema = new ApolloMutationController(this, FLUSH_SCHEMA, { client: this._client });
+  private _suggestDatasetsMutation = new ApolloMutationController(this, SUGGEST_DATASETS, { client: this._client });
+  private _acceptDatasetSuggestion = new ApolloMutationController(this, ACCEPT_DATASET_SUGGESTION, {
+    client: this._client,
+  });
+  private _dismissDatasetSuggestion = new ApolloMutationController(this, DISMISS_DATASET_SUGGESTION, {
+    client: this._client,
+  });
+
   constructor() {
     super();
     this.apiBase = "/api";
@@ -382,11 +406,8 @@ class PluginDetail extends LitElement {
 
   async _toggle(): Promise<void> {
     const action = this._info?.enabled !== false ? "disable" : "enable";
-    const mutation =
-      action === "enable"
-        ? `mutation($k: String!, $n: String!) { enablePlugin(kind: $k, name: $n) { ok message } }`
-        : `mutation($k: String!, $n: String!) { disablePlugin(kind: $k, name: $n) { ok message } }`;
-    const { data } = await gqlFull(this.apiBase, mutation, { k: this.kind, n: this.name });
+    const controller = action === "enable" ? this._enablePlugin : this._disablePlugin;
+    const { data } = await controller.mutate({ variables: { k: this.kind, n: this.name } });
     const result = (action === "enable" ? data?.enablePlugin : data?.disablePlugin) as
       | Record<string, unknown>
       | undefined;
@@ -396,7 +417,7 @@ class PluginDetail extends LitElement {
     };
     await this._fetchInfo();
     if (this.kind === "theme") {
-      const themeData = await gql(this.apiBase, `{ theme { css } }`);
+      const { data: themeData } = await this._client.query({ query: GET_THEME, fetchPolicy: "network-only" });
       const themeCss = (themeData?.theme as Record<string, unknown>)?.css as string | undefined;
       let link = document.querySelector("link[data-shenas-theme]") as HTMLLinkElement | null;
       if (themeCss) {
@@ -516,9 +537,7 @@ class PluginDetail extends LitElement {
     this._transforming = true;
     this._message = null;
     try {
-      const { data } = await gqlFull(this.apiBase, `mutation($s: String!) { runSchemaTransforms(schema: $s) }`, {
-        s: this.name,
-      });
+      const { data } = await this._runSchemaTransforms.mutate({ variables: { schema: this.name } });
       const tResult = data?.runSchemaTransforms as Record<string, unknown> | undefined;
       if (tResult?.count != null) {
         this._message = { type: "success", text: `Ran ${tResult.count} transform(s)` };
@@ -535,9 +554,7 @@ class PluginDetail extends LitElement {
   async _flush(): Promise<void> {
     this._message = null;
     try {
-      const { data } = await gqlFull(this.apiBase, `mutation($s: String!) { flushSchema(schemaPlugin: $s) }`, {
-        s: this.name,
-      });
+      const { data } = await this._flushSchema.mutate({ variables: { s: this.name } });
       const fResult = data?.flushSchema as Record<string, unknown> | undefined;
       if (fResult?.rows_deleted != null) {
         this._message = { type: "success", text: `Flushed ${fResult.rows_deleted} rows` };
@@ -963,7 +980,7 @@ class PluginDetail extends LitElement {
   }
 
   async _fetchSuggestions(): Promise<void> {
-    const data = await gql(this.apiBase, `{ suggestedDatasets { name title grain tableName } }`);
+    const { data } = await this._client.query({ query: GET_SUGGESTED_DATASETS, fetchPolicy: "network-only" });
     this._suggestions = (data?.suggestedDatasets as SuggestedDataset[]) || [];
   }
 
@@ -971,14 +988,9 @@ class PluginDetail extends LitElement {
     this._suggesting = true;
     this._message = null;
     try {
-      const { ok, data, errors } = await gqlFull(
-        this.apiBase,
-        `mutation($source: String) { suggestDatasets(source: $source) }`,
-        { source: this.name },
-      );
-      if (!ok || !data) {
-        const errMsg = errors?.[0]?.message || "Suggestion failed";
-        this._message = { type: "error", text: errMsg };
+      const { data } = await this._suggestDatasetsMutation.mutate({ variables: { source: this.name } });
+      if (!data) {
+        this._message = { type: "error", text: "Suggestion failed" };
       } else {
         const result = data.suggestDatasets as Record<string, unknown> | undefined;
         if (result?.ok === false) {
@@ -996,11 +1008,7 @@ class PluginDetail extends LitElement {
   }
 
   async _acceptSuggestion(name: string): Promise<void> {
-    const { data } = await gqlFull(
-      this.apiBase,
-      `mutation($name: String!) { acceptDatasetSuggestion(name: $name) { ok message } }`,
-      { name },
-    );
+    const { data } = await this._acceptDatasetSuggestion.mutate({ variables: { name } });
     const result = data?.acceptDatasetSuggestion as Record<string, unknown> | undefined;
     if (result?.ok) {
       this._suggestions = this._suggestions.filter((s) => s.name !== name);
@@ -1011,11 +1019,7 @@ class PluginDetail extends LitElement {
   }
 
   async _dismissSuggestion(name: string): Promise<void> {
-    const { data } = await gqlFull(
-      this.apiBase,
-      `mutation($name: String!) { dismissDatasetSuggestion(name: $name) { ok message } }`,
-      { name },
-    );
+    const { data } = await this._dismissDatasetSuggestion.mutate({ variables: { name } });
     const result = data?.dismissDatasetSuggestion as Record<string, unknown> | undefined;
     if (result?.ok) {
       this._suggestions = this._suggestions.filter((s) => s.name !== name);

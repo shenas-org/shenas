@@ -1,5 +1,15 @@
 import { LitElement, html, css } from "lit";
-import { gql, gqlFull, renderMessage, buttonStyles, formStyles, messageStyles } from "shenas-frontends";
+import {
+  ApolloQueryController,
+  ApolloMutationController,
+  getClient,
+  renderMessage,
+  buttonStyles,
+  formStyles,
+  messageStyles,
+} from "shenas-frontends";
+import { GET_PLUGIN_CONFIG } from "./graphql/queries.ts";
+import { SET_CONFIG } from "./graphql/mutations.ts";
 
 interface ConfigEntry {
   key: string;
@@ -25,7 +35,6 @@ class ConfigPage extends LitElement {
     kind: { type: String },
     name: { type: String },
     _config: { state: true },
-    _loading: { state: true },
     _message: { state: true },
     _editing: { state: true },
     _editValue: { state: true },
@@ -96,12 +105,24 @@ class ConfigPage extends LitElement {
   declare kind: string;
   declare name: string;
   declare _config: PluginConfig | null;
-  declare _loading: boolean;
   declare _message: Message | null;
   declare _editing: string | null;
   declare _editValue: string;
   declare _freqNum: string;
   declare _freqUnit: string;
+
+  private _configQuery = new ApolloQueryController(this, GET_PLUGIN_CONFIG, {
+    client: getClient(),
+    noAutoSubscribe: true,
+  });
+
+  private _setConfigMutation = new ApolloMutationController(this, SET_CONFIG, {
+    client: getClient(),
+  });
+
+  get _loading(): boolean {
+    return this._configQuery.loading;
+  }
 
   constructor() {
     super();
@@ -109,7 +130,6 @@ class ConfigPage extends LitElement {
     this.kind = "";
     this.name = "";
     this._config = null;
-    this._loading = true;
     this._message = null;
     this._editing = null;
     this._editValue = "";
@@ -125,18 +145,17 @@ class ConfigPage extends LitElement {
 
   async _fetchConfig(): Promise<void> {
     if (!this.kind || !this.name) return;
-    this._loading = true;
-    const data = await gql(
-      this.apiBase,
-      `query($kind: String!) { plugins(kind: $kind) { name hasConfig configEntries { key label value description } } }`,
-      { kind: this.kind },
-    );
-    const plugins = (data?.plugins as Array<Record<string, unknown>>) || [];
+    const result = await this._configQuery.client!.query({
+      query: GET_PLUGIN_CONFIG,
+      variables: { kind: this.kind },
+      fetchPolicy: "network-only",
+    });
+    const plugins = (result.data?.plugins as Array<Record<string, unknown>>) || [];
     const match = plugins.find((p) => p.name === this.name && p.hasConfig);
     this._config = match
       ? { kind: this.kind, name: match.name as string, entries: match.configEntries as ConfigEntry[] }
       : null;
-    this._loading = false;
+    this.requestUpdate();
   }
 
   _startEdit(key: string, currentValue: string): void {
@@ -189,17 +208,20 @@ class ConfigPage extends LitElement {
       this._message = { type: "error", text: "Enter a positive number" };
       return;
     }
-    const { ok, data } = await gqlFull(
-      this.apiBase,
-      `mutation($kind: String!, $name: String!, $key: String!, $value: String!) { setConfig(kind: $kind, name: $name, key: $key, value: $value) { ok } }`,
-      { kind: this.kind, name: this.name, key, value },
-    );
-    if (ok) {
-      this._message = { type: "success", text: `Updated ${key}` };
-      this._editing = null;
-      await this._fetchConfig();
-    } else {
-      this._message = { type: "error", text: (data?.detail as string) || "Update failed" };
+    try {
+      const result = await this._setConfigMutation.mutate({
+        variables: { kind: this.kind, name: this.name, key, value },
+      });
+      const ok = (result.data?.setConfig as Record<string, unknown> | undefined)?.ok;
+      if (ok) {
+        this._message = { type: "success", text: `Updated ${key}` };
+        this._editing = null;
+        await this._fetchConfig();
+      } else {
+        this._message = { type: "error", text: "Update failed" };
+      }
+    } catch (e) {
+      this._message = { type: "error", text: (e as Error).message || "Update failed" };
     }
   }
 

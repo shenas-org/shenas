@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { mockResponse } from "./setup.ts";
 
 // Mock fetch before importing the component
 globalThis.fetch = vi.fn() as unknown as typeof fetch;
@@ -10,10 +11,7 @@ describe("shenas-app", () => {
     document.body.innerHTML = "";
     window.history.replaceState({}, "", "/");
     vi.resetAllMocks();
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([]),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse([]));
   });
 
   it("creates the element", () => {
@@ -28,10 +26,7 @@ describe("shenas-app", () => {
   });
 
   it("fetches data on connect", async () => {
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([]),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse([]));
 
     const el = document.createElement("shenas-app");
     document.body.appendChild(el);
@@ -56,10 +51,7 @@ describe("routing", () => {
     document.body.innerHTML = "";
     window.history.replaceState({}, "", "/");
     vi.resetAllMocks();
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([]),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse([]));
   });
 
   it("initializes a Router instance", () => {
@@ -97,10 +89,7 @@ describe("tab management", () => {
     document.body.innerHTML = "";
     window.history.replaceState({}, "", "/");
     vi.resetAllMocks();
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([]),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse([]));
   });
 
   it("renders dashboard nav items when _dashboards is set", async () => {
@@ -155,10 +144,7 @@ describe("command palette", () => {
     document.body.innerHTML = "";
     window.history.replaceState({}, "", "/");
     vi.resetAllMocks();
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([]),
-    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse([]));
   });
 
   it("_togglePalette opens then closes the palette", async () => {
