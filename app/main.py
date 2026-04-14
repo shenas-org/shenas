@@ -327,11 +327,14 @@ def remote_login(request: Request) -> RedirectResponse:
 @app.post("/api/auth/logout")
 def remote_logout() -> JSONResponse:
     """Clear the stored shenas.net token."""
-    from app.database import current_user_id, cursor
+    from app.database import current_user_id
+    from app.local_users import LocalUser
 
     user_id = current_user_id.get()
-    with cursor(database="shenas") as cur:
-        cur.execute("UPDATE shenas_system.local_users SET remote_token = NULL WHERE id = ?", [user_id])
+    user = LocalUser.find(user_id)
+    if user:
+        user.remote_token = None
+        user.save()
     return JSONResponse(content={"ok": True})
 
 
