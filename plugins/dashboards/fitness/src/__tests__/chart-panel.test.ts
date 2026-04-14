@@ -1,32 +1,46 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
-// Mock uPlot -- the real uPlot requires a canvas context happy-dom does not provide
-const { uplotCtor } = vi.hoisted(() => {
-  const ctor = vi.fn(function (this: { destroy: () => void; setSize: () => void }) {
-    this.destroy = () => {};
-    this.setSize = () => {};
-  });
-  return { uplotCtor: ctor };
+// Mock echarts -- the real echarts requires a canvas context happy-dom does not provide
+const {
+  initFn,
+  setOptionFn,
+  disposeFn: _disposeFn,
+  resizeFn: _resizeFn,
+} = vi.hoisted(() => {
+  const setOption = vi.fn();
+  const dispose = vi.fn();
+  const resize = vi.fn();
+  const init = vi.fn(() => ({ setOption, dispose, resize }));
+  return { initFn: init, setOptionFn: setOption, disposeFn: dispose, resizeFn: resize };
 });
-vi.mock("uplot", () => ({ default: uplotCtor }));
-vi.mock("uplot/dist/uPlot.min.css?inline", () => ({ default: "" }));
+vi.mock("echarts/core", () => ({
+  init: initFn,
+  use: vi.fn(),
+}));
+vi.mock("echarts/charts", () => ({ LineChart: {} }));
+vi.mock("echarts/components", () => ({
+  GridComponent: {},
+  TooltipComponent: {},
+  LegendComponent: {},
+  DataZoomComponent: {},
+}));
+vi.mock("echarts/renderers", () => ({ CanvasRenderer: {} }));
 
 import "../chart-panel.ts";
 
-type AnyEl = HTMLElement & Record<string, any>;
+type AnyEl = HTMLElement & Record<string, unknown>;
 
 describe("chart-panel", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
-    uplotCtor.mockClear();
+    initFn.mockClear();
+    setOptionFn.mockClear();
   });
 
   afterEach(() => {
     document.querySelectorAll("chart-panel").forEach((p) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (p as any)._chart = null;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (p as any)._ro = null;
+      (p as AnyEl)._chart = null;
+      (p as AnyEl)._ro = null;
     });
     document.body.innerHTML = "";
   });
@@ -41,29 +55,28 @@ describe("chart-panel", () => {
     const el = document.createElement("chart-panel") as AnyEl;
     el.title = "Test";
     document.body.appendChild(el);
-    await el.updateComplete;
-    const wrap = el.shadowRoot?.querySelector(".chart-wrap");
+    await (el as { updateComplete: Promise<void> }).updateComplete;
+    const wrap = (el as HTMLElement).shadowRoot?.querySelector(".chart-wrap");
     expect(wrap).toBeTruthy();
-    const noData = el.shadowRoot?.querySelector(".no-data");
+    const noData = (el as HTMLElement).shadowRoot?.querySelector(".no-data");
     expect(noData).toBeTruthy();
   });
 
-  it("invokes uPlot constructor when data and series are provided", async () => {
+  it("invokes echarts.init when data and series are provided", async () => {
     const el = document.createElement("chart-panel") as AnyEl;
     el.title = "HRV";
     el.series = [{ label: "rmssd", color: "#6b5ce7" }];
     el.axes = [{ stroke: "#888", grid: { stroke: "#f4f4f4" }, label: "ms" }];
     el.data = [[0, 86400, 172800], Float64Array.from([1, 2, 3])];
     document.body.appendChild(el);
-    await el.updateComplete;
-    await el.updateComplete;
+    await (el as { updateComplete: Promise<void> }).updateComplete;
+    await (el as { updateComplete: Promise<void> }).updateComplete;
 
-    expect(uplotCtor).toHaveBeenCalled();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const callArgs = (uplotCtor.mock.calls as any[][])[0];
-    // opts is first arg
-    expect(callArgs[0]).toMatchObject({ height: 200 });
-    expect(Array.isArray(callArgs[0].series)).toBe(true);
-    expect(Array.isArray(callArgs[0].axes)).toBe(true);
+    expect(initFn).toHaveBeenCalled();
+    expect(setOptionFn).toHaveBeenCalled();
+    const option = setOptionFn.mock.calls[0][0];
+    expect(option.xAxis).toBeDefined();
+    expect(option.series).toHaveLength(1);
+    expect(option.series[0].name).toBe("rmssd");
   });
 });

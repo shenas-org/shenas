@@ -851,70 +851,78 @@ class Mutation:
         }
 
     @strawberry.mutation
-    def accept_dataset_suggestion(self, name: str) -> JSON:
+    def accept_dataset_suggestion(self, name: str) -> OkType:
         """Accept a suggested dataset: create metric table + transforms."""
+        from app.models import OkResponse
         from shenas_datasets.core import Dataset
 
         try:
-            result = Dataset.accept_suggestion(name)
-            return {"ok": True, **result}  # ty: ignore[invalid-return-type]
+            Dataset.accept_suggestion(name)
+            return OkType.from_pydantic(OkResponse(ok=True, message=f"Accepted dataset {name}"))  # ty: ignore[unresolved-attribute]
         except ValueError as exc:
-            return {"ok": False, "error": str(exc)}  # ty: ignore[invalid-return-type]
+            return OkType.from_pydantic(OkResponse(ok=False, message=str(exc)))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
-    def dismiss_dataset_suggestion(self, name: str) -> JSON:
+    def dismiss_dataset_suggestion(self, name: str) -> OkType:
         """Dismiss a suggested dataset."""
+        from app.models import OkResponse
         from shenas_datasets.core import Dataset
 
         try:
             Dataset.dismiss_suggestion(name)
-            return {"ok": True, "name": name}  # ty: ignore[invalid-return-type]
+            return OkType.from_pydantic(OkResponse(ok=True, message=f"Dismissed dataset {name}"))  # ty: ignore[unresolved-attribute]
         except ValueError as exc:
-            return {"ok": False, "error": str(exc)}  # ty: ignore[invalid-return-type]
+            return OkType.from_pydantic(OkResponse(ok=False, message=str(exc)))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
-    def accept_transform_suggestion(self, transform_id: int) -> JSON:
+    def accept_transform_suggestion(self, transform_id: int) -> OkType:
         """Accept a suggested transform: enable it."""
         from shenas_transformers.core.transform import Transform
 
+        from app.models import OkResponse
+
         t = Transform.find(transform_id)
         if t is None or not t.is_suggested:
-            return {"ok": False, "error": f"No suggested transform #{transform_id}"}  # ty: ignore[invalid-return-type]
+            return OkType.from_pydantic(OkResponse(ok=False, message=f"No suggested transform #{transform_id}"))  # ty: ignore[unresolved-attribute]
         t.accept_suggestion()
-        return {"ok": True, "id": t.id}  # ty: ignore[invalid-return-type]
+        return OkType.from_pydantic(OkResponse(ok=True, message=f"Accepted transform #{t.id}"))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
-    def dismiss_transform_suggestion(self, transform_id: int) -> JSON:
+    def dismiss_transform_suggestion(self, transform_id: int) -> OkType:
         """Dismiss a suggested transform."""
         from shenas_transformers.core.transform import Transform
 
+        from app.models import OkResponse
+
         t = Transform.find(transform_id)
         if t is None or not t.is_suggested:
-            return {"ok": False, "error": f"No suggested transform #{transform_id}"}  # ty: ignore[invalid-return-type]
+            return OkType.from_pydantic(OkResponse(ok=False, message=f"No suggested transform #{transform_id}"))  # ty: ignore[unresolved-attribute]
         t.dismiss_suggestion()
-        return {"ok": True, "id": transform_id}  # ty: ignore[invalid-return-type]
+        return OkType.from_pydantic(OkResponse(ok=True, message=f"Dismissed transform #{transform_id}"))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
-    def accept_analysis_suggestion(self, hypothesis_id: int) -> JSON:
-        """Accept a suggested analysis: return the question for askHypothesis."""
+    def accept_analysis_suggestion(self, hypothesis_id: int) -> OkType:
+        """Accept a suggested analysis."""
         from app.hypotheses import Hypothesis
+        from app.models import OkResponse
 
         h = Hypothesis.find(hypothesis_id)
         if h is None or not h.is_suggested:
-            return {"ok": False, "error": f"No suggested analysis #{hypothesis_id}"}  # ty: ignore[invalid-return-type]
+            return OkType.from_pydantic(OkResponse(ok=False, message=f"No suggested analysis #{hypothesis_id}"))  # ty: ignore[unresolved-attribute]
         h.accept_suggestion()
-        return {"ok": True, "id": h.id, "question": h.question}  # ty: ignore[invalid-return-type]
+        return OkType.from_pydantic(OkResponse(ok=True, message=f"Accepted analysis #{h.id}"))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
-    def dismiss_analysis_suggestion(self, hypothesis_id: int) -> JSON:
+    def dismiss_analysis_suggestion(self, hypothesis_id: int) -> OkType:
         """Dismiss a suggested analysis."""
         from app.hypotheses import Hypothesis
+        from app.models import OkResponse
 
         h = Hypothesis.find(hypothesis_id)
         if h is None or not h.is_suggested:
-            return {"ok": False, "error": f"No suggested analysis #{hypothesis_id}"}  # ty: ignore[invalid-return-type]
+            return OkType.from_pydantic(OkResponse(ok=False, message=f"No suggested analysis #{hypothesis_id}"))  # ty: ignore[unresolved-attribute]
         h.dismiss_suggestion()
-        return {"ok": True, "id": hypothesis_id}  # ty: ignore[invalid-return-type]
+        return OkType.from_pydantic(OkResponse(ok=True, message=f"Dismissed analysis #{hypothesis_id}"))  # ty: ignore[unresolved-attribute]
 
     # -- Entities --
 
