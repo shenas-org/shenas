@@ -38,6 +38,7 @@ from app.graphql.types import (
     TimeColumnsInfoType,
     TransformerInfoType,
     TransformType,
+    WikidataPropertyType,
 )
 
 if TYPE_CHECKING:
@@ -846,6 +847,10 @@ class Query:
                 is_human=t.is_human,
                 parent=t.parent,
                 is_abstract=t.is_abstract,
+                wikidata_qid=t.wikidata_qid,
+                wikidata_properties=[
+                    WikidataPropertyType(pid=p["pid"], label=p.get("label", "")) for p in t.parsed_wikidata_properties()
+                ],
             )
             for t in EntityType.all(order_by="name")
         ]

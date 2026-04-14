@@ -416,6 +416,12 @@ class DataResourceAnnotationInput:
 
 
 @strawberry.type
+class WikidataPropertyType:
+    pid: str
+    label: str
+
+
+@strawberry.type
 class EntityTypeType:
     name: str
     display_name: str
@@ -424,6 +430,8 @@ class EntityTypeType:
     is_human: bool = False
     parent: str | None = None
     is_abstract: bool = False
+    wikidata_qid: str | None = None
+    wikidata_properties: list[WikidataPropertyType] = strawberry.field(default_factory=list)
 
 
 @strawberry.type
@@ -506,4 +514,5 @@ __all__ = [
     "ThemeInfo",
     "TransformCreateInput",
     "TransformType",
+    "WikidataPropertyType",
 ]

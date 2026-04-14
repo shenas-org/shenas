@@ -188,13 +188,19 @@ class Source(Plugin):
         synced_at = s.synced_at
         if not synced_at:
             return True
-        from datetime import datetime
+        from datetime import datetime, timedelta
 
-        last = datetime.fromisoformat(synced_at)
+        # DuckDB TIMESTAMP columns come back as ``datetime``; legacy rows may
+        # still hold an ISO string. Accept both.
+        if isinstance(synced_at, datetime):
+            last = synced_at
+        else:
+            try:
+                last = datetime.fromisoformat(str(synced_at))
+            except (TypeError, ValueError):
+                return True
         if last.tzinfo is None:
             last = last.replace(tzinfo=UTC)
-        from datetime import timedelta
-
         return datetime.now(UTC) - last >= timedelta(minutes=freq)
 
     @property
