@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // Mock echarts -- the real echarts requires a canvas context happy-dom does not provide
-const { initFn, setOptionFn, disposeFn: _disposeFn, resizeFn: _resizeFn } = vi.hoisted(() => {
+const {
+  initFn,
+  setOptionFn,
+  disposeFn: _disposeFn,
+  resizeFn: _resizeFn,
+} = vi.hoisted(() => {
   const setOption = vi.fn();
   const dispose = vi.fn();
   const resize = vi.fn();
