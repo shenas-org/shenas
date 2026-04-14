@@ -363,16 +363,15 @@ def remote_me() -> dict:
     """Check if locally stored remote token is valid."""
     import httpx
 
-    try:
-        from app.database import cursor
+    from app.local_users import LocalUser
 
-        with cursor() as cur:
-            row = cur.execute("SELECT value FROM shenas_system.remote_auth WHERE key = 'token'").fetchone()
-        if not row:
+    try:
+        token = LocalUser.get_remote_token()
+        if not token:
             return {"user": None}
         resp = httpx.get(
             f"{SHENAS_NET_URL}/api/auth/me",
-            headers={"Authorization": f"Bearer {row[0]}"},
+            headers={"Authorization": f"Bearer {token}"},
             verify=False,
             timeout=5,
         )
