@@ -357,6 +357,30 @@ class Plugin(abc.ABC):
         """Get or create the :class:`PluginInstance` row. Use for mutations."""
         return PluginInstance.get_or_create(self._kind, self.name, enabled=self.enabled_by_default)
 
+    @property
+    def icon_path(self) -> Path | None:
+        """Absolute path to the plugin's icon.svg, or None if not found."""
+        import inspect
+
+        try:
+            mod_file = Path(inspect.getfile(type(self)))
+            for parent in mod_file.parents:
+                candidate = parent / "icon.svg"
+                if candidate.exists():
+                    return candidate
+                if (parent / "pyproject.toml").exists():
+                    break
+        except Exception:
+            pass
+        return None
+
+    @property
+    def icon_url(self) -> str | None:
+        """URL for the plugin's brand icon, or None if no icon exists."""
+        if self.icon_path:
+            return f"/api/plugins/{self._kind}s/{self.name}/icon.svg"
+        return None
+
     def get_info(self) -> dict[str, Any]:
         s = self.instance()
         return {
@@ -365,6 +389,7 @@ class Plugin(abc.ABC):
             "kind": self._kind,
             "version": self.version,
             "description": self.description,
+            "icon_url": self.icon_url,
             "has_config": self.has_config,
             "has_data": self.has_data,
             "has_auth": self.has_auth,
