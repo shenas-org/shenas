@@ -328,15 +328,11 @@ def remote_login(request: Request) -> RedirectResponse:
 def remote_callback(token: str | None = None) -> HTMLResponse:
     """Receive the token from shenas.net after OAuth and store it."""
     if token:
-        from app.database import cursor
+        from app.database import current_user_id
+        from app.local_users import LocalUser
 
-        with cursor() as cur:
-            cur.execute("CREATE TABLE IF NOT EXISTS shenas_system.remote_auth (key TEXT PRIMARY KEY, value TEXT)")
-            cur.execute(
-                "INSERT INTO shenas_system.remote_auth (key, value) VALUES ('token', ?) "
-                "ON CONFLICT (key) DO UPDATE SET value = ?",
-                [token, token],
-            )
+        user_id = current_user_id.get()
+        LocalUser.set_remote_token(user_id, token)
     return HTMLResponse(
         content="""
         <html><body style="font-family:system-ui;text-align:center;padding:4rem">
