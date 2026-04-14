@@ -324,6 +324,20 @@ def remote_login(request: Request) -> RedirectResponse:
     return RedirectResponse(url=f"{SHENAS_NET_URL}/api/auth/login?redirect_uri={callback}")
 
 
+@app.post("/api/auth/logout")
+def remote_logout() -> JSONResponse:
+    """Clear the stored shenas.net token."""
+    from app.database import current_user_id
+    from app.local_users import LocalUser
+
+    user_id = current_user_id.get()
+    user = LocalUser.get_by_id(user_id)
+    if user and user.remote_token:
+        user.remote_token = None
+        user.save()
+    return JSONResponse(content={"ok": True})
+
+
 @app.get("/api/auth/callback")
 def remote_callback(token: str | None = None) -> HTMLResponse:
     """Receive the token from shenas.net after OAuth and store it."""
