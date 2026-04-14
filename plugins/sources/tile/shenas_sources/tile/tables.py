@@ -15,6 +15,7 @@ Each table is a subclass of one of the kind base classes in
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 from app.table import Field
@@ -29,6 +30,26 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from shenas_sources.tile.client import TileClient
+
+
+def _to_iso(value: Any) -> str | None:
+    """Coerce a Tile timestamp to an ISO-8601 string, or None if missing.
+
+    Tile's API returns timestamps as Unix epoch in **milliseconds**
+    (per the upstream pytile reference). dlt cannot coerce a bare int
+    to TIMESTAMP, so we convert here. Strings (already ISO) and
+    datetime objects pass through.
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, (int, float)) and value > 0:
+        # Tile uses milliseconds; treat values past year ~2001 as ms,
+        # smaller as seconds (defensive -- shouldn't happen in practice).
+        seconds = value / 1000.0 if value > 1_000_000_000_000 else float(value)
+        return datetime.fromtimestamp(seconds, tz=UTC).isoformat()
+    return str(value) or None
 
 
 class Tiles(DimensionTable):
@@ -122,7 +143,9 @@ class TileLocations(EventTable):
     def extract(cls, client: TileClient, **_: Any) -> Iterator[dict[str, Any]]:
         for tile in client.get_tiles():
             tile_uuid = tile.get("uuid") or tile.get("tile_uuid") or ""
-            ts = cls._get(tile, "timestamp")
+            if not tile_uuid:
+                continue
+            ts = _to_iso(cls._get(tile, "timestamp"))
             if not ts:
                 continue
             yield {
@@ -186,6 +209,8 @@ class TileState(SnapshotTable):
     def extract(cls, client: TileClient, **_: Any) -> Iterator[dict[str, Any]]:
         for tile in client.get_tiles():
             tile_uuid = tile.get("uuid") or tile.get("tile_uuid") or ""
+            if not tile_uuid:
+                continue
             # connection_state has multiple possible key names
             conn = cls._get(tile, "connection_state_machine_state")
             if conn is None:
@@ -197,7 +222,7 @@ class TileState(SnapshotTable):
                 "connection_state": conn,
                 "is_dead": bool(cls._get(tile, "is_dead") or False),
                 "ring_state": cls._get(tile, "ring_state"),
-                "last_tile_state_timestamp": cls._get(tile, "timestamp"),
+                "last_tile_state_timestamp": _to_iso(cls._get(tile, "timestamp")),
             }
 
 
