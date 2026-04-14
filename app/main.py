@@ -429,15 +429,22 @@ async def update_system_settings(request: Request) -> JSONResponse:
 
 @app.post("/api/dev/export-credentials")
 def export_dev_credentials() -> JSONResponse:
-    """Export all source auth/config to data/dev_credentials.json (dev mode only)."""
-    from app.dev_credentials import export_current_credentials, is_dev_mode, save_dev_credentials
+    """Export credentials, config, and entities to data/dev_credentials.json (dev mode only)."""
+    from app.dev_credentials import export_current_state, is_dev_mode, save_dev_state
 
     if not is_dev_mode():
         raise HTTPException(status_code=403, detail="Only available in development mode")
 
-    data = export_current_credentials()
-    save_dev_credentials(data)
-    return JSONResponse(content={"ok": True, "sources": list(data.keys())})
+    data = export_current_state()
+    save_dev_state(data)
+    entity_counts = {k: len(v) for k, v in data.get("entities", {}).items()}
+    return JSONResponse(
+        content={
+            "ok": True,
+            "sources": list(data.get("sources", {}).keys()),
+            "entities": entity_counts,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
