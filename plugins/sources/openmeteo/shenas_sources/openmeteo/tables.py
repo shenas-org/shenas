@@ -26,11 +26,15 @@ class DailyWeather(AggregateTable):
     class _Meta:
         name = "daily_weather"
         display_name = "Daily Weather"
-        description = "Daily weather observations: temperature, precipitation, wind, sunshine."
-        pk = ("date",)
+        description = "Daily weather observations per place: temperature, precipitation, wind, sunshine."
+        pk = ("place_uuid", "date")
 
     time_at: ClassVar[str] = "date"
 
+    place_uuid: Annotated[
+        str,
+        Field(db_type="VARCHAR", description="Place entity UUID this observation belongs to", display_name="Place"),
+    ] = ""
     date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
     temp_max_degc: Annotated[
         float | None, Field(db_type="DOUBLE", description="Maximum temperature at 2m", display_name="Max Temp", unit="degC")
@@ -109,6 +113,7 @@ class DailyWeather(AggregateTable):
         end = datetime.now(UTC).date().isoformat()
         for row in client.get_daily_weather(start, end):
             yield {
+                "place_uuid": row["place_uuid"],
                 "date": row["date"],
                 "temp_max_degc": row.get("temperature_2m_max"),
                 "temp_min_degc": row.get("temperature_2m_min"),
@@ -135,11 +140,15 @@ class DailyAirQuality(AggregateTable):
     class _Meta:
         name = "daily_air_quality"
         display_name = "Daily Air Quality"
-        description = "Daily air quality: PM2.5, PM10, NO2, SO2, CO, O3, AQI indices."
-        pk = ("date",)
+        description = "Daily air quality per place: PM2.5, PM10, NO2, SO2, CO, O3, AQI indices."
+        pk = ("place_uuid", "date")
 
     time_at: ClassVar[str] = "date"
 
+    place_uuid: Annotated[
+        str,
+        Field(db_type="VARCHAR", description="Place entity UUID this observation belongs to", display_name="Place"),
+    ] = ""
     date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
     pm25: Annotated[
         float | None, Field(db_type="DOUBLE", description="Mean PM2.5 concentration", display_name="PM2.5", unit="ug/m3")
@@ -179,6 +188,7 @@ class DailyAirQuality(AggregateTable):
         end = datetime.now(UTC).date().isoformat()
         for row in client.get_hourly_air_quality(start, end):
             yield {
+                "place_uuid": row["place_uuid"],
                 "date": row["date"],
                 "pm25": row.get("pm2_5"),
                 "pm10": row.get("pm10"),

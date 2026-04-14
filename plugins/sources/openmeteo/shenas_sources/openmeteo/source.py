@@ -1,7 +1,12 @@
-"""Open-Meteo source -- daily weather and air quality for any location.
+"""Open-Meteo source -- daily weather and air quality for N configured places.
 
-No authentication required. Configure latitude and longitude via the
-Config tab. Data available back to 1940 (weather) and 2022 (air quality).
+No authentication required. Configure a comma-separated list of place-entity
+UUIDs via the Config tab; each UUID must resolve through
+:class:`app.entity.EntityIndex` to a source-contributed
+:class:`app.entity.PlaceEntityTable` row carrying ``latitude`` and
+``longitude``. The sync fans out across every configured place and tags
+each row with ``place_uuid``. Data available back to 1940 (weather) and
+2022 (air quality).
 """
 
 from __future__ import annotations
@@ -18,34 +23,54 @@ class OpenMeteoSource(Source):
     name = "openmeteo"
     display_name = "Open-Meteo"
     primary_table = "daily_weather"
-    entity_types: ClassVar[list[str]] = ["city"]
+    entity_types: ClassVar[list[str]] = ["place"]
     default_update_frequency = "R/P1D"
     description = (
-        "Daily weather and air quality data from Open-Meteo.\n\n"
-        "Uses the ERA5 reanalysis archive (back to 1940) and the CAMS "
-        "air quality model. No API key required.\n\n"
-        "Set latitude and longitude in the Config tab to choose a location."
+        "Daily weather and air quality data from Open-Meteo, one time-series per "
+        "configured place entity.\n\n"
+        "Uses the ERA5 reanalysis archive (back to 1940) and the CAMS air quality "
+        "model. No API key required.\n\n"
+        "In the Config tab, set `place_uuids` to a comma-separated list of "
+        "place-entity UUIDs. Each must resolve (via the entity index) to a "
+        "source-contributed PlaceEntityTable row with latitude / longitude set."
     )
 
     @dataclass
     class Config(SourceConfig):
-        latitude: Annotated[
-            float | None,
-            Field(db_type="DOUBLE", description="Location latitude (e.g. 59.33 for Stockholm)"),
-        ] = None
-        longitude: Annotated[
-            float | None,
-            Field(db_type="DOUBLE", description="Location longitude (e.g. 18.07 for Stockholm)"),
+        place_uuids: Annotated[
+            str | None,
+            Field(
+                db_type="VARCHAR",
+                description=(
+                    "Comma-separated place-entity UUIDs to sync (each must resolve "
+                    "to a PlaceEntityTable row with latitude / longitude)."
+                ),
+            ),
         ] = None
 
     def build_client(self) -> Any:
+        from app.entity import resolve_place
         from shenas_sources.openmeteo.client import OpenMeteoClient
 
         row = self.Config.read_row()
-        if not row or not row.get("latitude") or not row.get("longitude"):
-            msg = "Set latitude and longitude in the Config tab."
+        raw_uuids = (row or {}).get("place_uuids") or ""
+        uuids = [u.strip() for u in raw_uuids.split(",") if u.strip()]
+        if not uuids:
+            msg = "Set place_uuids in the Config tab (comma-separated place-entity UUIDs)."
             raise RuntimeError(msg)
-        return OpenMeteoClient(float(row["latitude"]), float(row["longitude"]))
+
+        places: list[tuple[str, float, float]] = []
+        missing: list[str] = []
+        for uuid in uuids:
+            resolved = resolve_place(uuid)
+            if resolved is None:
+                missing.append(f"{uuid} (not a resolvable place entity)")
+                continue
+            places.append((resolved.uuid, resolved.latitude, resolved.longitude))
+        if missing:
+            msg = "Cannot sync: " + "; ".join(missing)
+            raise RuntimeError(msg)
+        return OpenMeteoClient(places)
 
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.openmeteo.tables import TABLES

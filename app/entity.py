@@ -34,7 +34,7 @@ registered in :class:`EntityIndex`, a per-user-DB lookup that maps
 from __future__ import annotations
 
 import uuid as uuid_mod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self
 
@@ -1069,6 +1069,180 @@ class EntityTable(DimensionTable):
                     yield _inject(row, now)
 
         return _gen()
+
+
+def _is_builtin_subtype_of(child_name: str, ancestor_name: str) -> bool:
+    """Import-time check: is ``child_name`` a descendant of ``ancestor_name``
+    in the built-in :data:`DEFAULT_ENTITY_TYPES` hierarchy?
+
+    Like :meth:`EntityType.is_subtype_of` but reads the in-memory defaults
+    dict instead of ``cls.all()``, so it's safe to call from
+    ``_validate()`` at class-definition time (before the DB exists).
+    """
+    if child_name == ancestor_name:
+        return True
+    types_by_name = _default_entity_types_by_name()
+    current: str | None = child_name
+    seen: set[str] = set()
+    while current and current not in seen:
+        seen.add(current)
+        entry = types_by_name.get(current)
+        if entry is None:
+            return False
+        if entry.parent == ancestor_name:
+            return True
+        current = entry.parent
+    return False
+
+
+# ---------------------------------------------------------------------------
+# PlaceEntityTable: source-contributed place entities (with lat/lng)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class PlaceEntityTable(EntityTable):
+    """An :class:`EntityTable` whose rows represent places on earth.
+
+    Concrete subclasses inherit two columns from this base -- ``latitude``
+    and ``longitude`` in decimal degrees -- that downstream consumers
+    (openmeteo, openaq, anyone fanning out per-place) can read off every
+    current SCD2 slice. ``_Meta.entity_type`` must resolve to ``place`` or
+    a descendant in :data:`DEFAULT_ENTITY_TYPES`; this is enforced at
+    class-definition time so plugin authors get a loud error if they
+    miscategorize a table.
+
+    The ``@dataclass`` decorator is applied here so the ``latitude`` /
+    ``longitude`` fields are dataclass-inheritable into concrete subclasses
+    through the normal MRO walk. They are ``kw_only`` so concrete
+    subclasses can declare their own required (non-default) fields without
+    running into the "defaults before required fields" ordering rule.
+
+    See :class:`CityEntityTable`, :class:`ResidenceEntityTable`, and
+    :class:`CountryEntityTable` for tighter per-subtype validation bases.
+    """
+
+    _abstract: ClassVar[bool] = True
+
+    latitude: Annotated[
+        float,
+        Field(db_type="DOUBLE", description="Latitude in decimal degrees", display_name="Latitude"),
+    ] = field(default=0.0, kw_only=True)
+    longitude: Annotated[
+        float,
+        Field(db_type="DOUBLE", description="Longitude in decimal degrees", display_name="Longitude"),
+    ] = field(default=0.0, kw_only=True)
+
+    # Subclasses may narrow this to a specific place subtype (city, residence,
+    # country) via ``_required_place_subtype``; the default ``"place"`` accepts
+    # any descendant of ``place``.
+    _required_place_subtype: ClassVar[str] = "place"
+
+    @classmethod
+    def _validate(cls) -> None:
+        super()._validate()
+        et_name = cls._Meta.entity_type.name  # type: ignore[attr-defined]
+        required = cls._required_place_subtype
+        if not _is_builtin_subtype_of(et_name, required):
+            family = "PlaceEntityTable" if required == "place" else f"{required.capitalize()}EntityTable"
+            msg = (
+                f"{cls.__name__}: {family} requires `_Meta.entity_type` to descend from "
+                f"{required!r}; got {et_name!r}. Pick a concrete subtype of {required!r} "
+                "via EntityType.default(...) or declare a custom one."
+            )
+            raise TypeError(msg)
+
+
+class CityEntityTable(PlaceEntityTable):
+    """:class:`PlaceEntityTable` whose rows represent cities.
+
+    ``_Meta.entity_type`` must be ``city`` or a descendant.
+    """
+
+    _abstract: ClassVar[bool] = True
+    _required_place_subtype: ClassVar[str] = "city"
+
+
+class ResidenceEntityTable(PlaceEntityTable):
+    """:class:`PlaceEntityTable` whose rows represent residences.
+
+    ``_Meta.entity_type`` must be ``residence`` or a descendant.
+    """
+
+    _abstract: ClassVar[bool] = True
+    _required_place_subtype: ClassVar[str] = "residence"
+
+
+class CountryEntityTable(PlaceEntityTable):
+    """:class:`PlaceEntityTable` whose rows represent countries.
+
+    ``_Meta.entity_type`` must be ``country`` or a descendant.
+    """
+
+    _abstract: ClassVar[bool] = True
+    _required_place_subtype: ClassVar[str] = "country"
+
+
+@dataclass(frozen=True)
+class ResolvedPlace:
+    """A place entity resolved through :class:`EntityIndex` to its backing row.
+
+    Returned by :func:`resolve_place` for use by sources that fan out
+    per-place (openmeteo, openaq). Always carries ``uuid`` + lat/lng;
+    ``radius_m`` is present only when the backing row has a column of
+    that name.
+    """
+
+    uuid: str
+    name: str
+    latitude: float
+    longitude: float
+    radius_m: int | None
+
+
+def resolve_place(uuid: str) -> ResolvedPlace | None:
+    """Resolve a place entity UUID to its backing row's lat / lng / radius_m.
+
+    Walks :class:`EntityIndex` to find the table that holds the row, then
+    queries the current SCD2 slice of that table. Returns ``None`` if the
+    UUID isn't indexed, if the index row points at a table without
+    ``latitude`` / ``longitude`` columns, or if those columns are NULL.
+
+    Used by place-consuming sources (openmeteo, openaq) that take a list
+    of place-entity UUIDs and need to look up coordinates per entity.
+    """
+    from app.database import cursor
+
+    idx = EntityIndex.find(uuid)
+    if idx is None:
+        return None
+    tbl = idx.table_name
+    # User-created Entity rows live in the plain "entities" table and don't
+    # carry coordinates (post-rebase main Entity has no lat/lng columns).
+    # Only source-contributed PlaceEntityTable rows resolve successfully.
+    if "." not in tbl:
+        return None
+    with cursor() as cur:
+        row = cur.execute(
+            f"SELECT * FROM {tbl} WHERE entity_id = ? AND _dlt_valid_to IS NULL LIMIT 1",
+            [uuid],
+        ).fetchone()
+        if row is None:
+            return None
+        cols = [d[0] for d in cur.description]
+    data = dict(zip(cols, row, strict=False))
+    lat = data.get("latitude")
+    lng = data.get("longitude")
+    if lat is None or lng is None:
+        return None
+    radius = data.get("radius_m")
+    return ResolvedPlace(
+        uuid=uuid,
+        name=str(data.get("name") or ""),
+        latitude=float(lat),
+        longitude=float(lng),
+        radius_m=int(radius) if radius is not None else None,
+    )
 
 
 # ---------------------------------------------------------------------------

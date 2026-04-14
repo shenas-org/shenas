@@ -20,16 +20,24 @@ if TYPE_CHECKING:
 
 
 class DailyMeasurements(AggregateTable):
-    """Daily air quality measurements per monitoring station."""
+    """Daily air quality measurements per monitoring station per configured place.
+
+    A single OpenAQ station can appear under multiple places if their radii
+    overlap -- the composite PK ``(place_uuid, date, location_id)`` treats
+    those as distinct rows so each place's time-series stays self-contained.
+    """
 
     class _Meta:
         name = "daily_measurements"
         display_name = "Daily Measurements"
-        description = "Daily mean pollutant concentrations per monitoring station near the configured location."
-        pk = ("date", "location_id")
+        description = "Daily mean pollutant concentrations per monitoring station, scoped to the configured place."
+        pk = ("place_uuid", "date", "location_id")
 
     time_at: ClassVar[str] = "date"
 
+    place_uuid: Annotated[
+        str, Field(db_type="VARCHAR", description="Place entity UUID this station was discovered from", display_name="Place")
+    ] = ""
     date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
     location_id: Annotated[
         int, Field(db_type="INTEGER", description="OpenAQ location/station ID", display_name="Location ID")
@@ -76,14 +84,17 @@ class DailyMeasurements(AggregateTable):
 
 
 class Locations(DimensionTable):
-    """Monitoring stations near the configured coordinates."""
+    """Monitoring stations within each configured place's radius."""
 
     class _Meta:
         name = "locations"
         display_name = "Locations"
-        description = "OpenAQ monitoring station metadata (SCD2-tracked for change detection)."
-        pk = ("location_id",)
+        description = "OpenAQ monitoring station metadata per configured place (SCD2-tracked)."
+        pk = ("place_uuid", "location_id")
 
+    place_uuid: Annotated[
+        str, Field(db_type="VARCHAR", description="Place entity UUID this station was discovered from", display_name="Place")
+    ] = ""
     location_id: Annotated[
         int, Field(db_type="INTEGER", description="OpenAQ location/station ID", display_name="Location ID")
     ] = 0

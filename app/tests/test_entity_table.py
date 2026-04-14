@@ -6,7 +6,15 @@ from typing import Annotated, ClassVar
 
 import pytest
 
-from app.entity import EntityTable, EntityType, compute_entity_id
+from app.entity import (
+    CityEntityTable,
+    CountryEntityTable,
+    EntityTable,
+    EntityType,
+    PlaceEntityTable,
+    ResidenceEntityTable,
+    compute_entity_id,
+)
 from app.table import Field
 
 
@@ -102,3 +110,88 @@ def test_entity_table_valid_class() -> None:
     assert cols["entity_id"]["data_type"] == "text"
     # table kind is still "dimension" (SCD2 via MRO)
     assert _Repo.table_kind() == "dimension"
+
+
+# ---------------------------------------------------------------------------
+# PlaceEntityTable + subtype bases
+# ---------------------------------------------------------------------------
+
+
+def test_place_entity_table_accepts_place_subtype() -> None:
+    """A concrete PlaceEntityTable with entity_type='city' validates cleanly."""
+
+    class _Cities(PlaceEntityTable):
+        class _Meta:
+            name = "my_cities"
+            display_name = "My Cities"
+            pk = ("name",)
+            schema = "test"
+            entity_type = EntityType.default("city")
+
+        name: Annotated[str, Field(db_type="VARCHAR", description="city name")] = ""
+
+    assert _Cities._Meta.entity_type.name == "city"
+    # lat/lng inherited from PlaceEntityTable are in the DDL
+    ddl = _Cities.to_ddl(schema="test")
+    assert "latitude" in ddl
+    assert "longitude" in ddl
+
+
+def test_place_entity_table_rejects_non_place_type() -> None:
+    """PlaceEntityTable with entity_type='human' fails at class-definition time."""
+    with pytest.raises(TypeError, match="descend from 'place'"):
+
+        class _WrongHumanPlace(PlaceEntityTable):
+            class _Meta:
+                name = "wrong"
+                display_name = "Wrong"
+                pk = ("id",)
+                schema = "test"
+                entity_type = EntityType.default("human")
+
+            id: Annotated[int, Field(db_type="INTEGER", description="id")] = 0
+
+
+def test_city_entity_table_requires_city_subtype() -> None:
+    """CityEntityTable rejects 'residence' (still a place, but not a city)."""
+    with pytest.raises(TypeError, match="descend from 'city'"):
+
+        class _NotACity(CityEntityTable):
+            class _Meta:
+                name = "nope"
+                display_name = "Nope"
+                pk = ("id",)
+                schema = "test"
+                entity_type = EntityType.default("residence")
+
+            id: Annotated[int, Field(db_type="INTEGER", description="id")] = 0
+
+
+def test_residence_entity_table_requires_residence_subtype() -> None:
+    """ResidenceEntityTable rejects 'city'."""
+    with pytest.raises(TypeError, match="descend from 'residence'"):
+
+        class _NotAResidence(ResidenceEntityTable):
+            class _Meta:
+                name = "nope2"
+                display_name = "Nope2"
+                pk = ("id",)
+                schema = "test"
+                entity_type = EntityType.default("city")
+
+            id: Annotated[int, Field(db_type="INTEGER", description="id")] = 0
+
+
+def test_country_entity_table_requires_country_subtype() -> None:
+    """CountryEntityTable rejects 'city'."""
+    with pytest.raises(TypeError, match="descend from 'country'"):
+
+        class _NotACountry(CountryEntityTable):
+            class _Meta:
+                name = "nope3"
+                display_name = "Nope3"
+                pk = ("id",)
+                schema = "test"
+                entity_type = EntityType.default("city")
+
+            id: Annotated[int, Field(db_type="INTEGER", description="id")] = 0
