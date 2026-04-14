@@ -305,14 +305,22 @@ class LocalUser(Table):
 
     @classmethod
     def set_remote_token(cls, user_id: int, token: str) -> None:
-        """Store a shenas.net JWT for a local user (creates row if needed in single-user mode)."""
-        user = cls.find(user_id)
-        if not user and user_id == 0:
-            user = cls(id=0, username="default")
-            user.insert()
-        if user:
-            user.remote_token = token
-            user.save()
+        """Store a shenas.net JWT for a local user."""
+        from app.database import cursor
+
+        with cursor(database="shenas") as cur:
+            # Ensure user row exists (single-user mode may not have one)
+            row = cur.execute("SELECT 1 FROM shenas_system.local_users WHERE id = ?", [user_id]).fetchone()
+            if row:
+                cur.execute(
+                    "UPDATE shenas_system.local_users SET remote_token = ? WHERE id = ?",
+                    [token, user_id],
+                )
+            else:
+                cur.execute(
+                    "INSERT INTO shenas_system.local_users (id, username, remote_token) VALUES (?, 'default', ?)",
+                    [user_id, token],
+                )
 
     @classmethod
     def find_by_remote_token(cls, token: str) -> dict[str, Any] | None:
