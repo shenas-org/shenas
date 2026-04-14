@@ -104,7 +104,7 @@ class EntitiesPage extends LitElement {
       }
       #cy {
         width: 100%;
-        height: 320px;
+        height: max(320px, 50vh);
         border: 1px solid var(--shenas-border, #d8d4cc);
         border-radius: 8px;
         background: var(--shenas-bg-secondary, #f3f0eb);
@@ -115,7 +115,7 @@ class EntitiesPage extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        height: 320px;
+        height: max(320px, 50vh);
         color: var(--shenas-text-faint, #888);
         font-size: 0.9rem;
       }
