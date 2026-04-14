@@ -43,10 +43,10 @@ def test_create_entity_assigns_uuid_and_id(db_con: duckdb.DuckDBPyConnection) ->
     """Entity.create() generates a uuid, assigns an id, and registers the index row."""
     max_ = Entity.create(name="Max", type="animal")
     assert max_.id > 0
-    assert max_.uuid  # ty: ignore[unresolved-attribute]
-    assert len(max_.uuid) == 32  # ty: ignore[unresolved-attribute]
+    assert max_.uuid
+    assert len(max_.uuid) == 32
 
-    idx = EntityIndex.find(max_.uuid)  # ty: ignore[unresolved-attribute]
+    idx = EntityIndex.find(max_.uuid)
     assert idx is not None
     assert idx.db == "user"
     assert idx.table_name == "entities"
@@ -55,7 +55,7 @@ def test_create_entity_assigns_uuid_and_id(db_con: duckdb.DuckDBPyConnection) ->
 
 def test_find_by_uuid_roundtrips(db_con: duckdb.DuckDBPyConnection) -> None:
     original = Entity.create(name="The Oakland house", type="residence")
-    fetched = Entity.find_by_uuid(original.uuid)  # ty: ignore[unresolved-attribute]
+    fetched = Entity.find_by_uuid(original.uuid)
     assert fetched is not None
     assert fetched.id == original.id
     assert fetched.name == "The Oakland house"
@@ -66,15 +66,15 @@ def test_delete_entity_removes_index_and_relationships(db_con: duckdb.DuckDBPyCo
     alice_uuid = "a" * 32  # stand in for a LocalUser uuid
     seed_me_entity_index(db_con, local_user_id=1, local_user_uuid=alice_uuid)
     max_ = Entity.create(name="Max", type="animal")
-    EntityRelationship(from_uuid=alice_uuid, to_uuid=max_.uuid, type="owner_of").upsert()  # ty: ignore[unresolved-attribute]
+    EntityRelationship(from_uuid=alice_uuid, to_uuid=max_.uuid, type="owner_of").upsert()
 
-    assert EntityRelationship.find(alice_uuid, max_.uuid, "owner_of") is not None  # ty: ignore[unresolved-attribute]
+    assert EntityRelationship.find(alice_uuid, max_.uuid, "owner_of") is not None
 
     max_.delete()
 
-    assert Entity.find_by_uuid(max_.uuid) is None  # ty: ignore[unresolved-attribute]
-    assert EntityIndex.find(max_.uuid) is None  # ty: ignore[unresolved-attribute]
-    assert EntityRelationship.find(alice_uuid, max_.uuid, "owner_of") is None  # ty: ignore[unresolved-attribute]
+    assert Entity.find_by_uuid(max_.uuid) is None
+    assert EntityIndex.find(max_.uuid) is None
+    assert EntityRelationship.find(alice_uuid, max_.uuid, "owner_of") is None
 
 
 def test_relationship_upsert_and_for_entity(db_con: duckdb.DuckDBPyConnection) -> None:
@@ -83,8 +83,8 @@ def test_relationship_upsert_and_for_entity(db_con: duckdb.DuckDBPyConnection) -
     dog = Entity.create(name="Dog", type="animal")
     house = Entity.create(name="House", type="residence")
 
-    EntityRelationship(from_uuid=alice_uuid, to_uuid=dog.uuid, type="owner_of").upsert()  # ty: ignore[unresolved-attribute]
-    EntityRelationship(from_uuid=alice_uuid, to_uuid=house.uuid, type="lives_in").upsert()  # ty: ignore[unresolved-attribute]
+    EntityRelationship(from_uuid=alice_uuid, to_uuid=dog.uuid, type="owner_of").upsert()
+    EntityRelationship(from_uuid=alice_uuid, to_uuid=house.uuid, type="lives_in").upsert()
 
     edges = EntityRelationship.for_entity(alice_uuid)
     assert len(edges) == 2
@@ -200,4 +200,4 @@ def test_entity_save_updates_updated_at(db_con: duckdb.DuckDBPyConnection) -> No
 def test_entity_create_with_valid_type(db_con: duckdb.DuckDBPyConnection, type_name: str) -> None:
     row = Entity.create(name=f"Test {type_name}", type=type_name)
     assert row.type == type_name
-    assert row.uuid  # ty: ignore[unresolved-attribute]
+    assert row.uuid

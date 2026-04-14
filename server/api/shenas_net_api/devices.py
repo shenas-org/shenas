@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from shenas_net_api.auth import get_current_user
+from shenas_net_api.auth import get_current_user, require_admin
 from shenas_net_api.db import get_conn
 
 router = APIRouter(prefix="/devices")
@@ -46,6 +46,20 @@ async def list_devices(request: Request) -> list[dict]:
             "SELECT id, name, device_type, public_key, last_seen, created_at"
             " FROM devices WHERE user_id = %(uid)s ORDER BY created_at",
             {"uid": user["id"]},
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+@router.get("/all")
+async def list_all_devices(request: Request) -> list[dict]:
+    """List all registered devices across all users (admin only)."""
+    await require_admin(request)
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT d.id, d.name, d.device_type, d.last_seen, d.created_at,"
+            " u.name AS owner_name, u.email AS owner_email"
+            " FROM devices d JOIN users u ON d.user_id = u.id"
+            " ORDER BY d.last_seen DESC",
         ).fetchall()
     return [dict(r) for r in rows]
 

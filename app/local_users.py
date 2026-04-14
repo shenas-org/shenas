@@ -56,6 +56,7 @@ class LocalUser(Table):
     password_hash: Annotated[str, Field(db_type="VARCHAR", description="scrypt password hash")] = ""
     key_salt: Annotated[str, Field(db_type="VARCHAR", description="Salt for deriving DB encryption key")] = ""
     remote_token: Annotated[str | None, Field(db_type="VARCHAR", description="shenas.net JWT (optional)")] = None
+    remote_server: Annotated[str | None, Field(db_type="VARCHAR", description="Server URL the remote_token belongs to")] = None
     created_at: Annotated[
         str | None,
         Field(db_type="TIMESTAMP", description="When user was created", db_default="current_timestamp"),
@@ -282,13 +283,16 @@ class LocalUser(Table):
         """Return the current user's shenas.net token, or None.
 
         Checks SHENAS_REMOTE_TOKEN env var first (used by tests), then
-        falls back to the stored token in local_users.
+        falls back to the stored token in local_users. Returns None if
+        the stored token belongs to a different server than the current
+        SHENAS_NET_URL.
         """
         import os
 
         if env := os.environ.get("SHENAS_REMOTE_TOKEN"):
             return env
         try:
+            from app.config import SHENAS_NET_URL
             from app.database import current_user_id, cursor
 
             uid = current_user_id.get()
@@ -296,19 +300,27 @@ class LocalUser(Table):
                 return None
             with cursor(database="shenas") as cur:
                 row = cur.execute(
-                    "SELECT remote_token FROM shenas_system.local_users WHERE id = ?",
+                    "SELECT remote_token, remote_server FROM shenas_system.local_users WHERE id = ?",
                     [uid],
                 ).fetchone()
-            return row[0] if row and row[0] else None
+            if not row or not row[0]:
+                return None
+            # Token belongs to a different server -- treat as absent
+            if row[1] and row[1] != SHENAS_NET_URL:
+                return None
+            return row[0]
         except Exception:
             return None
 
     @classmethod
     def set_remote_token(cls, user_id: int, token: str) -> None:
         """Store a shenas.net JWT for a local user."""
+        from app.config import SHENAS_NET_URL
+
         user = cls.find(user_id)
         if user:
             user.remote_token = token
+            user.remote_server = SHENAS_NET_URL
             user.save()
 
     @classmethod

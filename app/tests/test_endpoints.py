@@ -175,7 +175,9 @@ class TestRemoteAuth:
         with patch("httpx.get", return_value=fake_resp):
             resp = client.get("/api/auth/me")
         assert resp.status_code == 200
-        assert resp.json() == {"user": {"id": 1, "name": "alex"}}
+        body = resp.json()
+        assert body["user"] == {"id": 1, "name": "alex"}
+        assert "server_url" in body
 
     def test_me_handles_httpx_error(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
@@ -185,4 +187,4 @@ class TestRemoteAuth:
 
         with patch("httpx.get", side_effect=Exception("network down")):
             resp = client.get("/api/auth/me")
-        assert resp.json() == {"user": None}
+        assert resp.json()["user"] is None

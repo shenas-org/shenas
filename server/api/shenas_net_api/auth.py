@@ -6,7 +6,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 from authlib.integrations.starlette_client import OAuth
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from itsdangerous import URLSafeTimedSerializer
 
@@ -81,13 +81,15 @@ async def callback(request: Request) -> RedirectResponse:
 def _create_session(email: str, name: str, picture: str, google_id: str) -> str:
     """Create or update user and return a new session token."""
     with get_conn() as conn:
+        # First user ever registered becomes admin
+        is_first = conn.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"] == 0
         conn.execute(
-            """INSERT INTO users (email, name, picture, google_id)
-               VALUES (%(email)s, %(name)s, %(picture)s, %(google_id)s)
+            """INSERT INTO users (email, name, picture, google_id, is_admin)
+               VALUES (%(email)s, %(name)s, %(picture)s, %(google_id)s, %(admin)s)
                ON CONFLICT (google_id) DO UPDATE
                SET name = EXCLUDED.name, picture = EXCLUDED.picture, updated_at = now()
                RETURNING id""",
-            {"email": email, "name": name, "picture": picture, "google_id": google_id},
+            {"email": email, "name": name, "picture": picture, "google_id": google_id, "admin": is_first},
         )
         user = conn.execute("SELECT id FROM users WHERE google_id = %(gid)s", {"gid": google_id}).fetchone()
         user_id = user["id"]
@@ -107,6 +109,17 @@ async def me(request: Request) -> dict:
     if not user:
         return {"user": None}
     return {"user": user}
+
+
+@router.get("/users")
+async def list_users(request: Request) -> list[dict]:
+    """List all registered users (admin only)."""
+    await require_admin(request)
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, email, name, picture, created_at, updated_at FROM users ORDER BY created_at",
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 @router.get("/logout")
@@ -142,9 +155,19 @@ async def get_current_user(request: Request) -> dict | None:
 
     with get_conn() as conn:
         row = conn.execute(
-            """SELECT u.id, u.email, u.name, u.picture
+            """SELECT u.id, u.email, u.name, u.picture, u.is_admin
                FROM sessions s JOIN users u ON s.user_id = u.id
                WHERE s.token = %(t)s AND s.expires_at > now()""",
             {"t": token},
         ).fetchone()
     return dict(row) if row else None
+
+
+async def require_admin(request: Request) -> dict:
+    """Return the current user if they are an admin, otherwise raise 403."""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user

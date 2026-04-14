@@ -13,12 +13,12 @@ import asyncio
 import logging
 import os
 
+from app.config import SHENAS_NET_URL
 from app.local_users import LocalUser
 
 log = logging.getLogger("shenas.mesh")
 
 SYNC_INTERVAL = int(os.environ.get("SHENAS_MESH_SYNC_INTERVAL", "60"))
-SHENAS_NET_URL = os.environ.get("SHENAS_NET_URL", "https://shenas.net")
 
 
 async def run_mesh_daemon() -> None:

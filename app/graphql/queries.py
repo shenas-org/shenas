@@ -604,7 +604,7 @@ class Query:
         cls = Model.load_by_name(name)
         if not cls:
             return {"name": name, "available": False, "round": None}  # ty: ignore[invalid-return-type]
-        return cls().training_status  # ty: ignore[invalid-return-type]
+        return cls().training_status
 
     @strawberry.field
     def model_predict(self, name: str) -> JSON:
@@ -613,7 +613,7 @@ class Query:
         cls = Model.load_by_name(name)
         if not cls:
             return None  # ty: ignore[invalid-return-type]
-        return cls().predict()  # ty: ignore[invalid-return-type]
+        return cls().predict()
 
     # -- Analytics catalog --
     #

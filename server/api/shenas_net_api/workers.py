@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from shenas_net_api.auth import get_current_user
+from shenas_net_api.auth import get_current_user, require_admin
 from shenas_net_api.db import get_conn
 
 router = APIRouter(prefix="/workers", tags=["workers"])
@@ -98,6 +98,39 @@ async def list_workers(request: Request) -> JSONResponse:
                 "name": r["name"],
                 "deployment_name": r["deployment_name"],
                 "status": status,
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+        )
+
+    return JSONResponse(content=workers)
+
+
+@router.get("/all")
+async def list_all_workers(request: Request) -> JSONResponse:
+    """List all workers across all users (admin only)."""
+    await require_admin(request)
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT w.id, w.name, w.deployment_name, w.created_at,"
+            " u.name AS owner_name, u.email AS owner_email"
+            " FROM workers w JOIN users u ON w.user_id = u.id"
+            " ORDER BY w.created_at DESC",
+        ).fetchall()
+
+    from shenas_net_api.k8s import get_worker_status
+
+    workers = []
+    for r in rows:
+        status = get_worker_status(r["id"])
+        workers.append(
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "deployment_name": r["deployment_name"],
+                "status": status,
+                "owner_name": r["owner_name"],
+                "owner_email": r["owner_email"],
                 "created_at": r["created_at"].isoformat() if r["created_at"] else None,
             }
         )

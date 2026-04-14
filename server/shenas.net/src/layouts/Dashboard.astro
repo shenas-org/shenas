@@ -2,7 +2,7 @@
 interface Props {
   title: string;
   description: string;
-  active: "overview" | "devices";
+  active: "overview" | "devices" | "all-devices" | "users" | "all-workers";
 }
 
 const { title, description, active } = Astro.props;
@@ -32,7 +32,19 @@ const { title, description, active } = Astro.props;
           </a>
           <a href="/devices" class:list={["nav-item", { active: active === "devices" }]}>
             <span class="nav-icon">💻</span>
+            <span>My Devices & Workers</span>
+          </a>
+          <a href="/all-devices" class:list={["nav-item admin-only", { active: active === "all-devices" }]} style="display:none">
+            <span class="nav-icon">🌐</span>
             <span>Devices</span>
+          </a>
+          <a href="/all-workers" class:list={["nav-item admin-only", { active: active === "all-workers" }]} style="display:none">
+            <span class="nav-icon">☁️</span>
+            <span>Workers</span>
+          </a>
+          <a href="/users" class:list={["nav-item admin-only", { active: active === "users" }]} style="display:none">
+            <span class="nav-icon">👥</span>
+            <span>Users</span>
           </a>
         </nav>
         <div class="dashboard-footer">
@@ -44,6 +56,18 @@ const { title, description, active } = Astro.props;
       </aside>
       <main class="dashboard-main">
         <slot />
+        <script>
+          fetch("/api/auth/me", { credentials: "include" })
+            .then((r) => r.json())
+            .then((d) => {
+              if (d.user?.is_admin) {
+                document.querySelectorAll(".admin-only").forEach((el) => {
+                  (el as HTMLElement).style.display = "";
+                });
+              }
+            })
+            .catch(() => {});
+        </script>
       </main>
     </div>
   </body>
