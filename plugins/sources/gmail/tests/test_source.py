@@ -203,7 +203,7 @@ class TestSendAsExtract:
 class TestKindsAndDispositions:
     def test_messages_is_event(self) -> None:
         assert issubclass(Messages, EventTable)
-        assert Messages.time_at == "internal_date"
+        assert Messages._Meta.time_at == "internal_date"
         assert Messages.cursor_column == "internal_date"
         assert Messages.write_disposition() == "merge"
 

@@ -86,9 +86,9 @@ class Visits(IntervalTable):
         display_name = "Visits"
         description = "Individual page visits from Chrome browsing history."
         pk = ("id",)
+        time_start = "visit_time"
+        time_end = "end_time"
 
-    time_start: ClassVar[str] = "visit_time"
-    time_end: ClassVar[str] = "end_time"
     cursor_column: ClassVar[str] = "visit_time"
 
     id: Annotated[int, Field(db_type="BIGINT", description="Chrome visit ID", display_name="Visit ID")] = 0
@@ -162,9 +162,9 @@ class Downloads(IntervalTable):
         display_name = "Downloads"
         description = "File downloads recorded by Chrome."
         pk = ("id",)
+        time_start = "start_time"
+        time_end = "end_time"
 
-    time_start: ClassVar[str] = "start_time"
-    time_end: ClassVar[str] = "end_time"
     cursor_column: ClassVar[str] = "start_time"
 
     id: Annotated[int, Field(db_type="BIGINT", description="Chrome download ID", display_name="Download ID")] = 0

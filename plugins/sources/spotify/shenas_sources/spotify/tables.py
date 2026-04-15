@@ -76,8 +76,8 @@ class RecentlyPlayed(EventTable):
         display_name = "Recently Played"
         description = "Track plays from the Spotify recent-listens feed."
         pk = ("played_at",)
+        time_at = "played_at"
 
-    time_at: ClassVar[str] = "played_at"
     cursor_column: ClassVar[str] = "played_at"
 
     played_at: Annotated[str, Field(db_type="TIMESTAMP", description="When the track was played", display_name="Played At")]

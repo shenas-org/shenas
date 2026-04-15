@@ -925,87 +925,86 @@ class EntitiesPage extends LitElement {
   }
 
   _renderEntitiesTable() {
-    if (this._entities.length === 0) {
-      return html`<p style="color:var(--shenas-text-faint,#888)">No entities yet.</p>`;
-    }
     return html`
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${this._entities.map(
-            (e) => html`
-              <tr>
-                <td>${e.name}${e.isMe ? html`<span class="me-badge">me</span>` : ""}</td>
-                <td>
-                  <a
-                    href="#"
-                    @click=${(ev: Event) => {
-                      ev.preventDefault();
-                      this._openTypeEntitiesPanel(e.type);
-                    }}
-                    style="color:var(--shenas-accent,#6b8ab0);text-decoration:none"
-                    >${this._typeDisplayName(e.type)}</a
-                  >
-                </td>
-                <td>${e.status}</td>
-                <td>
-                  <div class="row-actions">
-                    ${e.isMe
-                      ? ""
-                      : html`
-                          <button @click=${() => this._openEntityPanel(e)}>Edit</button>
-                          <button class="danger" @click=${() => this._delete(e)}>Delete</button>
-                        `}
-                  </div>
-                </td>
-              </tr>
-            `,
-          )}
-        </tbody>
-      </table>
+      <shenas-data-list
+        .columns=${[
+          {
+            key: "name",
+            label: "Name",
+            render: (row: Record<string, unknown>) => {
+              const e = row as unknown as Entity;
+              return html`${e.name}${e.isMe ? html`<span class="me-badge">me</span>` : ""}`;
+            },
+          },
+          {
+            key: "type",
+            label: "Type",
+            render: (row: Record<string, unknown>) => {
+              const e = row as unknown as Entity;
+              return html`<a
+                href="#"
+                @click=${(ev: Event) => {
+                  ev.preventDefault();
+                  this._openTypeEntitiesPanel(e.type);
+                }}
+                style="color:var(--shenas-accent,#6b8ab0);text-decoration:none"
+                >${this._typeDisplayName(e.type)}</a
+              >`;
+            },
+          },
+          { key: "status", label: "Status" },
+        ]}
+        .rows=${this._entities as unknown as Record<string, unknown>[]}
+        .actions=${(row: Record<string, unknown>) => {
+          const e = row as unknown as Entity;
+          return e.isMe
+            ? ""
+            : html`
+                <button @click=${() => this._openEntityPanel(e)}>Edit</button>
+                <button class="danger" @click=${() => this._delete(e)}>Delete</button>
+              `;
+        }}
+        empty-text="No entities yet."
+      ></shenas-data-list>
     `;
   }
 
   _renderRelationshipsTable() {
-    if (this._relationships.length === 0) {
-      return html`<p style="color:var(--shenas-text-faint,#888)">No relationships yet.</p>`;
-    }
     return html`
-      <table>
-        <thead>
-          <tr>
-            <th>From</th>
-            <th>Type</th>
-            <th>To</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${this._relationships.map((r) => {
-            const from = this._entityByUuid(r.fromUuid);
-            const to = this._entityByUuid(r.toUuid);
-            return html`
-              <tr>
-                <td>${from ? from.name : r.fromUuid.slice(0, 8)}</td>
-                <td>${this._relTypeDisplayName(r.type)}</td>
-                <td>${to ? to.name : r.toUuid.slice(0, 8)}</td>
-                <td>
-                  <div class="row-actions">
-                    <button class="danger" @click=${() => this._deleteRelationship(r)}>Delete</button>
-                  </div>
-                </td>
-              </tr>
-            `;
-          })}
-        </tbody>
-      </table>
+      <shenas-data-list
+        .columns=${[
+          {
+            key: "from",
+            label: "From",
+            render: (row: Record<string, unknown>) => {
+              const r = row as unknown as EntityRelationshipRow;
+              const from = this._entityByUuid(r.fromUuid);
+              return from ? from.name : r.fromUuid.slice(0, 8);
+            },
+          },
+          {
+            key: "type",
+            label: "Type",
+            render: (row: Record<string, unknown>) =>
+              this._relTypeDisplayName((row as unknown as EntityRelationshipRow).type),
+          },
+          {
+            key: "to",
+            label: "To",
+            render: (row: Record<string, unknown>) => {
+              const r = row as unknown as EntityRelationshipRow;
+              const to = this._entityByUuid(r.toUuid);
+              return to ? to.name : r.toUuid.slice(0, 8);
+            },
+          },
+        ]}
+        .rows=${this._relationships as unknown as Record<string, unknown>[]}
+        .actions=${(row: Record<string, unknown>) => {
+          const r = row as unknown as EntityRelationshipRow;
+          return html`<button class="danger" @click=${() => this._deleteRelationship(r)}>Delete</button>`;
+        }}
+        empty-text="No relationships yet."
+      ></shenas-data-list>
     `;
   }
 }

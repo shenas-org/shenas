@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import AggregateTable, SourceTable
@@ -35,8 +35,7 @@ class DailySummary(AggregateTable):
         display_name = "Daily Summary"
         description = "Daily productivity metrics from RescueTime."
         pk = ("date",)
-
-    time_at: ClassVar[str] = "date"
+        time_at = "date"
 
     date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
     productivity_pulse: Annotated[
@@ -94,8 +93,7 @@ class Activities(AggregateTable):
         display_name = "Activities"
         description = "Per-application time tracking from RescueTime."
         pk = ("date", "activity")
-
-    time_at: ClassVar[str] = "date"
+        time_at = "date"
 
     date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
     activity: Annotated[str, Field(db_type="VARCHAR", description="Application or website name", display_name="Activity")] = ""

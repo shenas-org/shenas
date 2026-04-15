@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import AggregateTable
@@ -25,8 +25,7 @@ class Indicators(AggregateTable):
         display_name = "Indicators"
         description = "GDP, unemployment, and CPI data per country from the OECD SDMX API."
         pk = ("country_code", "indicator_name", "period")
-
-    time_at: ClassVar[str] = "period"
+        time_at = "period"
 
     country_code: Annotated[
         str, Field(db_type="VARCHAR", description="ISO 3166-1 alpha-3 country code", display_name="Country Code")

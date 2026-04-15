@@ -52,30 +52,6 @@ class HotkeysPage extends LitElement {
         background: var(--shenas-bg, #fff);
         color: var(--shenas-text, #222);
       }
-      .hotkey-row {
-        display: flex;
-        align-items: center;
-        padding: 0.5rem 0;
-        border-bottom: 1px solid var(--shenas-border-light, #f0f0f0);
-        font-size: 0.85rem;
-      }
-      .hotkey-row:last-child {
-        border-bottom: none;
-      }
-      .hotkey-category {
-        min-width: 70px;
-        color: var(--shenas-text-muted, #888);
-        font-size: 0.75rem;
-      }
-      .hotkey-label {
-        flex: 1;
-        color: var(--shenas-text, #222);
-      }
-      .hotkey-binding {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-      }
       .kbd {
         display: inline-block;
         padding: 2px 8px;
@@ -284,36 +260,48 @@ class HotkeysPage extends LitElement {
           }}
         />
       </div>
-      ${filtered.map((a) => this._renderRow(a.id, a.label, a.category))}
+      <shenas-data-list
+        .columns=${[
+          { key: "category", label: "Category", class: "muted" },
+          { key: "label", label: "Action" },
+          {
+            key: "binding",
+            label: "Binding",
+            render: (row: Record<string, unknown>) => this._renderBindingCell((row as unknown as HotkeyAction).id),
+          },
+        ]}
+        .rows=${filtered as unknown as Record<string, unknown>[]}
+        .actions=${(row: Record<string, unknown>) => this._renderRowActions((row as unknown as HotkeyAction).id)}
+        empty-text="No hotkey actions"
+      ></shenas-data-list>
     `;
   }
 
-  _renderRow(actionId: string, label: string, category: string) {
+  _renderBindingCell(actionId: string) {
     const binding = this._bindings[actionId] || "";
     const isRecording = this._recording === actionId;
     const conflictLabel = this._conflict ? this._getActionLabel(this._conflict) : "";
+    if (isRecording) {
+      return html`
+        <span class="recording">${this._recordedKey || "Press a key..."}</span>
+        ${this._conflict ? html`<span class="conflict">Conflicts with ${conflictLabel}</span>` : ""}
+      `;
+    }
+    return binding ? html`<span class="kbd">${binding}</span>` : html`<span class="unbound">-</span>`;
+  }
 
+  _renderRowActions(actionId: string) {
+    const binding = this._bindings[actionId] || "";
+    const isRecording = this._recording === actionId;
+    if (isRecording) {
+      return html`
+        <button @click=${this._applyRecording} ?disabled=${!this._recordedKey}>Save</button>
+        <button @click=${this._stopRecording}>Cancel</button>
+      `;
+    }
     return html`
-      <div class="hotkey-row">
-        <span class="hotkey-category">${category}</span>
-        <span class="hotkey-label">${label}</span>
-        <span class="hotkey-binding">
-          ${isRecording
-            ? html`
-                <span class="recording">${this._recordedKey || "Press a key..."}</span>
-                ${this._conflict ? html`<span class="conflict">Conflicts with ${conflictLabel}</span>` : ""}
-                <button @click=${this._applyRecording} ?disabled=${!this._recordedKey}>Save</button>
-                <button @click=${this._stopRecording}>Cancel</button>
-              `
-            : html`
-                ${binding ? html`<span class="kbd">${binding}</span>` : html`<span class="unbound">-</span>`}
-                <button class="edit-btn" @click=${() => this._startRecording(actionId)}>Edit</button>
-                ${binding
-                  ? html`<button class="edit-btn" @click=${() => this._clearBinding(actionId)}>Clear</button>`
-                  : ""}
-              `}
-        </span>
-      </div>
+      <button class="edit-btn" @click=${() => this._startRecording(actionId)}>Edit</button>
+      ${binding ? html`<button class="edit-btn" @click=${() => this._clearBinding(actionId)}>Clear</button>` : ""}
     `;
   }
 }

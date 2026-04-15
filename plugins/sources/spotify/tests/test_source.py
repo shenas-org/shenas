@@ -316,7 +316,7 @@ class TestSavedShowsAndEpisodes:
 class TestKindsAndDispositions:
     def test_recently_played_is_event(self) -> None:
         assert issubclass(RecentlyPlayed, EventTable)
-        assert RecentlyPlayed.time_at == "played_at"
+        assert RecentlyPlayed._Meta.time_at == "played_at"
 
     def test_saved_tracks_is_snapshot_scd2(self) -> None:
         assert issubclass(SavedTracks, SnapshotTable)

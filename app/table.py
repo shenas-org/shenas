@@ -642,15 +642,19 @@ class DataTable(Table):
             meta["kind"] = kind
             meta["query_hint"] = cls._QUERY_HINT_BY_KIND[kind]
 
-        # Time-axis columns. Only emit keys whose ClassVars are actually set on
-        # this class (most kind bases declare a subset). ``observed_at_injected``
-        # comes from the ``_needs_observed_at`` classmethod that EventTable and
+        # Time-axis columns. ``time_at`` / ``time_start`` / ``time_end`` live on
+        # ``_Meta`` (kind-specific); ``cursor_column`` lives on the class root
+        # (declared on ``SourceTable`` itself). ``observed_at_injected`` comes
+        # from the ``_needs_observed_at`` classmethod that EventTable and
         # CounterTable override.
         time_cols: dict[str, Any] = {}
-        for attr in ("time_at", "time_start", "time_end", "cursor_column"):
-            val = getattr(cls, attr, None)
+        for attr in ("time_at", "time_start", "time_end"):
+            val = getattr(cls._Meta, attr, None)
             if val:
                 time_cols[attr] = val
+        cursor_val = getattr(cls, "cursor_column", None)
+        if cursor_val:
+            time_cols["cursor_column"] = cursor_val
         needs_observed_at = getattr(cls, "_needs_observed_at", None)
         if callable(needs_observed_at):
             try:

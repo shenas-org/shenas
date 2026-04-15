@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import AggregateTable
@@ -29,8 +29,7 @@ class FreedomScores(AggregateTable):
             "and 25 individual question scores (0-4 each)."
         )
         pk = ("country", "edition")
-
-    time_at: ClassVar[str] = "edition"
+        time_at = "edition"
 
     country: Annotated[str, Field(db_type="VARCHAR", description="Country or territory name", display_name="Country")] = ""
     is_territory: Annotated[

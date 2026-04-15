@@ -208,12 +208,11 @@ class SourceTable(DataTable):
 class EventTable(SourceTable):
     """A discrete, immutable point-in-time event. Merge on PK.
 
-    Optional ``time_at`` declares which column holds the row's timestamp;
+    Optional ``_Meta.time_at`` declares which column holds the row's timestamp;
     if omitted, an ``observed_at`` column is auto-injected from sync time.
     """
 
     _abstract: ClassVar[bool] = True
-    time_at: ClassVar[str | None] = None
 
     @classmethod
     def write_disposition(cls) -> dict[str, str] | str:
@@ -221,18 +220,16 @@ class EventTable(SourceTable):
 
     @classmethod
     def _needs_observed_at(cls) -> bool:
-        return cls.time_at is None
+        return getattr(cls._Meta, "time_at", None) is None
 
 
 class IntervalTable(SourceTable):
     """A discrete occurrence with both a start and an end timestamp. Merge on PK.
 
-    Both ``time_start`` and ``time_end`` are required.
+    Both ``_Meta.time_start`` and ``_Meta.time_end`` are required.
     """
 
     _abstract: ClassVar[bool] = True
-    time_start: ClassVar[str]
-    time_end: ClassVar[str]
 
     @classmethod
     def write_disposition(cls) -> dict[str, str] | str:
@@ -241,19 +238,18 @@ class IntervalTable(SourceTable):
     @classmethod
     def _validate(cls) -> None:
         super()._validate()
-        if not getattr(cls, "time_start", None) or not getattr(cls, "time_end", None):
-            msg = f"{cls.__name__}: IntervalTable requires both `time_start` and `time_end`"
+        if not getattr(cls._Meta, "time_start", None) or not getattr(cls._Meta, "time_end", None):
+            msg = f"{cls.__name__}: IntervalTable requires both `_Meta.time_start` and `_Meta.time_end`"
             raise TypeError(msg)
 
 
 class AggregateTable(SourceTable):
     """Per-window summary keyed on a time-window column. Merge on PK (which includes the window key).
 
-    ``time_at`` should match the window-key column in ``pk`` (date / hour / etc).
+    ``_Meta.time_at`` should match the window-key column in ``_Meta.pk`` (date / hour / etc).
     """
 
     _abstract: ClassVar[bool] = True
-    time_at: ClassVar[str | None] = None
 
     @classmethod
     def write_disposition(cls) -> dict[str, str] | str:
@@ -263,12 +259,11 @@ class AggregateTable(SourceTable):
 class DimensionTable(SourceTable):
     """Reference / lookup data that other tables join against. Loaded as SCD2.
 
-    Optional ``scd_columns`` lists the value columns whose changes mint a new
-    version. Defaults to all non-pk fields.
+    Optional ``_Meta.scd_columns`` lists the value columns whose changes mint a
+    new version. Defaults to all non-pk fields.
     """
 
     _abstract: ClassVar[bool] = True
-    scd_columns: ClassVar[tuple[str, ...] | None] = None
 
     @classmethod
     def write_disposition(cls) -> dict[str, str] | str:
@@ -283,7 +278,6 @@ class SnapshotTable(SourceTable):
     """
 
     _abstract: ClassVar[bool] = True
-    scd_columns: ClassVar[tuple[str, ...] | None] = None
 
     @classmethod
     def write_disposition(cls) -> dict[str, str] | str:
@@ -293,11 +287,10 @@ class SnapshotTable(SourceTable):
 class CounterTable(SourceTable):
     """Monotonically growing scalar where deltas matter. Append-with-observed_at.
 
-    ``counter_columns`` is required and lists the cumulative columns.
+    ``_Meta.counter_columns`` is required and lists the cumulative columns.
     """
 
     _abstract: ClassVar[bool] = True
-    counter_columns: ClassVar[tuple[str, ...]]
 
     @classmethod
     def write_disposition(cls) -> dict[str, str] | str:
@@ -310,8 +303,8 @@ class CounterTable(SourceTable):
     @classmethod
     def _validate(cls) -> None:
         super()._validate()
-        if not getattr(cls, "counter_columns", None):
-            msg = f"{cls.__name__}: CounterTable requires `counter_columns`"
+        if not getattr(cls._Meta, "counter_columns", None):
+            msg = f"{cls.__name__}: CounterTable requires `_Meta.counter_columns`"
             raise TypeError(msg)
 
 

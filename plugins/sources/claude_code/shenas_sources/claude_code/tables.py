@@ -14,7 +14,7 @@ import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import EventTable
@@ -56,8 +56,7 @@ class Prompts(EventTable):
         display_name = "Prompts"
         description = "User prompts submitted to Claude Code."
         pk = ("id",)
-
-    time_at: ClassVar[str] = "prompted_at"
+        time_at = "prompted_at"
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Content-hash ID (sha256[:16])", display_name="Prompt ID")] = ""
     prompt: Annotated[str, Field(db_type="VARCHAR", description="The user prompt text", display_name="Prompt Text")] = ""
@@ -116,8 +115,7 @@ class Turns(EventTable):
         display_name = "Turns"
         description = "Assistant turn durations and message counts from Claude Code sessions."
         pk = ("id",)
-
-    time_at: ClassVar[str] = "completed_at"
+        time_at = "completed_at"
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Content-hash ID (sha256[:16])", display_name="Turn ID")] = ""
     session_id: Annotated[

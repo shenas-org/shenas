@@ -53,8 +53,8 @@ class DailyXp(AggregateTable):
         display_name = "Daily XP"
         description = "Daily XP totals from Duolingo's xp_summaries endpoint."
         pk = ("date",)
+        time_at = "date"
 
-    time_at: ClassVar[str] = "date"
     cursor_column: ClassVar[str] = "date"
 
     date: Annotated[date | None, Field(db_type="DATE", description="Day of activity", display_name="Date")] = None
@@ -196,8 +196,7 @@ class Achievements(EventTable):
         display_name = "Achievements"
         description = "Unlocked Duolingo achievements / badges."
         pk = ("achievement_name", "tier")
-
-    time_at: ClassVar[str] = "unlocked_at"
+        time_at = "unlocked_at"
 
     achievement_name: Annotated[str, Field(db_type="VARCHAR", description="Achievement key", display_name="Achievement")]
     tier: Annotated[int, Field(db_type="INTEGER", description="Tier (0-based)", display_name="Tier")]
@@ -231,8 +230,7 @@ class League(AggregateTable):
         display_name = "League"
         description = "Weekly league standings (cohort = week)."
         pk = ("cohort_id",)
-
-    time_at: ClassVar[str] = "cohort_end"
+        time_at = "cohort_end"
 
     cohort_id: Annotated[str, Field(db_type="VARCHAR", description="Cohort ID for this week", display_name="Cohort ID")]
     league_tier: Annotated[

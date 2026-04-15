@@ -1,4 +1,4 @@
-from typing import Annotated, ClassVar
+from typing import Annotated
 
 from app.table import Field
 from shenas_datasets.core import DailyMetricTable, EventMetricTable, MonthlyMetricTable
@@ -17,8 +17,7 @@ class Transaction(EventMetricTable):
         display_name = "Transactions"
         description = "Per-transaction financial events from spending sources."
         pk = ("id", "source")
-
-    time_at: ClassVar[str] = "date"
+        time_at = "date"
 
     id: Annotated[
         str,

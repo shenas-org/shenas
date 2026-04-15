@@ -11,8 +11,8 @@ from shenas_sources.garmin.tables import Activities
 class TestActivitiesInterval:
     def test_kind_is_interval(self) -> None:
         assert issubclass(Activities, IntervalTable)
-        assert Activities.time_start == "startTimeLocal"
-        assert Activities.time_end == "end_time_local"
+        assert Activities._Meta.time_start == "startTimeLocal"
+        assert Activities._Meta.time_end == "end_time_local"
 
     def test_extract_computes_end_time_from_start_plus_duration(self) -> None:
         client = MagicMock()

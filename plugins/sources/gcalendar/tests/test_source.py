@@ -197,8 +197,8 @@ class TestColors:
 class TestKindsAndDispositions:
     def test_events_is_interval(self) -> None:
         assert issubclass(Events, IntervalTable)
-        assert Events.time_start == "start_date"
-        assert Events.time_end == "end_date"
+        assert Events._Meta.time_start == "start_date"
+        assert Events._Meta.time_end == "end_date"
 
     def test_event_attendees_is_m2m_scd2(self) -> None:
         assert issubclass(EventAttendees, M2MTable)

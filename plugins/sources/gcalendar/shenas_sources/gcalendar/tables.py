@@ -16,7 +16,7 @@ Each table is a subclass of one of the kind base classes in
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import (
@@ -86,9 +86,8 @@ class Events(IntervalTable):
         display_name = "Calendar Events"
         description = "Events across all the user's calendars."
         pk = ("id",)
-
-    time_start: ClassVar[str] = "start_date"
-    time_end: ClassVar[str] = "end_date"
+        time_start = "start_date"
+        time_end = "end_date"
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Event ID", display_name="Event ID")]
     calendar_id: Annotated[str | None, Field(db_type="VARCHAR", description="Calendar ID", display_name="Calendar ID")] = None

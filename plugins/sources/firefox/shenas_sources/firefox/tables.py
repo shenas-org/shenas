@@ -67,8 +67,8 @@ class Visits(EventTable):
         display_name = "Visits"
         description = "Individual page visits from Firefox browsing history."
         pk = ("id",)
+        time_at = "visit_time"
 
-    time_at: ClassVar[str] = "visit_time"
     cursor_column: ClassVar[str] = "visit_time"
 
     id: Annotated[int, Field(db_type="BIGINT", description="Firefox visit ID", display_name="Visit ID")] = 0

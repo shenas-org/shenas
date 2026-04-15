@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core import resolve_start_date
@@ -28,8 +28,7 @@ class DailyWeather(AggregateTable):
         display_name = "Daily Weather"
         description = "Daily weather observations per place: temperature, precipitation, wind, sunshine."
         pk = ("place_uuid", "date")
-
-    time_at: ClassVar[str] = "date"
+        time_at = "date"
 
     place_uuid: Annotated[
         str,
@@ -142,8 +141,7 @@ class DailyAirQuality(AggregateTable):
         display_name = "Daily Air Quality"
         description = "Daily air quality per place: PM2.5, PM10, NO2, SO2, CO, O3, AQI indices."
         pk = ("place_uuid", "date")
-
-    time_at: ClassVar[str] = "date"
+        time_at = "date"
 
     place_uuid: Annotated[
         str,

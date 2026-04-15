@@ -173,11 +173,11 @@ class TestFriends:
 class TestKindsAndDispositions:
     def test_daily_xp_is_aggregate(self) -> None:
         assert issubclass(DailyXp, AggregateTable)
-        assert DailyXp.time_at == "date"
+        assert DailyXp._Meta.time_at == "date"
 
     def test_achievements_is_event(self) -> None:
         assert issubclass(Achievements, EventTable)
-        assert Achievements.time_at == "unlocked_at"
+        assert Achievements._Meta.time_at == "unlocked_at"
 
     def test_friends_is_snapshot_scd2(self) -> None:
         assert issubclass(Friends, SnapshotTable)

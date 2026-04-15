@@ -43,24 +43,30 @@ class MetricTable(DataTable):
 
 
 class DailyMetricTable(MetricTable):
-    """Per-day metric. PK should include ``date``; ``time_at = "date"``."""
+    """Per-day metric. PK should include ``date``; ``_Meta.time_at = "date"``."""
 
     _abstract: ClassVar[bool] = True
-    time_at: ClassVar[str] = "date"
+
+    class _Meta:
+        time_at = "date"
 
 
 class WeeklyMetricTable(MetricTable):
-    """Per-week metric. PK should include ``week``; ``time_at = "week"``."""
+    """Per-week metric. PK should include ``week``; ``_Meta.time_at = "week"``."""
 
     _abstract: ClassVar[bool] = True
-    time_at: ClassVar[str] = "week"
+
+    class _Meta:
+        time_at = "week"
 
 
 class MonthlyMetricTable(MetricTable):
-    """Per-month metric. PK should include ``month``; ``time_at = "month"``."""
+    """Per-month metric. PK should include ``month``; ``_Meta.time_at = "month"``."""
 
     _abstract: ClassVar[bool] = True
-    time_at: ClassVar[str] = "month"
+
+    class _Meta:
+        time_at = "month"
 
 
 class EventMetricTable(MetricTable):

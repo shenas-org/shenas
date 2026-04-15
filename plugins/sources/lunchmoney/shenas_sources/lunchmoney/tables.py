@@ -61,8 +61,8 @@ class Transactions(EventTable):
         display_name = "Transactions"
         description = "Per-transaction events synced from Lunch Money."
         pk = ("id",)
+        time_at = "date"
 
-    time_at: ClassVar[str] = "date"
     cursor_column: ClassVar[str] = "date"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Transaction ID", display_name="Transaction ID")]

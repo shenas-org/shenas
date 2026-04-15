@@ -13,7 +13,7 @@ context kwarg carries the pre-fetched list of parsed feed entries
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import (
@@ -79,8 +79,7 @@ class Readings(EventTable):
         display_name = "Readings"
         description = "Books marked as read with completion date and personal rating."
         pk = ("book_id", "date_read")
-
-    time_at: ClassVar[str] = "date_read"
+        time_at = "date_read"
 
     book_id: Annotated[str, Field(db_type="VARCHAR", description="Goodreads Book ID", display_name="Book ID")]
     date_read: Annotated[

@@ -12,7 +12,7 @@ Each table's ``extract`` method takes the extracted-Takeout-archive
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import (
@@ -38,8 +38,7 @@ class PhotosMetadata(EventTable):
         display_name = "Photos Metadata"
         description = "Per-photo metadata extracted from Google Photos Takeout."
         pk = ("title", "photo_taken_timestamp")
-
-    time_at: ClassVar[str] = "photo_taken_timestamp"
+        time_at = "photo_taken_timestamp"
 
     title: Annotated[str, Field(db_type="VARCHAR", description="Photo/video title", display_name="Title")] = ""
     photo_taken_timestamp: Annotated[
@@ -86,8 +85,7 @@ class LocationRecords(EventTable):
         display_name = "Location Records"
         description = "Raw location pings from Location History."
         pk = ("timestamp", "latitude", "longitude")
-
-    time_at: ClassVar[str] = "timestamp"
+        time_at = "timestamp"
 
     timestamp: Annotated[str, Field(db_type="VARCHAR", description="ISO timestamp", display_name="Timestamp")] = ""
     latitude: Annotated[float, Field(db_type="DOUBLE", description="Latitude", display_name="Latitude")] = 0.0
@@ -117,8 +115,7 @@ class LocationVisits(EventTable):
         display_name = "Location Visits"
         description = "Semantic place visits / activity segments."
         pk = ("start_timestamp", "place_name", "type")
-
-    time_at: ClassVar[str] = "start_timestamp"
+        time_at = "start_timestamp"
 
     start_timestamp: Annotated[str, Field(db_type="VARCHAR", description="Start ISO timestamp", display_name="Start Time")] = (
         ""
@@ -154,8 +151,7 @@ class YouTubeWatchHistory(EventTable):
         display_name = "YouTube Watch History"
         description = "YouTube watch history events."
         pk = ("title_url", "time")
-
-    time_at: ClassVar[str] = "time"
+        time_at = "time"
 
     title_url: Annotated[str, Field(db_type="VARCHAR", description="Video URL", display_name="Video URL")] = ""
     time: Annotated[str, Field(db_type="VARCHAR", description="Watch timestamp", display_name="Watch Time")] = ""
@@ -182,8 +178,7 @@ class YouTubeSearchHistory(EventTable):
         display_name = "YouTube Search History"
         description = "YouTube search history events."
         pk = ("title", "time")
-
-    time_at: ClassVar[str] = "time"
+        time_at = "time"
 
     title: Annotated[str, Field(db_type="VARCHAR", description="Search query", display_name="Search Query")] = ""
     time: Annotated[str, Field(db_type="VARCHAR", description="Search timestamp", display_name="Search Time")] = ""

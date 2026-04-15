@@ -820,31 +820,33 @@ class PluginDetail extends LitElement {
       <p style="color:var(--shenas-text-muted,#888);font-size:0.85rem;margin:0 0 0.8rem">
         ${enabledCount} of ${this._entities.length} enabled. Toggle to show or hide in the entity graph.
       </p>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th style="width:120px">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${this._entities.map(
-            (entity) => html`
-              <tr>
-                <td>${entity.name || entity.uuid.slice(0, 8)}</td>
-                <td>
-                  <input
-                    type="checkbox"
-                    title=${entity.status === "enabled" ? "Shown in entity graph" : "Hidden from entity graph"}
-                    .checked=${entity.status === "enabled"}
-                    @change=${() => this._toggleEntityStatus(entity)}
-                  />
-                </td>
-              </tr>
-            `,
-          )}
-        </tbody>
-      </table>
+      <shenas-data-list
+        .columns=${[
+          {
+            key: "name",
+            label: "Name",
+            render: (row: Record<string, unknown>) => {
+              const e = row as unknown as SourceEntity;
+              return e.name || e.uuid.slice(0, 8);
+            },
+          },
+          {
+            key: "status",
+            label: "Status",
+            render: (row: Record<string, unknown>) => {
+              const e = row as unknown as SourceEntity;
+              return html`<input
+                type="checkbox"
+                title=${e.status === "enabled" ? "Shown in entity graph" : "Hidden from entity graph"}
+                .checked=${e.status === "enabled"}
+                @change=${() => this._toggleEntityStatus(e)}
+              />`;
+            },
+          },
+        ]}
+        .rows=${this._entities as unknown as Record<string, unknown>[]}
+        empty-text="No entities"
+      ></shenas-data-list>
     `;
   }
 
@@ -855,41 +857,43 @@ class PluginDetail extends LitElement {
       <p style="color:var(--shenas-text-muted,#888);font-size:0.85rem;margin:0 0 0.8rem">
         ${mappedCount} of ${this._mappableItems.length} mapped. Assign each source row to the entity it represents.
       </p>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th style="width:280px">Mapped to</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${this._mappableItems.map(
-            (item) => html`
-              <tr>
-                <td>${item.name || item.sourceRowKey}</td>
-                <td>
-                  <select
-                    style="width:100%"
-                    @change=${(e: Event) => {
-                      const value = (e.target as HTMLSelectElement).value;
-                      this._setEntityMapping(item, value || null);
-                    }}
-                  >
-                    <option value="" ?selected=${!item.mappedToUuid}>-- unmapped --</option>
-                    ${this._targetEntityOptions.map(
-                      (opt) => html`
-                        <option value=${opt.uuid} ?selected=${item.mappedToUuid === opt.uuid}>
-                          ${opt.name} (${opt.type})
-                        </option>
-                      `,
-                    )}
-                  </select>
-                </td>
-              </tr>
-            `,
-          )}
-        </tbody>
-      </table>
+      <shenas-data-list
+        .columns=${[
+          {
+            key: "name",
+            label: "Name",
+            render: (row: Record<string, unknown>) => {
+              const item = row as unknown as MappableItem;
+              return item.name || item.sourceRowKey;
+            },
+          },
+          {
+            key: "mapped",
+            label: "Mapped to",
+            render: (row: Record<string, unknown>) => {
+              const item = row as unknown as MappableItem;
+              return html`<select
+                style="width:100%"
+                @change=${(e: Event) => {
+                  const value = (e.target as HTMLSelectElement).value;
+                  this._setEntityMapping(item, value || null);
+                }}
+              >
+                <option value="" ?selected=${!item.mappedToUuid}>-- unmapped --</option>
+                ${this._targetEntityOptions.map(
+                  (opt) => html`
+                    <option value=${opt.uuid} ?selected=${item.mappedToUuid === opt.uuid}>
+                      ${opt.name} (${opt.type})
+                    </option>
+                  `,
+                )}
+              </select>`;
+            },
+          },
+        ]}
+        .rows=${this._mappableItems as unknown as Record<string, unknown>[]}
+        empty-text="Nothing to map"
+      ></shenas-data-list>
     `;
   }
 

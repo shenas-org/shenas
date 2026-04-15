@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.entity import EntityTable, EntityType
 from app.table import Field
@@ -30,8 +30,7 @@ class Events(EventTable):
         display_name = "Events"
         description = "GitHub activity feed events (last 90 days)."
         pk = ("id",)
-
-    time_at: ClassVar[str] = "created_at"
+        time_at = "created_at"
 
     id: Annotated[
         str,
@@ -197,8 +196,7 @@ class PullRequests(EventTable):
         display_name = "Pull Requests"
         description = "Pull requests authored by the authenticated user."
         pk = ("id",)
-
-    time_at: ClassVar[str] = "created_at"
+        time_at = "created_at"
 
     id: Annotated[
         int,

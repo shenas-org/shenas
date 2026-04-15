@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import AggregateTable
@@ -28,8 +28,7 @@ class WEOIndicators(AggregateTable):
             "(GDP growth, inflation, unemployment, government debt, etc.)."
         )
         pk = ("country_code", "indicator_code", "year")
-
-    time_at: ClassVar[str] = "year"
+        time_at = "year"
 
     country_code: Annotated[
         str, Field(db_type="VARCHAR", description="IMF country code (3-letter)", display_name="Country Code")

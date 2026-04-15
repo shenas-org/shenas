@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, ClassVar
+from typing import Annotated
 
 from app.table import Field
 from shenas_datasets.core import EventMetricTable
@@ -27,8 +27,7 @@ class Event(EventMetricTable):
         display_name = "Events"
         description = "Unified timeline of events from all sources."
         pk = ("source", "source_id")
-
-    time_at: ClassVar[str] = "start_at"
+        time_at = "start_at"
 
     source: Source
     source_id: Annotated[

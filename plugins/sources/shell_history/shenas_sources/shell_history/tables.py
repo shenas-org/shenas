@@ -14,7 +14,7 @@ import contextlib
 import hashlib
 import re
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import EventTable, SourceTable
@@ -125,8 +125,7 @@ class Commands(EventTable):
         display_name = "Commands"
         description = "Shell commands from bash, zsh, or fish history."
         pk = ("id",)
-
-    time_at: ClassVar[str] = "executed_at"
+        time_at = "executed_at"
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Content-hash ID (sha256[:16])", display_name="ID")] = ""
     command: Annotated[str, Field(db_type="VARCHAR", description="The shell command", display_name="Command")] = ""

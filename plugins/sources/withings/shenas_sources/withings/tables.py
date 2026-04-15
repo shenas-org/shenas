@@ -46,8 +46,7 @@ class Measurements(EventTable):
         display_name = "Measurements"
         description = "Body measurements from Withings scales, BP monitors, and other devices."
         pk = ("grpid",)
-
-    time_at: ClassVar[str] = "created_at"
+        time_at = "created_at"
 
     grpid: Annotated[int, Field(db_type="BIGINT", description="Measurement group ID", display_name="Group ID")]
     created_at: Annotated[
@@ -118,8 +117,8 @@ class SleepSummary(AggregateTable):
         display_name = "Sleep Summary"
         description = "Per-night sleep summary from Withings Sleep Mat or ScanWatch."
         pk = ("date",)
+        time_at = "date"
 
-    time_at: ClassVar[str] = "date"
     cursor_column: ClassVar[str] = "date"
 
     date: Annotated[str, Field(db_type="DATE", description="Night date", display_name="Date")] = ""
@@ -188,8 +187,8 @@ class DailyActivity(AggregateTable):
         display_name = "Daily Activity"
         description = "Per-day activity summary from Withings wearables."
         pk = ("date",)
+        time_at = "date"
 
-    time_at: ClassVar[str] = "date"
     cursor_column: ClassVar[str] = "date"
 
     date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""

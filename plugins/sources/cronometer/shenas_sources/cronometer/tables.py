@@ -17,7 +17,7 @@ import csv
 import hashlib
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import AggregateTable, EventTable, SourceTable
@@ -91,8 +91,7 @@ class DailyNutrition(AggregateTable):
         display_name = "Daily Nutrition"
         description = "Daily macro- and micronutrient totals from Cronometer."
         pk = ("date",)
-
-    time_at: ClassVar[str] = "date"
+        time_at = "date"
 
     date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
     energy_kcal: Annotated[
@@ -133,8 +132,7 @@ class Servings(EventTable):
         display_name = "Servings"
         description = "Individual food log entries from Cronometer."
         pk = ("id",)
-
-    time_at: ClassVar[str] = "day"
+        time_at = "day"
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Content-hash ID", display_name="ID")] = ""
     day: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Day")] = ""

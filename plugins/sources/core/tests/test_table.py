@@ -66,8 +66,7 @@ class _Sample(EventTable):
         display_name = "Sample Events"
         description = "A sample event table for tests."
         pk = ("id",)
-
-    time_at: ClassVar[str] = "occurred_at"
+        time_at = "occurred_at"
 
     id: Annotated[int, Field(db_type="BIGINT", description="row id")]
     occurred_at: Annotated[str, Field(db_type="TIMESTAMP", description="when")]
@@ -126,7 +125,7 @@ class TestValidation:
                 id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
     def test_interval_requires_time_start_and_end(self) -> None:
-        with pytest.raises(TypeError, match="IntervalTable requires both `time_start` and `time_end`"):
+        with pytest.raises(TypeError, match=r"IntervalTable requires both `_Meta\.time_start` and `_Meta\.time_end`"):
 
             class _BadInterval(IntervalTable):
                 class _Meta:
@@ -137,7 +136,7 @@ class TestValidation:
                 id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
     def test_counter_requires_counter_columns(self) -> None:
-        with pytest.raises(TypeError, match="CounterTable requires `counter_columns`"):
+        with pytest.raises(TypeError, match=r"CounterTable requires `_Meta\.counter_columns`"):
 
             class _BadCounter(CounterTable):
                 class _Meta:
@@ -153,9 +152,8 @@ class TestValidation:
                 name = "intervals"
                 display_name = "Intervals"
                 pk = ("id",)
-
-            time_start: ClassVar[str] = "starts_at"
-            time_end: ClassVar[str] = "ends_at"
+                time_start = "starts_at"
+                time_end = "ends_at"
 
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             starts_at: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
@@ -169,8 +167,8 @@ class TestValidation:
                 name = "ctr"
                 display_name = "Ctr"
                 pk = ("id",)
+                counter_columns = ("distance_m",)
 
-            counter_columns: ClassVar[tuple[str, ...]] = ("distance_m",)
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             distance_m: Annotated[float, Field(db_type="DOUBLE", description="cum")] = 0.0
 
@@ -211,8 +209,8 @@ class TestWriteDisposition:
                 name = "ctr2"
                 display_name = "Ctr2"
                 pk = ("id",)
+                counter_columns = ("distance_m",)
 
-            counter_columns: ClassVar[tuple[str, ...]] = ("distance_m",)
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             distance_m: Annotated[float, Field(db_type="DOUBLE", description="cum")] = 0.0
 
@@ -225,8 +223,8 @@ class TestWriteDisposition:
                 name = "agg"
                 display_name = "Agg"
                 pk = ("date",)
+                time_at = "date"
 
-            time_at: ClassVar[str] = "date"
             date: Annotated[str, Field(db_type="DATE", description="x")]
 
         assert _Agg.write_disposition() == "merge"
@@ -265,8 +263,8 @@ class TestColumns:
                 name = "ctr3"
                 display_name = "Ctr3"
                 pk = ("id",)
+                counter_columns = ("dist",)
 
-            counter_columns: ClassVar[tuple[str, ...]] = ("dist",)
             id: Annotated[str, Field(db_type="VARCHAR", description="x")]
             dist: Annotated[float, Field(db_type="DOUBLE", description="x")] = 0.0
 
@@ -322,8 +320,8 @@ class TestToResource:
                 name = "ctx"
                 display_name = "Ctx"
                 pk = ("id",)
+                time_at = "ts"
 
-            time_at: ClassVar[str] = "ts"
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
 
@@ -349,8 +347,8 @@ class TestTableKindAndMetadata:
                 name = "evts"
                 display_name = "Events"
                 pk = ("id",)
+                time_at = "ts"
 
-            time_at: ClassVar[str] = "ts"
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
 
@@ -382,9 +380,9 @@ class TestTableKindAndMetadata:
                 name = "intervals"
                 display_name = "Intervals"
                 pk = ("id",)
+                time_start = "starts_at"
+                time_end = "ends_at"
 
-            time_start: ClassVar[str] = "starts_at"
-            time_end: ClassVar[str] = "ends_at"
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             starts_at: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
             ends_at: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
@@ -447,8 +445,8 @@ class TestTableKindAndMetadata:
                 display_name = "Rollup"
                 schema = "mysrc"
                 pk = ("date",)
+                time_at = "date"
 
-            time_at: ClassVar[str] = "date"
             date: Annotated[str, Field(db_type="DATE", description="x")]
 
         meta = _Agg.table_metadata()
@@ -462,8 +460,8 @@ class TestTableKindAndMetadata:
                 name = "counters"
                 display_name = "Counters"
                 pk = ("id",)
+                counter_columns = ("distance_m",)
 
-            counter_columns: ClassVar[tuple[str, ...]] = ("distance_m",)
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             distance_m: Annotated[float, Field(db_type="DOUBLE", description="cum")] = 0.0
 
@@ -478,8 +476,8 @@ class TestTableKindAndMetadata:
                 name = "messages"
                 display_name = "Messages"
                 pk = ("id",)
+                time_at = "internal_date"
 
-            time_at: ClassVar[str] = "internal_date"
             cursor_column: ClassVar[str] = "internal_date"
             id: Annotated[str, Field(db_type="VARCHAR", description="x")]
             internal_date: Annotated[int, Field(db_type="BIGINT", description="x")]
@@ -518,8 +516,8 @@ class TestTableKindAndMetadata:
                 name = "noschema"
                 display_name = "No Schema"
                 pk = ("id",)
+                time_at = "ts"
 
-            time_at: ClassVar[str] = "ts"
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
 
@@ -532,8 +530,8 @@ class TestTableKindAndMetadata:
                 display_name = "With Schema"
                 schema = "garmin"
                 pk = ("id",)
+                time_at = "ts"
 
-            time_at: ClassVar[str] = "ts"
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
 

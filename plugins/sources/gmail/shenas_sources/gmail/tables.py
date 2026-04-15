@@ -178,8 +178,8 @@ class Messages(EventTable):
         display_name = "Gmail Messages"
         description = "Email metadata, headers, and label-derived state flags."
         pk = ("id",)
+        time_at = "internal_date"
 
-    time_at: ClassVar[str] = "internal_date"
     cursor_column: ClassVar[str] = "internal_date"
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Message ID", display_name="Message ID")]

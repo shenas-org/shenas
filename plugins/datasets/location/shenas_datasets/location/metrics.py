@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, ClassVar
+from typing import Annotated
 
 from app.table import Field
 from shenas_datasets.core import EventMetricTable
@@ -24,8 +24,7 @@ class LocationVisit(EventMetricTable):
         display_name = "Location Visits"
         description = "Geofence-categorized location visits from all sources."
         pk = ("source", "source_id")
-
-    time_at: ClassVar[str] = "arrived_at"
+        time_at = "arrived_at"
 
     source: Source
     source_id: Annotated[

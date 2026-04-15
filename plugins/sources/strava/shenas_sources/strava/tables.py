@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import (
@@ -101,9 +101,8 @@ class Activities(IntervalTable):
         display_name = "Activities"
         description = "Strava workouts and activities, fetched as DetailedActivity."
         pk = ("id",)
-
-    time_start: ClassVar[str] = "start_date"
-    time_end: ClassVar[str] = "end_date"
+        time_start = "start_date"
+        time_end = "end_date"
 
     id: Annotated[int, Field(db_type="BIGINT", description="Activity ID", display_name="Activity ID")]
     name_: Annotated[str | None, Field(db_type="VARCHAR", description="Activity name", display_name="Activity Name")] = None
@@ -228,9 +227,8 @@ class Laps(IntervalTable):
         display_name = "Laps"
         description = "Per-lap splits embedded in each detailed activity."
         pk = ("id",)
-
-    time_start: ClassVar[str] = "start_date"
-    time_end: ClassVar[str] = "end_date"
+        time_start = "start_date"
+        time_end = "end_date"
 
     id: Annotated[int, Field(db_type="BIGINT", description="Lap ID", display_name="Lap ID")]
     activity_id: Annotated[int, Field(db_type="BIGINT", description="Parent activity ID", display_name="Activity ID")]
@@ -355,8 +353,7 @@ class Comments(EventTable):
         display_name = "Comments"
         description = "Comments left on activities by other athletes."
         pk = ("id",)
-
-    time_at: ClassVar[str] = "created_at"
+        time_at = "created_at"
 
     id: Annotated[int, Field(db_type="BIGINT", description="Comment ID", display_name="Comment ID")]
     activity_id: Annotated[int, Field(db_type="BIGINT", description="Activity ID", display_name="Activity ID")]
@@ -628,8 +625,7 @@ class Gear(CounterTable):
         display_name = "Gear"
         description = "Bikes and shoes with cumulative distance."
         pk = ("id",)
-
-    counter_columns: ClassVar[tuple[str, ...]] = ("distance_m",)
+        counter_columns = ("distance_m",)
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Gear ID", display_name="Gear ID")]
     type: Annotated[str, Field(db_type="VARCHAR", description="'bike' or 'shoe'", display_name="Type")] = ""

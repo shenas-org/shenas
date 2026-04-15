@@ -234,8 +234,8 @@ class TestHabitsExtract:
 class TestKindsAndDispositions:
     def test_daily_notes_is_aggregate(self) -> None:
         assert issubclass(DailyNotes, AggregateTable)
-        assert DailyNotes.time_at == "date"
+        assert DailyNotes._Meta.time_at == "date"
 
     def test_habits_is_event(self) -> None:
         assert issubclass(Habits, EventTable)
-        assert Habits.time_at == "date"
+        assert Habits._Meta.time_at == "date"

@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import AggregateTable, DimensionTable
@@ -26,8 +26,7 @@ class Indicators(AggregateTable):
         display_name = "Indicators"
         description = "Annual values for 30 core development indicators per country (GDP, population, inflation, etc.)."
         pk = ("country_code", "indicator_code", "year")
-
-    time_at: ClassVar[str] = "year"
+        time_at = "year"
 
     country_code: Annotated[
         str, Field(db_type="VARCHAR", description="ISO 3166-1 alpha-3 country code", display_name="Country Code")

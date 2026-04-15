@@ -53,9 +53,9 @@ class Activities(IntervalTable):
         display_name = "Activities"
         description = "Activity summaries from Garmin Connect."
         pk = ("activity_id",)
+        time_start = "startTimeLocal"
+        time_end = "end_time_local"
 
-    time_start: ClassVar[str] = "startTimeLocal"
-    time_end: ClassVar[str] = "end_time_local"
     cursor_column: ClassVar[str] = "startTimeLocal"
 
     activity_id: Annotated[
@@ -124,8 +124,8 @@ class _DailyAggregate(AggregateTable):
 
     class _Meta:
         pk = ("calendarDate",)
+        time_at = "calendarDate"
 
-    time_at: ClassVar[str] = "calendarDate"
     cursor_column: ClassVar[str] = "calendarDate"
 
 

@@ -66,8 +66,7 @@ class DailyNotes(AggregateTable):
         display_name = "Daily Notes"
         description = "Frontmatter fields from Obsidian daily notes."
         pk = ("date",)
-
-    time_at: ClassVar[str] = "date"
+        time_at = "date"
 
     date: Annotated[str, Field(db_type="DATE", description="Daily note date from filename", display_name="Date")] = ""
 
@@ -107,8 +106,7 @@ class Habits(EventTable):
         display_name = "Habits"
         description = "Top-level checkboxes under the configured habits heading."
         pk = ("date", "habit_name")
-
-    time_at: ClassVar[str] = "date"
+        time_at = "date"
 
     date: Annotated[str, Field(db_type="DATE", description="Daily note date from filename", display_name="Date")] = ""
     habit_name: Annotated[

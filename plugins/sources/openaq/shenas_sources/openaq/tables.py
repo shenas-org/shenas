@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core import resolve_start_date
@@ -32,8 +32,7 @@ class DailyMeasurements(AggregateTable):
         display_name = "Daily Measurements"
         description = "Daily mean pollutant concentrations per monitoring station, scoped to the configured place."
         pk = ("place_uuid", "date", "location_id")
-
-    time_at: ClassVar[str] = "date"
+        time_at = "date"
 
     place_uuid: Annotated[
         str, Field(db_type="VARCHAR", description="Place entity UUID this station was discovered from", display_name="Place")

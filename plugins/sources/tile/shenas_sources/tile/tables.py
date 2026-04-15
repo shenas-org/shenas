@@ -16,7 +16,7 @@ Each table is a subclass of one of the kind base classes in
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.entity import EntityMapTable, EntityType
 from app.table import Field
@@ -105,8 +105,7 @@ class TileLocations(EventTable):
         display_name = "Tile Locations"
         description = "Last-known location observations from Tile trackers."
         pk = ("tile_uuid", "last_timestamp")
-
-    time_at: ClassVar[str] = "last_timestamp"
+        time_at = "last_timestamp"
 
     tile_uuid: Annotated[str, Field(db_type="VARCHAR", description="Tile device UUID", display_name="Tile UUID")]
     last_timestamp: Annotated[

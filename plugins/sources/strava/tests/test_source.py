@@ -285,17 +285,17 @@ class TestKindsAndDispositions:
     def test_activities_is_interval(self) -> None:
         assert issubclass(Activities, IntervalTable)
         assert Activities.write_disposition() == "merge"
-        assert Activities.time_start == "start_date"
-        assert Activities.time_end == "end_date"
+        assert Activities._Meta.time_start == "start_date"
+        assert Activities._Meta.time_end == "end_date"
 
     def test_laps_is_interval(self) -> None:
         assert issubclass(Laps, IntervalTable)
-        assert Laps.time_start == "start_date"
-        assert Laps.time_end == "end_date"
+        assert Laps._Meta.time_start == "start_date"
+        assert Laps._Meta.time_end == "end_date"
 
     def test_comments_is_event(self) -> None:
         assert issubclass(Comments, EventTable)
-        assert Comments.time_at == "created_at"
+        assert Comments._Meta.time_at == "created_at"
 
     def test_athlete_is_snapshot_scd2(self) -> None:
         assert issubclass(Athlete, SnapshotTable)
