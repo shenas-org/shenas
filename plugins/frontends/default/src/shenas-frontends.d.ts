@@ -44,16 +44,6 @@ declare module "shenas-frontends" {
     hostDisconnected(): void;
   }
 
-  export function gql(
-    base: string,
-    query: string,
-    variables?: Record<string, unknown>,
-  ): Promise<Record<string, unknown>>;
-  export function gqlFull(
-    base: string,
-    query: string,
-    variables?: Record<string, unknown>,
-  ): Promise<{ ok: boolean; data?: Record<string, unknown>; error?: string }>;
   export function apiFetch(
     base: string,
     method: string,
