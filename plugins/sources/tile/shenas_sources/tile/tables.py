@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 from app.entity import EntityMapTable, EntityType
 from app.table import Field
 from shenas_sources.core.table import (
+    DimensionTable,
     EventTable,
     SnapshotTable,
     SourceTable,
@@ -52,22 +53,14 @@ def _to_iso(value: Any) -> str | None:
     return str(value) or None
 
 
-class Tiles(EntityMapTable):
-    """Registered Tile devices. SCD2 captures renames and firmware updates.
-
-    Each row is a **would-be** entity: a physical Tile tracker could be
-    attached to a key, a bag, a bike, a dog. The user decides from the
-    plugin's Entities tab which real entity each Tile maps to, and the
-    mapping is stored in ``shenas_system.entity_mappings``.
-    """
+class Tiles(DimensionTable):
+    """Registered Tile devices. SCD2 captures renames and firmware updates."""
 
     class _Meta:
         name = "tiles"
         display_name = "Tiles"
         description = "Registered Tile Bluetooth tracker devices."
         pk = ("tile_uuid",)
-        entity_type = EntityType.default("physical_entity")
-        entity_name_column = "name"
 
     tile_uuid: Annotated[str, Field(db_type="VARCHAR", description="Tile device UUID", display_name="Tile UUID")]
     name: Annotated[
@@ -234,4 +227,85 @@ class TileState(SnapshotTable):
             }
 
 
-TABLES: tuple[type[SourceTable], ...] = (Tiles, TileLocations, TileState)
+class TileInfo(EntityMapTable):
+    """Derived per-tile snapshot joining Tiles + TileLocations + TileState.
+
+    Populated by the bundled SQL transform, which filters out tiles whose
+    ``connection_state`` is ``DISCONNECTED`` or whose ``is_dead`` flag is set.
+    Each surviving row is a **would-be** entity: the user decides what real
+    entity each physical tile is attached to (key, bag, bike, dog) from the
+    plugin's Entities tab.
+
+    Because rows are produced by a transform (not by dlt), the SCD2
+    ``_dlt_valid_to`` column is declared explicitly on the dataclass so
+    ``Table.ensure()`` creates it and downstream filters (the Entities-tab
+    ``WHERE _dlt_valid_to IS NULL`` selector) keep working.
+    """
+
+    class _Meta:
+        name = "tile_info"
+        display_name = "Tile Info"
+        description = "Live device snapshot for each active Tile (derived)."
+        pk = ("tile_uuid",)
+        entity_type = EntityType.default("physical_entity")
+        entity_name_column = "name"
+
+    tile_uuid: Annotated[str, Field(db_type="VARCHAR", description="Tile device UUID", display_name="Tile UUID")] = ""
+    name: Annotated[
+        str | None, Field(db_type="VARCHAR", description="User-assigned device name", display_name="Device Name")
+    ] = None
+    tile_type: Annotated[
+        str | None,
+        Field(db_type="VARCHAR", description="Tile product type", display_name="Tile Type"),
+    ] = None
+    firmware_version: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Current firmware version", display_name="Firmware Version")
+    ] = None
+    hardware_version: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Hardware version", display_name="Hardware Version")
+    ] = None
+    latitude: Annotated[float | None, Field(db_type="DOUBLE", description="Latest latitude", display_name="Latitude")] = None
+    longitude: Annotated[float | None, Field(db_type="DOUBLE", description="Latest longitude", display_name="Longitude")] = (
+        None
+    )
+    last_seen_at: Annotated[
+        str | None,
+        Field(db_type="TIMESTAMP", description="Timestamp of the latest location observation", display_name="Last Seen"),
+    ] = None
+    battery_level: Annotated[
+        int | None,
+        Field(
+            db_type="INTEGER",
+            description="Battery level",
+            display_name="Battery",
+            unit="percent",
+            value_range=(0, 100),
+        ),
+    ] = None
+    battery_state: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Battery state", display_name="Battery State")
+    ] = None
+    connection_state: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Connection state", display_name="Connection State")
+    ] = None
+    is_dead: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Tile battery depleted", display_name="Dead", db_default="FALSE")
+    ] = False
+    source: Annotated[
+        str,
+        Field(db_type="VARCHAR", description="Source plugin that produced the row", db_default="'tile'"),
+    ] = "tile"
+    _dlt_valid_to: Annotated[
+        str | None,
+        Field(db_type="TIMESTAMP", description="SCD2 row close time; NULL = current slice"),
+    ] = None
+
+    @classmethod
+    def extract(cls, client: TileClient, **_: Any) -> Iterator[dict[str, Any]]:  # noqa: ARG003
+        # Populated by the bundled SQL transform, not by dlt. Yield nothing so
+        # the dlt sync path is a no-op; the transform fills the table.
+        if False:
+            yield {}
+
+
+TABLES: tuple[type[SourceTable], ...] = (Tiles, TileLocations, TileState, TileInfo)
