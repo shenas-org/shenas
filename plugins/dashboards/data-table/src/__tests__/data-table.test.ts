@@ -3,8 +3,8 @@ import { tableFromArrays } from "apache-arrow";
 
 globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
-import "../data-table.ts";
-import type { ShenasDataTable } from "../data-table.ts";
+import "shenas-components";
+import type { ShenasDataTable } from "shenas-components";
 
 interface TestRow {
   [key: string]: unknown;

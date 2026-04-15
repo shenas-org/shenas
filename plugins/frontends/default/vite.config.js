@@ -54,7 +54,13 @@ export default defineConfig({
     setupFiles: ["src/__tests__/setup.ts"],
     alias: {
       "/vendor/apache-arrow.js": new URL("src/__tests__/mock-arrow.ts", import.meta.url).pathname,
+      "/vendor/components.js": new URL("../../../app/components/data-table.ts", import.meta.url).pathname,
+      "shenas-components": new URL("../../../app/components/data-table.ts", import.meta.url).pathname,
       "shenas-frontends": new URL("../../../app/vendor/src/shenas-frontends.ts", import.meta.url).pathname,
+      "echarts/core": new URL("node_modules/echarts/core.js", import.meta.url).pathname,
+      "echarts/charts": new URL("node_modules/echarts/charts.js", import.meta.url).pathname,
+      "echarts/components": new URL("node_modules/echarts/components.js", import.meta.url).pathname,
+      "echarts/renderers": new URL("node_modules/echarts/renderers.js", import.meta.url).pathname,
     },
     coverage: {
       provider: "v8",
@@ -68,7 +74,7 @@ export default defineConfig({
     cssCodeSplit: false,
     rollupOptions: {
       input: "src/index.ts",
-      external: ["lit", /^lit\//, /^@lit-labs\//, "cytoscape", "shenas-frontends", /^\/vendor\//],
+      external: ["lit", /^lit\//, /^@lit-labs\//, "cytoscape", "shenas-components", "shenas-frontends", /^\/vendor\//],
       output: {
         entryFileNames: "default.js",
         assetFileNames: "default.[ext]",
@@ -91,7 +97,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ["lit", "cytoscape", "apache-arrow", "echarts", "shenas-frontends"],
+    exclude: ["lit", "cytoscape", "apache-arrow", "echarts", "shenas-components", "shenas-frontends"],
   },
   plugins: [
     {
@@ -103,6 +109,7 @@ export default defineConfig({
           cytoscape: "/vendor/cytoscape.js",
           "apache-arrow": "/vendor/apache-arrow.js",
           echarts: "/vendor/echarts.js",
+          "shenas-components": "/vendor/components.js",
           "shenas-frontends": "/vendor/shenas-frontends.js",
           "/vendor/apache-arrow.js": "/vendor/apache-arrow.js",
         };

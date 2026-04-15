@@ -350,6 +350,13 @@ class TimeColumnsInfoType:
 
 
 @strawberry.type
+class TableInfoType:
+    kind: str | None = None
+    time_columns: TimeColumnsInfoType | None = None
+    query_hint: str | None = None
+
+
+@strawberry.type
 class QualityCheckType:
     check_type: str
     status: str

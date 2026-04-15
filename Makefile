@@ -75,7 +75,9 @@ app-clean:
 app-dev:
 	@fuser -k 7280/tcp 5173/tcp 2>/dev/null; sleep 0.3; \
 	uv sync --group fl --quiet; \
+	(cd app/vendor && npm install --silent && npm run build --silent); \
 	moon run frontend*:build dashboard*:build; \
+	trap 'kill 0' EXIT; \
 	uv run shenas --reload --no-tls & \
 	while ! curl -s http://127.0.0.1:7280/api/health > /dev/null 2>&1; do sleep 0.2; done; \
 	cd plugins/frontends/default && npx vite & \
