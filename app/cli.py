@@ -52,6 +52,7 @@ def main(
     os.environ.setdefault("SHENAS_PACKAGE_INDEX", os.environ["SHENAS_NET_URL"].rstrip("/"))
 
     if reload:
+        os.environ["SHENAS_DEV"] = "1"
         app_target = "app.main:app"
         if no_tls:
             typer.echo(f"Starting HTTP server on http://{host}:{port} (reload)")
