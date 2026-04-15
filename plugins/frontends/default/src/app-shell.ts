@@ -1847,11 +1847,17 @@ class ShenasApp extends LitElement {
       return html`<p class="empty">Loading...</p>`;
     }
     const INTERNAL = new Set(["auth", "config", "shenas_system", "telemetry"]);
+    const displayNames: Record<string, string> = {};
+    for (const plugins of Object.values(this._allPlugins)) {
+      for (const p of plugins) {
+        if (p.displayName) displayNames[p.name] = p.displayName;
+      }
+    }
     const perSource: { name: string; rows: number }[] = [];
     for (const s of db.schemas || []) {
       if (INTERNAL.has(s.name)) continue;
       const total = s.tables.reduce((sum, t) => sum + (t.rows || 0), 0);
-      if (total > 0) perSource.push({ name: s.name, rows: total });
+      if (total > 0) perSource.push({ name: displayNames[s.name] || s.name, rows: total });
     }
     perSource.sort((a, b) => b.rows - a.rows);
     const grandTotal = perSource.reduce((s, d) => s + d.rows, 0);
@@ -1875,30 +1881,23 @@ class ShenasApp extends LitElement {
       if (!el) return;
       if (!this._dbChart) {
         this._dbChart = echarts.init(el);
+        new ResizeObserver(() => this._dbChart?.resize()).observe(el);
       }
       this._dbChart.setOption({
         tooltip: {
-          trigger: "axis",
-          axisPointer: { type: "shadow" },
-          formatter: (params: Array<{ seriesName: string; value: number; color: string }>) =>
-            params
-              .filter((p) => p.value > 0)
-              .sort((a, b) => b.value - a.value)
-              .map(
-                (p) =>
-                  `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:4px"></span>${p.seriesName}: ${p.value.toLocaleString()}`,
-              )
-              .join("<br>"),
+          trigger: "item",
+          formatter: (p: { seriesName: string; value: number; color: string }) =>
+            `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:4px"></span>${p.seriesName}: ${p.value.toLocaleString()}`,
         },
         grid: { left: 0, right: 0, top: 0, bottom: 0, containLabel: false },
-        xAxis: { type: "value", show: false, max: grandTotal },
-        yAxis: { type: "category", show: false, data: [""] },
-        series: perSource.map((d, i) => ({
+        xAxis: { type: "category", show: false, data: [""] },
+        yAxis: { type: "value", show: false, max: grandTotal },
+        series: perSource.toReversed().map((d, i) => ({
           name: d.name,
           type: "bar" as const,
           stack: "total",
           data: [d.rows],
-          itemStyle: { color: COLORS[i % COLORS.length] },
+          itemStyle: { color: COLORS[(perSource.length - 1 - i) % COLORS.length] },
           emphasis: { itemStyle: { opacity: 0.8 } },
           barWidth: "100%",
         })),
@@ -1906,11 +1905,11 @@ class ShenasApp extends LitElement {
     });
 
     return html`
-      <div style="padding:0.5rem;font-size:0.8rem">
+      <div style="display:flex;flex-direction:column;height:100%;padding:0.5rem;font-size:0.8rem;box-sizing:border-box">
         <div style="text-align:center;color:var(--shenas-text-muted,#888);margin-bottom:0.3rem">
           ${db.size_mb != null ? html`${db.size_mb} MB` : ""}
         </div>
-        <div id="db-chart" style="width:100%;height:24px"></div>
+        <div id="db-chart" style="width:100%;flex:1;min-height:0"></div>
         <div style="margin-top:0.6rem">
           ${perSource.map(
             (d, i) => html`
