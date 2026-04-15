@@ -38,7 +38,11 @@ interface EntityTypeInfo {
   description: string;
   icon: string;
   isHuman: boolean;
+  parent: string | null;
+  isAbstract: boolean;
 }
+
+type GraphView = "entities" | "types";
 
 interface EntityRelationshipRow {
   fromUuid: string;
@@ -80,7 +84,10 @@ let _dagreRegistered = false;
 
 class EntitiesPage extends LitElement {
   static properties = {
+    apiBase: { type: String, attribute: "api-base" },
+    activeView: { type: String, attribute: "active-view" },
     _message: { state: true },
+    _view: { state: true },
   };
 
   static styles = [
@@ -94,7 +101,7 @@ class EntitiesPage extends LitElement {
       }
       #cy {
         width: 100%;
-        height: 320px;
+        height: max(320px, 50vh);
         border: 1px solid var(--shenas-border, #d8d4cc);
         border-radius: 8px;
         background: var(--shenas-bg-secondary, #f3f0eb);
@@ -105,7 +112,7 @@ class EntitiesPage extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        height: 320px;
+        height: max(320px, 50vh);
         color: var(--shenas-text-faint, #888);
         font-size: 0.9rem;
       }
@@ -135,10 +142,38 @@ class EntitiesPage extends LitElement {
         font-weight: 600;
         margin-left: 0.4rem;
       }
+      .view-toggle {
+        display: flex;
+        gap: 2px;
+        justify-content: flex-end;
+        margin-bottom: 0.4rem;
+      }
+      .view-toggle button {
+        background: none;
+        border: 1px solid var(--shenas-border, #ddd);
+        border-radius: 3px;
+        padding: 4px 10px;
+        cursor: pointer;
+        color: var(--shenas-text-muted, #999);
+        font-size: 0.75rem;
+        line-height: 1;
+      }
+      .view-toggle button:hover {
+        background: var(--shenas-bg-secondary, #f0f0f0);
+        color: var(--shenas-text, #555);
+      }
+      .view-toggle button[aria-pressed="true"] {
+        background: var(--shenas-primary, #728f67);
+        color: #fff;
+        border-color: var(--shenas-primary, #728f67);
+      }
     `,
   ];
 
+  declare apiBase: string;
+  declare activeView: string;
   declare _message: Message | null;
+  declare _view: GraphView;
 
   private _cy: cytoscape.Core | null = null;
   private _resizeObserver: ResizeObserver | null = null;
@@ -182,6 +217,24 @@ class EntitiesPage extends LitElement {
   constructor() {
     super();
     this._message = null;
+    this._view = "entities";
+    this.activeView = "";
+  }
+
+  willUpdate(changed: Map<string, unknown>): void {
+    if (changed.has("activeView")) {
+      this._view = this.activeView === "types" ? "types" : "entities";
+    }
+  }
+
+  _setView(v: GraphView): void {
+    this.dispatchEvent(
+      new CustomEvent("navigate", {
+        bubbles: true,
+        composed: true,
+        detail: { path: v === "types" ? "/settings/entities/types" : "/settings/entities" },
+      }),
+    );
   }
 
   _emptyEntityForm(): EntityForm {
@@ -462,6 +515,29 @@ class EntitiesPage extends LitElement {
 
   // -- Cytoscape ego graph ------------------------------------------------
 
+  _buildHierarchyElements(): CyElement[] {
+    const elements: CyElement[] = [];
+    for (const t of this._entityTypes) {
+      elements.push({
+        data: {
+          id: `type:${t.name}`,
+          label: t.displayName,
+          isAbstract: t.isAbstract ? "yes" : "no",
+        },
+      });
+      if (t.parent) {
+        elements.push({
+          data: {
+            id: `typeedge:${t.parent}:${t.name}`,
+            source: `type:${t.parent}`,
+            target: `type:${t.name}`,
+          },
+        });
+      }
+    }
+    return elements;
+  }
+
   _buildGraphElements(): CyElement[] {
     const elements: CyElement[] = [];
     const byUuid: Record<string, Entity> = {};
@@ -494,7 +570,6 @@ class EntitiesPage extends LitElement {
   _initCytoscape(): void {
     const container = this.renderRoot.querySelector("#cy") as HTMLElement | null;
     if (!container) return;
-    if (this._entities.length === 0) return;
 
     if (!_dagreRegistered) {
       cytoscape.use(dagre);
@@ -505,6 +580,24 @@ class EntitiesPage extends LitElement {
       this._cy.destroy();
     }
 
+    if (this._view === "types") {
+      this._initTypeHierarchy(container);
+    } else {
+      if (this._entities.length === 0) return;
+      this._initEntityGraph(container);
+    }
+
+    if (this._resizeObserver) this._resizeObserver.disconnect();
+    this._resizeObserver = new ResizeObserver(() => {
+      if (this._cy) {
+        this._cy.resize();
+        this._cy.fit(undefined, 20);
+      }
+    });
+    this._resizeObserver.observe(container);
+  }
+
+  _initEntityGraph(container: HTMLElement): void {
     const meUuid = this._meUuid();
 
     this._cy = cytoscape({
@@ -569,25 +662,70 @@ class EntitiesPage extends LitElement {
       const e = this._entityByUuid(uuid);
       if (e && !e.isMe) this._openEntityPanel(e);
     });
+  }
 
-    if (this._resizeObserver) this._resizeObserver.disconnect();
-    this._resizeObserver = new ResizeObserver(() => {
-      if (this._cy) {
-        this._cy.resize();
-        this._cy.fit(undefined, 20);
-      }
+  _initTypeHierarchy(container: HTMLElement): void {
+    if (this._entityTypes.length === 0) return;
+
+    this._cy = cytoscape({
+      container,
+      elements: this._buildHierarchyElements(),
+      style: [
+        {
+          selector: "node",
+          style: {
+            label: "data(label)",
+            "text-valign": "center",
+            "text-halign": "center",
+            "font-size": 11,
+            color: "#fff",
+            "text-wrap": "wrap",
+            "text-max-width": 90,
+            width: 110,
+            height: 36,
+            shape: "round-rectangle",
+            "background-color": "#8a9a84",
+          },
+        },
+        {
+          selector: 'node[isAbstract="yes"]',
+          style: {
+            "background-color": "#aaa",
+            "border-width": 2,
+            "border-style": "dashed",
+            "border-color": "#888",
+          },
+        },
+        {
+          selector: "edge",
+          style: {
+            "curve-style": "bezier",
+            "target-arrow-shape": "triangle",
+            "target-arrow-color": "#999",
+            "line-color": "#999",
+            width: 2,
+          },
+        },
+      ] as unknown as cytoscape.StylesheetStyle[],
+      layout: {
+        name: "dagre",
+        rankDir: "TB",
+        spacingFactor: 1.2,
+        padding: 30,
+      } as unknown as cytoscape.LayoutOptions,
+      userZoomingEnabled: true,
+      userPanningEnabled: true,
     });
-    this._resizeObserver.observe(container);
   }
 
   firstUpdated(): void {
-    if (!this._loading && this._entities.length > 0) {
+    if (!this._loading) {
       this._initCytoscape();
     }
   }
 
   updated(): void {
-    if (!this._loading && this._entities.length > 0) {
+    if (!this._loading) {
       requestAnimationFrame(() => this._initCytoscape());
     }
   }
@@ -598,7 +736,11 @@ class EntitiesPage extends LitElement {
     return html`
       <shenas-page ?loading=${this._loading} loading-text="Loading entities...">
         ${renderMessage(this._message)}
-        ${this._entities.length === 0
+        <div class="view-toggle">
+          <button aria-pressed=${this._view === "entities"} @click=${() => this._setView("entities")}>Entities</button>
+          <button aria-pressed=${this._view === "types"} @click=${() => this._setView("types")}>Type Hierarchy</button>
+        </div>
+        ${this._view === "entities" && this._entities.length === 0
           ? html`<div class="empty-graph">No entities yet.</div>`
           : html`<div id="cy"></div>`}
 

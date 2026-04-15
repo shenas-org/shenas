@@ -60,6 +60,7 @@ class SettingsPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
     activeKind: { type: String, attribute: "active-kind" },
+    entitiesView: { type: String, attribute: "entities-view" },
     onNavigate: { type: Function },
     onPluginsChanged: { type: Function },
     onMultiuserToggle: { type: Function },
@@ -284,6 +285,7 @@ class SettingsPage extends LitElement {
 
   declare apiBase: string;
   declare activeKind: string;
+  declare entitiesView: string;
   declare onNavigate: ((kind: string) => void) | null;
   declare onPluginsChanged: ((data: Record<string, PluginSummary[]>) => void) | null;
   declare onMultiuserToggle: ((enabled: boolean) => void) | null;
@@ -314,6 +316,7 @@ class SettingsPage extends LitElement {
     super();
     this.apiBase = "/api";
     this.activeKind = "profile";
+    this.entitiesView = "";
     this.onNavigate = null;
     this.onPluginsChanged = null;
     this.onMultiuserToggle = null;
@@ -664,7 +667,10 @@ class SettingsPage extends LitElement {
         ${this.activeKind === "profile"
           ? this._renderProfile()
           : this.activeKind === "entities"
-            ? html`<shenas-entities api-base="${this.apiBase}"></shenas-entities>`
+            ? html`<shenas-entities
+                api-base="${this.apiBase}"
+                active-view="${this.entitiesView || "entities"}"
+              ></shenas-entities>`
             : this.activeKind === "categories"
               ? html`<shenas-categories api-base="${this.apiBase}"></shenas-categories>`
               : this.activeKind === "hotkeys"
