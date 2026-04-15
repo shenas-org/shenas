@@ -27,6 +27,7 @@ import {
   DISMISS_DATASET_SUGGESTION,
   SET_ENTITY_STATUS,
   SET_ENTITY_MAPPING,
+  CREATE_ENTITY,
 } from "./graphql/mutations.ts";
 
 interface PluginInfo {
@@ -127,6 +128,7 @@ class PluginDetail extends LitElement {
     _entitiesLoading: { state: true },
     _mappableItems: { state: true },
     _targetEntityOptions: { state: true },
+    _entityTypeOptions: { state: true },
   };
 
   static styles = [
@@ -250,6 +252,20 @@ class PluginDetail extends LitElement {
         margin: 0 -1rem;
         width: calc(100% + 2rem);
       }
+      .add-entity-btn {
+        background: transparent;
+        border: 1px solid var(--shenas-border, #ddd);
+        border-radius: 3px;
+        color: var(--shenas-text-muted, #888);
+        cursor: pointer;
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0.15rem 0.4rem;
+      }
+      .add-entity-btn:hover {
+        background: var(--shenas-bg-secondary, #f0f0f0);
+        color: var(--shenas-text, #333);
+      }
       .tab-select {
         border: none;
         background: transparent;
@@ -314,11 +330,13 @@ class PluginDetail extends LitElement {
   declare _entitiesLoading: boolean;
   declare _mappableItems: MappableItem[];
   declare _targetEntityOptions: Array<{ uuid: string; name: string; type: string }>;
+  declare _entityTypeOptions: Array<{ name: string; displayName: string }>;
   private _loadingTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _client = getClient();
   private _setEntityStatusMutation = new ApolloMutationController(this, SET_ENTITY_STATUS, { client: this._client });
   private _setEntityMappingMutation = new ApolloMutationController(this, SET_ENTITY_MAPPING, { client: this._client });
+  private _createEntityMutation = new ApolloMutationController(this, CREATE_ENTITY, { client: this._client });
   private _enablePlugin = new ApolloMutationController(this, ENABLE_PLUGIN, { client: this._client });
   private _disablePlugin = new ApolloMutationController(this, DISABLE_PLUGIN, { client: this._client });
   private _runSchemaTransforms = new ApolloMutationController(this, RUN_SCHEMA_TRANSFORMS, { client: this._client });
@@ -356,6 +374,7 @@ class PluginDetail extends LitElement {
     this._entitiesLoading = false;
     this._mappableItems = [];
     this._targetEntityOptions = [];
+    this._entityTypeOptions = [];
   }
 
   willUpdate(changed: Map<string, unknown>): void {
@@ -741,7 +760,7 @@ class PluginDetail extends LitElement {
           fetchPolicy: "network-only",
         }),
         this._client.query({
-          query: gqlTag`{ entities { uuid name type } }`,
+          query: gqlTag`{ entities { uuid name type } entityTypes { name displayName isAbstract } }`,
           fetchPolicy: "network-only",
         }),
       ]);
@@ -749,6 +768,11 @@ class PluginDetail extends LitElement {
       this._mappableItems = (mappableResult.data?.sourceMappableItemsForPlugin as MappableItem[]) || [];
       this._targetEntityOptions =
         (optionsResult.data?.entities as Array<{ uuid: string; name: string; type: string }>) || [];
+      const allTypes =
+        (optionsResult.data?.entityTypes as Array<{ name: string; displayName: string; isAbstract: boolean }>) || [];
+      this._entityTypeOptions = allTypes
+        .filter((t) => !t.isAbstract)
+        .map((t) => ({ name: t.name, displayName: t.displayName }));
     } catch (e) {
       this._message = { type: "error", text: (e as Error).message };
     }
@@ -796,6 +820,99 @@ class PluginDetail extends LitElement {
       );
       this._message = { type: "error", text: (e as Error).message };
     }
+  }
+
+  _escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+  }
+
+  _closeAddEntityPanel(): void {
+    this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
+  }
+
+  _openAddEntityPanel(item: MappableItem): void {
+    const typeOptions = this._entityTypeOptions
+      .map(
+        (t, i) => `<option value="${t.name}"${i === 0 ? " selected" : ""}>${this._escapeHtml(t.displayName)}</option>`,
+      )
+      .join("");
+    const panel = document.createElement("div");
+    panel.style.padding = "1rem";
+    panel.innerHTML = `
+      <h3 style="margin-top:0">Add entity</h3>
+      <p style="color:#888;font-size:0.85rem;margin:0 0 0.8rem">
+        Will be mapped to <b>${this._escapeHtml(item.name || item.sourceRowKey)}</b>.
+      </p>
+      <label style="display:block;margin-bottom:0.6rem">
+        Type<br/>
+        <select id="f-type" style="width:100%">${typeOptions}</select>
+      </label>
+      <label style="display:block;margin-bottom:0.6rem">
+        Name<br/>
+        <input id="f-name" type="text" style="width:100%" value="${this._escapeHtml(item.name || "")}" />
+      </label>
+      <label style="display:block;margin-bottom:0.6rem">
+        Description<br/>
+        <input id="f-desc" type="text" style="width:100%" value="" />
+      </label>
+      <div id="f-err" style="color:#c00;font-size:0.85rem;margin-bottom:0.5rem"></div>
+      <div style="display:flex;gap:0.5rem;margin-top:1rem">
+        <button id="save-btn">Add &amp; map</button>
+        <button id="cancel-btn">Cancel</button>
+      </div>
+    `;
+    const form = {
+      type: this._entityTypeOptions[0]?.name ?? "",
+      name: item.name || "",
+      description: "",
+    };
+    panel.querySelector("#f-type")?.addEventListener("change", (e) => {
+      form.type = (e.target as HTMLSelectElement).value;
+    });
+    panel.querySelector("#f-name")?.addEventListener("input", (e) => {
+      form.name = (e.target as HTMLInputElement).value;
+    });
+    panel.querySelector("#f-desc")?.addEventListener("input", (e) => {
+      form.description = (e.target as HTMLInputElement).value;
+    });
+    const errEl = panel.querySelector("#f-err") as HTMLDivElement;
+    panel.querySelector("#cancel-btn")?.addEventListener("click", () => this._closeAddEntityPanel());
+    panel.querySelector("#save-btn")?.addEventListener("click", async () => {
+      errEl.textContent = "";
+      if (!form.name.trim()) {
+        errEl.textContent = "Name is required.";
+        return;
+      }
+      if (!form.type) {
+        errEl.textContent = "Type is required.";
+        return;
+      }
+      try {
+        const { data } = await this._createEntityMutation.mutate({
+          variables: {
+            input: { name: form.name.trim(), type: form.type, description: form.description },
+          },
+        });
+        const created = data?.createEntity as { uuid: string; name: string } | undefined;
+        if (!created) {
+          errEl.textContent = "Could not create entity.";
+          return;
+        }
+        this._targetEntityOptions = [
+          ...this._targetEntityOptions,
+          { uuid: created.uuid, name: created.name, type: form.type },
+        ];
+        await this._setEntityMapping(item, created.uuid);
+        this._closeAddEntityPanel();
+        this._message = { type: "success", text: "Entity added and mapped." };
+        this._fetchEntities();
+      } catch (e) {
+        errEl.textContent = (e as Error).message || "Could not create entity.";
+      }
+    });
+    this.dispatchEvent(
+      new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 420 } }),
+    );
   }
 
   _renderEntities() {
@@ -872,22 +989,31 @@ class PluginDetail extends LitElement {
             label: "Mapped to",
             render: (row: Record<string, unknown>) => {
               const item = row as unknown as MappableItem;
-              return html`<select
-                style="width:100%"
-                @change=${(e: Event) => {
-                  const value = (e.target as HTMLSelectElement).value;
-                  this._setEntityMapping(item, value || null);
-                }}
-              >
-                <option value="" ?selected=${!item.mappedToUuid}>-- unmapped --</option>
-                ${this._targetEntityOptions.map(
-                  (opt) => html`
-                    <option value=${opt.uuid} ?selected=${item.mappedToUuid === opt.uuid}>
-                      ${opt.name} (${opt.type})
-                    </option>
-                  `,
-                )}
-              </select>`;
+              return html`<div style="display:flex;gap:0.3rem;align-items:center">
+                <select
+                  style="flex:1"
+                  @change=${(e: Event) => {
+                    const value = (e.target as HTMLSelectElement).value;
+                    this._setEntityMapping(item, value || null);
+                  }}
+                >
+                  <option value="" ?selected=${!item.mappedToUuid}>-- unmapped --</option>
+                  ${this._targetEntityOptions.map(
+                    (opt) => html`
+                      <option value=${opt.uuid} ?selected=${item.mappedToUuid === opt.uuid}>
+                        ${opt.name} (${opt.type})
+                      </option>
+                    `,
+                  )}
+                </select>
+                <button
+                  class="add-entity-btn"
+                  title="Add new entity and map to this row"
+                  @click=${() => this._openAddEntityPanel(item)}
+                >
+                  +
+                </button>
+              </div>`;
             },
           },
         ]}
