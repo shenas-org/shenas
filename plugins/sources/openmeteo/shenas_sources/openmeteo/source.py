@@ -7,7 +7,7 @@ Config tab. Data available back to 1940 (weather) and 2022 (air quality).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_config import SourceConfig
@@ -18,7 +18,7 @@ class OpenMeteoSource(Source):
     name = "openmeteo"
     display_name = "Open-Meteo"
     primary_table = "daily_weather"
-    entity_type = "city"
+    entity_types: ClassVar[list[str]] = ["city"]
     description = (
         "Daily weather and air quality data from Open-Meteo.\n\n"
         "Uses the ERA5 reanalysis archive (back to 1940) and the CAMS "

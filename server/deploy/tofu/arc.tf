@@ -31,7 +31,7 @@ resource "helm_release" "arc_controller" {
   namespace        = kubernetes_namespace.arc_systems.metadata[0].name
   repository       = "oci://ghcr.io/actions/actions-runner-controller-charts"
   chart            = "gha-runner-scale-set-controller"
-  version          = "0.12.1"
+  version          = "0.13.1"
   create_namespace = false
 
   set {
@@ -60,7 +60,7 @@ resource "helm_release" "arc_runner_set" {
   namespace        = kubernetes_namespace.arc_runners.metadata[0].name
   repository       = "oci://ghcr.io/actions/actions-runner-controller-charts"
   chart            = "gha-runner-scale-set"
-  version          = "0.12.1"
+  version          = "0.13.1"
   create_namespace = false
 
   values = [
@@ -75,6 +75,7 @@ resource "helm_release" "arc_runner_set" {
       namespace: arc-systems
     template:
       spec:
+        activeDeadlineSeconds: 1200
         securityContext:
           runAsUser: 1001
           runAsGroup: 1001

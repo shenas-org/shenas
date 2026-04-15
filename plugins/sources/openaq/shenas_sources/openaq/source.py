@@ -74,16 +74,15 @@ class OpenAQSource(Source):
     def authenticate(self, credentials: dict[str, str]) -> None:
         from shenas_sources.openaq.client import OpenAQClient
 
-        api_key = credentials.get("api_key", "").strip()
+        api_key = (credentials.get("api_key") or "").strip()
         if not api_key:
-            msg = "API key is required."
+            msg = "api_key is required"
             raise ValueError(msg)
         client = OpenAQClient(api_key=api_key, latitude=0, longitude=0, radius_m=1000)
         try:
             client.get_parameters()
-        except Exception as exc:
-            msg = f"Authentication failed: {exc}"
-            raise ValueError(msg) from exc
+        finally:
+            client.close()
         self.Auth.write_row(api_key=api_key)
 
     def resources(self, client: Any) -> list[Any]:

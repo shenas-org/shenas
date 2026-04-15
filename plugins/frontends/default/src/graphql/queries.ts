@@ -252,6 +252,8 @@ export const GET_ENTITIES_DATA = gql`
       description
       icon
       isHuman
+      parent
+      isAbstract
     }
     entityRelationshipTypes {
       name

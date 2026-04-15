@@ -37,6 +37,7 @@ interface Transform {
   sourcePlugin: string;
   description: string;
   params: string;
+  sql: string;
   isDefault: boolean;
   enabled: boolean;
 }
@@ -448,7 +449,7 @@ class TransformsPage extends LitElement {
           .map(
             (p) => `
           <label style="${_lbl}">
-            ${p.label || _humanize(p.name)}${p.required ? " *" : ""}
+            ${p.label}${p.required ? " *" : ""}
             ${
               p.type === "select" && p.options
                 ? `<select id="param-${p.name}" style="${_inp}">

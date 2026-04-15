@@ -38,6 +38,7 @@ interface PluginInfo {
   has_data?: boolean;
   is_authenticated?: boolean | null;
   primary_table?: string;
+  icon_url?: string;
 }
 
 interface TableInfo {
@@ -722,9 +723,9 @@ class PluginDetail extends LitElement {
             }}
             >&larr;</a
           >
-          ${(info as Record<string, unknown>).icon_url
+          ${info.icon_url
             ? html`<img
-                src="${(info as Record<string, unknown>).icon_url}"
+                src="${info.icon_url}"
                 alt=""
                 style="width:1.6rem;height:1.6rem;vertical-align:middle;margin-right:0.4rem"
                 @error=${(e: Event) => {

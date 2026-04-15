@@ -1,7 +1,7 @@
 [project]
 name = "shenas-source-numbeo"
 dynamic = ["version"]
-description = "Numbeo cost-of-living and quality-of-life data for shenas"
+description = "Numbeo city-level cost of living, safety, and quality of life data for shenas"
 requires-python = ">=3.11"
 dependencies = [
     "dlt[duckdb]>=1.24.0",
