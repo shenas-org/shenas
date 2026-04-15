@@ -8,7 +8,7 @@ import dataclasses
 import logging
 import re
 import threading
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
@@ -363,6 +363,7 @@ class Source(Plugin):
             try:
                 apply_as_of_macros(con, self.dataset_name)
                 self._sync_entity_tables(con)
+                self._project_entities(con)
             finally:
                 con.close()
         except Exception:
@@ -458,6 +459,108 @@ class Source(Plugin):
                     row_key=row_key,
                     status=status,
                 ).upsert()
+
+    def _project_entities(self, con: Any) -> None:
+        """Post-sync hook: project raw source rows into statements.
+
+        For each :class:`SourceTable` in this source's ``TABLES`` that
+        declares ``entity_type`` + ``entity_projection``, scans the current
+        SCD2 slice (or full table for non-SCD2 kinds) and:
+
+        1. Upserts each row as an :class:`app.entity.Entity` row with a
+           deterministic ``uuid`` derived from the type + natural PK.
+        2. Upserts one statement per ``(column, property_id)`` mapping with
+           ``source=<plugin_name>``, skipping NULL values.
+        3. Registers referenced properties in ``entities.properties`` on
+           first encounter (idempotent upsert).
+
+        Statements are loaded plainly (not via dlt) because the projection
+        set is small relative to the raw table and always represents the
+        current truth of the entity.
+        """
+        import importlib
+
+        try:
+            tables_mod = importlib.import_module(f"shenas_sources.{self.name}.tables")
+        except ImportError:
+            return
+        all_tables = list(getattr(tables_mod, "TABLES", ()))
+        projection_tables = [
+            t
+            for t in all_tables
+            if isinstance(t, type) and getattr(t, "entity_type", None) and getattr(t, "entity_projection", None)
+        ]
+        if not projection_tables:
+            return
+
+        from app.entity import compute_entity_id
+
+        now_iso = datetime.now(UTC).isoformat()
+
+        for t in projection_tables:
+            type_name: str = t.entity_type
+            name_col: str | None = getattr(t, "entity_name_column", None)
+            projection: dict[str, str] = dict(t.entity_projection)
+            schema = t._Meta.schema or self.dataset_name
+            table_ref = f"{schema}.{t._Meta.name}"
+            pk_cols_list = list(t._Meta.pk)
+
+            # Ensure each declared property exists in the registry.
+            for pid in set(projection.values()):
+                con.execute(
+                    "INSERT INTO entities.properties (id, label, datatype, domain_type, source, wikidata_pid) "
+                    "VALUES (?, ?, 'string', ?, ?, NULL) "
+                    "ON CONFLICT (id) DO NOTHING",
+                    [pid, pid, type_name, self.name],
+                )
+
+            # Scan current slice (handle both SCD2 and non-SCD2 tables).
+            has_valid_to = True
+            try:
+                con.execute(f"SELECT _dlt_valid_to FROM {table_ref} LIMIT 0")
+            except Exception:
+                has_valid_to = False
+
+            where = "WHERE _dlt_valid_to IS NULL" if has_valid_to else ""
+            select_cols = [*pk_cols_list]
+            if name_col and name_col not in select_cols:
+                select_cols.append(name_col)
+            for col in projection:
+                if col not in select_cols:
+                    select_cols.append(col)
+            cols_sql = ", ".join(f'"{c}"' for c in select_cols)
+            rows = con.execute(f"SELECT {cols_sql} FROM {table_ref} {where}").fetchall()
+
+            for raw in rows:
+                row = dict(zip(select_cols, raw, strict=True))
+                pk_values = tuple(row[c] for c in pk_cols_list)
+                if any(v in (None, "") for v in pk_values):
+                    continue
+                entity_id = compute_entity_id(type_name, pk_values)
+                entity_name = str(row.get(name_col) or pk_values[0]) if name_col else str(pk_values[0])
+
+                con.execute(
+                    "INSERT INTO shenas_system.entities "
+                    "(uuid, type, name, description, status, added_at, updated_at) "
+                    "VALUES (?, ?, ?, '', 'disabled', ?, ?) "
+                    "ON CONFLICT (uuid) DO UPDATE SET "
+                    "name = excluded.name, updated_at = excluded.updated_at",
+                    [entity_id, type_name, entity_name, now_iso, now_iso],
+                )
+
+                for src_col, property_id in projection.items():
+                    value = row.get(src_col)
+                    if value is None or value == "":
+                        continue
+                    value_str = str(value)
+                    con.execute(
+                        "INSERT INTO entities.statements "
+                        "(entity_id, property_id, value, value_label, rank, qualifiers, source) "
+                        "VALUES (?, ?, ?, ?, 'normal', NULL, ?) "
+                        "ON CONFLICT (entity_id, property_id, value) DO UPDATE SET "
+                        "value_label = excluded.value_label, source = excluded.source",
+                        [entity_id, property_id, value_str, value_str, self.name],
+                    )
 
     def run_sync_stream(self, *, full_refresh: bool = False) -> Iterator[tuple[str, str]]:
         """Run sync yielding (event, message) tuples for progress reporting.

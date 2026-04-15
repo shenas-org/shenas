@@ -94,6 +94,23 @@ class SourceTable(DataTable):
     cursor_column: ClassVar[str | None] = None
 
     # ------------------------------------------------------------------
+    # Entity projection -- each sync projects rows into statements
+    # ------------------------------------------------------------------
+    #
+    # Setting these three ClassVars turns the raw table into a statement
+    # contributor: at sync end, Source._project_entities scans the current
+    # slice and emits one entity row + one statement per declared column.
+    #
+    # - ``entity_type``: the EntityType.name each row represents.
+    # - ``entity_name_column``: column used for Entity.name.
+    # - ``entity_projection``: {source_column: property_id} mapping;
+    #   property_ids are the stable ids stored in entities.properties.
+
+    entity_type: ClassVar[str | None] = None
+    entity_name_column: ClassVar[str | None] = None
+    entity_projection: ClassVar[dict[str, str]] = {}
+
+    # ------------------------------------------------------------------
     # dlt translation -- kind base classes override write_disposition()
     # ------------------------------------------------------------------
 

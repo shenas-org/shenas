@@ -830,6 +830,37 @@ def seed_entity_types(con: duckdb.DuckDBPyConnection) -> None:
         )
 
 
+def seed_properties(con: duckdb.DuckDBPyConnection) -> None:
+    """Seed entities.properties with Wikidata predicates referenced by DEFAULT_ENTITY_TYPES.
+
+    Walks every default EntityType's ``wikidata_properties`` JSON and upserts
+    a row per unique PID into ``entities.properties`` with
+    ``source='wikidata'`` and ``domain_type=NULL`` (PIDs are polymorphic --
+    which types use a property is decided by the EntityType's property list,
+    not by the property row). Idempotent.
+
+    Plugins extend the registry via their own ``entity_projection``
+    declarations; UI mutations extend it at runtime.
+    """
+    seen: set[str] = set()
+    for row in DEFAULT_ENTITY_TYPES:
+        for prop in row.get("wikidata_properties") or []:
+            pid = prop.get("pid")
+            label = prop.get("label")
+            if not pid or not label or pid in seen:
+                continue
+            seen.add(pid)
+            con.execute(
+                "INSERT INTO entities.properties "
+                "(id, label, datatype, domain_type, source, wikidata_pid) "
+                "VALUES (?, ?, 'string', NULL, 'wikidata', ?) "
+                "ON CONFLICT (id) DO UPDATE SET "
+                "label = excluded.label, "
+                "wikidata_pid = excluded.wikidata_pid",
+                [pid, label, pid],
+            )
+
+
 def seed_relationship_types(con: duckdb.DuckDBPyConnection) -> None:
     """Upsert the default relationship types. Idempotent."""
     for row in DEFAULT_RELATIONSHIP_TYPES:
