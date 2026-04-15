@@ -95,6 +95,7 @@ class PluginDetail extends LitElement {
     _suggestions: { state: true },
     _suggesting: { state: true },
     _dataTable: { state: true },
+    _dataRefreshKey: { state: true },
   };
 
   static styles = [
@@ -277,6 +278,7 @@ class PluginDetail extends LitElement {
   declare _suggestions: SuggestedDataset[];
   declare _suggesting: boolean;
   declare _dataTable: string;
+  declare _dataRefreshKey: number;
   private _loadingTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _client = getClient();
@@ -312,6 +314,7 @@ class PluginDetail extends LitElement {
     this._suggestions = [];
     this._suggesting = false;
     this._dataTable = "";
+    this._dataRefreshKey = 0;
   }
 
   willUpdate(changed: Map<string, unknown>): void {
@@ -545,7 +548,10 @@ class PluginDetail extends LitElement {
           detail: { id: jobId, ok: !hadError, message: msg },
         }),
       );
-      if (!hadError) await this._fetchInfo();
+      if (!hadError) {
+        this._dataRefreshKey = this._dataRefreshKey + 1;
+        await this._fetchInfo();
+      }
     } catch (e) {
       const err = e as Error;
       this._message = { type: "error", text: `Sync failed: ${err.message}` };
@@ -687,6 +693,7 @@ class PluginDetail extends LitElement {
       schema="${schema}"
       table="${table}"
       page-size="100"
+      refresh-key="${this._dataRefreshKey}"
       style="height:calc(100vh - 180px);min-height:300px"
     ></shenas-data-table>`;
   }
