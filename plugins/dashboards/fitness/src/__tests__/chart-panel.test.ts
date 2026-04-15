@@ -55,7 +55,7 @@ describe("chart-panel", () => {
     const el = document.createElement("chart-panel") as AnyEl;
     el.title = "Test";
     document.body.appendChild(el);
-    await (el as { updateComplete: Promise<void> }).updateComplete;
+    await (el as unknown as { updateComplete: Promise<void> }).updateComplete;
     const wrap = (el as HTMLElement).shadowRoot?.querySelector(".chart-wrap");
     expect(wrap).toBeTruthy();
     const noData = (el as HTMLElement).shadowRoot?.querySelector(".no-data");
@@ -69,8 +69,8 @@ describe("chart-panel", () => {
     el.axes = [{ stroke: "#888", grid: { stroke: "#f4f4f4" }, label: "ms" }];
     el.data = [[0, 86400, 172800], Float64Array.from([1, 2, 3])];
     document.body.appendChild(el);
-    await (el as { updateComplete: Promise<void> }).updateComplete;
-    await (el as { updateComplete: Promise<void> }).updateComplete;
+    await (el as unknown as { updateComplete: Promise<void> }).updateComplete;
+    await (el as unknown as { updateComplete: Promise<void> }).updateComplete;
 
     expect(initFn).toHaveBeenCalled();
     expect(setOptionFn).toHaveBeenCalled();

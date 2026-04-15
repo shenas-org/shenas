@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { apiFetch, apiFetchFull, gql, gqlFull, renderMessage, registerCommands } from "../shenas-frontends/api.ts";
+import { apiFetch, apiFetchFull, renderMessage, registerCommands } from "../shenas-frontends/api.ts";
 
 const mockFetch = vi.fn();
 
@@ -59,50 +59,6 @@ describe("apiFetchFull", () => {
     const result = await apiFetchFull("/api", "/bad");
     expect(result.ok).toBe(false);
     expect(result.status).toBe(400);
-  });
-});
-
-describe("gql", () => {
-  it("returns data on success", async () => {
-    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { plugins: [] } }));
-    const result = await gql<{ plugins: unknown[] }>("/api", "{ plugins { name } }");
-    expect(result).toEqual({ plugins: [] });
-  });
-
-  it("returns null on errors in response", async () => {
-    mockFetch.mockResolvedValueOnce(jsonResponse({ errors: [{ message: "bad query" }] }));
-    const result = await gql("/api", "{ broken }");
-    expect(result).toBeNull();
-  });
-
-  it("returns null on HTTP error", async () => {
-    mockFetch.mockResolvedValueOnce(jsonResponse(null, false, 500));
-    const result = await gql("/api", "{ x }");
-    expect(result).toBeNull();
-  });
-});
-
-describe("gqlFull", () => {
-  it("returns ok=true with data on success", async () => {
-    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { x: 1 } }));
-    const result = await gqlFull<{ x: number }>("/api", "query");
-    expect(result.ok).toBe(true);
-    expect(result.data).toEqual({ x: 1 });
-    expect(result.errors).toEqual([]);
-  });
-
-  it("returns ok=false with errors", async () => {
-    mockFetch.mockResolvedValueOnce(jsonResponse({ errors: [{ message: "bad" }] }));
-    const result = await gqlFull("/api", "query");
-    expect(result.ok).toBe(false);
-    expect(result.errors).toEqual([{ message: "bad" }]);
-  });
-
-  it("returns ok=false on HTTP error", async () => {
-    mockFetch.mockResolvedValueOnce(jsonResponse(null, false, 503));
-    const result = await gqlFull("/api", "query");
-    expect(result.ok).toBe(false);
-    expect(result.errors[0]?.message).toBe("HTTP 503");
   });
 });
 

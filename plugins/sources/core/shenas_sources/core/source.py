@@ -35,6 +35,7 @@ class Source(Plugin):
 
     auth_instructions: ClassVar[str] = ""
     primary_table: ClassVar[str] = ""
+    entity_type: ClassVar[str] = "human"  # references EntityType.name
 
     # Class-level sync lock: prevents concurrent syncs of the same pipe
     _sync_locks: ClassVar[dict[str, threading.Lock]] = {}
@@ -217,6 +218,7 @@ class Source(Plugin):
             "is_authenticated": self.is_authenticated,
             "sync_frequency": self.sync_frequency,
             "primary_table": self.primary_table,
+            "entity_type": self.entity_type,
             "commands": self.commands,
         }
 

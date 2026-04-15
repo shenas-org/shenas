@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/static/images/shenas.png" width="96" alt="shenas">
+  <img src="artifacts/images/shenas.png" width="96" alt="shenas">
 </p>
 
 <h1 align="center">shenas</h1>

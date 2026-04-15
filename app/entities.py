@@ -79,13 +79,36 @@ class EntityType(Table):
 
     name: Annotated[str, Field(db_type="VARCHAR", description="Short slug, e.g. 'human'")] = ""
     display_name: Annotated[str, Field(db_type="VARCHAR", description="Human-readable label")] = ""
+    parent: Annotated[str | None, Field(db_type="VARCHAR", description="Parent type name (hierarchy)")] = None
     description: Annotated[str, Field(db_type="VARCHAR", description="Free-text description", db_default="''")] = ""
     icon: Annotated[str, Field(db_type="VARCHAR", description="Icon hint for the UI", db_default="''")] = ""
     is_human: Annotated[bool, Field(db_type="BOOLEAN", description="True for humans", db_default="FALSE")] = False
+    is_abstract: Annotated[
+        bool, Field(db_type="BOOLEAN", description="True for non-instantiable types", db_default="FALSE")
+    ] = False
     added_at: Annotated[
         str | None,
         Field(db_type="TIMESTAMP", description="When seeded", db_default="current_timestamp"),
     ] = None
+
+    @classmethod
+    def concrete_types(cls) -> list[Self]:
+        """Return all non-abstract (instantiable) entity types."""
+        return cls.all(where="is_abstract = FALSE", order_by="name")
+
+    @classmethod
+    def is_subtype_of(cls, child: str, ancestor: str) -> bool:
+        """Check if ``child`` is a descendant of ``ancestor`` in the type hierarchy."""
+        if child == ancestor:
+            return True
+        all_types = {t.name: t.parent for t in cls.all()}
+        current = child
+        while current:
+            parent = all_types.get(current)
+            if parent == ancestor:
+                return True
+            current = parent
+        return False
 
 
 @dataclass
@@ -374,48 +397,106 @@ class EntityRelationship(Table):
 
 
 DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
-    {"name": "human", "display_name": "Human", "icon": "user", "is_human": True, "description": "A person."},
+    # Abstract hierarchy nodes (not directly instantiable)
+    {
+        "name": "entity",
+        "display_name": "Entity",
+        "parent": None,
+        "icon": "",
+        "is_human": False,
+        "is_abstract": True,
+        "description": "Root of the entity hierarchy.",
+    },
+    {
+        "name": "physical_entity",
+        "display_name": "Physical Entity",
+        "parent": "entity",
+        "icon": "",
+        "is_human": False,
+        "is_abstract": True,
+        "description": "Something that exists in the physical world.",
+    },
+    {
+        "name": "virtual_entity",
+        "display_name": "Virtual Entity",
+        "parent": "entity",
+        "icon": "",
+        "is_human": False,
+        "is_abstract": True,
+        "description": "Something that exists only as an abstraction.",
+    },
+    {
+        "name": "living_entity",
+        "display_name": "Living Entity",
+        "parent": "physical_entity",
+        "icon": "",
+        "is_human": False,
+        "is_abstract": True,
+        "description": "A living being.",
+    },
+    # Concrete leaf types
+    {
+        "name": "human",
+        "display_name": "Human",
+        "parent": "living_entity",
+        "icon": "user",
+        "is_human": True,
+        "is_abstract": False,
+        "description": "A person.",
+    },
     {
         "name": "animal",
         "display_name": "Animal",
+        "parent": "living_entity",
         "icon": "paw-print",
         "is_human": False,
+        "is_abstract": False,
         "description": "A pet or other animal.",
     },
     {
         "name": "residence",
         "display_name": "Residence",
+        "parent": "physical_entity",
         "icon": "home",
         "is_human": False,
+        "is_abstract": False,
         "description": "A home, apartment, or other place people live.",
     },
     {
         "name": "vehicle",
         "display_name": "Vehicle",
+        "parent": "physical_entity",
         "icon": "car",
         "is_human": False,
+        "is_abstract": False,
         "description": "A car, bike, or other vehicle.",
     },
     {
         "name": "device",
         "display_name": "Device",
+        "parent": "physical_entity",
         "icon": "smartphone",
         "is_human": False,
+        "is_abstract": False,
         "description": "A phone, watch, or other device.",
-    },
-    {
-        "name": "organization",
-        "display_name": "Organization",
-        "icon": "building",
-        "is_human": False,
-        "description": "A company, gym, or other group.",
     },
     {
         "name": "city",
         "display_name": "City",
+        "parent": "physical_entity",
         "icon": "map-pin",
         "is_human": False,
+        "is_abstract": False,
         "description": "A city or metropolitan area.",
+    },
+    {
+        "name": "organization",
+        "display_name": "Organization",
+        "parent": "virtual_entity",
+        "icon": "building",
+        "is_human": False,
+        "is_abstract": False,
+        "description": "A company, gym, or other group.",
     },
 ]
 
@@ -438,14 +519,24 @@ def seed_entity_types(con: duckdb.DuckDBPyConnection) -> None:
     for row in DEFAULT_ENTITY_TYPES:
         con.execute(
             "INSERT INTO shenas_system.entity_types "
-            "(name, display_name, description, icon, is_human) "
-            "VALUES (?, ?, ?, ?, ?) "
+            "(name, display_name, parent, description, icon, is_human, is_abstract) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT (name) DO UPDATE SET "
             "display_name = excluded.display_name, "
+            "parent = excluded.parent, "
             "description = excluded.description, "
             "icon = excluded.icon, "
-            "is_human = excluded.is_human",
-            [row["name"], row["display_name"], row["description"], row["icon"], row["is_human"]],
+            "is_human = excluded.is_human, "
+            "is_abstract = excluded.is_abstract",
+            [
+                row["name"],
+                row["display_name"],
+                row.get("parent"),
+                row["description"],
+                row["icon"],
+                row["is_human"],
+                row.get("is_abstract", False),
+            ],
         )
 
 

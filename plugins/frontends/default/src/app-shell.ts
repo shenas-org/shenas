@@ -3,15 +3,21 @@ import { LitElement, html, css } from "lit";
 import { Router } from "@lit-labs/router";
 import {
   arrowQuery,
-  gql,
   getClient,
+  gqlTag,
   matchesHotkey,
   openExternal,
   sortActions,
   linkStyles,
   utilityStyles,
 } from "shenas-frontends";
-import { GET_HOTKEYS, GET_WORKSPACE, GET_DASHBOARDS } from "./graphql/queries.ts";
+import * as echarts from "echarts/core";
+import { BarChart } from "echarts/charts";
+import { GridComponent, TooltipComponent } from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+
+echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
+import { GET_HOTKEYS, GET_WORKSPACE, GET_DASHBOARDS, GET_PLUGIN_KINDS } from "./graphql/queries.ts";
 import {
   SAVE_WORKSPACE,
   SEED_TRANSFORMS,
@@ -821,10 +827,16 @@ class ShenasApp extends LitElement {
     );
   }
 
+  private _dbChart: echarts.ECharts | null = null;
+
   disconnectedCallback(): void {
     super.disconnectedCallback();
     if (this._keyHandler) {
       document.removeEventListener("keydown", this._keyHandler);
+    }
+    if (this._dbChart) {
+      this._dbChart.dispose();
+      this._dbChart = null;
     }
   }
 
@@ -1179,17 +1191,17 @@ class ShenasApp extends LitElement {
   }
 
   async _refreshPlugins(): Promise<void> {
-    const data = await gql(
-      this.apiBase,
-      `{
-      sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth isAuthenticated }
-      datasets: plugins(kind: "dataset") { name displayName enabled }
-      dashboardPlugins: plugins(kind: "dashboard") { name displayName enabled }
-      frontends: plugins(kind: "frontend") { name displayName enabled }
-      themes: plugins(kind: "theme") { name displayName enabled }
-      models: plugins(kind: "model") { name displayName enabled }
-    }`,
-    );
+    const { data } = await this._client.query({
+      query: gqlTag`{
+        sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth isAuthenticated }
+        datasets: plugins(kind: "dataset") { name displayName enabled }
+        dashboardPlugins: plugins(kind: "dashboard") { name displayName enabled }
+        frontends: plugins(kind: "frontend") { name displayName enabled }
+        themes: plugins(kind: "theme") { name displayName enabled }
+        models: plugins(kind: "model") { name displayName enabled }
+      }`,
+      fetchPolicy: "network-only",
+    });
     if (data) {
       this._allPlugins = {
         source: (data.sources as PluginSummary[]) || [],
@@ -1206,26 +1218,26 @@ class ShenasApp extends LitElement {
     this._loading = true;
     try {
       // Fetch available plugin kinds first, then build the main query dynamically.
-      const kindsData = await gql(this.apiBase, `{ pluginKinds }`);
+      const { data: kindsData } = await this._client.query({ query: GET_PLUGIN_KINDS });
       const kinds: { id: string; label: string }[] = (kindsData?.pluginKinds as { id: string; label: string }[]) || [];
       this._pluginKinds = kinds;
       const fields = `name displayName enabled syncedAt hasAuth isAuthenticated`;
       const kindQueries = kinds.map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`).join("\n        ");
-      const data = await gql(
-        this.apiBase,
-        `{
+      const { data } = await this._client.query({
+        query: gqlTag([
+          `{
         dashboards { name displayName tag js description }
         hotkeys
         workspace
-        dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } }
         ${kindQueries}
         theme { css }
         deviceName
         schemaPlugins
       }`,
-      );
+        ] as unknown as TemplateStringsArray),
+        fetchPolicy: "network-only",
+      });
       this._dashboards = (data?.dashboards as DashboardInfo[]) || [];
-      this._dbStatus = data?.dbStatus as DbStatus | null;
       this._deviceName = (data?.deviceName as string) || "";
       this._hotkeys = (data?.hotkeys as Record<string, string>) || {};
       const allPlugins: Record<string, PluginSummary[]> = {};
@@ -1280,6 +1292,23 @@ class ShenasApp extends LitElement {
     }
     this._loading = false;
     this._registerGlobalCommands();
+  }
+
+  private _dbStatusPending = false;
+
+  async _fetchDbStatus(): Promise<void> {
+    if (this._dbStatus || this._dbStatusPending) return;
+    this._dbStatusPending = true;
+    try {
+      const { data } = await this._client.query({
+        query: gqlTag`{ dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } } }`,
+        fetchPolicy: "network-only",
+      });
+      this._dbStatus = (data?.dbStatus as DbStatus | null) ?? null;
+    } catch {
+      /* ignore */
+    }
+    this._dbStatusPending = false;
   }
 
   async _checkUserSession(): Promise<void> {
@@ -1811,11 +1840,12 @@ class ShenasApp extends LitElement {
     }
   }
 
-  private _dbChart: unknown = null;
-
   _renderDbStats() {
     const db = this._dbStatus;
-    if (!db) return html`<p class="empty">No database</p>`;
+    if (!db) {
+      this._fetchDbStatus();
+      return html`<p class="empty">Loading...</p>`;
+    }
     const INTERNAL = new Set(["auth", "config", "shenas_system", "telemetry"]);
     const perSource: { name: string; rows: number }[] = [];
     for (const s of db.schemas || []) {
@@ -1827,69 +1857,75 @@ class ShenasApp extends LitElement {
     const grandTotal = perSource.reduce((s, d) => s + d.rows, 0);
     if (grandTotal === 0) return html`<p class="empty">No data synced yet</p>`;
 
-    requestAnimationFrame(() => this._initDbChart(perSource, db.size_mb));
-
-    return html`
-      <div style="padding:0.5rem">
-        <div id="db-pie-chart" style="width:100%;height:280px"></div>
-      </div>
-    `;
-  }
-
-  async _initDbChart(data: { name: string; rows: number }[], sizeMb: number | null): Promise<void> {
-    const el = this.renderRoot?.querySelector("#db-pie-chart") as HTMLElement | null;
-    if (!el) return;
-
-    const echartsUrl = "/vendor/echarts.js";
-    const ec = await import(/* @vite-ignore */ echartsUrl);
-    ec.use([ec.PieChart, ec.GridComponent, ec.TooltipComponent, ec.LegendComponent, ec.TitleComponent, ec.CanvasRenderer]);
-    if (this._dbChart) (this._dbChart as { dispose: () => void }).dispose();
-    const chart = ec.init(el);
-    this._dbChart = chart;
-
     const COLORS = [
-      "#728f67", "#a67c52", "#5b8fa8", "#c4956a", "#7a6f8e",
-      "#6b9e76", "#c07070", "#8faab5", "#b8a060", "#6d8b74",
+      "#728f67",
+      "#a67c52",
+      "#5b8fa8",
+      "#c4956a",
+      "#7a6f8e",
+      "#6b9e76",
+      "#c07070",
+      "#8faab5",
+      "#b8a060",
+      "#6d8b74",
     ];
 
-    chart.setOption({
-      tooltip: {
-        trigger: "item",
-        formatter: "{b}: {c} ({d}%)",
-        backgroundColor: "rgba(255,255,255,0.95)",
-        borderColor: "#ddd",
-        textStyle: { fontSize: 11, color: "#333" },
-      },
-      title: sizeMb != null ? {
-        text: `${sizeMb} MB`,
-        left: "center",
-        top: 0,
-        textStyle: { fontSize: 11, color: "#888", fontWeight: "normal" },
-      } : undefined,
-      series: [{
-        type: "pie",
-        radius: ["35%", "65%"],
-        center: ["50%", "45%"],
-        data: data.map((d, i) => ({
+    requestAnimationFrame(() => {
+      const el = this.renderRoot.querySelector("#db-chart") as HTMLElement | null;
+      if (!el) return;
+      if (!this._dbChart) {
+        this._dbChart = echarts.init(el);
+      }
+      this._dbChart.setOption({
+        tooltip: {
+          trigger: "axis",
+          axisPointer: { type: "shadow" },
+          formatter: (params: Array<{ seriesName: string; value: number; color: string }>) =>
+            params
+              .filter((p) => p.value > 0)
+              .sort((a, b) => b.value - a.value)
+              .map(
+                (p) =>
+                  `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:4px"></span>${p.seriesName}: ${p.value.toLocaleString()}`,
+              )
+              .join("<br>"),
+        },
+        grid: { left: 0, right: 0, top: 0, bottom: 0, containLabel: false },
+        xAxis: { type: "value", show: false, max: grandTotal },
+        yAxis: { type: "category", show: false, data: [""] },
+        series: perSource.map((d, i) => ({
           name: d.name,
-          value: d.rows,
+          type: "bar" as const,
+          stack: "total",
+          data: [d.rows],
           itemStyle: { color: COLORS[i % COLORS.length] },
+          emphasis: { itemStyle: { opacity: 0.8 } },
+          barWidth: "100%",
         })),
-        label: {
-          show: true,
-          fontSize: 10,
-          color: "#555",
-          formatter: "{b}",
-          position: "outside",
-        },
-        labelLine: { length: 8, length2: 6 },
-        emphasis: {
-          itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.2)" },
-        },
-      }],
+      });
     });
 
-    new ResizeObserver(() => chart.resize()).observe(el);
+    return html`
+      <div style="padding:0.5rem;font-size:0.8rem">
+        <div style="text-align:center;color:var(--shenas-text-muted,#888);margin-bottom:0.3rem">
+          ${db.size_mb != null ? html`${db.size_mb} MB` : ""}
+        </div>
+        <div id="db-chart" style="width:100%;height:24px"></div>
+        <div style="margin-top:0.6rem">
+          ${perSource.map(
+            (d, i) => html`
+              <div style="display:flex;align-items:center;gap:0.4rem;padding:0.15rem 0;font-size:0.75rem">
+                <span
+                  style="width:8px;height:8px;border-radius:2px;background:${COLORS[i % COLORS.length]};flex-shrink:0"
+                ></span>
+                <span style="flex:1;color:var(--shenas-text,#222)">${d.name}</span>
+                <span style="color:var(--shenas-text-muted,#888)">${d.rows.toLocaleString()}</span>
+              </div>
+            `,
+          )}
+        </div>
+      </div>
+    `;
   }
 
   _renderCatalogDetail() {
