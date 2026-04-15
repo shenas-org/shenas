@@ -55,7 +55,15 @@ class GithubClient:
         yield from self._paginate(f"/users/{username}/events")
 
     def get_repos(self) -> Iterator[dict[str, Any]]:
-        yield from self._paginate("/user/repos?type=owner&sort=updated")
+        """Yield all repositories the authenticated user can see.
+
+        GitHub's ``/user/repos`` with ``affiliation=owner,organization_member``
+        returns the user's personal repos plus any repo from an org the user
+        belongs to, deduplicated on the server side. We avoid repos where the
+        user is only a collaborator to keep the list focused on things the
+        user or their orgs own.
+        """
+        yield from self._paginate("/user/repos?affiliation=owner,organization_member&sort=updated")
 
     def search_prs(self, username: str) -> Iterator[dict[str, Any]]:
         yield from self._paginate(f"/search/issues?q=author:{username}+type:pr+sort:created-desc")
