@@ -196,6 +196,11 @@ class ShenasApp extends LitElement {
         this._renderPluginDetail(params?.kind ?? "", params?.name ?? "", "data"),
     },
     {
+      path: "/settings/:kind/:name/entities",
+      render: (params: { [key: string]: string | undefined }) =>
+        this._renderPluginDetail(params?.kind ?? "", params?.name ?? "", "entities"),
+    },
+    {
       path: "/settings/:kind/:name/logs",
       render: (params: { [key: string]: string | undefined }) =>
         this._renderPluginDetail(params?.kind ?? "", params?.name ?? "", "logs"),

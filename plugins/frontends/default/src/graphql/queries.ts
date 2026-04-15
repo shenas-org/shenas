@@ -463,3 +463,30 @@ export const GET_FLOW_DATA = gql`
     }
   }
 `;
+
+export const GET_SOURCE_ENTITIES = gql`
+  query GetSourceEntities($plugin: String!) {
+    sourceEntitiesForPlugin(plugin: $plugin) {
+      uuid
+      type
+      name
+      description
+      status
+    }
+  }
+`;
+
+export const GET_SOURCE_MAPPABLE_ITEMS = gql`
+  query GetSourceMappableItems($plugin: String!) {
+    sourceMappableItemsForPlugin(plugin: $plugin) {
+      sourceTable
+      sourceRowKey
+      name
+      description
+      suggestedType
+      mappedToUuid
+      mappedToName
+      mappedToType
+    }
+  }
+`;

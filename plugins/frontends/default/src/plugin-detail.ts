@@ -11,7 +11,12 @@ import {
   tabStyles,
 } from "shenas-frontends";
 import "shenas-components";
-import { GET_THEME, GET_SUGGESTED_DATASETS } from "./graphql/queries.ts";
+import {
+  GET_THEME,
+  GET_SUGGESTED_DATASETS,
+  GET_SOURCE_ENTITIES,
+  GET_SOURCE_MAPPABLE_ITEMS,
+} from "./graphql/queries.ts";
 import {
   ENABLE_PLUGIN,
   DISABLE_PLUGIN,
@@ -20,6 +25,8 @@ import {
   SUGGEST_DATASETS,
   ACCEPT_DATASET_SUGGESTION,
   DISMISS_DATASET_SUGGESTION,
+  SET_ENTITY_STATUS,
+  SET_ENTITY_MAPPING,
 } from "./graphql/mutations.ts";
 
 interface PluginInfo {
@@ -36,6 +43,7 @@ interface PluginInfo {
   has_config?: boolean;
   has_auth?: boolean;
   has_data?: boolean;
+  has_entities?: boolean;
   is_authenticated?: boolean | null;
   primary_table?: string;
   icon_url?: string;
@@ -70,6 +78,25 @@ interface DbStatus {
   [key: string]: unknown;
 }
 
+interface SourceEntity {
+  uuid: string;
+  type: string;
+  name: string;
+  description: string;
+  status: string;
+}
+
+interface MappableItem {
+  sourceTable: string;
+  sourceRowKey: string;
+  name: string;
+  description: string;
+  suggestedType: string;
+  mappedToUuid: string | null;
+  mappedToName: string | null;
+  mappedToType: string | null;
+}
+
 interface Message {
   type: string;
   text: string;
@@ -96,6 +123,10 @@ class PluginDetail extends LitElement {
     _suggesting: { state: true },
     _dataTable: { state: true },
     _dataRefreshKey: { state: true },
+    _entities: { state: true },
+    _entitiesLoading: { state: true },
+    _mappableItems: { state: true },
+    _targetEntityOptions: { state: true },
   };
 
   static styles = [
@@ -279,9 +310,15 @@ class PluginDetail extends LitElement {
   declare _suggesting: boolean;
   declare _dataTable: string;
   declare _dataRefreshKey: number;
+  declare _entities: SourceEntity[];
+  declare _entitiesLoading: boolean;
+  declare _mappableItems: MappableItem[];
+  declare _targetEntityOptions: Array<{ uuid: string; name: string; type: string }>;
   private _loadingTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _client = getClient();
+  private _setEntityStatusMutation = new ApolloMutationController(this, SET_ENTITY_STATUS, { client: this._client });
+  private _setEntityMappingMutation = new ApolloMutationController(this, SET_ENTITY_MAPPING, { client: this._client });
   private _enablePlugin = new ApolloMutationController(this, ENABLE_PLUGIN, { client: this._client });
   private _disablePlugin = new ApolloMutationController(this, DISABLE_PLUGIN, { client: this._client });
   private _runSchemaTransforms = new ApolloMutationController(this, RUN_SCHEMA_TRANSFORMS, { client: this._client });
@@ -315,6 +352,10 @@ class PluginDetail extends LitElement {
     this._suggesting = false;
     this._dataTable = "";
     this._dataRefreshKey = 0;
+    this._entities = [];
+    this._entitiesLoading = false;
+    this._mappableItems = [];
+    this._targetEntityOptions = [];
   }
 
   willUpdate(changed: Map<string, unknown>): void {
@@ -329,6 +370,9 @@ class PluginDetail extends LitElement {
         this._showLoading = false;
       }
       this._fetchInfo();
+      if (this.activeTab === "entities") {
+        this._fetchEntities();
+      }
 
       if (authResult) {
         if (authResult === "success") {
@@ -551,6 +595,9 @@ class PluginDetail extends LitElement {
       if (!hadError) {
         this._dataRefreshKey = this._dataRefreshKey + 1;
         await this._fetchInfo();
+        if (this.activeTab === "entities") {
+          this._fetchEntities();
+        }
       }
     } catch (e) {
       const err = e as Error;
@@ -676,6 +723,174 @@ class PluginDetail extends LitElement {
     const path = tab === "details" ? base : `${base}/${tab}`;
     window.history.pushState({}, "", path);
     if (tab === "transforms") this._fetchSuggestions();
+    if (tab === "entities") this._fetchEntities();
+  }
+
+  async _fetchEntities(): Promise<void> {
+    this._entitiesLoading = true;
+    try {
+      const [entitiesResult, mappableResult, optionsResult] = await Promise.all([
+        this._client.query({
+          query: GET_SOURCE_ENTITIES,
+          variables: { plugin: this.name },
+          fetchPolicy: "network-only",
+        }),
+        this._client.query({
+          query: GET_SOURCE_MAPPABLE_ITEMS,
+          variables: { plugin: this.name },
+          fetchPolicy: "network-only",
+        }),
+        this._client.query({
+          query: gqlTag`{ entities { uuid name type } }`,
+          fetchPolicy: "network-only",
+        }),
+      ]);
+      this._entities = (entitiesResult.data?.sourceEntitiesForPlugin as SourceEntity[]) || [];
+      this._mappableItems = (mappableResult.data?.sourceMappableItemsForPlugin as MappableItem[]) || [];
+      this._targetEntityOptions =
+        (optionsResult.data?.entities as Array<{ uuid: string; name: string; type: string }>) || [];
+    } catch (e) {
+      this._message = { type: "error", text: (e as Error).message };
+    }
+    this._entitiesLoading = false;
+  }
+
+  async _toggleEntityStatus(entity: SourceEntity): Promise<void> {
+    const next = entity.status === "enabled" ? "disabled" : "enabled";
+    this._entities = this._entities.map((e) => (e.uuid === entity.uuid ? { ...e, status: next } : e));
+    try {
+      await this._setEntityStatusMutation.mutate({ variables: { uuid: entity.uuid, status: next } });
+    } catch (e) {
+      this._entities = this._entities.map((e) => (e.uuid === entity.uuid ? { ...e, status: entity.status } : e));
+      this._message = { type: "error", text: (e as Error).message };
+    }
+  }
+
+  async _setEntityMapping(item: MappableItem, targetUuid: string | null): Promise<void> {
+    const previous = item.mappedToUuid;
+    const match = targetUuid ? this._targetEntityOptions.find((o) => o.uuid === targetUuid) : null;
+    // Optimistic update.
+    this._mappableItems = this._mappableItems.map((m) =>
+      m.sourceTable === item.sourceTable && m.sourceRowKey === item.sourceRowKey
+        ? {
+            ...m,
+            mappedToUuid: targetUuid,
+            mappedToName: match ? match.name : null,
+            mappedToType: match ? match.type : null,
+          }
+        : m,
+    );
+    try {
+      await this._setEntityMappingMutation.mutate({
+        variables: {
+          sourceTable: item.sourceTable,
+          sourceRowKey: item.sourceRowKey,
+          targetUuid: targetUuid,
+        },
+      });
+    } catch (e) {
+      this._mappableItems = this._mappableItems.map((m) =>
+        m.sourceTable === item.sourceTable && m.sourceRowKey === item.sourceRowKey
+          ? { ...m, mappedToUuid: previous }
+          : m,
+      );
+      this._message = { type: "error", text: (e as Error).message };
+    }
+  }
+
+  _renderEntities() {
+    if (this._entitiesLoading && this._entities.length === 0 && this._mappableItems.length === 0) {
+      return html`<p style="color:var(--shenas-text-muted,#888)">Loading entities...</p>`;
+    }
+    if (this._entities.length === 0 && this._mappableItems.length === 0) {
+      return html`<p style="color:var(--shenas-text-muted,#888)">
+        No entities yet. Sync this source to populate the list.
+      </p>`;
+    }
+    return html`
+      ${this._mappableItems.length > 0 ? this._renderMappableSection() : ""}
+      ${this._entities.length > 0 ? this._renderEntitySection() : ""}
+    `;
+  }
+
+  _renderEntitySection() {
+    const enabledCount = this._entities.filter((e) => e.status === "enabled").length;
+    return html`
+      <h3 style="margin:1.2rem 0 0.3rem;font-size:0.95rem">Entities</h3>
+      <p style="color:var(--shenas-text-muted,#888);font-size:0.85rem;margin:0 0 0.8rem">
+        ${enabledCount} of ${this._entities.length} enabled. Toggle to show or hide in the entity graph.
+      </p>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th style="width:120px">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${this._entities.map(
+            (entity) => html`
+              <tr>
+                <td>${entity.name || entity.uuid.slice(0, 8)}</td>
+                <td>
+                  <input
+                    type="checkbox"
+                    title=${entity.status === "enabled" ? "Shown in entity graph" : "Hidden from entity graph"}
+                    .checked=${entity.status === "enabled"}
+                    @change=${() => this._toggleEntityStatus(entity)}
+                  />
+                </td>
+              </tr>
+            `,
+          )}
+        </tbody>
+      </table>
+    `;
+  }
+
+  _renderMappableSection() {
+    const mappedCount = this._mappableItems.filter((m) => m.mappedToUuid).length;
+    return html`
+      <h3 style="margin:0.6rem 0 0.3rem;font-size:0.95rem">To map</h3>
+      <p style="color:var(--shenas-text-muted,#888);font-size:0.85rem;margin:0 0 0.8rem">
+        ${mappedCount} of ${this._mappableItems.length} mapped. Assign each source row to the entity it represents.
+      </p>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th style="width:280px">Mapped to</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${this._mappableItems.map(
+            (item) => html`
+              <tr>
+                <td>${item.name || item.sourceRowKey}</td>
+                <td>
+                  <select
+                    style="width:100%"
+                    @change=${(e: Event) => {
+                      const value = (e.target as HTMLSelectElement).value;
+                      this._setEntityMapping(item, value || null);
+                    }}
+                  >
+                    <option value="" ?selected=${!item.mappedToUuid}>-- unmapped --</option>
+                    ${this._targetEntityOptions.map(
+                      (opt) => html`
+                        <option value=${opt.uuid} ?selected=${item.mappedToUuid === opt.uuid}>
+                          ${opt.name} (${opt.type})
+                        </option>
+                      `,
+                    )}
+                  </select>
+                </td>
+              </tr>
+            `,
+          )}
+        </tbody>
+      </table>
+    `;
   }
 
   _renderData() {
@@ -855,6 +1070,20 @@ class PluginDetail extends LitElement {
                 : ""}
             `
           : ""}
+        ${this._info?.has_entities
+          ? html`
+              <a
+                class="tab"
+                href="${basePath}/entities"
+                aria-selected=${this.activeTab === "entities"}
+                @click=${(e: MouseEvent) => {
+                  e.preventDefault();
+                  this._switchTab("entities");
+                }}
+                >Entities</a
+              >
+            `
+          : ""}
         <a
           class="tab"
           href="${basePath}/logs"
@@ -875,9 +1104,11 @@ class PluginDetail extends LitElement {
             ? this._renderTransforms()
             : this.activeTab === "data"
               ? this._renderData()
-              : this.activeTab === "logs"
-                ? html`<shenas-logs api-base="${this.apiBase}" pipe="${this.name}"></shenas-logs>`
-                : this._renderDetails(info, enabled)}
+              : this.activeTab === "entities"
+                ? this._renderEntities()
+                : this.activeTab === "logs"
+                  ? html`<shenas-logs api-base="${this.apiBase}" pipe="${this.name}"></shenas-logs>`
+                  : this._renderDetails(info, enabled)}
     `;
   }
 

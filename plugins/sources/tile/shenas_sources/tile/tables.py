@@ -18,9 +18,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
+from app.entity import EntityMapTable, EntityType
 from app.table import Field
 from shenas_sources.core.table import (
-    DimensionTable,
     EventTable,
     SnapshotTable,
     SourceTable,
@@ -52,14 +52,22 @@ def _to_iso(value: Any) -> str | None:
     return str(value) or None
 
 
-class Tiles(DimensionTable):
-    """Registered Tile devices. SCD2 captures renames and firmware updates."""
+class Tiles(EntityMapTable):
+    """Registered Tile devices. SCD2 captures renames and firmware updates.
+
+    Each row is a **would-be** entity: a physical Tile tracker could be
+    attached to a key, a bag, a bike, a dog. The user decides from the
+    plugin's Entities tab which real entity each Tile maps to, and the
+    mapping is stored in ``shenas_system.entity_mappings``.
+    """
 
     class _Meta:
         name = "tiles"
         display_name = "Tiles"
         description = "Registered Tile Bluetooth tracker devices."
         pk = ("tile_uuid",)
+        entity_type = EntityType.default("physical_entity")
+        entity_name_column = "name"
 
     tile_uuid: Annotated[str, Field(db_type="VARCHAR", description="Tile device UUID", display_name="Tile UUID")]
     name: Annotated[

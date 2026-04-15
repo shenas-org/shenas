@@ -85,7 +85,7 @@ class LocalUser(Table):
 
         import app.categories
         import app.data_catalog
-        import app.entities
+        import app.entity
         import app.finding
         import app.hotkeys
         import app.hypotheses
@@ -155,7 +155,7 @@ class LocalUser(Table):
         except Exception:
             pass
 
-        from app.entities import seed_entity_types, seed_relationship_types
+        from app.entity import seed_entity_types, seed_relationship_types
         from app.hotkeys import Hotkey
 
         Hotkey.seed()
@@ -216,7 +216,7 @@ class LocalUser(Table):
         """Create the 'me' entity and device entity if they don't exist yet."""
         import platform
 
-        from app.entities import Entity, EntityRelationship
+        from app.entity import Entity, EntityRelationship
 
         # Ensure "me" human entity
         me_list = Entity.all(where="type = 'human' AND name = ?", params=[self.username], limit=1)

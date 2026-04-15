@@ -331,6 +331,21 @@ class Plugin(abc.ABC):
     def has_auth(self) -> bool:
         return False
 
+    @property
+    def has_entities(self) -> bool:
+        """True if this plugin contributes at least one EntityTable or EntityMapTable."""
+        try:
+            import importlib
+
+            from app.entity import EntityMapTable, EntityTable
+
+            tables_mod = importlib.import_module(f"shenas_sources.{self.name}.tables")
+            return any(
+                isinstance(t, type) and issubclass(t, (EntityTable, EntityMapTable)) for t in getattr(tables_mod, "TABLES", ())
+            )
+        except Exception:
+            return False
+
     def get_config_entries(self) -> list[dict[str, str | None]]:
         return []
 
@@ -393,6 +408,7 @@ class Plugin(abc.ABC):
             "has_config": self.has_config,
             "has_data": self.has_data,
             "has_auth": self.has_auth,
+            "has_entities": self.has_entities,
             "enabled": s.enabled if s else self.enabled_by_default,
             "added_at": str(s.added_at) if s and s.added_at else None,
             "updated_at": str(s.updated_at) if s and s.updated_at else None,

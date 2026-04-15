@@ -115,6 +115,7 @@ class PluginInfo(BaseModel):
     has_config: bool = False
     has_data: bool = False
     has_auth: bool = False
+    has_entities: bool = False
     is_authenticated: bool | None = None
     sync_frequency: int | None = None
     config_entries: list[ConfigEntry] = []

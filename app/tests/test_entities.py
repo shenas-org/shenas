@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 import pytest
 
-from app.entities import (
+from app.entity import (
     DEFAULT_ENTITY_TYPES,
     Entity,
     EntityIndex,
@@ -15,7 +15,7 @@ from app.entities import (
     Human,
     seed_me_entity_index,
 )
-from app.entities import EntityType as EntityLookupType
+from app.entity import EntityType as EntityLookupType
 
 if TYPE_CHECKING:
     import duckdb
@@ -173,7 +173,7 @@ def test_seed_me_entity_index_upserts(db_con: duckdb.DuckDBPyConnection) -> None
 
 @pytest.mark.skip(reason="Requires LocalUser-Entity inheritance (deferred)")
 def test_current_entity_helper_returns_local_user(db_con: duckdb.DuckDBPyConnection) -> None:
-    from app.entities import current_entity
+    from app.entity import current_entity
     from app.local_users import LocalUser
 
     user = LocalUser.create(username="eve", password="secret12345")

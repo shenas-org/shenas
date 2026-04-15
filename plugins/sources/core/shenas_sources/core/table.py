@@ -346,3 +346,9 @@ class M2MTable(SourceTable):
                 f"columns (the two foreign keys); got {cls._Meta.pk!r}"
             )
             raise TypeError(msg)
+
+
+# EntityTable has moved to app.entity to live alongside its companion types
+# (EntityType, Entity, EntityIndex). Import it from there:
+#
+#     from app.entity import EntityTable
