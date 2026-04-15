@@ -1,6 +1,6 @@
 import { LitElement, html, css } from "lit";
 import type { TemplateResult, CSSResult, PropertyValues } from "lit";
-import { gql, query as arrowQuery, arrowToRows } from "shenas-frontends";
+import { getClient, gqlTag, query as arrowQuery, arrowToRows } from "shenas-frontends";
 import type { RowData } from "shenas-frontends";
 import * as echarts from "echarts/core";
 import { LineChart, BarChart, ScatterChart } from "echarts/charts";
@@ -17,6 +17,24 @@ echarts.use([
   DataZoomComponent,
   CanvasRenderer,
 ]);
+
+const GET_TABLE_COLUMN_INFO = gqlTag`
+  query GetTableColumnInfo($s: String!, $t: String!) {
+    tableColumnInfo(schema: $s, table: $t) {
+      name dbType displayName description unit nullable valueRange exampleValue interpretation
+    }
+  }
+`;
+
+const GET_TABLE_INFO = gqlTag`
+  query GetTableInfo($s: String!, $t: String!) {
+    tableInfo(schema: $s, table: $t) {
+      kind
+      timeColumns { timeAt timeStart timeEnd cursorColumn observedAtInjected }
+      queryHint
+    }
+  }
+`;
 
 interface TableInfo {
   schema: string;
@@ -337,6 +355,7 @@ export class ShenasDataTable extends LitElement {
 
   private _chart: echarts.ECharts | null = null;
   private _ro: ResizeObserver | null = null;
+  private _client = getClient();
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
@@ -409,22 +428,14 @@ export class ShenasDataTable extends LitElement {
       // Fetch column type metadata and table-level metadata in parallel
       const [s, t] = this._selectedTable.split(".");
       const [colResult, metaResult] = await Promise.all([
-        gql(
-          this.apiBase,
-          `query($s: String!, $t: String!) { tableColumnInfo(schema: $s, table: $t) { name dbType displayName description unit nullable valueRange exampleValue interpretation } }`,
-          { s, t },
-        ),
-        gql(
-          this.apiBase,
-          `query($s: String!, $t: String!) { tableInfo(schema: $s, table: $t) { kind timeColumns { timeAt timeStart timeEnd cursorColumn observedAtInjected } queryHint } }`,
-          { s, t },
-        ),
+        this._client.query({ query: GET_TABLE_COLUMN_INFO, variables: { s, t }, fetchPolicy: "network-only" }),
+        this._client.query({ query: GET_TABLE_INFO, variables: { s, t }, fetchPolicy: "network-only" }),
       ]);
       this._colMeta = {};
-      for (const c of (colResult?.tableColumnInfo || []) as Array<ColMeta & { name: string }>) {
+      for (const c of (colResult?.data?.tableColumnInfo || []) as Array<ColMeta & { name: string }>) {
         this._colMeta[c.name] = c;
       }
-      const tm = metaResult?.tableInfo as Record<string, unknown> | undefined;
+      const tm = metaResult?.data?.tableInfo as Record<string, unknown> | undefined;
       this._tableKind = (tm?.kind as string) || null;
       this._timeColumns = (tm?.timeColumns as typeof this._timeColumns) || null;
       this._page = 0;
