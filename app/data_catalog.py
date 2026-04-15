@@ -16,8 +16,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any
 
+from app.catalog import DataResourceRef
 from app.plugin import Plugin
-from app.table import DataResourceRef, Field, Table
+from app.table import Field, Table
 
 if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform
@@ -189,6 +190,72 @@ class QualityCheckResult(Table):
     message: Annotated[str, Field(db_type="VARCHAR", description="Result message", db_default="''")] = ""
     value: Annotated[str | None, Field(db_type="VARCHAR", description="Actual value")] = None
     checked_at: Annotated[str, Field(db_type="TIMESTAMP", description="When checked", db_default="current_timestamp")] = ""
+
+
+# DQV (W3C Data Quality Vocabulary) standard dimensions. These are the
+# canonical quality axes used across data catalogs and are open-ended --
+# plugins can emit their own dimension slugs too. Exposed as a constant
+# so UI / dashboards can map dimension -> icon / display name without
+# each consumer re-inventing the list.
+DQV_DIMENSIONS: dict[str, str] = {
+    "completeness": "Fraction of expected fields / rows that are populated.",
+    "timeliness": "How soon data is available after the observed event.",
+    "freshness": "Age of the most recent row vs now.",
+    "availability": "Fraction of sync attempts that succeed.",
+    "accuracy": "Agreement between recorded and ground-truth values.",
+    "consistency": "Agreement across tables that describe the same entity.",
+    "conformance": "Fraction of rows that pass declared schema constraints.",
+}
+
+
+@dataclass
+class QualityMeasurement(Table):
+    """Numeric quality observation for a data resource, per DQV.
+
+    DQV (W3C Data Quality Vocabulary) models quality as a time series of
+    :class:`dqv:QualityMeasurement` values along named dimensions
+    (completeness, timeliness, freshness, availability, ...). Distinct from
+    :class:`QualityCheckResult`, which is a pass/warn/fail gate: a
+    measurement is just an observed number, and the caller decides whether
+    the number is acceptable.
+    """
+
+    class _Meta:
+        name = "quality_measurements"
+        display_name = "Quality Measurements"
+        description = "Time-series of DQV-style numeric quality observations."
+        schema = "shenas_system"
+        pk = ("data_resource_id", "dimension", "measured_at")
+
+    data_resource_id: Annotated[str, Field(db_type="VARCHAR", description="DataResource ID (schema.table)")]
+    dimension: Annotated[
+        str,
+        Field(
+            db_type="VARCHAR",
+            description="DQV dimension slug (completeness, timeliness, freshness, availability, ...).",
+        ),
+    ]
+    value: Annotated[
+        float | None,
+        Field(db_type="DOUBLE", description="Numeric measurement value; unit is dimension-specific."),
+    ] = None
+    unit: Annotated[
+        str,
+        Field(db_type="VARCHAR", description="SI / SI-derived unit (percent, s, min, bytes, count).", db_default="''"),
+    ] = ""
+    measured_at: Annotated[
+        str,
+        Field(db_type="TIMESTAMP", description="When the measurement was taken.", db_default="current_timestamp"),
+    ] = ""
+    computed_by: Annotated[
+        str,
+        Field(
+            db_type="VARCHAR",
+            description="What computed this value (sync / transform / manual).",
+            db_default="''",
+        ),
+    ] = ""
+    note: Annotated[str, Field(db_type="VARCHAR", description="Optional free-text note.", db_default="''")] = ""
 
 
 # ---------------------------------------------------------------------------

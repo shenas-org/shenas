@@ -23,19 +23,19 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from app.table import Table
+from app.table import DataTable
 
 
-class MetricTable(Table):
+class MetricTable(DataTable):
     """Base class for canonical metric tables (the ``metrics.*`` schema).
 
     A metric table is a downstream projection: nothing extracts it from an
     external API, and it has no SCD2 / cursor / write-disposition concerns.
     Concrete metric tables should inherit from one of the grain-specific
     subclasses below (``DailyMetricTable`` etc.) so the catalog advertises
-    their time semantics. ``MetricTable`` itself stays as the abstract root
-    so future per-table transform classmethods (Source -> Metric, Metric ->
-    Metric) have a single home.
+    their time semantics. PROV-style lineage columns
+    (``_generated_by_transform`` / ``_generated_at``) are inherited from
+    :class:`DataTable`.
     """
 
     _abstract: ClassVar[bool] = True

@@ -38,11 +38,7 @@ interface EntityTypeInfo {
   description: string;
   icon: string;
   isHuman: boolean;
-  parent: string | null;
-  isAbstract: boolean;
 }
-
-type GraphView = "entities" | "types";
 
 interface EntityRelationshipRow {
   fromUuid: string;
@@ -85,12 +81,6 @@ let _dagreRegistered = false;
 class EntitiesPage extends LitElement {
   static properties = {
     _message: { state: true },
-    _creating: { state: true },
-    _newEntity: { state: true },
-    _editing: { state: true },
-    _editForm: { state: true },
-    _newRel: { state: true },
-    _view: { state: true },
   };
 
   static styles = [
@@ -104,7 +94,7 @@ class EntitiesPage extends LitElement {
       }
       #cy {
         width: 100%;
-        height: max(320px, 50vh);
+        height: 320px;
         border: 1px solid var(--shenas-border, #d8d4cc);
         border-radius: 8px;
         background: var(--shenas-bg-secondary, #f3f0eb);
@@ -115,7 +105,7 @@ class EntitiesPage extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        height: max(320px, 50vh);
+        height: 320px;
         color: var(--shenas-text-faint, #888);
         font-size: 0.9rem;
       }
@@ -126,46 +116,6 @@ class EntitiesPage extends LitElement {
         margin: 0 0 0.6rem;
         font-size: 1rem;
         font-weight: 600;
-      }
-      .edit-panel {
-        margin: 0.8rem 0;
-        padding: 1rem;
-        border: 1px solid var(--shenas-border, #d8d4cc);
-        border-radius: 8px;
-        background: var(--shenas-bg-secondary, #f3f0eb);
-      }
-      .edit-panel h4 {
-        margin: 0 0 0.8rem;
-        font-size: 0.95rem;
-        font-weight: 600;
-      }
-      .form-row {
-        display: flex;
-        gap: 0.8rem;
-        margin-bottom: 0.6rem;
-        flex-wrap: wrap;
-      }
-      .form-row label {
-        display: flex;
-        flex-direction: column;
-        gap: 0.2rem;
-        flex: 1 1 140px;
-        font-size: 0.8rem;
-        color: var(--shenas-text-muted, #666);
-      }
-      .form-row input,
-      .form-row select {
-        padding: 0.4rem;
-        border: 1px solid var(--shenas-border, #d8d4cc);
-        border-radius: 4px;
-        background: var(--shenas-bg, #faf8f5);
-        color: var(--shenas-text, #2c2c28);
-        font-size: 0.9rem;
-      }
-      .actions {
-        display: flex;
-        gap: 0.4rem;
-        margin-top: 0.6rem;
       }
       table {
         margin-top: 0.4rem;
@@ -185,41 +135,10 @@ class EntitiesPage extends LitElement {
         font-weight: 600;
         margin-left: 0.4rem;
       }
-      .view-switcher {
-        display: flex;
-        gap: 0;
-        margin-bottom: 0.6rem;
-      }
-      .view-switcher button {
-        border: 1px solid var(--shenas-border, #d8d4cc);
-        background: var(--shenas-bg, #faf8f5);
-        color: var(--shenas-text-muted, #666);
-        padding: 0.3rem 0.8rem;
-        font-size: 0.8rem;
-        cursor: pointer;
-      }
-      .view-switcher button:first-child {
-        border-radius: 4px 0 0 4px;
-      }
-      .view-switcher button:last-child {
-        border-radius: 0 4px 4px 0;
-        border-left: none;
-      }
-      .view-switcher button.active {
-        background: var(--shenas-primary, #728f67);
-        color: #fff;
-        border-color: var(--shenas-primary, #728f67);
-      }
     `,
   ];
 
   declare _message: Message | null;
-  declare _creating: boolean;
-  declare _newEntity: EntityForm;
-  declare _editing: string | null;
-  declare _editForm: EntityForm;
-  declare _newRel: RelationshipForm;
-  declare _view: GraphView;
 
   private _cy: cytoscape.Core | null = null;
   private _resizeObserver: ResizeObserver | null = null;
@@ -255,15 +174,14 @@ class EntitiesPage extends LitElement {
     );
   }
 
+  // The DOM element currently hosted in the right panel (create/edit entity
+  // or create relationship). Tracked so save/cancel handlers can update it
+  // in place and close the panel when done.
+  private _panelEl: HTMLDivElement | null = null;
+
   constructor() {
     super();
     this._message = null;
-    this._creating = false;
-    this._newEntity = this._emptyEntityForm();
-    this._editing = null;
-    this._editForm = this._emptyEntityForm();
-    this._newRel = { fromUuid: "", toUuid: "", type: "" };
-    this._view = "entities";
   }
 
   _emptyEntityForm(): EntityForm {
@@ -301,24 +219,87 @@ class EntitiesPage extends LitElement {
     return t ? t.displayName : name;
   }
 
-  // -- CRUD ---------------------------------------------------------------
+  // -- CRUD: entity panel -------------------------------------------------
 
-  _startCreate(): void {
-    this._creating = true;
-    this._newEntity = this._emptyEntityForm();
+  /** Open the right panel to create a new entity, or edit ``entity`` if given. */
+  _openEntityPanel(entity?: Entity): void {
+    const isEdit = !!entity;
+    const form: EntityForm = entity
+      ? {
+          name: entity.name,
+          type: entity.type,
+          description: entity.description,
+          birthYear: entity.birthYear !== null ? String(entity.birthYear) : "",
+        }
+      : this._emptyEntityForm();
+
+    const typeOptions = this._entityTypes
+      .map(
+        (t) =>
+          `<option value="${t.name}"${t.name === form.type ? " selected" : ""}>${this._escape(t.displayName)}</option>`,
+      )
+      .join("");
+
+    const panel = document.createElement("div");
+    panel.style.padding = "1rem";
+    panel.innerHTML = `
+      <h3 style="margin-top:0">${isEdit ? `Edit ${this._escape(entity!.name)}` : "Add entity"}</h3>
+      <label style="display:block;margin-bottom:0.6rem">
+        Name<br/>
+        <input id="f-name" type="text" style="width:100%" value="${this._escape(form.name)}" />
+      </label>
+      <label style="display:block;margin-bottom:0.6rem">
+        Type<br/>
+        <select id="f-type" style="width:100%">${typeOptions}</select>
+      </label>
+      <label style="display:block;margin-bottom:0.6rem">
+        Birth year<br/>
+        <input id="f-birth" type="number" style="width:100%" value="${this._escape(form.birthYear)}" />
+      </label>
+      <label style="display:block;margin-bottom:0.6rem">
+        Description<br/>
+        <input id="f-desc" type="text" style="width:100%" value="${this._escape(form.description)}" />
+      </label>
+      <div style="display:flex;gap:0.5rem;margin-top:1rem">
+        <button id="save-btn">${isEdit ? "Save" : "Add"}</button>
+        <button id="cancel-btn">Cancel</button>
+      </div>
+    `;
+
+    const current: EntityForm = { ...form };
+    const bindInput = (id: string, field: keyof EntityForm) => {
+      panel.querySelector(`#${id}`)?.addEventListener("input", (e) => {
+        current[field] = (e.target as HTMLInputElement).value;
+      });
+    };
+    bindInput("f-name", "name");
+    bindInput("f-birth", "birthYear");
+    bindInput("f-desc", "description");
+    panel.querySelector("#f-type")?.addEventListener("change", (e) => {
+      current.type = (e.target as HTMLSelectElement).value;
+    });
+    panel.querySelector("#save-btn")?.addEventListener("click", () => {
+      if (isEdit) void this._saveEntityEdit(entity!.uuid, current);
+      else void this._saveEntityCreate(current);
+    });
+    panel.querySelector("#cancel-btn")?.addEventListener("click", () => this._closePanel());
+
+    this._panelEl = panel;
+    this.dispatchEvent(
+      new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 420 } }),
+    );
   }
 
-  _cancelCreate(): void {
-    this._creating = false;
-    this._newEntity = this._emptyEntityForm();
+  _closePanel(): void {
+    this._panelEl = null;
+    this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
   }
 
-  _updateNewField(field: keyof EntityForm, value: string): void {
-    this._newEntity = { ...this._newEntity, [field]: value };
+  _escape(s: string): string {
+    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
   }
 
-  async _saveCreate(): Promise<void> {
-    const form = this._newEntity;
+  async _saveEntityCreate(form: EntityForm): Promise<void> {
     if (!form.name.trim()) {
       this._message = { type: "error", text: "Name is required." };
       return;
@@ -336,7 +317,7 @@ class EntitiesPage extends LitElement {
       });
       if (data?.createEntity) {
         this._message = { type: "success", text: "Entity added." };
-        this._cancelCreate();
+        this._closePanel();
         this._entitiesQuery.refetch();
       } else {
         this._message = { type: "error", text: "Could not add entity." };
@@ -346,32 +327,11 @@ class EntitiesPage extends LitElement {
     }
   }
 
-  _startEdit(e: Entity): void {
-    this._editing = e.uuid;
-    this._editForm = {
-      name: e.name,
-      type: e.type,
-      description: e.description,
-      birthYear: e.birthYear !== null ? String(e.birthYear) : "",
-    };
-  }
-
-  _cancelEdit(): void {
-    this._editing = null;
-    this._editForm = this._emptyEntityForm();
-  }
-
-  _updateEditField(field: keyof EntityForm, value: string): void {
-    this._editForm = { ...this._editForm, [field]: value };
-  }
-
-  async _saveEdit(): Promise<void> {
-    if (!this._editing) return;
-    const form = this._editForm;
+  async _saveEntityEdit(uuid: string, form: EntityForm): Promise<void> {
     try {
       await this._updateEntityMutation.mutate({
         variables: {
-          uuid: this._editing,
+          uuid,
           input: {
             name: form.name.trim() || null,
             type: form.type || null,
@@ -381,7 +341,7 @@ class EntitiesPage extends LitElement {
         },
       });
       this._message = { type: "success", text: "Entity updated." };
-      this._cancelEdit();
+      this._closePanel();
       this._entitiesQuery.refetch();
     } catch {
       this._message = { type: "error", text: "Could not update entity." };
@@ -408,12 +368,62 @@ class EntitiesPage extends LitElement {
     }
   }
 
-  _updateRelField(field: keyof RelationshipForm, value: string): void {
-    this._newRel = { ...this._newRel, [field]: value };
+  // -- CRUD: relationship panel -------------------------------------------
+
+  _openRelationshipPanel(): void {
+    if (this._entities.length < 2 || this._relationshipTypes.length === 0) {
+      this._message = { type: "error", text: "Add at least two entities and a relationship type first." };
+      return;
+    }
+    const entityOptions = ['<option value="">--</option>']
+      .concat(this._entities.map((e) => `<option value="${e.uuid}">${this._escape(e.name)}</option>`))
+      .join("");
+    const typeOptions = ['<option value="">--</option>']
+      .concat(this._relationshipTypes.map((t) => `<option value="${t.name}">${this._escape(t.displayName)}</option>`))
+      .join("");
+
+    const panel = document.createElement("div");
+    panel.style.padding = "1rem";
+    panel.innerHTML = `
+      <h3 style="margin-top:0">Add relationship</h3>
+      <label style="display:block;margin-bottom:0.6rem">
+        From<br/>
+        <select id="r-from" style="width:100%">${entityOptions}</select>
+      </label>
+      <label style="display:block;margin-bottom:0.6rem">
+        Type<br/>
+        <select id="r-type" style="width:100%">${typeOptions}</select>
+      </label>
+      <label style="display:block;margin-bottom:0.6rem">
+        To<br/>
+        <select id="r-to" style="width:100%">${entityOptions}</select>
+      </label>
+      <div style="display:flex;gap:0.5rem;margin-top:1rem">
+        <button id="save-btn">Add</button>
+        <button id="cancel-btn">Cancel</button>
+      </div>
+    `;
+
+    const form: RelationshipForm = { fromUuid: "", toUuid: "", type: "" };
+    panel.querySelector("#r-from")?.addEventListener("change", (e) => {
+      form.fromUuid = (e.target as HTMLSelectElement).value;
+    });
+    panel.querySelector("#r-to")?.addEventListener("change", (e) => {
+      form.toUuid = (e.target as HTMLSelectElement).value;
+    });
+    panel.querySelector("#r-type")?.addEventListener("change", (e) => {
+      form.type = (e.target as HTMLSelectElement).value;
+    });
+    panel.querySelector("#save-btn")?.addEventListener("click", () => void this._saveRelationship(form));
+    panel.querySelector("#cancel-btn")?.addEventListener("click", () => this._closePanel());
+
+    this._panelEl = panel;
+    this.dispatchEvent(
+      new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 420 } }),
+    );
   }
 
-  async _addRelationship(): Promise<void> {
-    const r = this._newRel;
+  async _saveRelationship(r: RelationshipForm): Promise<void> {
     if (!r.fromUuid || !r.toUuid || !r.type) {
       this._message = { type: "error", text: "From, to, and type are all required." };
       return;
@@ -427,7 +437,7 @@ class EntitiesPage extends LitElement {
         variables: { from: r.fromUuid, to: r.toUuid, type: r.type },
       });
       this._message = { type: "success", text: "Relationship added." };
-      this._newRel = { fromUuid: "", toUuid: "", type: "" };
+      this._closePanel();
       this._entitiesQuery.refetch();
     } catch {
       this._message = { type: "error", text: "Could not add relationship." };
@@ -448,17 +458,6 @@ class EntitiesPage extends LitElement {
     } catch {
       this._message = { type: "error", text: "Could not remove relationship." };
     }
-  }
-
-  // -- View switching ------------------------------------------------------
-
-  _setView(v: GraphView): void {
-    if (this._view === v) return;
-    if (this._cy) {
-      this._cy.destroy();
-      this._cy = null;
-    }
-    this._view = v;
   }
 
   // -- Cytoscape ego graph ------------------------------------------------
@@ -492,34 +491,10 @@ class EntitiesPage extends LitElement {
     return elements;
   }
 
-  _buildHierarchyElements(): CyElement[] {
-    const elements: CyElement[] = [];
-    for (const t of this._entityTypes) {
-      elements.push({
-        data: {
-          id: t.name,
-          label: t.displayName,
-          isAbstract: t.isAbstract ? "yes" : "no",
-        },
-      });
-    }
-    for (const t of this._entityTypes) {
-      if (t.parent) {
-        elements.push({
-          data: {
-            id: `edge:${t.parent}:${t.name}`,
-            source: t.parent,
-            target: t.name,
-          },
-        });
-      }
-    }
-    return elements;
-  }
-
   _initCytoscape(): void {
     const container = this.renderRoot.querySelector("#cy") as HTMLElement | null;
     if (!container) return;
+    if (this._entities.length === 0) return;
 
     if (!_dagreRegistered) {
       cytoscape.use(dagre);
@@ -530,24 +505,6 @@ class EntitiesPage extends LitElement {
       this._cy.destroy();
     }
 
-    if (this._view === "types") {
-      this._initHierarchyGraph(container);
-    } else {
-      this._initEntityGraph(container);
-    }
-
-    if (this._resizeObserver) this._resizeObserver.disconnect();
-    this._resizeObserver = new ResizeObserver(() => {
-      if (this._cy) {
-        this._cy.resize();
-        this._cy.fit(undefined, 20);
-      }
-    });
-    this._resizeObserver.observe(container);
-  }
-
-  _initEntityGraph(container: HTMLElement): void {
-    if (this._entities.length === 0) return;
     const meUuid = this._meUuid();
 
     this._cy = cytoscape({
@@ -610,73 +567,27 @@ class EntitiesPage extends LitElement {
     this._cy.on("tap", "node", (evt) => {
       const uuid = evt.target.id();
       const e = this._entityByUuid(uuid);
-      if (e && !e.isMe) this._startEdit(e);
+      if (e && !e.isMe) this._openEntityPanel(e);
     });
-  }
 
-  _initHierarchyGraph(container: HTMLElement): void {
-    if (this._entityTypes.length === 0) return;
-
-    this._cy = cytoscape({
-      container,
-      elements: this._buildHierarchyElements(),
-      style: [
-        {
-          selector: "node",
-          style: {
-            label: "data(label)",
-            "text-valign": "center",
-            "text-halign": "center",
-            "font-size": 11,
-            color: "#fff",
-            "text-wrap": "wrap",
-            "text-max-width": 90,
-            width: 120,
-            height: 36,
-            shape: "round-rectangle",
-            "background-color": "#728f67",
-          },
-        },
-        {
-          selector: 'node[isAbstract="yes"]',
-          style: {
-            "background-color": "#8a9a84",
-            "border-width": 2,
-            "border-style": "dashed",
-            "border-color": "#666",
-          },
-        },
-        {
-          selector: "edge",
-          style: {
-            "curve-style": "bezier",
-            "target-arrow-shape": "triangle",
-            "target-arrow-color": "#999",
-            "line-color": "#999",
-            width: 2,
-          },
-        },
-      ] as unknown as cytoscape.StylesheetStyle[],
-      layout: {
-        name: "dagre",
-        rankDir: "TB",
-        nodeSep: 40,
-        rankSep: 60,
-        padding: 30,
-      } as unknown as cytoscape.LayoutOptions,
-      userZoomingEnabled: true,
-      userPanningEnabled: true,
+    if (this._resizeObserver) this._resizeObserver.disconnect();
+    this._resizeObserver = new ResizeObserver(() => {
+      if (this._cy) {
+        this._cy.resize();
+        this._cy.fit(undefined, 20);
+      }
     });
+    this._resizeObserver.observe(container);
   }
 
   firstUpdated(): void {
-    if (!this._loading) {
+    if (!this._loading && this._entities.length > 0) {
       this._initCytoscape();
     }
   }
 
   updated(): void {
-    if (!this._loading) {
+    if (!this._loading && this._entities.length > 0) {
       requestAnimationFrame(() => this._initCytoscape());
     }
   }
@@ -687,141 +598,26 @@ class EntitiesPage extends LitElement {
     return html`
       <shenas-page ?loading=${this._loading} loading-text="Loading entities...">
         ${renderMessage(this._message)}
-        <div class="view-switcher">
-          <button class=${this._view === "entities" ? "active" : ""} @click=${() => this._setView("entities")}>
-            Entities
-          </button>
-          <button class=${this._view === "types" ? "active" : ""} @click=${() => this._setView("types")}>
-            Type Hierarchy
-          </button>
-        </div>
-        ${this._view === "entities" && this._entities.length === 0
+        ${this._entities.length === 0
           ? html`<div class="empty-graph">No entities yet.</div>`
           : html`<div id="cy"></div>`}
 
         <div class="section">
           <h3>Entities</h3>
           <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem">
-            ${this._creating ? "" : html`<button @click=${() => this._startCreate()}>Add entity</button>`}
+            <button @click=${() => this._openEntityPanel()}>Add entity</button>
           </div>
-          ${this._creating ? this._renderCreateForm() : ""} ${this._renderEntitiesTable()}
+          ${this._renderEntitiesTable()}
         </div>
 
         <div class="section">
           <h3>Relationships</h3>
-          ${this._renderRelationshipForm()} ${this._renderRelationshipsTable()}
+          <div style="display:flex;justify-content:flex-end;margin-bottom:0.4rem">
+            <button @click=${() => this._openRelationshipPanel()}>Add relationship</button>
+          </div>
+          ${this._renderRelationshipsTable()}
         </div>
       </shenas-page>
-    `;
-  }
-
-  _renderCreateForm() {
-    return html`
-      <div class="edit-panel">
-        <h4>Add entity</h4>
-        <div class="form-row">
-          <label
-            >Name
-            <input
-              type="text"
-              .value=${this._newEntity.name}
-              @input=${(e: InputEvent) => this._updateNewField("name", (e.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label
-            >Type
-            <select
-              .value=${this._newEntity.type}
-              @change=${(e: Event) => this._updateNewField("type", (e.target as HTMLSelectElement).value)}
-            >
-              ${this._entityTypes
-                .filter((t) => !t.isAbstract)
-                .map(
-                  (t) =>
-                    html`<option value=${t.name} ?selected=${t.name === this._newEntity.type}>
-                      ${t.displayName}
-                    </option>`,
-                )}
-            </select>
-          </label>
-          <label
-            >Birth year
-            <input
-              type="number"
-              .value=${this._newEntity.birthYear}
-              @input=${(e: InputEvent) => this._updateNewField("birthYear", (e.target as HTMLInputElement).value)}
-            />
-          </label>
-        </div>
-        <div class="form-row">
-          <label style="flex:1"
-            >Description
-            <input
-              type="text"
-              .value=${this._newEntity.description}
-              @input=${(e: InputEvent) => this._updateNewField("description", (e.target as HTMLInputElement).value)}
-            />
-          </label>
-        </div>
-        <div class="actions">
-          <button @click=${() => this._saveCreate()}>Add</button>
-          <button @click=${() => this._cancelCreate()}>Cancel</button>
-        </div>
-      </div>
-    `;
-  }
-
-  _renderEditForm(e: Entity) {
-    return html`
-      <div class="edit-panel">
-        <h4>Edit ${e.name}</h4>
-        <div class="form-row">
-          <label
-            >Name
-            <input
-              type="text"
-              .value=${this._editForm.name}
-              @input=${(ev: InputEvent) => this._updateEditField("name", (ev.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label
-            >Type
-            <select
-              .value=${this._editForm.type}
-              @change=${(ev: Event) => this._updateEditField("type", (ev.target as HTMLSelectElement).value)}
-            >
-              ${this._entityTypes
-                .filter((t) => !t.isAbstract)
-                .map(
-                  (t) =>
-                    html`<option value=${t.name} ?selected=${t.name === this._editForm.type}>${t.displayName}</option>`,
-                )}
-            </select>
-          </label>
-          <label
-            >Birth year
-            <input
-              type="number"
-              .value=${this._editForm.birthYear}
-              @input=${(ev: InputEvent) => this._updateEditField("birthYear", (ev.target as HTMLInputElement).value)}
-            />
-          </label>
-        </div>
-        <div class="form-row">
-          <label style="flex:1"
-            >Description
-            <input
-              type="text"
-              .value=${this._editForm.description}
-              @input=${(ev: InputEvent) => this._updateEditField("description", (ev.target as HTMLInputElement).value)}
-            />
-          </label>
-        </div>
-        <div class="actions">
-          <button @click=${() => this._saveEdit()}>Save</button>
-          <button @click=${() => this._cancelEdit()}>Cancel</button>
-        </div>
-      </div>
     `;
   }
 
@@ -851,67 +647,16 @@ class EntitiesPage extends LitElement {
                     ${e.isMe
                       ? ""
                       : html`
-                          <button @click=${() => this._startEdit(e)}>Edit</button>
+                          <button @click=${() => this._openEntityPanel(e)}>Edit</button>
                           <button class="danger" @click=${() => this._delete(e)}>Delete</button>
                         `}
                   </div>
                 </td>
               </tr>
-              ${this._editing === e.uuid
-                ? html`<tr>
-                    <td colspan="4">${this._renderEditForm(e)}</td>
-                  </tr>`
-                : ""}
             `,
           )}
         </tbody>
       </table>
-    `;
-  }
-
-  _renderRelationshipForm() {
-    if (this._entities.length < 2 || this._relationshipTypes.length === 0) {
-      return html`<p style="color:var(--shenas-text-faint,#888)">Add at least two entities to start linking them.</p>`;
-    }
-    return html`
-      <div class="edit-panel">
-        <h4>Add relationship</h4>
-        <div class="form-row">
-          <label
-            >From
-            <select
-              .value=${this._newRel.fromUuid}
-              @change=${(e: Event) => this._updateRelField("fromUuid", (e.target as HTMLSelectElement).value)}
-            >
-              <option value="">--</option>
-              ${this._entities.map((e) => html`<option value=${e.uuid}>${e.name}</option>`)}
-            </select>
-          </label>
-          <label
-            >Type
-            <select
-              .value=${this._newRel.type}
-              @change=${(e: Event) => this._updateRelField("type", (e.target as HTMLSelectElement).value)}
-            >
-              <option value="">--</option>
-              ${this._relationshipTypes.map((t) => html`<option value=${t.name}>${t.displayName}</option>`)}
-            </select>
-          </label>
-          <label
-            >To
-            <select
-              .value=${this._newRel.toUuid}
-              @change=${(e: Event) => this._updateRelField("toUuid", (e.target as HTMLSelectElement).value)}
-            >
-              <option value="">--</option>
-              ${this._entities.map((e) => html`<option value=${e.uuid}>${e.name}</option>`)}
-            </select>
-          </label>
-        </div>
-        <div class="actions">
-          <button @click=${() => this._addRelationship()}>Add</button>
-        </div>
-      </div>
     `;
   }
 

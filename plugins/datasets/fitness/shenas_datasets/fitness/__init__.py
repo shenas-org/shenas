@@ -9,6 +9,7 @@ class FitnessSchema(Dataset):
     description = "Canonical fitness metrics: HRV, sleep, vitals, body composition"
     all_tables = ALL_TABLES
     primary_table = "daily_hrv"
+    default_update_frequency = "R/P1D"
 
 
 __all__ = [

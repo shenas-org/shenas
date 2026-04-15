@@ -272,7 +272,7 @@ class DatabaseManager:
         from shenas_transformers.geofence.model import Geofence
 
         from app.categories import CategorySet, CategoryValue
-        from app.data_catalog import QualityCheckResult, ResourceAnnotation
+        from app.data_catalog import QualityCheckResult, QualityMeasurement, ResourceAnnotation
         from app.entities import (
             Entity,
             EntityIndex,
@@ -315,6 +315,7 @@ class DatabaseManager:
             Geofence,
             ResourceAnnotation,
             QualityCheckResult,
+            QualityMeasurement,
             CategorySet,
             CategoryValue,
             EntityType,

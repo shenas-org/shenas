@@ -6,6 +6,7 @@ import abc
 import contextlib
 import dataclasses
 import logging
+import re
 import threading
 from datetime import UTC
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -18,6 +19,39 @@ from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.base_config import SourceConfig
 
 logger = logging.getLogger("shenas.sources")
+
+# ISO 8601 recurring-interval parser: "R/P1D", "R/PT1H", "R/P2W", "R/PT15M", etc.
+# Supports the subset of durations we actually use for sync cadence: weeks,
+# days, hours, minutes, seconds. Returns minutes (or None on parse failure /
+# empty input). Kept inline to avoid pulling in `isodate`.
+_ISO_RECURRING_RE = re.compile(
+    r"^R/P(?:(?P<weeks>\d+)W)?"
+    r"(?:(?P<days>\d+)D)?"
+    r"(?:T(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+)S)?)?$"
+)
+
+
+def _iso8601_recurring_to_minutes(value: str) -> int | None:
+    """Parse an ISO 8601 recurring interval like ``R/P1D`` to minutes.
+
+    Returns ``None`` if ``value`` is empty or not a recognized pattern.
+    """
+    if not value:
+        return None
+    m = _ISO_RECURRING_RE.match(value)
+    if not m:
+        return None
+    parts = {k: int(v) for k, v in m.groupdict().items() if v}
+    if not parts:
+        return None
+    total = (
+        parts.get("weeks", 0) * 7 * 24 * 60
+        + parts.get("days", 0) * 24 * 60
+        + parts.get("hours", 0) * 60
+        + parts.get("minutes", 0)
+        + parts.get("seconds", 0) // 60
+    )
+    return total or None
 
 
 class Source(Plugin):
@@ -36,6 +70,12 @@ class Source(Plugin):
     auth_instructions: ClassVar[str] = ""
     primary_table: ClassVar[str] = ""
     entity_types: ClassVar[list[str]] = ["human"]  # references EntityType.name
+    # ISO 8601 recurring interval describing the source's natural cadence
+    # (e.g. "R/P1D" for daily, "R/P1W" for weekly, "R/PT1H" for hourly).
+    # Mirrors DCAT's `dct:accrualPeriodicity`. Used as the fallback when
+    # the per-instance `sync_frequency` config row is unset (see
+    # :meth:`sync_frequency`). Empty string means no default cadence.
+    default_update_frequency: ClassVar[str] = ""
 
     # Class-level sync lock: prevents concurrent syncs of the same pipe
     _sync_locks: ClassVar[dict[str, threading.Lock]] = {}
@@ -87,9 +127,9 @@ class Source(Plugin):
         if self.Auth is SourceAuth:
             return []
 
-        meta = self.Auth.table_metadata()  # ty: ignore[unresolved-attribute]
+        columns = self.Auth.column_metadata()  # ty: ignore[unresolved-attribute]
         fields: list[dict[str, str | bool]] = []
-        for col in meta["columns"]:
+        for col in columns:
             if col["name"] == "id":
                 continue
             fields.append(
@@ -118,14 +158,23 @@ class Source(Plugin):
 
     @property
     def sync_frequency(self) -> int | None:
-        """Sync frequency in minutes from config, or None."""
-        if self.Config is SourceConfig:
-            return None
-        try:
-            row = self.Config.read_row()  # ty: ignore[unresolved-attribute]
-            return row.get("sync_frequency") if row else None
-        except Exception:
-            return None
+        """Sync frequency in minutes.
+
+        Order of precedence:
+
+        1. Explicit ``sync_frequency`` on the per-instance Config row.
+        2. ``default_update_frequency`` ClassVar parsed from ISO 8601
+           (e.g. ``"R/P1D"`` -> 1440 minutes).
+        3. ``None`` (no scheduled sync).
+        """
+        if self.Config is not SourceConfig:
+            try:
+                row = self.Config.read_row()  # ty: ignore[unresolved-attribute]
+                if row and row.get("sync_frequency") is not None:
+                    return row["sync_frequency"]
+            except Exception:
+                pass
+        return _iso8601_recurring_to_minutes(self.default_update_frequency)
 
     @property
     def is_due_for_sync(self) -> bool:
@@ -169,9 +218,9 @@ class Source(Plugin):
             return []
 
         row = self.Config.read_row()  # ty: ignore[unresolved-attribute]
-        meta = self.Config.table_metadata()  # ty: ignore[unresolved-attribute]
+        columns = self.Config.column_metadata()  # ty: ignore[unresolved-attribute]
         entries = []
-        for col in meta["columns"]:
+        for col in columns:
             if col["name"] == "id":
                 continue
             val = row.get(col["name"]) if row else None
@@ -192,8 +241,8 @@ class Source(Plugin):
         if not self.has_config:
             return
         if value is not None:
-            meta = self.Config.table_metadata()  # ty: ignore[unresolved-attribute]
-            for col in meta["columns"]:
+            columns = self.Config.column_metadata()  # ty: ignore[unresolved-attribute]
+            for col in columns:
                 if col["name"] == key:
                     db_type = col.get("db_type", "").upper()
                     if db_type == "INTEGER":
@@ -219,6 +268,7 @@ class Source(Plugin):
             "sync_frequency": self.sync_frequency,
             "primary_table": self.primary_table,
             "entity_types": self.entity_types,
+            "default_update_frequency": self.default_update_frequency,
             "commands": self.commands,
         }
 
@@ -440,10 +490,10 @@ class Source(Plugin):
             return []
         try:
             row = self.Auth.read_row()  # ty: ignore[unresolved-attribute]
-            meta = self.Auth.table_metadata()  # ty: ignore[unresolved-attribute]
+            columns = self.Auth.column_metadata()  # ty: ignore[unresolved-attribute]
             return [
                 col["name"].replace("_", " ").title()
-                for col in meta["columns"]
+                for col in columns
                 if col["name"] != "id" and row and row.get(col["name"])
             ]
         except Exception:
