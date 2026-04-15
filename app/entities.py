@@ -86,6 +86,24 @@ class EntityType(Table):
     is_abstract: Annotated[
         bool, Field(db_type="BOOLEAN", description="True for non-instantiable types", db_default="FALSE")
     ] = False
+    wikidata_qid: Annotated[
+        str | None,
+        Field(
+            db_type="VARCHAR",
+            description="Wikidata Q-ID for this type class (e.g. 'Q5' for human), or NULL when there is no clean equivalent.",
+        ),
+    ] = None
+    wikidata_properties: Annotated[
+        str,
+        Field(
+            db_type="VARCHAR",
+            description=(
+                "JSON list of Wikidata property descriptors useful as dimensional data for entities "
+                'of this type, e.g. [{"pid":"P21","label":"sex or gender"}, ...].'
+            ),
+            db_default="'[]'",
+        ),
+    ] = "[]"
     added_at: Annotated[
         str | None,
         Field(db_type="TIMESTAMP", description="When seeded", db_default="current_timestamp"),
@@ -95,6 +113,16 @@ class EntityType(Table):
     def concrete_types(cls) -> list[Self]:
         """Return all non-abstract (instantiable) entity types."""
         return cls.all(where="is_abstract = FALSE", order_by="name")
+
+    def parsed_wikidata_properties(self) -> list[dict[str, str]]:
+        """Return ``wikidata_properties`` parsed from its JSON string form."""
+        import json
+
+        try:
+            value = json.loads(self.wikidata_properties or "[]")
+        except json.JSONDecodeError:
+            return []
+        return value if isinstance(value, list) else []
 
     @classmethod
     def is_subtype_of(cls, child: str, ancestor: str) -> bool:
@@ -405,6 +433,7 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "",
         "is_human": False,
         "is_abstract": True,
+        "wikidata_qid": "Q35120",  # entity
         "description": "Root of the entity hierarchy.",
     },
     {
@@ -414,6 +443,7 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "",
         "is_human": False,
         "is_abstract": True,
+        "wikidata_qid": "Q223557",  # physical object
         "description": "Something that exists in the physical world.",
     },
     {
@@ -423,6 +453,7 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "",
         "is_human": False,
         "is_abstract": True,
+        "wikidata_qid": "Q7184903",  # abstract object
         "description": "Something that exists only as an abstraction.",
     },
     {
@@ -432,6 +463,7 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "",
         "is_human": False,
         "is_abstract": True,
+        "wikidata_qid": "Q7239",  # organism
         "description": "A living being.",
     },
     {
@@ -441,6 +473,7 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "map",
         "is_human": False,
         "is_abstract": True,
+        "wikidata_qid": "Q17334923",  # location
         "description": "A geographic location: a residence, city, country, or other place.",
     },
     # Concrete leaf types
@@ -451,6 +484,15 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "user",
         "is_human": True,
         "is_abstract": False,
+        "wikidata_qid": "Q5",  # human
+        "wikidata_properties": [
+            {"pid": "P21", "label": "sex or gender"},
+            {"pid": "P569", "label": "date of birth"},
+            {"pid": "P19", "label": "place of birth"},
+            {"pid": "P27", "label": "country of citizenship"},
+            {"pid": "P106", "label": "occupation"},
+            {"pid": "P1412", "label": "languages spoken"},
+        ],
         "description": "A person.",
     },
     {
@@ -460,6 +502,14 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "paw-print",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q729",  # animal
+        "wikidata_properties": [
+            {"pid": "P105", "label": "taxon rank"},
+            {"pid": "P225", "label": "taxon name"},
+            {"pid": "P171", "label": "parent taxon"},
+            {"pid": "P569", "label": "date of birth"},
+            {"pid": "P21", "label": "sex or gender"},
+        ],
         "description": "A pet or other animal.",
     },
     {
@@ -469,6 +519,15 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "home",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q699405",  # residence
+        "wikidata_properties": [
+            {"pid": "P17", "label": "country"},
+            {"pid": "P625", "label": "coordinate location"},
+            {"pid": "P669", "label": "street address"},
+            {"pid": "P281", "label": "postal code"},
+            {"pid": "P2046", "label": "area"},
+            {"pid": "P571", "label": "inception"},
+        ],
         "description": "A home, apartment, or other place people live.",
     },
     {
@@ -478,6 +537,12 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "car",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q42889",  # vehicle
+        "wikidata_properties": [
+            {"pid": "P176", "label": "manufacturer"},
+            {"pid": "P571", "label": "inception"},
+            {"pid": "P516", "label": "powered by"},
+        ],
         "description": "A motorized or human-powered means of transport.",
     },
     {
@@ -487,6 +552,14 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "car",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q1420",  # motor car
+        "wikidata_properties": [
+            {"pid": "P176", "label": "manufacturer"},
+            {"pid": "P571", "label": "inception"},
+            {"pid": "P516", "label": "powered by"},
+            {"pid": "P528", "label": "catalog code"},
+            {"pid": "P1622", "label": "drive side"},
+        ],
         "description": "An automobile.",
     },
     {
@@ -496,6 +569,13 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "bike",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q34493",  # motorcycle
+        "wikidata_properties": [
+            {"pid": "P176", "label": "manufacturer"},
+            {"pid": "P571", "label": "inception"},
+            {"pid": "P516", "label": "powered by"},
+            {"pid": "P2048", "label": "engine displacement"},
+        ],
         "description": "A two-wheeled motor vehicle.",
     },
     {
@@ -505,6 +585,13 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "ship",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q35872",  # boat
+        "wikidata_properties": [
+            {"pid": "P176", "label": "manufacturer"},
+            {"pid": "P571", "label": "inception"},
+            {"pid": "P516", "label": "powered by"},
+            {"pid": "P2043", "label": "length"},
+        ],
         "description": "A watercraft.",
     },
     {
@@ -514,6 +601,12 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "smartphone",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q1183543",  # device
+        "wikidata_properties": [
+            {"pid": "P176", "label": "manufacturer"},
+            {"pid": "P306", "label": "operating system"},
+            {"pid": "P571", "label": "inception"},
+        ],
         "description": "An electronic device.",
     },
     {
@@ -523,6 +616,13 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "smartphone",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q17517",  # mobile phone
+        "wikidata_properties": [
+            {"pid": "P176", "label": "manufacturer"},
+            {"pid": "P306", "label": "operating system"},
+            {"pid": "P571", "label": "inception"},
+            {"pid": "P8371", "label": "IMEI"},
+        ],
         "description": "A smartphone or other mobile phone.",
     },
     {
@@ -532,6 +632,13 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "laptop",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q68",  # computer
+        "wikidata_properties": [
+            {"pid": "P176", "label": "manufacturer"},
+            {"pid": "P306", "label": "operating system"},
+            {"pid": "P571", "label": "inception"},
+            {"pid": "P880", "label": "CPU"},
+        ],
         "description": "A laptop, desktop, or other personal computer.",
     },
     {
@@ -541,6 +648,12 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "tablet",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q155972",  # tablet computer
+        "wikidata_properties": [
+            {"pid": "P176", "label": "manufacturer"},
+            {"pid": "P306", "label": "operating system"},
+            {"pid": "P571", "label": "inception"},
+        ],
         "description": "A tablet computer.",
     },
     {
@@ -550,6 +663,15 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "map-pin",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q515",  # city
+        "wikidata_properties": [
+            {"pid": "P17", "label": "country"},
+            {"pid": "P625", "label": "coordinate location"},
+            {"pid": "P421", "label": "located in time zone"},
+            {"pid": "P1082", "label": "population"},
+            {"pid": "P2046", "label": "area"},
+            {"pid": "P2044", "label": "elevation above sea level"},
+        ],
         "description": "A city or metropolitan area.",
     },
     {
@@ -559,6 +681,7 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "",
         "is_human": False,
         "is_abstract": True,
+        "wikidata_qid": "Q874405",  # social group
         "description": "A collection of people or entities.",
     },
     {
@@ -568,6 +691,15 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "building",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q43229",  # organization
+        "wikidata_properties": [
+            {"pid": "P571", "label": "inception"},
+            {"pid": "P17", "label": "country"},
+            {"pid": "P159", "label": "headquarters location"},
+            {"pid": "P112", "label": "founded by"},
+            {"pid": "P856", "label": "official website"},
+            {"pid": "P1128", "label": "employees"},
+        ],
         "description": "A company, gym, or other group.",
     },
     {
@@ -577,6 +709,17 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "building-2",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q783794",  # company
+        "wikidata_properties": [
+            {"pid": "P571", "label": "inception"},
+            {"pid": "P17", "label": "country"},
+            {"pid": "P159", "label": "headquarters location"},
+            {"pid": "P112", "label": "founded by"},
+            {"pid": "P169", "label": "chief executive officer"},
+            {"pid": "P452", "label": "industry"},
+            {"pid": "P414", "label": "stock exchange"},
+            {"pid": "P1128", "label": "employees"},
+        ],
         "description": "A commercial business entity.",
     },
     {
@@ -586,6 +729,7 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "folder",
         "is_human": False,
         "is_abstract": True,
+        "wikidata_qid": "Q170584",  # project
         "description": "A planned undertaking or endeavour.",
     },
     {
@@ -595,6 +739,15 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "code",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q1141526",  # software project
+        "wikidata_properties": [
+            {"pid": "P277", "label": "programmed in"},
+            {"pid": "P275", "label": "license"},
+            {"pid": "P1324", "label": "source code repository URL"},
+            {"pid": "P856", "label": "official website"},
+            {"pid": "P178", "label": "developer"},
+            {"pid": "P571", "label": "inception"},
+        ],
         "description": "A software repository or codebase.",
     },
     {
@@ -604,6 +757,16 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "flag",
         "is_human": False,
         "is_abstract": False,
+        "wikidata_qid": "Q6256",  # country
+        "wikidata_properties": [
+            {"pid": "P297", "label": "ISO 3166-1 alpha-2 code"},
+            {"pid": "P36", "label": "capital"},
+            {"pid": "P37", "label": "official language"},
+            {"pid": "P38", "label": "currency"},
+            {"pid": "P1082", "label": "population"},
+            {"pid": "P2046", "label": "area"},
+            {"pid": "P463", "label": "member of"},
+        ],
         "description": "A sovereign nation or territory.",
     },
 ]
@@ -624,18 +787,22 @@ DEFAULT_RELATIONSHIP_TYPES: list[dict[str, Any]] = [
 
 def seed_entity_types(con: duckdb.DuckDBPyConnection) -> None:
     """Upsert the default entity types. Idempotent."""
+    import json
+
     for row in DEFAULT_ENTITY_TYPES:
         con.execute(
             "INSERT INTO shenas_system.entity_types "
-            "(name, display_name, parent, description, icon, is_human, is_abstract) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?) "
+            "(name, display_name, parent, description, icon, is_human, is_abstract, wikidata_qid, wikidata_properties) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT (name) DO UPDATE SET "
             "display_name = excluded.display_name, "
             "parent = excluded.parent, "
             "description = excluded.description, "
             "icon = excluded.icon, "
             "is_human = excluded.is_human, "
-            "is_abstract = excluded.is_abstract",
+            "is_abstract = excluded.is_abstract, "
+            "wikidata_qid = excluded.wikidata_qid, "
+            "wikidata_properties = excluded.wikidata_properties",
             [
                 row["name"],
                 row["display_name"],
@@ -644,6 +811,8 @@ def seed_entity_types(con: duckdb.DuckDBPyConnection) -> None:
                 row["icon"],
                 row["is_human"],
                 row.get("is_abstract", False),
+                row.get("wikidata_qid"),
+                json.dumps(row.get("wikidata_properties", [])),
             ],
         )
 
