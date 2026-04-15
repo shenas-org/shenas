@@ -1,7 +1,0 @@
-id: themes-core
-language: 'python'
-tags: ['plugin', 'theme', 'core']
-
-workspace:
-  inheritedTasks:
-    exclude: ['test']

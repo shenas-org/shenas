@@ -61,6 +61,7 @@ shenas-source-numbeo = { workspace = true }
 shenas-source-oecd = { workspace = true }
 shenas-source-openaq = { workspace = true }
 shenas-source-who = { workspace = true }
+shenas-source-wikidata = { workspace = true }
 shenas-source-worldbank = { workspace = true }
 shenas-dataset-core = { workspace = true }
 shenas-dataset-fitness = { workspace = true }
@@ -126,6 +127,7 @@ dev = [
     "shenas-source-oecd",
     "shenas-source-openaq",
     "shenas-source-who",
+    "shenas-source-wikidata",
     "shenas-source-worldbank",
     "shenas-dataset-fitness",
     "shenas-dataset-finance",

@@ -1,4 +1,13 @@
 {
   "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "lit": ["./node_modules/lit"],
+      "lit/*": ["./node_modules/lit/*"],
+      "echarts/*": ["./node_modules/echarts/*"],
+      "apache-arrow": ["./node_modules/apache-arrow"]
+    }
+  },
   "include": ["src/**/*.ts", "../components/*.ts", "../components/*.d.ts"]
 }

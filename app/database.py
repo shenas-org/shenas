@@ -273,6 +273,7 @@ class DatabaseManager:
 
         from app.categories import CategorySet, CategoryValue
         from app.data_catalog import QualityCheckResult, QualityMeasurement, ResourceAnnotation
+        from app.entities.places import City, Country, Residence
         from app.entity import (
             Entity,
             EntityIndex,
@@ -325,6 +326,9 @@ class DatabaseManager:
             EntityRelationship,
         ]
         Table.ensure_schema(con, tables, schema="shenas_system")
+        # Built-in user-facing entity tables live in the `entities` schema so the
+        # namespace stays clean and separable from shenas_system bookkeeping.
+        Table.ensure_schema(con, [City, Residence, Country], schema="entities")
         Hotkey.seed()
         seed_entity_types(con)
         seed_relationship_types(con)

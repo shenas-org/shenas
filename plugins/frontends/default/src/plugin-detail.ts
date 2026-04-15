@@ -895,9 +895,26 @@ class PluginDetail extends LitElement {
 
   _renderData() {
     const tables = (this._tables || []).filter((t) => !t.name.startsWith("_dlt_"));
-    if (tables.length === 0) return html`<p style="color:var(--shenas-text-muted,#888)">No tables synced yet.</p>`;
-    const schema = this.kind === "dataset" ? "metrics" : this._info?.name || this.name;
-    const table = this._dataTable || this._info?.primary_table || tables[0]?.name || "";
+    const defaultSchema = this.kind === "dataset" ? "metrics" : this._info?.name || this.name;
+
+    // Sources that write to a non-source schema (e.g. wikidata -> entities.countries)
+    // can declare it on primary_table as "<schema>.<table>". Honor that even
+    // when the plugin's own schema is empty -- otherwise the Data tab would
+    // hide the entity rows the source actually owns.
+    let primaryFallbackSchema: string | null = null;
+    let primaryFallbackTable: string | null = null;
+    if (this._info?.primary_table?.includes(".")) {
+      const [s, t] = this._info.primary_table.split(".", 2);
+      primaryFallbackSchema = s;
+      primaryFallbackTable = t;
+    }
+
+    if (tables.length === 0 && !primaryFallbackTable) {
+      return html`<p style="color:var(--shenas-text-muted,#888)">No tables synced yet.</p>`;
+    }
+
+    const schema = primaryFallbackSchema ?? defaultSchema;
+    const table = this._dataTable || primaryFallbackTable || this._info?.primary_table || tables[0]?.name || "";
     if (!this._dataTable && table) {
       requestAnimationFrame(() => {
         this._dataTable = table;

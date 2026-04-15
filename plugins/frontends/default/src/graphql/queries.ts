@@ -237,7 +237,6 @@ export const GET_ENTITIES_DATA = gql`
       name
       description
       status
-      birthYear
       isMe
     }
     entityRelationships {
@@ -251,7 +250,6 @@ export const GET_ENTITIES_DATA = gql`
       displayName
       description
       icon
-      isHuman
       parent
       isAbstract
     }

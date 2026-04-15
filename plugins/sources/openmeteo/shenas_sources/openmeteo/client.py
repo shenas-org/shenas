@@ -36,51 +36,66 @@ HOURLY_AQ_PARAMS = "pm2_5,pm10,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,
 
 
 class OpenMeteoClient:
-    """HTTP client for the Open-Meteo APIs."""
+    """HTTP client for the Open-Meteo APIs, fans out across N places.
 
-    def __init__(self, latitude: float, longitude: float) -> None:
-        self.latitude = latitude
-        self.longitude = longitude
+    Each *place* is a ``(place_uuid, latitude, longitude)`` tuple resolved
+    from a :class:`app.entity.PlaceEntityTable` row via
+    :func:`app.entity.resolve_place`. Both ``get_daily_weather`` and
+    ``get_hourly_air_quality`` iterate over the configured places and tag
+    every returned row with its ``place_uuid`` so downstream merge
+    semantics stay per-place-per-date.
+    """
+
+    def __init__(self, places: list[tuple[str, float, float]]) -> None:
+        self.places = places
         self._http = httpx.Client(timeout=60.0)
 
     def close(self) -> None:
         self._http.close()
 
     def get_daily_weather(self, start_date: str, end_date: str) -> list[dict[str, Any]]:
-        """Fetch daily weather data. Dates are ISO format (YYYY-MM-DD)."""
-        resp = self._http.get(
-            ARCHIVE_URL,
-            params={
-                "latitude": self.latitude,
-                "longitude": self.longitude,
-                "start_date": start_date,
-                "end_date": end_date,
-                "daily": DAILY_WEATHER_PARAMS,
-                "timezone": "UTC",
-            },
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        daily = data.get("daily", {})
-        return _columnar_to_rows(daily)
+        """Fetch daily weather for each configured place. Dates are ISO (YYYY-MM-DD)."""
+        out: list[dict[str, Any]] = []
+        for place_uuid, lat, lon in self.places:
+            resp = self._http.get(
+                ARCHIVE_URL,
+                params={
+                    "latitude": lat,
+                    "longitude": lon,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "daily": DAILY_WEATHER_PARAMS,
+                    "timezone": "UTC",
+                },
+            )
+            resp.raise_for_status()
+            daily = resp.json().get("daily", {})
+            for row in _columnar_to_rows(daily):
+                row["place_uuid"] = place_uuid
+                out.append(row)
+        return out
 
     def get_hourly_air_quality(self, start_date: str, end_date: str) -> list[dict[str, Any]]:
-        """Fetch hourly air quality data and aggregate to daily."""
-        resp = self._http.get(
-            AIR_QUALITY_URL,
-            params={
-                "latitude": self.latitude,
-                "longitude": self.longitude,
-                "start_date": start_date,
-                "end_date": end_date,
-                "hourly": HOURLY_AQ_PARAMS,
-                "timezone": "UTC",
-            },
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        hourly = data.get("hourly", {})
-        return _aggregate_hourly_to_daily(hourly)
+        """Fetch hourly air quality for each place and aggregate to daily."""
+        out: list[dict[str, Any]] = []
+        for place_uuid, lat, lon in self.places:
+            resp = self._http.get(
+                AIR_QUALITY_URL,
+                params={
+                    "latitude": lat,
+                    "longitude": lon,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "hourly": HOURLY_AQ_PARAMS,
+                    "timezone": "UTC",
+                },
+            )
+            resp.raise_for_status()
+            hourly = resp.json().get("hourly", {})
+            for row in _aggregate_hourly_to_daily(hourly):
+                row["place_uuid"] = place_uuid
+                out.append(row)
+        return out
 
 
 def _columnar_to_rows(columnar: dict[str, list]) -> list[dict[str, Any]]:

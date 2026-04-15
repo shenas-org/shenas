@@ -314,8 +314,13 @@ class Table:
 
     @classmethod
     def from_row(cls, row: tuple[Any, ...]) -> Self:
-        """Build an instance from a row tuple in dataclass field order."""
-        return cls(*row)
+        """Build an instance from a row tuple in dataclass field order.
+
+        Passes values as kwargs rather than positional so classes with
+        ``kw_only`` fields (e.g. :class:`~app.entities.places.Place`'s
+        ``latitude`` / ``longitude``) still accept the row.
+        """
+        return cls(**dict(zip(cls._column_names(), row, strict=True)))
 
     @classmethod
     def find(cls, *pk_values: Any) -> Self | None:

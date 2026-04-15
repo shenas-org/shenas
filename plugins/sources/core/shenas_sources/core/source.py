@@ -407,9 +407,9 @@ class Source(Plugin):
             seen_types.add(et.name)
             con.execute(
                 "INSERT INTO shenas_system.entity_types "
-                "(name, display_name, parent, description, icon, is_human, is_abstract, "
+                "(name, display_name, parent, description, icon, is_abstract, "
                 "wikidata_qid, wikidata_properties) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT (name) DO NOTHING",
                 [
                     et.name,
@@ -417,7 +417,6 @@ class Source(Plugin):
                     et.parent,
                     et.description,
                     et.icon,
-                    et.is_human,
                     et.is_abstract,
                     et.wikidata_qid,
                     et.wikidata_properties,

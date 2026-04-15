@@ -3,7 +3,7 @@ import type { TemplateResult, CSSResult, PropertyValues } from "lit";
 import { getClient, gqlTag, query as arrowQuery, arrowToRows } from "shenas-frontends";
 import type { RowData } from "shenas-frontends";
 import * as echarts from "echarts/core";
-import { LineChart, BarChart, ScatterChart } from "echarts/charts";
+import { LineChart, BarChart, ScatterChart, CustomChart } from "echarts/charts";
 import { GridComponent, TooltipComponent, LegendComponent, DataZoomComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 
@@ -11,6 +11,7 @@ echarts.use([
   LineChart,
   BarChart,
   ScatterChart,
+  CustomChart,
   GridComponent,
   TooltipComponent,
   LegendComponent,
@@ -75,6 +76,7 @@ export class ShenasDataTable extends LitElement {
     _dataView: { state: true },
     _tableKind: { state: true },
     _timeColumns: { state: true },
+    _intervalMode: { state: true },
   };
 
   declare apiBase: string;
@@ -104,6 +106,7 @@ export class ShenasDataTable extends LitElement {
     cursorColumn?: string;
     observedAtInjected?: boolean;
   } | null;
+  declare _intervalMode: "packed" | "concurrency" | "histogram";
 
   static styles: CSSResult = css`
     :host {
@@ -183,14 +186,25 @@ export class ShenasDataTable extends LitElement {
     }
     .resize-handle {
       position: absolute;
-      right: 0;
+      right: -3px;
       top: 0;
       bottom: 0;
-      width: 4px;
+      width: 8px;
       cursor: col-resize;
+      z-index: 2;
     }
-    .resize-handle:hover {
+    .resize-handle::after {
+      content: "";
+      position: absolute;
+      right: 3px;
+      top: 4px;
+      bottom: 4px;
+      width: 2px;
+      background: #ddd;
+    }
+    .resize-handle:hover::after {
       background: #4a90d9;
+      width: 3px;
     }
     td {
       padding: 3px 8px;
@@ -323,6 +337,40 @@ export class ShenasDataTable extends LitElement {
       flex: 1;
       min-height: 300px;
     }
+    .interval-graph {
+      display: flex;
+      flex: 1;
+      gap: 8px;
+      min-height: 300px;
+    }
+    .interval-mode-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      width: 28px;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+    .interval-mode-bar button {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      padding: 4px 0;
+      cursor: pointer;
+      color: #999;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1;
+    }
+    .interval-mode-bar button:hover {
+      background: #f0f0f0;
+      color: #555;
+    }
+    .interval-mode-bar button[aria-pressed="true"] {
+      background: #728f67;
+      color: #fff;
+      border-color: #728f67;
+    }
     .chart-hint {
       color: #aaa;
       font-size: 11px;
@@ -353,10 +401,12 @@ export class ShenasDataTable extends LitElement {
     this._dataView = "table";
     this._tableKind = null;
     this._timeColumns = null;
+    this._intervalMode = "packed";
   }
 
   private _chart: echarts.ECharts | null = null;
   private _ro: ResizeObserver | null = null;
+  private _histogramRecompute: ((winStart: number, winEnd: number) => void) | null = null;
   private _client = getClient();
 
   disconnectedCallback(): void {
@@ -372,7 +422,10 @@ export class ShenasDataTable extends LitElement {
   }
 
   updated(changed: PropertyValues): void {
-    if (this._dataView === "graph" && (changed.has("_dataView") || changed.has("_data") || changed.has("_tableKind"))) {
+    if (
+      this._dataView === "graph" &&
+      (changed.has("_dataView") || changed.has("_data") || changed.has("_tableKind") || changed.has("_intervalMode"))
+    ) {
       // Defer to next frame so the chart-wrap div is in the DOM
       requestAnimationFrame(() => this._buildChart());
     }
@@ -764,39 +817,46 @@ export class ShenasDataTable extends LitElement {
       return { col, type: "text" as const, count, nullCount, unique, top: top ? `${top[0]} (${top[1]})` : "-" };
     });
 
+    const statsCols: { key: string; label: string; default: number; cell: (s: (typeof stats)[number]) => unknown }[] = [
+      { key: "column", label: "Column", default: 200, cell: (s) => this._colMeta[s.col]?.displayName || s.col },
+      { key: "type", label: "Type", default: 80, cell: (s) => s.type },
+      { key: "count", label: "Non-null", default: 80, cell: (s) => s.count },
+      { key: "nullCount", label: "Null", default: 60, cell: (s) => s.nullCount },
+      { key: "unique", label: "Unique", default: 70, cell: (s) => s.unique },
+      { key: "min", label: "Min", default: 90, cell: (s) => (s.type === "numeric" ? s.min : "-") },
+      { key: "max", label: "Max", default: 90, cell: (s) => (s.type === "numeric" ? s.max : "-") },
+      { key: "mean", label: "Mean", default: 90, cell: (s) => (s.type === "numeric" ? s.mean : "-") },
+      { key: "median", label: "Median", default: 90, cell: (s) => (s.type === "numeric" ? s.median : "-") },
+      { key: "stddev", label: "Std Dev", default: 90, cell: (s) => (s.type === "numeric" ? s.stddev : "-") },
+      { key: "top", label: "Top Value", default: 200, cell: (s) => (s.type === "text" ? s.top : "-") },
+    ];
+    const widthOf = (c: (typeof statsCols)[number]) => this._colWidths[`__stats__${c.key}`] || c.default;
+
+    const kind = this._tableKind;
     return html`
+      ${kind ? html`<div class="chart-hint">Table kind: ${kind}</div>` : ""}
       <div class="table-wrap">
         <table class="stats-table">
           <thead>
             <tr>
-              <th>Column</th>
-              <th>Type</th>
-              <th>Non-null</th>
-              <th>Null</th>
-              <th>Unique</th>
-              <th>Min</th>
-              <th>Max</th>
-              <th>Mean</th>
-              <th>Median</th>
-              <th>Std Dev</th>
-              <th>Top Value</th>
+              ${statsCols.map(
+                (c) => html`
+                  <th style="width:${widthOf(c)}px">
+                    ${c.label}
+                    <div
+                      class="resize-handle"
+                      @mousedown=${(e: MouseEvent) => this._onResizeStart(e, `__stats__${c.key}`)}
+                    ></div>
+                  </th>
+                `,
+              )}
             </tr>
           </thead>
           <tbody>
             ${stats.map(
               (s) => html`
                 <tr>
-                  <td>${this._colMeta[s.col]?.displayName || s.col}</td>
-                  <td>${s.type}</td>
-                  <td>${s.count}</td>
-                  <td>${s.nullCount}</td>
-                  <td>${s.unique}</td>
-                  <td>${s.type === "numeric" ? s.min : "-"}</td>
-                  <td>${s.type === "numeric" ? s.max : "-"}</td>
-                  <td>${s.type === "numeric" ? s.mean : "-"}</td>
-                  <td>${s.type === "numeric" ? s.median : "-"}</td>
-                  <td>${s.type === "numeric" ? s.stddev : "-"}</td>
-                  <td>${s.type === "text" ? s.top : "-"}</td>
+                  ${statsCols.map((c) => html`<td style="width:${widthOf(c)}px">${c.cell(s)}</td>`)}
                 </tr>
               `,
             )}
@@ -809,9 +869,35 @@ export class ShenasDataTable extends LitElement {
   _renderGraphView(): TemplateResult {
     const kind = this._tableKind;
     const hint = kind ? `Table kind: ${kind}` : "";
+    const isInterval = kind === "interval" && !!this._timeColumns?.timeStart && !!this._timeColumns?.timeEnd;
+    const modes: { id: "packed" | "concurrency" | "histogram"; label: string; title: string }[] = [
+      { id: "packed", label: "P", title: "Packed timeline (greedy)" },
+      { id: "concurrency", label: "C", title: "Concurrency (active count over time)" },
+      { id: "histogram", label: "H", title: "Duration histogram" },
+    ];
+    const bar = isInterval
+      ? html`<div class="interval-mode-bar">
+          ${modes.map(
+            (m) => html`
+              <button
+                title=${m.title}
+                aria-pressed=${this._intervalMode === m.id}
+                @click=${() => (this._intervalMode = m.id)}
+              >
+                ${m.label}
+              </button>
+            `,
+          )}
+        </div>`
+      : "";
     return html`
       ${hint ? html`<div class="chart-hint">${hint}</div>` : ""}
-      <div class="chart-wrap"></div>
+      ${isInterval
+        ? html`<div class="interval-graph">
+            ${bar}
+            <div class="chart-wrap"></div>
+          </div>`
+        : html`<div class="chart-wrap"></div>`}
     `;
   }
 
@@ -884,6 +970,7 @@ export class ShenasDataTable extends LitElement {
       this._chart.dispose();
       this._chart = null;
     }
+    this._histogramRecompute = null;
     this._chart = echarts.init(wrap);
 
     const kind = this._tableKind;
@@ -905,8 +992,25 @@ export class ShenasDataTable extends LitElement {
 
     let option: echarts.EChartsCoreOption;
 
-    if (kind === "event" || kind === "interval") {
-      // Event/interval: scatter or count-over-time
+    if (kind === "interval") {
+      const start = this._timeColumns?.timeStart;
+      const end = this._timeColumns?.timeEnd;
+      if (start && end) {
+        switch (this._intervalMode) {
+          case "concurrency":
+            option = this._concurrencyOption(rows, start, end);
+            break;
+          case "histogram":
+            option = this._durationHistogramOption(rows, start, end);
+            break;
+          default:
+            option = this._packedTimelineOption(rows, start, end);
+        }
+      } else {
+        option = this._fallbackBarOption(rows, numericCols);
+      }
+    } else if (kind === "event") {
+      // Event: scatter or count-over-time
       if (timeCol && numericCols.length > 0) {
         // Plot numeric columns over time
         const xData = rows.map((r) => {
@@ -994,12 +1098,376 @@ export class ShenasDataTable extends LitElement {
 
     this._chart.setOption(option);
 
+    const recompute: ((s: number, e: number) => void) | null = this._histogramRecompute;
+    if (recompute) {
+      this._chart.off("dataZoom");
+      this._chart.on("dataZoom", () => {
+        if (!this._chart) return;
+        const opt = this._chart.getOption() as { dataZoom?: { startValue?: number; endValue?: number }[] };
+        const dz = opt.dataZoom?.[0];
+        if (dz?.startValue != null && dz?.endValue != null && recompute) {
+          (recompute as (s: number, e: number) => void)(dz.startValue, dz.endValue);
+        }
+      });
+    }
+
     if (!this._ro) {
       this._ro = new ResizeObserver(() => {
         if (this._chart) this._chart.resize();
       });
       this._ro.observe(wrap);
     }
+  }
+
+  _packedTimelineOption(rows: RowData[], startCol: string, endCol: string): echarts.EChartsCoreOption {
+    type Bar = { start: number; end: number; lane: number };
+    const intervals: { start: number; end: number }[] = [];
+    for (const r of rows) {
+      const s = this._toTimestamp(r[startCol]);
+      const e = this._toTimestamp(r[endCol]);
+      if (s == null || e == null) continue;
+      intervals.push({ start: s, end: Math.max(e, s) });
+    }
+    if (intervals.length === 0) return this._fallbackBarOption(rows, []);
+
+    intervals.sort((a, b) => a.start - b.start);
+    const laneEnds: number[] = [];
+    const bars: Bar[] = [];
+    for (const iv of intervals) {
+      let lane = laneEnds.findIndex((end) => end <= iv.start);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(iv.end);
+      } else {
+        laneEnds[lane] = iv.end;
+      }
+      bars.push({ start: iv.start, end: iv.end, lane });
+    }
+    const laneCount = laneEnds.length;
+    const data = bars.map((b) => ({ value: [b.lane, b.start, b.end] }));
+    const startFmt = this._colMeta[startCol]?.displayName || startCol;
+    const endFmt = this._colMeta[endCol]?.displayName || endCol;
+
+    return {
+      tooltip: {
+        formatter: (params: unknown) => {
+          const p = params as { value: [number, number, number] };
+          const [, s, e] = p.value;
+          return [
+            `${this._escapeHtml(startFmt)}: ${new Date(s).toLocaleString()}`,
+            `${this._escapeHtml(endFmt)}: ${new Date(e).toLocaleString()}`,
+            `Duration: ${this._formatDuration(Math.max(0, e - s))}`,
+          ].join("<br/>");
+        },
+        backgroundColor: "rgba(255,255,255,0.95)",
+        borderColor: "#ddd",
+        textStyle: { fontSize: 12, color: "#333" },
+      },
+      grid: { left: 24, right: 16, top: 12, bottom: 36, containLabel: false },
+      xAxis: {
+        type: "time",
+        axisLine: { lineStyle: { color: "#ddd" } },
+        axisLabel: { fontSize: 10, color: "#888" },
+        splitLine: { lineStyle: { color: "#f0f0f0" } },
+      },
+      yAxis: {
+        type: "value",
+        min: -0.5,
+        max: laneCount - 0.5,
+        inverse: true,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { show: false },
+        splitLine: { show: false },
+      },
+      dataZoom: [
+        { type: "inside", xAxisIndex: 0 },
+        { type: "slider", xAxisIndex: 0, height: 16, bottom: 8 },
+      ],
+      series: [
+        {
+          type: "custom",
+          renderItem: (
+            _params: unknown,
+            api: {
+              value: (i: number) => number;
+              coord: (p: number[]) => number[];
+              size: (p: number[]) => number[];
+              style: () => unknown;
+            },
+          ) => {
+            const laneIdx = api.value(0);
+            const start = api.coord([api.value(1), laneIdx]);
+            const endPoint = api.coord([api.value(2), laneIdx]);
+            const height = Math.max(2, (api.size([0, 1])[1] ?? 8) * 0.7);
+            const width = Math.max(1, endPoint[0] - start[0]);
+            return {
+              type: "rect",
+              shape: { x: start[0], y: start[1] - height / 2, width, height },
+              style: { ...(api.style() as object), fill: "#728f67", opacity: 0.85 },
+            };
+          },
+          encode: { x: [1, 2], y: 0 },
+          data,
+        },
+      ],
+    };
+  }
+
+  _concurrencyOption(rows: RowData[], startCol: string, endCol: string): echarts.EChartsCoreOption {
+    const events: { t: number; delta: number }[] = [];
+    for (const r of rows) {
+      const s = this._toTimestamp(r[startCol]);
+      const e = this._toTimestamp(r[endCol]);
+      if (s == null || e == null) continue;
+      events.push({ t: s, delta: 1 });
+      events.push({ t: Math.max(e, s), delta: -1 });
+    }
+    if (events.length === 0) return this._fallbackBarOption(rows, []);
+    events.sort((a, b) => a.t - b.t || a.delta - b.delta);
+
+    const points: [number, number][] = [];
+    let active = 0;
+    for (const ev of events) {
+      active += ev.delta;
+      const last = points[points.length - 1];
+      if (last && last[0] === ev.t) {
+        last[1] = active;
+      } else {
+        points.push([ev.t, active]);
+      }
+    }
+
+    return {
+      tooltip: {
+        trigger: "axis",
+        formatter: (params: unknown) => {
+          const arr = params as { value: [number, number] }[];
+          if (!arr.length) return "";
+          const [t, v] = arr[0].value;
+          return `${new Date(t).toLocaleString()}<br/>Active: <b>${v}</b>`;
+        },
+        backgroundColor: "rgba(255,255,255,0.95)",
+        borderColor: "#ddd",
+        textStyle: { fontSize: 12, color: "#333" },
+      },
+      grid: { left: 48, right: 16, top: 12, bottom: 36, containLabel: false },
+      xAxis: {
+        type: "time",
+        axisLine: { lineStyle: { color: "#ddd" } },
+        axisLabel: { fontSize: 10, color: "#888" },
+        splitLine: { lineStyle: { color: "#f0f0f0" } },
+      },
+      yAxis: {
+        type: "value",
+        name: "active",
+        nameTextStyle: { fontSize: 10, color: "#888" },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { fontSize: 10, color: "#888" },
+        splitLine: { lineStyle: { color: "#f0f0f0" } },
+      },
+      dataZoom: [
+        { type: "inside", xAxisIndex: 0 },
+        { type: "slider", xAxisIndex: 0, height: 16, bottom: 8 },
+      ],
+      series: [
+        {
+          type: "line",
+          step: "end",
+          symbol: "none",
+          areaStyle: { opacity: 0.3, color: "#728f67" },
+          lineStyle: { color: "#728f67" },
+          data: points,
+        },
+      ],
+    };
+  }
+
+  _durationHistogramOption(rows: RowData[], startCol: string, endCol: string): echarts.EChartsCoreOption {
+    type Iv = { start: number; end: number; dur: number };
+    const intervals: Iv[] = [];
+    for (const r of rows) {
+      const s = this._toTimestamp(r[startCol]);
+      const e = this._toTimestamp(r[endCol]);
+      if (s == null || e == null) continue;
+      const end = Math.max(e, s);
+      const dur = end - s;
+      if (dur > 0) intervals.push({ start: s, end, dur });
+    }
+    if (intervals.length === 0) return this._fallbackBarOption(rows, []);
+
+    let minD = Infinity;
+    let maxD = -Infinity;
+    let minT = Infinity;
+    let maxT = -Infinity;
+    for (const iv of intervals) {
+      if (iv.dur < minD) minD = iv.dur;
+      if (iv.dur > maxD) maxD = iv.dur;
+      if (iv.start < minT) minT = iv.start;
+      if (iv.end > maxT) maxT = iv.end;
+    }
+    const binCount = 30;
+
+    let edges: number[];
+    if (maxD / Math.max(1, minD) > 100) {
+      const lo = Math.log10(Math.max(1, minD));
+      const hi = Math.log10(Math.max(maxD, minD + 1));
+      const step = (hi - lo) / binCount;
+      edges = Array.from({ length: binCount + 1 }, (_, i) => Math.pow(10, lo + i * step));
+    } else {
+      const step = (maxD - minD) / binCount || 1;
+      edges = Array.from({ length: binCount + 1 }, (_, i) => minD + i * step);
+    }
+
+    const computeCounts = (winStart: number, winEnd: number): number[] => {
+      const c = new Array(binCount).fill(0);
+      for (const iv of intervals) {
+        if (iv.end < winStart || iv.start > winEnd) continue;
+        let idx = edges.findIndex((edge, i) => i > 0 && iv.dur <= edge) - 1;
+        if (idx < 0) idx = 0;
+        if (idx >= binCount) idx = binCount - 1;
+        c[idx]++;
+      }
+      return c;
+    };
+
+    const initialCounts = computeCounts(minT, maxT);
+    const labels = initialCounts.map((_, i) => this._formatDuration(Math.round((edges[i] + edges[i + 1]) / 2)));
+    const stripData = intervals.map((iv) => ({ value: [0, iv.start, iv.end] }));
+
+    this._histogramRecompute = (winStart: number, winEnd: number) => {
+      if (!this._chart) return;
+      const counts = computeCounts(winStart, winEnd);
+      this._chart.setOption({ series: [{}, { data: counts }] });
+    };
+
+    return {
+      tooltip: {
+        backgroundColor: "rgba(255,255,255,0.95)",
+        borderColor: "#ddd",
+        textStyle: { fontSize: 12, color: "#333" },
+        formatter: (params: unknown) => {
+          const p = params as { seriesIndex: number; dataIndex?: number; value: unknown };
+          if (p.seriesIndex === 0) {
+            const v = p.value as [number, number, number];
+            return [
+              `${new Date(v[1]).toLocaleString()}`,
+              `${new Date(v[2]).toLocaleString()}`,
+              `Duration: ${this._formatDuration(Math.max(0, v[2] - v[1]))}`,
+            ].join("<br/>");
+          }
+          const i = p.dataIndex ?? 0;
+          const lo = this._formatDuration(Math.round(edges[i]));
+          const hi = this._formatDuration(Math.round(edges[i + 1]));
+          return `${this._escapeHtml(lo)} – ${this._escapeHtml(hi)}<br/>Count: <b>${p.value}</b>`;
+        },
+      },
+      axisPointer: { link: [{ xAxisIndex: [0] }] },
+      grid: [
+        { left: 48, right: 16, top: 12, height: 40 },
+        { left: 48, right: 16, top: 110, bottom: 60 },
+      ],
+      xAxis: [
+        {
+          gridIndex: 0,
+          type: "time",
+          axisLine: { lineStyle: { color: "#ddd" } },
+          axisLabel: { fontSize: 10, color: "#888" },
+          splitLine: { show: false },
+        },
+        {
+          gridIndex: 1,
+          type: "category",
+          data: labels,
+          axisLine: { lineStyle: { color: "#ddd" } },
+          axisLabel: { fontSize: 9, color: "#888", rotate: 45, interval: Math.floor(binCount / 10) },
+        },
+      ],
+      yAxis: [
+        {
+          gridIndex: 0,
+          type: "value",
+          min: -1,
+          max: 1,
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: { show: false },
+          splitLine: { show: false },
+        },
+        {
+          gridIndex: 1,
+          type: "value",
+          name: "count",
+          nameTextStyle: { fontSize: 10, color: "#888" },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: { fontSize: 10, color: "#888" },
+          splitLine: { lineStyle: { color: "#f0f0f0" } },
+        },
+      ],
+      dataZoom: [
+        { type: "slider", xAxisIndex: 0, height: 16, top: 56, brushSelect: true },
+        { type: "inside", xAxisIndex: 0 },
+      ],
+      series: [
+        {
+          type: "custom",
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          renderItem: (
+            _params: unknown,
+            api: {
+              value: (i: number) => number;
+              coord: (p: number[]) => number[];
+              size: (p: number[]) => number[];
+              style: () => unknown;
+            },
+          ) => {
+            const start = api.coord([api.value(1), 0]);
+            const endPoint = api.coord([api.value(2), 0]);
+            const stripHeight = (api.size([0, 2])[1] ?? 30) * 0.6;
+            const width = Math.max(1, endPoint[0] - start[0]);
+            return {
+              type: "rect",
+              shape: { x: start[0], y: start[1] - stripHeight / 2, width, height: stripHeight },
+              style: { ...(api.style() as object), fill: "#728f67", opacity: 0.3 },
+            };
+          },
+          encode: { x: [1, 2], y: 0 },
+          data: stripData,
+        },
+        {
+          type: "bar",
+          xAxisIndex: 1,
+          yAxisIndex: 1,
+          data: initialCounts,
+          itemStyle: { color: "#728f67" },
+          barCategoryGap: "10%",
+        },
+      ],
+    };
+  }
+
+  _formatDuration(ms: number): string {
+    if (ms < 1000) return `${ms} ms`;
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s} s`;
+    const m = Math.round(s / 60);
+    if (m < 60) return `${m} min`;
+    const h = Math.floor(m / 60);
+    const rem = m % 60;
+    if (h < 24) return rem ? `${h}h ${rem}m` : `${h}h`;
+    const d = Math.floor(h / 24);
+    const remH = h % 24;
+    return remH ? `${d}d ${remH}h` : `${d}d`;
+  }
+
+  _escapeHtml(s: string): string {
+    return s.replace(
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string,
+    );
   }
 
   _timeSeriesOption(

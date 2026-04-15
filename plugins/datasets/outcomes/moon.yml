@@ -1,9 +1,0 @@
-$schema: 'https://moonrepo.dev/schemas/project.json'
-id: 'dataset-outcomes'
-
-language: 'python'
-stack: 'data'
-tags: ['plugin', 'dataset']
-
-dependsOn:
-  - 'dataset-core'

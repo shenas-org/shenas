@@ -12,7 +12,6 @@ from app.entity import (
     EntityIndex,
     EntityRelationship,
     EntityRelationshipType,
-    Human,
     seed_me_entity_index,
 )
 from app.entity import EntityType as EntityLookupType
@@ -90,14 +89,6 @@ def test_relationship_upsert_and_for_entity(db_con: duckdb.DuckDBPyConnection) -
     assert len(edges) == 2
     kinds = {e.type for e in edges}
     assert kinds == {"owner_of", "lives_in"}
-
-
-def test_human_is_abstract_python_class() -> None:
-    """Human does not own a DuckDB table; it exists only as a Python marker."""
-    assert Human._abstract is True
-    # No concrete _Meta override -- Human inherits Entity's, but the bootstrap
-    # walk skips abstract classes so no duplicate table is created.
-    assert Human._Meta.name == Entity._Meta.name
 
 
 @pytest.mark.skip(reason="Requires LocalUser-Entity inheritance (deferred)")

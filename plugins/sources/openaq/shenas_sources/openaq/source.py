@@ -1,13 +1,17 @@
 """OpenAQ source -- air quality measurements from government monitoring stations.
 
-Requires an API key (free, register at explore.openaq.org). Configure latitude
-and longitude to find nearby stations, or set a location_id directly.
+Requires an API key (free, register at explore.openaq.org). Configure a
+comma-separated list of place-entity UUIDs; each UUID must resolve through
+:class:`app.entity.EntityIndex` to a :class:`app.entity.PlaceEntityTable`
+row carrying latitude / longitude (and optional ``radius_m``). The sync
+fans out across every configured place and tags each row with
+``place_uuid``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
@@ -19,10 +23,15 @@ class OpenAQSource(Source):
     name = "openaq"
     display_name = "OpenAQ"
     primary_table = "daily_measurements"
+    entity_types: ClassVar[list[str]] = ["place"]
     description = (
-        "Air quality data from government monitoring stations via OpenAQ.\n\n"
-        "Provides PM2.5, PM10, NO2, SO2, CO, O3, and other pollutants at "
-        "hourly resolution, aggregated to daily summaries.\n\n"
+        "Air quality data from government monitoring stations via OpenAQ, one "
+        "time-series per configured place entity.\n\n"
+        "Provides PM2.5, PM10, NO2, SO2, CO, O3, and other pollutants at hourly "
+        "resolution, aggregated to daily summaries.\n\n"
+        "In the Config tab, set `place_uuids` to a comma-separated list of "
+        "place-entity UUIDs. Each must resolve to a PlaceEntityTable row with "
+        "latitude / longitude (and optional `radius_m` to cap the search radius).\n\n"
         "Requires a free API key from explore.openaq.org."
     )
     auth_instructions = (
@@ -40,36 +49,50 @@ class OpenAQSource(Source):
 
     @dataclass
     class Config(SourceConfig):
-        latitude: Annotated[
-            float | None,
-            Field(db_type="DOUBLE", description="Location latitude (e.g. 59.33 for Stockholm)"),
-        ] = None
-        longitude: Annotated[
-            float | None,
-            Field(db_type="DOUBLE", description="Location longitude (e.g. 18.07 for Stockholm)"),
-        ] = None
-        radius_m: Annotated[
-            int | None,
-            Field(db_type="INTEGER", description="Search radius in meters (default 25000, max 25000)"),
+        place_uuids: Annotated[
+            str | None,
+            Field(
+                db_type="VARCHAR",
+                description=(
+                    "Comma-separated place-entity UUIDs to sync (each must resolve "
+                    "to a PlaceEntityTable row with latitude / longitude; "
+                    "`radius_m` on the row caps the per-place search radius)."
+                ),
+            ),
         ] = None
 
     def build_client(self) -> Any:
+        from app.entities.places import City, Country, Residence
         from shenas_sources.openaq.client import OpenAQClient
 
         auth = self.Auth.read_row()
         if not auth or not auth.get("api_key"):
             msg = "Set your OpenAQ API key in the Auth tab."
             raise RuntimeError(msg)
+
         cfg = self.Config.read_row()
-        if not cfg or not cfg.get("latitude") or not cfg.get("longitude"):
-            msg = "Set latitude and longitude in the Config tab."
+        raw_uuids = (cfg or {}).get("place_uuids") or ""
+        allowed: set[str] | None = {u.strip() for u in raw_uuids.split(",") if u.strip()} or None
+
+        # Iterate every user-tracked place. Residence rows carry per-row radius_m;
+        # City / Country do not and fall back to the client's default.
+        places: list[tuple[str, float, float, int | None]] = []
+        for cls in (City, Residence, Country):
+            radius_attr = "radius_m" if cls is Residence else None
+            for r in cls.all():
+                if allowed is not None and r.entity_id not in allowed:
+                    continue
+                radius = getattr(r, radius_attr) if radius_attr else None
+                places.append((r.entity_id, float(r.latitude), float(r.longitude), radius))
+
+        if not places:
+            msg = (
+                "No places to sync. Create entities via entities.cities / "
+                "entities.residences / entities.countries, or set place_uuids "
+                "in the Config tab to filter."
+            )
             raise RuntimeError(msg)
-        return OpenAQClient(
-            api_key=auth["api_key"],
-            latitude=float(cfg["latitude"]),
-            longitude=float(cfg["longitude"]),
-            radius_m=int(cfg.get("radius_m") or 25000),
-        )
+        return OpenAQClient(api_key=auth["api_key"], places=places)
 
     def authenticate(self, credentials: dict[str, str]) -> None:
         from shenas_sources.openaq.client import OpenAQClient
@@ -78,7 +101,8 @@ class OpenAQSource(Source):
         if not api_key:
             msg = "api_key is required"
             raise ValueError(msg)
-        client = OpenAQClient(api_key=api_key, latitude=0, longitude=0, radius_m=1000)
+        # Probe the API with no places -- only validates the key.
+        client = OpenAQClient(api_key=api_key, places=[])
         try:
             client.get_parameters()
         finally:

@@ -1,8 +1,0 @@
-$schema: 'https://moonrepo.dev/schemas/project.json'
-id: 'analysis-core'
-
-language: 'python'
-stack: 'data'
-tags: ['plugin', 'analysis', 'core']
-
-dependsOn:

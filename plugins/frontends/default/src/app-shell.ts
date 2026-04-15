@@ -1039,9 +1039,9 @@ class ShenasApp extends LitElement {
       },
       { id: "new-tab", category: "System", label: "New Tab", action: () => this._addTab() },
       {
-        id: "export-dev-credentials",
+        id: "export-dev-state",
         category: "Dev",
-        label: "Export Credentials to JSON",
+        label: "Export Cred/Config/Entities to JSON",
         action: async () => {
           try {
             const resp = await fetch(`${this.apiBase}/dev/export-credentials`, { method: "POST" });
@@ -1051,7 +1051,13 @@ class ShenasApp extends LitElement {
               return;
             }
             const data = await resp.json();
-            alert(`Exported credentials for: ${data.sources.join(", ") || "none"}`);
+            const sources = (data.sources as string[] | undefined) || [];
+            const entityCounts = (data.entities as Record<string, number> | undefined) || {};
+            const entitySummary = Object.entries(entityCounts)
+              .filter(([, n]) => n > 0)
+              .map(([k, n]) => `${k}=${n}`)
+              .join(", ");
+            alert(`Exported cred/config for: ${sources.join(", ") || "none"}\nEntities: ${entitySummary || "none"}`);
           } catch (err) {
             alert(`Export failed: ${err}`);
           }

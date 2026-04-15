@@ -20,6 +20,7 @@ import {
   DELETE_ENTITY,
   CREATE_ENTITY_RELATIONSHIP,
   DELETE_ENTITY_RELATIONSHIP,
+  SET_ENTITY_STATUS,
 } from "./graphql/mutations.ts";
 
 interface Entity {
@@ -28,7 +29,6 @@ interface Entity {
   name: string;
   description: string;
   status: string;
-  birthYear: number | null;
   isMe: boolean;
 }
 
@@ -37,7 +37,6 @@ interface EntityTypeInfo {
   displayName: string;
   description: string;
   icon: string;
-  isHuman: boolean;
   parent: string | null;
   isAbstract: boolean;
 }
@@ -62,7 +61,8 @@ interface EntityForm {
   name: string;
   type: string;
   description: string;
-  birthYear: string;
+  /** When set, the user picked an existing disabled entity instead of creating one. */
+  pickedUuid: string | null;
 }
 
 interface RelationshipForm {
@@ -78,6 +78,8 @@ interface Message {
 
 interface CyElement {
   data: Record<string, unknown>;
+  selectable?: boolean;
+  grabbable?: boolean;
 }
 
 let _dagreRegistered = false;
@@ -182,6 +184,7 @@ class EntitiesPage extends LitElement {
   private _createEntityMutation = new ApolloMutationController(this, CREATE_ENTITY, { client: getClient() });
   private _updateEntityMutation = new ApolloMutationController(this, UPDATE_ENTITY, { client: getClient() });
   private _deleteEntityMutation = new ApolloMutationController(this, DELETE_ENTITY, { client: getClient() });
+  private _setEntityStatusMutation = new ApolloMutationController(this, SET_ENTITY_STATUS, { client: getClient() });
   private _createRelMutation = new ApolloMutationController(this, CREATE_ENTITY_RELATIONSHIP, { client: getClient() });
   private _deleteRelMutation = new ApolloMutationController(this, DELETE_ENTITY_RELATIONSHIP, { client: getClient() });
 
@@ -238,7 +241,7 @@ class EntitiesPage extends LitElement {
   }
 
   _emptyEntityForm(): EntityForm {
-    return { name: "", type: "animal", description: "", birthYear: "" };
+    return { name: "", type: "animal", description: "", pickedUuid: null };
   }
 
   disconnectedCallback(): void {
@@ -274,7 +277,21 @@ class EntitiesPage extends LitElement {
 
   // -- CRUD: entity panel -------------------------------------------------
 
-  /** Open the right panel to create a new entity, or edit ``entity`` if given. */
+  /** Disabled entities of ``type`` that the user hasn't yet included in the graph. */
+  _disabledOfType(type: string): Entity[] {
+    return this._entities.filter((e) => e.type === type && e.status === "disabled" && !e.isMe);
+  }
+
+  /** Open the right panel to create a new entity, or edit ``entity`` if given.
+   *
+   * Create flow:
+   *   1. Pick a type.
+   *   2. If any disabled entities of that type exist, the Name row becomes
+   *      a dropdown of those plus a "Create new..." option; otherwise it's
+   *      a freetext input.
+   *   3. Picking an existing row flips its status to enabled via
+   *      setEntityStatus; typing a new name routes through createEntity.
+   */
   _openEntityPanel(entity?: Entity): void {
     const isEdit = !!entity;
     const form: EntityForm = entity
@@ -282,7 +299,7 @@ class EntitiesPage extends LitElement {
           name: entity.name,
           type: entity.type,
           description: entity.description,
-          birthYear: entity.birthYear !== null ? String(entity.birthYear) : "",
+          pickedUuid: null,
         }
       : this._emptyEntityForm();
 
@@ -298,17 +315,10 @@ class EntitiesPage extends LitElement {
     panel.innerHTML = `
       <h3 style="margin-top:0">${isEdit ? `Edit ${this._escape(entity!.name)}` : "Add entity"}</h3>
       <label style="display:block;margin-bottom:0.6rem">
-        Name<br/>
-        <input id="f-name" type="text" style="width:100%" value="${this._escape(form.name)}" />
-      </label>
-      <label style="display:block;margin-bottom:0.6rem">
         Type<br/>
         <select id="f-type" style="width:100%">${typeOptions}</select>
       </label>
-      <label style="display:block;margin-bottom:0.6rem">
-        Birth year<br/>
-        <input id="f-birth" type="number" style="width:100%" value="${this._escape(form.birthYear)}" />
-      </label>
+      <div id="name-row"></div>
       <label style="display:block;margin-bottom:0.6rem">
         Description<br/>
         <input id="f-desc" type="text" style="width:100%" value="${this._escape(form.description)}" />
@@ -320,16 +330,89 @@ class EntitiesPage extends LitElement {
     `;
 
     const current: EntityForm = { ...form };
-    const bindInput = (id: string, field: keyof EntityForm) => {
-      panel.querySelector(`#${id}`)?.addEventListener("input", (e) => {
-        current[field] = (e.target as HTMLInputElement).value;
+
+    const renderNameRow = () => {
+      const row = panel.querySelector("#name-row") as HTMLDivElement;
+      if (isEdit) {
+        // Edit mode: always a text field bound to the entity's current name.
+        row.innerHTML = `
+          <label style="display:block;margin-bottom:0.6rem">
+            Name<br/>
+            <input id="f-name" type="text" style="width:100%" value="${this._escape(current.name)}" />
+          </label>
+        `;
+        row.querySelector("#f-name")?.addEventListener("input", (e) => {
+          current.name = (e.target as HTMLInputElement).value;
+          current.pickedUuid = null;
+        });
+        return;
+      }
+      const candidates = this._disabledOfType(current.type);
+      if (candidates.length === 0) {
+        row.innerHTML = `
+          <label style="display:block;margin-bottom:0.6rem">
+            Name<br/>
+            <input id="f-name" type="text" style="width:100%" value="${this._escape(current.name)}" />
+          </label>
+        `;
+        row.querySelector("#f-name")?.addEventListener("input", (e) => {
+          current.name = (e.target as HTMLInputElement).value;
+          current.pickedUuid = null;
+        });
+        return;
+      }
+      // Have disabled candidates: show a dropdown + "Create new..." sentinel.
+      const SENTINEL = "__new__";
+      const options = candidates.map((c) => `<option value="${c.uuid}">${this._escape(c.name)}</option>`).join("");
+      row.innerHTML = `
+        <label style="display:block;margin-bottom:0.6rem">
+          Name<br/>
+          <select id="f-pick" style="width:100%">
+            <option value="" selected disabled>Pick an existing ${this._escape(this._typeDisplayName(current.type))}...</option>
+            ${options}
+            <option value="${SENTINEL}">Create new...</option>
+          </select>
+          <input
+            id="f-name"
+            type="text"
+            style="width:100%;margin-top:0.4rem;display:none"
+            placeholder="New ${this._escape(this._typeDisplayName(current.type))} name"
+            value=""
+          />
+        </label>
+      `;
+      current.name = "";
+      current.pickedUuid = null;
+      const nameInput = row.querySelector("#f-name") as HTMLInputElement;
+      row.querySelector("#f-pick")?.addEventListener("change", (e) => {
+        const value = (e.target as HTMLSelectElement).value;
+        if (value === SENTINEL) {
+          nameInput.style.display = "block";
+          nameInput.focus();
+          current.pickedUuid = null;
+          current.name = nameInput.value;
+        } else {
+          nameInput.style.display = "none";
+          const match = candidates.find((c) => c.uuid === value);
+          current.pickedUuid = value || null;
+          current.name = match?.name ?? "";
+        }
+      });
+      nameInput.addEventListener("input", (e) => {
+        current.name = (e.target as HTMLInputElement).value;
+        current.pickedUuid = null;
       });
     };
-    bindInput("f-name", "name");
-    bindInput("f-birth", "birthYear");
-    bindInput("f-desc", "description");
+
+    renderNameRow();
+
+    panel.querySelector("#f-desc")?.addEventListener("input", (e) => {
+      current.description = (e.target as HTMLInputElement).value;
+    });
     panel.querySelector("#f-type")?.addEventListener("change", (e) => {
       current.type = (e.target as HTMLSelectElement).value;
+      // Rebuild the name row since candidates depend on the type.
+      renderNameRow();
     });
     panel.querySelector("#save-btn")?.addEventListener("click", () => {
       if (isEdit) void this._saveEntityEdit(entity!.uuid, current);
@@ -353,6 +436,21 @@ class EntitiesPage extends LitElement {
   }
 
   async _saveEntityCreate(form: EntityForm): Promise<void> {
+    // Path A: user picked an existing disabled entity -- flip it to enabled.
+    if (form.pickedUuid) {
+      try {
+        await this._setEntityStatusMutation.mutate({
+          variables: { uuid: form.pickedUuid, status: "enabled" },
+        });
+        this._message = { type: "success", text: "Entity added to graph." };
+        this._closePanel();
+        this._entitiesQuery.refetch();
+      } catch {
+        this._message = { type: "error", text: "Could not enable entity." };
+      }
+      return;
+    }
+    // Path B: create a new user entity.
     if (!form.name.trim()) {
       this._message = { type: "error", text: "Name is required." };
       return;
@@ -364,7 +462,6 @@ class EntitiesPage extends LitElement {
             name: form.name.trim(),
             type: form.type,
             description: form.description,
-            birthYear: form.birthYear ? parseInt(form.birthYear, 10) : null,
           },
         },
       });
@@ -389,7 +486,6 @@ class EntitiesPage extends LitElement {
             name: form.name.trim() || null,
             type: form.type || null,
             description: form.description,
-            birthYear: form.birthYear ? parseInt(form.birthYear, 10) : null,
           },
         },
       });
@@ -524,6 +620,9 @@ class EntitiesPage extends LitElement {
           label: t.displayName,
           isAbstract: t.isAbstract ? "yes" : "no",
         },
+        // Abstract types stay scaffolding -- not selectable, not draggable.
+        selectable: !t.isAbstract,
+        grabbable: !t.isAbstract,
       });
       if (t.parent) {
         elements.push({
@@ -664,6 +763,59 @@ class EntitiesPage extends LitElement {
     });
   }
 
+  /** Open the right panel with every entity of ``typeName``. */
+  _openTypeEntitiesPanel(typeName: string): void {
+    const displayName = this._typeDisplayName(typeName);
+    const entities = this._entities
+      .filter((e) => e.type === typeName)
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+    const panel = document.createElement("div");
+    panel.style.padding = "1rem";
+    const body =
+      entities.length === 0
+        ? `<p style="color:var(--shenas-text-faint,#888)">No entities of type ${this._escape(displayName)} yet.</p>`
+        : `
+          <ul style="list-style:none;padding:0;margin:0">
+            ${entities
+              .map(
+                (e) => `
+                  <li
+                    data-uuid="${e.uuid}"
+                    style="padding:0.4rem 0.6rem;margin-bottom:0.3rem;border:1px solid var(--shenas-border,#d8d4cc);border-radius:4px;cursor:pointer"
+                  >
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">
+                      <span>
+                        ${this._escape(e.name || "(unnamed)")}
+                        ${e.isMe ? '<span class="me-badge" style="margin-left:0.3rem">me</span>' : ""}
+                      </span>
+                      <span style="color:var(--shenas-text-faint,#888);font-size:0.85rem">${this._escape(e.status)}</span>
+                    </div>
+                  </li>
+                `,
+              )
+              .join("")}
+          </ul>
+        `;
+    panel.innerHTML = `
+      <h3 style="margin-top:0">${this._escape(displayName)} entities <span style="color:var(--shenas-text-faint,#888);font-weight:normal">(${entities.length})</span></h3>
+      ${body}
+    `;
+
+    for (const li of Array.from(panel.querySelectorAll<HTMLLIElement>("li[data-uuid]"))) {
+      li.addEventListener("click", () => {
+        const uuid = li.dataset.uuid;
+        const e = entities.find((x) => x.uuid === uuid);
+        if (e && !e.isMe) this._openEntityPanel(e);
+      });
+    }
+
+    this._panelEl = panel;
+    this.dispatchEvent(
+      new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 420 } }),
+    );
+  }
+
   _initTypeHierarchy(container: HTMLElement): void {
     if (this._entityTypes.length === 0) return;
 
@@ -694,6 +846,8 @@ class EntitiesPage extends LitElement {
             "border-width": 2,
             "border-style": "dashed",
             "border-color": "#888",
+            // Abstract types are non-instantiable scaffolding, not clickable.
+            events: "no",
           },
         },
         {
@@ -715,6 +869,13 @@ class EntitiesPage extends LitElement {
       } as unknown as cytoscape.LayoutOptions,
       userZoomingEnabled: true,
       userPanningEnabled: true,
+    });
+
+    // Clicking a type node opens the right panel with all entities of that type.
+    this._cy.on("tap", "node", (evt) => {
+      const id = evt.target.id();
+      if (!id.startsWith("type:")) return;
+      this._openTypeEntitiesPanel(id.slice("type:".length));
     });
   }
 
@@ -782,7 +943,17 @@ class EntitiesPage extends LitElement {
             (e) => html`
               <tr>
                 <td>${e.name}${e.isMe ? html`<span class="me-badge">me</span>` : ""}</td>
-                <td>${this._typeDisplayName(e.type)}</td>
+                <td>
+                  <a
+                    href="#"
+                    @click=${(ev: Event) => {
+                      ev.preventDefault();
+                      this._openTypeEntitiesPanel(e.type);
+                    }}
+                    style="color:var(--shenas-accent,#6b8ab0);text-decoration:none"
+                    >${this._typeDisplayName(e.type)}</a
+                  >
+                </td>
                 <td>${e.status}</td>
                 <td>
                   <div class="row-actions">

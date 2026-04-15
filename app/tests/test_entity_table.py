@@ -6,6 +6,7 @@ from typing import Annotated, ClassVar
 
 import pytest
 
+from app.entities.places import Place
 from app.entity import EntityTable, EntityType, compute_entity_id
 from app.table import Field
 
@@ -39,7 +40,6 @@ def test_entity_type_default_returns_instance() -> None:
     human = EntityType.default("human")
     assert human.name == "human"
     assert human.display_name == "Human"
-    assert human.is_human is True
     assert human.is_abstract is False
     assert human.parent == "living_entity"
 
@@ -102,3 +102,43 @@ def test_entity_table_valid_class() -> None:
     assert cols["entity_id"]["data_type"] == "text"
     # table kind is still "dimension" (SCD2 via MRO)
     assert _Repo.table_kind() == "dimension"
+
+
+# ---------------------------------------------------------------------------
+# Place family (abstract `Place` base, concrete City / Residence / Country)
+# ---------------------------------------------------------------------------
+
+
+def test_place_accepts_place_subtype() -> None:
+    """A concrete Place subclass with entity_type='city' validates cleanly."""
+
+    class _Cities(Place):
+        class _Meta:
+            name = "my_cities"
+            display_name = "My Cities"
+            pk = ("name",)
+            schema = "test"
+            entity_type = EntityType.default("city")
+
+        name: Annotated[str, Field(db_type="VARCHAR", description="city name")] = ""
+
+    assert _Cities._Meta.entity_type.name == "city"
+    # lat/lng inherited from Place are in the DDL
+    ddl = _Cities.to_ddl(schema="test")
+    assert "latitude" in ddl
+    assert "longitude" in ddl
+
+
+def test_place_rejects_non_place_type() -> None:
+    """Place subclass with entity_type='human' fails at class-definition time."""
+    with pytest.raises(TypeError, match="descend from 'place'"):
+
+        class _WrongHumanPlace(Place):
+            class _Meta:
+                name = "wrong"
+                display_name = "Wrong"
+                pk = ("id",)
+                schema = "test"
+                entity_type = EntityType.default("human")
+
+            id: Annotated[int, Field(db_type="INTEGER", description="id")] = 0

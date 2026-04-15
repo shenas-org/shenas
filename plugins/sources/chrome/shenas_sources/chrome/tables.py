@@ -8,7 +8,7 @@ that database (copied to avoid Chrome's file lock).
   Joins ``visits`` + ``urls`` to include URL and title. End time is
   computed from visit_time + visit_duration.
 - ``Downloads`` is an ``IntervalTable`` with start/end times.
-- ``SearchTerms`` is an ``EventTable`` keyed on ``(url_id, term)``.
+- ``SearchTerms`` is a ``DimensionTable`` keyed on ``(url_id, term)`` (SCD2).
   Joins ``keyword_search_terms`` + ``urls`` for URL context.
 """
 
@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 from app.table import Field
-from shenas_sources.core.table import EventTable, IntervalTable, SourceTable
+from shenas_sources.core.table import DimensionTable, IntervalTable, SourceTable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -243,16 +243,14 @@ class Downloads(IntervalTable):
             con.close()
 
 
-class SearchTerms(EventTable):
-    """Search term entered in Chrome's address bar or search engine."""
+class SearchTerms(DimensionTable):
+    """Search term entered in Chrome's address bar or search engine. SCD2 captures re-use over time."""
 
     class _Meta:
         name = "search_terms"
         display_name = "Search Terms"
         description = "Search queries entered via Chrome's address bar or search engines."
         pk = ("url_id", "term")
-
-    time_at: ClassVar[str] = "last_visit_time"
 
     url_id: Annotated[
         int, Field(db_type="BIGINT", description="Chrome URL ID linking to the search result page", display_name="URL ID")

@@ -22,24 +22,3 @@ coverage.json
 *.egg-info/
 .vite/
 
-# PRIVATE-ONLY (stripped by Copybara)
-keys/
-build/_pyinstaller_work/
-server/api/uv.lock
-.moon/cache/
-.moon/docker/
-.shenas-fl/
-server/deploy/tofu/.terraform/
-server/deploy/tofu/*.tfstate*
-server/deploy/tofu/*.tfvars
-server/deploy/tofu/.terraform.lock.hcl
-app/desktop/src-tauri/binaries/
-app/desktop/src-tauri/target/
-app/mobile/mobile-dist/
-app/mobile/src-tauri/mobile-dist/
-app/mobile/src-tauri/target/
-app/mobile/src-tauri/gen/
-app/desktop/src-tauri/gen/
-app/desktop/src-tauri/Cargo.lock
-app/desktop/pkg/
-app/desktop/*.pkg.tar.zst

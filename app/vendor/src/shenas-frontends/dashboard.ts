@@ -7,3 +7,4 @@
 
 export * from "./arrow.ts";
 export * from "./timeline-utils.ts";
+export { getClient, gql as gqlTag } from "./apollo.ts";

@@ -1,5 +1,5 @@
 export * from "echarts/core";
-export { LineChart, BarChart, PieChart, ScatterChart } from "echarts/charts";
+export { LineChart, BarChart, PieChart, ScatterChart, CustomChart } from "echarts/charts";
 export {
   GridComponent,
   TooltipComponent,

@@ -85,6 +85,7 @@ class LocalUser(Table):
 
         import app.categories
         import app.data_catalog
+        import app.entities.places
         import app.entity
         import app.finding
         import app.hotkeys

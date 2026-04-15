@@ -427,7 +427,6 @@ class EntityTypeType:
     display_name: str
     description: str = ""
     icon: str = ""
-    is_human: bool = False
     parent: str | None = None
     is_abstract: bool = False
     wikidata_qid: str | None = None
@@ -450,7 +449,6 @@ class GqlEntityType:
     name: str
     description: str = ""
     status: str = "enabled"
-    birth_year: int | None = None
     added_at: str | None = None
     updated_at: str | None = None
     is_me: bool = False
@@ -486,7 +484,6 @@ class EntityCreateInput:
     type: str = "human"
     description: str = ""
     status: str = "enabled"
-    birth_year: int | None = None
 
 
 @strawberry.input
@@ -495,7 +492,6 @@ class EntityUpdateInput:
     type: str | None = None
     description: str | None = None
     status: str | None = None
-    birth_year: int | None = None
 
 
 __all__ = [

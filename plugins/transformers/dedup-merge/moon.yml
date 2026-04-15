@@ -1,9 +1,0 @@
-$schema: 'https://moonrepo.dev/schemas/project.json'
-id: 'transformation-dedup-merge'
-
-language: 'python'
-stack: 'data'
-tags: ['plugin', 'transformation']
-
-dependsOn:
-  - 'transformation-core'

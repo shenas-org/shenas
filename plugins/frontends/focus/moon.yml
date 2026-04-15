@@ -1,9 +1,0 @@
-$schema: 'https://moonrepo.dev/schemas/project.json'
-id: 'frontend-focus'
-
-language: 'typescript'
-stack: 'frontend'
-tags: ['plugin', 'ui']
-
-dependsOn:
-  - 'vendor'

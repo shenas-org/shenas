@@ -12,14 +12,16 @@ Python class hierarchy
 ::
 
     Table (slim base)
-      -> Entity            # concrete; shenas_system.entities in user DB
-           -> Human         # abstract Python specialization for type='human'
-                -> LocalUser  # concrete; shenas_system.local_users in registry DB
+      -> Entity            # concrete; catch-all shenas_system.entities
+      -> EntityTable       # abstract; source-side SCD2 entity contributors
+           -> PlaceEntityTable
+                -> CityEntityTable      -> City       # entities.cities
+                -> ResidenceEntityTable -> Residence  # entities.residences
+                -> CountryEntityTable   -> Country    # entities.countries
 
-``LocalUser`` stays in the device-wide registry DB for login purposes but
-inherits ``Entity``'s column definitions via dataclass inheritance, so
-there is a single source of truth for "what an entity has" regardless of
-which physical table backs the row.
+``LocalUser`` lives in its own ``shenas_system.local_users`` table (registry
+DB) and doesn't share the ``Entity`` column layout -- it has its own
+login-specific columns.
 
 Edges across the Entity / LocalUser split
 -----------------------------------------
@@ -85,7 +87,6 @@ class EntityType(Table):
     parent: Annotated[str | None, Field(db_type="VARCHAR", description="Parent type name (hierarchy)")] = None
     description: Annotated[str, Field(db_type="VARCHAR", description="Free-text description", db_default="''")] = ""
     icon: Annotated[str, Field(db_type="VARCHAR", description="Icon hint for the UI", db_default="''")] = ""
-    is_human: Annotated[bool, Field(db_type="BOOLEAN", description="True for humans", db_default="FALSE")] = False
     is_abstract: Annotated[
         bool, Field(db_type="BOOLEAN", description="True for non-instantiable types", db_default="FALSE")
     ] = False
@@ -252,15 +253,17 @@ class EntityIndex(Table):
 class Entity(Table):
     """A typed node in the entity graph.
 
-    This is the concrete class backing ``shenas_system.entities`` in the
-    per-user DB. Every entity the user tracks (her dog, her house, her
-    vehicle, her partner) lives here regardless of type; the ``type``
-    column discriminates.
+    This is the concrete catch-all table backing ``shenas_system.entities``
+    in the per-user DB. Every entity the user tracks (her dog, her vehicle,
+    her partner) lives here regardless of type -- except those with
+    dedicated tables (:class:`City`, :class:`Residence`, :class:`Country`
+    in the ``entities`` schema), which exist so that openmeteo / openaq
+    and other geo-aware sources can pick them up automatically. The
+    ``type`` column discriminates within the catch-all table.
 
     The current user's own "me" entity is NOT stored here -- it's the
-    ``LocalUser`` row in the registry DB, which inherits from
-    :class:`Human` (and transitively from ``Entity``) via Python class
-    hierarchy so its column layout matches.
+    ``LocalUser`` row in the registry DB (a separate table with its own
+    login-oriented columns).
     """
 
     class _Meta:
@@ -292,28 +295,12 @@ class Entity(Table):
         str,
         Field(db_type="VARCHAR", description="enabled | disabled | retired", db_default="'enabled'"),
     ] = "enabled"
-    birth_year: Annotated[
-        int | None,
-        Field(db_type="INTEGER", description="Optional year of birth (humans / animals)"),
-    ] = None
     added_at: Annotated[
         str | None,
         Field(db_type="TIMESTAMP", description="When created", db_default="current_timestamp"),
     ] = None
     updated_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="When last updated")] = None
     status_changed_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="When status last changed")] = None
-
-    # ------------------------------------------------------------------
-    # Introspection
-    # ------------------------------------------------------------------
-
-    def is_human(self) -> bool:
-        return self.type == "human"
-
-    def age_in_years(self) -> int | None:
-        if not self.birth_year:
-            return None
-        return datetime.now(UTC).year - int(self.birth_year)
 
     # ------------------------------------------------------------------
     # Mutators -- wrap Table primitives to maintain the entity_index
@@ -374,7 +361,6 @@ class Entity(Table):
         type: str = "human",  # noqa: A002
         description: str = "",
         status: str = "enabled",
-        birth_year: int | None = None,
     ) -> Self:
         """Create a new entity row. ``uuid`` is generated if not supplied."""
         row = cls(
@@ -382,7 +368,6 @@ class Entity(Table):
             type=type,
             description=description,
             status=status,
-            birth_year=birth_year,
         )
         return row.insert()
 
@@ -394,22 +379,6 @@ class Entity(Table):
     @classmethod
     def list_enabled(cls) -> list[Self]:
         return cls.all(where="status = 'enabled'", order_by="added_at")
-
-
-class Human(Entity):
-    """Python-only abstract specialization for humans.
-
-    Does not own a separate physical table -- rows with ``type = 'human'``
-    in ``shenas_system.entities`` instantiate as ``Human``. Subclassed by
-    :class:`app.local_users.LocalUser`, which DOES have its own physical
-    table in the registry DB but reuses the same column layout via
-    dataclass inheritance.
-    """
-
-    _abstract: ClassVar[bool] = True
-
-    def is_human(self) -> bool:  # type: ignore[override]
-        return True
 
 
 # ---------------------------------------------------------------------------
@@ -470,7 +439,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Entity",
         "parent": None,
         "icon": "",
-        "is_human": False,
         "is_abstract": True,
         "wikidata_qid": "Q35120",  # entity
         "description": "Root of the entity hierarchy.",
@@ -480,7 +448,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Physical Entity",
         "parent": "entity",
         "icon": "",
-        "is_human": False,
         "is_abstract": True,
         "wikidata_qid": "Q223557",  # physical object
         "description": "Something that exists in the physical world.",
@@ -490,7 +457,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Virtual Entity",
         "parent": "entity",
         "icon": "",
-        "is_human": False,
         "is_abstract": True,
         "wikidata_qid": "Q7184903",  # abstract object
         "description": "Something that exists only as an abstraction.",
@@ -500,7 +466,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Living Entity",
         "parent": "physical_entity",
         "icon": "",
-        "is_human": False,
         "is_abstract": True,
         "wikidata_qid": "Q7239",  # organism
         "description": "A living being.",
@@ -510,7 +475,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Place",
         "parent": "physical_entity",
         "icon": "map",
-        "is_human": False,
         "is_abstract": True,
         "wikidata_qid": "Q17334923",  # location
         "description": "A geographic location: a residence, city, country, or other place.",
@@ -521,7 +485,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Human",
         "parent": "living_entity",
         "icon": "user",
-        "is_human": True,
         "is_abstract": False,
         "wikidata_qid": "Q5",  # human
         "wikidata_properties": [
@@ -539,7 +502,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Animal",
         "parent": "living_entity",
         "icon": "paw-print",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q729",  # animal
         "wikidata_properties": [
@@ -556,7 +518,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Residence",
         "parent": "place",
         "icon": "home",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q699405",  # residence
         "wikidata_properties": [
@@ -574,7 +535,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Vehicle",
         "parent": "physical_entity",
         "icon": "car",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q42889",  # vehicle
         "wikidata_properties": [
@@ -589,7 +549,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Car",
         "parent": "vehicle",
         "icon": "car",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q1420",  # motor car
         "wikidata_properties": [
@@ -606,7 +565,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Motorcycle",
         "parent": "vehicle",
         "icon": "bike",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q34493",  # motorcycle
         "wikidata_properties": [
@@ -622,7 +580,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Boat",
         "parent": "vehicle",
         "icon": "ship",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q35872",  # boat
         "wikidata_properties": [
@@ -638,7 +595,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Device",
         "parent": "physical_entity",
         "icon": "smartphone",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q1183543",  # device
         "wikidata_properties": [
@@ -653,7 +609,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Mobile Phone",
         "parent": "device",
         "icon": "smartphone",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q17517",  # mobile phone
         "wikidata_properties": [
@@ -669,7 +624,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Computer",
         "parent": "device",
         "icon": "laptop",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q68",  # computer
         "wikidata_properties": [
@@ -685,7 +639,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Tablet",
         "parent": "device",
         "icon": "tablet",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q155972",  # tablet computer
         "wikidata_properties": [
@@ -700,7 +653,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "City",
         "parent": "place",
         "icon": "map-pin",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q515",  # city
         "wikidata_properties": [
@@ -718,7 +670,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Group",
         "parent": "virtual_entity",
         "icon": "",
-        "is_human": False,
         "is_abstract": True,
         "wikidata_qid": "Q874405",  # social group
         "description": "A collection of people or entities.",
@@ -728,7 +679,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Organization",
         "parent": "group",
         "icon": "building",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q43229",  # organization
         "wikidata_properties": [
@@ -746,7 +696,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Company",
         "parent": "organization",
         "icon": "building-2",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q783794",  # company
         "wikidata_properties": [
@@ -766,7 +715,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Project",
         "parent": "virtual_entity",
         "icon": "folder",
-        "is_human": False,
         "is_abstract": True,
         "wikidata_qid": "Q170584",  # project
         "description": "A planned undertaking or endeavour.",
@@ -776,7 +724,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Software Project",
         "parent": "project",
         "icon": "code",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q1141526",  # software project
         "wikidata_properties": [
@@ -794,7 +741,6 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "display_name": "Country",
         "parent": "place",
         "icon": "flag",
-        "is_human": False,
         "is_abstract": False,
         "wikidata_qid": "Q6256",  # country
         "wikidata_properties": [
@@ -829,7 +775,6 @@ def _default_entity_types_by_name() -> dict[str, EntityType]:
                 parent=row.get("parent"),
                 description=row.get("description", ""),
                 icon=row.get("icon", ""),
-                is_human=row.get("is_human", False),
                 is_abstract=row.get("is_abstract", False),
                 wikidata_qid=row.get("wikidata_qid"),
                 wikidata_properties=_json.dumps(row.get("wikidata_properties", [])),
@@ -862,14 +807,13 @@ def seed_entity_types(con: duckdb.DuckDBPyConnection) -> None:
     for row in DEFAULT_ENTITY_TYPES:
         con.execute(
             "INSERT INTO shenas_system.entity_types "
-            "(name, display_name, parent, description, icon, is_human, is_abstract, wikidata_qid, wikidata_properties) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "(name, display_name, parent, description, icon, is_abstract, wikidata_qid, wikidata_properties) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT (name) DO UPDATE SET "
             "display_name = excluded.display_name, "
             "parent = excluded.parent, "
             "description = excluded.description, "
             "icon = excluded.icon, "
-            "is_human = excluded.is_human, "
             "is_abstract = excluded.is_abstract, "
             "wikidata_qid = excluded.wikidata_qid, "
             "wikidata_properties = excluded.wikidata_properties",
@@ -879,7 +823,6 @@ def seed_entity_types(con: duckdb.DuckDBPyConnection) -> None:
                 row.get("parent"),
                 row["description"],
                 row["icon"],
-                row["is_human"],
                 row.get("is_abstract", False),
                 row.get("wikidata_qid"),
                 json.dumps(row.get("wikidata_properties", [])),
@@ -927,10 +870,7 @@ def current_entity(info: Any = None) -> Any:
     """Return the LocalUser row for the current GraphQL request, or None.
 
     Resolves ``info.context['user_id']`` against the registry DB's
-    ``local_users`` table. Because ``LocalUser`` inherits from
-    :class:`Human` (and transitively from :class:`Entity`), the returned
-    row has the same Entity-shaped columns as any other entity and can
-    be serialized the same way.
+    ``local_users`` table.
 
     Used by query resolvers that accept an optional entity uuid and want
     to default to "me" when it is not specified.
@@ -1030,7 +970,7 @@ class EntityTable(DimensionTable):
         """Wrap the default resource so every yielded row carries ``entity_id``."""
         import dlt
 
-        entity_type_name: str = cls._Meta.entity_type.name  # ty: ignore[unresolved-attribute]
+        entity_type_name: str = cls._Meta.entity_type.name
         pk_cols = tuple(cls._Meta.pk)
         needs_observed_at = cls._needs_observed_at()
         cursor_column = cls.cursor_column

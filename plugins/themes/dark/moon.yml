@@ -1,9 +1,0 @@
-$schema: 'https://moonrepo.dev/schemas/project.json'
-id: 'theme-dark'
-
-language: 'python'
-tags: ['plugin', 'theme']
-
-workspace:
-  inheritedTasks:
-    exclude: ['test']

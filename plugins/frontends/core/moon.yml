@@ -1,7 +1,0 @@
-id: dashboards-core
-language: "python"
-tags: ['plugin', "dashboard", "core"]
-
-workspace:
-  inheritedTasks:
-    exclude: ["test"]

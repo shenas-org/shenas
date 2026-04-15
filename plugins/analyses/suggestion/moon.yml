@@ -1,9 +1,0 @@
-$schema: 'https://moonrepo.dev/schemas/project.json'
-id: 'analysis-suggestion'
-
-language: 'python'
-stack: 'data'
-tags: ['analysis']
-
-dependsOn:
-  - 'analysis-core'

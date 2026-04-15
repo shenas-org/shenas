@@ -1,9 +1,0 @@
-$schema: 'https://moonrepo.dev/schemas/project.json'
-id: 'source-gmail'
-
-language: 'python'
-stack: 'data'
-tags: ['plugin', 'source']
-
-dependsOn:
-  - 'source-core'
