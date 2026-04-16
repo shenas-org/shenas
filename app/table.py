@@ -345,14 +345,31 @@ class Table:
         params: list[Any] | None = None,
         order_by: str | None = None,
         limit: int | None = None,
+        as_of: str | None = None,
+        include_history: bool = False,
     ) -> list[Self]:
-        """Return every row matching the optional WHERE clause as instances."""
+        """Return every row matching the optional WHERE clause as instances.
+
+        For SCD2 tables (dimension / snapshot / m2m): the query automatically
+        filters to the **current** slice unless *as_of* is provided (reads the
+        historical state at that timestamp) or *include_history* is True
+        (returns all versions).
+        """
         from app.database import cursor
+
+        clauses: list[str] = []
+        scd2_fn = getattr(cls, "scd2_filter", None)
+        if scd2_fn is not None and not include_history:
+            scd2 = scd2_fn(as_of=as_of)
+            if scd2:
+                clauses.append(scd2)
+        if where:
+            clauses.append(where)
 
         cols = ", ".join(cls._column_names())
         sql = f"SELECT {cols} FROM {cls._qualified()}"
-        if where:
-            sql += f" WHERE {where}"
+        if clauses:
+            sql += f" WHERE {' AND '.join(clauses)}"
         if order_by:
             sql += f" ORDER BY {order_by}"
         if limit is not None:
@@ -590,6 +607,34 @@ class DataTable(Table):
             "Discrete event in the unified timeline. Filter or window by `occurred_at`. PK is typically (source, source_id)."
         ),
     }
+
+    _SCD2_KINDS: ClassVar[frozenset[str]] = frozenset({"dimension", "snapshot", "m2m_relation"})
+
+    @classmethod
+    def is_scd2(cls) -> bool:
+        """True if this table uses SCD2 versioning (dimension / snapshot / m2m)."""
+        return cls.table_kind() in cls._SCD2_KINDS
+
+    @classmethod
+    def scd2_filter(cls, as_of: str | None = None, *, alias: str = "") -> str:
+        """Return a SQL WHERE fragment for reading SCD2 tables.
+
+        When *as_of* is ``None`` (the default), returns the filter for the
+        **current** slice (``_dlt_valid_to IS NULL``).
+
+        When *as_of* is a timestamp string (e.g. ``'2025-06-01'``), returns a
+        temporal-overlap filter (``_dlt_valid_from <= ts AND (_dlt_valid_to IS
+        NULL OR _dlt_valid_to > ts)``).
+
+        *alias* is an optional table alias prefix (e.g. ``"s."``). If set to
+        ``"s"`` the output uses ``s._dlt_valid_to`` etc.
+        """
+        if not cls.is_scd2():
+            return ""
+        pfx = f"{alias}." if alias else ""
+        if as_of is None:
+            return f"{pfx}_dlt_valid_to IS NULL"
+        return f"{pfx}_dlt_valid_from <= '{as_of}' AND ({pfx}_dlt_valid_to IS NULL OR {pfx}_dlt_valid_to > '{as_of}')"
 
     @classmethod
     def table_kind(cls) -> str | None:

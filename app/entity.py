@@ -165,12 +165,15 @@ class EntityType(Table):
         zero-property view when no statements exist yet.
         """
         view_name = self.name + "s_wide"
+        from app.entities.statements import Statement
+
+        scd2 = Statement.scd2_filter(alias="s")
         rows = con.execute(
             "SELECT DISTINCT s.property_id, COALESCE(p.label, s.property_id) AS label "
             "FROM entities.statements s "
             "JOIN shenas_system.entities e ON e.uuid = s.entity_id "
             "LEFT JOIN entities.properties p ON p.id = s.property_id "
-            "WHERE e.type = ? AND s._dlt_valid_to IS NULL "
+            f"WHERE e.type = ? AND {scd2} "
             "ORDER BY s.property_id",
             [self.name],
         ).fetchall()
@@ -191,7 +194,7 @@ class EntityType(Table):
                    {pivots}
             FROM shenas_system.entities e
             LEFT JOIN entities.statements s
-              ON s.entity_id = e.uuid AND s._dlt_valid_to IS NULL
+              ON s.entity_id = e.uuid AND {scd2}
             WHERE e.type = {_sql_str(self.name)}
             GROUP BY e.uuid, e.name
             """

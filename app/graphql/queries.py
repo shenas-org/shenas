@@ -28,9 +28,11 @@ from app.graphql.types import (
     ModelInfoType,
     ParamFieldType,
     PluginInfoType,
+    PropertyType,
     QualityCheckType,
     QualityInfoType,
     ScheduleInfoType,
+    StatementType,
     SuggestedAnalysisType,
     SuggestedDatasetType,
     TableEntry,
@@ -105,9 +107,9 @@ def _source_entities(*, plugin: str | None = None, include_disabled: bool = Fals
             ]
             try:
                 with cursor() as cur:
-                    rows = cur.execute(
-                        f"SELECT {', '.join(select_cols)} FROM {qualified} WHERE _dlt_valid_to IS NULL"
-                    ).fetchall()
+                    scd2 = t.scd2_filter() if hasattr(t, "scd2_filter") else ""
+                    where = f" WHERE {scd2}" if scd2 else ""
+                    rows = cur.execute(f"SELECT {', '.join(select_cols)} FROM {qualified}{where}").fetchall()
             except Exception:
                 continue
             type_name = t._Meta.entity_type.name
@@ -170,7 +172,9 @@ def _items_for_map_table(
     ]
     try:
         with cursor() as cur:
-            rows = cur.execute(f"SELECT {', '.join(select_cols)} FROM {qualified} WHERE _dlt_valid_to IS NULL").fetchall()
+            scd2 = t.scd2_filter() if hasattr(t, "scd2_filter") else ""
+            where = f" WHERE {scd2}" if scd2 else ""
+            rows = cur.execute(f"SELECT {', '.join(select_cols)} FROM {qualified}{where}").fetchall()
     except Exception:
         return []
     suggested_type = t._Meta.entity_type.name
@@ -1098,6 +1102,86 @@ class Query:
             _source_mappable_items(plugin=plugin),
             key=lambda m: (m.name or "").lower(),
         )
+
+    @strawberry.field
+    def properties(self, domain_type: str | None = None) -> list[PropertyType]:
+        """List declared properties, optionally scoped to a single entity type.
+
+        Returns global (``domain_type IS NULL``) properties alongside any
+        type-specific ones, so the UI can render a single combined list when
+        a domain is provided.
+        """
+        from app.entities.properties import Property
+
+        if domain_type is not None:
+            rows = Property.all(
+                where="_dlt_valid_to IS NULL AND (domain_type IS NULL OR domain_type = ?)",
+                params=[domain_type],
+                order_by="label",
+            )
+        else:
+            rows = Property.all(where="_dlt_valid_to IS NULL", order_by="label")
+        return [
+            PropertyType(
+                id=p.id,
+                label=p.label,
+                datatype=p.datatype or "string",
+                domain_type=p.domain_type,
+                source=p.source or "user",
+                wikidata_pid=p.wikidata_pid,
+                description=p.description,
+            )
+            for p in rows
+        ]
+
+    @strawberry.field
+    def entity_statements(self, entity_id: str) -> list[StatementType]:
+        """Current statements for an entity, with property metadata.
+
+        Reads only the live SCD2 slice (``_dlt_valid_to IS NULL``).
+        """
+        import json
+
+        from app.entities.properties import Property
+        from app.entities.statements import Statement
+
+        stmts = Statement.all(
+            where="entity_id = ? AND _dlt_valid_to IS NULL",
+            params=[entity_id],
+            order_by="property_id, value",
+        )
+        if not stmts:
+            return []
+
+        prop_ids = list({s.property_id for s in stmts})
+        placeholders = ", ".join("?" * len(prop_ids))
+        props = Property.all(where=f"id IN ({placeholders}) AND _dlt_valid_to IS NULL", params=prop_ids)
+        prop_map = {p.id: p for p in props}
+
+        out: list[StatementType] = []
+        for s in stmts:
+            qualifiers = s.qualifiers
+            if isinstance(qualifiers, str) and qualifiers:
+                try:
+                    qualifiers = json.loads(qualifiers)
+                except json.JSONDecodeError:
+                    qualifiers = None
+            p = prop_map.get(s.property_id)
+            out.append(
+                StatementType(
+                    entity_id=s.entity_id,
+                    property_id=s.property_id,
+                    value=s.value,
+                    value_label=s.value_label,
+                    rank=s.rank or "normal",
+                    qualifiers=qualifiers,
+                    source=s.source or "user",
+                    property_label=p.label if p else None,
+                    datatype=p.datatype if p else None,
+                )
+            )
+        out.sort(key=lambda s: (s.property_label or s.property_id, s.value))
+        return out
 
     @strawberry.field
     def entity(self, info: strawberry.types.Info, uuid: str | None = None) -> GqlEntityType | None:  # noqa: ARG002

@@ -21,9 +21,13 @@ from app.graphql.types import (
     GqlEntityType,
     InstallResponseType,
     OkType,
+    PropertyCreateInput,
+    PropertyType,
     QualityCheckType,
     RemoveResponseType,
     SeedResultType,
+    StatementType,
+    StatementUpsertInput,
     TransformCreateInput,
     TransformRunResultType,
     TransformType,
@@ -1070,4 +1074,89 @@ class Mutation:
         if r is None:
             return OkType.from_pydantic(OkResponse(ok=False, message="Relationship not found"))  # ty: ignore[unresolved-attribute]
         r.delete()
+        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
+
+    # ----------------------------------------------------------------------
+    # Property + Statement graph
+    # ----------------------------------------------------------------------
+
+    @strawberry.mutation
+    def create_property(self, property_input: PropertyCreateInput) -> PropertyType:
+        """Insert a user-defined property into the registry.
+
+        ``property_input.id`` may be omitted; the resolver derives a stable
+        ``user:<slug>`` id from the label.
+        """
+        from app.entities.properties import Property
+        from app.entity import _slug, ensure_all_wide_views
+
+        prop_id = property_input.id or f"user:{_slug(property_input.label)}"
+        prop = Property.from_row(  # ty: ignore[invalid-argument-type]
+            (
+                prop_id,
+                property_input.label,
+                property_input.datatype or "string",
+                property_input.domain_type,
+                "user",
+                property_input.wikidata_pid,
+                property_input.description,
+            )
+        )
+        prop.upsert()
+        try:
+            from app.database import cursor
+
+            with cursor() as cur:
+                ensure_all_wide_views(cur)
+        except Exception:
+            pass
+        return PropertyType(
+            id=prop_id,
+            label=prop.label,
+            datatype=prop.datatype,
+            domain_type=prop.domain_type,
+            source="user",
+            wikidata_pid=prop.wikidata_pid,
+            description=prop.description,
+        )
+
+    @strawberry.mutation
+    def upsert_statement(self, statement_input: StatementUpsertInput) -> StatementType:
+        """Insert or update a single statement on an entity.
+
+        Uses ``source='user'`` so it doesn't get clobbered by a sync.
+        """
+        from app.entities.statements import Statement
+
+        qualifiers_json = json.dumps(statement_input.qualifiers) if statement_input.qualifiers is not None else None
+        stmt = Statement.from_row(  # ty: ignore[invalid-argument-type]
+            (
+                statement_input.entity_id,
+                statement_input.property_id,
+                statement_input.value,
+                statement_input.value_label,
+                statement_input.rank or "normal",
+                qualifiers_json,
+                "user",
+            )
+        )
+        stmt.upsert()
+        return StatementType(
+            entity_id=stmt.entity_id,
+            property_id=stmt.property_id,
+            value=stmt.value,
+            value_label=stmt.value_label,
+            rank=stmt.rank or "normal",
+            qualifiers=statement_input.qualifiers,
+            source="user",
+        )
+
+    @strawberry.mutation
+    def delete_statement(self, entity_id: str, property_id: str, value: str) -> OkType:
+        from app.entities.statements import Statement
+        from app.models import OkResponse
+
+        stmt = Statement.find(entity_id, property_id, value)
+        if stmt is not None:
+            stmt.delete()
         return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]

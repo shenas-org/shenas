@@ -494,6 +494,59 @@ class EntityUpdateInput:
     status: str | None = None
 
 
+# -- Statement / Property graph -----------------------------------------------
+
+
+@strawberry.type
+class PropertyType:
+    """A predicate in entities.properties (registry of statement predicates)."""
+
+    id: str
+    label: str
+    datatype: str = "string"
+    domain_type: str | None = None
+    source: str = "user"
+    wikidata_pid: str | None = None
+    description: str | None = None
+
+
+@strawberry.type
+class StatementType:
+    """A single (entity, property, value) triple from entities.statements."""
+
+    entity_id: str
+    property_id: str
+    value: str
+    value_label: str | None = None
+    rank: str = "normal"
+    qualifiers: JSON | None = None
+    source: str = "user"
+    # Resolved property fields (joined from entities.properties for convenience).
+    property_label: str | None = None
+    datatype: str | None = None
+
+
+@strawberry.input
+class PropertyCreateInput:
+    label: str
+    datatype: str = "string"
+    domain_type: str | None = None
+    wikidata_pid: str | None = None
+    description: str | None = None
+    # If omitted, the resolver derives ``user:<slug(label)>``.
+    id: str | None = None
+
+
+@strawberry.input
+class StatementUpsertInput:
+    entity_id: str
+    property_id: str
+    value: str
+    value_label: str | None = None
+    rank: str = "normal"
+    qualifiers: JSON | None = None
+
+
 __all__ = [
     "JSON",
     "AuthFieldType",
@@ -517,9 +570,13 @@ __all__ = [
     "InstallResultType",
     "OkType",
     "PluginInfoType",
+    "PropertyCreateInput",
+    "PropertyType",
     "RemoveResponseType",
     "ScheduleInfoType",
     "SchemaInfoType",
+    "StatementType",
+    "StatementUpsertInput",
     "TableEntry",
     "TableStatsType",
     "ThemeInfo",

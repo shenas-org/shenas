@@ -55,13 +55,11 @@ class WikidataSource(Source):
         **_kwargs: Any,
     ) -> None:
         from app.entity import EntityType
-        from shenas_sources.core.db import connect
 
         client = self.build_client()
-        con = connect()
         total = 0
         try:
-            groups = self._load_entity_groups(con)
+            groups = self._load_entity_groups()
             if not groups:
                 if on_progress:
                     on_progress("statements", "No entities with wikidata:qid found. Set a QID on an entity first.")
@@ -89,12 +87,11 @@ class WikidataSource(Source):
                     entity_id = qid_to_entity.get(b["qid"])
                     if not entity_id:
                         continue
-                    self._upsert_property(con, b["pid"], b.get("value_type", "string"))
-                    self._upsert_statement(con, entity_id, b)
+                    self._upsert_property(b["pid"], b.get("value_type", "string"))
+                    self._upsert_statement(entity_id, b)
                     total += 1
         finally:
             client.close()
-            con.close()
 
         if on_progress:
             on_progress("statements", f"Wrote {total} statements from Wikidata.")
@@ -106,45 +103,61 @@ class WikidataSource(Source):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _load_entity_groups(self, con: Any) -> dict[str, list[tuple[str, str]]]:
+    def _load_entity_groups(self) -> dict[str, list[tuple[str, str]]]:
         """Return ``{entity_type: [(entity_id, wikidata_qid), ...]}``.
 
-        Reads the current slice of ``entities.statements`` for the
-        well-known ``wikidata:qid`` property and joins with
-        ``shenas_system.entities`` to learn each entity's type.
+        Reads the current live slice of ``entities.statements`` for the
+        well-known ``wikidata:qid`` property, then resolves each entity's
+        type via a second query on ``shenas_system.entities``.
         """
-        rows = con.execute(
-            """
-            SELECT e.type, e.uuid, s.value
-            FROM entities.statements s
-            JOIN shenas_system.entities e ON e.uuid = s.entity_id
-            WHERE s.property_id = 'wikidata:qid'
-              AND s._dlt_valid_to IS NULL
-              AND s.value IS NOT NULL AND s.value <> ''
-            """
-        ).fetchall()
+        from app.entities.statements import Statement
+        from app.entity import Entity
+
+        stmts = Statement.all(
+            where="property_id = 'wikidata:qid' AND value IS NOT NULL AND value <> ''"
+        )
+        if not stmts:
+            return {}
+
+        entity_ids = list({s.entity_id for s in stmts})
+        placeholders = ", ".join("?" * len(entity_ids))
+        entities = Entity.all(where=f"uuid IN ({placeholders})", params=entity_ids)
+        uuid_to_type = {e.uuid: e.type for e in entities}
+
         groups: dict[str, list[tuple[str, str]]] = {}
-        for type_name, entity_id, qid in rows:
-            groups.setdefault(type_name, []).append((entity_id, qid))
+        for s in stmts:
+            type_name = uuid_to_type.get(s.entity_id)
+            if type_name:
+                groups.setdefault(type_name, []).append((s.entity_id, s.value))
         return groups
 
-    def _upsert_property(self, con: Any, pid: str, value_type: str) -> None:
-        con.execute(
-            "INSERT INTO entities.properties (id, label, datatype, domain_type, source, wikidata_pid) "
-            "VALUES (?, ?, ?, NULL, 'wikidata', ?) "
-            "ON CONFLICT (id) DO UPDATE SET datatype = excluded.datatype",
-            [pid, pid, value_type, pid],
-        )
+    def _upsert_property(self, pid: str, value_type: str) -> None:
+        from app.entities.properties import Property
 
-    def _upsert_statement(self, con: Any, entity_id: str, b: dict[str, Any]) -> None:
-        con.execute(
-            "INSERT INTO entities.statements "
-            "(entity_id, property_id, value, value_label, rank, qualifiers, source) "
-            "VALUES (?, ?, ?, ?, ?, NULL, 'wikidata') "
-            "ON CONFLICT (entity_id, property_id, value) DO UPDATE SET "
-            "value_label = excluded.value_label, rank = excluded.rank",
-            [entity_id, b["pid"], b["value"], b.get("value_label"), b.get("rank", "normal")],
-        )
+        existing = Property.find(pid)
+        if existing is None:
+            Property(id=pid, label=pid, datatype=value_type, source="wikidata", wikidata_pid=pid).insert()
+        else:
+            existing.datatype = value_type
+            existing.save()
+
+    def _upsert_statement(self, entity_id: str, b: dict[str, Any]) -> None:
+        from app.entities.statements import Statement
+
+        existing = Statement.find(entity_id, b["pid"], b["value"])
+        if existing is None:
+            Statement(
+                entity_id=entity_id,
+                property_id=b["pid"],
+                value=b["value"],
+                value_label=b.get("value_label"),
+                rank=b.get("rank", "normal"),
+                source="wikidata",
+            ).insert()
+        else:
+            existing.value_label = b.get("value_label")
+            existing.rank = b.get("rank", "normal")
+            existing.save()
 
 
 def _pids_for_type(et: Any) -> list[str]:

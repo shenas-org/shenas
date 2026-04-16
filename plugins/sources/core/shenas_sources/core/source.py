@@ -438,7 +438,7 @@ class Source(Plugin):
             # Current SCD2 slice only -- historical versions share the same
             # entity_id once we backfill one of them via save() (which UPDATEs
             # WHERE natural_pk = ?, touching every version).
-            current_rows = t.all(where="_dlt_valid_to IS NULL")
+            current_rows = t.all()
             for row in current_rows:
                 pk_values = tuple(getattr(row, c) for c in pk_cols_list)
                 entity_id = getattr(row, "entity_id", None)
@@ -515,14 +515,8 @@ class Source(Plugin):
                     [pid, pid, type_name, self.name],
                 )
 
-            # Scan current slice (handle both SCD2 and non-SCD2 tables).
-            has_valid_to = True
-            try:
-                con.execute(f"SELECT _dlt_valid_to FROM {table_ref} LIMIT 0")
-            except Exception:
-                has_valid_to = False
-
-            where = "WHERE _dlt_valid_to IS NULL" if has_valid_to else ""
+            scd2 = t.scd2_filter() if hasattr(t, "scd2_filter") else ""
+            where = f"WHERE {scd2}" if scd2 else ""
             select_cols = [*pk_cols_list]
             if name_col and name_col not in select_cols:
                 select_cols.append(name_col)
