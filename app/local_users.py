@@ -158,13 +158,19 @@ class LocalUser(Table):
         except Exception:
             pass
 
-        from app.entity import seed_entity_types, seed_properties, seed_relationship_types
+        from app.entity import (
+            ensure_all_wide_views,
+            seed_entity_types,
+            seed_properties,
+            seed_relationship_types,
+        )
         from app.hotkeys import Hotkey
 
         Hotkey.seed()
         seed_entity_types(con)
         seed_relationship_types(con)
         seed_properties(con)
+        ensure_all_wide_views(con)
 
     def attach(self, key: str) -> DB:
         """Open and attach this user's encrypted DB. Idempotent."""

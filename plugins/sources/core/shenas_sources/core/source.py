@@ -364,6 +364,7 @@ class Source(Plugin):
                 apply_as_of_macros(con, self.dataset_name)
                 self._sync_entity_tables(con)
                 self._project_entities(con)
+                self._refresh_wide_views(con)
             finally:
                 con.close()
         except Exception:
@@ -561,6 +562,21 @@ class Source(Plugin):
                         "value_label = excluded.value_label, source = excluded.source",
                         [entity_id, property_id, value_str, value_str, self.name],
                     )
+
+    def _refresh_wide_views(self, con: Any) -> None:
+        """Post-sync hook: rebuild every per-type wide view.
+
+        Statements added during this sync may introduce new property
+        columns; the per-type ``entities.<type>s_wide`` views need a fresh
+        ``CREATE OR REPLACE VIEW`` to reflect the expanded property set.
+        Cheap (one DDL per type), safe to call unconditionally.
+        """
+        try:
+            from app.entity import ensure_all_wide_views
+
+            ensure_all_wide_views(con)
+        except Exception:
+            logger.exception("ensure_all_wide_views failed for %s", self.name)
 
     def run_sync_stream(self, *, full_refresh: bool = False) -> Iterator[tuple[str, str]]:
         """Run sync yielding (event, message) tuples for progress reporting.

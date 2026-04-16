@@ -16,7 +16,7 @@ Each table is a subclass of one of the kind base classes in
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 from app.entity import EntityMapTable, EntityType
 from app.table import Field
@@ -248,6 +248,23 @@ class TileInfo(EntityMapTable):
         pk = ("tile_uuid",)
         entity_type = EntityType.default("physical_entity")
         entity_name_column = "name"
+
+    # Statement projection (new graph model). Per-tile attributes land as
+    # entities.statements rows so the entity panel can render them without
+    # needing a per-plugin resolver.
+    entity_type: ClassVar[str] = "physical_entity"
+    entity_name_column: ClassVar[str] = "name"
+    entity_projection: ClassVar[dict[str, str]] = {
+        "tile_type": "tile:type",
+        "firmware_version": "tile:firmware",
+        "hardware_version": "tile:hardware",
+        "latitude": "tile:latitude",
+        "longitude": "tile:longitude",
+        "last_seen_at": "tile:last_seen",
+        "battery_level": "tile:battery_level",
+        "battery_state": "tile:battery_state",
+        "connection_state": "tile:connection_state",
+    }
 
     tile_uuid: Annotated[str, Field(db_type="VARCHAR", description="Tile device UUID", display_name="Tile UUID")] = ""
     name: Annotated[

@@ -152,6 +152,87 @@ class EntityType(Table):
             current = parent
         return False
 
+    def ensure_wide_view(self, con: duckdb.DuckDBPyConnection) -> None:
+        """(Re)create ``entities.<self.name>s_wide`` -- a per-type pivoted view.
+
+        Discovers every property currently used by entities of this type
+        (data-driven, no pre-declaration required) and builds a view whose
+        columns are ``entity_id``, ``name``, ``wikidata_qid`` plus one
+        column per property labelled by ``property.label`` (slug-cased).
+
+        Cheap (a single ``CREATE OR REPLACE VIEW``); call from bootstrap,
+        post-sync, and EntityType / Property mutations. Falls back to a
+        zero-property view when no statements exist yet.
+        """
+        view_name = self.name + "s_wide"
+        rows = con.execute(
+            "SELECT DISTINCT s.property_id, COALESCE(p.label, s.property_id) AS label "
+            "FROM entities.statements s "
+            "JOIN shenas_system.entities e ON e.uuid = s.entity_id "
+            "LEFT JOIN entities.properties p ON p.id = s.property_id "
+            "WHERE e.type = ? AND s._dlt_valid_to IS NULL "
+            "ORDER BY s.property_id",
+            [self.name],
+        ).fetchall()
+
+        if rows:
+            pivots = ",\n  ".join(
+                f"MAX(CASE WHEN s.property_id = {_sql_str(pid)} THEN s.value_label END) AS {_slug(label)}"
+                for pid, label in rows
+            )
+        else:
+            pivots = "NULL AS _no_properties"
+
+        con.execute(
+            f"""
+            CREATE OR REPLACE VIEW entities.{view_name} AS
+            SELECT e.uuid AS entity_id,
+                   e.name,
+                   {pivots}
+            FROM shenas_system.entities e
+            LEFT JOIN entities.statements s
+              ON s.entity_id = e.uuid AND s._dlt_valid_to IS NULL
+            WHERE e.type = {_sql_str(self.name)}
+            GROUP BY e.uuid, e.name
+            """
+        )
+
+
+def _sql_str(s: str) -> str:
+    """Single-quoted SQL string literal with embedded quotes escaped."""
+    return "'" + s.replace("'", "''") + "'"
+
+
+def _slug(label: str) -> str:
+    """Convert a label to a SQL-safe identifier suffix."""
+    out = []
+    for ch in label.lower():
+        if ch.isalnum():
+            out.append(ch)
+        elif ch in (" ", "-", "/", ".", "_"):
+            out.append("_")
+    slug = "".join(out).strip("_") or "col"
+    if slug[0].isdigit():
+        slug = "_" + slug
+    return slug
+
+
+def ensure_all_wide_views(con: duckdb.DuckDBPyConnection) -> None:
+    """Recreate the wide view for every concrete EntityType.
+
+    Called from ``LocalUser._bootstrap_user_db`` and after each sync so
+    new properties picked up by projections or Wikidata enrichment become
+    visible immediately.
+    """
+    for et in EntityType.concrete_types():
+        try:
+            et.ensure_wide_view(con)
+        except Exception:
+            # A bad type or a table-name collision shouldn't take down the whole sync.
+            import logging
+
+            logging.getLogger("shenas.entity").exception("ensure_wide_view failed for %s", et.name)
+
 
 @dataclass
 class EntityRelationshipType(Table):

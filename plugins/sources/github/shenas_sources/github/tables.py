@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 from app.entity import EntityTable, EntityType
 from app.table import Field
@@ -100,6 +100,22 @@ class Repositories(EntityTable):
         )
         entity_name_column = "full_name"
         entity_description_column = "description"
+
+    # Statement projection (new graph model). Each raw column listed here
+    # becomes an entities.statements row on every sync, keyed on the
+    # repository's deterministic entity_id.
+    entity_type: ClassVar[str] = "repository"
+    entity_name_column: ClassVar[str] = "full_name"
+    entity_projection: ClassVar[dict[str, str]] = {
+        "description": "github:description",
+        "language": "github:language",
+        "private": "github:private",
+        "stargazers_count": "github:stars",
+        "forks_count": "github:forks",
+        "open_issues_count": "github:open_issues",
+        "pushed_at": "github:pushed_at",
+        "created_at": "github:created_at",
+    }
 
     id: Annotated[
         int,
