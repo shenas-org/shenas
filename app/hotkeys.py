@@ -25,7 +25,7 @@ class Hotkey(Table):
         name = "hotkeys"
         display_name = "Hotkeys"
         description = "Per-action keyboard shortcut bindings."
-        schema = "shenas_system"
+        schema = "ui"
         pk = ("action_id",)
 
     action_id: Annotated[str, Field(db_type="VARCHAR", description="Action identifier")] = ""

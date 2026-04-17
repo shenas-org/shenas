@@ -22,7 +22,6 @@ def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
     con = duckdb.connect(":memory:")
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
-    con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
 
     @contextlib.contextmanager
     def _cursor(**_kwargs: object) -> Generator[duckdb.DuckDBPyConnection, None, None]:

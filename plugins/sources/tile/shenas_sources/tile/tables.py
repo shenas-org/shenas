@@ -242,7 +242,7 @@ class TileInfo(DimensionTable):
         pk = ("tile_uuid",)
 
     # Statement projection (new graph model). Per-tile attributes land as
-    # shenas_system.statements rows so the entity panel can render them without
+    # entities.statements rows so the entity panel can render them without
     # needing a per-plugin resolver.
     entity_type: ClassVar[str] = "physical_entity"
     entity_name_column: ClassVar[str] = "name"

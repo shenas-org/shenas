@@ -526,7 +526,7 @@ class EntityUpdateInput:
 
 @strawberry.type
 class PropertyType:
-    """A predicate in shenas_system.properties (registry of statement predicates)."""
+    """A predicate in entities.properties (registry of statement predicates)."""
 
     id: str
     label: str
@@ -539,7 +539,7 @@ class PropertyType:
 
 @strawberry.type
 class StatementType:
-    """A single (entity, property, value) triple from shenas_system.statements."""
+    """A single (entity, property, value) triple from entities.statements."""
 
     entity_id: str
     property_id: str
@@ -548,7 +548,7 @@ class StatementType:
     rank: str = "normal"
     qualifiers: JSON | None = None
     source: str = "user"
-    # Resolved property fields (joined from shenas_system.properties for convenience).
+    # Resolved property fields (joined from entities.properties for convenience).
     property_label: str | None = None
     datatype: str | None = None
 

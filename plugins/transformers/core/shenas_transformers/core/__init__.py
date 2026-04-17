@@ -42,7 +42,7 @@ class Transformer(Plugin):
     A transformer plugin defines a *type* of data transformation
     (SQL, geofence, geocode, LLM categorize, etc.). Each type can
     have multiple configured instances (rows in
-    ``shenas_system.transform_instances``).
+    ``transforms.instances``).
     """
 
     _kind = "transformer"

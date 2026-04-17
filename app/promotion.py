@@ -9,7 +9,7 @@ possible from the row alone.
 Storage model
 -------------
 Promoted metrics are **deployment state**, not code. Each promotion
-inserts one row into ``shenas_system.promoted_metrics`` capturing the
+inserts one row into ``analysis.promoted_metrics`` capturing the
 recipe (frozen at promotion time), the column shape, and the
 provenance back to the originating hypothesis. At catalog-walk time
 :func:`shenas_datasets.promoted.PromotedSchema.all_tables` walks that
@@ -95,7 +95,7 @@ def promote_hypothesis(
     name: str,
     metric_schema: str = "metrics",
 ) -> PromotionResult:
-    """Insert a row into ``shenas_system.promoted_metrics``.
+    """Insert a row into ``analysis.promoted_metrics``.
 
     Returns the persisted row as a dict so callers (the GraphQL
     mutation, tests) can confirm what landed. The hypothesis is also

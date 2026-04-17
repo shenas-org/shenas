@@ -19,7 +19,7 @@ class LlmCacheEntry(Table):
         name = "llm_cache"
         display_name = "LLM Cache"
         description = "Cached LLM responses for deterministic re-use."
-        schema = "shenas_system"
+        schema = "cache"
         pk = ("content_hash", "prompt_hash", "model")
 
     content_hash: Annotated[str, Field(db_type="VARCHAR", description="SHA-256 prefix of input text")] = ""
@@ -35,10 +35,10 @@ class LlmCacheEntry(Table):
 class LlmCache:
     """Convenience wrapper around :class:`LlmCacheEntry`."""
 
-    TABLE = "shenas_system.llm_cache"
+    TABLE = "cache.llm_cache"
 
     def __init__(self) -> None:
-        LlmCacheEntry.ensure(schema="shenas_system")
+        LlmCacheEntry.ensure(schema="cache")
 
     @staticmethod
     def hash16(s: str) -> str:

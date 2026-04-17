@@ -86,7 +86,19 @@ def db_status() -> DBStatusResponse:
     )
 
 
-_INTERNAL_SCHEMAS = {"config", "auth", "shenas_system", "telemetry"}
+_INTERNAL_SCHEMAS = {
+    "config",
+    "auth",
+    "shenas",
+    "plugins",
+    "transforms",
+    "catalog",
+    "analysis",
+    "cache",
+    "mesh",
+    "ui",
+    "telemetry",
+}
 
 
 @router.get("/tables")

@@ -3,7 +3,7 @@
 This package owns the ``PromotedMetric`` row class plus the
 ``PromotedSchema`` dataset that fronts it. Promoted metrics are
 **deployment state**, not generated source files: each one is a row in
-``shenas_system.promoted_metrics`` capturing the frozen recipe, the
+``analysis.promoted_metrics`` capturing the frozen recipe, the
 column shape, and the provenance back to the originating hypothesis.
 
 At catalog-walk time :meth:`PromotedSchema.all_tables` queries the row
@@ -33,13 +33,13 @@ from shenas_datasets.core import Dataset, MetricTable
 
 @dataclass
 class PromotedMetric(Table):
-    """One row per promoted hypothesis. Lives in shenas_system.promoted_metrics."""
+    """One row per promoted hypothesis. Lives in analysis.promoted_metrics."""
 
     class _Meta:
         name = "promoted_metrics"
         display_name = "Promoted Metrics"
         description = "Hypotheses promoted to canonical metric tables."
-        schema = "shenas_system"
+        schema = "analysis"
         pk = ("name", "metric_schema")
 
     name: Annotated[str, Field(db_type="VARCHAR", description="snake_case metric name")] = ""
@@ -176,7 +176,7 @@ def _make_transform(record: PromotedMetric):
 
 
 def _discover_promoted_classes() -> list[type[MetricTable]]:
-    """Walk shenas_system.promoted_metrics and synthesize one class per row.
+    """Walk analysis.promoted_metrics and synthesize one class per row.
 
     Returns ``[]`` if the row table doesn't exist yet (e.g. during
     bootstrap, before ``_ensure_system_tables`` has run). Catalog

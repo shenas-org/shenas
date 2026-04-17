@@ -58,7 +58,7 @@ class ReverseGeocodeTransformer(Transformer):
         *,
         device_id: str = "local",
     ) -> int:
-        import contextlib
+        from app.database import cursor
 
         params = instance.get_params()
         lat_col = params.get("latitude_column", "latitude")
@@ -69,13 +69,13 @@ class ReverseGeocodeTransformer(Transformer):
         target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
 
         try:
-            from app.database import cursor
+            with cursor() as con:
+                con.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
 
-            with cursor() as cur:
-                cur.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
-
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS shenas_system.reverse_geocode_cache (
+                # Ensure reverse geocode cache
+                con.execute("CREATE SCHEMA IF NOT EXISTS cache")
+                con.execute("""
+                    CREATE TABLE IF NOT EXISTS cache.reverse_geocode_cache (
                         coord_hash VARCHAR PRIMARY KEY,
                         latitude DOUBLE,
                         longitude DOUBLE,
@@ -86,7 +86,8 @@ class ReverseGeocodeTransformer(Transformer):
                     )
                 """)
 
-                rows = cur.execute(
+                # Read distinct coordinate pairs (rounded to ~11m precision)
+                rows = con.execute(
                     f"SELECT DISTINCT ROUND({lat_col}, 4) AS lat, ROUND({lon_col}, 4) AS lon "
                     f"FROM {source} "
                     f"WHERE {lat_col} IS NOT NULL AND {lon_col} IS NOT NULL "
@@ -95,47 +96,50 @@ class ReverseGeocodeTransformer(Transformer):
 
                 coords = [(r[0], r[1]) for r in rows]
 
+                # Check cache
                 cached: dict[tuple[float, float], str] = {}
                 for lat, lon in coords:
                     coord_hash = hashlib.sha256(f"{lat:.4f},{lon:.4f}".encode()).hexdigest()[:16]
-                    result = cur.execute(
-                        "SELECT place_name FROM shenas_system.reverse_geocode_cache WHERE coord_hash = ?",
+                    result = con.execute(
+                        "SELECT place_name FROM cache.reverse_geocode_cache WHERE coord_hash = ?",
                         [coord_hash],
                     ).fetchone()
                     if result:
                         cached[(lat, lon)] = result[0]
 
-            uncached = [c for c in coords if c not in cached]
-            if uncached:
-                config = self.Config.read_row() or {}
-                provider = config.get("provider", "nominatim")
-                api_key = config.get("api_key")
-                resolved = _batch_reverse_geocode(uncached, provider, api_key)
+                # Reverse geocode uncached
+                uncached = [c for c in coords if c not in cached]
+                if uncached:
+                    config = self.Config.read_row() or {}
+                    provider = config.get("provider", "nominatim")
+                    api_key = config.get("api_key")
+                    resolved = _batch_reverse_geocode(uncached, provider, api_key)
 
-                with cursor() as cur:
                     for (lat, lon), (place, address) in resolved.items():
                         coord_hash = hashlib.sha256(f"{lat:.4f},{lon:.4f}".encode()).hexdigest()[:16]
-                        cur.execute(
-                            "INSERT OR REPLACE INTO shenas_system.reverse_geocode_cache "
+                        con.execute(
+                            "INSERT OR REPLACE INTO cache.reverse_geocode_cache "
                             "(coord_hash, latitude, longitude, place_name, address, provider) "
                             "VALUES (?, ?, ?, ?, ?, ?)",
                             [coord_hash, lat, lon, place, address, provider],
                         )
                         cached[(lat, lon)] = place
 
-            with cursor() as cur:
-                with contextlib.suppress(duckdb.Error):
-                    cur.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
+                # Write: join source with cached results
+                import contextlib
 
-                cur.execute(
+                with contextlib.suppress(duckdb.Error):
+                    con.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
+
+                con.execute(
                     f"INSERT INTO {target} "
                     f"SELECT s.*, rc.place_name AS {output_col}, '{device_id}' AS source_device "
                     f"FROM {source} s "
-                    f"LEFT JOIN shenas_system.reverse_geocode_cache rc "
+                    f"LEFT JOIN cache.reverse_geocode_cache rc "
                     f"ON ROUND(s.{lat_col}, 4)::VARCHAR || ',' || ROUND(s.{lon_col}, 4)::VARCHAR "
                     f"= rc.latitude::VARCHAR || ',' || rc.longitude::VARCHAR"
                 )
-            return 1
+                return 1
         except Exception:
             log.exception(
                 "Reverse geocode transform #%d failed (%s -> %s)",

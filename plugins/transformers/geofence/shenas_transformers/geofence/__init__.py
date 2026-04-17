@@ -13,6 +13,11 @@ from shenas_transformers.core.transform import Transform
 log = logging.getLogger(f"shenas.{__name__}")
 
 
+def _ensure_spatial(con: duckdb.DuckDBPyConnection) -> None:
+    """Load the DuckDB spatial extension."""
+    con.execute("INSTALL spatial; LOAD spatial;")
+
+
 class GeofenceTransformer(Transformer):
     """Categorize location data by matching coordinates against user-defined geofences."""
 
@@ -26,7 +31,7 @@ class GeofenceTransformer(Transformer):
         *,
         device_id: str = "local",
     ) -> int:
-        import contextlib
+        from app.database import cursor
 
         params = instance.get_params()
         lat_col = params.get("latitude_column", "latitude")
@@ -43,11 +48,9 @@ class GeofenceTransformer(Transformer):
         source = f'"{instance.source_ref.schema}"."{instance.source_ref.table}"'
 
         try:
-            from app.database import cursor
-
-            with cursor() as cur:
-                cur.execute("INSTALL spatial; LOAD spatial;")
-                cur.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
+            with cursor() as con:
+                _ensure_spatial(con)
+                con.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
 
                 sql = f"""
                     SELECT
@@ -70,7 +73,7 @@ class GeofenceTransformer(Transformer):
                         v.{confidence_col} AS confidence,
                         '{device_id}' AS source_device
                     FROM {source} v
-                    LEFT JOIN shenas_system.geofences g
+                    LEFT JOIN catalog.geofences g
                         ON ST_DWithin(
                             ST_Point(v.{lon_col}, v.{lat_col}),
                             ST_Point(g.longitude, g.latitude),
@@ -83,11 +86,13 @@ class GeofenceTransformer(Transformer):
                 if filter_where:
                     sql += f" AND {filter_where}"
 
-                with contextlib.suppress(duckdb.Error):
-                    cur.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
+                import contextlib
 
-                cur.execute(f"INSERT INTO {target} {sql}")
-            return 1
+                with contextlib.suppress(duckdb.Error):
+                    con.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
+
+                con.execute(f"INSERT INTO {target} {sql}")
+                return 1
         except Exception:
             log.exception("Geofence transform #%d failed (%s -> %s)", instance.id, source_name, target)
             return 0

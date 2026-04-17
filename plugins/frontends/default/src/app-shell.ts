@@ -1867,7 +1867,20 @@ class ShenasApp extends LitElement {
       this._fetchDbStatus();
       return html`<p class="empty">Loading...</p>`;
     }
-    const INTERNAL = new Set(["auth", "config", "shenas_system", "telemetry"]);
+    const INTERNAL = new Set([
+      "auth",
+      "config",
+      "shenas",
+      "plugins",
+      "entities",
+      "mesh",
+      "cache",
+      "ui",
+      "analysis",
+      "catalog",
+      "transforms",
+      "telemetry",
+    ]);
     const displayNames: Record<string, string> = {};
     for (const plugins of Object.values(this._allPlugins)) {
       for (const p of plugins) {

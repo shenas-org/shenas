@@ -22,7 +22,7 @@ def _now_iso() -> str:
 
 @dataclass
 class Geofence(Table):
-    """A named circular geofence stored in ``shenas_system.geofences``.
+    """A named circular geofence stored in ``catalog.geofences``.
 
     Each row defines a center point and radius. SQL transforms use
     :func:`ensure_haversine_macro` to compute distances and match
@@ -33,12 +33,12 @@ class Geofence(Table):
         name = "geofences"
         display_name = "Geofences"
         description = "User-defined circular geofences for categorizing location data."
-        schema = "shenas_system"
+        schema = "catalog"
         pk = ("id",)
 
     id: Annotated[
         int,
-        Field(db_type="INTEGER", description="Geofence ID", db_default="nextval('shenas_system.geofence_seq')"),
+        Field(db_type="INTEGER", description="Geofence ID", db_default="nextval('catalog.geofence_seq')"),
     ] = 0
     name: Annotated[str, Field(db_type="VARCHAR", description="Geofence label (e.g. Home, Work, Library)")] = ""
     latitude: Annotated[

@@ -2,7 +2,7 @@
 
 Requires an API key (free, register at explore.openaq.org). Configure a
 comma-separated list of place-entity UUIDs; each UUID must resolve through
-:class:`app.entity.EntityIndex` to a :class:`app.entity.PlaceEntityTable`
+the entity index to a :class:`app.entity.place entity`
 row carrying latitude / longitude (and optional ``radius_m``). The sync
 fans out across every configured place and tags each row with
 ``place_uuid``.
@@ -30,7 +30,7 @@ class OpenAQSource(Source):
         "Provides PM2.5, PM10, NO2, SO2, CO, O3, and other pollutants at hourly "
         "resolution, aggregated to daily summaries.\n\n"
         "In the Config tab, set `place_uuids` to a comma-separated list of "
-        "place-entity UUIDs. Each must resolve to a PlaceEntityTable row with "
+        "place-entity UUIDs. Each must resolve to a place entity row with "
         "latitude / longitude (and optional `radius_m` to cap the search radius).\n\n"
         "Requires a free API key from explore.openaq.org."
     )
@@ -55,7 +55,7 @@ class OpenAQSource(Source):
                 db_type="VARCHAR",
                 description=(
                     "Comma-separated place-entity UUIDs to sync (each must resolve "
-                    "to a PlaceEntityTable row with latitude / longitude; "
+                    "to a place entity row with latitude / longitude; "
                     "`radius_m` on the row caps the per-place search radius)."
                 ),
             ),
@@ -107,7 +107,7 @@ class OpenAQSource(Source):
 def _load_place_entities(allowed: set[str] | None) -> list[tuple[str, float, float, int | None]]:
     """Return ``[(entity_id, latitude, longitude, radius_m), ...]`` for places.
 
-    Reads from the ``shenas_system.places_wide`` view (maintained by
+    Reads from the ``entities.places_wide`` view (maintained by
     :func:`app.entities.places.ensure_places_wide_view`). Entities
     missing either coordinate are excluded by the view's INNER JOIN.
     """

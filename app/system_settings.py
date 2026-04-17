@@ -12,7 +12,7 @@ class SystemSettings(SingletonTable):
         name = "system_settings"
         display_name = "System Settings"
         description = "System-wide configuration flags."
-        schema = "shenas_system"
+        schema = "shenas"
         pk = ("id",)
         database = "system"
 

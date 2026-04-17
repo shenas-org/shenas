@@ -55,7 +55,6 @@ def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
     con = duckdb.connect()
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
-    con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
     stub = _StubDB(con)
     saved = dict(app.db._resolvers)
     app.db._resolvers["shenas"] = lambda: stub  # ty: ignore[invalid-assignment]

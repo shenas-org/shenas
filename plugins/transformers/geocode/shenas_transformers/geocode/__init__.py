@@ -57,6 +57,8 @@ class GeocodeTransformer(Transformer):
         *,
         device_id: str = "local",
     ) -> int:
+        from app.database import cursor
+
         params = instance.get_params()
         address_col = params.get("address_column")
         if not address_col:
@@ -70,13 +72,13 @@ class GeocodeTransformer(Transformer):
         target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
 
         try:
-            from app.database import cursor
+            with cursor() as con:
+                con.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
 
-            with cursor() as cur:
-                cur.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
-
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS shenas_system.geocode_cache (
+                # Ensure geocode_cache table exists
+                con.execute("CREATE SCHEMA IF NOT EXISTS cache")
+                con.execute("""
+                    CREATE TABLE IF NOT EXISTS cache.geocode_cache (
                         address_hash VARCHAR PRIMARY KEY,
                         address VARCHAR,
                         latitude DOUBLE,
@@ -86,54 +88,57 @@ class GeocodeTransformer(Transformer):
                     )
                 """)
 
-                rows = cur.execute(
+                # Read distinct addresses that need geocoding
+                rows = con.execute(
                     f"SELECT DISTINCT {address_col} AS addr FROM {source} "
                     f"WHERE {address_col} IS NOT NULL AND TRIM({address_col}) != ''"
                 ).fetchall()
 
                 addresses = [r[0] for r in rows]
 
+                # Check cache for existing results
                 cached: dict[str, tuple[float, float]] = {}
                 for addr in addresses:
                     addr_hash = hashlib.sha256(addr.encode()).hexdigest()[:16]
-                    result = cur.execute(
-                        "SELECT latitude, longitude FROM shenas_system.geocode_cache WHERE address_hash = ?",
+                    result = con.execute(
+                        "SELECT latitude, longitude FROM cache.geocode_cache WHERE address_hash = ?",
                         [addr_hash],
                     ).fetchone()
                     if result:
                         cached[addr] = (result[0], result[1])
 
-            uncached = [a for a in addresses if a not in cached]
-            if uncached:
-                config = self.Config.read_row() or {}
-                provider = config.get("provider", "nominatim")
-                api_key = config.get("api_key")
-                geocoded = _batch_geocode(uncached, provider, api_key)
+                # Geocode uncached addresses
+                uncached = [a for a in addresses if a not in cached]
+                if uncached:
+                    config = self.Config.read_row() or {}
+                    provider = config.get("provider", "nominatim")
+                    api_key = config.get("api_key")
+                    geocoded = _batch_geocode(uncached, provider, api_key)
 
-                with cursor() as cur:
                     for addr, (lat, lng) in geocoded.items():
                         addr_hash = hashlib.sha256(addr.encode()).hexdigest()[:16]
-                        cur.execute(
-                            "INSERT OR REPLACE INTO shenas_system.geocode_cache "
+                        con.execute(
+                            "INSERT OR REPLACE INTO cache.geocode_cache "
                             "(address_hash, address, latitude, longitude, provider) "
                             "VALUES (?, ?, ?, ?, ?)",
                             [addr_hash, addr, lat, lng, provider],
                         )
                         cached[addr] = (lat, lng)
 
-            with cursor() as cur:
+                # Write results: join source with cached geocode results
+                # Register the cache as a temp view for the JOIN
                 with contextlib.suppress(duckdb.Error):
-                    cur.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
+                    con.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
 
-                cur.execute(
+                con.execute(
                     f"INSERT INTO {target} "
                     f"SELECT s.*, c.latitude AS {lat_out}, c.longitude AS {lon_out}, "
                     f"'{device_id}' AS source_device "
                     f"FROM {source} s "
-                    f"LEFT JOIN shenas_system.geocode_cache c "
+                    f"LEFT JOIN cache.geocode_cache c "
                     f"ON SHA256(s.{address_col})[:16] = c.address_hash"
                 )
-            return 1
+                return 1
         except Exception:
             log.exception("Geocode transform #%d failed (%s -> %s)", instance.id, source_name, target)
             return 0

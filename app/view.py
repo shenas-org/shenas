@@ -44,7 +44,10 @@ class View(Relation):
 
         from app.database import cursor
 
-        s = schema or getattr(cls._Meta, "schema", None) or "shenas_system"
+        s = schema or getattr(cls._Meta, "schema", None)
+        if s is None:
+            msg = f"{cls.__name__}: View.ensure() requires an explicit schema (set _Meta.schema or pass schema=)"
+            raise ValueError(msg)
         sql = f'CREATE OR REPLACE VIEW "{s}"."{cls._Meta.name}" AS {cls._view_sql()}'
         with cursor(database=cls._resolve_database()) as cur:
             try:
@@ -61,7 +64,7 @@ class View(Relation):
         *,
         name: str,
         display_name: str,
-        schema: str = "shenas_system",
+        schema: str = "entities",
         sql: str,
         columns: list[tuple[str, str]],
         pk: tuple[str, ...] = (),
@@ -75,7 +78,7 @@ class View(Relation):
         display_name : str
             Human-readable label.
         schema : str
-            DuckDB schema (default ``"shenas_system"``).
+            DuckDB schema (default ``"entities"``).
         sql : str
             The SELECT statement the view wraps.
         columns : list of (column_name, description) tuples

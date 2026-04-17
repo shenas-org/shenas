@@ -22,8 +22,6 @@ def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
     con = duckdb.connect()
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
-    con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
-
     from app.tests.conftest import _StubDB
 
     stub = _StubDB(con)
@@ -145,8 +143,8 @@ class TestGetActiveTheme:
         light = self._make_theme("light")
 
         # System tables already created by test_con fixture
-        test_con.execute("INSERT INTO shenas_system.plugins (kind, name, enabled) VALUES ('theme', 'dark', true)")
-        test_con.execute("INSERT INTO shenas_system.plugins (kind, name, enabled) VALUES ('theme', 'light', false)")
+        test_con.execute("INSERT INTO plugins.installed (kind, name, enabled) VALUES ('theme', 'dark', true)")
+        test_con.execute("INSERT INTO plugins.installed (kind, name, enabled) VALUES ('theme', 'light', false)")
 
         with (
             patch("shenas_themes.core.theme.Theme.load_all", return_value=[dark, light]),

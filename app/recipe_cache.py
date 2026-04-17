@@ -12,7 +12,7 @@ produces a new key, which forces a re-execution. Tables that lack
 contribute the literal string ``"static"`` so they don't accidentally
 bust the cache forever.
 
-Storage is one row per cache entry in ``shenas_system.recipe_cache``.
+Storage is one row per cache entry in ``analysis.recipe_cache``.
 The ``RecipeCache`` class IS the API: ``key_for`` builds the hash,
 ``find`` (from the ABC) reads, ``put`` writes, ``clear_rows`` (from
 the ABC) drops everything.
@@ -46,7 +46,7 @@ class RecipeCache(Table):
         name = "recipe_cache"
         display_name = "Recipe Cache"
         description = "Content-hash keyed cache of recipe execution results."
-        schema = "shenas_system"
+        schema = "analysis"
         pk = ("cache_key",)
 
     cache_key: Annotated[str, Field(db_type="VARCHAR", description="sha256(recipe + freshness)")] = ""

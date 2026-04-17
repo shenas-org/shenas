@@ -142,11 +142,11 @@ class TestDbStatus:
 
 class TestDbTables:
     def test_excludes_internal_schemas(self, fake_db) -> None:
-        fake_db.execute("CREATE SCHEMA shenas_system")
-        fake_db.execute("CREATE TABLE shenas_system.x (id INTEGER)")
+        fake_db.execute("CREATE SCHEMA shenas")
+        fake_db.execute("CREATE TABLE shenas.x (id INTEGER)")
         result = api_db.db_tables()
         assert "garmin" in result
-        assert "shenas_system" not in result
+        assert "shenas" not in result
 
     def test_swallows_failure(self) -> None:
         with patch("app.api.db._discover_schemas", side_effect=RuntimeError("nope")):

@@ -4,7 +4,7 @@ A :class:`Hypothesis` is the durable artifact of an LLM-authored
 investigation: the user's natural-language question, the LLM's plan,
 the recipe DAG it constructed, the inputs it referenced, the result it
 observed, and the LLM's interpretation. One row per hypothesis, stored
-in ``shenas_system.hypotheses``.
+in ``analysis.hypotheses``.
 
 Recipe and result are JSON-serialized into ``recipe_json`` and
 ``result_json`` columns. The recipe is reconstructed via
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 class Hypothesis(Table):
     """One LLM-authored investigation, end to end.
 
-    Stored as a row in ``shenas_system.hypotheses``. The class itself is
+    Stored as a row in ``analysis.hypotheses``. The class itself is
     the dataclass for that row -- there's no separate wrapper. CRUD
     comes from the :class:`Table` ABC; the only hypothesis-specific
     methods are the lazy JSON decoders for recipe / result and the
@@ -46,12 +46,12 @@ class Hypothesis(Table):
         name = "hypotheses"
         display_name = "Hypotheses"
         description = "LLM-authored hypothesis records: question, recipe, result, interpretation."
-        schema = "shenas_system"
+        schema = "analysis"
         pk = ("id",)
 
     id: Annotated[
         int,
-        Field(db_type="INTEGER", description="Hypothesis ID", db_default="nextval('shenas_system.hypothesis_seq')"),
+        Field(db_type="INTEGER", description="Hypothesis ID", db_default="nextval('analysis.hypothesis_seq')"),
     ] = 0
     question: Annotated[str, Field(db_type="TEXT", description="The user's natural-language question")] = ""
     plan: (

@@ -21,8 +21,7 @@ class OpenAQClient:
     """HTTP client for the OpenAQ v3 API, fans out across N configured places.
 
     Each *place* is a ``(place_uuid, latitude, longitude, radius_m)`` tuple
-    resolved from a :class:`app.entity.PlaceEntityTable` row via
-    :func:`app.entity.resolve_place`. The client iterates every configured
+    resolved from a place entity row via the entity index. The client iterates every configured
     place and tags each returned row with ``place_uuid`` so the same OpenAQ
     station can be attributed to multiple places if their radii overlap.
     """

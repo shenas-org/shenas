@@ -2,8 +2,8 @@
 
 No authentication required. Configure a comma-separated list of place-entity
 UUIDs via the Config tab; each UUID must resolve through
-:class:`app.entity.EntityIndex` to a source-contributed
-:class:`app.entity.PlaceEntityTable` row carrying ``latitude`` and
+the entity index to a source-contributed
+:class:`app.entity.place entity` row carrying ``latitude`` and
 ``longitude``. The sync fans out across every configured place and tags
 each row with ``place_uuid``. Data available back to 1940 (weather) and
 2022 (air quality).
@@ -32,7 +32,7 @@ class OpenMeteoSource(Source):
         "model. No API key required.\n\n"
         "In the Config tab, set `place_uuids` to a comma-separated list of "
         "place-entity UUIDs. Each must resolve (via the entity index) to a "
-        "source-contributed PlaceEntityTable row with latitude / longitude set."
+        "source-contributed place entity row with latitude / longitude set."
     )
 
     @dataclass
@@ -43,7 +43,7 @@ class OpenMeteoSource(Source):
                 db_type="VARCHAR",
                 description=(
                     "Comma-separated place-entity UUIDs to sync (each must resolve "
-                    "to a PlaceEntityTable row with latitude / longitude)."
+                    "to a place entity row with latitude / longitude)."
                 ),
             ),
         ] = None
@@ -74,7 +74,7 @@ class OpenMeteoSource(Source):
 def _load_place_entities(allowed: set[str] | None) -> list[tuple[str, float, float]]:
     """Return ``[(entity_id, latitude, longitude), ...]`` for place entities.
 
-    Reads from the ``shenas_system.places_wide`` view (maintained by
+    Reads from the ``entities.places_wide`` view (maintained by
     :func:`app.entities.places.ensure_places_wide_view`). Entities
     missing either coordinate are excluded by the view's INNER JOIN.
     """

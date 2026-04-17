@@ -4,7 +4,7 @@ Iterates every entity that carries a ``wikidata:qid`` statement (declared
 by the user or by a source plugin projection), groups them by entity type,
 discovers the Wikidata P-ids that each type cares about from the
 EntityType's ``wikidata_properties`` list, and fetches them in batched
-SPARQL calls. Every result becomes a row in ``shenas_system.statements`` with
+SPARQL calls. Every result becomes a row in ``entities.statements`` with
 ``source='wikidata'``. Values referencing other Wikidata items store the
 QID in ``value`` and the English label in ``value_label``.
 
@@ -29,13 +29,13 @@ log = logging.getLogger("shenas.source.wikidata")
 class WikidataSource(Source):
     name = "wikidata"
     display_name = "Wikidata"
-    # Wikidata now lands in shenas_system.statements; the Data tab shows the
+    # Wikidata now lands in entities.statements; the Data tab shows the
     # generic triple list filtered to source='wikidata'.
-    primary_table = "shenas_system.statements"
+    primary_table = "entities.statements"
     description = (
         "Structured knowledge from Wikidata. Fetches every declared "
         "Wikidata property for each entity whose wikidata:qid is set, "
-        "and stores the result as rows in shenas_system.statements."
+        "and stores the result as rows in entities.statements."
     )
 
     def build_client(self) -> Any:
@@ -106,9 +106,9 @@ class WikidataSource(Source):
     def _load_entity_groups(self) -> dict[str, list[tuple[str, str]]]:
         """Return ``{entity_type: [(entity_id, wikidata_qid), ...]}``.
 
-        Reads the current live slice of ``shenas_system.statements`` for the
+        Reads the current live slice of ``entities.statements`` for the
         well-known ``wikidata:qid`` property, then resolves each entity's
-        type via a second query on ``shenas_system.entities``.
+        type via a second query on ``entities.entities``.
         """
         from app.entities.statements import Statement
         from app.entity import Entity

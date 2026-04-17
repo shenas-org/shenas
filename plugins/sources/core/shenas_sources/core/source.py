@@ -385,7 +385,7 @@ class Source(Plugin):
            deterministic ``uuid`` derived from the type + natural PK.
         2. Upserts one statement per ``(column, property_id)`` mapping with
            ``source=<plugin_name>``, skipping NULL values.
-        3. Registers referenced properties in ``shenas_system.properties`` on
+        3. Registers referenced properties in ``entities.properties`` on
            first encounter (idempotent upsert).
 
         Statements are loaded plainly (not via dlt) because the projection
@@ -465,7 +465,7 @@ class Source(Plugin):
         """Post-sync hook: rebuild every per-type wide view.
 
         Statements added during this sync may introduce new property
-        columns; the per-type ``shenas_system.<type>s_wide`` views need a
+        columns; the per-type ``entities.<type>s_wide`` views need a
         fresh ``CREATE OR REPLACE VIEW`` to reflect the expanded property
         set. Cheap (one DDL per type), safe to call unconditionally.
         """

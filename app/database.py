@@ -114,10 +114,11 @@ class DatabaseManager:
         from app.plugin import PluginInstance
         from app.system_settings import SystemSettings
 
-        con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.local_user_seq START 1")
+        for schema in ("shenas", "plugins"):
+            con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas.local_user_seq START 1")
         for tbl in (LocalUser, LocalSession, SystemSettings, PluginInstance):
-            tbl.ensure(schema=tbl._Meta.schema or "shenas_system")
+            tbl.ensure(schema=tbl._Meta.schema)
 
         try:
             from app.plugin import VALID_KINDS, Plugin
@@ -128,7 +129,7 @@ class DatabaseManager:
                         if cls.internal:
                             continue
                         row = con.execute(
-                            "SELECT 1 FROM shenas_system.plugins WHERE kind = ? AND name = ?",
+                            "SELECT 1 FROM plugins.installed WHERE kind = ? AND name = ?",
                             [cls()._kind, cls.name],
                         ).fetchone()
                         if not row:
@@ -136,7 +137,7 @@ class DatabaseManager:
                                 getattr(cls, "single_active", False) and cls.name == "default"
                             )
                             con.execute(
-                                "INSERT INTO shenas_system.plugins (kind, name, enabled) VALUES (?, ?, ?)",
+                                "INSERT INTO plugins.installed (kind, name, enabled) VALUES (?, ?, ?)",
                                 [cls()._kind, cls.name, enabled],
                             )
                 except Exception:
@@ -292,16 +293,10 @@ class DatabaseManager:
         from app.plugin import PluginInstance
         from app.recipe_cache import RecipeCache
         from app.system_settings import SystemSettings
-        from app.table import Table
+        from app.table import Table  # noqa: TC001  # used at runtime below
         from app.workspace import Workspace
         from shenas_datasets.promoted import PromotedMetric
 
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_instance_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.finding_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.local_user_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.geofence_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.entity_seq START 1")
         tables: list[type[Table]] = [
             Transform,
             PluginInstance,
@@ -328,7 +323,19 @@ class DatabaseManager:
             Property,
             Statement,
         ]
-        Table.ensure_schema(tables, schema="shenas_system")
+        # Each table declares its own schema via _Meta.schema; create all
+        # schemas first, then sequences, then ensure tables.
+        schemas = {getattr(t._Meta, "schema", None) for t in tables} - {None}
+        for s in sorted(schemas):
+            con.execute(f"CREATE SCHEMA IF NOT EXISTS {s}")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS transforms.transform_instance_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS analysis.hypothesis_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS analysis.finding_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas.local_user_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS catalog.geofence_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS entities.entity_seq START 1")
+        for t in tables:
+            t.ensure(schema=getattr(t._Meta, "schema", "main"))
         Hotkey.seed()
         seed_entity_types()
         seed_relationship_types()

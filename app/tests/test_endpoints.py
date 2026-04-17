@@ -25,7 +25,6 @@ def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
     con = duckdb.connect()
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
-    con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
 
     @contextlib.contextmanager
     def _cursor(**_kwargs: object) -> Generator[duckdb.DuckDBPyConnection, None, None]:
@@ -166,7 +165,7 @@ class TestRemoteAuth:
 
     def test_me_with_token(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
-            "INSERT INTO shenas_system.local_users (id, username, remote_token) VALUES (0, 'default', 'tok')"
+            "INSERT INTO shenas.local_users (id, username, remote_token) VALUES (0, 'default', 'tok')"
             " ON CONFLICT (id) DO UPDATE SET remote_token = 'tok'"
         )
 
@@ -181,7 +180,7 @@ class TestRemoteAuth:
 
     def test_me_handles_httpx_error(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
-            "INSERT INTO shenas_system.local_users (id, username, remote_token) VALUES (0, 'default', 'tok')"
+            "INSERT INTO shenas.local_users (id, username, remote_token) VALUES (0, 'default', 'tok')"
             " ON CONFLICT (id) DO UPDATE SET remote_token = 'tok'"
         )
 

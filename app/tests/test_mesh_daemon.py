@@ -26,7 +26,7 @@ class TestGetRemoteToken:
 
         with cursor() as cur:
             cur.execute(
-                "INSERT INTO shenas_system.local_users (id, username, password_hash, key_salt, remote_token) "
+                "INSERT INTO shenas.local_users (id, username, password_hash, key_salt, remote_token) "
                 "VALUES (1, 'test', '', '', 'tok-123')"
             )
         token = current_user_id.set(1)
@@ -49,7 +49,8 @@ class TestServerDeviceId:
         from app.database import cursor
 
         with cursor() as cur:
-            cur.execute("CREATE TABLE IF NOT EXISTS shenas_system.device_identity (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            cur.execute("CREATE SCHEMA IF NOT EXISTS mesh")
+            cur.execute("CREATE TABLE IF NOT EXISTS mesh.device_identity (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
         daemon._store_server_device_id("server-dev-1")
         assert daemon._get_server_device_id() == "server-dev-1"
 
@@ -57,7 +58,8 @@ class TestServerDeviceId:
         from app.database import cursor
 
         with cursor() as cur:
-            cur.execute("CREATE TABLE IF NOT EXISTS shenas_system.device_identity (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            cur.execute("CREATE SCHEMA IF NOT EXISTS mesh")
+            cur.execute("CREATE TABLE IF NOT EXISTS mesh.device_identity (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
         daemon._store_server_device_id("first")
         daemon._store_server_device_id("second")
         assert daemon._get_server_device_id() == "second"

@@ -40,10 +40,10 @@ class PluginInstance(Table):
     """
 
     class _Meta:
-        name = "plugins"
+        name = "installed"
         display_name = "Installed Plugins"
         description = "Per-plugin install / enable / sync state."
-        schema = "shenas_system"
+        schema = "plugins"
         pk = ("kind", "name")
         database = "system"
 

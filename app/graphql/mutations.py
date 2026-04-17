@@ -524,7 +524,7 @@ class Mutation:
     def promote_hypothesis(self, hypothesis_id: int, name: str, metric_schema: str = "metrics") -> JSON:
         """Promote a hypothesis into a canonical MetricTable.
 
-        Inserts a row into ``shenas_system.promoted_metrics``. The
+        Inserts a row into ``analysis.promoted_metrics``. The
         promoted thing is then visible to the catalog walker as a
         synthesized ``MetricTable`` subclass; no Python source files
         are generated.

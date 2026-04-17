@@ -900,8 +900,8 @@ class Query:
         with cursor() as cur:
             rows = cur.execute(
                 "SELECT DISTINCT e.uuid, e.type, e.name, e.description, e.status, e.added_at, e.updated_at "
-                "FROM shenas_system.entities e "
-                "JOIN shenas_system.statements s "
+                "FROM entities.entities e "
+                "JOIN entities.statements s "
                 "  ON s.entity_id = e.uuid AND s._dlt_valid_to IS NULL AND s.source = ? "
                 "ORDER BY LOWER(e.name)",
                 [plugin],

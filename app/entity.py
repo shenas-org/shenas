@@ -12,14 +12,12 @@ Python class hierarchy
 ::
 
     Table (slim base)
-      -> Entity            # concrete; catch-all shenas_system.entities
-      -> EntityTable       # abstract; source-side SCD2 entity contributors
-           -> PlaceEntityTable
-                -> CityEntityTable      -> City       # entities.cities
-                -> ResidenceEntityTable -> Residence  # entities.residences
-                -> CountryEntityTable   -> Country    # entities.countries
+      -> Entity            # concrete; entities.entities
+      -> City              # entities.cities   (app/entities/places.py)
+      -> Residence         # entities.residences
+      -> Country           # entities.countries
 
-``LocalUser`` lives in its own ``shenas_system.local_users`` table (registry
+``LocalUser`` lives in its own ``shenas.local_users`` table (registry
 DB) and doesn't share the ``Entity`` column layout -- it has its own
 login-specific columns.
 
@@ -51,7 +49,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
-ENTITY_SEQ = "shenas_system.entity_seq"
+ENTITY_SEQ = "entities.entity_seq"
 
 
 def _now_iso() -> str:
@@ -76,7 +74,7 @@ class EntityType(Table):
         name = "entity_types"
         display_name = "Entity Types"
         description = "Discriminator values for the entities table."
-        schema = "shenas_system"
+        schema = "entities"
         pk = ("name",)
 
     name: Annotated[str, Field(db_type="VARCHAR", description="Short slug, e.g. 'human'")] = ""
@@ -109,7 +107,7 @@ class EntityType(Table):
         """Return the built-in EntityType with ``name`` from DEFAULT_ENTITY_TYPES.
 
         Pure import-time lookup (no DB access), so it's safe to use at class
-        definition for ``EntityTable._Meta.entity_type = EntityType.default("human")``.
+        definition for entity_type declarations at class body time.
         Raises ``KeyError`` on unknown names.
         """
         return _default_entity_types_by_name()[name]  # ty: ignore[invalid-return-type]
@@ -129,7 +127,7 @@ class EntityType(Table):
         return False
 
     def ensure_wide_view(self) -> None:
-        """(Re)create ``shenas_system.<self.name>s_wide`` as a dynamic View subclass.
+        """(Re)create ``entities.<self.name>s_wide`` as a dynamic View subclass.
 
         Discovers every property declared for this type via
         :class:`Property.all`, builds a :class:`~app.view.View` subclass
@@ -208,8 +206,8 @@ def _build_wide_view(type_name: str) -> type:
         SELECT e.uuid AS entity_id,
                e.name,
                {pivots}
-        FROM shenas_system.entities e
-        LEFT JOIN shenas_system.statements s
+        FROM entities.entities e
+        LEFT JOIN entities.statements s
           ON s.entity_id = e.uuid AND {scd2}
         WHERE e.type = {_sql_str(type_name)}
         GROUP BY e.uuid, e.name
@@ -279,7 +277,7 @@ class EntityRelationshipType(Table):
         name = "entity_relationship_types"
         display_name = "Entity Relationship Types"
         description = "Discriminator values for entity_relationships.type."
-        schema = "shenas_system"
+        schema = "entities"
         pk = ("name",)
 
     name: Annotated[str, Field(db_type="VARCHAR", description="Short slug, e.g. 'owner_of'")] = ""
@@ -318,7 +316,7 @@ class EntityIndex(Table):
         name = "entity_index"
         display_name = "Entity Index"
         description = "UUID -> (db, table, row_id) lookup for entity rows."
-        schema = "shenas_system"
+        schema = "entities"
         pk = ("uuid",)
 
     uuid: Annotated[str, Field(db_type="VARCHAR", description="Entity UUID (hex, no dashes)")] = ""
@@ -371,7 +369,7 @@ class EntityIndex(Table):
 class Entity(Table):
     """A typed node in the entity graph.
 
-    This is the concrete catch-all table backing ``shenas_system.entities``
+    This is the concrete catch-all table backing ``entities.entities``
     in the per-user DB. Every entity the user tracks (her dog, her vehicle,
     her partner) lives here regardless of type -- except those with
     dedicated tables (:class:`City`, :class:`Residence`, :class:`Country`
@@ -388,7 +386,7 @@ class Entity(Table):
         name = "entities"
         display_name = "Entities"
         description = "Typed nodes in the user's entity graph."
-        schema = "shenas_system"
+        schema = "entities"
         pk = ("id",)
 
     id: Annotated[
@@ -461,10 +459,10 @@ class Entity(Table):
             uuid_val = self.uuid
             with cursor() as cur:
                 cur.execute(
-                    "DELETE FROM shenas_system.entity_relationships WHERE from_uuid = ? OR to_uuid = ?",
+                    "DELETE FROM entities.entity_relationships WHERE from_uuid = ? OR to_uuid = ?",
                     [uuid_val, uuid_val],
                 )
-                cur.execute("DELETE FROM shenas_system.entity_index WHERE uuid = ?", [uuid_val])
+                cur.execute("DELETE FROM entities.entity_index WHERE uuid = ?", [uuid_val])
         super().delete()
 
     # ------------------------------------------------------------------
@@ -519,7 +517,7 @@ class EntityRelationship(Table):
         name = "entity_relationships"
         display_name = "Entity Relationships"
         description = "Directed edges between entities."
-        schema = "shenas_system"
+        schema = "entities"
         pk = ("from_uuid", "to_uuid", "type")
 
     from_uuid: Annotated[str, Field(db_type="VARCHAR", description="Source entity UUID")] = ""
@@ -879,7 +877,7 @@ def _default_entity_types_by_name() -> dict[str, EntityType]:
     """Return DEFAULT_ENTITY_TYPES as a name-keyed dict of EntityType instances.
 
     Built once on first call and cached. Used by :meth:`EntityType.default`
-    so EntityTable subclasses can reference built-in types at class-definition
+    so entity-typed tables can reference built-in types at class-definition
     time without DB access.
     """
 
@@ -931,7 +929,7 @@ def seed_entity_types() -> None:
 
 
 def seed_properties() -> None:
-    """Seed shenas_system.properties with each default EntityType's Wikidata PIDs.
+    """Seed entities.properties with each default EntityType's Wikidata PIDs.
 
     Idempotent. The per-type ``domain_type`` lets WikidataSource discover
     which PIDs apply to a type at sync time.

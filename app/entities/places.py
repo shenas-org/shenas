@@ -1,7 +1,7 @@
 """Place-entity view for geo-aware source plugins.
 
 :class:`PlacesWide` is a :class:`~app.table.View` that JOINs
-``shenas_system.entities`` with ``latitude``, ``longitude``, and
+``entities.entities`` with ``latitude``, ``longitude``, and
 ``radius_m`` statements to produce one row per place entity with typed
 coordinate columns. Source plugins (openmeteo, openaq) query it via the
 standard ORM (``PlacesWide.all(where=...)``) instead of writing raw EAV
@@ -23,15 +23,15 @@ from app.table import Field, View
 class PlacesWide(View):
     """Pre-pivoted view of place entities with coordinates.
 
-    Reads from ``shenas_system.entities`` filtered to place types
-    (city, residence, country) and joins ``shenas_system.statements``
+    Reads from ``entities.entities`` filtered to place types
+    (city, residence, country) and joins ``entities.statements``
     for ``latitude``, ``longitude``, and optional ``radius_m``.
     """
 
     class _Meta:
         name = "places_wide"
         display_name = "Places (wide)"
-        schema = "shenas_system"
+        schema = "entities"
         pk = ("entity_id",)
 
     entity_id: Annotated[
@@ -68,16 +68,16 @@ class PlacesWide(View):
                TRY_CAST(lat.value AS DOUBLE) AS latitude,
                TRY_CAST(lng.value AS DOUBLE) AS longitude,
                TRY_CAST(rad.value AS INTEGER) AS radius_m
-        FROM shenas_system.entities e
-        JOIN shenas_system.statements lat
+        FROM entities.entities e
+        JOIN entities.statements lat
           ON lat.entity_id = e.uuid
          AND lat.property_id = 'latitude'
          AND lat._dlt_valid_to IS NULL
-        JOIN shenas_system.statements lng
+        JOIN entities.statements lng
           ON lng.entity_id = e.uuid
          AND lng.property_id = 'longitude'
          AND lng._dlt_valid_to IS NULL
-        LEFT JOIN shenas_system.statements rad
+        LEFT JOIN entities.statements rad
           ON rad.entity_id = e.uuid
          AND rad.property_id = 'radius_m'
          AND rad._dlt_valid_to IS NULL

@@ -39,8 +39,7 @@ class OpenMeteoClient:
     """HTTP client for the Open-Meteo APIs, fans out across N places.
 
     Each *place* is a ``(place_uuid, latitude, longitude)`` tuple resolved
-    from a :class:`app.entity.PlaceEntityTable` row via
-    :func:`app.entity.resolve_place`. Both ``get_daily_weather`` and
+    from a place entity row via the entity index. Both ``get_daily_weather`` and
     ``get_hourly_air_quality`` iterate over the configured places and tag
     every returned row with its ``place_uuid`` so downstream merge
     semantics stay per-place-per-date.

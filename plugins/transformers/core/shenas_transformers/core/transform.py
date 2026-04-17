@@ -26,13 +26,13 @@ def _now_iso() -> str:
 
 @dataclass
 class Transform(Table):
-    """A configured transform instance in ``shenas_system.transform_instances``."""
+    """A configured transform instance in ``transforms.instances``."""
 
     class _Meta:
-        name = "transform_instances"
+        name = "instances"
         display_name = "Transforms"
         description = "Configured transform instances binding source tables to target tables."
-        schema = "shenas_system"
+        schema = "transforms"
         pk = ("id",)
 
     id: Annotated[
@@ -40,7 +40,7 @@ class Transform(Table):
         Field(
             db_type="INTEGER",
             description="Instance ID",
-            db_default="nextval('shenas_system.transform_instance_seq')",
+            db_default="nextval('transforms.transform_instance_seq')",
         ),
     ] = 0
     transform_type: Annotated[str, Field(db_type="VARCHAR", description="Transformer plugin name")] = "sql"
@@ -216,7 +216,7 @@ class Transform(Table):
         with cursor() as cur:
             existing = cur.execute(
                 "SELECT source_data_resource_id, target_data_resource_id "
-                "FROM shenas_system.transform_instances "
+                "FROM transforms.instances "
                 "WHERE source_plugin = ? AND transform_type = ? AND is_default = true",
                 [source_plugin, transform_type],
             ).fetchall()
@@ -230,7 +230,7 @@ class Transform(Table):
             if key in existing_keys:
                 with cursor() as cur:
                     cur.execute(
-                        "UPDATE shenas_system.transform_instances "
+                        "UPDATE transforms.instances "
                         "SET params = ?, description = ?, updated_at = current_timestamp "
                         "WHERE source_plugin = ? AND transform_type = ? "
                         "AND source_data_resource_id = ? AND target_data_resource_id = ? "

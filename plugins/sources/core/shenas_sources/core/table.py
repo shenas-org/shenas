@@ -104,7 +104,7 @@ class SourceTable(DataTable):
     # - ``entity_type``: the EntityType.name each row represents.
     # - ``entity_name_column``: column used for Entity.name.
     # - ``entity_projection``: {source_column: property_id} mapping;
-    #   property_ids are the stable ids stored in shenas_system.properties.
+    #   property_ids are the stable ids stored in entities.properties.
 
     entity_type: ClassVar[str | None] = None
     entity_name_column: ClassVar[str | None] = None
@@ -356,9 +356,3 @@ class M2MTable(SourceTable):
                 f"columns (the two foreign keys); got {cls._Meta.pk!r}"
             )
             raise TypeError(msg)
-
-
-# EntityTable has moved to app.entity to live alongside its companion types
-# (EntityType, Entity, EntityIndex). Import it from there:
-#
-#     from app.entity import EntityTable

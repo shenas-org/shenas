@@ -28,8 +28,8 @@ class Property(DimensionTable):
     class _Meta:
         name = "properties"
         display_name = "Properties"
-        description = "Registry of property predicates used by shenas_system.statements."
-        schema = "shenas_system"
+        description = "Registry of property predicates used by entities.statements."
+        schema = "entities"
         pk = ("id",)
 
     id: Annotated[
@@ -55,7 +55,7 @@ class Property(DimensionTable):
             description=(
                 "One of: entity | string | date | number | url | coordinate | "
                 "monolingualtext | boolean. Drives UI rendering and the value "
-                "column in shenas_system.statements."
+                "column in entities.statements."
             ),
             db_default="'string'",
         ),

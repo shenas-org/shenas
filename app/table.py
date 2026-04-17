@@ -67,6 +67,7 @@ class Table(Relation):
 
         s = schema or getattr(cls._Meta, "schema", None) or "metrics"
         with cursor(database=cls._resolve_database()) as cur:
+            cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{s}"')
             cur.execute(cls.to_ddl(schema=s))
             cls._add_missing_columns(cur, schema=s)
 
@@ -377,7 +378,7 @@ class KeyValueTable(Table):
             class _Meta:
                 name = "my_kv"
                 display_name = "My KV"
-                schema = "shenas_system"
+                schema = "cache"
 
             key: Annotated[str, Field(db_type="TEXT", description="...")] = ""
             value: Annotated[str, Field(db_type="TEXT", description="...")] = ""

@@ -1,6 +1,6 @@
 """Tests for app.promotion.
 
-Promotion writes to ``shenas_system.promoted_metrics`` and the
+Promotion writes to ``analysis.promoted_metrics`` and the
 ``PromotedSchema`` dataset synthesizes ``MetricTable`` subclasses
 from the rows at catalog-walk time. No filesystem.
 """
@@ -25,8 +25,6 @@ def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
     con = duckdb.connect(":memory:")
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
-    con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
-
     from app.tests.conftest import _StubDB
 
     stub = _StubDB(con)

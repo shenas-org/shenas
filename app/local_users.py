@@ -43,13 +43,13 @@ class LocalUser(Table):
         name = "local_users"
         display_name = "Local Users"
         description = "Local user registry with password-based authentication."
-        schema = "shenas_system"
+        schema = "shenas"
         pk = ("id",)
         database = "system"
 
     id: Annotated[
         int,
-        Field(db_type="INTEGER", description="User ID", db_default="nextval('shenas_system.local_user_seq')"),
+        Field(db_type="INTEGER", description="User ID", db_default="nextval('shenas.local_user_seq')"),
     ] = 0
     username: Annotated[str, Field(db_type="VARCHAR", description="Unique display name")] = ""
     password_hash: Annotated[str, Field(db_type="VARCHAR", description="scrypt password hash")] = ""
@@ -96,13 +96,13 @@ class LocalUser(Table):
         with contextlib.suppress(ImportError):
             import shenas_datasets.promoted  # noqa: F401
 
-        con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
-        con.execute("CREATE SCHEMA IF NOT EXISTS metrics")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.transform_instance_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.hypothesis_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.finding_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.entity_seq START 1")
+        for schema in ("transforms", "analysis", "entities", "metrics", "ui", "cache", "catalog", "mesh"):
+            con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS transforms.transform_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS transforms.transform_instance_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS analysis.hypothesis_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS analysis.finding_seq START 1")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS entities.entity_seq START 1")
 
         seen: set[type[Table]] = set()
 

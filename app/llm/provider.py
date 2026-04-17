@@ -33,7 +33,7 @@ def get_llm_provider() -> LLMProvider:
         if uid is not None:
             with cursor(database="shenas") as cur:
                 row = cur.execute(
-                    "SELECT remote_token FROM shenas_system.local_users WHERE id = ?",
+                    "SELECT remote_token FROM shenas.local_users WHERE id = ?",
                     [uid],
                 ).fetchone()
                 if row and row[0]:

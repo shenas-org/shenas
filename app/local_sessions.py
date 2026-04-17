@@ -19,7 +19,7 @@ class LocalSession(SingletonTable):
         name = "local_sessions"
         display_name = "Local Sessions"
         description = "Active user session (single row, persists across restarts)."
-        schema = "shenas_system"
+        schema = "shenas"
         pk = ("id",)
         database = "system"
 

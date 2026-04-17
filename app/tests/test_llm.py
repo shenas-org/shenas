@@ -91,9 +91,7 @@ class TestModelStore:
 class TestLlmCache:
     def test_creates_table(self, db_con: duckdb.DuckDBPyConnection) -> None:
         cache = LlmCache()
-        tables = db_con.execute(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'shenas_system'"
-        ).fetchall()
+        tables = db_con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'cache'").fetchall()
         assert ("llm_cache",) in tables
         _ = cache
 

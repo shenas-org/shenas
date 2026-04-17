@@ -34,7 +34,6 @@ def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
     con.execute("CREATE SCHEMA garmin")
     con.execute("CREATE TABLE garmin.activities (id INTEGER, start_time_local DATE)")
     con.execute("INSERT INTO garmin.activities VALUES (1, '2026-03-15')")
-    con.execute("CREATE SCHEMA shenas_system")
 
     @contextlib.contextmanager
     def _cursor(**_kwargs: object) -> Generator[duckdb.DuckDBPyConnection, None, None]:
@@ -60,7 +59,7 @@ def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
     app.db._resolvers["shenas"] = lambda: stub  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     app.db._resolvers[None] = lambda: stub  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     app.database._ensure_system_tables(con)
-    con.execute("INSERT INTO shenas_system.workspace (id, state) VALUES (1, '{}')")
+    con.execute("INSERT INTO ui.workspace (id, state) VALUES (1, '{}')")
     yield con
     app.db._resolvers.clear()
     app.db._resolvers.update(saved)
@@ -158,7 +157,7 @@ class TestGraphQLQueries:
         import json
 
         test_con.execute(
-            "UPDATE shenas_system.workspace SET state = ? WHERE id = 1",
+            "UPDATE ui.workspace SET state = ? WHERE id = 1",
             [json.dumps({"tabs": [1, 2]})],
         )
         result = _gql(client, "{ workspace }")
@@ -198,7 +197,7 @@ class TestGraphQLQueries:
 
     def test_transforms_with_data(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
-            "INSERT INTO shenas_system.transform_instances "
+            "INSERT INTO transforms.instances "
             "(transform_type, source_data_resource_id, "
             "target_data_resource_id, source_plugin, params, description) "
             "VALUES ('sql', 'garmin.activities', 'metrics.daily_activities', 'garmin', "
@@ -217,13 +216,13 @@ class TestGraphQLQueries:
 
     def test_transforms_filtered_by_source(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
-            "INSERT INTO shenas_system.transform_instances "
+            "INSERT INTO transforms.instances "
             "(transform_type, source_data_resource_id, "
             "target_data_resource_id, source_plugin, params) VALUES "
             "('sql', 'garmin.activities', 'metrics.daily', 'garmin', '{\"sql\": \"SELECT 1\"}')"
         )
         test_con.execute(
-            "INSERT INTO shenas_system.transform_instances "
+            "INSERT INTO transforms.instances "
             "(transform_type, source_data_resource_id, "
             "target_data_resource_id, source_plugin, params) VALUES "
             "('sql', 'lunchmoney.txn', 'metrics.spending', 'lunchmoney', '{\"sql\": \"SELECT 2\"}')"
@@ -235,12 +234,12 @@ class TestGraphQLQueries:
 
     def test_transform_by_id(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
-            "INSERT INTO shenas_system.transform_instances "
+            "INSERT INTO transforms.instances "
             "(transform_type, source_data_resource_id, "
             "target_data_resource_id, source_plugin, params) VALUES "
             "('sql', 'garmin.activities', 'metrics.daily', 'garmin', '{\"sql\": \"SELECT 1\"}')"
         )
-        row = test_con.execute("SELECT id FROM shenas_system.transform_instances LIMIT 1").fetchone()
+        row = test_con.execute("SELECT id FROM transforms.instances LIMIT 1").fetchone()
         assert row is not None
         tid = row[0]
         result = _gql(client, f"{{ transform(transformId: {tid}) {{ id transformType enabled }} }}")
@@ -684,7 +683,7 @@ class TestGraphQLMutations:
         assert "errors" not in result
         body = result["data"]["promoteHypothesis"]
         assert body["promoted_to"] == "metrics.my_metric"
-        # Row landed in shenas_system.promoted_metrics
+        # Row landed in analysis.promoted_metrics
         row = PromotedMetric.find("my_metric", "metrics")
         assert row is not None
         assert row.hypothesis_id == h.id
@@ -753,12 +752,12 @@ class TestGraphQLMutations:
 
     def test_update_transform(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
-            "INSERT INTO shenas_system.transform_instances "
+            "INSERT INTO transforms.instances "
             "(transform_type, source_data_resource_id, "
             "target_data_resource_id, source_plugin, params) VALUES "
             "('sql', 'garmin.act', 'metrics.daily', 'garmin', '{\"sql\": \"SELECT 1\"}')"
         )
-        row = test_con.execute("SELECT id FROM shenas_system.transform_instances LIMIT 1").fetchone()
+        row = test_con.execute("SELECT id FROM transforms.instances LIMIT 1").fetchone()
         assert row is not None
         tid = row[0]
         result = _gql(
@@ -779,12 +778,12 @@ class TestGraphQLMutations:
 
     def test_delete_transform(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
-            "INSERT INTO shenas_system.transform_instances "
+            "INSERT INTO transforms.instances "
             "(transform_type, source_data_resource_id, "
             "target_data_resource_id, source_plugin, params) VALUES "
             "('sql', 'garmin.act', 'metrics.daily', 'garmin', '{}')"
         )
-        row = test_con.execute("SELECT id FROM shenas_system.transform_instances LIMIT 1").fetchone()
+        row = test_con.execute("SELECT id FROM transforms.instances LIMIT 1").fetchone()
         assert row is not None
         tid = row[0]
         result = _gql(
@@ -796,12 +795,12 @@ class TestGraphQLMutations:
 
     def test_enable_transform(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
-            "INSERT INTO shenas_system.transform_instances "
+            "INSERT INTO transforms.instances "
             "(transform_type, source_data_resource_id, "
             "target_data_resource_id, source_plugin, params, enabled) VALUES "
             "('sql', 'garmin.act', 'metrics.daily', 'garmin', '{}', FALSE)"
         )
-        row = test_con.execute("SELECT id FROM shenas_system.transform_instances LIMIT 1").fetchone()
+        row = test_con.execute("SELECT id FROM transforms.instances LIMIT 1").fetchone()
         assert row is not None
         tid = row[0]
         result = _gql(
@@ -813,12 +812,12 @@ class TestGraphQLMutations:
 
     def test_disable_transform(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
-            "INSERT INTO shenas_system.transform_instances "
+            "INSERT INTO transforms.instances "
             "(transform_type, source_data_resource_id, "
             "target_data_resource_id, source_plugin, params) VALUES "
             "('sql', 'garmin.act', 'metrics.daily', 'garmin', '{}')"
         )
-        row = test_con.execute("SELECT id FROM shenas_system.transform_instances LIMIT 1").fetchone()
+        row = test_con.execute("SELECT id FROM transforms.instances LIMIT 1").fetchone()
         assert row is not None
         tid = row[0]
         result = _gql(
@@ -854,7 +853,7 @@ class TestGraphQLMutations:
 
     def test_disable_plugin(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         # Ensure the PluginInstance row exists so disable can find it.
-        test_con.execute("INSERT INTO shenas_system.plugins (kind, name, enabled) VALUES ('source', 'garmin', TRUE)")
+        test_con.execute("INSERT INTO plugins.installed (kind, name, enabled) VALUES ('source', 'garmin', TRUE)")
         result = _gql(
             client,
             'mutation { disablePlugin(kind: "source", name: "garmin") { ok } }',
@@ -864,13 +863,13 @@ class TestGraphQLMutations:
 
     def test_test_transform(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
-            "INSERT INTO shenas_system.transform_instances "
+            "INSERT INTO transforms.instances "
             "(transform_type, source_data_resource_id, "
             "target_data_resource_id, source_plugin, params) VALUES "
             "('sql', 'garmin.act', 'metrics.daily', 'garmin', "
             "'{\"sql\": \"SELECT 1 AS id, ''garmin'' AS source\"}')"
         )
-        row = test_con.execute("SELECT id FROM shenas_system.transform_instances LIMIT 1").fetchone()
+        row = test_con.execute("SELECT id FROM transforms.instances LIMIT 1").fetchone()
         assert row is not None
         tid = row[0]
         result = _gql(

@@ -3,7 +3,7 @@
 A :class:`Finding` is a structured representation of a published research
 finding -- one directional relationship between an exposure variable and
 an outcome variable, with effect size, temporal lag, evidence level, and
-a citation. Stored in ``shenas_system.literature_findings``.
+a citation. Stored in ``analysis.literature_findings``.
 """
 
 from __future__ import annotations
@@ -31,12 +31,12 @@ class Finding(Table):
         name = "literature_findings"
         display_name = "Literature Findings"
         description = "Published research findings: exposure -> outcome with effect sizes and evidence levels."
-        schema = "shenas_system"
+        schema = "analysis"
         pk = ("id",)
 
     id: Annotated[
         int,
-        Field(db_type="INTEGER", description="Finding ID", db_default="nextval('shenas_system.finding_seq')"),
+        Field(db_type="INTEGER", description="Finding ID", db_default="nextval('analysis.finding_seq')"),
     ] = 0
     exposure: Annotated[str, Field(db_type="VARCHAR", description="Causal variable (e.g. alcohol_consumption)")] = ""
     outcome: Annotated[str, Field(db_type="VARCHAR", description="Effect variable (e.g. heart_rate_variability)")] = ""
