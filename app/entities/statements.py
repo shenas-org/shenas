@@ -35,7 +35,7 @@ class Statement(DimensionTable):
         name = "statements"
         display_name = "Statements"
         description = "Entity attribute triples: (entity_id, property_id, value)."
-        schema = "entities"
+        schema = "shenas_system"
         pk = ("entity_id", "property_id", "value")
 
     entity_id: Annotated[
@@ -46,7 +46,7 @@ class Statement(DimensionTable):
         str,
         Field(
             db_type="VARCHAR",
-            description="Predicate: entities.properties.id (P27, github:stars, user:nickname, ...).",
+            description="Predicate: shenas_system.properties.id (P27, github:stars, user:nickname, ...).",
             display_name="Property",
         ),
     ] = ""

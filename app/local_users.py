@@ -85,7 +85,6 @@ class LocalUser(Table):
 
         import app.categories
         import app.data_catalog
-        import app.entities.places
         import app.entities.properties
         import app.entities.statements
         import app.entity

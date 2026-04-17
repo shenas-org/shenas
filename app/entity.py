@@ -153,7 +153,7 @@ class EntityType(Table):
         return False
 
     def ensure_wide_view(self, con: duckdb.DuckDBPyConnection) -> None:
-        """(Re)create ``entities.<self.name>s_wide`` -- a per-type pivoted view.
+        """(Re)create ``shenas_system.<self.name>s_wide`` -- a per-type pivoted view.
 
         Discovers every property currently used by entities of this type
         (data-driven, no pre-declaration required) and builds a view whose
@@ -165,14 +165,18 @@ class EntityType(Table):
         zero-property view when no statements exist yet.
         """
         view_name = self.name + "s_wide"
-        from app.entities.statements import Statement
 
-        scd2 = Statement.scd2_filter(alias="s")
+        # _dlt_valid_to only exists after dlt has run at least one SCD2 sync.
+        # Before that (e.g. at bootstrap), the column is absent -- fall back
+        # to no filter so the view can still be created.
+        has_scd2 = _table_has_column(con, "shenas_system", "statements", "_dlt_valid_to")
+        scd2 = "s._dlt_valid_to IS NULL" if has_scd2 else "TRUE"
+
         rows = con.execute(
             "SELECT DISTINCT s.property_id, COALESCE(p.label, s.property_id) AS label "
-            "FROM entities.statements s "
+            "FROM shenas_system.statements s "
             "JOIN shenas_system.entities e ON e.uuid = s.entity_id "
-            "LEFT JOIN entities.properties p ON p.id = s.property_id "
+            "LEFT JOIN shenas_system.properties p ON p.id = s.property_id "
             f"WHERE e.type = ? AND {scd2} "
             "ORDER BY s.property_id",
             [self.name],
@@ -188,17 +192,29 @@ class EntityType(Table):
 
         con.execute(
             f"""
-            CREATE OR REPLACE VIEW entities.{view_name} AS
+            CREATE OR REPLACE VIEW shenas_system.{view_name} AS
             SELECT e.uuid AS entity_id,
                    e.name,
                    {pivots}
             FROM shenas_system.entities e
-            LEFT JOIN entities.statements s
+            LEFT JOIN shenas_system.statements s
               ON s.entity_id = e.uuid AND {scd2}
             WHERE e.type = {_sql_str(self.name)}
             GROUP BY e.uuid, e.name
             """
         )
+
+
+def _table_has_column(con: duckdb.DuckDBPyConnection, schema: str, table: str, column: str) -> bool:
+    """Return True if ``column`` exists on ``schema.table``."""
+    try:
+        row = con.execute(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?",
+            [schema, table, column],
+        ).fetchone()
+        return bool(row and row[0] > 0)
+    except Exception:
+        return False
 
 
 def _sql_str(s: str) -> str:
@@ -915,10 +931,10 @@ def seed_entity_types(con: duckdb.DuckDBPyConnection) -> None:
 
 
 def seed_properties(con: duckdb.DuckDBPyConnection) -> None:
-    """Seed entities.properties with Wikidata predicates referenced by DEFAULT_ENTITY_TYPES.
+    """Seed shenas_system.properties with Wikidata predicates referenced by DEFAULT_ENTITY_TYPES.
 
     Walks every default EntityType's ``wikidata_properties`` JSON and upserts
-    a row per unique PID into ``entities.properties`` with
+    a row per unique PID into ``shenas_system.properties`` with
     ``source='wikidata'`` and ``domain_type=NULL`` (PIDs are polymorphic --
     which types use a property is decided by the EntityType's property list,
     not by the property row). Idempotent.
@@ -935,7 +951,7 @@ def seed_properties(con: duckdb.DuckDBPyConnection) -> None:
                 continue
             seen.add(pid)
             con.execute(
-                "INSERT INTO entities.properties "
+                "INSERT INTO shenas_system.properties "
                 "(id, label, datatype, domain_type, source, wikidata_pid) "
                 "VALUES (?, ?, 'string', NULL, 'wikidata', ?) "
                 "ON CONFLICT (id) DO UPDATE SET "

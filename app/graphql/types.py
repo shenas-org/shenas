@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+
 import strawberry
 from strawberry.scalars import JSON
 
@@ -453,6 +455,52 @@ class GqlEntityType:
     updated_at: str | None = None
     is_me: bool = False
 
+    @strawberry.field
+    def statements(self) -> list[StatementType]:
+        """Current statements for this entity, joined with property metadata."""
+        import json as _json
+
+        from app.entities.properties import Property
+        from app.entities.statements import Statement
+
+        stmts = Statement.all(
+            where="entity_id = ? AND _dlt_valid_to IS NULL",
+            params=[self.uuid],
+            order_by="property_id, value",
+        )
+        pids = {s.property_id for s in stmts}
+        props_by_id: dict[str, Property] = {}
+        for pid in pids:
+            p = Property.all(
+                where="id = ? AND _dlt_valid_to IS NULL",
+                params=[pid],
+                limit=1,
+            )
+            if p:
+                props_by_id[pid] = p[0]
+
+        out: list[StatementType] = []
+        for s in stmts:
+            parsed_q: JSON | None = None
+            if isinstance(s.qualifiers, str) and s.qualifiers:
+                with contextlib.suppress(_json.JSONDecodeError):
+                    parsed_q = _json.loads(s.qualifiers)
+            prop = props_by_id.get(s.property_id)
+            out.append(
+                StatementType(
+                    entity_id=s.entity_id,
+                    property_id=s.property_id,
+                    value=s.value,
+                    value_label=s.value_label,
+                    rank=s.rank or "normal",
+                    qualifiers=parsed_q,
+                    source=s.source or "user",
+                    property_label=prop.label if prop else None,
+                    datatype=prop.datatype if prop else None,
+                )
+            )
+        return out
+
 
 @strawberry.type
 class GqlMappableEntityType:
@@ -499,7 +547,7 @@ class EntityUpdateInput:
 
 @strawberry.type
 class PropertyType:
-    """A predicate in entities.properties (registry of statement predicates)."""
+    """A predicate in shenas_system.properties (registry of statement predicates)."""
 
     id: str
     label: str
@@ -512,7 +560,7 @@ class PropertyType:
 
 @strawberry.type
 class StatementType:
-    """A single (entity, property, value) triple from entities.statements."""
+    """A single (entity, property, value) triple from shenas_system.statements."""
 
     entity_id: str
     property_id: str
@@ -521,7 +569,7 @@ class StatementType:
     rank: str = "normal"
     qualifiers: JSON | None = None
     source: str = "user"
-    # Resolved property fields (joined from entities.properties for convenience).
+    # Resolved property fields (joined from shenas_system.properties for convenience).
     property_label: str | None = None
     datatype: str | None = None
 

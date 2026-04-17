@@ -472,7 +472,7 @@ class Source(Plugin):
            deterministic ``uuid`` derived from the type + natural PK.
         2. Upserts one statement per ``(column, property_id)`` mapping with
            ``source=<plugin_name>``, skipping NULL values.
-        3. Registers referenced properties in ``entities.properties`` on
+        3. Registers referenced properties in ``shenas_system.properties`` on
            first encounter (idempotent upsert).
 
         Statements are loaded plainly (not via dlt) because the projection
@@ -509,7 +509,7 @@ class Source(Plugin):
             # Ensure each declared property exists in the registry.
             for pid in set(projection.values()):
                 con.execute(
-                    "INSERT INTO entities.properties (id, label, datatype, domain_type, source, wikidata_pid) "
+                    "INSERT INTO shenas_system.properties (id, label, datatype, domain_type, source, wikidata_pid) "
                     "VALUES (?, ?, 'string', ?, ?, NULL) "
                     "ON CONFLICT (id) DO NOTHING",
                     [pid, pid, type_name, self.name],
@@ -549,7 +549,7 @@ class Source(Plugin):
                         continue
                     value_str = str(value)
                     con.execute(
-                        "INSERT INTO entities.statements "
+                        "INSERT INTO shenas_system.statements "
                         "(entity_id, property_id, value, value_label, rank, qualifiers, source) "
                         "VALUES (?, ?, ?, ?, 'normal', NULL, ?) "
                         "ON CONFLICT (entity_id, property_id, value) DO UPDATE SET "

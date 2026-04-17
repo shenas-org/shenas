@@ -104,7 +104,7 @@ class SourceTable(DataTable):
     # - ``entity_type``: the EntityType.name each row represents.
     # - ``entity_name_column``: column used for Entity.name.
     # - ``entity_projection``: {source_column: property_id} mapping;
-    #   property_ids are the stable ids stored in entities.properties.
+    #   property_ids are the stable ids stored in shenas_system.properties.
 
     entity_type: ClassVar[str | None] = None
     entity_name_column: ClassVar[str | None] = None

@@ -325,3 +325,37 @@ export const SET_ENTITY_MAPPING = gql`
     }
   }
 `;
+
+export const CREATE_PROPERTY = gql`
+  mutation CreateProperty($propertyInput: PropertyCreateInput!) {
+    createProperty(propertyInput: $propertyInput) {
+      id
+      label
+      datatype
+      domainType
+      source
+      wikidataPid
+    }
+  }
+`;
+
+export const UPSERT_STATEMENT = gql`
+  mutation UpsertStatement($statementInput: StatementUpsertInput!) {
+    upsertStatement(statementInput: $statementInput) {
+      entityId
+      propertyId
+      value
+      valueLabel
+      source
+    }
+  }
+`;
+
+export const DELETE_STATEMENT = gql`
+  mutation DeleteStatement($entityId: String!, $propertyId: String!, $value: String!) {
+    deleteStatement(entityId: $entityId, propertyId: $propertyId, value: $value) {
+      ok
+      message
+    }
+  }
+`;

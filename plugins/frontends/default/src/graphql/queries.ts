@@ -488,3 +488,40 @@ export const GET_SOURCE_MAPPABLE_ITEMS = gql`
     }
   }
 `;
+
+export const GET_ENTITY_WITH_STATEMENTS = gql`
+  query GetEntityWithStatements($uuid: String!) {
+    entity(uuid: $uuid) {
+      uuid
+      type
+      name
+      description
+      status
+      statements {
+        entityId
+        propertyId
+        value
+        valueLabel
+        rank
+        qualifiers
+        source
+        propertyLabel
+        datatype
+      }
+    }
+  }
+`;
+
+export const GET_PROPERTIES = gql`
+  query GetProperties($domainType: String) {
+    properties(domainType: $domainType) {
+      id
+      label
+      datatype
+      domainType
+      source
+      wikidataPid
+      description
+    }
+  }
+`;

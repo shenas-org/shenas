@@ -13,7 +13,7 @@ import {
   tableStyles,
   renderMessage,
 } from "shenas-frontends";
-import { GET_ENTITIES_DATA } from "./graphql/queries.ts";
+import { GET_ENTITIES_DATA, GET_ENTITY_WITH_STATEMENTS } from "./graphql/queries.ts";
 import {
   CREATE_ENTITY,
   UPDATE_ENTITY,
@@ -21,7 +21,21 @@ import {
   CREATE_ENTITY_RELATIONSHIP,
   DELETE_ENTITY_RELATIONSHIP,
   SET_ENTITY_STATUS,
+  CREATE_PROPERTY,
+  UPSERT_STATEMENT,
+  DELETE_STATEMENT,
 } from "./graphql/mutations.ts";
+
+interface Statement {
+  entityId: string;
+  propertyId: string;
+  value: string;
+  valueLabel: string | null;
+  rank: string;
+  source: string;
+  propertyLabel: string | null;
+  datatype: string | null;
+}
 
 interface Entity {
   uuid: string;
@@ -187,6 +201,9 @@ class EntitiesPage extends LitElement {
   private _setEntityStatusMutation = new ApolloMutationController(this, SET_ENTITY_STATUS, { client: getClient() });
   private _createRelMutation = new ApolloMutationController(this, CREATE_ENTITY_RELATIONSHIP, { client: getClient() });
   private _deleteRelMutation = new ApolloMutationController(this, DELETE_ENTITY_RELATIONSHIP, { client: getClient() });
+  private _createPropertyMutation = new ApolloMutationController(this, CREATE_PROPERTY, { client: getClient() });
+  private _upsertStatementMutation = new ApolloMutationController(this, UPSERT_STATEMENT, { client: getClient() });
+  private _deleteStatementMutation = new ApolloMutationController(this, DELETE_STATEMENT, { client: getClient() });
 
   get _loading(): boolean {
     return this._entitiesQuery.loading;
@@ -327,6 +344,7 @@ class EntitiesPage extends LitElement {
         <button id="save-btn">${isEdit ? "Save" : "Add"}</button>
         <button id="cancel-btn">Cancel</button>
       </div>
+      ${isEdit ? '<hr style="margin:1.2rem 0"/><div id="statements-section"></div>' : ""}
     `;
 
     const current: EntityForm = { ...form };
@@ -420,10 +438,94 @@ class EntitiesPage extends LitElement {
     });
     panel.querySelector("#cancel-btn")?.addEventListener("click", () => this._closePanel());
 
+    if (isEdit && entity) {
+      void this._renderStatementsSection(panel, entity.uuid);
+    }
+
     this._panelEl = panel;
     this.dispatchEvent(
       new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 420 } }),
     );
+  }
+
+  /**
+   * Fetch + render the entity's statements inside the open detail panel.
+   */
+  async _renderStatementsSection(panel: HTMLElement, entityId: string): Promise<void> {
+    const section = panel.querySelector("#statements-section") as HTMLDivElement | null;
+    if (!section) return;
+    section.innerHTML = '<div style="opacity:0.6">Loading statements...</div>';
+    let statements: Statement[] = [];
+    try {
+      const res = await getClient().query({
+        query: GET_ENTITY_WITH_STATEMENTS,
+        variables: { uuid: entityId },
+        fetchPolicy: "network-only",
+      });
+      statements = (res.data?.entity?.statements as Statement[]) ?? [];
+    } catch (err) {
+      section.innerHTML = `<div style="color:#c00">Failed to load statements: ${this._escape(String(err))}</div>`;
+      return;
+    }
+
+    const rows = statements
+      .map((s) => {
+        const label = s.propertyLabel || s.propertyId;
+        const value = s.valueLabel || s.value;
+        const sourceTag =
+          s.source !== "user" ? ` <span style="opacity:0.5;font-size:0.85em">[${this._escape(s.source)}]</span>` : "";
+        return `
+          <div style="display:flex;justify-content:space-between;gap:0.5rem;padding:0.25rem 0;border-bottom:1px solid #eee">
+            <div><strong>${this._escape(label)}</strong>${sourceTag}<br/><span style="opacity:0.85">${this._escape(value)}</span></div>
+            <button data-pid="${this._escape(s.propertyId)}" data-val="${this._escape(s.value)}" class="del-stmt" title="Delete" style="border:none;background:none;cursor:pointer;color:#c00">x</button>
+          </div>
+        `;
+      })
+      .join("");
+
+    section.innerHTML = `
+      <h4 style="margin:0.4rem 0">Statements</h4>
+      <div id="stmt-list">${rows || '<div style="opacity:0.5">No statements yet.</div>'}</div>
+      <div style="margin-top:0.6rem;display:flex;gap:0.4rem;align-items:flex-end">
+        <label style="flex:1">Property<br/>
+          <input id="stmt-label" type="text" style="width:100%" placeholder="e.g. Nickname" />
+        </label>
+        <label style="flex:1">Value<br/>
+          <input id="stmt-value" type="text" style="width:100%" />
+        </label>
+        <button id="stmt-add">Add</button>
+      </div>
+    `;
+
+    section.querySelectorAll(".del-stmt").forEach((el) => {
+      el.addEventListener("click", async (e) => {
+        const btn = e.currentTarget as HTMLButtonElement;
+        const propertyId = btn.dataset.pid as string;
+        const value = btn.dataset.val as string;
+        await this._deleteStatementMutation.mutate({ variables: { entityId, propertyId, value } });
+        await this._renderStatementsSection(panel, entityId);
+      });
+    });
+
+    const addBtn = section.querySelector("#stmt-add") as HTMLButtonElement;
+    addBtn.addEventListener("click", async () => {
+      const labelEl = section.querySelector("#stmt-label") as HTMLInputElement;
+      const valueEl = section.querySelector("#stmt-value") as HTMLInputElement;
+      const label = labelEl.value.trim();
+      const value = valueEl.value.trim();
+      if (!label || !value) return;
+      const propRes = await this._createPropertyMutation.mutate({
+        variables: { propertyInput: { label, datatype: "string" } },
+      });
+      const propertyId = (propRes?.data as { createProperty?: { id?: string } } | undefined)?.createProperty?.id;
+      if (!propertyId) return;
+      await this._upsertStatementMutation.mutate({
+        variables: { statementInput: { entityId, propertyId, value, valueLabel: value } },
+      });
+      labelEl.value = "";
+      valueEl.value = "";
+      await this._renderStatementsSection(panel, entityId);
+    });
   }
 
   _closePanel(): void {

@@ -32,7 +32,6 @@ from app.graphql.types import (
     QualityCheckType,
     QualityInfoType,
     ScheduleInfoType,
-    StatementType,
     SuggestedAnalysisType,
     SuggestedDatasetType,
     TableEntry,
@@ -1133,55 +1132,6 @@ class Query:
             )
             for p in rows
         ]
-
-    @strawberry.field
-    def entity_statements(self, entity_id: str) -> list[StatementType]:
-        """Current statements for an entity, with property metadata.
-
-        Reads only the live SCD2 slice (``_dlt_valid_to IS NULL``).
-        """
-        import json
-
-        from app.entities.properties import Property
-        from app.entities.statements import Statement
-
-        stmts = Statement.all(
-            where="entity_id = ? AND _dlt_valid_to IS NULL",
-            params=[entity_id],
-            order_by="property_id, value",
-        )
-        if not stmts:
-            return []
-
-        prop_ids = list({s.property_id for s in stmts})
-        placeholders = ", ".join("?" * len(prop_ids))
-        props = Property.all(where=f"id IN ({placeholders}) AND _dlt_valid_to IS NULL", params=prop_ids)
-        prop_map = {p.id: p for p in props}
-
-        out: list[StatementType] = []
-        for s in stmts:
-            qualifiers = s.qualifiers
-            if isinstance(qualifiers, str) and qualifiers:
-                try:
-                    qualifiers = json.loads(qualifiers)
-                except json.JSONDecodeError:
-                    qualifiers = None
-            p = prop_map.get(s.property_id)
-            out.append(
-                StatementType(
-                    entity_id=s.entity_id,
-                    property_id=s.property_id,
-                    value=s.value,
-                    value_label=s.value_label,
-                    rank=s.rank or "normal",
-                    qualifiers=qualifiers,
-                    source=s.source or "user",
-                    property_label=p.label if p else None,
-                    datatype=p.datatype if p else None,
-                )
-            )
-        out.sort(key=lambda s: (s.property_label or s.property_id, s.value))
-        return out
 
     @strawberry.field
     def entity(self, info: strawberry.types.Info, uuid: str | None = None) -> GqlEntityType | None:  # noqa: ARG002

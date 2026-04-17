@@ -62,7 +62,6 @@ class OpenAQSource(Source):
         ] = None
 
     def build_client(self) -> Any:
-        from app.entities.places import City, Country, Residence
         from shenas_sources.openaq.client import OpenAQClient
 
         auth = self.Auth.read_row()
@@ -74,22 +73,12 @@ class OpenAQSource(Source):
         raw_uuids = (cfg or {}).get("place_uuids") or ""
         allowed: set[str] | None = {u.strip() for u in raw_uuids.split(",") if u.strip()} or None
 
-        # Iterate every user-tracked place. Residence rows carry per-row radius_m;
-        # City / Country do not and fall back to the client's default.
-        places: list[tuple[str, float, float, int | None]] = []
-        for cls in (City, Residence, Country):
-            radius_attr = "radius_m" if cls is Residence else None
-            for r in cls.all():
-                if allowed is not None and r.entity_id not in allowed:
-                    continue
-                radius = getattr(r, radius_attr) if radius_attr else None
-                places.append((r.entity_id, float(r.latitude), float(r.longitude), radius))
-
+        places = _load_place_entities(allowed)
         if not places:
             msg = (
-                "No places to sync. Create entities via entities.cities / "
-                "entities.residences / entities.countries, or set place_uuids "
-                "in the Config tab to filter."
+                "No places to sync. Create city / residence / country entities "
+                "and add 'latitude' + 'longitude' statements (optionally "
+                "'radius_m'), or set place_uuids in the Config tab to filter."
             )
             raise RuntimeError(msg)
         return OpenAQClient(api_key=auth["api_key"], places=places)
@@ -113,3 +102,44 @@ class OpenAQSource(Source):
         from shenas_sources.openaq.tables import TABLES
 
         return [t.to_resource(client) for t in TABLES]
+
+
+def _load_place_entities(allowed: set[str] | None) -> list[tuple[str, float, float, int | None]]:
+    """Return ``[(entity_id, latitude, longitude, radius_m), ...]`` for places.
+
+    Reads from ``shenas_system.entities`` filtered to ``city``/``residence``/
+    ``country`` types and joins ``shenas_system.statements`` for the
+    ``latitude`` + ``longitude`` (required) + ``radius_m`` (optional)
+    properties. Entities missing either coordinate are skipped.
+    """
+    from app.database import cursor
+
+    with cursor() as cur:
+        rows = cur.execute(
+            """
+            SELECT e.uuid,
+                   CAST(lat.value AS DOUBLE) AS latitude,
+                   CAST(lng.value AS DOUBLE) AS longitude,
+                   TRY_CAST(rad.value AS INTEGER) AS radius_m
+            FROM shenas_system.entities e
+            JOIN shenas_system.statements lat
+              ON lat.entity_id = e.uuid
+             AND lat.property_id = 'latitude'
+             AND lat._dlt_valid_to IS NULL
+            JOIN shenas_system.statements lng
+              ON lng.entity_id = e.uuid
+             AND lng.property_id = 'longitude'
+             AND lng._dlt_valid_to IS NULL
+            LEFT JOIN shenas_system.statements rad
+              ON rad.entity_id = e.uuid
+             AND rad.property_id = 'radius_m'
+             AND rad._dlt_valid_to IS NULL
+            WHERE e.type IN ('city', 'residence', 'country')
+            """
+        ).fetchall()
+    out: list[tuple[str, float, float, int | None]] = []
+    for uuid, lat, lng, radius in rows:
+        if allowed is not None and uuid not in allowed:
+            continue
+        out.append((uuid, float(lat), float(lng), int(radius) if radius is not None else None))
+    return out

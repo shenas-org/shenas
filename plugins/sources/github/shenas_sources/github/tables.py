@@ -102,7 +102,7 @@ class Repositories(EntityTable):
         entity_description_column = "description"
 
     # Statement projection (new graph model). Each raw column listed here
-    # becomes an entities.statements row on every sync, keyed on the
+    # becomes an shenas_system.statements row on every sync, keyed on the
     # repository's deterministic entity_id.
     entity_type: ClassVar[str] = "repository"
     entity_name_column: ClassVar[str] = "full_name"

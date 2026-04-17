@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -127,7 +128,7 @@ class TestSpanExporter:
 
 class TestLogExporter:
     @pytest.mark.skipif(
-        not __import__("importlib").util.find_spec("opentelemetry.instrumentation.logging"),  # type: ignore[union-attr]
+        not importlib.util.find_spec("opentelemetry.instrumentation.logging"),
         reason="opentelemetry-instrumentation-logging not installed",
     )
     def test_exports_log(self, con: duckdb.DuckDBPyConnection) -> None:
@@ -159,7 +160,7 @@ class TestLogExporter:
         assert any("test log message" in (b or "") for b in bodies)
 
     @pytest.mark.skipif(
-        not __import__("importlib").util.find_spec("opentelemetry.instrumentation.logging"),  # type: ignore[union-attr]
+        not importlib.util.find_spec("opentelemetry.instrumentation.logging"),
         reason="opentelemetry-instrumentation-logging not installed",
     )
     def test_log_with_trace_context(self, con: duckdb.DuckDBPyConnection) -> None:
@@ -206,7 +207,7 @@ class TestLogExporter:
             assert result == LogRecordExportResult.SUCCESS
 
     @pytest.mark.skipif(
-        not __import__("importlib").util.find_spec("opentelemetry.instrumentation.logging"),  # type: ignore[union-attr]
+        not importlib.util.find_spec("opentelemetry.instrumentation.logging"),
         reason="opentelemetry-instrumentation-logging not installed",
     )
     def test_log_with_job_id_persists_into_attributes(self, con: duckdb.DuckDBPyConnection) -> None:

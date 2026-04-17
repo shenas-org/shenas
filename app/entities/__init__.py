@@ -1,7 +1,7 @@
-"""Per-family entity table packages.
+"""Entity-graph tables living in the ``shenas_system`` schema.
 
-Each submodule here hosts the abstract base + concrete tables for one
-family of entities (places, people, devices, ...). They compose on top
-of the core :class:`app.entity.EntityTable` machinery but live in their
-own files so the entity domain doesn't turn into a single megafile.
+- :mod:`app.entities.properties` -- ``shenas_system.properties``, the
+  registry of predicates declared by Wikidata, source plugins, or the user.
+- :mod:`app.entities.statements` -- ``shenas_system.statements``, the
+  (entity, property, value) triple store backing the entity graph.
 """

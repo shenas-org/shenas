@@ -250,7 +250,7 @@ class TileInfo(EntityMapTable):
         entity_name_column = "name"
 
     # Statement projection (new graph model). Per-tile attributes land as
-    # entities.statements rows so the entity panel can render them without
+    # shenas_system.statements rows so the entity panel can render them without
     # needing a per-plugin resolver.
     entity_type: ClassVar[str] = "physical_entity"
     entity_name_column: ClassVar[str] = "name"
