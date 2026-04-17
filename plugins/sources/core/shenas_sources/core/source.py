@@ -362,7 +362,6 @@ class Source(Plugin):
             con = connect()
             try:
                 apply_as_of_macros(con, self.dataset_name)
-                self._sync_entity_tables(con)
                 self._project_entities(con)
                 self._refresh_wide_views(con)
             finally:
@@ -371,95 +370,6 @@ class Source(Plugin):
             logger.exception("Failed post-sync hooks for %s", self.name)
         self._mark_synced()
         self._log_sync_event(full_refresh)
-
-    def _sync_entity_tables(self, con: Any) -> None:
-        """Post-sync hook: upsert entity_types + entity_index for EntityTable subclasses.
-
-        For each :class:`EntityTable` in this source's ``TABLES`` tuple,
-        upsert its declared ``_Meta.entity_type`` into ``shenas_system.entity_types``
-        and register every row in the current SCD2 slice as an entity in
-        ``shenas_system.entity_index``.
-
-        Runs inside the same DuckDB connection used for AS-OF macros.
-        Idempotent: re-syncing produces the same UUIDs and leaves row counts
-        unchanged.
-        """
-        import importlib
-
-        from app.entity import EntityMapTable, EntityTable
-
-        try:
-            tables_mod = importlib.import_module(f"shenas_sources.{self.name}.tables")
-        except ImportError:
-            return
-        all_tables = list(getattr(tables_mod, "TABLES", ()))
-        entity_tables = [t for t in all_tables if isinstance(t, type) and issubclass(t, EntityTable)]
-        map_tables = [t for t in all_tables if isinstance(t, type) and issubclass(t, EntityMapTable)]
-        # Both kinds declare an entity_type that should be upserted.
-        typed_tables = entity_tables + map_tables
-        if not typed_tables:
-            return
-
-        # 1. Upsert entity types (first-writer wins on conflict keeps user edits).
-        seen_types: set[str] = set()
-        for t in typed_tables:
-            et = t._Meta.entity_type
-            if et.name in seen_types:
-                continue
-            seen_types.add(et.name)
-            con.execute(
-                "INSERT INTO shenas_system.entity_types "
-                "(name, display_name, parent, description, icon, is_abstract, "
-                "wikidata_qid, wikidata_properties) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
-                "ON CONFLICT (name) DO NOTHING",
-                [
-                    et.name,
-                    et.display_name,
-                    et.parent,
-                    et.description,
-                    et.icon,
-                    et.is_abstract,
-                    et.wikidata_qid,
-                    et.wikidata_properties,
-                ],
-            )
-        if not entity_tables:
-            return
-
-        # 2. Backfill + upsert entity_index rows for the current SCD2 slice.
-        from app.entity import EntityIndex, compute_entity_id
-
-        for t in entity_tables:
-            schema = t._Meta.schema or self.dataset_name
-            pk_cols_list = list(t._Meta.pk)
-            table_ref = f"{schema}.{t._Meta.name}"
-            type_name = t._Meta.entity_type.name
-            # Current SCD2 slice only -- historical versions share the same
-            # entity_id once we backfill one of them via save() (which UPDATEs
-            # WHERE natural_pk = ?, touching every version).
-            current_rows = t.all()
-            for row in current_rows:
-                pk_values = tuple(getattr(row, c) for c in pk_cols_list)
-                entity_id = getattr(row, "entity_id", None)
-                if not entity_id:
-                    entity_id = compute_entity_id(type_name, pk_values)
-                    row.entity_id = entity_id  # ty: ignore[unresolved-attribute]
-                    row.save()
-                row_key = "/".join(str(v) for v in pk_values)
-                # New virtual entities default to status='disabled' so the user
-                # opts in per entity from the plugin's Entities tab. Preserve
-                # the existing status when the row is already in the index.
-                existing = EntityIndex.find(entity_id)
-                status = existing.status if existing is not None else "disabled"
-                EntityIndex(
-                    uuid=entity_id,
-                    db="user",
-                    table_name=table_ref,
-                    row_id=0,
-                    row_key=row_key,
-                    status=status,
-                ).upsert()
 
     def _project_entities(self, con: Any) -> None:
         """Post-sync hook: project raw source rows into statements.
