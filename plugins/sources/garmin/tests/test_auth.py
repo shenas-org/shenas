@@ -7,7 +7,7 @@ from shenas_sources.garmin.source import GarminSource
 
 
 @pytest.fixture
-def pipe() -> GarminSource:
+def source() -> GarminSource:
     return GarminSource.__new__(GarminSource)
 
 
@@ -22,31 +22,31 @@ def auth_mock():
 
 
 class TestBuildClient:
-    def test_no_tokens_raises(self, pipe: GarminSource, auth_mock) -> None:
+    def test_no_tokens_raises(self, source: GarminSource, auth_mock) -> None:
         auth_mock.read.return_value = None
         with pytest.raises(RuntimeError, match="No valid tokens"):
-            pipe.build_client()
+            source.build_client()
 
-    def test_empty_tokens_raises(self, pipe: GarminSource, auth_mock) -> None:
+    def test_empty_tokens_raises(self, source: GarminSource, auth_mock) -> None:
         auth_mock.read.return_value = {"tokens": None}
         with pytest.raises(RuntimeError, match="No valid tokens"):
-            pipe.build_client()
+            source.build_client()
 
     @patch("garminconnect.Garmin")
-    def test_valid_tokens_login_success(self, mock_garmin_cls: MagicMock, pipe: GarminSource, auth_mock) -> None:
+    def test_valid_tokens_login_success(self, mock_garmin_cls: MagicMock, source: GarminSource, auth_mock) -> None:
         fake_tokens = '{"oauth1_token.json": "{\\"token\\": \\"a\\"}", "oauth2_token.json": "{\\"token\\": \\"b\\"}"}'
         auth_mock.read.return_value = {"tokens": fake_tokens}
 
         mock_client = MagicMock()
         mock_garmin_cls.return_value = mock_client
 
-        result = pipe.build_client()
+        result = source.build_client()
 
         assert result is mock_client
         mock_client.login.assert_called_once()
 
     @patch("garminconnect.Garmin")
-    def test_login_fails_raises(self, mock_garmin_cls: MagicMock, pipe: GarminSource, auth_mock) -> None:
+    def test_login_fails_raises(self, mock_garmin_cls: MagicMock, source: GarminSource, auth_mock) -> None:
         fake_tokens = '{"oauth1_token.json": "{\\"token\\": \\"stale\\"}"}'
         auth_mock.read.return_value = {"tokens": fake_tokens}
 
@@ -55,4 +55,4 @@ class TestBuildClient:
         mock_garmin_cls.return_value = mock_client
 
         with pytest.raises(RuntimeError, match="No valid tokens"):
-            pipe.build_client()
+            source.build_client()

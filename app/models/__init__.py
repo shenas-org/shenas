@@ -164,7 +164,7 @@ class ScheduleInfo(BaseModel):
 
 class SSEEvent(BaseModel):
     event_type: str = "message"
-    pipe: str | None = None
+    source: str | None = None
     message: str = ""
 
 

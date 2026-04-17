@@ -173,10 +173,10 @@ class Query:
     # -- Auth --
 
     @strawberry.field
-    def auth_fields(self, pipe: str) -> AuthFieldsType:
+    def auth_fields(self, source: str) -> AuthFieldsType:
         from app.api.auth import auth_fields
 
-        result = auth_fields(pipe)
+        result = auth_fields(source)
         return AuthFieldsType.from_pydantic(result)  # ty: ignore[unresolved-attribute]
 
     # -- Config --
@@ -348,20 +348,20 @@ class Query:
 
         result = []
         for cls in Source.load_all(include_internal=False):
-            src = cls()
-            freq = src.sync_frequency
+            source = cls()
+            freq = source.sync_frequency
             if freq is None:
                 continue
-            s = src.instance()
+            s = source.instance()
             if not s or not s.enabled:
                 continue
             result.append(
                 ScheduleInfoType.from_pydantic(  # ty: ignore[unresolved-attribute]
                     ScheduleInfo(
-                        name=src.name,
+                        name=source.name,
                         sync_frequency=freq,
                         synced_at=s.synced_at,
-                        is_due=src.is_due_for_sync,
+                        is_due=source.is_due_for_sync,
                     )
                 )
             )

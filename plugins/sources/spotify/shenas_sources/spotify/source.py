@@ -1,4 +1,4 @@
-"""Spotify pipe -- syncs listening data via OAuth2 PKCE."""
+"""Spotify source -- syncs listening data via OAuth2 PKCE."""
 
 from __future__ import annotations
 

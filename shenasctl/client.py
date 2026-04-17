@@ -86,17 +86,17 @@ class ShenasClient:
 
     def source_auth_fields(self, name: str) -> dict[str, Any]:
         data = self._graphql(
-            "query($pipe: String!) { authFields(pipe: $pipe) { fields { name prompt hide } instructions stored } }",
-            {"pipe": name},
+            "query($source: String!) { authFields(source: $source) { fields { name prompt hide } instructions stored } }",
+            {"source": name},
         )
         return data["authFields"]
 
     def source_auth(self, name: str, credentials: dict[str, str]) -> dict[str, Any]:
         data = self._graphql(
-            "mutation($pipe: String!, $creds: JSON!) {"
-            " authenticate(pipe: $pipe, credentials: $creds)"
+            "mutation($source: String!, $creds: JSON!) {"
+            " authenticate(source: $source, credentials: $creds)"
             " { ok message error needsMfa oauthUrl } }",
-            {"pipe": name, "creds": credentials},
+            {"source": name, "creds": credentials},
         )
         return data["authenticate"]
 

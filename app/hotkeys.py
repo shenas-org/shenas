@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, ClassVar
 
-from app.schema import UI
+from app.schema import PREFERENCES
 from app.table import Field, Table
 
 
@@ -26,7 +26,7 @@ class Hotkey(Table):
         name = "hotkeys"
         display_name = "Hotkeys"
         description = "Per-action keyboard shortcut bindings."
-        schema = UI
+        schema = PREFERENCES
         pk = ("action_id",)
 
     action_id: Annotated[str, Field(db_type="VARCHAR", description="Action identifier")] = ""

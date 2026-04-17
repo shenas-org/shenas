@@ -20,10 +20,10 @@ class _FakeSource(Source):
     name = "fake"
     display_name = "Fake"
 
-    def __init__(self, sync_fn=None, *, pipe_name: str = "fake") -> None:
+    def __init__(self, sync_fn=None, *, source_name: str = "fake") -> None:
         # Skip real __init__ (TableStore) to avoid DB dependency
         self._sync_fn = sync_fn
-        self.name = pipe_name
+        self.name = source_name
 
     def resources(self, client):
         return []
@@ -34,7 +34,7 @@ class _FakeSource(Source):
 
 
 class TestSyncAll:
-    def test_sync_all_no_pipes(self) -> None:
+    def test_sync_all_no_sources(self) -> None:
         with patch("app.api.sync._installed_source_names", return_value=[]):
             resp = client.post("/api/sync")
 
@@ -43,11 +43,11 @@ class TestSyncAll:
         events = parse_sse(resp.text)
         assert any(e.get("message") == "all syncs complete" for e in events)
 
-    def test_sync_all_with_pipe(self) -> None:
-        pipe = _FakeSource(pipe_name="testpipe")
+    def test_sync_all_with_source(self) -> None:
+        source = _FakeSource(source_name="testsource")
         with (
-            patch("app.api.sync._installed_source_names", return_value=["testpipe"]),
-            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
+            patch("app.api.sync._installed_source_names", return_value=["testsource"]),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=source)),
         ):
             resp = client.post("/api/sync")
 
@@ -55,16 +55,16 @@ class TestSyncAll:
         complete = [e for e in events if e["_event"] == "complete"]
         # The fake source has no resources so it emits no per-resource progress;
         # only the final complete event for the source is expected.
-        assert any(e["source"] == "testpipe" and "Sync complete" in e["message"] for e in complete)
+        assert any(e["source"] == "testsource" and "Sync complete" in e["message"] for e in complete)
 
     def test_sync_all_reports_failure(self) -> None:
         def failing_sync(*, full_refresh: bool = False) -> None:
             raise RuntimeError("Auth expired")
 
-        pipe = _FakeSource(failing_sync, pipe_name="badpipe")
+        source = _FakeSource(failing_sync, source_name="badsource")
         with (
-            patch("app.api.sync._installed_source_names", return_value=["badpipe"]),
-            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
+            patch("app.api.sync._installed_source_names", return_value=["badsource"]),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=source)),
         ):
             resp = client.post("/api/sync")
 
@@ -74,11 +74,11 @@ class TestSyncAll:
 
 
 class TestSyncSource:
-    def test_sync_single_pipe(self) -> None:
-        pipe = _FakeSource(pipe_name="garmin")
+    def test_sync_single_source(self) -> None:
+        source = _FakeSource(source_name="garmin")
         with (
             patch("app.api.sync._installed_source_names", return_value=["garmin"]),
-            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=source)),
         ):
             resp = client.post("/api/sync/garmin")
 
@@ -86,35 +86,35 @@ class TestSyncSource:
         events = parse_sse(resp.text)
         assert any(e.get("source") == "garmin" and "Sync complete" in (e.get("message") or "") for e in events)
 
-    def test_sync_pipe_not_found(self) -> None:
+    def test_sync_source_not_found(self) -> None:
         with patch("app.api.sync._installed_source_names", return_value=[]):
             resp = client.post("/api/sync/nonexistent")
         assert resp.status_code == 404
 
-    def test_sync_pipe_with_full_refresh(self) -> None:
+    def test_sync_source_with_full_refresh(self) -> None:
         captured = {}
 
         def sync_fn(*, full_refresh: bool = False) -> None:
             captured["full_refresh"] = full_refresh
 
-        pipe = _FakeSource(sync_fn, pipe_name="garmin")
+        source = _FakeSource(sync_fn, source_name="garmin")
         with (
             patch("app.api.sync._installed_source_names", return_value=["garmin"]),
-            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=source)),
         ):
             resp = client.post("/api/sync/garmin", json={"full_refresh": True})
 
         assert resp.status_code == 200
         assert captured["full_refresh"] is True
 
-    def test_sync_pipe_error(self) -> None:
+    def test_sync_source_error(self) -> None:
         def failing_sync(*, full_refresh: bool = False) -> None:
             raise RuntimeError("Connection refused")
 
-        pipe = _FakeSource(failing_sync, pipe_name="garmin")
+        source = _FakeSource(failing_sync, source_name="garmin")
         with (
             patch("app.api.sync._installed_source_names", return_value=["garmin"]),
-            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=source)),
         ):
             resp = client.post("/api/sync/garmin")
 
@@ -122,12 +122,12 @@ class TestSyncSource:
         errors = [e for e in events if e["_event"] == "error"]
         assert any("Connection refused" in e["message"] for e in errors)
 
-    def test_sync_pipe_lock_conflict(self) -> None:
-        pipe = _FakeSource(pipe_name="garmin")
-        pipe.acquire_sync_lock = lambda: False  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    def test_sync_source_lock_conflict(self) -> None:
+        source = _FakeSource(source_name="garmin")
+        source.acquire_sync_lock = lambda: False  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         with (
             patch("app.api.sync._installed_source_names", return_value=["garmin"]),
-            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=source)),
         ):
             resp = client.post("/api/sync/garmin")
         assert resp.status_code == 409
@@ -173,10 +173,10 @@ class TestSseEvent:
 
 class TestSseStreamCarriesJobId:
     def test_every_event_has_same_job_id(self) -> None:
-        pipe = _FakeSource(pipe_name="garmin")
+        source = _FakeSource(source_name="garmin")
         with (
             patch("app.api.sync._installed_source_names", return_value=["garmin"]),
-            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=source)),
         ):
             resp = client.post("/api/sync/garmin")
         assert resp.status_code == 200
@@ -189,8 +189,8 @@ class TestSseStreamCarriesJobId:
         assert len(jid) == 16
 
 
-class TestInstalledPipeNames:
-    def test_returns_enabled_pipes(self) -> None:
+class TestInstalledSourceNames:
+    def test_returns_enabled_sources(self) -> None:
         import json
         import subprocess
 
@@ -232,7 +232,7 @@ class TestInstalledPipeNames:
             names = _installed_source_names()
         assert names == []
 
-    def test_excludes_disabled_pipes(self) -> None:
+    def test_excludes_disabled_sources(self) -> None:
         import json
         import subprocess
 
@@ -255,7 +255,7 @@ class TestInstalledPipeNames:
             names = _installed_source_names()
         assert names == []
 
-    def test_excludes_internal_pipes(self) -> None:
+    def test_excludes_internal_sources(self) -> None:
         import json
         import subprocess
 
@@ -278,7 +278,7 @@ class TestInstalledPipeNames:
             names = _installed_source_names()
         assert names == []
 
-    def test_skips_pipe_when_load_returns_none(self) -> None:
+    def test_skips_source_when_load_returns_none(self) -> None:
         import json
         import subprocess
 
@@ -296,12 +296,12 @@ class TestInstalledPipeNames:
 
 
 class TestSyncAllLockSkip:
-    def test_sync_all_skips_locked_pipe(self) -> None:
-        pipe = _FakeSource(pipe_name="locked")
-        pipe.acquire_sync_lock = lambda: False  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    def test_sync_all_skips_locked_source(self) -> None:
+        source = _FakeSource(source_name="locked")
+        source.acquire_sync_lock = lambda: False  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         with (
             patch("app.api.sync._installed_source_names", return_value=["locked"]),
-            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=pipe)),
+            patch(_LOAD_BY_NAME, return_value=MagicMock(return_value=source)),
         ):
             resp = client.post("/api/sync")
 

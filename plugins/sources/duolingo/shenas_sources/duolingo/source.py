@@ -1,4 +1,4 @@
-"""Duolingo pipe -- syncs daily XP, course progress, and profile data."""
+"""Duolingo source -- syncs daily XP, course progress, and profile data."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ class DuolingoSource(Source):
     primary_table = "daily_xp"
     description = (
         "Syncs daily XP, course progress, and profile data from Duolingo.\n\n"
-        "Duolingo has no official API. This pipe uses the unofficial REST API "
+        "Duolingo has no official API. This source uses the unofficial REST API "
         "with a JWT token extracted from your browser session."
     )
 

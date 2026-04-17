@@ -1,4 +1,4 @@
-"""Gmail pipe -- syncs email metadata via Google OAuth2."""
+"""Gmail source -- syncs email metadata via Google OAuth2."""
 
 from __future__ import annotations
 
@@ -75,14 +75,14 @@ class GmailSource(Source):
 
         self.log.info("Sync started: gmail (dataset=gmail, full_refresh=%s)", full_refresh)
 
-        with tracer.start_as_current_span("pipe.sync", attributes={"pipe.name": "gmail"}):
+        with tracer.start_as_current_span("source.sync", attributes={"source.name": "gmail"}):
             page_num = 0
             total_msgs = 0
 
             for page in message_pages(service):
                 page_num += 1
 
-                with tracer.start_as_current_span("pipe.fetch", attributes={"resource": "messages", "page": page_num}):
+                with tracer.start_as_current_span("source.fetch", attributes={"resource": "messages", "page": page_num}):
                     dest, mem_con = dlt_destination()
                     pipeline = dlt.pipeline(pipeline_name="gmail", destination=dest, dataset_name="gmail")
 
@@ -94,19 +94,19 @@ class GmailSource(Source):
                     load_info = pipeline.run(_page_data(), refresh=ref)  # ty: ignore[invalid-argument-type]
                     print_load_info(load_info)
 
-                with tracer.start_as_current_span("pipe.flush", attributes={"resource": "messages", "page": page_num}):
+                with tracer.start_as_current_span("source.flush", attributes={"resource": "messages", "page": page_num}):
                     flush_to_encrypted(mem_con, "gmail")
                     total_msgs += len(page)
                     self.log.info("Flushed page %d (%d messages, %d total)", page_num, len(page), total_msgs)
 
             # Sync labels (small, single pass)
-            with tracer.start_as_current_span("pipe.fetch", attributes={"resource": "labels"}):
+            with tracer.start_as_current_span("source.fetch", attributes={"resource": "labels"}):
                 dest, mem_con = dlt_destination()
                 pipeline = dlt.pipeline(pipeline_name="gmail", destination=dest, dataset_name="gmail")
                 load_info = pipeline.run(Labels.to_resource(service))
                 print_load_info(load_info)
 
-            with tracer.start_as_current_span("pipe.flush", attributes={"resource": "labels"}):
+            with tracer.start_as_current_span("source.flush", attributes={"resource": "labels"}):
                 flush_to_encrypted(mem_con, "gmail")
 
             self.log.info("Sync complete: gmail (%d messages in %d pages)", total_msgs, page_num)

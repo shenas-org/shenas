@@ -7,7 +7,7 @@ from shenas_sources.gmail.source import GmailSource
 
 
 @pytest.fixture
-def pipe() -> GmailSource:
+def source() -> GmailSource:
     return GmailSource.__new__(GmailSource)
 
 
@@ -23,19 +23,19 @@ def auth_mock():
 
 class TestBuildClient:
     @patch("shenas_sources.core.google_auth.GoogleAuth.build_client")
-    def test_no_credentials_raises(self, mock_build_client: MagicMock, pipe: GmailSource) -> None:
+    def test_no_credentials_raises(self, mock_build_client: MagicMock, source: GmailSource) -> None:
         mock_build_client.side_effect = RuntimeError("No valid credentials")
         with pytest.raises(RuntimeError, match="No valid credentials"):
-            pipe.build_client()
+            source.build_client()
 
     @patch("shenas_sources.core.google_auth.GoogleAuth.build_client")
-    def test_valid_token(self, mock_build_client: MagicMock, pipe: GmailSource) -> None:
+    def test_valid_token(self, mock_build_client: MagicMock, source: GmailSource) -> None:
         mock_service = MagicMock()
         mock_build_client.return_value = mock_service
-        result = pipe.build_client()
+        result = source.build_client()
         assert result is mock_service
 
     @patch("shenas_sources.core.google_auth.GoogleAuth.build_client")
-    def test_calls_google_auth(self, mock_build_client: MagicMock, pipe: GmailSource) -> None:
-        pipe.build_client()
+    def test_calls_google_auth(self, mock_build_client: MagicMock, source: GmailSource) -> None:
+        source.build_client()
         mock_build_client.assert_called_once()

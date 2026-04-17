@@ -8,9 +8,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# The pipe.py lazily imports from shenas_sources.spotify.auth which has been
-# deleted. Create a stub module so the lazy imports inside pipe methods work
-# during tests.
+# The source module lazily imports from shenas_sources.spotify.auth which has
+# been deleted. Create a stub module so the lazy imports inside source methods
+# work during tests.
 _fake_auth = types.ModuleType("shenas_sources.spotify.auth")
 _fake_auth.REDIRECT_URI = "http://127.0.0.1:8090/callback"  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]
 _fake_auth.SCOPES = "user-read-recently-played user-top-read user-library-read"  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]
@@ -35,7 +35,7 @@ from shenas_sources.spotify.source import SpotifySource  # noqa: E402
 
 
 @pytest.fixture
-def pipe() -> SpotifySource:
+def source() -> SpotifySource:
     return SpotifySource.__new__(SpotifySource)
 
 
@@ -50,13 +50,13 @@ def auth_mock():
 
 
 class TestBuildClient:
-    def test_no_tokens_raises(self, pipe: SpotifySource, auth_mock) -> None:
+    def test_no_tokens_raises(self, source: SpotifySource, auth_mock) -> None:
         auth_mock.read.return_value = None
         with pytest.raises(RuntimeError, match="No Spotify tokens"):
-            pipe.build_client()
+            source.build_client()
 
     @patch("spotipy.Spotify")
-    def test_returns_client(self, mock_spotify: MagicMock, pipe: SpotifySource, auth_mock) -> None:
+    def test_returns_client(self, mock_spotify: MagicMock, source: SpotifySource, auth_mock) -> None:
         tokens = {
             "access_token": "tok",
             "refresh_token": "ref",
@@ -69,17 +69,17 @@ class TestBuildClient:
         mock_pkce.is_token_expired.return_value = False
 
         with patch("spotipy.oauth2.SpotifyPKCE", return_value=mock_pkce):
-            pipe.build_client()
+            source.build_client()
 
         mock_spotify.assert_called_once_with(auth="tok")
 
 
 class TestAuthenticate:
-    def test_missing_credentials(self, pipe: SpotifySource) -> None:
+    def test_missing_credentials(self, source: SpotifySource) -> None:
         with pytest.raises(ValueError, match="client_id is required"):
-            pipe.authenticate({})
+            source.authenticate({})
 
-    def test_raises_oauth_url(self, pipe: SpotifySource) -> None:
+    def test_raises_oauth_url(self, source: SpotifySource) -> None:
         mock_pkce = MagicMock()
         mock_pkce.get_authorize_url.return_value = "https://accounts.spotify.com/authorize?foo=bar"
 
@@ -89,4 +89,4 @@ class TestAuthenticate:
             patch("threading.Thread", return_value=mock_thread),
             pytest.raises(ValueError, match=r"OAUTH_URL:https://accounts.spotify.com/authorize"),
         ):
-            pipe.authenticate({"client_id": "cid"})
+            source.authenticate({"client_id": "cid"})

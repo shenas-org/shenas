@@ -1,4 +1,4 @@
-"""Google Takeout pipe -- finds and parses Takeout archives from Google Drive."""
+"""Google Takeout source -- finds and parses Takeout archives from Google Drive."""
 
 from __future__ import annotations
 

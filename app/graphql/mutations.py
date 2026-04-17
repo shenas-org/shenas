@@ -66,28 +66,27 @@ class Mutation:
     def authenticate(
         self,
         info: strawberry.types.Info,
-        pipe: str,
+        source: str,
         credentials: JSON,
         callback_url: str | None = None,
     ) -> AuthResponseType:
         from app.models import AuthResponse
         from shenas_sources.core.source import Source
 
-        cls = Source.load_by_name(pipe)
+        cls = Source.load_by_name(source)
         if not cls:
-            return AuthResponseType.from_pydantic(AuthResponse(ok=False, error=f"Source not found: {pipe}"))  # ty: ignore[unresolved-attribute]
-        source = cls()
-        # Build callback URL for OAuth redirect flow
+            return AuthResponseType.from_pydantic(AuthResponse(ok=False, error=f"Source not found: {source}"))  # ty: ignore[unresolved-attribute]
+        source_inst = cls()
         redirect_uri = None
-        if source.supports_oauth_redirect:
+        if source_inst.supports_oauth_redirect:
             if callback_url:
                 redirect_uri = callback_url
             else:
                 request = info.context.get("request")
                 if request:
                     base = str(request.base_url).rstrip("/")
-                    redirect_uri = f"{base}/api/auth/source/{pipe}/callback"
-        result = source.handle_auth(credentials, redirect_uri=redirect_uri)  # ty: ignore[invalid-argument-type]
+                    redirect_uri = f"{base}/api/auth/source/{source}/callback"
+        result = source_inst.handle_auth(credentials, redirect_uri=redirect_uri)  # ty: ignore[invalid-argument-type]
         return AuthResponseType.from_pydantic(AuthResponse(**result))  # ty: ignore[unresolved-attribute]
 
     # -- Config --
@@ -353,11 +352,11 @@ class Mutation:
         return SeedResultType(seeded=seeded, count=len(seeded))
 
     @strawberry.mutation
-    def run_pipe_transforms(self, pipe: str) -> TransformRunResultType:
+    def run_source_transforms(self, source: str) -> TransformRunResultType:
         from shenas_transformers.core.transform import Transform
 
-        count = Transform.run_for_source(pipe)
-        return TransformRunResultType(name=pipe, count=count)
+        count = Transform.run_for_source(source)
+        return TransformRunResultType(name=source, count=count)
 
     @strawberry.mutation
     def run_schema_transforms(self, schema: str) -> TransformRunResultType:

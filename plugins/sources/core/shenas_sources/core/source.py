@@ -76,7 +76,7 @@ class Source(Plugin):
     # :meth:`sync_frequency`). Empty string means no default cadence.
     default_update_frequency: ClassVar[str] = ""
 
-    # Class-level sync lock: prevents concurrent syncs of the same pipe
+    # Class-level sync lock: prevents concurrent syncs of the same source
     _sync_locks: ClassVar[dict[str, threading.Lock]] = {}
     _sync_locks_guard: ClassVar[threading.Lock] = threading.Lock()
 
@@ -84,11 +84,11 @@ class Source(Plugin):
         super().__init_subclass__(**kwargs)
         if not hasattr(cls, "name"):
             return
-        # Auto-set _Meta.name on Config/Auth classes (one row per pipe), then
+        # Auto-set _Meta.name on Config/Auth classes (one row per source), then
         # call _finalize() to apply the deferred @dataclass + Table validation.
         per_pipe_name = f"pipe_{cls.name}"
         if cls.Config is SourceConfig:
-            # Source uses base SourceConfig -- create a per-pipe subclass so the table name is unique.
+            # Source uses base SourceConfig -- create a per-source subclass so the table name is unique.
             per_pipe_meta = type("_Meta", (SourceConfig._Meta,), {"name": per_pipe_name})
             cls.Config = type(f"{cls.name.title()}Config", (SourceConfig,), {"_Meta": per_pipe_meta})
         elif getattr(cls.Config._Meta, "name", None) in (None, ""):  # ty: ignore[unresolved-attribute]
@@ -204,11 +204,11 @@ class Source(Plugin):
 
     @property
     def has_data(self) -> bool:
-        return True  # Pipes sync data into DuckDB
+        return True  # Sources sync data into DuckDB
 
     @property
     def has_config(self) -> bool:
-        return True  # All pipes have config (at minimum sync_frequency, lookback_period)
+        return True  # All sources have config (at minimum sync_frequency, lookback_period)
 
     @property
     def commands(self) -> list[str]:
@@ -275,7 +275,31 @@ class Source(Plugin):
             "entity_types": self.entity_types,
             "default_update_frequency": self.default_update_frequency,
             "commands": self.commands,
+            "declared_tables": self._declared_tables(),
         }
+
+    def _declared_tables(self) -> list[dict[str, Any]]:
+        """Return table metadata from the TABLES tuple, available at import time."""
+        import importlib
+
+        try:
+            tables_mod = importlib.import_module(f"shenas_sources.{self.name}.tables")
+        except ImportError:
+            return []
+        tables = list(getattr(tables_mod, "TABLES", ()))
+        result: list[dict[str, Any]] = []
+        for t in tables:
+            if not (isinstance(t, type) and hasattr(t, "table_metadata")):
+                continue
+            try:
+                meta = t.table_metadata()
+                # Resolve Schema to string for JSON serialization
+                if hasattr(meta.get("schema"), "name"):
+                    meta["schema"] = meta["schema"].name
+                result.append(meta)
+            except Exception:
+                continue
+        return result
 
     # -- Sync lifecycle -------------------------------------------------------
 
@@ -310,14 +334,14 @@ class Source(Plugin):
         return f"{self.name}__e{entity_uuid[:8]}"
 
     def acquire_sync_lock(self) -> bool:
-        """Try to acquire the sync lock for this pipe. Returns False if already locked."""
+        """Try to acquire the sync lock for this source. Returns False if already locked."""
         with self._sync_locks_guard:
             if self.name not in self._sync_locks:
                 self._sync_locks[self.name] = threading.Lock()
         return self._sync_locks[self.name].acquire(blocking=False)
 
     def release_sync_lock(self) -> None:
-        """Release the sync lock for this pipe."""
+        """Release the sync lock for this source."""
         with self._sync_locks_guard:
             lock = self._sync_locks.get(self.name)
         if lock is not None:
@@ -588,7 +612,7 @@ class Source(Plugin):
         raise NotImplementedError(msg)
 
     def get_pending_mfa_state(self) -> dict[str, Any] | None:
-        """Return pending MFA state, or None. Override if pipe supports MFA."""
+        """Return pending MFA state, or None. Override if source supports MFA."""
         return None
 
     @property

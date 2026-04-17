@@ -8,7 +8,7 @@ from shenas_sources.withings.source import WithingsSource
 
 
 @pytest.fixture
-def pipe() -> WithingsSource:
+def source() -> WithingsSource:
     return WithingsSource.__new__(WithingsSource)
 
 
@@ -23,18 +23,18 @@ def auth_mock():
 
 
 class TestBuildClient:
-    def test_no_tokens_raises(self, pipe: WithingsSource, auth_mock) -> None:
+    def test_no_tokens_raises(self, source: WithingsSource, auth_mock) -> None:
         auth_mock.read.return_value = None
         with pytest.raises(RuntimeError, match="No Withings tokens"):
-            pipe.build_client()
+            source.build_client()
 
-    def test_empty_tokens_raises(self, pipe: WithingsSource, auth_mock) -> None:
+    def test_empty_tokens_raises(self, source: WithingsSource, auth_mock) -> None:
         auth_mock.read.return_value = {"tokens": None}
         with pytest.raises(RuntimeError, match="No Withings tokens"):
-            pipe.build_client()
+            source.build_client()
 
     @patch("shenas_sources.withings.client.WithingsClient")
-    def test_valid_tokens_returns_client(self, mock_cls: MagicMock, pipe: WithingsSource, auth_mock) -> None:
+    def test_valid_tokens_returns_client(self, mock_cls: MagicMock, source: WithingsSource, auth_mock) -> None:
         import time
 
         tokens = {
@@ -46,13 +46,13 @@ class TestBuildClient:
         mock_client = MagicMock()
         mock_cls.return_value = mock_client
 
-        result = pipe.build_client()
+        result = source.build_client()
 
         assert result is mock_client
         mock_cls.assert_called_once_with("abc")
 
     @patch("shenas_sources.withings.client.WithingsClient")
-    def test_expired_tokens_refreshes(self, mock_cls: MagicMock, pipe: WithingsSource, auth_mock) -> None:
+    def test_expired_tokens_refreshes(self, mock_cls: MagicMock, source: WithingsSource, auth_mock) -> None:
         tokens = {
             "access_token": "old",
             "refresh_token": "ref",
@@ -67,7 +67,7 @@ class TestBuildClient:
         mock_client = MagicMock()
         mock_cls.return_value = mock_client
 
-        result = pipe.build_client()
+        result = source.build_client()
 
         assert result is mock_client
         mock_cls.assert_called_once_with("new_access")
@@ -78,19 +78,19 @@ class TestBuildClient:
 
 
 class TestOAuth:
-    def test_start_oauth_returns_url(self, pipe: WithingsSource, auth_mock) -> None:
-        url = pipe.start_oauth("http://localhost/callback")
+    def test_start_oauth_returns_url(self, source: WithingsSource, auth_mock) -> None:
+        url = source.start_oauth("http://localhost/callback")
         assert "account.withings.com" in url
 
-    def test_complete_oauth_no_pending_raises(self, pipe: WithingsSource, auth_mock) -> None:
+    def test_complete_oauth_no_pending_raises(self, source: WithingsSource, auth_mock) -> None:
         from shenas_sources.withings.source import _pending_oauth
 
         _pending_oauth.pop("withings", None)
         with pytest.raises(RuntimeError, match="No pending Withings OAuth flow"):
-            pipe.complete_oauth(code="test_code")
+            source.complete_oauth(code="test_code")
 
     @patch("shenas_sources.withings.client.WithingsClient.exchange_code")
-    def test_complete_oauth_stores_tokens(self, mock_exchange: MagicMock, pipe: WithingsSource, auth_mock) -> None:
+    def test_complete_oauth_stores_tokens(self, mock_exchange: MagicMock, source: WithingsSource, auth_mock) -> None:
         from shenas_sources.withings.source import _pending_oauth
 
         _pending_oauth["withings"] = {"redirect_uri": "http://localhost/callback"}
@@ -101,7 +101,7 @@ class TestOAuth:
             "userid": "12345",
         }
 
-        pipe.complete_oauth(code="test_code")
+        source.complete_oauth(code="test_code")
 
         auth_mock.write.assert_called_once()
         saved = json.loads(auth_mock.write.call_args.kwargs["tokens"])

@@ -4,9 +4,9 @@ import typer
 
 from shenasctl.commands.plugin_cmd import DEFAULT_INDEX, install, register_plugin_commands, uninstall
 
-app = typer.Typer(help="UI commands.", invoke_without_command=True)
+app = typer.Typer(help="Frontend commands.", invoke_without_command=True)
 
-register_plugin_commands(app, "frontend", "Installed UI")
+register_plugin_commands(app, "frontend", "Installed frontend")
 
 
 @app.callback()
@@ -18,7 +18,7 @@ def _default(ctx: typer.Context) -> None:
 
 @app.command("list")
 def list_cmd() -> None:
-    """List installed UI plugins."""
+    """List installed frontend plugins."""
     from shenasctl.commands.plugin_cmd import list_plugins
 
     list_plugins("frontend")
@@ -26,19 +26,19 @@ def list_cmd() -> None:
 
 @app.command("add")
 def add_cmd(
-    names: list[str] = typer.Argument(help="UI plugin names"),
+    names: list[str] = typer.Argument(help="Frontend plugin names"),
     index_url: str = typer.Option(DEFAULT_INDEX, "--index-url", help="Repository server URL"),
     skip_verify: bool = typer.Option(False, "--skip-verify", help="Skip signature verification"),
 ) -> None:
-    """Add one or more UI plugins from the repository."""
+    """Add one or more frontend plugins from the repository."""
     for name in names:
         install(name, "frontend", index_url, skip_verify)
 
 
 @app.command("remove")
 def remove_cmd(
-    names: list[str] = typer.Argument(help="UI plugin names"),
+    names: list[str] = typer.Argument(help="Frontend plugin names"),
 ) -> None:
-    """Remove one or more UI plugins."""
+    """Remove one or more frontend plugins."""
     for name in names:
         uninstall(name, "frontend")

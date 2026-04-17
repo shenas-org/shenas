@@ -37,7 +37,7 @@ def _sse_event(event: str, data: dict[str, str]) -> str:
 
 
 def _installed_source_names() -> list[str]:
-    """Get installed pipe names via uv pip list (avoids entry_points cache)."""
+    """Get installed source names via uv pip list (avoids entry_points cache)."""
     from app.plugin import Plugin, PluginInstance
 
     result = subprocess.run(

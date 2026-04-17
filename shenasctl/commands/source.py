@@ -34,53 +34,53 @@ app = typer.Typer(help="Sourceline commands.", invoke_without_command=True, cls=
 _server_available = False
 
 
-def _register_pipe_commands() -> None:
-    """Discover installed pipes from the server and register CLI subcommands.
+def _register_source_commands() -> None:
+    """Discover installed sources from the server and register CLI subcommands.
 
-    Uses the generic packages API, then adds pipe-specific commands
+    Uses the generic packages API, then adds source-specific commands
     (sync, auth, config) on top of the base describe command.
     """
     global _server_available
     try:
         client = ShenasClient()
-        pipes = client.plugins_list("source")
+        sources = client.plugins_list("source")
         _server_available = True
     except Exception:
         return
 
-    for pipe_info in pipes:
-        name = pipe_info["name"]
-        commands = set(pipe_info.get("commands", []))
-        pipe_app = typer.Typer(help=f"{name} pipe commands.", invoke_without_command=True)
+    for source_info in sources:
+        name = source_info["name"]
+        commands = set(source_info.get("commands", []))
+        source_app = typer.Typer(help=f"{name} source commands.", invoke_without_command=True)
 
-        @pipe_app.callback()
+        @source_app.callback()
         def _default(ctx: typer.Context) -> None:
             if ctx.invoked_subcommand is None:
                 typer.echo(ctx.get_help())
                 raise typer.Exit
 
         if "describe" in commands:
-            _add_info_command(pipe_app, name)
+            _add_info_command(source_app, name)
         if "sync" in commands:
-            _add_sync_command(pipe_app, name)
+            _add_sync_command(source_app, name)
         if "auth" in commands:
-            _add_auth_command(pipe_app, name)
+            _add_auth_command(source_app, name)
         if "config" in commands:
-            _add_config_command(pipe_app, name)
-        app.add_typer(pipe_app, name=name, rich_help_panel="Installed Sources")
+            _add_config_command(source_app, name)
+        app.add_typer(source_app, name=name, rich_help_panel="Installed Sources")
 
 
-def _add_info_command(pipe_app: typer.Typer, pipe_name: str) -> None:
+def _add_info_command(source_app: typer.Typer, source_name: str) -> None:
     from shenasctl.commands.plugin_cmd import info as _info_plugin
 
-    @pipe_app.command("info")
+    @source_app.command("info")
     def _info() -> None:
-        """Show info about this pipe."""
-        _info_plugin(pipe_name, "source")
+        """Show info about this source."""
+        _info_plugin(source_name, "source")
 
 
-def _add_sync_command(pipe_app: typer.Typer, pipe_name: str) -> None:
-    @pipe_app.command("sync")
+def _add_sync_command(source_app: typer.Typer, source_name: str) -> None:
+    @source_app.command("sync")
     def sync(
         start_date: str = typer.Option("30 days ago", help="Start date (YYYY-MM-DD or 'N days ago')"),
         full_refresh: bool = typer.Option(False, "--full-refresh", help="Drop and re-download all data"),
@@ -88,7 +88,7 @@ def _add_sync_command(pipe_app: typer.Typer, pipe_name: str) -> None:
         name_filter: str = typer.Option("", "--filter", help="Only process items matching this substring"),
         list_only: bool = typer.Option(False, "--list", help="List available items without processing"),
     ) -> None:
-        """Sync data from this pipe."""
+        """Sync data from this source."""
         extra: dict[str, str | int | bool] = {}
         if latest > 0:
             extra["latest"] = latest
@@ -97,7 +97,7 @@ def _add_sync_command(pipe_app: typer.Typer, pipe_name: str) -> None:
         if list_only:
             extra["list_only"] = True
         try:
-            for event in ShenasClient().sync_source(pipe_name, start_date=start_date, full_refresh=full_refresh, **extra):
+            for event in ShenasClient().sync_source(source_name, start_date=start_date, full_refresh=full_refresh, **extra):
                 message = event.get("message", "")
                 event_type = event.get("_event", "message")
 
@@ -113,15 +113,15 @@ def _add_sync_command(pipe_app: typer.Typer, pipe_name: str) -> None:
             raise typer.Exit(code=1)
 
 
-def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
-    @pipe_app.command("auth")
+def _add_auth_command(source_app: typer.Typer, source_name: str) -> None:
+    @source_app.command("auth")
     def auth() -> None:
-        """Authenticate with this pipe's data source."""
+        """Authenticate with this source's data provider."""
         client = ShenasClient()
 
-        # Fetch the credential fields this pipe needs
+        # Fetch the credential fields this source needs
         try:
-            auth_info = client.source_auth_fields(pipe_name)
+            auth_info = client.source_auth_fields(source_name)
         except ShenasServerError as exc:
             console.print(f"[red]{exc.detail}[/red]")
             raise typer.Exit(code=1)
@@ -132,7 +132,7 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
         if instructions:
             console.print(f"\n{instructions}\n")
 
-        # Collect credentials based on the pipe's declared fields
+        # Collect credentials based on the source's declared fields
         credentials: dict[str, str] = {}
         for field in fields:
             value = typer.prompt(field["prompt"], hide_input=field.get("hide", False))
@@ -142,7 +142,7 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
             console.print("[dim]No credentials needed, starting auth flow...[/dim]")
 
         try:
-            result = client.source_auth(pipe_name, credentials)
+            result = client.source_auth(source_name, credentials)
         except ShenasServerError as exc:
             console.print(f"[red]{exc.detail}[/red]")
             raise typer.Exit(code=1)
@@ -151,7 +151,7 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
         if result.get("needs_mfa"):
             mfa_code = typer.prompt("MFA code")
             try:
-                result = client.source_auth(pipe_name, {"mfa_code": mfa_code})
+                result = client.source_auth(source_name, {"mfa_code": mfa_code})
             except ShenasServerError as exc:
                 console.print(f"[red]{exc.detail}[/red]")
                 raise typer.Exit(code=1)
@@ -165,7 +165,7 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
             webbrowser.open(url)
             console.print("[dim]Waiting for authorization...[/dim]")
             try:
-                result = client.source_auth(pipe_name, {"auth_complete": "true"})
+                result = client.source_auth(source_name, {"auth_complete": "true"})
             except ShenasServerError as exc:
                 console.print(f"[red]{exc.detail}[/red]")
                 raise typer.Exit(code=1)
@@ -177,13 +177,13 @@ def _add_auth_command(pipe_app: typer.Typer, pipe_name: str) -> None:
             raise typer.Exit(code=1)
 
 
-def _add_config_command(pipe_app: typer.Typer, pipe_name: str) -> None:
-    @pipe_app.command("config")
+def _add_config_command(source_app: typer.Typer, source_name: str) -> None:
+    @source_app.command("config")
     def config(
         key: str = typer.Argument(None, help="Config key to get/set"),
         value: str = typer.Argument(None, help="Value to set (omit to get current value)"),
     ) -> None:
-        """View or set config for this pipe."""
+        """View or set config for this source."""
         from rich.table import Table
 
         client = ShenasClient()
@@ -192,18 +192,18 @@ def _add_config_command(pipe_app: typer.Typer, pipe_name: str) -> None:
         if key and value:
             # Set a config value
             try:
-                client.config_set(kind, pipe_name, key, value)
+                client.config_set(kind, source_name, key, value)
             except ShenasServerError as exc:
                 console.print(f"[red]{exc.detail}[/red]")
                 raise typer.Exit(code=1)
-            console.print(f"[green]Set {kind} {pipe_name}.{key}[/green]")
+            console.print(f"[green]Set {kind} {source_name}.{key}[/green]")
         elif key:
             # Get a single value
             try:
-                result = client.config_get(kind, pipe_name, key)
+                result = client.config_get(kind, source_name, key)
             except ShenasServerError as exc:
                 if exc.status_code == 404:
-                    console.print(f"[dim]Not set: {pipe_name}.{key}[/dim]")
+                    console.print(f"[dim]Not set: {source_name}.{key}[/dim]")
                     raise typer.Exit(code=1)
                 console.print(f"[red]{exc.detail}[/red]")
                 raise typer.Exit(code=1)
@@ -211,15 +211,15 @@ def _add_config_command(pipe_app: typer.Typer, pipe_name: str) -> None:
         else:
             # List all config
             try:
-                configs = client.config_list(kind=kind, name=pipe_name)
+                configs = client.config_list(kind=kind, name=source_name)
             except ShenasServerError as exc:
                 console.print(f"[red]{exc.detail}[/red]")
                 raise typer.Exit(code=1)
             if not configs:
-                console.print(f"[dim]No config for {pipe_name}[/dim]")
+                console.print(f"[dim]No config for {source_name}[/dim]")
                 return
             for cfg in configs:
-                table = Table(title=f"[bold]{pipe_name} config[/bold]", show_lines=False)
+                table = Table(title=f"[bold]{source_name} config[/bold]", show_lines=False)
                 table.add_column("Key", style="green")
                 table.add_column("Value")
                 table.add_column("Description", style="dim")
@@ -229,9 +229,9 @@ def _add_config_command(pipe_app: typer.Typer, pipe_name: str) -> None:
                 console.print(table)
 
 
-# Try to register pipe subcommands from the server at import time.
+# Try to register source subcommands from the server at import time.
 # If the server is not running, only the static commands (sync, list, add, remove) are available.
-_register_pipe_commands()
+_register_source_commands()
 
 
 @app.callback()
@@ -243,24 +243,24 @@ def _default(ctx: typer.Context) -> None:
 
 @app.command("sync")
 def sync_all() -> None:
-    """Sync all installed pipes."""
+    """Sync all installed sources."""
     try:
         for event in ShenasClient().sync_all():
-            pipe = event.get("source", "")
+            source = event.get("source", "")
             message = event.get("message", "")
             event_type = event.get("_event", "message")
 
             if event_type == "progress":
-                console.print(f"\n[bold]--- {pipe} ---[/bold]")
+                console.print(f"\n[bold]--- {source} ---[/bold]")
                 console.print(f"[dim]{message}[/dim]")
             elif event_type == "complete":
-                if pipe:
-                    console.print(f"[green]{pipe}: {message}[/green]")
+                if source:
+                    console.print(f"[green]{source}: {message}[/green]")
                 else:
                     console.print(f"\n[green]{message}[/green]")
             elif event_type == "error":
-                if pipe:
-                    console.print(f"[red]{pipe}: {message}[/red]")
+                if source:
+                    console.print(f"[red]{source}: {message}[/red]")
                 else:
                     console.print(f"\n[red]{message}[/red]")
                     raise typer.Exit(code=1)
@@ -271,17 +271,17 @@ def sync_all() -> None:
 
 @app.command("list")
 def list_cmd() -> None:
-    """List installed pipes with their available commands."""
+    """List installed sources with their available commands."""
     from rich.table import Table
 
     try:
-        pipes = ShenasClient().plugins_list("source")
+        sources = ShenasClient().plugins_list("source")
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
 
-    if not pipes:
-        console.print("[dim]No pipes installed[/dim]")
+    if not sources:
+        console.print("[dim]No sources installed[/dim]")
         return
 
     SIG_STYLE = {
@@ -296,7 +296,7 @@ def list_cmd() -> None:
     table.add_column("Version", justify="right")
     table.add_column("Signature", justify="right")
     table.add_column("Commands")
-    for p in pipes:
+    for p in sources:
         cmds = ", ".join(p.get("commands", []))
         sig = SIG_STYLE.get(p.get("signature", ""), p.get("signature", ""))
         table.add_row(p["name"], p.get("version", ""), sig, cmds or "[dim]none[/dim]")
@@ -305,7 +305,7 @@ def list_cmd() -> None:
 
 @app.command("schedule")
 def schedule_cmd() -> None:
-    """Show sync schedule for all pipes."""
+    """Show sync schedule for all sources."""
     from rich.table import Table
 
     try:
@@ -315,7 +315,7 @@ def schedule_cmd() -> None:
         raise typer.Exit(code=1)
 
     if not schedules:
-        console.print("[dim]No pipes have a sync schedule configured[/dim]")
+        console.print("[dim]No sources have a sync schedule configured[/dim]")
         return
 
     table = Table(show_lines=False)
@@ -337,7 +337,7 @@ def add_cmd(
     index_url: str = typer.Option(DEFAULT_INDEX, "--index-url", help="Repository server URL"),
     skip_verify: bool = typer.Option(False, "--skip-verify", help="Skip signature verification"),
 ) -> None:
-    """Add one or more pipe plugins from the repository."""
+    """Add one or more source plugins from the repository."""
     for name in names:
         install(name, "source", index_url, skip_verify)
 
@@ -346,6 +346,6 @@ def add_cmd(
 def remove_cmd(
     names: list[str] = typer.Argument(help="Source names, e.g. 'garmin lunchmoney'"),
 ) -> None:
-    """Remove one or more pipe plugins."""
+    """Remove one or more source plugins."""
     for name in names:
         uninstall(name, "source")

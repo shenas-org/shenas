@@ -5,7 +5,7 @@ instance that owns its lifecycle (``CREATE SCHEMA IF NOT EXISTS``) and
 serves as the single source of truth for the schema name. Tables
 reference a ``Schema`` instance in ``_Meta.schema`` instead of a bare
 string, which centralizes creation, prevents typos, and gives the
-catalog/UI a discoverable list of namespaces.
+catalog / frontend a discoverable list of namespaces.
 
 Well-known instances are defined at module level and importable directly::
 
@@ -109,7 +109,7 @@ class Schema:
 
 SHENAS = Schema("shenas", owner="core", description="User accounts and sessions", sequences=("local_user_seq",))
 PLUGINS = Schema("plugins", owner="core", description="Installed plugin instances")
-UI = Schema("ui", owner="core", description="Hotkeys, workspace, UI state")
+PREFERENCES = Schema("ui", owner="core", description="Hotkeys, workspace, and user preferences")
 TRANSFORMS = Schema(
     "transforms",
     owner="transforms",

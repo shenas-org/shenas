@@ -49,7 +49,7 @@ _IMPORTS_SERVER = [
     "shenasctl.main",
     "shenasctl.client",
     "shenasctl.commands",
-    "shenasctl.commands.pipe",
+    "shenasctl.commands.source",
     "shenasctl.commands.component",
     "shenasctl.commands.config_cmd",
     "shenasctl.commands.db_cmd",
@@ -104,7 +104,7 @@ _IMPORTS_CLI = [
     "shenasctl.main",
     "shenasctl.client",
     "shenasctl.commands",
-    "shenasctl.commands.pipe",
+    "shenasctl.commands.source",
     "shenasctl.commands.component",
     "shenasctl.commands.config_cmd",
     "shenasctl.commands.db_cmd",
@@ -248,7 +248,7 @@ def _collect_dist_info_datas(target_name: str) -> list[tuple[str, str]]:
 def _collect_package_datas(target_name: str) -> list[str]:
     """Packages whose non-.py data files (JSON, CSS, HTML, static) must be included.
 
-    Only internal packages are bundled. User plugins (pipes, schemas,
+    Only internal packages are bundled. User plugins (sources, schemas,
     components, themes, UI) are installed separately via shenasctl.
     """
     if target_name == "shenas-scheduler":

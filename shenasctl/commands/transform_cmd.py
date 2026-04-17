@@ -27,7 +27,7 @@ def _default(ctx: typer.Context) -> None:
 
 @app.command("seed")
 def seed_cmd() -> None:
-    """Seed default transforms for all installed pipes."""
+    """Seed default transforms for all installed sources."""
     try:
         data = ShenasClient()._graphql("mutation { seedTransforms }")
     except ShenasServerError as exc:

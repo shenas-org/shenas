@@ -81,7 +81,7 @@ def _make_promoted_class(record: PromotedMetric) -> type[MetricTable]:
     """Build a MetricTable subclass for one PromotedMetric row.
 
     Uses ``type()`` -- same machinery as ``Source.__init_subclass__``
-    when it builds per-pipe ``Config`` / ``Auth`` classes. The
+    when it builds per-source ``Config`` / ``Auth`` classes. The
     constructed class is a real ``MetricTable`` peer of the
     hand-written canonical metrics, just synthesized from data instead
     of declared in source.

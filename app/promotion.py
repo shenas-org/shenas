@@ -15,7 +15,7 @@ provenance back to the originating hypothesis. At catalog-walk time
 :func:`shenas_datasets.promoted.PromotedSchema.all_tables` walks that
 table and constructs a ``MetricTable`` subclass per row via
 ``type()`` -- the same machinery ``Source.__init_subclass__`` already
-uses to build per-pipe ``Config`` / ``Auth`` classes.
+uses to build per-source ``Config`` / ``Auth`` classes.
 
 The constructed class's ``transform(con)`` classmethod re-runs the
 frozen recipe on every Source.sync() and replaces the table contents.

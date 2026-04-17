@@ -918,7 +918,7 @@ class TestGraphQLMutationsExtra:
         with patch("shenas_sources.core.source.Source.load_by_name", return_value=fake_cls):
             result = _gql(
                 client,
-                'mutation { authenticate(pipe: "garmin", credentials: {username: "u", password: "p"}) { ok message } }',
+                'mutation { authenticate(source: "garmin", credentials: {username: "u", password: "p"}) { ok message } }',
             )
         assert "errors" not in result
         assert result["data"]["authenticate"]["ok"] is True
@@ -1054,12 +1054,12 @@ class TestGraphQLMutationsExtra:
             result = _gql(client, "mutation { seedTransforms { seeded count } }")
         assert result["data"]["seedTransforms"]["count"] == 0
 
-    def test_run_pipe_transforms(self, client: TestClient) -> None:
+    def test_run_source_transforms(self, client: TestClient) -> None:
         with patch("shenas_transformers.core.transform.Transform.run_for_source", return_value=3):
-            result = _gql(client, 'mutation { runPipeTransforms(pipe: "garmin") { name count } }')
+            result = _gql(client, 'mutation { runSourceTransforms(source: "garmin") { name count } }')
         assert "errors" not in result
-        assert result["data"]["runPipeTransforms"]["name"] == "garmin"
-        assert result["data"]["runPipeTransforms"]["count"] == 3
+        assert result["data"]["runSourceTransforms"]["name"] == "garmin"
+        assert result["data"]["runSourceTransforms"]["count"] == 3
 
     def test_run_schema_transforms(self, client: TestClient) -> None:
         with patch("shenas_transformers.core.transform.Transform.run_for_target", return_value=2):

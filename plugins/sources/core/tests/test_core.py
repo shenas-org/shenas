@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from shenas_sources.core.cli import create_pipe_app
+from shenas_sources.core.cli import create_source_app
 from shenas_sources.core.utils import date_range, is_empty_response, resolve_start_date
 
 
@@ -47,7 +47,7 @@ class TestIsEmptyResponse:
         assert is_empty_response({"calendarDate": "2026-03-15"}) is False
 
 
-class TestCreatePipeApp:
+class TestCreateSourceApp:
     def test_creates_typer_app(self) -> None:
-        app = create_pipe_app("Test commands.")
+        app = create_source_app("Test commands.")
         assert app.info.help == "Test commands."

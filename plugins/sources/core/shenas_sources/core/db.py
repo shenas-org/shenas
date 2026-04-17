@@ -1,7 +1,7 @@
-"""Database connection for pipes -- delegates to app.db.
+"""Database connection for sources -- delegates to app.db.
 
 All connection management is centralized in app.db. This module
-re-exports the public API so pipe code doesn't need to change.
+re-exports the public API so source code doesn't need to change.
 """
 
 from __future__ import annotations

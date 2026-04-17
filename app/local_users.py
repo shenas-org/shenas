@@ -119,7 +119,7 @@ class LocalUser(Table):
         walk(Table)
 
         # Source plugins have Config/Auth SingletonTable subclasses with
-        # dynamic names (pipe_<source>) created by Source.__init_subclass__.
+        # dynamic names (pipe_<source>) created by Source.__init_subclass__. (table name kept for DB compat)
         # The MRO walk above misses them because they are generated at
         # class-creation time, not declared as top-level classes. Discover
         # them by walking installed Source subclasses.

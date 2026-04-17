@@ -51,7 +51,7 @@ def _default(ctx: typer.Context) -> None:
 
 @app.command("list")
 def list_cmd(
-    kind: str = typer.Argument(None, help="Package type: pipe, schema, or component"),
+    kind: str = typer.Argument(None, help="Package type: source, schema, or component"),
     name: str = typer.Argument(None, help="Package name (e.g. 'garmin')"),
 ) -> None:
     """List config entries. Secrets are masked."""
@@ -64,7 +64,7 @@ def list_cmd(
 
 @app.command("set")
 def set_cmd(
-    kind: str = typer.Argument(help="Package type: pipe, schema, or component"),
+    kind: str = typer.Argument(help="Package type: source, schema, or component"),
     name: str = typer.Argument(help="Package name (e.g. 'lunchmoney')"),
     key: str = typer.Argument(help="Config key (e.g. 'api_key')"),
     value: str = typer.Argument(help="Config value"),
@@ -79,7 +79,7 @@ def set_cmd(
 
 @app.command("get")
 def get_cmd(
-    kind: str = typer.Argument(help="Package type: pipe, schema, or component"),
+    kind: str = typer.Argument(help="Package type: source, schema, or component"),
     name: str = typer.Argument(help="Package name"),
     key: str = typer.Argument(help="Config key"),
 ) -> None:
@@ -96,7 +96,7 @@ def get_cmd(
 
 @app.command("delete")
 def delete_cmd(
-    kind: str = typer.Argument(help="Package type: pipe, schema, or component"),
+    kind: str = typer.Argument(help="Package type: source, schema, or component"),
     name: str = typer.Argument(help="Package name"),
     key: str = typer.Argument(None, help="Config key (omit to delete all)"),
 ) -> None:

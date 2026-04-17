@@ -1,4 +1,4 @@
-"""Obsidian pipe -- extracts frontmatter from daily notes."""
+"""Obsidian source -- extracts frontmatter from daily notes."""
 
 from __future__ import annotations
 

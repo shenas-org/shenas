@@ -31,7 +31,7 @@ class Indicators(DimensionTable):
     class _Meta:
         name = "indicators"
         display_name = "Indicators"
-        description = "Lookup of the 22 core WHO GHO health indicators tracked by this pipe."
+        description = "Lookup of the 22 core WHO GHO health indicators tracked by this source."
         pk = ("indicator_code",)
 
     indicator_code: Annotated[

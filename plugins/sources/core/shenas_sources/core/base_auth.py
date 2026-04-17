@@ -1,7 +1,7 @@
-"""Base auth dataclass for all pipes.
+"""Base auth dataclass for all sources.
 
 Provides the common ``id`` field and the ``table_pk`` class var so
-individual pipes only need to declare their credential fields and a
+individual sources only need to declare their credential fields and a
 ``table_name`` (set dynamically by ``Source.__init_subclass__``).
 """
 
@@ -14,15 +14,15 @@ from app.table import Field, SingletonTable
 
 @dataclass
 class SourceAuth(SingletonTable):
-    """Base authentication storage for all pipes.
+    """Base authentication storage for all sources.
 
     ``table_name`` is set lazily by ``Source.__init_subclass__`` (one
-    per pipe, like ``pipe_garmin``), so per-source ``Auth`` subclasses
+    per source, like ``pipe_garmin`` -- table name kept for DB compat), so per-source ``Auth`` subclasses
     can't be validated at class-definition time. We override
     ``__init_subclass__`` to keep every direct subclass marked abstract
     so the parent ``Table`` machinery skips its auto-@dataclass +
     validate. ``Source.__init_subclass__`` calls
-    :func:`finalize_pipe_table` after setting ``table_name`` to actually
+    :func:`finalize_source_table` after setting ``table_name`` to actually
     apply the dataclass + validation.
     """
 

@@ -1,4 +1,4 @@
-"""Lunch Money pipe -- syncs financial data."""
+"""Lunch Money source -- syncs financial data."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Garmin Connect pipe -- syncs health and fitness data."""
+"""Garmin Connect source -- syncs health and fitness data."""
 
 from __future__ import annotations
 

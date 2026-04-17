@@ -149,7 +149,7 @@ def register_plugin_commands(parent_app: typer.Typer, kind: str, panel: str) -> 
 
     Registers commands based on what the server reports for each plugin.
     Returns the list of plugin info dicts for further processing by
-    plugin-specific CLIs (e.g. pipes add sync/auth/config).
+    plugin-specific CLIs (e.g. sources add sync/auth/config).
     """
     try:
         plugins = ShenasClient().plugins_list(kind)

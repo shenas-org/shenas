@@ -16,8 +16,8 @@ logger = Plugin.get_logger(__name__)
 tracer = trace.get_tracer("shenas.sources")
 
 
-def create_pipe_app(help_text: str) -> typer.Typer:
-    """Create a standard pipe typer app with no-args-is-help callback."""
+def create_source_app(help_text: str) -> typer.Typer:
+    """Create a standard source typer app with no-args-is-help callback."""
     app = typer.Typer(help=help_text, invoke_without_command=True)
 
     @app.callback()
@@ -64,7 +64,9 @@ def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally 
 
     logger.info("Sync started: %s (dataset=%s, full_refresh=%s)", pipeline_name, dataset_name, full_refresh)
     _emit("sync_started", f"Sync started: {pipeline_name}")
-    with tracer.start_as_current_span("pipe.sync", attributes={"pipe.name": pipeline_name, "pipe.dataset": dataset_name}):
+    with tracer.start_as_current_span(
+        "source.sync", attributes={"source.name": pipeline_name, "source.dataset": dataset_name}
+    ):
         import threading
 
         import dlt
@@ -78,7 +80,7 @@ def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally 
 
         for i, resource in enumerate(resources):
             resource_name = getattr(resource, "name", None) or f"resource_{i}"
-            with tracer.start_as_current_span("pipe.fetch", attributes={"resource": resource_name}):
+            with tracer.start_as_current_span("source.fetch", attributes={"resource": resource_name}):
                 logger.info("Fetching %s (%d/%d): %s", pipeline_name, i + 1, total, resource_name)
                 _emit("fetch_start", f"Fetching ({i + 1}/{total}): {resource_name}")
                 dest, mem_con = dlt_destination()
@@ -125,7 +127,7 @@ def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally 
                 print_load_info(load_result[0])
                 logger.info("Fetch complete: %s/%s", pipeline_name, resource_name)
 
-            with tracer.start_as_current_span("pipe.flush", attributes={"resource": resource_name}):
+            with tracer.start_as_current_span("source.flush", attributes={"resource": resource_name}):
                 logger.info("Flushing %s/%s to encrypted database", pipeline_name, resource_name)
                 flush_to_encrypted(mem_con, dataset_name)
 
@@ -133,7 +135,7 @@ def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally 
             refresh = None
 
         if transform_fn:
-            with tracer.start_as_current_span("pipe.transform"):
+            with tracer.start_as_current_span("source.transform"):
                 logger.info("Running transforms: %s", pipeline_name)
                 _emit("transform_start", "Running transforms")
                 transform_fn()

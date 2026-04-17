@@ -7,7 +7,7 @@ from shenas_sources.tile.source import TileSource
 
 
 @pytest.fixture
-def pipe() -> TileSource:
+def source() -> TileSource:
     return TileSource.__new__(TileSource)
 
 
@@ -22,18 +22,18 @@ def auth_mock():
 
 
 class TestBuildClient:
-    def test_no_tokens_raises(self, pipe: TileSource, auth_mock) -> None:
+    def test_no_tokens_raises(self, source: TileSource, auth_mock) -> None:
         auth_mock.read.return_value = None
         with pytest.raises(RuntimeError, match="No credentials found"):
-            pipe.build_client()
+            source.build_client()
 
-    def test_empty_tokens_raises(self, pipe: TileSource, auth_mock) -> None:
+    def test_empty_tokens_raises(self, source: TileSource, auth_mock) -> None:
         auth_mock.read.return_value = {"tokens": None}
         with pytest.raises(RuntimeError, match="No credentials found"):
-            pipe.build_client()
+            source.build_client()
 
     @patch("shenas_sources.tile.client.TileClient")
-    def test_valid_tokens_login_success(self, mock_tile_cls: MagicMock, pipe: TileSource, auth_mock) -> None:
+    def test_valid_tokens_login_success(self, mock_tile_cls: MagicMock, source: TileSource, auth_mock) -> None:
         import json
 
         creds = json.dumps({"email": "test@example.com", "password": "secret", "client_uuid": "abc-123"})
@@ -42,7 +42,7 @@ class TestBuildClient:
         mock_client = MagicMock()
         mock_tile_cls.return_value = mock_client
 
-        result = pipe.build_client()
+        result = source.build_client()
 
         assert result is mock_client
         mock_client.login.assert_called_once()
@@ -50,23 +50,23 @@ class TestBuildClient:
 
 
 class TestAuthenticate:
-    def test_missing_email_raises(self, pipe: TileSource, auth_mock) -> None:
+    def test_missing_email_raises(self, source: TileSource, auth_mock) -> None:
         with pytest.raises(ValueError, match="email and password are required"):
-            pipe.authenticate({"email": "", "password": "secret"})
+            source.authenticate({"email": "", "password": "secret"})
 
-    def test_missing_password_raises(self, pipe: TileSource, auth_mock) -> None:
+    def test_missing_password_raises(self, source: TileSource, auth_mock) -> None:
         with pytest.raises(ValueError, match="email and password are required"):
-            pipe.authenticate({"email": "test@example.com", "password": ""})
+            source.authenticate({"email": "test@example.com", "password": ""})
 
     @patch("shenas_sources.tile.client.TileClient")
-    def test_successful_auth_stores_tokens(self, mock_tile_cls: MagicMock, pipe: TileSource, auth_mock) -> None:
+    def test_successful_auth_stores_tokens(self, mock_tile_cls: MagicMock, source: TileSource, auth_mock) -> None:
         import json
 
         mock_client = MagicMock()
         mock_client.client_uuid = "gen-uuid"
         mock_tile_cls.return_value = mock_client
 
-        pipe.authenticate({"email": "test@example.com", "password": "secret"})
+        source.authenticate({"email": "test@example.com", "password": "secret"})
 
         mock_client.login.assert_called_once()
         mock_client.close.assert_called_once()

@@ -808,6 +808,18 @@ class PluginDetail extends LitElement {
     }
 
     if (tables.length === 0 && !primaryFallbackTable) {
+      const declared = (this._info as unknown as Record<string, unknown>)?.declared_tables as
+        | {
+            table: string;
+            display_name: string;
+            description: string;
+            kind: string;
+            columns: { name: string; db_type: string; description: string }[];
+          }[]
+        | undefined;
+      if (declared && declared.length > 0) {
+        return this._renderDeclaredSchema(declared);
+      }
       return html`<p style="color:var(--shenas-text-muted,#888)">No tables synced yet.</p>`;
     }
 
@@ -826,6 +838,60 @@ class PluginDetail extends LitElement {
       refresh-key="${this._dataRefreshKey}"
       style="height:calc(100vh - 180px);min-height:300px"
     ></shenas-data-table>`;
+  }
+
+  _renderDeclaredSchema(
+    declared: {
+      table: string;
+      display_name: string;
+      description: string;
+      kind: string;
+      columns: { name: string; db_type: string; description: string }[];
+    }[],
+  ) {
+    return html`
+      <p style="color:var(--shenas-text-muted,#888);margin-bottom:1rem">Not yet synced. Declared tables:</p>
+      ${declared.map(
+        (t) => html`
+          <details style="margin-bottom:0.8rem">
+            <summary style="cursor:pointer;font-weight:600;font-size:0.9rem">
+              ${t.display_name || t.table}
+              ${t.kind
+                ? html`<span
+                    style="font-weight:400;color:var(--shenas-text-muted,#888);margin-left:0.5rem;font-size:0.8rem"
+                    >${t.kind}</span
+                  >`
+                : ""}
+            </summary>
+            ${t.description
+              ? html`<p style="color:var(--shenas-text-muted,#888);font-size:0.85rem;margin:0.3rem 0 0.5rem 1rem">
+                  ${t.description}
+                </p>`
+              : ""}
+            <table style="margin-left:1rem;font-size:0.85rem">
+              <thead>
+                <tr>
+                  <th style="text-align:left;padding:2px 12px 2px 0">Column</th>
+                  <th style="text-align:left;padding:2px 12px 2px 0">Type</th>
+                  <th style="text-align:left;padding:2px 0">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${t.columns.map(
+                  (c) => html`
+                    <tr>
+                      <td style="padding:2px 12px 2px 0;font-family:monospace">${c.name}</td>
+                      <td style="padding:2px 12px 2px 0;color:var(--shenas-text-muted,#888)">${c.db_type}</td>
+                      <td style="padding:2px 0">${c.description || ""}</td>
+                    </tr>
+                  `,
+                )}
+              </tbody>
+            </table>
+          </details>
+        `,
+      )}
+    `;
   }
 
   render() {

@@ -1,5 +1,5 @@
 from app.plugin import Plugin
-from shenas_sources.core.cli import create_pipe_app, print_load_info, run_sync
+from shenas_sources.core.cli import create_source_app, print_load_info, run_sync
 from shenas_sources.core.db import DB_PATH, close, connect, dlt_destination, flush_to_encrypted, get_db_key
 from shenas_sources.core.table import (
     AggregateTable,
@@ -28,7 +28,7 @@ __all__ = [
     "SourceTable",
     "close",
     "connect",
-    "create_pipe_app",
+    "create_source_app",
     "date_range",
     "dlt_destination",
     "flush_to_encrypted",

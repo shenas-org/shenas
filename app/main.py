@@ -185,7 +185,7 @@ async def plugin_icon(kind: str, name: str) -> Response:
 
 
 # ---------------------------------------------------------------------------
-# Theme + UI resolution
+# Theme + frontend resolution
 # ---------------------------------------------------------------------------
 
 
@@ -210,26 +210,25 @@ def _get_active_theme() -> type[Theme] | None:
     return themes[0] if themes else None
 
 
-def _serve_ui_html() -> HTMLResponse:
-    """Read and serve the active UI plugin's HTML from disk, or a fallback."""
+def _serve_frontend_html() -> HTMLResponse:
+    """Read and serve the active frontend plugin's HTML from disk, or a fallback."""
     from shenas_frontends.core import Frontend
 
-    uis = Frontend.load_all()
-    # Check for enabled frontend, fall back to CLI/env setting
+    frontends = Frontend.load_all()
     frontend_name = app.state.frontend_name
     try:
         from app.plugin import PluginInstance
 
-        for u in uis:
-            inst = PluginInstance.find("frontend", u.name)
+        for fe in frontends:
+            inst = PluginInstance.find("frontend", fe.name)
             if inst and inst.enabled:
-                frontend_name = u.name
+                frontend_name = fe.name
                 break
     except Exception:
         pass
-    ui = next((u for u in uis if u.name == frontend_name), None)
-    if ui:
-        html_file = ui.static_dir / ui.html
+    fe = next((f for f in frontends if f.name == frontend_name), None)
+    if fe:
+        html_file = fe.static_dir / fe.html
         if html_file.exists():
             content = html_file.read_text()
             theme = _get_active_theme()
@@ -248,9 +247,9 @@ _FALLBACK_HTML = """\
   </head>
   <body>
     <h1>shenas</h1>
-    <p>UI plugin <code>{frontend_name}</code> is not installed.</p>
+    <p>Frontend plugin <code>{frontend_name}</code> is not installed.</p>
     <p>Install it with: <code>shenasctl frontend add {frontend_name}</code></p>
-    <p>Or start with a different UI: <code>shenas --frontend other-name</code></p>
+    <p>Or start with a different frontend: <code>shenas --frontend other-name</code></p>
     <h2>API</h2>
     <ul>
       <li><a href="/api/health">GET /api/health</a></li>
@@ -455,10 +454,10 @@ if not _headless:
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> HTMLResponse:
-        """Serve the active UI plugin as the app shell."""
-        return _serve_ui_html()
+        """Serve the active frontend plugin as the app shell."""
+        return _serve_frontend_html()
 
     @app.get("/{path:path}", response_class=HTMLResponse, include_in_schema=False)
     def spa_fallback(path: str) -> HTMLResponse:  # noqa: ARG001
-        """SPA fallback -- serve UI HTML for any unmatched route."""
-        return _serve_ui_html()
+        """SPA fallback -- serve frontend HTML for any unmatched route."""
+        return _serve_frontend_html()

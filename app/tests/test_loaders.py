@@ -48,7 +48,7 @@ def _make_entry_point(name: str, obj: object, *, raises: bool = False) -> MagicM
 
 
 class TestGroup:
-    def test_pipe(self) -> None:
+    def test_source(self) -> None:
         assert Plugin._ep_group("source") == "shenas.sources"
 
     def test_theme(self) -> None:
@@ -238,13 +238,13 @@ class TestLoadFresh:
         site_dir = tmp_path / "lib" / "site-packages"
         site_dir.mkdir(parents=True)
 
-        mod_name = "_test_fake_pipe_mod"
+        mod_name = "_test_fake_source_mod"
         mod = MagicMock()
         mod.MySource = _FakePlugin  # a real Plugin subclass
 
         fake_ep = SimpleNamespace(
             group="shenas.sources",
-            name="fakepipe",
+            name="fakesource",
             value=f"{mod_name}:MySource",
         )
         fake_dist = MagicMock()
@@ -259,7 +259,7 @@ class TestLoadFresh:
             patch.dict(sys.modules, {mod_name: mod}),
             patch("importlib.import_module", return_value=mod),
         ):
-            result = Plugin._load_fresh("source", "fakepipe")
+            result = Plugin._load_fresh("source", "fakesource")
 
         assert result is _FakePlugin
 

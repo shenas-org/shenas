@@ -1,4 +1,4 @@
-"""Google Calendar pipe -- syncs events and calendar metadata."""
+"""Google Calendar source -- syncs events and calendar metadata."""
 
 from __future__ import annotations
 
