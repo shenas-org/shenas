@@ -1046,7 +1046,6 @@ class EntitiesPage extends LitElement {
                   ev.preventDefault();
                   this._openTypeEntitiesPanel(e.type);
                 }}
-                style="color:var(--shenas-accent,#6b8ab0);text-decoration:none"
                 >${this._typeDisplayName(e.type)}</a
               >`;
             },
