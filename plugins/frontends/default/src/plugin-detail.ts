@@ -824,7 +824,9 @@ class PluginDetail extends LitElement {
     }
 
     const schema = primaryFallbackSchema ?? defaultSchema;
-    const table = this._dataTable || primaryFallbackTable || this._info?.primary_table || tables[0]?.name || "";
+    const tableNames = new Set(tables.map((t) => t.name));
+    const preferred = this._dataTable || primaryFallbackTable || this._info?.primary_table || "";
+    const table = (preferred && tableNames.has(preferred) ? preferred : tables[0]?.name) || "";
     if (!this._dataTable && table) {
       requestAnimationFrame(() => {
         this._dataTable = table;
