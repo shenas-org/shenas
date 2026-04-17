@@ -16,6 +16,7 @@ import {
   GET_TRANSFORM_TYPES,
   GET_TABLE_COLUMNS,
   GET_CREATE_TRANSFORM_DATA,
+  GET_CATEGORY_SETS,
 } from "./graphql/queries.ts";
 import {
   CREATE_TRANSFORM,
@@ -25,9 +26,6 @@ import {
   DISABLE_TRANSFORM,
   TEST_TRANSFORM,
 } from "./graphql/mutations.ts";
-
-const _inspectBtnStyle =
-  "background:none;border:none;cursor:pointer;color:var(--shenas-text-faint, #aaa);font-size:0.7rem;padding:0 2px";
 
 interface Transform {
   id: number;
@@ -87,6 +85,7 @@ class TransformsPage extends LitElement {
     _transformTypes: { state: true },
     _sourceColumns: { state: true },
     _targetColumns: { state: true },
+    _categorySets: { state: true },
   };
 
   static styles = [
@@ -179,6 +178,7 @@ class TransformsPage extends LitElement {
   declare _transformTypes: TransformTypeInfo[];
   declare _sourceColumns: string[];
   declare _targetColumns: string[];
+  declare _categorySets: Array<{ displayName: string; values: Array<{ value: string }> }>;
 
   private _client = getClient();
 
@@ -213,6 +213,7 @@ class TransformsPage extends LitElement {
     this._transformTypes = [];
     this._sourceColumns = [];
     this._targetColumns = [];
+    this._categorySets = [];
   }
 
   _emptyForm(): TransformForm {
@@ -245,8 +246,13 @@ class TransformsPage extends LitElement {
 
   async _ensureTransformTypes(): Promise<void> {
     if (this._transformTypes.length) return;
-    const { data } = await this._client.query({ query: GET_TRANSFORM_TYPES });
-    this._transformTypes = (data?.transformTypes as TransformTypeInfo[]) || [];
+    const [typesResult, catsResult] = await Promise.all([
+      this._client.query({ query: GET_TRANSFORM_TYPES }),
+      this._client.query({ query: GET_CATEGORY_SETS }),
+    ]);
+    this._transformTypes = (typesResult.data?.transformTypes as TransformTypeInfo[]) || [];
+    this._categorySets =
+      (catsResult.data?.categorySets as Array<{ displayName: string; values: Array<{ value: string }> }>) || [];
   }
 
   async _fetchColumns(schema: string, table: string): Promise<string[]> {
@@ -335,6 +341,46 @@ class TransformsPage extends LitElement {
     this._editing = t.id;
     this._editSql = t.sql;
     this._previewRows = null;
+  }
+
+  _openViewPanel(t: Transform): void {
+    const panel = document.createElement("div");
+    panel.style.padding = "1rem";
+    const _lbl = "display:flex;flex-direction:column;gap:0.2rem;font-size:0.85rem;margin-bottom:0.6rem";
+    const _val = "padding:0.4rem;border:1px solid #eee;border-radius:4px;background:#f9f9f9;font-size:0.85rem";
+    const params = typeof t.params === "string" ? JSON.parse(t.params || "{}") : t.params || {};
+    const paramEntries = Object.entries(params).filter(([k]) => k !== "sql");
+    panel.innerHTML = `
+      <h3 style="margin:0 0 1rem;font-size:1rem">
+        View: ${t.source.displayName || t.source.tableName} -> ${t.target.displayName || t.target.tableName}
+      </h3>
+      <div style="display:flex;flex-direction:column;gap:0.4rem">
+        <div style="${_lbl}">
+          <span style="font-weight:600">Type</span>
+          <span style="${_val}">${t.transformType}</span>
+        </div>
+        <div style="${_lbl}">
+          <span style="font-weight:600">Source</span>
+          <span style="${_val}">${t.source.schemaName}.${t.source.tableName}</span>
+        </div>
+        <div style="${_lbl}">
+          <span style="font-weight:600">Target</span>
+          <span style="${_val}">${t.target.schemaName}.${t.target.tableName}</span>
+        </div>
+        ${t.description ? `<div style="${_lbl}"><span style="font-weight:600">Description</span><span style="${_val}">${t.description}</span></div>` : ""}
+        ${paramEntries.map(([k, v]) => `<div style="${_lbl}"><span style="font-weight:600">${k}</span><span style="${_val};white-space:pre-wrap">${v}</span></div>`).join("")}
+        ${t.sql ? `<div style="${_lbl}"><span style="font-weight:600">SQL</span><pre style="${_val};font-family:monospace;overflow-x:auto">${t.sql}</pre></div>` : ""}
+        <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.5rem">
+          <button id="close-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Close</button>
+        </div>
+      </div>
+    `;
+    panel.querySelector("#close-btn")?.addEventListener("click", () => {
+      this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
+    });
+    this.dispatchEvent(
+      new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 480 } }),
+    );
   }
 
   _cancelEdit(): void {
@@ -441,29 +487,55 @@ class TransformsPage extends LitElement {
             ${allSchemaTables.map((t) => `<option value="${t}" ${f.target_duckdb_table === t ? "selected" : ""}>${t}</option>`).join("")}
           </select>
         </label>
+        ${[...paramFields]
+          .sort((a, b) => {
+            // Description after all other fields (prompt template etc.)
+            if (a.name === "description") return 1;
+            if (b.name === "description") return -1;
+            return 0;
+          })
+          .map((p) => {
+            const val = f.params[p.name] || p.default || "";
+            let control: string;
+            if (p.type === "source_column") {
+              const cols = this._sourceColumns.filter((c: string) => !c.startsWith("_dlt_"));
+              control = `<select id="param-${p.name}" style="${_inp}">
+                <option value="">-- select --</option>
+                ${cols.map((c: string) => `<option value="${c}" ${val === c ? "selected" : ""}>${c}</option>`).join("")}
+              </select>`;
+            } else if (p.type === "target_column") {
+              const cols = this._targetColumns.filter((c: string) => !c.startsWith("_dlt_"));
+              control = `<select id="param-${p.name}" style="${_inp}">
+                <option value="">-- select --</option>
+                ${cols.map((c: string) => `<option value="${c}" ${val === c ? "selected" : ""}>${c}</option>`).join("")}
+              </select>`;
+            } else if (p.type === "category_set") {
+              const sets = this._categorySets || [];
+              control = `<select id="param-${p.name}" style="${_inp}">
+                <option value="">-- select --</option>
+                ${sets.map((s: { displayName: string; values: Array<{ value: string }> }) => `<option value="${s.values.map((v: { value: string }) => v.value).join(",")}" ${val === s.values.map((v: { value: string }) => v.value).join(",") ? "selected" : ""}>${s.displayName}</option>`).join("")}
+              </select>`;
+            } else if (p.type === "select" && p.options) {
+              control = `<select id="param-${p.name}" style="${_inp}">
+                ${p.options.map((o: string) => `<option value="${o}" ${val === o ? "selected" : ""}>${o}</option>`).join("")}
+              </select>`;
+            } else if (p.type === "textarea") {
+              control = `<textarea id="param-${p.name}" rows="4" style="${_inp};font-family:monospace;font-size:0.85rem">${val}</textarea>`;
+            } else {
+              control = `<input id="param-${p.name}" value="${val}" style="${_inp}" ${p.type === "number" ? 'type="number"' : ""} />`;
+            }
+            return `
+              <label style="${_lbl}">
+                ${p.label}${p.required ? " *" : ""}
+                ${control}
+                ${p.description ? `<span style="font-size:0.75rem;color:#888">${p.description}</span>` : ""}
+              </label>`;
+          })
+          .join("")}
         <label style="${_lbl}">
           Description
           <input id="desc" value="${f.description}" style="${_inp}" />
         </label>
-        ${paramFields
-          .map(
-            (p) => `
-          <label style="${_lbl}">
-            ${p.label}${p.required ? " *" : ""}
-            ${
-              p.type === "select" && p.options
-                ? `<select id="param-${p.name}" style="${_inp}">
-                  ${p.options.map((o) => `<option value="${o}" ${(f.params[p.name] || p.default || "") === o ? "selected" : ""}>${o}</option>`).join("")}
-                </select>`
-                : p.type === "textarea"
-                  ? `<textarea id="param-${p.name}" rows="4" style="${_inp};font-family:monospace;font-size:0.85rem">${f.params[p.name] || p.default || ""}</textarea>`
-                  : `<input id="param-${p.name}" value="${f.params[p.name] || p.default || ""}" style="${_inp}" ${p.type === "number" ? 'type="number"' : ""} />`
-            }
-            ${p.description ? `<span style="font-size:0.75rem;color:#888">${p.description}</span>` : ""}
-          </label>
-        `,
-          )
-          .join("")}
         <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.5rem">
           <button id="create-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Create</button>
           <button id="cancel-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Cancel</button>
@@ -570,29 +642,23 @@ class TransformsPage extends LitElement {
             { key: "id", label: "ID", class: "muted" },
             {
               label: "Source",
-              class: "mono",
               render: (t: Transform) =>
-                html`${t.source.schemaName}.${t.source.tableName}
-                  <button
-                    style=${_inspectBtnStyle}
-                    title="Inspect table"
-                    @click=${() => this._inspectTable(t.source.schemaName, t.source.tableName)}
-                  >
-                    &#9655;
-                  </button>`,
+                html`<span
+                  style="cursor:pointer;color:var(--shenas-text,#333);text-decoration:underline;text-decoration-color:var(--shenas-text-faint,#ccc)"
+                  title="${t.source.schemaName}.${t.source.tableName}"
+                  @click=${() => this._inspectTable(t.source.schemaName, t.source.tableName)}
+                  >${t.source.displayName || t.source.tableName}</span
+                >`,
             },
             {
               label: "Target",
-              class: "mono",
               render: (t: Transform) =>
-                html`${t.target.schemaName}.${t.target.tableName}
-                  <button
-                    style=${_inspectBtnStyle}
-                    title="Inspect table"
-                    @click=${() => this._inspectTable(t.target.schemaName, t.target.tableName)}
-                  >
-                    &#9655;
-                  </button>`,
+                html`<span
+                  style="cursor:pointer;color:var(--shenas-text,#333);text-decoration:underline;text-decoration-color:var(--shenas-text-faint,#ccc)"
+                  title="${t.target.schemaName}.${t.target.tableName}"
+                  @click=${() => this._inspectTable(t.target.schemaName, t.target.tableName)}
+                  >${t.target.displayName || t.target.tableName}</span
+                >`,
             },
             {
               label: "Description",
@@ -615,7 +681,7 @@ class TransformsPage extends LitElement {
           .actions=${(t: Transform) => html`
             ${!t.isDefault
               ? html`<button @click=${() => this._startEdit(t)}>Edit</button>`
-              : html`<button @click=${() => this._startEdit(t)}>View</button>`}
+              : html`<button @click=${() => this._openViewPanel(t)}>View</button>`}
             ${!t.isDefault ? html`<button class="danger" @click=${() => this._delete(t)}>Delete</button>` : ""}
           `}
           empty-text="No transforms"
@@ -685,8 +751,8 @@ class TransformsPage extends LitElement {
     return html`
       <div class="edit-panel">
         <h3>
-          ${readonly ? "View" : "Edit"}: ${t.source.schemaName}.${t.source.tableName} ->
-          ${t.target.schemaName}.${t.target.tableName}
+          ${readonly ? "View" : "Edit"}: ${t.source.displayName || t.source.tableName} ->
+          ${t.target.displayName || t.target.tableName}
         </h3>
         <textarea
           .value=${this._editSql}

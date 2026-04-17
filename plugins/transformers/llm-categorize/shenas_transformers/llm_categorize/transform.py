@@ -137,9 +137,9 @@ class LlmCategorizeTransformer(Transformer):
             {
                 "name": "categories",
                 "label": "Categories",
-                "type": "text",
+                "type": "category_set",
                 "required": False,
-                "description": "Comma-separated list of valid categories",
+                "description": "Pick a category set or leave empty for freeform",
             },
             {
                 "name": "prompt",
