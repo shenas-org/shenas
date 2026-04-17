@@ -1,4 +1,4 @@
-import { LitElement, html, css } from "lit";
+import { LitElement, html, css, render } from "lit";
 import cytoscape from "cytoscape";
 // The vendor bundle re-exports cytoscape-dagre as `dagre` from "cytoscape".
 // @ts-expect-error dagre is provided by the vendor bundle, not the real cytoscape package
@@ -311,7 +311,7 @@ class EntitiesPage extends LitElement {
    */
   _openEntityPanel(entity?: Entity): void {
     const isEdit = !!entity;
-    const form: EntityForm = entity
+    const current: EntityForm = entity
       ? {
           name: entity.name,
           type: entity.type,
@@ -320,123 +320,114 @@ class EntitiesPage extends LitElement {
         }
       : this._emptyEntityForm();
 
-    const typeOptions = this._entityTypes
-      .map(
-        (t) =>
-          `<option value="${t.name}"${t.name === form.type ? " selected" : ""}>${this._escape(t.displayName)}</option>`,
-      )
-      .join("");
-
     const panel = document.createElement("div");
     panel.style.padding = "1rem";
-    panel.innerHTML = `
-      <h3 style="margin-top:0">${isEdit ? `Edit ${this._escape(entity!.name)}` : "Add entity"}</h3>
-      <label style="display:block;margin-bottom:0.6rem">
-        Type<br/>
-        <select id="f-type" style="width:100%">${typeOptions}</select>
-      </label>
-      <div id="name-row"></div>
-      <label style="display:block;margin-bottom:0.6rem">
-        Description<br/>
-        <input id="f-desc" type="text" style="width:100%" value="${this._escape(form.description)}" />
-      </label>
-      <div style="display:flex;gap:0.5rem;margin-top:1rem">
-        <button id="save-btn">${isEdit ? "Save" : "Add"}</button>
-        <button id="cancel-btn">Cancel</button>
-      </div>
-      ${isEdit ? '<hr style="margin:1.2rem 0"/><div id="statements-section"></div>' : ""}
-    `;
 
-    const current: EntityForm = { ...form };
+    const SENTINEL = "__new__";
+    let showNewNameField = false;
 
-    const renderNameRow = () => {
-      const row = panel.querySelector("#name-row") as HTMLDivElement;
-      if (isEdit) {
-        // Edit mode: always a text field bound to the entity's current name.
-        row.innerHTML = `
-          <label style="display:block;margin-bottom:0.6rem">
-            Name<br/>
-            <input id="f-name" type="text" style="width:100%" value="${this._escape(current.name)}" />
-          </label>
-        `;
-        row.querySelector("#f-name")?.addEventListener("input", (e) => {
-          current.name = (e.target as HTMLInputElement).value;
-          current.pickedUuid = null;
-        });
-        return;
-      }
+    const typeOptions = this._entityTypes.map((t) => ({ value: t.name, label: t.displayName }));
+
+    const renderPanel = () => {
       const candidates = this._disabledOfType(current.type);
-      if (candidates.length === 0) {
-        row.innerHTML = `
-          <label style="display:block;margin-bottom:0.6rem">
-            Name<br/>
-            <input id="f-name" type="text" style="width:100%" value="${this._escape(current.name)}" />
-          </label>
-        `;
-        row.querySelector("#f-name")?.addEventListener("input", (e) => {
-          current.name = (e.target as HTMLInputElement).value;
-          current.pickedUuid = null;
-        });
-        return;
-      }
-      // Have disabled candidates: show a dropdown + "Create new..." sentinel.
-      const SENTINEL = "__new__";
-      const options = candidates.map((c) => `<option value="${c.uuid}">${this._escape(c.name)}</option>`).join("");
-      row.innerHTML = `
-        <label style="display:block;margin-bottom:0.6rem">
-          Name<br/>
-          <select id="f-pick" style="width:100%">
-            <option value="" selected disabled>Pick an existing ${this._escape(this._typeDisplayName(current.type))}...</option>
-            ${options}
-            <option value="${SENTINEL}">Create new...</option>
-          </select>
-          <input
-            id="f-name"
-            type="text"
-            style="width:100%;margin-top:0.4rem;display:none"
-            placeholder="New ${this._escape(this._typeDisplayName(current.type))} name"
-            value=""
-          />
-        </label>
-      `;
-      current.name = "";
-      current.pickedUuid = null;
-      const nameInput = row.querySelector("#f-name") as HTMLInputElement;
-      row.querySelector("#f-pick")?.addEventListener("change", (e) => {
-        const value = (e.target as HTMLSelectElement).value;
-        if (value === SENTINEL) {
-          nameInput.style.display = "block";
-          nameInput.focus();
-          current.pickedUuid = null;
-          current.name = nameInput.value;
-        } else {
-          nameInput.style.display = "none";
-          const match = candidates.find((c) => c.uuid === value);
-          current.pickedUuid = value || null;
-          current.name = match?.name ?? "";
-        }
-      });
-      nameInput.addEventListener("input", (e) => {
-        current.name = (e.target as HTMLInputElement).value;
-        current.pickedUuid = null;
-      });
+      const hasCandidates = !isEdit && candidates.length > 0;
+
+      const candidateOptions = hasCandidates
+        ? [...candidates.map((c) => ({ value: c.uuid, label: c.name })), { value: SENTINEL, label: "Create new..." }]
+        : [];
+
+      render(
+        html`
+          <shenas-form-panel
+            title=${isEdit ? `Edit ${entity!.name}` : "Add entity"}
+            submit-label=${isEdit ? "Save" : "Add"}
+            @submit=${() => {
+              if (isEdit) void this._saveEntityEdit(entity!.uuid, current);
+              else void this._saveEntityCreate(current);
+            }}
+            @cancel=${() => this._closePanel()}
+          >
+            <shenas-dropdown
+              label="Type"
+              .options=${typeOptions}
+              value=${current.type}
+              @change=${(e: CustomEvent) => {
+                current.type = e.detail.value;
+                current.name = "";
+                current.pickedUuid = null;
+                showNewNameField = false;
+                renderPanel();
+              }}
+            ></shenas-dropdown>
+            ${isEdit
+              ? html`<shenas-field
+                  label="Name"
+                  value=${current.name}
+                  @change=${(e: CustomEvent) => {
+                    current.name = e.detail.value;
+                    current.pickedUuid = null;
+                  }}
+                ></shenas-field>`
+              : hasCandidates
+                ? html`
+                    <shenas-dropdown
+                      label="Name"
+                      placeholder="Pick an existing ${this._typeDisplayName(current.type)}..."
+                      .options=${candidateOptions}
+                      value=${current.pickedUuid || (showNewNameField ? SENTINEL : "")}
+                      @change=${(e: CustomEvent) => {
+                        const value = e.detail.value;
+                        if (value === SENTINEL) {
+                          showNewNameField = true;
+                          current.pickedUuid = null;
+                          current.name = "";
+                          renderPanel();
+                        } else {
+                          showNewNameField = false;
+                          const match = candidates.find((c) => c.uuid === value);
+                          current.pickedUuid = value || null;
+                          current.name = match?.name ?? "";
+                          renderPanel();
+                        }
+                      }}
+                    ></shenas-dropdown>
+                    ${showNewNameField
+                      ? html`<shenas-field
+                          label=""
+                          placeholder="New ${this._typeDisplayName(current.type)} name"
+                          value=${current.name}
+                          @change=${(e: CustomEvent) => {
+                            current.name = e.detail.value;
+                            current.pickedUuid = null;
+                          }}
+                        ></shenas-field>`
+                      : ""}
+                  `
+                : html`<shenas-field
+                    label="Name"
+                    value=${current.name}
+                    @change=${(e: CustomEvent) => {
+                      current.name = e.detail.value;
+                      current.pickedUuid = null;
+                    }}
+                  ></shenas-field>`}
+            <shenas-field
+              label="Description"
+              value=${current.description}
+              @change=${(e: CustomEvent) => {
+                current.description = e.detail.value;
+              }}
+            ></shenas-field>
+          </shenas-form-panel>
+          ${isEdit
+            ? html`<hr style="margin:1.2rem 0" />
+                <div id="statements-section"></div>`
+            : ""}
+        `,
+        panel,
+      );
     };
-
-    renderNameRow();
-
-    panel.querySelector("#f-desc")?.addEventListener("input", (e) => {
-      current.description = (e.target as HTMLInputElement).value;
-    });
-    panel.querySelector("#f-type")?.addEventListener("change", (e) => {
-      current.type = (e.target as HTMLSelectElement).value;
-      // Rebuild the name row since candidates depend on the type.
-      renderNameRow();
-    });
-    panel.querySelector("#save-btn")?.addEventListener("click", () => {
-      if (isEdit) void this._saveEntityEdit(entity!.uuid, current);
-      else void this._saveEntityCreate(current);
-    });
-    panel.querySelector("#cancel-btn")?.addEventListener("click", () => this._closePanel());
+    renderPanel();
 
     if (isEdit && entity) {
       void this._renderStatementsSection(panel, entity.uuid);
@@ -626,47 +617,54 @@ class EntitiesPage extends LitElement {
       this._message = { type: "error", text: "Add at least two entities and a relationship type first." };
       return;
     }
-    const entityOptions = ['<option value="">--</option>']
-      .concat(this._entities.map((e) => `<option value="${e.uuid}">${this._escape(e.name)}</option>`))
-      .join("");
-    const typeOptions = ['<option value="">--</option>']
-      .concat(this._relationshipTypes.map((t) => `<option value="${t.name}">${this._escape(t.displayName)}</option>`))
-      .join("");
+
+    const entityOptions = this._entities.map((e) => ({ value: e.uuid, label: e.name }));
+    const relTypeOptions = this._relationshipTypes.map((t) => ({ value: t.name, label: t.displayName }));
+
+    const form: RelationshipForm = { fromUuid: "", toUuid: "", type: "" };
 
     const panel = document.createElement("div");
     panel.style.padding = "1rem";
-    panel.innerHTML = `
-      <h3 style="margin-top:0">Add relationship</h3>
-      <label style="display:block;margin-bottom:0.6rem">
-        From<br/>
-        <select id="r-from" style="width:100%">${entityOptions}</select>
-      </label>
-      <label style="display:block;margin-bottom:0.6rem">
-        Type<br/>
-        <select id="r-type" style="width:100%">${typeOptions}</select>
-      </label>
-      <label style="display:block;margin-bottom:0.6rem">
-        To<br/>
-        <select id="r-to" style="width:100%">${entityOptions}</select>
-      </label>
-      <div style="display:flex;gap:0.5rem;margin-top:1rem">
-        <button id="save-btn">Add</button>
-        <button id="cancel-btn">Cancel</button>
-      </div>
-    `;
 
-    const form: RelationshipForm = { fromUuid: "", toUuid: "", type: "" };
-    panel.querySelector("#r-from")?.addEventListener("change", (e) => {
-      form.fromUuid = (e.target as HTMLSelectElement).value;
-    });
-    panel.querySelector("#r-to")?.addEventListener("change", (e) => {
-      form.toUuid = (e.target as HTMLSelectElement).value;
-    });
-    panel.querySelector("#r-type")?.addEventListener("change", (e) => {
-      form.type = (e.target as HTMLSelectElement).value;
-    });
-    panel.querySelector("#save-btn")?.addEventListener("click", () => void this._saveRelationship(form));
-    panel.querySelector("#cancel-btn")?.addEventListener("click", () => this._closePanel());
+    render(
+      html`
+        <shenas-form-panel
+          title="Add relationship"
+          submit-label="Add"
+          @submit=${() => void this._saveRelationship(form)}
+          @cancel=${() => this._closePanel()}
+        >
+          <shenas-dropdown
+            label="From"
+            placeholder="--"
+            .options=${entityOptions}
+            value=${form.fromUuid}
+            @change=${(e: CustomEvent) => {
+              form.fromUuid = e.detail.value;
+            }}
+          ></shenas-dropdown>
+          <shenas-dropdown
+            label="Type"
+            placeholder="--"
+            .options=${relTypeOptions}
+            value=${form.type}
+            @change=${(e: CustomEvent) => {
+              form.type = e.detail.value;
+            }}
+          ></shenas-dropdown>
+          <shenas-dropdown
+            label="To"
+            placeholder="--"
+            .options=${entityOptions}
+            value=${form.toUuid}
+            @change=${(e: CustomEvent) => {
+              form.toUuid = e.detail.value;
+            }}
+          ></shenas-dropdown>
+        </shenas-form-panel>
+      `,
+      panel,
+    );
 
     this._panelEl = panel;
     this.dispatchEvent(
@@ -874,43 +872,42 @@ class EntitiesPage extends LitElement {
 
     const panel = document.createElement("div");
     panel.style.padding = "1rem";
-    const body =
-      entities.length === 0
-        ? `<p style="color:var(--shenas-text-faint,#888)">No entities of type ${this._escape(displayName)} yet.</p>`
-        : `
-          <ul style="list-style:none;padding:0;margin:0">
-            ${entities
-              .map(
-                (e) => `
-                  <li
-                    data-uuid="${e.uuid}"
-                    style="padding:0.4rem 0.6rem;margin-bottom:0.3rem;border:1px solid var(--shenas-border,#d8d4cc);border-radius:4px;cursor:pointer"
-                  >
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">
-                      <span>
-                        ${this._escape(e.name || "(unnamed)")}
-                        ${e.isMe ? '<span class="me-badge" style="margin-left:0.3rem">me</span>' : ""}
-                      </span>
-                      <span style="color:var(--shenas-text-faint,#888);font-size:0.85rem">${this._escape(e.status)}</span>
-                    </div>
-                  </li>
-                `,
-              )
-              .join("")}
-          </ul>
-        `;
-    panel.innerHTML = `
-      <h3 style="margin-top:0">${this._escape(displayName)} entities <span style="color:var(--shenas-text-faint,#888);font-weight:normal">(${entities.length})</span></h3>
-      ${body}
-    `;
 
-    for (const li of Array.from(panel.querySelectorAll<HTMLLIElement>("li[data-uuid]"))) {
-      li.addEventListener("click", () => {
-        const uuid = li.dataset.uuid;
-        const e = entities.find((x) => x.uuid === uuid);
-        if (e && !e.isMe) this._openEntityPanel(e);
-      });
-    }
+    render(
+      html`
+        <h3 style="margin-top:0">
+          ${displayName} entities
+          <span style="color:var(--shenas-text-faint,#888);font-weight:normal">(${entities.length})</span>
+        </h3>
+        ${entities.length === 0
+          ? html`<p style="color:var(--shenas-text-faint,#888)">No entities of type ${displayName} yet.</p>`
+          : html`
+              <ul style="list-style:none;padding:0;margin:0">
+                ${entities.map(
+                  (e) => html`
+                    <li
+                      style="padding:0.4rem 0.6rem;margin-bottom:0.3rem;border:1px solid var(--shenas-border,#d8d4cc);border-radius:4px;cursor:${e.isMe
+                        ? "default"
+                        : "pointer"}"
+                      @click=${() => {
+                        if (!e.isMe) this._openEntityPanel(e);
+                      }}
+                    >
+                      <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">
+                        <span>
+                          ${e.name || "(unnamed)"}
+                          ${e.isMe ? html`<span class="me-badge" style="margin-left:0.3rem">me</span>` : ""}
+                        </span>
+                        <span style="color:var(--shenas-text-faint,#888);font-size:0.85rem">${e.status}</span>
+                      </div>
+                    </li>
+                  `,
+                )}
+              </ul>
+            `}
+      `,
+      panel,
+    );
 
     this._panelEl = panel;
     this.dispatchEvent(

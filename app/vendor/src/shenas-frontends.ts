@@ -53,3 +53,5 @@ import "./shenas-frontends/shenas-page.ts";
 import "./shenas-frontends/status-toggle.ts";
 import "./shenas-frontends/data-list.ts";
 import "./shenas-frontends/form-panel.ts";
+import "./shenas-frontends/field.ts";
+import "./shenas-frontends/dropdown.ts";

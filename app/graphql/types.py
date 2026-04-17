@@ -457,7 +457,7 @@ class GqlEntityType:
         from app.entities.statements import Statement
 
         stmts = Statement.all(
-            where="entity_id = ? AND _dlt_valid_to IS NULL",
+            where="entity_id = ?",
             params=[self.uuid],
             order_by="property_id, value",
         )
@@ -465,7 +465,7 @@ class GqlEntityType:
         props_by_id: dict[str, Property] = {}
         for pid in pids:
             p = Property.all(
-                where="id = ? AND _dlt_valid_to IS NULL",
+                where="id = ?",
                 params=[pid],
                 limit=1,
             )

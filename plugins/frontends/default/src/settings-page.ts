@@ -1,5 +1,5 @@
 import "./categories-page.ts";
-import { LitElement, html, css } from "lit";
+import { LitElement, html, css, render } from "lit";
 import {
   ApolloQueryController,
   ApolloMutationController,
@@ -468,31 +468,40 @@ class SettingsPage extends LitElement {
   _renderInstallPanel(container: HTMLElement, kind: string, label: string): void {
     const plugins = this._availablePlugins;
     const singular = label.endsWith("s") ? label.slice(0, -1) : label;
-    container.innerHTML = `
-      <h3 style="margin:0 0 1rem;font-size:1rem">Add ${singular}</h3>
-      ${
-        plugins === null
-          ? '<p style="color:#888">Loading available plugins...</p>'
-          : plugins.length === 0
-            ? `<p style="color:#888">No new ${label.toLowerCase()} available</p>`
-            : `<select id="plugin-select" style="width:100%;padding:0.5rem;border:1px solid #ddd;border-radius:6px;font-size:0.9rem;margin-bottom:1rem">
-              <option value="">Select a ${singular.toLowerCase()}...</option>
-              ${plugins.map((n) => `<option value="${n}">${this._displayPluginName(n)}</option>`).join("")}
-            </select>`
-      }
-      <div style="display:flex;gap:0.5rem;justify-content:flex-end">
-        <button id="install-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Add</button>
-        <button id="cancel-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Cancel</button>
-      </div>
-    `;
-    container.querySelector("#plugin-select")?.addEventListener("change", (e) => {
-      this._selectedPlugin = (e.target as HTMLSelectElement).value;
-    });
-    container.querySelector("#install-btn")?.addEventListener("click", () => this._install(kind));
-    container.querySelector("#cancel-btn")?.addEventListener("click", () => {
-      this._installing = false;
-      this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
-    });
+
+    const pluginOptions = (plugins || []).map((n) => ({
+      value: n,
+      label: this._displayPluginName(n),
+    }));
+
+    render(
+      html`
+        <shenas-form-panel
+          title="Add ${singular}"
+          submit-label="Add"
+          @submit=${() => this._install(kind)}
+          @cancel=${() => {
+            this._installing = false;
+            this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
+          }}
+        >
+          ${plugins === null
+            ? html`<p style="color:#888">Loading available plugins...</p>`
+            : plugins.length === 0
+              ? html`<p style="color:#888">No new ${label.toLowerCase()} available</p>`
+              : html`<shenas-dropdown
+                  label=""
+                  placeholder="Select a ${singular.toLowerCase()}..."
+                  .options=${pluginOptions}
+                  value=${this._selectedPlugin}
+                  @change=${(e: CustomEvent) => {
+                    this._selectedPlugin = e.detail.value;
+                  }}
+                ></shenas-dropdown>`}
+        </shenas-form-panel>
+      `,
+      container,
+    );
   }
 
   async _install(kind: string): Promise<void> {

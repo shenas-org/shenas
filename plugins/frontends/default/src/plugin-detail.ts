@@ -407,16 +407,14 @@ class PluginDetail extends LitElement {
       fetchPolicy: "network-only",
     });
     this._info = data?.pluginInfo as PluginInfo | null;
-    if (!this.dbStatus) {
-      try {
-        const { data: dbData } = await this._client.query({
-          query: gqlTag`{ dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } } }`,
-          fetchPolicy: "network-only",
-        });
-        this.dbStatus = (dbData?.dbStatus as DbStatus | null) ?? null;
-      } catch {
-        /* ignore */
-      }
+    try {
+      const { data: dbData } = await this._client.query({
+        query: gqlTag`{ dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } } }`,
+        fetchPolicy: "network-only",
+      });
+      this.dbStatus = (dbData?.dbStatus as DbStatus | null) ?? null;
+    } catch {
+      /* ignore */
     }
     const db = this.dbStatus;
     const ownership = this.schemaPlugins;

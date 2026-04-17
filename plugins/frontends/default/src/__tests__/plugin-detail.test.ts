@@ -324,12 +324,12 @@ describe("shenas-plugin-detail", () => {
     const el = mount();
     el.kind = "source";
     el.name = "garmin";
-    el.dbStatus = {
+    const dbStatus = {
       schemas: [{ name: "garmin", tables: [{ name: "activities" }, { name: "_dlt_loads" }] }],
     };
-    (globalThis.fetch as any).mockResolvedValue(
-      mockResponse({ data: { pluginInfo: { name: "garmin", kind: "source" } } }),
-    );
+    (globalThis.fetch as any)
+      .mockResolvedValueOnce(mockResponse({ data: { pluginInfo: { name: "garmin", kind: "source" } } }))
+      .mockResolvedValueOnce(mockResponse({ data: { dbStatus } }));
     await el._fetchInfo();
     expect(el._tables.length).toBe(1);
     expect(el._tables[0].name).toBe("activities");
@@ -339,15 +339,17 @@ describe("shenas-plugin-detail", () => {
     const el = mount();
     el.kind = "dataset";
     el.name = "fitness";
-    el.dbStatus = {
+    const dbStatus = {
       schemas: [{ name: "metrics", tables: [{ name: "hrv" }, { name: "transactions" }] }],
     };
     el.schemaPlugins = { fitness: ["hrv"] };
-    (globalThis.fetch as any).mockResolvedValue(
-      mockResponse({
-        data: { pluginInfo: { name: "fitness", kind: "dataset" }, transforms: [] },
-      }),
-    );
+    (globalThis.fetch as any)
+      .mockResolvedValueOnce(
+        mockResponse({
+          data: { pluginInfo: { name: "fitness", kind: "dataset" }, transforms: [] },
+        }),
+      )
+      .mockResolvedValueOnce(mockResponse({ data: { dbStatus } }));
     await el._fetchInfo();
     expect(el._tables.map((t: any) => t.name)).toEqual(["hrv"]);
   });

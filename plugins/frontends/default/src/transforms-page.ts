@@ -57,6 +57,7 @@ interface ParamField {
   description: string;
   default: string | null;
   options: string[] | null;
+  visible_when?: Record<string, string> | null;
 }
 
 interface TransformTypeInfo {
@@ -409,10 +410,15 @@ class TransformsPage extends LitElement {
     this._newForm = this._emptyForm();
     this._editing = null;
     this._previewRows = null;
-    const { data } = await this._client.query({ query: GET_CREATE_TRANSFORM_DATA, fetchPolicy: "network-only" });
+    const [{ data }, catsResult] = await Promise.all([
+      this._client.query({ query: GET_CREATE_TRANSFORM_DATA, fetchPolicy: "network-only" }),
+      this._client.query({ query: GET_CATEGORY_SETS }),
+    ]);
     this._dbTables = (data?.dbTables as Record<string, string[]>) || {};
     this._schemaTables = (data?.schemaTables as Record<string, string[]>) || {};
     this._transformTypes = (data?.transformTypes as TransformTypeInfo[]) || [];
+    this._categorySets =
+      (catsResult.data?.categorySets as Array<{ displayName: string; values: Array<{ value: string }> }>) || [];
     // Show create form in app-shell's right panel
     this._showCreatePanel();
   }
@@ -463,6 +469,51 @@ class TransformsPage extends LitElement {
     const _lbl = "display:flex;flex-direction:column;gap:0.2rem;font-size:0.85rem";
     const _inp = "padding:0.4rem;border:1px solid #ddd;border-radius:4px";
 
+    const renderParam = (p: ParamField): string => {
+      if (p.visible_when) {
+        const hidden = Object.entries(p.visible_when).some(([k, v]) => (f.params[k] || "") !== v);
+        if (hidden) return "";
+      }
+      const val = f.params[p.name] || p.default || "";
+      let control: string;
+      if (p.type === "source_column") {
+        const cols = this._sourceColumns.filter((c: string) => !c.startsWith("_dlt_"));
+        control = `<select id="param-${p.name}" style="${_inp}">
+          <option value="">-- select --</option>
+          ${cols.map((c: string) => `<option value="${c}" ${val === c ? "selected" : ""}>${c}</option>`).join("")}
+        </select>`;
+      } else if (p.type === "target_column") {
+        const cols = this._targetColumns.filter((c: string) => !c.startsWith("_dlt_"));
+        control = `<select id="param-${p.name}" style="${_inp}">
+          <option value="">-- select --</option>
+          ${cols.map((c: string) => `<option value="${c}" ${val === c ? "selected" : ""}>${c}</option>`).join("")}
+        </select>`;
+      } else if (p.type === "category_set") {
+        const sets = this._categorySets || [];
+        control = `<select id="param-${p.name}" style="${_inp}">
+          <option value="">-- select --</option>
+          ${sets.map((s: { displayName: string; values: Array<{ value: string }> }) => `<option value="${s.values.map((v: { value: string }) => v.value).join(",")}" ${val === s.values.map((v: { value: string }) => v.value).join(",") ? "selected" : ""}>${s.displayName}</option>`).join("")}
+        </select>`;
+      } else if (p.type === "select" && p.options) {
+        control = `<select id="param-${p.name}" style="${_inp}">
+          ${p.options.map((o: string) => `<option value="${o}" ${val === o ? "selected" : ""}>${o}</option>`).join("")}
+        </select>`;
+      } else if (p.type === "textarea") {
+        control = `<textarea id="param-${p.name}" rows="4" style="${_inp};font-family:monospace;font-size:0.85rem">${val}</textarea>`;
+      } else {
+        control = `<input id="param-${p.name}" value="${val}" style="${_inp}" ${p.type === "number" ? 'type="number"' : ""} />`;
+      }
+      return `
+        <label style="${_lbl}">
+          ${p.label}${p.required ? " *" : ""}
+          ${control}
+          ${p.description ? `<span style="font-size:0.75rem;color:#888">${p.description}</span>` : ""}
+        </label>`;
+    };
+    const sourceParams = paramFields.filter((p) => p.type === "source_column");
+    const targetParams = paramFields.filter((p) => p.type === "target_column");
+    const otherParams = paramFields.filter((p) => p.type !== "source_column" && p.type !== "target_column");
+
     panel.innerHTML = `
       <h3 style="margin:0 0 1rem;font-size:1rem">New transform</h3>
       <div style="display:flex;flex-direction:column;gap:0.8rem">
@@ -480,6 +531,7 @@ class TransformsPage extends LitElement {
             ${sourceTables.map((t) => `<option value="${t}" ${f.source_duckdb_table === t ? "selected" : ""}>${t}</option>`).join("")}
           </select>
         </label>
+        ${sourceParams.map(renderParam).join("")}
         <label style="${_lbl}">
           Target table
           <select id="tgt-table" style="${_inp}">
@@ -487,54 +539,11 @@ class TransformsPage extends LitElement {
             ${allSchemaTables.map((t) => `<option value="${t}" ${f.target_duckdb_table === t ? "selected" : ""}>${t}</option>`).join("")}
           </select>
         </label>
-        ${[...paramFields]
-          .sort((a, b) => {
-            // Description after all other fields (prompt template etc.)
-            if (a.name === "description") return 1;
-            if (b.name === "description") return -1;
-            return 0;
-          })
-          .map((p) => {
-            const val = f.params[p.name] || p.default || "";
-            let control: string;
-            if (p.type === "source_column") {
-              const cols = this._sourceColumns.filter((c: string) => !c.startsWith("_dlt_"));
-              control = `<select id="param-${p.name}" style="${_inp}">
-                <option value="">-- select --</option>
-                ${cols.map((c: string) => `<option value="${c}" ${val === c ? "selected" : ""}>${c}</option>`).join("")}
-              </select>`;
-            } else if (p.type === "target_column") {
-              const cols = this._targetColumns.filter((c: string) => !c.startsWith("_dlt_"));
-              control = `<select id="param-${p.name}" style="${_inp}">
-                <option value="">-- select --</option>
-                ${cols.map((c: string) => `<option value="${c}" ${val === c ? "selected" : ""}>${c}</option>`).join("")}
-              </select>`;
-            } else if (p.type === "category_set") {
-              const sets = this._categorySets || [];
-              control = `<select id="param-${p.name}" style="${_inp}">
-                <option value="">-- select --</option>
-                ${sets.map((s: { displayName: string; values: Array<{ value: string }> }) => `<option value="${s.values.map((v: { value: string }) => v.value).join(",")}" ${val === s.values.map((v: { value: string }) => v.value).join(",") ? "selected" : ""}>${s.displayName}</option>`).join("")}
-              </select>`;
-            } else if (p.type === "select" && p.options) {
-              control = `<select id="param-${p.name}" style="${_inp}">
-                ${p.options.map((o: string) => `<option value="${o}" ${val === o ? "selected" : ""}>${o}</option>`).join("")}
-              </select>`;
-            } else if (p.type === "textarea") {
-              control = `<textarea id="param-${p.name}" rows="4" style="${_inp};font-family:monospace;font-size:0.85rem">${val}</textarea>`;
-            } else {
-              control = `<input id="param-${p.name}" value="${val}" style="${_inp}" ${p.type === "number" ? 'type="number"' : ""} />`;
-            }
-            return `
-              <label style="${_lbl}">
-                ${p.label}${p.required ? " *" : ""}
-                ${control}
-                ${p.description ? `<span style="font-size:0.75rem;color:#888">${p.description}</span>` : ""}
-              </label>`;
-          })
-          .join("")}
+        ${targetParams.map(renderParam).join("")}
+        ${otherParams.map(renderParam).join("")}
         <label style="${_lbl}">
           Description
-          <input id="desc" value="${f.description}" style="${_inp}" />
+          <textarea id="desc" rows="2" style="${_inp}">${f.description}</textarea>
         </label>
         <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.5rem">
           <button id="create-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Create</button>
@@ -547,14 +556,10 @@ class TransformsPage extends LitElement {
     });
     panel
       .querySelector("#src-table")
-      ?.addEventListener("change", (e) =>
-        this._updateNewForm("source_duckdb_table", (e.target as HTMLSelectElement).value),
-      );
+      ?.addEventListener("change", (e) => this._onSourceTableSelected((e.target as HTMLSelectElement).value));
     panel
       .querySelector("#tgt-table")
-      ?.addEventListener("change", (e) =>
-        this._updateNewForm("target_duckdb_table", (e.target as HTMLSelectElement).value),
-      );
+      ?.addEventListener("change", (e) => this._onTargetTableSelected((e.target as HTMLSelectElement).value));
     panel
       .querySelector("#desc")
       ?.addEventListener("input", (e) => this._updateNewForm("description", (e.target as HTMLInputElement).value));
@@ -566,10 +571,27 @@ class TransformsPage extends LitElement {
       panel.querySelector(`#param-${p.name}`)?.addEventListener("change", (e) => {
         const val = (e.target as HTMLSelectElement).value;
         this._newForm = { ...this._newForm, params: { ...this._newForm.params, [p.name]: val } };
+        // Re-render when a select changes so visible_when conditions update
+        if (p.type === "select") this._showCreatePanel();
       });
     }
     panel.querySelector("#create-btn")?.addEventListener("click", () => this._saveCreate());
     panel.querySelector("#cancel-btn")?.addEventListener("click", () => this._cancelCreate());
+
+    // Fetch columns for pre-selected tables so the dropdowns are populated
+    // on first render (change events only fire on user interaction).
+    if (f.source_duckdb_table && this._sourceColumns.length === 0) {
+      this._fetchColumns(this.source, f.source_duckdb_table).then((cols) => {
+        this._sourceColumns = cols;
+        this._showCreatePanel();
+      });
+    }
+    if (f.target_duckdb_table && this._targetColumns.length === 0) {
+      this._fetchColumns("metrics", f.target_duckdb_table).then((cols) => {
+        this._targetColumns = cols;
+        this._showCreatePanel();
+      });
+    }
 
     this.dispatchEvent(
       new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 420 } }),

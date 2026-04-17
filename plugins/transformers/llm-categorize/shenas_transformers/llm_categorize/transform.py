@@ -121,14 +121,14 @@ class LlmCategorizeTransformer(Transformer):
         return [
             {
                 "name": "text_column",
-                "label": "Text column",
+                "label": "Source column",
                 "type": "source_column",
                 "required": True,
                 "description": "Column containing text to categorize",
             },
             {
                 "name": "output_column",
-                "label": "Target column",
+                "label": "Output column",
                 "type": "target_column",
                 "required": False,
                 "description": "Column name for the category in the target table",
@@ -143,10 +143,10 @@ class LlmCategorizeTransformer(Transformer):
             },
             {
                 "name": "prompt",
-                "label": "Prompt template",
+                "label": "Categorization prompt",
                 "type": "textarea",
                 "required": False,
-                "description": "Prompt template ({text} is replaced with the value)",
+                "description": "Prompt ({text} is replaced with the value)",
             },
         ]
 

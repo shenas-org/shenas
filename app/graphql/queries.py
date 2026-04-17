@@ -932,12 +932,12 @@ class Query:
 
         if domain_type is not None:
             rows = Property.all(
-                where="_dlt_valid_to IS NULL AND (domain_type IS NULL OR domain_type = ?)",
+                where="domain_type IS NULL OR domain_type = ?",
                 params=[domain_type],
                 order_by="label",
             )
         else:
-            rows = Property.all(where="_dlt_valid_to IS NULL", order_by="label")
+            rows = Property.all(order_by="label")
         return [
             PropertyType(
                 id=p.id,
