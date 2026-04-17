@@ -23,13 +23,14 @@ live tables on every run without per-source configuration.
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
+
+from app.plugin import Plugin
 
 if TYPE_CHECKING:
     import duckdb
 
-logger = logging.getLogger(__name__)
+logger = Plugin.get_logger(__name__)
 
 
 def find_scd2_tables(con: duckdb.DuckDBPyConnection, schema: str) -> list[str]:

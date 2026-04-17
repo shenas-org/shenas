@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import platform
 import shutil
 import tempfile
@@ -13,8 +12,6 @@ from typing import Annotated, Any, ClassVar
 from app.table import Field
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
-
-logger = logging.getLogger("shenas.sources.chrome")
 
 
 def _default_profile_dir() -> str:
@@ -82,7 +79,7 @@ class ChromeSource(Source):
         tmp_dir = tempfile.mkdtemp(prefix="shenas_chrome_")
         tmp_path = Path(tmp_dir) / "History"
         shutil.copy2(str(history_db), str(tmp_path))
-        logger.info("Copied Chrome History to %s", tmp_path)
+        self.log.info("Copied Chrome History to %s", tmp_path)
         return str(tmp_path)
 
     def resources(self, client: Any) -> list[Any]:
@@ -113,7 +110,7 @@ class ChromeSource(Source):
                 finally:
                     con.close()
             except Exception:
-                logger.exception("Failed to refresh AS-OF macros for %s", self.name)
+                self.log.exception("Failed to refresh AS-OF macros for %s", self.name)
             self._mark_synced()
             self._log_sync_event(full_refresh)
         finally:

@@ -6,12 +6,12 @@ No authentication required. Responses paginated via @odata.nextLink.
 
 from __future__ import annotations
 
-import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import logging
 
 import httpx
-
-log = logging.getLogger(f"shenas.{__name__}")
 
 BASE_URL = "https://ghoapi.azureedge.net/api"
 
@@ -53,8 +53,9 @@ CORE_INDICATORS = {
 class WHOClient:
     """HTTP client for the WHO GHO OData API."""
 
-    def __init__(self, country_codes: list[str] | None = None) -> None:
+    def __init__(self, country_codes: list[str] | None = None, *, log: logging.Logger) -> None:
         self.country_codes = country_codes
+        self.log = log
         self._http = httpx.Client(timeout=120.0)
 
     def close(self) -> None:
@@ -95,7 +96,7 @@ class WHOClient:
             raw = self._get_all_pages(url)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
-                log.warning("WHO indicator %s not found (404); skipping", indicator_code)
+                self.log.warning("WHO indicator %s not found (404); skipping", indicator_code)
                 return []
             raise
         rows: list[dict[str, Any]] = []

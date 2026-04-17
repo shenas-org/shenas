@@ -41,7 +41,7 @@ class WHOSource(Source):
         codes = None
         if cfg and cfg.get("country_codes"):
             codes = [c.strip() for c in cfg["country_codes"].split(",") if c.strip()]
-        return WHOClient(country_codes=codes)
+        return WHOClient(country_codes=codes, log=self.log)
 
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.who.tables import TABLES

@@ -5,7 +5,6 @@ from __future__ import annotations
 import abc
 import contextlib
 import dataclasses
-import logging
 import re
 import threading
 from datetime import UTC, datetime
@@ -18,7 +17,7 @@ from app.plugin import Plugin
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.base_config import SourceConfig
 
-logger = logging.getLogger("shenas.sources")
+logger = Plugin.get_logger(__name__)
 
 # ISO 8601 recurring-interval parser: "R/P1D", "R/PT1H", "R/P2W", "R/PT15M", etc.
 # Supports the subset of durations we actually use for sync cadence: weeks,

@@ -1,3 +1,4 @@
+from app.plugin import Plugin
 from shenas_sources.core.cli import create_pipe_app, print_load_info, run_sync
 from shenas_sources.core.db import DB_PATH, close, connect, dlt_destination, flush_to_encrypted, get_db_key
 from shenas_sources.core.table import (
@@ -12,6 +13,8 @@ from shenas_sources.core.table import (
 )
 from shenas_sources.core.transform import load_transform_defaults
 from shenas_sources.core.utils import date_range, is_empty_response, resolve_start_date
+
+get_logger = Plugin.get_logger
 
 __all__ = [
     "DB_PATH",
@@ -30,6 +33,7 @@ __all__ = [
     "dlt_destination",
     "flush_to_encrypted",
     "get_db_key",
+    "get_logger",
     "is_empty_response",
     "load_transform_defaults",
     "print_load_info",

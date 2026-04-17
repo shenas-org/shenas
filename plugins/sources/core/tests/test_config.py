@@ -5,6 +5,7 @@ from unittest.mock import patch
 import duckdb
 import pytest
 
+from app.schema import CONFIG
 from app.table import Field, SingletonTable
 
 
@@ -13,7 +14,7 @@ class SampleConfig(SingletonTable):
         name = "test_pkg"
         display_name = "Sample Config"
         pk = ("id",)
-        schema = "config"
+        schema = CONFIG
 
     id: Annotated[int, Field(db_type="INTEGER", description="Row ID")] = 1
     api_key: (

@@ -15,15 +15,12 @@ https://query.wikidata.org/sparql is public.
 from __future__ import annotations
 
 import json
-import logging
 from typing import TYPE_CHECKING, Any
 
 from shenas_sources.core.source import Source
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-log = logging.getLogger("shenas.source.wikidata")
 
 
 class WikidataSource(Source):
@@ -63,7 +60,7 @@ class WikidataSource(Source):
             if not groups:
                 if on_progress:
                     on_progress("statements", "No entities with wikidata:qid found. Set a QID on an entity first.")
-                log.info("wikidata sync: no entities with wikidata:qid; nothing to fetch")
+                self.log.info("wikidata sync: no entities with wikidata:qid; nothing to fetch")
                 return
 
             types = {t.name: t for t in EntityType.all()}
@@ -95,7 +92,7 @@ class WikidataSource(Source):
 
         if on_progress:
             on_progress("statements", f"Wrote {total} statements from Wikidata.")
-        log.info("wikidata sync: wrote %d statements", total)
+        self.log.info("wikidata sync: wrote %d statements", total)
         self._mark_synced()
         self._log_sync_event(full_refresh)
 

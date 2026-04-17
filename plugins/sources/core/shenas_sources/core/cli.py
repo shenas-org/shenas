@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
 import typer
 from opentelemetry import trace
 from rich.console import Console
 
+from app.plugin import Plugin
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 console = Console()
-logger = logging.getLogger("shenas.sources")
+logger = Plugin.get_logger(__name__)
 tracer = trace.get_tracer("shenas.sources")
 
 

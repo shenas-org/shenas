@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import time
 from dataclasses import dataclass
@@ -12,8 +11,6 @@ from typing import Annotated, Any, cast
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.source import Source
-
-log = logging.getLogger(__name__)
 
 SCOPES = ["read", "activity:read_all", "profile:read_all"]
 
@@ -116,7 +113,7 @@ class StravaSource(Source):
         )
 
         _pending_oauth[self.name] = {"redirect_uri": redirect_uri}
-        log.info("Strava OAuth started, redirect_uri=%s", redirect_uri)
+        self.log.info("Strava OAuth started, redirect_uri=%s", redirect_uri)
         return auth_url
 
     def complete_oauth(self, *, code: str, state: str | None = None) -> None:  # noqa: ARG002
@@ -145,7 +142,7 @@ class StravaSource(Source):
                 "expires_at": token_response["expires_at"],
             }
         )
-        log.info("Strava OAuth completed")
+        self.log.info("Strava OAuth completed")
 
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.strava.tables import TABLES, fetch_detailed_activities

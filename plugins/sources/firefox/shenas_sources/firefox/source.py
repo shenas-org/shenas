@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import configparser
-import logging
 import platform
 import shutil
 import tempfile
@@ -14,8 +13,6 @@ from typing import Annotated, Any, ClassVar
 from app.table import Field
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
-
-logger = logging.getLogger("shenas.sources.firefox")
 
 
 def _resolve_profile_path(base: Path, cfg: configparser.ConfigParser, section: str) -> str:
@@ -111,7 +108,7 @@ class FirefoxSource(Source):
         tmp_dir = tempfile.mkdtemp(prefix="shenas_firefox_")
         tmp_path = Path(tmp_dir) / "places.sqlite"
         shutil.copy2(str(places_db), str(tmp_path))
-        logger.info("Copied Firefox places.sqlite to %s", tmp_path)
+        self.log.info("Copied Firefox places.sqlite to %s", tmp_path)
         return str(tmp_path)
 
     def resources(self, client: Any) -> list[Any]:
@@ -142,7 +139,7 @@ class FirefoxSource(Source):
                 finally:
                     con.close()
             except Exception:
-                logger.exception("Failed to refresh AS-OF macros for %s", self.name)
+                self.log.exception("Failed to refresh AS-OF macros for %s", self.name)
             self._mark_synced()
             self._log_sync_event(full_refresh)
         finally:

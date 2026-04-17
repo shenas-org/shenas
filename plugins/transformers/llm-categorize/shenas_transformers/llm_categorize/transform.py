@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any
 
@@ -15,8 +14,6 @@ from app.table import Field
 
 if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform
-
-log = logging.getLogger(f"shenas.{__name__}")
 
 
 @dataclass
@@ -64,7 +61,7 @@ class LlmCategorizeTransformer(Transformer):
         params = instance.get_params()
         text_col = params.get("text_column")
         if not text_col:
-            log.warning("LLM transform #%d missing text_column param", instance.id)
+            self.log.warning("LLM transform #%d missing text_column param", instance.id)
             return 0
 
         output_col = params.get("output_column", "category")
@@ -117,7 +114,7 @@ class LlmCategorizeTransformer(Transformer):
                 )
             return 1
         except Exception:
-            log.exception("LLM transform #%d failed (%s -> %s)", instance.id, source_name, target)
+            self.log.exception("LLM transform #%d failed (%s -> %s)", instance.id, source_name, target)
             return 0
 
     def param_schema(self) -> list[dict[str, Any]]:

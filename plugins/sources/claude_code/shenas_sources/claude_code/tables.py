@@ -11,18 +11,18 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
+from shenas_sources.core import get_logger
 from shenas_sources.core.table import EventTable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-logger = logging.getLogger("shenas.sources.claude_code")
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------

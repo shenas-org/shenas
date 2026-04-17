@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 from typing import TYPE_CHECKING, Any
 
 import duckdb
 from shenas_transformers.core import Transformer, TransformerConfig
+
+from app.plugin import Plugin
 
 if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform
@@ -16,8 +17,6 @@ from dataclasses import dataclass
 from typing import Annotated
 
 from app.table import Field
-
-log = logging.getLogger(f"shenas.{__name__}")
 
 
 @dataclass
@@ -124,7 +123,7 @@ class ReverseGeocodeTransformer(Transformer):
                 )
                 return 1
         except Exception:
-            log.exception(
+            self.log.exception(
                 "Reverse geocode transform #%d failed (%s -> %s)",
                 instance.id,
                 source_name,
@@ -189,7 +188,7 @@ def _batch_reverse_geocode(
                 place = raw.get("name", "") or raw.get("display_name", location.address or "")
                 results[(lat, lon)] = (place, location.address or "")
         except Exception:
-            log.warning("Reverse geocode failed for (%s, %s)", lat, lon)
+            Plugin.get_logger(__name__).warning("Reverse geocode failed for (%s, %s)", lat, lon)
     return results
 
 

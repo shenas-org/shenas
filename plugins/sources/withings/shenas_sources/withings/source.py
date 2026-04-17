@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import time
 from dataclasses import dataclass
@@ -13,8 +12,6 @@ from urllib.parse import urlencode
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.source import Source
-
-log = logging.getLogger(__name__)
 
 SCOPES = "user.info,user.metrics,user.activity,user.sleepevents"
 AUTHORIZE_URL = "https://account.withings.com/oauth2_user/authorize2"
@@ -118,7 +115,7 @@ class WithingsSource(Source):
         )
 
         _pending_oauth[self.name] = {"redirect_uri": redirect_uri}
-        log.info("Withings OAuth started, redirect_uri=%s", redirect_uri)
+        self.log.info("Withings OAuth started, redirect_uri=%s", redirect_uri)
         return auth_url
 
     def complete_oauth(self, *, code: str, state: str | None = None) -> None:  # noqa: ARG002
@@ -146,7 +143,7 @@ class WithingsSource(Source):
                 "userid": token_response.get("userid"),
             }
         )
-        log.info("Withings OAuth completed")
+        self.log.info("Withings OAuth completed")
 
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.withings.tables import TABLES

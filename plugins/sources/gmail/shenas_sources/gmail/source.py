@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.source import Source
-
-logger = logging.getLogger(__name__)
 
 
 class GmailSource(Source):
@@ -76,7 +73,7 @@ class GmailSource(Source):
         service = self.build_client()
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-        logger.info("Sync started: gmail (dataset=gmail, full_refresh=%s)", full_refresh)
+        self.log.info("Sync started: gmail (dataset=gmail, full_refresh=%s)", full_refresh)
 
         with tracer.start_as_current_span("pipe.sync", attributes={"pipe.name": "gmail"}):
             page_num = 0
@@ -100,7 +97,7 @@ class GmailSource(Source):
                 with tracer.start_as_current_span("pipe.flush", attributes={"resource": "messages", "page": page_num}):
                     flush_to_encrypted(mem_con, "gmail")
                     total_msgs += len(page)
-                    logger.info("Flushed page %d (%d messages, %d total)", page_num, len(page), total_msgs)
+                    self.log.info("Flushed page %d (%d messages, %d total)", page_num, len(page), total_msgs)
 
             # Sync labels (small, single pass)
             with tracer.start_as_current_span("pipe.fetch", attributes={"resource": "labels"}):
@@ -112,7 +109,7 @@ class GmailSource(Source):
             with tracer.start_as_current_span("pipe.flush", attributes={"resource": "labels"}):
                 flush_to_encrypted(mem_con, "gmail")
 
-            logger.info("Sync complete: gmail (%d messages in %d pages)", total_msgs, page_num)
+            self.log.info("Sync complete: gmail (%d messages in %d pages)", total_msgs, page_num)
 
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.gmail.tables import TABLES

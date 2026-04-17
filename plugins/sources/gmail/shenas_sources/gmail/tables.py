@@ -14,11 +14,11 @@ Each table is a subclass of one of the kind base classes in
 
 from __future__ import annotations
 
-import logging
 import time
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core import get_logger
 from shenas_sources.core.table import (
     DimensionTable,
     EventTable,
@@ -29,7 +29,7 @@ from shenas_sources.core.table import (
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 _CATEGORY_LABELS = {

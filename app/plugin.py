@@ -320,6 +320,42 @@ class Plugin(abc.ABC):
         return "plugin"
 
     @property
+    def log(self) -> logging.Logger:
+        """Logger for this plugin, named ``shenas.<kind>.<name>``."""
+        return logging.getLogger(f"shenas.{self._kind}.{self.name}")
+
+    @staticmethod
+    def get_logger(module_name: str) -> logging.Logger:
+        """Derive a plugin logger from a module's ``__name__``.
+
+        Maps the Python package path to the standard plugin logger name::
+
+            shenas_sources.garmin.tables   -> shenas.source.garmin
+            shenas_transformers.sql        -> shenas.transformer.sql
+            shenas_datasets.fitness        -> shenas.dataset.fitness
+            shenas_dashboards.fitness      -> shenas.dashboard.fitness
+
+        Usage in any file inside a plugin package::
+
+            from app.plugin import Plugin
+            log = Plugin.get_logger(__name__)
+        """
+        parts = module_name.split(".")
+        prefix_map = {
+            "shenas_sources": "source",
+            "shenas_transformers": "transformer",
+            "shenas_datasets": "dataset",
+            "shenas_dashboards": "dashboard",
+            "shenas_frontends": "frontend",
+            "shenas_themes": "theme",
+        }
+        kind = prefix_map.get(parts[0], "")
+        if kind and len(parts) >= 2:
+            plugin_name = parts[1]
+            return logging.getLogger(f"shenas.{kind}.{plugin_name}")
+        return logging.getLogger(f"shenas.{module_name}")
+
+    @property
     def has_config(self) -> bool:
         return False
 

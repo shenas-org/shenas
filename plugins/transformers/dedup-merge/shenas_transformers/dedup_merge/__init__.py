@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import logging
 from typing import TYPE_CHECKING, Any
 
 import duckdb
@@ -11,8 +10,6 @@ from shenas_transformers.core import Transformer
 
 if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform
-
-log = logging.getLogger(f"shenas.{__name__}")
 
 
 class DedupMergeTransformer(Transformer):
@@ -42,7 +39,7 @@ class DedupMergeTransformer(Transformer):
         prefer = params.get("prefer", "primary")
 
         if not primary_source or not secondary_source:
-            log.warning(
+            self.log.warning(
                 "Dedup transform #%d missing primary_source or secondary_source",
                 instance.id,
             )
@@ -94,7 +91,7 @@ class DedupMergeTransformer(Transformer):
 
             return 1
         except Exception:
-            log.exception(
+            self.log.exception(
                 "Dedup transform #%d failed (%s -> %s)",
                 instance.id,
                 source_name,

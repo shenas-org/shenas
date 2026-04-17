@@ -4,19 +4,17 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
-import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any
 
 import duckdb
 from shenas_transformers.core import Transformer, TransformerConfig
 
+from app.plugin import Plugin
 from app.table import Field
 
 if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform
-
-log = logging.getLogger(f"shenas.{__name__}")
 
 
 @dataclass
@@ -62,7 +60,7 @@ class GeocodeTransformer(Transformer):
         params = instance.get_params()
         address_col = params.get("address_column")
         if not address_col:
-            log.warning("Geocode transform #%d missing address_column param", instance.id)
+            self.log.warning("Geocode transform #%d missing address_column param", instance.id)
             return 0
 
         lat_out = params.get("latitude_output", "latitude")
@@ -124,7 +122,7 @@ class GeocodeTransformer(Transformer):
                 )
                 return 1
         except Exception:
-            log.exception("Geocode transform #%d failed (%s -> %s)", instance.id, source_name, target)
+            self.log.exception("Geocode transform #%d failed (%s -> %s)", instance.id, source_name, target)
             return 0
 
     def param_schema(self) -> list[dict[str, Any]]:
@@ -186,7 +184,7 @@ def _batch_geocode(
             if location:
                 results[addr] = (location.latitude, location.longitude)
         except Exception:
-            log.warning("Geocode failed for '%s'", addr)
+            Plugin.get_logger(__name__).warning("Geocode failed for '%s'", addr)
     return results
 
 

@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
 
 import duckdb
 from shenas_transformers.core import Transformer
 from shenas_transformers.core.transform import Transform
-
-log = logging.getLogger(f"shenas.{__name__}")
 
 
 def _ensure_spatial(con: duckdb.DuckDBPyConnection) -> None:
@@ -94,7 +91,7 @@ class GeofenceTransformer(Transformer):
                 con.execute(f"INSERT INTO {target} {sql}")
                 return 1
         except Exception:
-            log.exception("Geofence transform #%d failed (%s -> %s)", instance.id, source_name, target)
+            self.log.exception("Geofence transform #%d failed (%s -> %s)", instance.id, source_name, target)
             return 0
 
     def param_schema(self) -> list[dict[str, Any]]:

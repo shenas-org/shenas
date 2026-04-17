@@ -9,16 +9,16 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from app.catalog import DataResourceRef
+from app.plugin import Plugin
 from app.schema import TRANSFORMS
 from app.table import Field, Table
 
-log = logging.getLogger(f"shenas.{__name__}")
+log = Plugin.get_logger(__name__)
 
 
 def _now_iso() -> str:

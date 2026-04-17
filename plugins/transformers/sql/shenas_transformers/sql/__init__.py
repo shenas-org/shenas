@@ -4,14 +4,11 @@ from __future__ import annotations
 
 import contextlib
 import json
-import logging
 from typing import Any
 
 import duckdb
 from shenas_transformers.core import Transformer
 from shenas_transformers.core.transform import Transform
-
-log = logging.getLogger(f"shenas.{__name__}")
 
 
 class SqlTransformer(Transformer):
@@ -31,7 +28,7 @@ class SqlTransformer(Transformer):
         params = instance.get_params()
         sql = params.get("sql", "")
         if not sql:
-            log.warning("Transform #%d has no SQL in params", instance.id)
+            self.log.warning("Transform #%d has no SQL in params", instance.id)
             return 0
 
         target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
@@ -53,7 +50,7 @@ class SqlTransformer(Transformer):
                 cur.execute(f"INSERT INTO {target} ({col_names_with_device}) {sql_with_device}")
             return 1
         except Exception:
-            log.exception("Transform #%d failed (%s -> %s)", instance.id, instance.source_plugin, target)
+            self.log.exception("Transform #%d failed (%s -> %s)", instance.id, instance.source_plugin, target)
             return 0
 
     def param_schema(self) -> list[dict[str, Any]]:
