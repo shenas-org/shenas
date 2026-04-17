@@ -20,9 +20,9 @@ export const DISABLE_PLUGIN = gql`
 `;
 
 // --- Transforms ---
-export const RUN_PIPE_TRANSFORMS = gql`
-  mutation RunPipeTransforms($pipe: String!) {
-    runPipeTransforms(pipe: $pipe) {
+export const RUN_SOURCE_TRANSFORMS = gql`
+  mutation RunSourceTransforms($pipe: String!) {
+    runSourceTransforms(pipe: $pipe) {
       name
       count
     }

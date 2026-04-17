@@ -11,7 +11,7 @@ import {
   tabStyles,
 } from "shenas-frontends";
 import "shenas-components";
-import { GET_THEME, GET_SUGGESTED_DATASETS, GET_SOURCE_ENTITIES } from "./graphql/queries.ts";
+import { GET_THEME, GET_SUGGESTED_DATASETS, GET_SOURCE_ENTITIES, GET_DB_STATUS } from "./graphql/queries.ts";
 import {
   ENABLE_PLUGIN,
   DISABLE_PLUGIN,
@@ -409,7 +409,7 @@ class PluginDetail extends LitElement {
     this._info = data?.pluginInfo as PluginInfo | null;
     try {
       const { data: dbData } = await this._client.query({
-        query: gqlTag`{ dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } } }`,
+        query: GET_DB_STATUS,
         fetchPolicy: "network-only",
       });
       this.dbStatus = (dbData?.dbStatus as DbStatus | null) ?? null;

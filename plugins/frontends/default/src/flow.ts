@@ -13,7 +13,7 @@ import {
   renderMessage,
 } from "shenas-frontends";
 import type { MessageBanner } from "shenas-frontends";
-import { GET_FLOW_DATA, GET_SUGGESTED_DATASETS } from "./graphql/queries.ts";
+import { GET_TRANSFORMS, GET_SUGGESTED_DATASETS } from "./graphql/queries.ts";
 import { SUGGEST_DATASETS, ACCEPT_DATASET_SUGGESTION, DISMISS_DATASET_SUGGESTION } from "./graphql/mutations.ts";
 
 interface PluginInfo {
@@ -211,7 +211,7 @@ class PipelineOverview extends LitElement {
   private _resizeObserver: ResizeObserver | null = null;
   private _client = getClient();
 
-  private _overviewQuery = new ApolloQueryController(this, GET_FLOW_DATA, {
+  private _overviewQuery = new ApolloQueryController(this, GET_TRANSFORMS, {
     client: this._client,
   });
   private _suggestMutation = new ApolloMutationController(this, SUGGEST_DATASETS, {

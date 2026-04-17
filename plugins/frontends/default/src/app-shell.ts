@@ -17,12 +17,19 @@ import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
-import { GET_HOTKEYS, GET_WORKSPACE, GET_DASHBOARDS, GET_PLUGIN_KINDS } from "./graphql/queries.ts";
+import {
+  GET_HOTKEYS,
+  GET_WORKSPACE,
+  GET_DASHBOARDS,
+  GET_PLUGIN_KINDS,
+  GET_DB_STATUS,
+  GET_PLUGINS_BY_KIND,
+} from "./graphql/queries.ts";
 import {
   SAVE_WORKSPACE,
   SEED_TRANSFORMS,
   REFRESH_LITERATURE,
-  RUN_PIPE_TRANSFORMS,
+  RUN_SOURCE_TRANSFORMS,
   RUN_SCHEMA_TRANSFORMS,
   ENABLE_PLUGIN,
   DISABLE_PLUGIN,
@@ -962,7 +969,7 @@ class ShenasApp extends LitElement {
               category: "Transform",
               label: `Run Transforms: ${name}`,
               action: () => {
-                this._client.mutate({ mutation: RUN_PIPE_TRANSFORMS, variables: { pipe: p.name } });
+                this._client.mutate({ mutation: RUN_SOURCE_TRANSFORMS, variables: { pipe: p.name } });
               },
             });
           }
@@ -1214,14 +1221,7 @@ class ShenasApp extends LitElement {
 
   async _refreshPlugins(): Promise<void> {
     const { data } = await this._client.query({
-      query: gqlTag`{
-        sources: plugins(kind: "source") { name displayName enabled syncedAt hasAuth isAuthenticated }
-        datasets: plugins(kind: "dataset") { name displayName enabled }
-        dashboardPlugins: plugins(kind: "dashboard") { name displayName enabled }
-        frontends: plugins(kind: "frontend") { name displayName enabled }
-        themes: plugins(kind: "theme") { name displayName enabled }
-        models: plugins(kind: "model") { name displayName enabled }
-      }`,
+      query: GET_PLUGINS_BY_KIND,
       fetchPolicy: "network-only",
     });
     if (data) {
@@ -1323,7 +1323,7 @@ class ShenasApp extends LitElement {
     this._dbStatusPending = true;
     try {
       const { data } = await this._client.query({
-        query: gqlTag`{ dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } } }`,
+        query: GET_DB_STATUS,
         fetchPolicy: "network-only",
       });
       this._dbStatus = (data?.dbStatus as DbStatus | null) ?? null;

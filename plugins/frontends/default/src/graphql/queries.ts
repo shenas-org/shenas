@@ -66,45 +66,62 @@ export function buildPluginStatsQuery(kinds: { id: string }[]) {
   return dynamicGql(`{ ${kindQueries} dbStatus { schemas { name tables { name rows earliest latest } } } }`);
 }
 
-export const GET_PLUGIN_INFO = gql`
-  query GetPluginInfo($kind: String!, $name: String!) {
-    pluginInfo(kind: $kind, name: $name)
-  }
-`;
-
-export const GET_PLUGIN_INFO_WITH_TRANSFORMS = gql`
-  query GetPluginInfoWithTransforms($kind: String!, $name: String!) {
-    pluginInfo(kind: $kind, name: $name)
-    transforms {
-      id
-      source {
-        id
-        schemaName
-        tableName
-      }
-      target {
-        id
-        schemaName
-        tableName
-      }
-      sourcePlugin
-      description
+// --- Plugins by kind ---
+export const GET_PLUGINS_BY_KIND = gql`
+  {
+    sources: plugins(kind: "source") {
+      name
+      displayName
+      enabled
+      syncedAt
+      hasAuth
+      isAuthenticated
+    }
+    datasets: plugins(kind: "dataset") {
+      name
+      displayName
+      enabled
+    }
+    dashboardPlugins: plugins(kind: "dashboard") {
+      name
+      displayName
+      enabled
+    }
+    frontends: plugins(kind: "frontend") {
+      name
+      displayName
+      enabled
+    }
+    themes: plugins(kind: "theme") {
+      name
+      displayName
+      enabled
+    }
+    models: plugins(kind: "model") {
+      name
+      displayName
       enabled
     }
   }
 `;
 
-export const GET_TABLE_COLUMN_INFO = gql`
-  query GetTableColumnInfo($s: String!, $t: String!) {
-    tableColumnInfo(schema: $s, table: $t) {
-      name
-      dbType
-      description
-      unit
-      nullable
-      valueRange
-      exampleValue
-      interpretation
+// --- DB Status ---
+export const GET_DB_STATUS = gql`
+  {
+    dbStatus {
+      keySource
+      dbPath
+      sizeMb
+      schemas {
+        name
+        tables {
+          name
+          rows
+          cols
+          earliest
+          latest
+        }
+      }
     }
   }
 `;
@@ -312,6 +329,10 @@ export const GET_TRANSFORMS = gql`
       enabled
       sql
     }
+    dependencies {
+      source
+      targets
+    }
   }
 `;
 
@@ -437,31 +458,6 @@ export const GET_AVAILABLE_PLUGINS = gql`
 `;
 
 // --- Flow ---
-export const GET_FLOW_DATA = gql`
-  {
-    transforms {
-      id
-      transformType
-      source {
-        id
-        schemaName
-        tableName
-      }
-      target {
-        id
-        schemaName
-        tableName
-      }
-      sourcePlugin
-      enabled
-    }
-    dependencies {
-      source
-      targets
-    }
-  }
-`;
-
 export const GET_SOURCE_ENTITIES = gql`
   query GetSourceEntities($plugin: String!) {
     sourceEntitiesForPlugin(plugin: $plugin) {
@@ -493,20 +489,6 @@ export const GET_ENTITY_WITH_STATEMENTS = gql`
         propertyLabel
         datatype
       }
-    }
-  }
-`;
-
-export const GET_PROPERTIES = gql`
-  query GetProperties($domainType: String) {
-    properties(domainType: $domainType) {
-      id
-      label
-      datatype
-      domainType
-      source
-      wikidataPid
-      description
     }
   }
 `;
