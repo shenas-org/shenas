@@ -12,9 +12,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
-from app.entity import EntityTable, EntityType
 from app.table import Field
-from shenas_sources.core.table import EventTable, SourceTable
+from shenas_sources.core.table import DimensionTable, EventTable, SourceTable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -81,28 +80,17 @@ class Events(EventTable):
             }
 
 
-class Repositories(EntityTable):
-    """GitHub repository owned by the user, loaded as SCD2. Each row is an entity."""
+class Repositories(DimensionTable):
+    """GitHub repository owned by the user, loaded as SCD2. Projects to an entity."""
 
     class _Meta:
         name = "repositories"
         display_name = "Repositories"
         description = "GitHub repositories owned by the authenticated user."
         pk = ("full_name",)
-        entity_type = EntityType(
-            name="repository",
-            display_name="Repository",
-            parent="virtual_entity",
-            icon="git-branch",
-            description="A source-code repository (GitHub / GitLab / Bitbucket).",
-            wikidata_qid="Q170584",
-            wikidata_properties='[{"pid":"P17","label":"country"},{"pid":"P277","label":"programmed in"}]',
-        )
-        entity_name_column = "full_name"
-        entity_description_column = "description"
 
     # Statement projection (new graph model). Each raw column listed here
-    # becomes an shenas_system.statements row on every sync, keyed on the
+    # becomes a shenas_system.statements row on every sync, keyed on the
     # repository's deterministic entity_id.
     entity_type: ClassVar[str] = "repository"
     entity_name_column: ClassVar[str] = "full_name"

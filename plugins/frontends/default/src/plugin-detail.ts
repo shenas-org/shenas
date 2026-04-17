@@ -11,12 +11,7 @@ import {
   tabStyles,
 } from "shenas-frontends";
 import "shenas-components";
-import {
-  GET_THEME,
-  GET_SUGGESTED_DATASETS,
-  GET_SOURCE_ENTITIES,
-  GET_SOURCE_MAPPABLE_ITEMS,
-} from "./graphql/queries.ts";
+import { GET_THEME, GET_SUGGESTED_DATASETS, GET_SOURCE_ENTITIES } from "./graphql/queries.ts";
 import {
   ENABLE_PLUGIN,
   DISABLE_PLUGIN,
@@ -26,8 +21,6 @@ import {
   ACCEPT_DATASET_SUGGESTION,
   DISMISS_DATASET_SUGGESTION,
   SET_ENTITY_STATUS,
-  SET_ENTITY_MAPPING,
-  CREATE_ENTITY,
 } from "./graphql/mutations.ts";
 
 interface PluginInfo {
@@ -87,17 +80,6 @@ interface SourceEntity {
   status: string;
 }
 
-interface MappableItem {
-  sourceTable: string;
-  sourceRowKey: string;
-  name: string;
-  description: string;
-  suggestedType: string;
-  mappedToUuid: string | null;
-  mappedToName: string | null;
-  mappedToType: string | null;
-}
-
 interface Message {
   type: string;
   text: string;
@@ -126,9 +108,6 @@ class PluginDetail extends LitElement {
     _dataRefreshKey: { state: true },
     _entities: { state: true },
     _entitiesLoading: { state: true },
-    _mappableItems: { state: true },
-    _targetEntityOptions: { state: true },
-    _entityTypeOptions: { state: true },
   };
 
   static styles = [
@@ -328,15 +307,10 @@ class PluginDetail extends LitElement {
   declare _dataRefreshKey: number;
   declare _entities: SourceEntity[];
   declare _entitiesLoading: boolean;
-  declare _mappableItems: MappableItem[];
-  declare _targetEntityOptions: Array<{ uuid: string; name: string; type: string }>;
-  declare _entityTypeOptions: Array<{ name: string; displayName: string }>;
   private _loadingTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _client = getClient();
   private _setEntityStatusMutation = new ApolloMutationController(this, SET_ENTITY_STATUS, { client: this._client });
-  private _setEntityMappingMutation = new ApolloMutationController(this, SET_ENTITY_MAPPING, { client: this._client });
-  private _createEntityMutation = new ApolloMutationController(this, CREATE_ENTITY, { client: this._client });
   private _enablePlugin = new ApolloMutationController(this, ENABLE_PLUGIN, { client: this._client });
   private _disablePlugin = new ApolloMutationController(this, DISABLE_PLUGIN, { client: this._client });
   private _runSchemaTransforms = new ApolloMutationController(this, RUN_SCHEMA_TRANSFORMS, { client: this._client });
@@ -372,9 +346,6 @@ class PluginDetail extends LitElement {
     this._dataRefreshKey = 0;
     this._entities = [];
     this._entitiesLoading = false;
-    this._mappableItems = [];
-    this._targetEntityOptions = [];
-    this._entityTypeOptions = [];
   }
 
   willUpdate(changed: Map<string, unknown>): void {
@@ -748,31 +719,12 @@ class PluginDetail extends LitElement {
   async _fetchEntities(): Promise<void> {
     this._entitiesLoading = true;
     try {
-      const [entitiesResult, mappableResult, optionsResult] = await Promise.all([
-        this._client.query({
-          query: GET_SOURCE_ENTITIES,
-          variables: { plugin: this.name },
-          fetchPolicy: "network-only",
-        }),
-        this._client.query({
-          query: GET_SOURCE_MAPPABLE_ITEMS,
-          variables: { plugin: this.name },
-          fetchPolicy: "network-only",
-        }),
-        this._client.query({
-          query: gqlTag`{ entities { uuid name type } entityTypes { name displayName isAbstract } }`,
-          fetchPolicy: "network-only",
-        }),
-      ]);
-      this._entities = (entitiesResult.data?.sourceEntitiesForPlugin as SourceEntity[]) || [];
-      this._mappableItems = (mappableResult.data?.sourceMappableItemsForPlugin as MappableItem[]) || [];
-      this._targetEntityOptions =
-        (optionsResult.data?.entities as Array<{ uuid: string; name: string; type: string }>) || [];
-      const allTypes =
-        (optionsResult.data?.entityTypes as Array<{ name: string; displayName: string; isAbstract: boolean }>) || [];
-      this._entityTypeOptions = allTypes
-        .filter((t) => !t.isAbstract)
-        .map((t) => ({ name: t.name, displayName: t.displayName }));
+      const result = await this._client.query({
+        query: GET_SOURCE_ENTITIES,
+        variables: { plugin: this.name },
+        fetchPolicy: "network-only",
+      });
+      this._entities = (result.data?.sourceEntitiesForPlugin as SourceEntity[]) || [];
     } catch (e) {
       this._message = { type: "error", text: (e as Error).message };
     }
@@ -790,144 +742,16 @@ class PluginDetail extends LitElement {
     }
   }
 
-  async _setEntityMapping(item: MappableItem, targetUuid: string | null): Promise<void> {
-    const previous = item.mappedToUuid;
-    const match = targetUuid ? this._targetEntityOptions.find((o) => o.uuid === targetUuid) : null;
-    // Optimistic update.
-    this._mappableItems = this._mappableItems.map((m) =>
-      m.sourceTable === item.sourceTable && m.sourceRowKey === item.sourceRowKey
-        ? {
-            ...m,
-            mappedToUuid: targetUuid,
-            mappedToName: match ? match.name : null,
-            mappedToType: match ? match.type : null,
-          }
-        : m,
-    );
-    try {
-      await this._setEntityMappingMutation.mutate({
-        variables: {
-          sourceTable: item.sourceTable,
-          sourceRowKey: item.sourceRowKey,
-          targetUuid: targetUuid,
-        },
-      });
-    } catch (e) {
-      this._mappableItems = this._mappableItems.map((m) =>
-        m.sourceTable === item.sourceTable && m.sourceRowKey === item.sourceRowKey
-          ? { ...m, mappedToUuid: previous }
-          : m,
-      );
-      this._message = { type: "error", text: (e as Error).message };
-    }
-  }
-
-  _escapeHtml(s: string): string {
-    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-  }
-
-  _closeAddEntityPanel(): void {
-    this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
-  }
-
-  _openAddEntityPanel(item: MappableItem): void {
-    const typeOptions = this._entityTypeOptions
-      .map(
-        (t, i) => `<option value="${t.name}"${i === 0 ? " selected" : ""}>${this._escapeHtml(t.displayName)}</option>`,
-      )
-      .join("");
-    const panel = document.createElement("div");
-    panel.style.padding = "1rem";
-    panel.innerHTML = `
-      <h3 style="margin-top:0">Add entity</h3>
-      <p style="color:#888;font-size:0.85rem;margin:0 0 0.8rem">
-        Will be mapped to <b>${this._escapeHtml(item.name || item.sourceRowKey)}</b>.
-      </p>
-      <label style="display:block;margin-bottom:0.6rem">
-        Type<br/>
-        <select id="f-type" style="width:100%">${typeOptions}</select>
-      </label>
-      <label style="display:block;margin-bottom:0.6rem">
-        Name<br/>
-        <input id="f-name" type="text" style="width:100%" value="${this._escapeHtml(item.name || "")}" />
-      </label>
-      <label style="display:block;margin-bottom:0.6rem">
-        Description<br/>
-        <input id="f-desc" type="text" style="width:100%" value="" />
-      </label>
-      <div id="f-err" style="color:#c00;font-size:0.85rem;margin-bottom:0.5rem"></div>
-      <div style="display:flex;gap:0.5rem;margin-top:1rem">
-        <button id="save-btn">Add &amp; map</button>
-        <button id="cancel-btn">Cancel</button>
-      </div>
-    `;
-    const form = {
-      type: this._entityTypeOptions[0]?.name ?? "",
-      name: item.name || "",
-      description: "",
-    };
-    panel.querySelector("#f-type")?.addEventListener("change", (e) => {
-      form.type = (e.target as HTMLSelectElement).value;
-    });
-    panel.querySelector("#f-name")?.addEventListener("input", (e) => {
-      form.name = (e.target as HTMLInputElement).value;
-    });
-    panel.querySelector("#f-desc")?.addEventListener("input", (e) => {
-      form.description = (e.target as HTMLInputElement).value;
-    });
-    const errEl = panel.querySelector("#f-err") as HTMLDivElement;
-    panel.querySelector("#cancel-btn")?.addEventListener("click", () => this._closeAddEntityPanel());
-    panel.querySelector("#save-btn")?.addEventListener("click", async () => {
-      errEl.textContent = "";
-      if (!form.name.trim()) {
-        errEl.textContent = "Name is required.";
-        return;
-      }
-      if (!form.type) {
-        errEl.textContent = "Type is required.";
-        return;
-      }
-      try {
-        const { data } = await this._createEntityMutation.mutate({
-          variables: {
-            input: { name: form.name.trim(), type: form.type, description: form.description },
-          },
-        });
-        const created = data?.createEntity as { uuid: string; name: string } | undefined;
-        if (!created) {
-          errEl.textContent = "Could not create entity.";
-          return;
-        }
-        this._targetEntityOptions = [
-          ...this._targetEntityOptions,
-          { uuid: created.uuid, name: created.name, type: form.type },
-        ];
-        await this._setEntityMapping(item, created.uuid);
-        this._closeAddEntityPanel();
-        this._message = { type: "success", text: "Entity added and mapped." };
-        this._fetchEntities();
-      } catch (e) {
-        errEl.textContent = (e as Error).message || "Could not create entity.";
-      }
-    });
-    this.dispatchEvent(
-      new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 420 } }),
-    );
-  }
-
   _renderEntities() {
-    if (this._entitiesLoading && this._entities.length === 0 && this._mappableItems.length === 0) {
+    if (this._entitiesLoading && this._entities.length === 0) {
       return html`<p style="color:var(--shenas-text-muted,#888)">Loading entities...</p>`;
     }
-    if (this._entities.length === 0 && this._mappableItems.length === 0) {
+    if (this._entities.length === 0) {
       return html`<p style="color:var(--shenas-text-muted,#888)">
         No entities yet. Sync this source to populate the list.
       </p>`;
     }
-    return html`
-      ${this._mappableItems.length > 0 ? this._renderMappableSection() : ""}
-      ${this._entities.length > 0 ? this._renderEntitySection() : ""}
-    `;
+    return this._renderEntitySection();
   }
 
   _renderEntitySection() {
@@ -963,62 +787,6 @@ class PluginDetail extends LitElement {
         ]}
         .rows=${this._entities as unknown as Record<string, unknown>[]}
         empty-text="No entities"
-      ></shenas-data-list>
-    `;
-  }
-
-  _renderMappableSection() {
-    const mappedCount = this._mappableItems.filter((m) => m.mappedToUuid).length;
-    return html`
-      <h3 style="margin:0.6rem 0 0.3rem;font-size:0.95rem">To map</h3>
-      <p style="color:var(--shenas-text-muted,#888);font-size:0.85rem;margin:0 0 0.8rem">
-        ${mappedCount} of ${this._mappableItems.length} mapped. Assign each source row to the entity it represents.
-      </p>
-      <shenas-data-list
-        .columns=${[
-          {
-            key: "name",
-            label: "Name",
-            render: (row: Record<string, unknown>) => {
-              const item = row as unknown as MappableItem;
-              return item.name || item.sourceRowKey;
-            },
-          },
-          {
-            key: "mapped",
-            label: "Mapped to",
-            render: (row: Record<string, unknown>) => {
-              const item = row as unknown as MappableItem;
-              return html`<div style="display:flex;gap:0.3rem;align-items:center">
-                <select
-                  style="flex:1"
-                  @change=${(e: Event) => {
-                    const value = (e.target as HTMLSelectElement).value;
-                    this._setEntityMapping(item, value || null);
-                  }}
-                >
-                  <option value="" ?selected=${!item.mappedToUuid}>-- unmapped --</option>
-                  ${this._targetEntityOptions.map(
-                    (opt) => html`
-                      <option value=${opt.uuid} ?selected=${item.mappedToUuid === opt.uuid}>
-                        ${opt.name} (${opt.type})
-                      </option>
-                    `,
-                  )}
-                </select>
-                <button
-                  class="add-entity-btn"
-                  title="Add new entity and map to this row"
-                  @click=${() => this._openAddEntityPanel(item)}
-                >
-                  +
-                </button>
-              </div>`;
-            },
-          },
-        ]}
-        .rows=${this._mappableItems as unknown as Record<string, unknown>[]}
-        empty-text="Nothing to map"
       ></shenas-data-list>
     `;
   }

@@ -18,7 +18,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
-from app.entity import EntityMapTable, EntityType
 from app.table import Field
 from shenas_sources.core.table import (
     DimensionTable,
@@ -226,19 +225,14 @@ class TileState(SnapshotTable):
             }
 
 
-class TileInfo(EntityMapTable):
+class TileInfo(DimensionTable):
     """Derived per-tile snapshot joining Tiles + TileLocations + TileState.
 
     Populated by the bundled SQL transform, which filters out tiles whose
     ``connection_state`` is ``DISCONNECTED`` or whose ``is_dead`` flag is set.
-    Each surviving row is a **would-be** entity: the user decides what real
-    entity each physical tile is attached to (key, bag, bike, dog) from the
-    plugin's Entities tab.
-
-    Because rows are produced by a transform (not by dlt), the SCD2
-    ``_dlt_valid_to`` column is declared explicitly on the dataclass so
-    ``Table.ensure()`` creates it and downstream filters (the Entities-tab
-    ``WHERE _dlt_valid_to IS NULL`` selector) keep working.
+    Each surviving row projects to a ``physical_entity`` entity via the
+    statement graph -- the user can rename / re-type the resulting entity
+    from the entity detail panel.
     """
 
     class _Meta:
@@ -246,8 +240,6 @@ class TileInfo(EntityMapTable):
         display_name = "Tile Info"
         description = "Live device snapshot for each active Tile (derived)."
         pk = ("tile_uuid",)
-        entity_type = EntityType.default("physical_entity")
-        entity_name_column = "name"
 
     # Statement projection (new graph model). Per-tile attributes land as
     # shenas_system.statements rows so the entity panel can render them without

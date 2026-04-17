@@ -317,15 +317,6 @@ export const SET_ENTITY_STATUS = gql`
   }
 `;
 
-export const SET_ENTITY_MAPPING = gql`
-  mutation SetEntityMapping($sourceTable: String!, $sourceRowKey: String!, $targetUuid: String) {
-    setEntityMapping(sourceTable: $sourceTable, sourceRowKey: $sourceRowKey, targetUuid: $targetUuid) {
-      ok
-      message
-    }
-  }
-`;
-
 export const CREATE_PROPERTY = gql`
   mutation CreateProperty($propertyInput: PropertyCreateInput!) {
     createProperty(propertyInput: $propertyInput) {

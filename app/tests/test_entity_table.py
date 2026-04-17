@@ -1,13 +1,10 @@
-"""Tests for EntityTable, compute_entity_id, and EntityType.default()."""
+"""Tests for compute_entity_id and EntityType.default()."""
 
 from __future__ import annotations
 
-from typing import Annotated, ClassVar
-
 import pytest
 
-from app.entity import EntityTable, EntityType, compute_entity_id
-from app.table import Field
+from app.entity import EntityType, compute_entity_id
 
 
 def test_compute_entity_id_is_deterministic() -> None:
@@ -51,53 +48,3 @@ def test_entity_type_default_unknown_raises() -> None:
 def test_entity_type_default_caches() -> None:
     """Successive calls return the same instance."""
     assert EntityType.default("human") is EntityType.default("human")
-
-
-def test_entity_table_requires_entity_type() -> None:
-    """EntityTable subclass without _Meta.entity_type must fail at class-definition time."""
-    with pytest.raises(TypeError, match="EntityTable"):
-
-        class _Missing(EntityTable):
-            class _Meta:
-                name = "missing"
-                display_name = "Missing"
-                pk = ("id",)
-
-            id: Annotated[int, Field(db_type="INTEGER", description="id")] = 0
-
-
-def test_entity_table_rejects_non_entity_type() -> None:
-    """_Meta.entity_type must be an EntityType instance, not a string or dict."""
-    with pytest.raises(TypeError, match="EntityType instance"):
-
-        class _BadType(EntityTable):
-            class _Meta:
-                name = "bad"
-                display_name = "Bad"
-                pk = ("id",)
-                entity_type: ClassVar[str] = "repository"  # wrong type
-
-            id: Annotated[int, Field(db_type="INTEGER", description="id")] = 0
-
-
-def test_entity_table_valid_class() -> None:
-    """A well-formed EntityTable subclass defines cleanly and exposes its type."""
-
-    class _Repo(EntityTable):
-        class _Meta:
-            name = "my_repos"
-            display_name = "My Repos"
-            pk = ("id",)
-            schema = "test"
-            entity_type = EntityType(name="test_repo", display_name="Test Repo", parent="virtual_entity")
-
-        id: Annotated[int, Field(db_type="BIGINT", description="repo id")] = 0
-        name: Annotated[str, Field(db_type="VARCHAR", description="name")] = ""
-
-    assert _Repo._Meta.entity_type.name == "test_repo"
-    # entity_id column is in the dlt schema
-    cols = _Repo.to_dlt_columns()
-    assert "entity_id" in cols
-    assert cols["entity_id"]["data_type"] == "text"
-    # table kind is still "dimension" (SCD2 via MRO)
-    assert _Repo.table_kind() == "dimension"

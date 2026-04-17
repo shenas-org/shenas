@@ -474,21 +474,6 @@ export const GET_SOURCE_ENTITIES = gql`
   }
 `;
 
-export const GET_SOURCE_MAPPABLE_ITEMS = gql`
-  query GetSourceMappableItems($plugin: String!) {
-    sourceMappableItemsForPlugin(plugin: $plugin) {
-      sourceTable
-      sourceRowKey
-      name
-      description
-      suggestedType
-      mappedToUuid
-      mappedToName
-      mappedToType
-    }
-  }
-`;
-
 export const GET_ENTITY_WITH_STATEMENTS = gql`
   query GetEntityWithStatements($uuid: String!) {
     entity(uuid: $uuid) {

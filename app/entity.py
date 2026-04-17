@@ -38,13 +38,12 @@ from __future__ import annotations
 import uuid as uuid_mod
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self
+from typing import TYPE_CHECKING, Annotated, Any, Self
 
 from app.table import Field, Table
-from shenas_sources.core.table import DimensionTable
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterable
 
     import duckdb
 
@@ -97,17 +96,6 @@ class EntityType(Table):
             description="Wikidata Q-ID for this type class (e.g. 'Q5' for human), or NULL when there is no clean equivalent.",
         ),
     ] = None
-    wikidata_properties: Annotated[
-        str,
-        Field(
-            db_type="VARCHAR",
-            description=(
-                "JSON list of Wikidata property descriptors useful as dimensional data for entities "
-                'of this type, e.g. [{"pid":"P21","label":"sex or gender"}, ...].'
-            ),
-            db_default="'[]'",
-        ),
-    ] = "[]"
     added_at: Annotated[
         str | None,
         Field(db_type="TIMESTAMP", description="When seeded", db_default="current_timestamp"),
@@ -127,16 +115,6 @@ class EntityType(Table):
         Raises ``KeyError`` on unknown names.
         """
         return _default_entity_types_by_name()[name]  # ty: ignore[invalid-return-type]
-
-    def parsed_wikidata_properties(self) -> list[dict[str, str]]:
-        """Return ``wikidata_properties`` parsed from its JSON string form."""
-        import json
-
-        try:
-            value = json.loads(self.wikidata_properties or "[]")
-        except json.JSONDecodeError:
-            return []
-        return value if isinstance(value, list) else []
 
     @classmethod
     def is_subtype_of(cls, child: str, ancestor: str) -> bool:
@@ -864,7 +842,6 @@ def _default_entity_types_by_name() -> dict[str, EntityType]:
     so EntityTable subclasses can reference built-in types at class-definition
     time without DB access.
     """
-    import json as _json
 
     global _DEFAULT_ENTITY_TYPES_BY_NAME
     if _DEFAULT_ENTITY_TYPES_BY_NAME is None:
@@ -877,7 +854,6 @@ def _default_entity_types_by_name() -> dict[str, EntityType]:
                 icon=row.get("icon", ""),
                 is_abstract=row.get("is_abstract", False),
                 wikidata_qid=row.get("wikidata_qid"),
-                wikidata_properties=_json.dumps(row.get("wikidata_properties", [])),
             )
             for row in DEFAULT_ENTITY_TYPES
         }
@@ -902,21 +878,18 @@ DEFAULT_RELATIONSHIP_TYPES: list[dict[str, Any]] = [
 
 def seed_entity_types(con: duckdb.DuckDBPyConnection) -> None:
     """Upsert the default entity types. Idempotent."""
-    import json
-
     for row in DEFAULT_ENTITY_TYPES:
         con.execute(
             "INSERT INTO shenas_system.entity_types "
-            "(name, display_name, parent, description, icon, is_abstract, wikidata_qid, wikidata_properties) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+            "(name, display_name, parent, description, icon, is_abstract, wikidata_qid) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT (name) DO UPDATE SET "
             "display_name = excluded.display_name, "
             "parent = excluded.parent, "
             "description = excluded.description, "
             "icon = excluded.icon, "
             "is_abstract = excluded.is_abstract, "
-            "wikidata_qid = excluded.wikidata_qid, "
-            "wikidata_properties = excluded.wikidata_properties",
+            "wikidata_qid = excluded.wikidata_qid",
             [
                 row["name"],
                 row["display_name"],
@@ -925,39 +898,39 @@ def seed_entity_types(con: duckdb.DuckDBPyConnection) -> None:
                 row["icon"],
                 row.get("is_abstract", False),
                 row.get("wikidata_qid"),
-                json.dumps(row.get("wikidata_properties", [])),
             ],
         )
 
 
 def seed_properties(con: duckdb.DuckDBPyConnection) -> None:
-    """Seed shenas_system.properties with Wikidata predicates referenced by DEFAULT_ENTITY_TYPES.
+    """Seed shenas_system.properties with the Wikidata predicates each default
+    EntityType cares about, recording the relation in ``domain_type``.
 
-    Walks every default EntityType's ``wikidata_properties`` JSON and upserts
-    a row per unique PID into ``shenas_system.properties`` with
-    ``source='wikidata'`` and ``domain_type=NULL`` (PIDs are polymorphic --
-    which types use a property is decided by the EntityType's property list,
-    not by the property row). Idempotent.
-
-    Plugins extend the registry via their own ``entity_projection``
-    declarations; UI mutations extend it at runtime.
+    Walks every default EntityType's ``wikidata_properties`` descriptor list
+    (kept as a Python literal on the type dict, no longer a DB column) and
+    upserts one row per (property_id, domain_type) pair with
+    ``source='wikidata'`` and ``wikidata_pid=<pid>``. The per-type domain lets
+    :class:`shenas_sources.wikidata.source.WikidataSource` look up "which
+    PIDs apply to this type" via ``SELECT id FROM shenas_system.properties
+    WHERE domain_type = ? AND source = 'wikidata'`` without needing a
+    dedicated column on ``entity_types``. Idempotent.
     """
-    seen: set[str] = set()
     for row in DEFAULT_ENTITY_TYPES:
+        type_name = row["name"]
         for prop in row.get("wikidata_properties") or []:
             pid = prop.get("pid")
             label = prop.get("label")
-            if not pid or not label or pid in seen:
+            if not pid or not label:
                 continue
-            seen.add(pid)
             con.execute(
                 "INSERT INTO shenas_system.properties "
                 "(id, label, datatype, domain_type, source, wikidata_pid) "
-                "VALUES (?, ?, 'string', NULL, 'wikidata', ?) "
+                "VALUES (?, ?, 'string', ?, 'wikidata', ?) "
                 "ON CONFLICT (id) DO UPDATE SET "
                 "label = excluded.label, "
+                "domain_type = excluded.domain_type, "
                 "wikidata_pid = excluded.wikidata_pid",
-                [pid, label, pid],
+                [pid, label, type_name, pid],
             )
 
 
@@ -1015,11 +988,6 @@ def current_entity(info: Any = None) -> Any:
     return LocalUser.get_by_id(int(user_id))
 
 
-# ---------------------------------------------------------------------------
-# EntityTable: source-contributed entity populations
-# ---------------------------------------------------------------------------
-
-
 _ENTITY_ID_NAMESPACE = uuid_mod.uuid5(uuid_mod.NAMESPACE_OID, "shenas:entity")
 
 
@@ -1034,188 +1002,3 @@ def compute_entity_id(entity_type_name: str, pk_values: Iterable[object]) -> str
     """
     key = f"{entity_type_name}:" + "/".join(str(v) for v in pk_values)
     return uuid_mod.uuid5(_ENTITY_ID_NAMESPACE, key).hex
-
-
-class EntityTable(DimensionTable):
-    """A dimension table whose rows each represent an entity of a given type.
-
-    Inherits SCD2 load semantics from :class:`DimensionTable`, so natural
-    PKs like ``pk = ("name",)`` are fine -- the same entity evolves over
-    time as successive rows with disjoint ``_dlt_valid_from`` / ``_dlt_valid_to``.
-
-    Every row carries an auto-injected ``entity_id`` column (UUIDv5 derived
-    from the entity-type name + natural PK) that is stable across resyncs
-    and shared across SCD2 versions of the same entity. ``Source.sync``
-    upserts the declared ``_Meta.entity_type`` into ``shenas_system.entity_types``
-    and indexes every current row in ``shenas_system.entity_index`` so the
-    entity graph transparently includes source-contributed entities.
-
-    Subclasses MUST declare ``_Meta.entity_type`` as an :class:`EntityType`
-    instance (either ``EntityType.default("human")`` for a built-in or a
-    fresh instance for a novel type).
-
-    Optional ``_Meta`` fields:
-
-    - ``entity_name_column`` (default ``"name"``): column holding the
-      user-visible display name of each entity (used by the entity graph).
-    - ``entity_description_column`` (default ``None``): optional column
-      holding a free-text description.
-    """
-
-    _abstract: ClassVar[bool] = True
-
-    class _Meta(DimensionTable._Meta):
-        # Declared on concrete subclasses. ``ClassVar`` because the _Meta is
-        # a metadata holder, not a dataclass field.
-        entity_type: ClassVar[Any]
-        entity_name_column: ClassVar[str] = "name"
-        entity_description_column: ClassVar[str | None] = None
-
-    @classmethod
-    def _validate(cls) -> None:
-        super()._validate()
-        entity_type = getattr(cls._Meta, "entity_type", None)
-        if not isinstance(entity_type, EntityType):
-            msg = (
-                f"{cls.__name__}: EntityTable requires `_Meta.entity_type` to be an "
-                f"EntityType instance (got {type(entity_type).__name__}). Use "
-                f'EntityType.default("human") for built-ins or construct a new one.'
-            )
-            raise TypeError(msg)
-
-    @classmethod
-    def to_dlt_columns(cls) -> dict[str, dict[str, Any]]:
-        columns = super().to_dlt_columns()
-        columns["entity_id"] = {
-            "name": "entity_id",
-            "data_type": "text",
-            "description": (
-                "Stable entity UUID (UUIDv5). Derived from entity-type name + "
-                "natural PK; shared across SCD2 versions of the same entity."
-            ),
-        }
-        return columns
-
-    @classmethod
-    def to_resource(cls, client: Any, **context: Any) -> Any:
-        """Wrap the default resource so every yielded row carries ``entity_id``."""
-        import dlt
-
-        entity_type_name: str = cls._Meta.entity_type.name
-        pk_cols = tuple(cls._Meta.pk)
-        needs_observed_at = cls._needs_observed_at()
-        cursor_column = cls.cursor_column
-
-        common = {
-            "name": cls._Meta.name,
-            "primary_key": list(cls._Meta.pk),
-            "write_disposition": cls.write_disposition(),
-            "columns": cls.to_dlt_columns(),
-        }
-
-        def _inject(row: dict[str, Any], now: str | None) -> dict[str, Any]:
-            out = dict(row)
-            if needs_observed_at and "observed_at" not in out:
-                out["observed_at"] = now
-            if "entity_id" not in out:
-                out["entity_id"] = compute_entity_id(entity_type_name, (row[c] for c in pk_cols))
-            return out
-
-        if cursor_column:
-
-            @dlt.resource(**common)  # ty: ignore[invalid-argument-type]
-            def _gen(
-                cursor: Any = dlt.sources.incremental(cursor_column, initial_value=None),
-            ) -> Iterator[dict[str, Any]]:
-                now = datetime.now(UTC).isoformat() if needs_observed_at else None
-                for row in cls.extract(client, cursor=cursor, **context):
-                    yield _inject(row, now)
-
-        else:
-
-            @dlt.resource(**common)  # ty: ignore[invalid-argument-type]
-            def _gen() -> Iterator[dict[str, Any]]:
-                now = datetime.now(UTC).isoformat() if needs_observed_at else None
-                for row in cls.extract(client, **context):
-                    yield _inject(row, now)
-
-        return _gen()
-
-
-# ---------------------------------------------------------------------------
-# EntityMapTable: source-contributed "would-be" entities that map to real ones
-# ---------------------------------------------------------------------------
-
-
-class EntityMapTable(DimensionTable):
-    """A dimension table whose rows are candidates to be mapped to real entities.
-
-    Unlike :class:`EntityTable`, rows in an ``EntityMapTable`` do NOT become
-    virtual entities on their own. The data is ambiguous by nature -- a Tile
-    Bluetooth tracker could be attached to a key, a bag, a bike, a dog. The
-    user decides which existing (or new) entity each row corresponds to via
-    the plugin's Entities tab, and the mapping is stored in
-    ``shenas_system.entity_mappings``.
-
-    ``_Meta.entity_type`` is the *suggested* target type and is still upserted
-    into ``entity_types`` so the type hierarchy graph and any mapping dropdown
-    can surface it.
-
-    Optional ``_Meta.entity_name_column`` / ``entity_description_column`` map
-    row columns to user-visible display strings in the mapping UI.
-    """
-
-    _abstract: ClassVar[bool] = True
-
-    class _Meta(DimensionTable._Meta):
-        entity_type: ClassVar[Any]
-        entity_name_column: ClassVar[str] = "name"
-        entity_description_column: ClassVar[str | None] = None
-
-    @classmethod
-    def _validate(cls) -> None:
-        super()._validate()
-        entity_type = getattr(cls._Meta, "entity_type", None)
-        if not isinstance(entity_type, EntityType):
-            msg = (
-                f"{cls.__name__}: EntityMapTable requires `_Meta.entity_type` to be an "
-                f"EntityType instance (the suggested target type). Use "
-                f'EntityType.default("device") for built-ins or construct a new one.'
-            )
-            raise TypeError(msg)
-
-
-@dataclass
-class EntityMapping(Table):
-    """User-supplied mapping from an ``EntityMapTable`` row to a real entity.
-
-    The source row is keyed by ``(source_table, source_row_key)`` -- the
-    schema-qualified table name plus the natural PK slash-joined. ``target_uuid``
-    points at any row registered in :class:`EntityIndex` (virtual or user-created
-    entity).
-    """
-
-    class _Meta:
-        name = "entity_mappings"
-        display_name = "Entity Mappings"
-        description = "Links EntityMapTable rows to real entities chosen by the user."
-        schema = "shenas_system"
-        pk = ("source_table", "source_row_key")
-
-    source_table: Annotated[
-        str,
-        Field(db_type="VARCHAR", description='Schema-qualified source table, e.g. "tile.tiles".'),
-    ] = ""
-    source_row_key: Annotated[
-        str,
-        Field(db_type="VARCHAR", description="Natural PK of the source row, slash-joined for composites."),
-    ] = ""
-    target_uuid: Annotated[
-        str,
-        Field(db_type="VARCHAR", description="UUID of the mapped entity (from entity_index)."),
-    ] = ""
-    added_at: Annotated[
-        str | None,
-        Field(db_type="TIMESTAMP", description="When the mapping was created", db_default="current_timestamp"),
-    ] = None
-    updated_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="When last updated")] = None

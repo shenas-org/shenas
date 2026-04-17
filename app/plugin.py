@@ -333,15 +333,14 @@ class Plugin(abc.ABC):
 
     @property
     def has_entities(self) -> bool:
-        """True if this plugin contributes at least one EntityTable or EntityMapTable."""
+        """True if this plugin declares an ``entity_projection`` on any of its tables."""
         try:
             import importlib
 
-            from app.entity import EntityMapTable, EntityTable
-
             tables_mod = importlib.import_module(f"shenas_sources.{self.name}.tables")
             return any(
-                isinstance(t, type) and issubclass(t, (EntityTable, EntityMapTable)) for t in getattr(tables_mod, "TABLES", ())
+                isinstance(t, type) and getattr(t, "entity_type", None) and getattr(t, "entity_projection", None)
+                for t in getattr(tables_mod, "TABLES", ())
             )
         except Exception:
             return False

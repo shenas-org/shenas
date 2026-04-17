@@ -1023,32 +1023,6 @@ class Mutation:
         return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
 
     @strawberry.mutation
-    def set_entity_mapping(self, source_table: str, source_row_key: str, target_uuid: str | None = None) -> OkType:
-        """Map a row from an ``EntityMapTable`` to a real entity UUID.
-
-        Passing ``target_uuid=None`` removes any existing mapping. The
-        ``(source_table, source_row_key)`` pair is the PK of ``entity_mappings``.
-        """
-        from app.entity import EntityMapping
-        from app.models import OkResponse
-
-        existing = EntityMapping.find(source_table, source_row_key)
-        if target_uuid is None or target_uuid == "":
-            if existing is not None:
-                existing.delete()
-            return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
-        if existing is None:
-            EntityMapping(
-                source_table=source_table,
-                source_row_key=source_row_key,
-                target_uuid=target_uuid,
-            ).insert()
-        else:
-            existing.target_uuid = target_uuid
-            existing.save()
-        return OkType.from_pydantic(OkResponse(ok=True))  # ty: ignore[unresolved-attribute]
-
-    @strawberry.mutation
     def create_entity_relationship(
         self, from_uuid: str, to_uuid: str, relationship_type: str, description: str = ""
     ) -> GqlEntityRelationshipType:

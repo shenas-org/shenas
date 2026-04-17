@@ -4,6 +4,7 @@ version = "0.0.0"
 description = "Local-first quantified-self platform"
 requires-python = ">=3.11"
 dependencies = [
+    "libp2p>=0.6.0",
     "strawberry-graphql[fastapi]>=0.312.3",
 ]
 
@@ -11,7 +12,14 @@ dependencies = [
 package = false
 # Flower pins typer<0.21 and rich<14 for its CLI. We only use
 # flwr.client and flwr.common at runtime, which work with newer versions.
-override-dependencies = ["typer>=0.24.1", "rich>=14.3.3"]
+override-dependencies = [
+    "typer>=0.24.1",
+    "rich>=14.3.3",
+    # libp2p pins fastecdsa==2.3.2 which has no manylinux wheel (only sdist +
+    # macOS arm64). 3.0.1 ships manylinux wheels so CI runners without gcc can
+    # install it. The API surface we use is unchanged between 2.x and 3.x.
+    "fastecdsa>=3.0.1",
+]
 
 [tool.uv.workspace]
 members = [

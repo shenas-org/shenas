@@ -22,7 +22,6 @@ from app.graphql.types import (
     FreshnessInfoType,
     GqlEntityRelationshipType,
     GqlEntityType,
-    GqlMappableEntityType,
     HypothesisSuggestionType,
     HypothesisType,
     ModelInfoType,
@@ -40,193 +39,13 @@ from app.graphql.types import (
     TimeColumnsInfoType,
     TransformerInfoType,
     TransformType,
-    WikidataPropertyType,
 )
 
 if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform
 
     from app.data_catalog import DataResource
-    from app.entity import EntityMapTable
     from app.plugin import Plugin
-
-
-def _source_entities(*, plugin: str | None = None, include_disabled: bool = False) -> list[GqlEntityType]:
-    """Return entities contributed by ``EntityTable`` source plugins.
-
-    Walks installed source plugins, finds their ``EntityTable`` subclasses,
-    and materializes pseudo-Entity rows from the current SCD2 slice
-    (``_dlt_valid_to IS NULL``) of each table. UUIDs come from the row's
-    ``entity_id`` column; name/description map via ``_Meta.entity_name_column``
-    and ``_Meta.entity_description_column``.
-
-    ``status`` is read from ``shenas_system.entity_index``; virtual entities
-    default to ``"disabled"`` until the user opts in from the plugin's
-    Entities tab. Pass ``include_disabled=True`` to include both. Filter to
-    one plugin via ``plugin=<name>``.
-    """
-    import importlib
-
-    from app.database import cursor
-    from app.plugin import Plugin
-
-    try:
-        from app.entity import EntityIndex, EntityTable, compute_entity_id
-    except Exception:
-        return []
-
-    # Load the full entity_index -> status map once via Table CRUD.
-    try:
-        status_by_uuid: dict[str, str] = {idx.uuid: (idx.status or "disabled") for idx in EntityIndex.all()}
-    except Exception:
-        status_by_uuid = {}
-
-    out: list[GqlEntityType] = []
-    for src_cls in Plugin.load_by_kind("source", include_internal=False):
-        if plugin is not None and src_cls.name != plugin:
-            continue
-        try:
-            tables_mod = importlib.import_module(f"shenas_sources.{src_cls.name}.tables")
-        except ImportError:
-            continue
-        for t in getattr(tables_mod, "TABLES", ()):
-            if not (isinstance(t, type) and issubclass(t, EntityTable)):
-                continue
-            schema = t._Meta.schema or src_cls.name
-            qualified = f'"{schema}"."{t._Meta.name}"'
-            name_col = getattr(t._Meta, "entity_name_column", "name")
-            desc_col = getattr(t._Meta, "entity_description_column", None)
-            pk_cols = tuple(t._Meta.pk)
-            pk_selects = [f'"{c}"' for c in pk_cols]
-            select_cols = [
-                "entity_id",
-                f'"{name_col}" AS _name',
-                (f'"{desc_col}" AS _description' if desc_col else "'' AS _description"),
-                *pk_selects,
-            ]
-            try:
-                with cursor() as cur:
-                    scd2 = t.scd2_filter() if hasattr(t, "scd2_filter") else ""
-                    where = f" WHERE {scd2}" if scd2 else ""
-                    rows = cur.execute(f"SELECT {', '.join(select_cols)} FROM {qualified}{where}").fetchall()
-            except Exception:
-                continue
-            type_name = t._Meta.entity_type.name
-            for row in rows:
-                entity_id = row[0]
-                name = row[1]
-                description = row[2]
-                pk_values = row[3 : 3 + len(pk_cols)]
-                if not entity_id:
-                    entity_id = compute_entity_id(type_name, pk_values)
-                status = status_by_uuid.get(entity_id, "disabled")
-                if not include_disabled and status != "enabled":
-                    continue
-                out.append(
-                    GqlEntityType(
-                        uuid=entity_id,
-                        type=type_name,
-                        name=str(name) if name is not None else "",
-                        description=str(description) if description is not None else "",
-                        status=status,
-                        added_at=None,
-                        updated_at=None,
-                        is_me=False,
-                    ),
-                )
-    return out
-
-
-def _resolve_mapping_target(target_uuid: str | None, fallback_type: str) -> tuple[str | None, str | None]:
-    """Return ``(mapped_to_name, mapped_to_type)`` for a target UUID, if resolvable."""
-    if not target_uuid:
-        return (None, None)
-    from app.entity import Entity, EntityIndex
-
-    entity = Entity.find_by_uuid(target_uuid)
-    if entity is not None:
-        return (entity.name, entity.type)
-    idx = EntityIndex.find(target_uuid)
-    if idx is None:
-        return (None, None)
-    name = f"{idx.table_name}[{idx.row_key}]" if idx.row_key else idx.table_name
-    return (name, fallback_type)
-
-
-def _items_for_map_table(
-    t: type[EntityMapTable], src_name: str, mappings: dict[tuple[str, str], str]
-) -> list[GqlMappableEntityType]:
-    from app.database import cursor
-
-    schema = t._Meta.schema or src_name
-    qualified = f'"{schema}"."{t._Meta.name}"'
-    name_col = getattr(t._Meta, "entity_name_column", "name")
-    desc_col = getattr(t._Meta, "entity_description_column", None)
-    pk_cols = tuple(t._Meta.pk)
-    table_ref = f"{schema}.{t._Meta.name}"
-    select_cols = [
-        f'"{name_col}" AS _name',
-        f'"{desc_col}" AS _description' if desc_col else "'' AS _description",
-        *[f'"{c}"' for c in pk_cols],
-    ]
-    try:
-        with cursor() as cur:
-            scd2 = t.scd2_filter() if hasattr(t, "scd2_filter") else ""
-            where = f" WHERE {scd2}" if scd2 else ""
-            rows = cur.execute(f"SELECT {', '.join(select_cols)} FROM {qualified}{where}").fetchall()
-    except Exception:
-        return []
-    suggested_type = t._Meta.entity_type.name
-    items: list[GqlMappableEntityType] = []
-    for row in rows:
-        pk_values = row[2 : 2 + len(pk_cols)]
-        row_key = "/".join(str(v) for v in pk_values)
-        target_uuid = mappings.get((table_ref, row_key))
-        mapped_name, mapped_type = _resolve_mapping_target(target_uuid, suggested_type)
-        items.append(
-            GqlMappableEntityType(
-                source_table=table_ref,
-                source_row_key=row_key,
-                name=str(row[0]) if row[0] is not None else row_key,
-                description=str(row[1]) if row[1] is not None else "",
-                suggested_type=suggested_type,
-                mapped_to_uuid=target_uuid,
-                mapped_to_name=mapped_name,
-                mapped_to_type=mapped_type,
-            ),
-        )
-    return items
-
-
-def _source_mappable_items(*, plugin: str) -> list[GqlMappableEntityType]:
-    """Return current-slice rows from a plugin's ``EntityMapTable`` tables with mapping state."""
-    import importlib
-
-    from app.entity import EntityMapping, EntityMapTable
-    from app.plugin import Plugin
-
-    try:
-        source_cls = next(
-            (c for c in Plugin.load_by_kind("source", include_internal=False) if c.name == plugin),
-            None,
-        )
-    except Exception:
-        return []
-    if source_cls is None:
-        return []
-    try:
-        tables_mod = importlib.import_module(f"shenas_sources.{source_cls.name}.tables")
-    except ImportError:
-        return []
-    try:
-        mappings = {(m.source_table, m.source_row_key): m.target_uuid for m in EntityMapping.all()}
-    except Exception:
-        mappings = {}
-    out: list[GqlMappableEntityType] = []
-    for t in getattr(tables_mod, "TABLES", ()):
-        if isinstance(t, type) and issubclass(t, EntityMapTable):
-            out.extend(_items_for_map_table(t, source_cls.name, mappings))
-    return out
 
 
 def _plugin_to_gql(plugin: Plugin) -> PluginInfoType:
@@ -1029,9 +848,6 @@ class Query:
                 parent=t.parent,
                 is_abstract=t.is_abstract,
                 wikidata_qid=t.wikidata_qid,
-                wikidata_properties=[
-                    WikidataPropertyType(pid=p["pid"], label=p.get("label", "")) for p in t.parsed_wikidata_properties()
-                ],
             )
             for t in EntityType.all(order_by="name")
         ]
@@ -1059,7 +875,7 @@ class Query:
         me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
         me_uuid = me_candidates[0].uuid if me_candidates else None
         where = f"status = '{status}'" if status else None
-        user_entities = [
+        return [
             GqlEntityType(
                 uuid=e.uuid,
                 type=e.type,
@@ -1072,35 +888,37 @@ class Query:
             )
             for e in Entity.all(where=where, order_by="name")
         ]
-        source_entities = _source_entities()
-        if status is not None:
-            source_entities = [e for e in source_entities if e.status == status]
-        return sorted([*user_entities, *source_entities], key=lambda e: (e.name or "").lower())
 
     @strawberry.field
     def source_entities_for_plugin(self, plugin: str) -> list[GqlEntityType]:
-        """Return all virtual entities contributed by a specific source plugin.
+        """Entities produced by a specific source plugin, from its projected statements."""
+        from app.database import cursor
+        from app.entity import Entity
 
-        Includes both ``enabled`` and ``disabled`` entities so the plugin detail
-        page can render them with toggles. Sorted by name.
-        """
-        return sorted(
-            _source_entities(plugin=plugin, include_disabled=True),
-            key=lambda e: (e.name or "").lower(),
-        )
-
-    @strawberry.field
-    def source_mappable_items_for_plugin(self, plugin: str) -> list[GqlMappableEntityType]:
-        """Return rows from a plugin's ``EntityMapTable`` tables awaiting mapping.
-
-        Each row carries its source_table + source_row_key (for mutations) and
-        the currently-mapped target entity when a mapping exists in
-        ``shenas_system.entity_mappings``. Sorted by name.
-        """
-        return sorted(
-            _source_mappable_items(plugin=plugin),
-            key=lambda m: (m.name or "").lower(),
-        )
+        me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
+        me_uuid = me_candidates[0].uuid if me_candidates else None
+        with cursor() as cur:
+            rows = cur.execute(
+                "SELECT DISTINCT e.uuid, e.type, e.name, e.description, e.status, e.added_at, e.updated_at "
+                "FROM shenas_system.entities e "
+                "JOIN shenas_system.statements s "
+                "  ON s.entity_id = e.uuid AND s._dlt_valid_to IS NULL AND s.source = ? "
+                "ORDER BY LOWER(e.name)",
+                [plugin],
+            ).fetchall()
+        return [
+            GqlEntityType(
+                uuid=r[0],
+                type=r[1],
+                name=r[2] or "",
+                description=r[3] or "",
+                status=r[4] or "enabled",
+                added_at=str(r[5]) if r[5] else None,
+                updated_at=str(r[6]) if r[6] else None,
+                is_me=(r[0] == me_uuid),
+            )
+            for r in rows
+        ]
 
     @strawberry.field
     def properties(self, domain_type: str | None = None) -> list[PropertyType]:

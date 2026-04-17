@@ -418,12 +418,6 @@ class DataResourceAnnotationInput:
 
 
 @strawberry.type
-class WikidataPropertyType:
-    pid: str
-    label: str
-
-
-@strawberry.type
 class EntityTypeType:
     name: str
     display_name: str
@@ -432,7 +426,6 @@ class EntityTypeType:
     parent: str | None = None
     is_abstract: bool = False
     wikidata_qid: str | None = None
-    wikidata_properties: list[WikidataPropertyType] = strawberry.field(default_factory=list)
 
 
 @strawberry.type
@@ -500,20 +493,6 @@ class GqlEntityType:
                 )
             )
         return out
-
-
-@strawberry.type
-class GqlMappableEntityType:
-    """A row in a plugin's ``EntityMapTable`` awaiting user mapping to a real entity."""
-
-    source_table: str
-    source_row_key: str
-    name: str
-    description: str = ""
-    suggested_type: str = ""
-    mapped_to_uuid: str | None = None
-    mapped_to_name: str | None = None
-    mapped_to_type: str | None = None
 
 
 @strawberry.type
@@ -613,7 +592,6 @@ __all__ = [
     "FreshnessInfoType",
     "GqlEntityRelationshipType",
     "GqlEntityType",
-    "GqlMappableEntityType",
     "InstallResponseType",
     "InstallResultType",
     "OkType",
@@ -630,5 +608,4 @@ __all__ = [
     "ThemeInfo",
     "TransformCreateInput",
     "TransformType",
-    "WikidataPropertyType",
 ]
