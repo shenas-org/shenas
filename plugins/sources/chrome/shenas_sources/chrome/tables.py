@@ -18,6 +18,7 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core.table import DimensionTable, IntervalTable, SourceTable
 
@@ -88,6 +89,7 @@ class Visits(IntervalTable):
         pk = ("id",)
         time_start = "visit_time"
         time_end = "end_time"
+        plot = (PlotHint("visit_duration_s"),)
 
     cursor_column: ClassVar[str] = "visit_time"
 
@@ -164,6 +166,7 @@ class Downloads(IntervalTable):
         pk = ("id",)
         time_start = "start_time"
         time_end = "end_time"
+        plot = (PlotHint("total_bytes"), PlotHint("received_bytes"))
 
     cursor_column: ClassVar[str] = "start_time"
 

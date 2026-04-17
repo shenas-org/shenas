@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 import pendulum
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core.table import (
     AggregateTable,
@@ -55,6 +56,7 @@ class Activities(IntervalTable):
         pk = ("activity_id",)
         time_start = "startTimeLocal"
         time_end = "end_time_local"
+        plot = (PlotHint("distance"), PlotHint("calories"), PlotHint("averageHR"), PlotHint("maxHR"))
 
     cursor_column: ClassVar[str] = "startTimeLocal"
 
@@ -136,6 +138,7 @@ class DailyStats(_DailyAggregate):
         name = "daily_stats"
         display_name = "Daily Stats"
         description = "Per-day Garmin user summary (steps, calories, RHR)."
+        plot = (PlotHint("totalSteps"), PlotHint("activeKilocalories"), PlotHint("restingHeartRate"))
 
     calendarDate: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
     totalSteps: Annotated[int | None, Field(db_type="INTEGER", description="Total steps", display_name="Total Steps")] = None

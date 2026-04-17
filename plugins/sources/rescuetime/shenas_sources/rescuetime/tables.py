@@ -12,6 +12,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Annotated, Any
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core.table import AggregateTable, SourceTable
 
@@ -36,6 +37,11 @@ class DailySummary(AggregateTable):
         description = "Daily productivity metrics from RescueTime."
         pk = ("date",)
         time_at = "date"
+        plot = (
+            PlotHint("productivity_pulse"),
+            PlotHint("very_productive_s", chart_type="area"),
+            PlotHint("productive_s", chart_type="area"),
+        )
 
     date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
     productivity_pulse: Annotated[

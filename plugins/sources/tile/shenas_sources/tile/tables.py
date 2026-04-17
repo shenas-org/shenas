@@ -18,6 +18,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core.table import (
     DimensionTable,
@@ -165,6 +166,7 @@ class TileState(SnapshotTable):
         display_name = "Tile State"
         description = "Battery level, connection state, and ring state for each Tile."
         pk = ("tile_uuid",)
+        plot = (PlotHint("battery_level"),)
 
     tile_uuid: Annotated[str, Field(db_type="VARCHAR", description="Tile device UUID", display_name="Tile UUID")]
     battery_level: Annotated[

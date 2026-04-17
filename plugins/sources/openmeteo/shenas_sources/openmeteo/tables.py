@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated, Any
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core import resolve_start_date
 from shenas_sources.core.table import AggregateTable
@@ -29,6 +30,13 @@ class DailyWeather(AggregateTable):
         description = "Daily weather observations per place: temperature, precipitation, wind, sunshine."
         pk = ("place_uuid", "date")
         time_at = "date"
+        plot = (
+            PlotHint("temp_max_degc", group_by="place_uuid"),
+            PlotHint("temp_min_degc"),
+            PlotHint("precipitation_mm"),
+            PlotHint("wind_speed_max_ms"),
+            PlotHint("humidity_mean_pct"),
+        )
 
     place_uuid: Annotated[
         str,
@@ -142,6 +150,14 @@ class DailyAirQuality(AggregateTable):
         description = "Daily air quality per place: PM2.5, PM10, NO2, SO2, CO, O3, AQI indices."
         pk = ("place_uuid", "date")
         time_at = "date"
+        plot = (
+            PlotHint("pm25", group_by="place_uuid"),
+            PlotHint("pm10"),
+            PlotHint("no2"),
+            PlotHint("o3"),
+            PlotHint("european_aqi"),
+            PlotHint("us_aqi"),
+        )
 
     place_uuid: Annotated[
         str,

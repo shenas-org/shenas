@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 import pendulum
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core.table import (
     DimensionTable,
@@ -62,6 +63,7 @@ class Transactions(EventTable):
         description = "Per-transaction events synced from Lunch Money."
         pk = ("id",)
         time_at = "date"
+        plot = (PlotHint("amount", group_by="category_name", chart_type="bar"),)
 
     cursor_column: ClassVar[str] = "date"
 

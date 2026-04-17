@@ -15,6 +15,7 @@ import json
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Annotated, Any
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core.table import (
     CounterTable,
@@ -103,6 +104,13 @@ class Activities(IntervalTable):
         pk = ("id",)
         time_start = "start_date"
         time_end = "end_date"
+        plot = (
+            PlotHint("distance_m"),
+            PlotHint("average_heartrate"),
+            PlotHint("average_watts"),
+            PlotHint("suffer_score"),
+            PlotHint("elevation_gain_m"),
+        )
 
     id: Annotated[int, Field(db_type="BIGINT", description="Activity ID", display_name="Activity ID")]
     name_: Annotated[str | None, Field(db_type="VARCHAR", description="Activity name", display_name="Activity Name")] = None
@@ -229,6 +237,7 @@ class Laps(IntervalTable):
         pk = ("id",)
         time_start = "start_date"
         time_end = "end_date"
+        plot = (PlotHint("distance_m"), PlotHint("average_speed_mps"), PlotHint("average_heartrate"))
 
     id: Annotated[int, Field(db_type="BIGINT", description="Lap ID", display_name="Lap ID")]
     activity_id: Annotated[int, Field(db_type="BIGINT", description="Parent activity ID", display_name="Activity ID")]

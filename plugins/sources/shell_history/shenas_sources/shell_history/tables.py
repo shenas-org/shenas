@@ -16,6 +16,7 @@ import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core.table import EventTable, SourceTable
 
@@ -126,6 +127,7 @@ class Commands(EventTable):
         description = "Shell commands from bash, zsh, or fish history."
         pk = ("id",)
         time_at = "executed_at"
+        plot = (PlotHint("duration_s"),)
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Content-hash ID (sha256[:16])", display_name="ID")] = ""
     command: Annotated[str, Field(db_type="VARCHAR", description="The shell command", display_name="Command")] = ""

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated, Any
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core import resolve_start_date
 from shenas_sources.core.table import AggregateTable, DimensionTable
@@ -33,6 +34,14 @@ class DailyMeasurements(AggregateTable):
         description = "Daily mean pollutant concentrations per monitoring station, scoped to the configured place."
         pk = ("place_uuid", "date", "location_id")
         time_at = "date"
+        plot = (
+            PlotHint("pm25", group_by="place_uuid"),
+            PlotHint("pm10"),
+            PlotHint("no2"),
+            PlotHint("so2"),
+            PlotHint("co"),
+            PlotHint("o3"),
+        )
 
     place_uuid: Annotated[
         str, Field(db_type="VARCHAR", description="Place entity UUID this station was discovered from", display_name="Place")

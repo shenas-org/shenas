@@ -19,6 +19,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core.table import (
     AggregateTable,
@@ -54,6 +55,7 @@ class DailyXp(AggregateTable):
         description = "Daily XP totals from Duolingo's xp_summaries endpoint."
         pk = ("date",)
         time_at = "date"
+        plot = (PlotHint("xp_gained"), PlotHint("num_sessions"), PlotHint("total_session_time_sec"))
 
     cursor_column: ClassVar[str] = "date"
 
@@ -101,6 +103,7 @@ class Courses(SnapshotTable):
         display_name = "Courses"
         description = "Active language courses."
         pk = ("id",)
+        plot = (PlotHint("xp", group_by="learning_language", chart_type="bar"),)
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Course ID", display_name="Course ID")]
     title: Annotated[str | None, Field(db_type="VARCHAR", description="Course title", display_name="Title")] = None
@@ -231,6 +234,7 @@ class League(AggregateTable):
         description = "Weekly league standings (cohort = week)."
         pk = ("cohort_id",)
         time_at = "cohort_end"
+        plot = (PlotHint("weekly_xp"), PlotHint("rank"))
 
     cohort_id: Annotated[str, Field(db_type="VARCHAR", description="Cohort ID for this week", display_name="Cohort ID")]
     league_tier: Annotated[

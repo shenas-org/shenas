@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 import pendulum
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core.table import (
     AggregateTable,
@@ -47,6 +48,14 @@ class Measurements(EventTable):
         description = "Body measurements from Withings scales, BP monitors, and other devices."
         pk = ("grpid",)
         time_at = "created_at"
+        plot = (
+            PlotHint("weight_kg"),
+            PlotHint("fat_mass_kg"),
+            PlotHint("systolic_bp"),
+            PlotHint("diastolic_bp"),
+            PlotHint("heart_pulse"),
+            PlotHint("spo2_pct"),
+        )
 
     grpid: Annotated[int, Field(db_type="BIGINT", description="Measurement group ID", display_name="Group ID")]
     created_at: Annotated[
@@ -118,6 +127,12 @@ class SleepSummary(AggregateTable):
         description = "Per-night sleep summary from Withings Sleep Mat or ScanWatch."
         pk = ("date",)
         time_at = "date"
+        plot = (
+            PlotHint("total_sleep_duration_s"),
+            PlotHint("deep_sleep_duration_s"),
+            PlotHint("rem_sleep_duration_s"),
+            PlotHint("sleep_score"),
+        )
 
     cursor_column: ClassVar[str] = "date"
 
@@ -188,6 +203,12 @@ class DailyActivity(AggregateTable):
         description = "Per-day activity summary from Withings wearables."
         pk = ("date",)
         time_at = "date"
+        plot = (
+            PlotHint("steps"),
+            PlotHint("distance_m"),
+            PlotHint("active_calories_kcal"),
+            PlotHint("total_calories_kcal"),
+        )
 
     cursor_column: ClassVar[str] = "date"
 

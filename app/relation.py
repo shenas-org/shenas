@@ -37,6 +37,30 @@ class Field:
     options: tuple[str, ...] | None = None
 
 
+@dataclass(frozen=True)
+class PlotHint:
+    """Structured hint for time-series visualization.
+
+    Tells the frontend what to plot and how to render it.
+
+    ``y``
+        Column name for the y-axis (required).
+    ``group_by``
+        Column to split into separate series (e.g. ``"learning_language"``
+        produces one line per language). ``None`` = single series.
+    ``chart_type``
+        ``"line"`` (default), ``"bar"``, ``"area"``, or ``"scatter"``.
+    ``label``
+        Human-readable label for this plot. Defaults to the ``y`` column's
+        ``display_name`` from ``Field`` metadata.
+    """
+
+    y: str
+    group_by: str | None = None
+    chart_type: str = "line"
+    label: str | None = None
+
+
 class Relation:
     """Read-only base for any DuckDB-backed typed row class.
 
@@ -53,6 +77,7 @@ class Relation:
         schema: ClassVar[str | None] = None
         database: ClassVar[str] = "user"
         sequences: ClassVar[tuple[str, ...]] = ()
+        plot: ClassVar[tuple[PlotHint, ...]] = ()
 
     _abstract: ClassVar[bool] = True
 

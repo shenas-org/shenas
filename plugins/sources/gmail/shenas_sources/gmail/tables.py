@@ -17,6 +17,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core import get_logger
 from shenas_sources.core.table import (
@@ -179,6 +180,7 @@ class Messages(EventTable):
         description = "Email metadata, headers, and label-derived state flags."
         pk = ("id",)
         time_at = "internal_date"
+        plot = (PlotHint("size_estimate"),)
 
     cursor_column: ClassVar[str] = "internal_date"
 

@@ -25,6 +25,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core.table import (
     EventTable,
@@ -77,6 +78,7 @@ class RecentlyPlayed(EventTable):
         description = "Track plays from the Spotify recent-listens feed."
         pk = ("played_at",)
         time_at = "played_at"
+        plot = (PlotHint("popularity"), PlotHint("duration_ms"))
 
     cursor_column: ClassVar[str] = "played_at"
 

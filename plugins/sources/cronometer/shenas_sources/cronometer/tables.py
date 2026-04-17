@@ -19,6 +19,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
+from app.relation import PlotHint
 from app.table import Field
 from shenas_sources.core.table import AggregateTable, EventTable, SourceTable
 
@@ -92,6 +93,13 @@ class DailyNutrition(AggregateTable):
         description = "Daily macro- and micronutrient totals from Cronometer."
         pk = ("date",)
         time_at = "date"
+        plot = (
+            PlotHint("energy_kcal"),
+            PlotHint("protein_g"),
+            PlotHint("carbs_g"),
+            PlotHint("fat_g"),
+            PlotHint("fiber_g"),
+        )
 
     date: Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date")] = ""
     energy_kcal: Annotated[

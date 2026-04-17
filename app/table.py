@@ -302,6 +302,10 @@ class DataTable(Table):
         if kind in ("dimension", "snapshot", "m2m_relation") and cls._Meta.schema:
             meta["as_of_macro"] = f"{cls._Meta.schema}.{cls._Meta.name}_as_of"
 
+        plot = getattr(cls._Meta, "plot", ())
+        if plot:
+            meta["plot"] = [dataclasses.asdict(p) for p in plot]
+
         return meta
 
 
