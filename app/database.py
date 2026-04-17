@@ -114,11 +114,8 @@ class DatabaseManager:
         from app.plugin import PluginInstance
         from app.system_settings import SystemSettings
 
-        for schema in ("shenas", "plugins"):
-            con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas.local_user_seq START 1")
         for tbl in (LocalUser, LocalSession, SystemSettings, PluginInstance):
-            tbl.ensure(schema=tbl._Meta.schema)
+            tbl.ensure()
 
         try:
             from app.plugin import VALID_KINDS, Plugin
@@ -266,7 +263,7 @@ class DatabaseManager:
             self._shenas_db = None
 
     @staticmethod
-    def ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:
+    def ensure_system_tables(con: duckdb.DuckDBPyConnection) -> None:  # noqa: ARG004
         """Create all system + user tables on a single in-memory connection for tests."""
         from shenas_transformers.core.transform import Transform
         from shenas_transformers.geofence.model import Geofence
@@ -323,19 +320,8 @@ class DatabaseManager:
             Property,
             Statement,
         ]
-        # Each table declares its own schema via _Meta.schema; create all
-        # schemas first, then sequences, then ensure tables.
-        schemas = {getattr(t._Meta, "schema", None) for t in tables} - {None}
-        for s in sorted(schemas):
-            con.execute(f"CREATE SCHEMA IF NOT EXISTS {s}")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS transforms.transform_instance_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS analysis.hypothesis_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS analysis.finding_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS shenas.local_user_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS catalog.geofence_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS entities.entity_seq START 1")
         for t in tables:
-            t.ensure(schema=getattr(t._Meta, "schema", "main"))
+            t.ensure()
         Hotkey.seed()
         seed_entity_types()
         seed_relationship_types()

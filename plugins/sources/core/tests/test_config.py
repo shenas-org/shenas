@@ -39,7 +39,7 @@ def _mock_cursor():
             cur.close()
 
     with patch("app.database.cursor", _fake_cursor):
-        SampleConfig.ensure(schema="config")
+        SampleConfig.ensure()
         yield
 
 

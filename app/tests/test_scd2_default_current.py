@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
+from app.schema import Schema
 from app.table import Field
 from shenas_sources.core.table import DimensionTable, EventTable
 
@@ -13,7 +14,7 @@ class Dim(DimensionTable):
         name = "dim_test"
         display_name = "Dim Test"
         pk = ("id",)
-        schema = "test"
+        schema = Schema("test")
 
     id: Annotated[int, Field(db_type="INTEGER", description="id")] = 0
 
@@ -23,7 +24,7 @@ class Evt(EventTable):
         name = "evt_test"
         display_name = "Evt Test"
         pk = ("id",)
-        schema = "test"
+        schema = Schema("test")
         time_at = "ts"
 
     id: Annotated[int, Field(db_type="INTEGER", description="id")] = 0

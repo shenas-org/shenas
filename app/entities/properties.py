@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
+from app.schema import ENTITIES
 from app.table import Field
 from shenas_sources.core.table import DimensionTable
 
@@ -29,7 +30,7 @@ class Property(DimensionTable):
         name = "properties"
         display_name = "Properties"
         description = "Registry of property predicates used by entities.statements."
-        schema = "entities"
+        schema = ENTITIES
         pk = ("id",)
 
     id: Annotated[

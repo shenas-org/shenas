@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
+from app.schema import CATALOG
 from app.table import Field, Table
 
 
@@ -33,8 +34,9 @@ class Geofence(Table):
         name = "geofences"
         display_name = "Geofences"
         description = "User-defined circular geofences for categorizing location data."
-        schema = "catalog"
+        schema = CATALOG
         pk = ("id",)
+        sequences = ("catalog.geofence_seq",)
 
     id: Annotated[
         int,

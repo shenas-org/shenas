@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
+from app.schema import ANALYSIS
 from app.table import Field, Table
 
 
@@ -46,7 +47,7 @@ class RecipeCache(Table):
         name = "recipe_cache"
         display_name = "Recipe Cache"
         description = "Content-hash keyed cache of recipe execution results."
-        schema = "analysis"
+        schema = ANALYSIS
         pk = ("cache_key",)
 
     cache_key: Annotated[str, Field(db_type="VARCHAR", description="sha256(recipe + freshness)")] = ""

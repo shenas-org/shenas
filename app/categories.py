@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, Any
 
+from app.schema import CATALOG
 from app.table import Field, Table
 
 
@@ -19,7 +20,7 @@ class CategoryValue(Table):
         name = "category_values"
         display_name = "Category Values"
         description = "Individual values within a category set."
-        schema = "catalog"
+        schema = CATALOG
         pk = ("set_id", "value")
 
     set_id: Annotated[str, Field(db_type="VARCHAR", description="Parent category set ID")]
@@ -34,7 +35,7 @@ class Category(Table):
         name = "category_sets"
         display_name = "Category Sets"
         description = "Named groups of categories for classification."
-        schema = "catalog"
+        schema = CATALOG
         pk = ("id",)
 
     id: Annotated[str, Field(db_type="VARCHAR", description="Unique identifier (slug)")]

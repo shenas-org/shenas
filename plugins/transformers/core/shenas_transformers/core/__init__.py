@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
 from app.plugin import Plugin
+from app.schema import CONFIG
 from app.table import Field, SingletonTable
 
 
@@ -26,7 +27,7 @@ class TransformerConfig(SingletonTable):
         display_name = "Transformer Config"
         description = "Per-transformer-plugin configuration."
         pk = ("id",)
-        schema = "config"
+        schema = CONFIG
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         if "_abstract" not in cls.__dict__:

@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated
 
+from app.schema import UI
 from app.table import Field, SingletonTable
 
 
@@ -19,7 +20,7 @@ class Workspace(SingletonTable):
         name = "workspace"
         display_name = "Workspace"
         description = "Workspace state (tab layout, active tab, ...)."
-        schema = "ui"
+        schema = UI
         pk = ("id",)
 
     id: Annotated[int, Field(db_type="INTEGER", description="Singleton row ID", db_default="1")] = 1

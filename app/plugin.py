@@ -19,6 +19,7 @@ from urllib.request import urlopen
 if TYPE_CHECKING:
     from typing import Self
 
+from app.schema import PLUGINS
 from app.table import Field, Table
 
 
@@ -43,7 +44,7 @@ class PluginInstance(Table):
         name = "installed"
         display_name = "Installed Plugins"
         description = "Per-plugin install / enable / sync state."
-        schema = "plugins"
+        schema = PLUGINS
         pk = ("kind", "name")
         database = "system"
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import secrets
 from typing import Annotated, Any
 
+from app.schema import SHENAS
 from app.table import Field, SingletonTable
 
 
@@ -19,7 +20,7 @@ class LocalSession(SingletonTable):
         name = "local_sessions"
         display_name = "Local Sessions"
         description = "Active user session (single row, persists across restarts)."
-        schema = "shenas"
+        schema = SHENAS
         pk = ("id",)
         database = "system"
 

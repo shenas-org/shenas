@@ -8,6 +8,7 @@ individual pipes only need to declare their credential fields and a
 from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
+from app.schema import AUTH
 from app.table import Field, SingletonTable
 
 
@@ -31,7 +32,7 @@ class SourceAuth(SingletonTable):
         display_name = "Source Auth"
         description = "Encrypted per-source credential storage."
         pk = ("id",)
-        schema = "auth"
+        schema = AUTH
 
     id: Annotated[int, Field(db_type="INTEGER", description="Auth row identifier")] = 1
 

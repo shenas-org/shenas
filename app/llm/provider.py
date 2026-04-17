@@ -27,18 +27,15 @@ def get_llm_provider() -> LLMProvider:
     model = os.environ.get("SHENAS_LLM_MODEL", "claude-sonnet-4-6")
 
     try:
-        from app.database import current_user_id, cursor
+        from app.database import current_user_id
+        from app.local_users import LocalUser
 
         uid = current_user_id.get()
         if uid is not None:
-            with cursor(database="shenas") as cur:
-                row = cur.execute(
-                    "SELECT remote_token FROM shenas.local_users WHERE id = ?",
-                    [uid],
-                ).fetchone()
-                if row and row[0]:
-                    return ShenasNetProvider(token=row[0], model=model)  # type: ignore[return-value]
-                log.debug("No remote_token for user_id=%s", uid)
+            user = LocalUser.find(uid)
+            if user and user.remote_token:
+                return ShenasNetProvider(token=user.remote_token, model=model)  # type: ignore[return-value]
+            log.debug("No remote_token for user_id=%s", uid)
     except Exception:
         log.exception("Failed to look up remote_token")
 

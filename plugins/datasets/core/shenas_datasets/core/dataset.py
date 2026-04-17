@@ -94,7 +94,9 @@ class Dataset(Plugin):
         # Build DDL
         ddl = _build_ddl(table_name, columns, primary_key)
         with cursor() as cur:
-            cur.execute("CREATE SCHEMA IF NOT EXISTS metrics")
+            from app.schema import METRICS
+
+            METRICS.ensure()
             cur.execute(ddl)
 
         # Create transform instances

@@ -95,13 +95,7 @@ class TileSource(Source):
         # Ensure the derived TileInfo table exists before super().sync() runs
         # the SQL transform that populates it -- the SqlTransformer's DELETE
         # + INSERT path needs a target table.
-        from shenas_sources.core.db import connect
         from shenas_sources.tile.tables import TileInfo
 
-        con = connect()
-        try:
-            con.execute(f"CREATE SCHEMA IF NOT EXISTS {self.dataset_name}")
-            TileInfo.ensure(schema=self.dataset_name)
-        finally:
-            con.close()
+        TileInfo.ensure()
         super().sync(**kwargs)

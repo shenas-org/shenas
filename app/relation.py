@@ -52,6 +52,7 @@ class Relation:
         description: ClassVar[str | None] = None
         schema: ClassVar[str | None] = None
         database: ClassVar[str] = "user"
+        sequences: ClassVar[tuple[str, ...]] = ()
 
     _abstract: ClassVar[bool] = True
 
@@ -176,14 +177,6 @@ class Relation:
     # ------------------------------------------------------------------
 
     @classmethod
-    def _resolve_schema(cls, schema: str | None) -> str:
-        s = schema or cls._Meta.schema
-        if not s:
-            msg = f"{cls.__name__}: no schema specified and no schema set on _Meta"
-            raise TypeError(msg)
-        return s
-
-    @classmethod
     def _resolve_database(cls) -> str | None:
         if getattr(cls._Meta, "database", "user") == "system":
             return "shenas"
@@ -191,7 +184,7 @@ class Relation:
 
     @classmethod
     def _qualified(cls) -> str:
-        return f"{cls._resolve_schema(None)}.{cls._Meta.name}"
+        return f"{cls._Meta.schema.name}.{cls._Meta.name}"  # ty: ignore[unresolved-attribute]
 
     @classmethod
     def _column_names(cls) -> list[str]:

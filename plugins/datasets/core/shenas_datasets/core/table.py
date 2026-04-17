@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from app.schema import METRICS
 from app.table import DataTable
 
 
@@ -39,7 +40,7 @@ class MetricTable(DataTable):
     _abstract: ClassVar[bool] = True
 
     class _Meta:
-        schema = "metrics"
+        schema = METRICS
 
 
 class DailyMetricTable(MetricTable):

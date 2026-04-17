@@ -9,6 +9,7 @@ their custom fields and a ``table_name`` (set dynamically by
 from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
+from app.schema import CONFIG
 from app.table import Field, SingletonTable
 
 
@@ -28,7 +29,7 @@ class SourceConfig(SingletonTable):
         display_name = "Source Config"
         description = "Per-source configuration storage."
         pk = ("id",)
-        schema = "config"
+        schema = CONFIG
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         # Defer validation: see SourceAuth.__init_subclass__ for the rationale.

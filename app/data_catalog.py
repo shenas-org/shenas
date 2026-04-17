@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 
 from app.catalog import DataResourceRef
 from app.plugin import Plugin
+from app.schema import CATALOG
 from app.table import Field, Table
 
 if TYPE_CHECKING:
@@ -160,7 +161,7 @@ class ResourceAnnotation(Table):
         name = "resource_annotations"
         display_name = "Resource Annotations"
         description = "User annotations and freshness tracking for data resources."
-        schema = "catalog"
+        schema = CATALOG
         pk = ("data_resource_id",)
 
     data_resource_id: Annotated[str, Field(db_type="VARCHAR", description="DataResource ID (schema.table)")]
@@ -181,7 +182,7 @@ class QualityCheckResult(Table):
         name = "quality_check_results"
         display_name = "Quality Check Results"
         description = "Results of data quality checks."
-        schema = "catalog"
+        schema = CATALOG
         pk = ("data_resource_id", "check_type", "checked_at")
 
     data_resource_id: Annotated[str, Field(db_type="VARCHAR", description="DataResource ID")]
@@ -224,7 +225,7 @@ class QualityMeasurement(Table):
         name = "quality_measurements"
         display_name = "Quality Measurements"
         description = "Time-series of DQV-style numeric quality observations."
-        schema = "catalog"
+        schema = CATALOG
         pk = ("data_resource_id", "dimension", "measured_at")
 
     data_resource_id: Annotated[str, Field(db_type="VARCHAR", description="DataResource ID (schema.table)")]

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
+from app.schema import ENTITIES
 from app.table import Field
 from shenas_sources.core.table import DimensionTable
 
@@ -35,7 +36,7 @@ class Statement(DimensionTable):
         name = "statements"
         display_name = "Statements"
         description = "Entity attribute triples: (entity_id, property_id, value)."
-        schema = "entities"
+        schema = ENTITIES
         pk = ("entity_id", "property_id", "value")
 
     entity_id: Annotated[

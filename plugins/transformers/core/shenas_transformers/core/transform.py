@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from app.catalog import DataResourceRef
+from app.schema import TRANSFORMS
 from app.table import Field, Table
 
 log = logging.getLogger(f"shenas.{__name__}")
@@ -32,8 +33,9 @@ class Transform(Table):
         name = "instances"
         display_name = "Transforms"
         description = "Configured transform instances binding source tables to target tables."
-        schema = "transforms"
+        schema = TRANSFORMS
         pk = ("id",)
+        sequences = ("transforms.transform_instance_seq",)
 
     id: Annotated[
         int,
@@ -211,39 +213,22 @@ class Transform(Table):
         transform_type: str,
         defaults: list[dict[str, str]],
     ) -> None:
-        from app.database import cursor
-
-        with cursor() as cur:
-            existing = cur.execute(
-                "SELECT source_data_resource_id, target_data_resource_id "
-                "FROM transforms.instances "
-                "WHERE source_plugin = ? AND transform_type = ? AND is_default = true",
-                [source_plugin, transform_type],
-            ).fetchall()
-        existing_keys = {(r[0], r[1]) for r in existing}
+        existing = cls.all(
+            where="source_plugin = ? AND transform_type = ? AND is_default = true",
+            params=[source_plugin, transform_type],
+        )
+        existing_by_key = {(t.source_data_resource_id, t.target_data_resource_id): t for t in existing}
 
         for d in defaults:
             src_id = f"{d['source_duckdb_schema']}.{d['source_duckdb_table']}"
             tgt_id = f"{d['target_duckdb_schema']}.{d['target_duckdb_table']}"
             key = (src_id, tgt_id)
             params_json = d.get("params", "{}")
-            if key in existing_keys:
-                with cursor() as cur:
-                    cur.execute(
-                        "UPDATE transforms.instances "
-                        "SET params = ?, description = ?, updated_at = current_timestamp "
-                        "WHERE source_plugin = ? AND transform_type = ? "
-                        "AND source_data_resource_id = ? AND target_data_resource_id = ? "
-                        "AND is_default = true",
-                        [
-                            params_json,
-                            d.get("description", ""),
-                            source_plugin,
-                            transform_type,
-                            src_id,
-                            tgt_id,
-                        ],
-                    )
+            if key in existing_by_key:
+                inst = existing_by_key[key]
+                inst.params = params_json
+                inst.description = d.get("description", "")
+                inst.save()
                 continue
             cls.create(
                 transform_type=transform_type,

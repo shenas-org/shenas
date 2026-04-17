@@ -88,6 +88,7 @@ def _gql(client: TestClient, query: str, variables: dict | None = None) -> dict:
 # Module-scope test fixture for catalog tests. Defined here (rather than
 # inside the test function) so `get_type_hints` can resolve `Annotated`
 # and `Field` from this module's namespace.
+from app.schema import METRICS  # noqa: E402
 from app.table import Field  # noqa: E402
 from shenas_datasets.core import DailyMetricTable  # noqa: E402
 
@@ -97,7 +98,7 @@ class _CatalogMood(DailyMetricTable):
         name = "daily_mood_test"
         display_name = "Daily Mood (test)"
         description = "Test metric."
-        schema = "metrics"
+        schema = METRICS
         pk = ("date", "source")
 
     date: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""

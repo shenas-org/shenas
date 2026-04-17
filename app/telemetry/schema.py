@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS telemetry.logs (
 
 def ensure_telemetry_schema(con: duckdb.DuckDBPyConnection) -> None:
     """Create the telemetry schema and tables if they don't exist."""
-    con.execute("CREATE SCHEMA IF NOT EXISTS telemetry")
+    from app.schema import TELEMETRY
+
+    con.execute(f'CREATE SCHEMA IF NOT EXISTS "{TELEMETRY.name}"')
     con.execute(CREATE_SPANS)
     con.execute(CREATE_LOGS)

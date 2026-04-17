@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, Any
 
+from app.schema import ANALYSIS
 from app.table import Field, Table
 
 # Evidence level ordering for ranking (higher = stronger evidence).
@@ -31,8 +32,9 @@ class Finding(Table):
         name = "literature_findings"
         display_name = "Literature Findings"
         description = "Published research findings: exposure -> outcome with effect sizes and evidence levels."
-        schema = "analysis"
+        schema = ANALYSIS
         pk = ("id",)
+        sequences = ("analysis.finding_seq",)
 
     id: Annotated[
         int,

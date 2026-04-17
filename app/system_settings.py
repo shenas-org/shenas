@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
+from app.schema import SHENAS
 from app.table import Field, SingletonTable
 
 
@@ -12,7 +13,7 @@ class SystemSettings(SingletonTable):
         name = "system_settings"
         display_name = "System Settings"
         description = "System-wide configuration flags."
-        schema = "shenas"
+        schema = SHENAS
         pk = ("id",)
         database = "system"
 

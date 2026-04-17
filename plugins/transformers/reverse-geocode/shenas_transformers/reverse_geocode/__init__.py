@@ -72,19 +72,10 @@ class ReverseGeocodeTransformer(Transformer):
             with cursor() as con:
                 con.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
 
-                # Ensure reverse geocode cache
-                con.execute("CREATE SCHEMA IF NOT EXISTS cache")
-                con.execute("""
-                    CREATE TABLE IF NOT EXISTS cache.reverse_geocode_cache (
-                        coord_hash VARCHAR PRIMARY KEY,
-                        latitude DOUBLE,
-                        longitude DOUBLE,
-                        place_name VARCHAR,
-                        address VARCHAR,
-                        provider VARCHAR,
-                        fetched_at TIMESTAMP DEFAULT current_timestamp
-                    )
-                """)
+                # Ensure reverse geocode cache table exists
+                from shenas_transformers.reverse_geocode.cache import ReverseGeocodeCacheEntry
+
+                ReverseGeocodeCacheEntry.ensure()
 
                 # Read distinct coordinate pairs (rounded to ~11m precision)
                 rows = con.execute(
@@ -100,12 +91,9 @@ class ReverseGeocodeTransformer(Transformer):
                 cached: dict[tuple[float, float], str] = {}
                 for lat, lon in coords:
                     coord_hash = hashlib.sha256(f"{lat:.4f},{lon:.4f}".encode()).hexdigest()[:16]
-                    result = con.execute(
-                        "SELECT place_name FROM cache.reverse_geocode_cache WHERE coord_hash = ?",
-                        [coord_hash],
-                    ).fetchone()
-                    if result:
-                        cached[(lat, lon)] = result[0]
+                    entry = ReverseGeocodeCacheEntry.find(coord_hash)
+                    if entry and entry.place_name:
+                        cached[(lat, lon)] = entry.place_name
 
                 # Reverse geocode uncached
                 uncached = [c for c in coords if c not in cached]
@@ -117,12 +105,7 @@ class ReverseGeocodeTransformer(Transformer):
 
                     for (lat, lon), (place, address) in resolved.items():
                         coord_hash = hashlib.sha256(f"{lat:.4f},{lon:.4f}".encode()).hexdigest()[:16]
-                        con.execute(
-                            "INSERT OR REPLACE INTO cache.reverse_geocode_cache "
-                            "(coord_hash, latitude, longitude, place_name, address, provider) "
-                            "VALUES (?, ?, ?, ?, ?, ?)",
-                            [coord_hash, lat, lon, place, address, provider],
-                        )
+                        ReverseGeocodeCacheEntry.from_row((coord_hash, lat, lon, place, address, provider, None)).upsert()
                         cached[(lat, lon)] = place
 
                 # Write: join source with cached results

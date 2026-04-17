@@ -25,6 +25,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated
 
+from app.schema import ANALYSIS
 from app.table import Field, Table
 
 if TYPE_CHECKING:
@@ -46,8 +47,9 @@ class Hypothesis(Table):
         name = "hypotheses"
         display_name = "Hypotheses"
         description = "LLM-authored hypothesis records: question, recipe, result, interpretation."
-        schema = "analysis"
+        schema = ANALYSIS
         pk = ("id",)
+        sequences = ("analysis.hypothesis_seq",)
 
     id: Annotated[
         int,

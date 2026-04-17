@@ -8,6 +8,7 @@ import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
+from app.schema import SHENAS
 from app.table import Field, Table
 
 if TYPE_CHECKING:
@@ -43,9 +44,10 @@ class LocalUser(Table):
         name = "local_users"
         display_name = "Local Users"
         description = "Local user registry with password-based authentication."
-        schema = "shenas"
+        schema = SHENAS
         pk = ("id",)
         database = "system"
+        sequences = ("shenas.local_user_seq",)
 
     id: Annotated[
         int,
@@ -73,7 +75,7 @@ class LocalUser(Table):
         return DATA_DIR / "users" / f"{self.id}.duckdb"
 
     @classmethod
-    def _bootstrap_user_db(cls, con: duckdb.DuckDBPyConnection) -> None:  # noqa: PLR0915
+    def _bootstrap_user_db(cls, con: duckdb.DuckDBPyConnection) -> None:
         """Create all user-scoped tables in a freshly attached user DB.
 
         Walks ``Table.__subclasses__()`` recursively, picking every concrete
@@ -98,11 +100,6 @@ class LocalUser(Table):
 
         for schema in ("transforms", "analysis", "entities", "metrics", "ui", "cache", "catalog", "mesh"):
             con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS transforms.transform_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS transforms.transform_instance_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS analysis.hypothesis_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS analysis.finding_seq START 1")
-        con.execute("CREATE SEQUENCE IF NOT EXISTS entities.entity_seq START 1")
 
         seen: set[type[Table]] = set()
 
@@ -117,9 +114,7 @@ class LocalUser(Table):
                 meta = getattr(sub, "_Meta", None)
                 if meta is None or not getattr(meta, "name", None):
                     continue
-                schema = getattr(meta, "schema", None) or "main"
-                con.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
-                sub.ensure(schema=schema)
+                sub.ensure()
 
         walk(Table)
 
@@ -135,9 +130,7 @@ class LocalUser(Table):
                 meta = getattr(tbl_cls, "_Meta", None)
                 if meta is None or not getattr(meta, "name", None):
                     return
-                schema = getattr(meta, "schema", None) or "config"
-                con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-                tbl_cls.ensure(schema=schema)
+                tbl_cls.ensure()
 
             for source_cls in Source.load_all():
                 _ensure_singleton(source_cls.Config)

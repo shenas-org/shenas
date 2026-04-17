@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from typing import Annotated
 
+from app.schema import CACHE
 from app.table import Field, Table
 
 
@@ -19,7 +20,7 @@ class LlmCacheEntry(Table):
         name = "llm_cache"
         display_name = "LLM Cache"
         description = "Cached LLM responses for deterministic re-use."
-        schema = "cache"
+        schema = CACHE
         pk = ("content_hash", "prompt_hash", "model")
 
     content_hash: Annotated[str, Field(db_type="VARCHAR", description="SHA-256 prefix of input text")] = ""
@@ -38,7 +39,7 @@ class LlmCache:
     TABLE = "cache.llm_cache"
 
     def __init__(self) -> None:
-        LlmCacheEntry.ensure(schema="cache")
+        LlmCacheEntry.ensure()
 
     @staticmethod
     def hash16(s: str) -> str:

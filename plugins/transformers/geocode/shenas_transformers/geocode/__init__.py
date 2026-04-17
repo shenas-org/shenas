@@ -75,18 +75,10 @@ class GeocodeTransformer(Transformer):
             with cursor() as con:
                 con.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
 
-                # Ensure geocode_cache table exists
-                con.execute("CREATE SCHEMA IF NOT EXISTS cache")
-                con.execute("""
-                    CREATE TABLE IF NOT EXISTS cache.geocode_cache (
-                        address_hash VARCHAR PRIMARY KEY,
-                        address VARCHAR,
-                        latitude DOUBLE,
-                        longitude DOUBLE,
-                        provider VARCHAR,
-                        fetched_at TIMESTAMP DEFAULT current_timestamp
-                    )
-                """)
+                # Ensure geocode cache table exists
+                from shenas_transformers.geocode.cache import GeocodeCacheEntry
+
+                GeocodeCacheEntry.ensure()
 
                 # Read distinct addresses that need geocoding
                 rows = con.execute(
@@ -100,12 +92,9 @@ class GeocodeTransformer(Transformer):
                 cached: dict[str, tuple[float, float]] = {}
                 for addr in addresses:
                     addr_hash = hashlib.sha256(addr.encode()).hexdigest()[:16]
-                    result = con.execute(
-                        "SELECT latitude, longitude FROM cache.geocode_cache WHERE address_hash = ?",
-                        [addr_hash],
-                    ).fetchone()
-                    if result:
-                        cached[addr] = (result[0], result[1])
+                    entry = GeocodeCacheEntry.find(addr_hash)
+                    if entry and entry.latitude is not None and entry.longitude is not None:
+                        cached[addr] = (entry.latitude, entry.longitude)
 
                 # Geocode uncached addresses
                 uncached = [a for a in addresses if a not in cached]
@@ -117,12 +106,7 @@ class GeocodeTransformer(Transformer):
 
                     for addr, (lat, lng) in geocoded.items():
                         addr_hash = hashlib.sha256(addr.encode()).hexdigest()[:16]
-                        con.execute(
-                            "INSERT OR REPLACE INTO cache.geocode_cache "
-                            "(address_hash, address, latitude, longitude, provider) "
-                            "VALUES (?, ?, ?, ?, ?)",
-                            [addr_hash, addr, lat, lng, provider],
-                        )
+                        GeocodeCacheEntry.from_row((addr_hash, addr, lat, lng, provider, None)).upsert()
                         cached[addr] = (lat, lng)
 
                 # Write results: join source with cached geocode results

@@ -27,6 +27,7 @@ import json
 from dataclasses import dataclass
 from typing import Annotated, Any
 
+from app.schema import ANALYSIS
 from app.table import Field, Table
 from shenas_datasets.core import Dataset, MetricTable
 
@@ -39,7 +40,7 @@ class PromotedMetric(Table):
         name = "promoted_metrics"
         display_name = "Promoted Metrics"
         description = "Hypotheses promoted to canonical metric tables."
-        schema = "analysis"
+        schema = ANALYSIS
         pk = ("name", "metric_schema")
 
     name: Annotated[str, Field(db_type="VARCHAR", description="snake_case metric name")] = ""
@@ -159,10 +160,10 @@ def _make_transform(record: PromotedMetric):
         result = run_recipe(recipe, get_catalog().metadata_by_id(), backend=analytics_backend())
         if not isinstance(result, TableResult):
             return 0
-        qualified = f'"{cls._Meta.schema}"."{cls._Meta.name}"'
-        con.execute(f"DELETE FROM {qualified}")
+        cls.clear_rows()
         if not result.rows:
             return 0
+        qualified = f'"{cls._Meta.schema}"."{cls._Meta.name}"'
         col_list = ", ".join('"' + c.replace('"', '""') + '"' for c in result.columns)
         placeholders = ", ".join(["?"] * len(result.columns))
         for row in result.rows:

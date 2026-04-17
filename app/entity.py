@@ -38,6 +38,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Annotated, Any, Self
 
+from app.schema import ENTITIES
 from app.table import Field, Table
 
 if TYPE_CHECKING:
@@ -74,7 +75,7 @@ class EntityType(Table):
         name = "entity_types"
         display_name = "Entity Types"
         description = "Discriminator values for the entities table."
-        schema = "entities"
+        schema = ENTITIES
         pk = ("name",)
 
     name: Annotated[str, Field(db_type="VARCHAR", description="Short slug, e.g. 'human'")] = ""
@@ -277,7 +278,7 @@ class EntityRelationshipType(Table):
         name = "entity_relationship_types"
         display_name = "Entity Relationship Types"
         description = "Discriminator values for entity_relationships.type."
-        schema = "entities"
+        schema = ENTITIES
         pk = ("name",)
 
     name: Annotated[str, Field(db_type="VARCHAR", description="Short slug, e.g. 'owner_of'")] = ""
@@ -316,7 +317,7 @@ class EntityIndex(Table):
         name = "entity_index"
         display_name = "Entity Index"
         description = "UUID -> (db, table, row_id) lookup for entity rows."
-        schema = "entities"
+        schema = ENTITIES
         pk = ("uuid",)
 
     uuid: Annotated[str, Field(db_type="VARCHAR", description="Entity UUID (hex, no dashes)")] = ""
@@ -386,8 +387,9 @@ class Entity(Table):
         name = "entities"
         display_name = "Entities"
         description = "Typed nodes in the user's entity graph."
-        schema = "entities"
+        schema = ENTITIES
         pk = ("id",)
+        sequences = (ENTITY_SEQ,)
 
     id: Annotated[
         int,
@@ -454,15 +456,12 @@ class Entity(Table):
         local user is handled through the normal registry flow.
         """
         if getattr(type(self)._Meta, "database", "user") != "system":
-            from app.database import cursor
-
             uuid_val = self.uuid
-            with cursor() as cur:
-                cur.execute(
-                    "DELETE FROM entities.entity_relationships WHERE from_uuid = ? OR to_uuid = ?",
-                    [uuid_val, uuid_val],
-                )
-                cur.execute("DELETE FROM entities.entity_index WHERE uuid = ?", [uuid_val])
+            for rel in EntityRelationship.all(where="from_uuid = ? OR to_uuid = ?", params=[uuid_val, uuid_val]):
+                rel.delete()
+            idx = EntityIndex.find(uuid_val)
+            if idx:
+                idx.delete()
         super().delete()
 
     # ------------------------------------------------------------------
@@ -517,7 +516,7 @@ class EntityRelationship(Table):
         name = "entity_relationships"
         display_name = "Entity Relationships"
         description = "Directed edges between entities."
-        schema = "entities"
+        schema = ENTITIES
         pk = ("from_uuid", "to_uuid", "type")
 
     from_uuid: Annotated[str, Field(db_type="VARCHAR", description="Source entity UUID")] = ""

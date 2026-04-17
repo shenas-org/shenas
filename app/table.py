@@ -58,16 +58,24 @@ class Table(Relation):
         return f'CREATE TABLE IF NOT EXISTS "{schema}"."{cls._Meta.name}" (\n' + ",\n".join(lines) + "\n)"
 
     @classmethod
-    def ensure(cls, *, schema: str | None = None) -> None:
+    def ensure(cls) -> None:
         """Create this table if missing, then add any new columns.
 
-        Uses the cursor system from :mod:`app.database`.
+        Delegates schema + sequence creation to :meth:`Schema.ensure`.
         """
         from app.database import cursor
+        from app.schema import Schema
 
-        s = schema or getattr(cls._Meta, "schema", None) or "metrics"
+        raw = cls._Meta.schema
+        if not isinstance(raw, Schema):
+            msg = f"{cls.__name__}: _Meta.schema must be a Schema instance"
+            raise TypeError(msg)
+        raw.ensure()
+        s = raw.name
         with cursor(database=cls._resolve_database()) as cur:
             cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{s}"')
+            for seq in getattr(cls._Meta, "sequences", ()):
+                cur.execute(f"CREATE SEQUENCE IF NOT EXISTS {seq} START 1")
             cur.execute(cls.to_ddl(schema=s))
             cls._add_missing_columns(cur, schema=s)
 
@@ -172,23 +180,19 @@ class Table(Relation):
         return self.save()
 
     @classmethod
-    def clear_rows(cls, *, schema: str | None = None) -> None:
+    def clear_rows(cls) -> None:
         """Delete every row from this table."""
         from app.database import cursor
 
-        s = cls._resolve_schema(schema)
         with cursor(database=cls._resolve_database()) as cur:
-            cur.execute(f"DELETE FROM {s}.{cls._Meta.name}")
+            cur.execute(f"DELETE FROM {cls._qualified()}")
 
     @staticmethod
-    def ensure_schema(all_tables: Sequence[type[Table]], *, schema: str = "metrics") -> None:
-        """Create the named schema and ensure every table exists."""
-        from app.database import cursor
-
-        with cursor() as cur:
-            cur.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    def ensure_schema(all_tables: Sequence[type[Table]]) -> None:
+        """Ensure every table in the list exists (schema creation is handled
+        by :meth:`ensure` using each table's ``_Meta.schema``)."""
         for t in all_tables:
-            t.ensure(schema=schema)
+            t.ensure()
 
 
 # ---------------------------------------------------------------------------
@@ -312,34 +316,32 @@ class SingletonTable(Table):
     _abstract: ClassVar[bool] = True
 
     @classmethod
-    def read_row(cls, *, schema: str | None = None) -> dict[str, Any] | None:
+    def read_row(cls) -> dict[str, Any] | None:
         """Read the single row as a dict, or None if empty."""
         from app.database import cursor
 
-        s = cls._resolve_schema(schema)
         cols = [f.name for f in dataclasses.fields(cls)]
         col_list = ", ".join(cols)
         with cursor(database=cls._resolve_database()) as cur:
-            row = cur.execute(f"SELECT {col_list} FROM {s}.{cls._Meta.name} LIMIT 1").fetchone()
+            row = cur.execute(f"SELECT {col_list} FROM {cls._qualified()} LIMIT 1").fetchone()
         if row is None:
             return None
         return dict(zip(cols, row, strict=False))
 
     @classmethod
-    def read_value(cls, key: str, *, schema: str | None = None) -> Any | None:
+    def read_value(cls, key: str) -> Any | None:
         """Read a single column value from the row, or None."""
-        row = cls.read_row(schema=schema)
+        row = cls.read_row()
         if row is None:
             return None
         return row.get(key)
 
     @classmethod
-    def write_row(cls, *, schema: str | None = None, **kwargs: Any) -> None:
+    def write_row(cls, **kwargs: Any) -> None:
         """Upsert the single row: merge with existing, then DELETE + INSERT."""
         from app.database import cursor
 
-        s = cls._resolve_schema(schema)
-        existing = cls.read_row(schema=s)
+        existing = cls.read_row()
         if existing:
             merged = {**existing, **kwargs}
         else:
@@ -358,8 +360,8 @@ class SingletonTable(Table):
         col_names = ", ".join(cols)
         values = [merged.get(c) for c in cols]
         with cursor(database=cls._resolve_database()) as cur:
-            cur.execute(f"DELETE FROM {s}.{cls._Meta.name}")
-            cur.execute(f"INSERT INTO {s}.{cls._Meta.name} ({col_names}) VALUES ({placeholders})", values)
+            cur.execute(f"DELETE FROM {cls._qualified()}")
+            cur.execute(f"INSERT INTO {cls._qualified()} ({col_names}) VALUES ({placeholders})", values)
 
 
 # ---------------------------------------------------------------------------
@@ -378,7 +380,7 @@ class KeyValueTable(Table):
             class _Meta:
                 name = "my_kv"
                 display_name = "My KV"
-                schema = "cache"
+                schema = CACHE  # from app.schema
 
             key: Annotated[str, Field(db_type="TEXT", description="...")] = ""
             value: Annotated[str, Field(db_type="TEXT", description="...")] = ""

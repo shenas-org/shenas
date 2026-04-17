@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
+from app.schema import ENTITIES
 from app.table import Field, View
 
 
@@ -31,7 +32,7 @@ class PlacesWide(View):
     class _Meta:
         name = "places_wide"
         display_name = "Places (wide)"
-        schema = "entities"
+        schema = ENTITIES
         pk = ("entity_id",)
 
     entity_id: Annotated[
