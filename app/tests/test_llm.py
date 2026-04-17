@@ -6,16 +6,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-import duckdb
 import pytest
+
+if TYPE_CHECKING:
+    import duckdb
 
 from app.llm.backends import Backend, LlamaCppBackend, ShenasProxyBackend
 from app.llm.cache import LlmCache
 from app.llm.models import DEFAULT_MODEL, Model, ModelStore, _AbsoluteModel
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
-
 
 # -- Model / ModelStore ---------------------------------------------------
 
@@ -90,50 +88,42 @@ class TestModelStore:
 # -- LlmCache ------------------------------------------------------------
 
 
-@pytest.fixture
-def cache_con() -> Iterator[duckdb.DuckDBPyConnection]:
-    con = duckdb.connect()
-    con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
-    yield con
-    con.close()
-
-
 class TestLlmCache:
-    def test_creates_table(self, cache_con: duckdb.DuckDBPyConnection) -> None:
-        cache = LlmCache(cache_con)
-        tables = cache_con.execute(
+    def test_creates_table(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        cache = LlmCache()
+        tables = db_con.execute(
             "SELECT table_name FROM information_schema.tables WHERE table_schema = 'shenas_system'"
         ).fetchall()
         assert ("llm_cache",) in tables
         _ = cache
 
-    def test_put_and_get(self, cache_con: duckdb.DuckDBPyConnection) -> None:
-        cache = LlmCache(cache_con)
+    def test_put_and_get(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        cache = LlmCache()
         cache.put(text="hello", prompt_hash="p1", model="test-model", result="greeting")
         assert cache.get(text="hello", prompt_hash="p1", model="test-model") == "greeting"
 
-    def test_get_miss_returns_none(self, cache_con: duckdb.DuckDBPyConnection) -> None:
-        cache = LlmCache(cache_con)
+    def test_get_miss_returns_none(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        cache = LlmCache()
         assert cache.get(text="missing", prompt_hash="p1", model="m") is None
 
-    def test_model_isolation(self, cache_con: duckdb.DuckDBPyConnection) -> None:
+    def test_model_isolation(self, db_con: duckdb.DuckDBPyConnection) -> None:
         """Different models get different cache entries for the same text."""
-        cache = LlmCache(cache_con)
+        cache = LlmCache()
         cache.put(text="hello", prompt_hash="p1", model="model-a", result="result-a")
         cache.put(text="hello", prompt_hash="p1", model="model-b", result="result-b")
         assert cache.get(text="hello", prompt_hash="p1", model="model-a") == "result-a"
         assert cache.get(text="hello", prompt_hash="p1", model="model-b") == "result-b"
 
-    def test_prompt_isolation(self, cache_con: duckdb.DuckDBPyConnection) -> None:
+    def test_prompt_isolation(self, db_con: duckdb.DuckDBPyConnection) -> None:
         """Different prompts get different cache entries for the same text."""
-        cache = LlmCache(cache_con)
+        cache = LlmCache()
         cache.put(text="hello", prompt_hash="prompt-1", model="m", result="r1")
         cache.put(text="hello", prompt_hash="prompt-2", model="m", result="r2")
         assert cache.get(text="hello", prompt_hash="prompt-1", model="m") == "r1"
         assert cache.get(text="hello", prompt_hash="prompt-2", model="m") == "r2"
 
-    def test_put_overwrites(self, cache_con: duckdb.DuckDBPyConnection) -> None:
-        cache = LlmCache(cache_con)
+    def test_put_overwrites(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        cache = LlmCache()
         cache.put(text="hello", prompt_hash="p1", model="m", result="old")
         cache.put(text="hello", prompt_hash="p1", model="m", result="new")
         assert cache.get(text="hello", prompt_hash="p1", model="m") == "new"
@@ -143,21 +133,22 @@ class TestLlmCache:
         assert LlmCache.hash16("a") != LlmCache.hash16("b")
         assert len(LlmCache.hash16("test")) == 16
 
-    def test_join_sql(self, cache_con: duckdb.DuckDBPyConnection) -> None:
-        cache = LlmCache(cache_con)
-        cache_con.execute("CREATE SCHEMA IF NOT EXISTS test_schema")
-        cache_con.execute("CREATE TABLE test_schema.src (name VARCHAR)")
-        cache_con.execute("INSERT INTO test_schema.src VALUES ('hello'), ('world')")
+    def test_join_sql(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        cache = LlmCache()
+        db_con.execute("CREATE SCHEMA IF NOT EXISTS test_schema")
+        db_con.execute("CREATE TABLE IF NOT EXISTS test_schema.src (name VARCHAR)")
+        db_con.execute("DELETE FROM test_schema.src")
+        db_con.execute("INSERT INTO test_schema.src VALUES ('hello'), ('world')")
         cache.put(text="hello", prompt_hash="p1", model="m", result="greeting")
 
-        sql = cache.join_sql(
+        sql, params = cache.join_sql(
             source="test_schema.src",
             text_col="name",
             prompt_hash="p1",
             model="m",
             output_col="category",
         )
-        rows = cache_con.execute(sql).fetchall()
+        rows = db_con.execute(sql, params).fetchall()
         assert len(rows) == 2
         results = {r[0]: r[1] for r in rows}
         assert results["hello"] == "greeting"
@@ -242,10 +233,8 @@ class TestLlamaCppBackend:
 
 
 class TestEndToEnd:
-    def test_categorize_and_cache_round_trip(
-        self, llama_backend: LlamaCppBackend, cache_con: duckdb.DuckDBPyConnection
-    ) -> None:
-        cache = LlmCache(cache_con)
+    def test_categorize_and_cache_round_trip(self, llama_backend: LlamaCppBackend, db_con: duckdb.DuckDBPyConnection) -> None:
+        cache = LlmCache()
         prompt = "Reply with one word: Run or Walk. Text: sprinting fast"
         prompt_hash = LlmCache.hash16(prompt)
         text = "sprinting fast"
@@ -265,9 +254,9 @@ class TestEndToEnd:
         assert cached == result
 
     def test_different_model_does_not_hit_cache(
-        self, llama_backend: LlamaCppBackend, cache_con: duckdb.DuckDBPyConnection
+        self, llama_backend: LlamaCppBackend, db_con: duckdb.DuckDBPyConnection
     ) -> None:
-        cache = LlmCache(cache_con)
+        cache = LlmCache()
         prompt_hash = LlmCache.hash16("test prompt")
         cache.put(text="hello", prompt_hash=prompt_hash, model=llama_backend.name, result="cached")
 

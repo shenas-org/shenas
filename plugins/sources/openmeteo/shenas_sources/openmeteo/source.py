@@ -74,37 +74,15 @@ class OpenMeteoSource(Source):
 def _load_place_entities(allowed: set[str] | None) -> list[tuple[str, float, float]]:
     """Return ``[(entity_id, latitude, longitude), ...]`` for place entities.
 
-    Reads from ``shenas_system.entities`` (filtered to type IN
-    ``city``/``residence``/``country``) and joins with
-    ``shenas_system.statements`` for the ``latitude`` + ``longitude``
-    properties. Entities missing either coordinate are skipped.
-
-    ``allowed`` is the optional set of entity_ids configured via the
-    Config tab; ``None`` means "all places".
+    Reads from the ``shenas_system.places_wide`` view (maintained by
+    :func:`app.entities.places.ensure_places_wide_view`). Entities
+    missing either coordinate are excluded by the view's INNER JOIN.
     """
-    from app.database import cursor
+    from app.entities.places import PlacesWide
 
-    with cursor() as cur:
-        rows = cur.execute(
-            """
-            SELECT e.uuid,
-                   CAST(lat.value AS DOUBLE) AS latitude,
-                   CAST(lng.value AS DOUBLE) AS longitude
-            FROM shenas_system.entities e
-            JOIN shenas_system.statements lat
-              ON lat.entity_id = e.uuid
-             AND lat.property_id = 'latitude'
-             AND lat._dlt_valid_to IS NULL
-            JOIN shenas_system.statements lng
-              ON lng.entity_id = e.uuid
-             AND lng.property_id = 'longitude'
-             AND lng._dlt_valid_to IS NULL
-            WHERE e.type IN ('city', 'residence', 'country')
-            """
-        ).fetchall()
-    out: list[tuple[str, float, float]] = []
-    for uuid, lat, lng in rows:
-        if allowed is not None and uuid not in allowed:
-            continue
-        out.append((uuid, float(lat), float(lng)))
-    return out
+    rows = PlacesWide.all(where="latitude IS NOT NULL AND longitude IS NOT NULL")
+    return [
+        (r.entity_id, float(r.latitude), float(r.longitude))  # ty: ignore[invalid-argument-type]
+        for r in rows
+        if allowed is None or r.entity_id in allowed
+    ]

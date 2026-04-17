@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 
 import strawberry
@@ -355,18 +356,14 @@ class Mutation:
     def run_pipe_transforms(self, pipe: str) -> TransformRunResultType:
         from shenas_transformers.core.transform import Transform
 
-        from app.database import connect
-
-        count = Transform.run_for_source(connect(), pipe)
+        count = Transform.run_for_source(pipe)
         return TransformRunResultType(name=pipe, count=count)
 
     @strawberry.mutation
     def run_schema_transforms(self, schema: str) -> TransformRunResultType:
         from shenas_transformers.core.transform import Transform
 
-        from app.database import connect
-
-        count = Transform.run_for_target(connect(), schema)
+        count = Transform.run_for_target(schema)
         return TransformRunResultType(name=schema, count=count)
 
     # -- Hotkeys --
@@ -1077,13 +1074,8 @@ class Mutation:
             )
         )
         prop.upsert()
-        try:
-            from app.database import cursor
-
-            with cursor() as cur:
-                ensure_all_wide_views(cur)
-        except Exception:
-            pass
+        with contextlib.suppress(Exception):
+            ensure_all_wide_views()
         return PropertyType(
             id=prop_id,
             label=prop.label,

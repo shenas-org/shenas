@@ -24,7 +24,6 @@ class SqlTransformer(Transformer):
 
     def execute(
         self,
-        con: duckdb.DuckDBPyConnection,
         instance: Transform,
         *,
         device_id: str = "local",
@@ -37,22 +36,21 @@ class SqlTransformer(Transformer):
 
         target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
         try:
-            con.execute(f"DELETE FROM {target} WHERE source = ?", [instance.source_plugin])
-
             from app.database import cursor
 
             with cursor() as cur:
+                cur.execute(f"DELETE FROM {target} WHERE source = ?", [instance.source_plugin])
                 cur.execute(f"SELECT * FROM ({sql}) _t LIMIT 0")
                 cols = [d[0] for d in cur.description]
 
-            col_names = ", ".join(f'"{c}"' for c in cols)
+                col_names = ", ".join(f'"{c}"' for c in cols)
 
-            with contextlib.suppress(duckdb.Error):
-                con.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
+                with contextlib.suppress(duckdb.Error):
+                    cur.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
 
-            col_names_with_device = col_names + ', "source_device"'
-            sql_with_device = f"SELECT *, '{device_id}' as source_device FROM ({sql}) _t"
-            con.execute(f"INSERT INTO {target} ({col_names_with_device}) {sql_with_device}")
+                col_names_with_device = col_names + ', "source_device"'
+                sql_with_device = f"SELECT *, '{device_id}' as source_device FROM ({sql}) _t"
+                cur.execute(f"INSERT INTO {target} ({col_names_with_device}) {sql_with_device}")
             return 1
         except Exception:
             log.exception("Transform #%d failed (%s -> %s)", instance.id, instance.source_plugin, target)

@@ -45,8 +45,6 @@ from app.table import Field, Table
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    import duckdb
-
 
 # ---------------------------------------------------------------------------
 # Sequences and helpers
@@ -130,69 +128,104 @@ class EntityType(Table):
             current = parent
         return False
 
-    def ensure_wide_view(self, con: duckdb.DuckDBPyConnection) -> None:
-        """(Re)create ``shenas_system.<self.name>s_wide`` -- a per-type pivoted view.
+    def ensure_wide_view(self) -> None:
+        """(Re)create ``shenas_system.<self.name>s_wide`` as a dynamic View subclass.
 
-        Discovers every property currently used by entities of this type
-        (data-driven, no pre-declaration required) and builds a view whose
-        columns are ``entity_id``, ``name``, ``wikidata_qid`` plus one
-        column per property labelled by ``property.label`` (slug-cased).
-
-        Cheap (a single ``CREATE OR REPLACE VIEW``); call from bootstrap,
-        post-sync, and EntityType / Property mutations. Falls back to a
-        zero-property view when no statements exist yet.
+        Discovers every property declared for this type via
+        :class:`Property.all`, builds a :class:`~app.view.View` subclass
+        with one typed field per property, and calls ``ensure()`` to create
+        the DuckDB VIEW. The generated class is cached in
+        :data:`_wide_view_registry` so callers can later do
+        ``get_wide_view("human").all()``.
         """
-        view_name = self.name + "s_wide"
+        view_cls = _build_wide_view(self.name)
+        view_cls.ensure()  # ty: ignore[unresolved-attribute]
 
-        # _dlt_valid_to only exists after dlt has run at least one SCD2 sync.
-        # Before that (e.g. at bootstrap), the column is absent -- fall back
-        # to no filter so the view can still be created.
-        has_scd2 = _table_has_column(con, "shenas_system", "statements", "_dlt_valid_to")
-        scd2 = "s._dlt_valid_to IS NULL" if has_scd2 else "TRUE"
 
-        rows = con.execute(
-            "SELECT DISTINCT s.property_id, COALESCE(p.label, s.property_id) AS label "
-            "FROM shenas_system.statements s "
-            "JOIN shenas_system.entities e ON e.uuid = s.entity_id "
-            "LEFT JOIN shenas_system.properties p ON p.id = s.property_id "
-            f"WHERE e.type = ? AND {scd2} "
-            "ORDER BY s.property_id",
-            [self.name],
-        ).fetchall()
+# ---------------------------------------------------------------------------
+# Dynamic wide-view classes (one per EntityType)
+# ---------------------------------------------------------------------------
 
-        if rows:
-            pivots = ",\n  ".join(
-                f"MAX(CASE WHEN s.property_id = {_sql_str(pid)} THEN s.value_label END) AS {_slug(label)}"
-                for pid, label in rows
-            )
-        else:
-            pivots = "NULL AS _no_properties"
+_wide_view_registry: dict[str, type] = {}
 
-        con.execute(
-            f"""
-            CREATE OR REPLACE VIEW shenas_system.{view_name} AS
-            SELECT e.uuid AS entity_id,
-                   e.name,
-                   {pivots}
-            FROM shenas_system.entities e
-            LEFT JOIN shenas_system.statements s
-              ON s.entity_id = e.uuid AND {scd2}
-            WHERE e.type = {_sql_str(self.name)}
-            GROUP BY e.uuid, e.name
-            """
+
+def get_wide_view(type_name: str) -> type:
+    """Return the dynamic View subclass for ``<type_name>s_wide``.
+
+    Raises ``KeyError`` if :meth:`EntityType.ensure_wide_view` hasn't
+    been called for this type yet (i.e. before bootstrap / first sync).
+
+    Usage::
+
+        HumansWide = get_wide_view("human")
+        rows = HumansWide.all(where="date_of_birth IS NOT NULL")
+        for r in rows:
+            print(r.entity_id, r.name)
+    """
+    if type_name not in _wide_view_registry:
+        msg = f"No wide view for type {type_name!r}. Call ensure_wide_view first."
+        raise KeyError(msg)
+    return _wide_view_registry[type_name]
+
+
+def _build_wide_view(type_name: str) -> type:
+    """Build (or rebuild) a dynamic View subclass for ``<type_name>s_wide``.
+
+    Reads declared properties for this type via :class:`Property.all`
+    (ORM, no raw connection needed), builds the pivot SQL and column
+    list, and delegates to :meth:`View.build` for the dataclass + DDL.
+    Caches the result in :data:`_wide_view_registry`.
+    """
+    from app.entities.properties import Property
+    from app.view import View
+
+    view_name = type_name + "s_wide"
+
+    # Use all properties declared for this type (seeded at bootstrap,
+    # extended by plugins and Wikidata sync). No need to scan statements
+    # -- the property registry is the source of truth for column set.
+    props = Property.all(
+        where="(domain_type IS NULL OR domain_type = ?)",
+        params=[type_name],
+        order_by="id",
+    )
+
+    # The SCD2 _dlt_valid_to column may not exist before the first sync.
+    # Use a safe filter: if the view SQL references _dlt_valid_to and the
+    # column doesn't exist, DuckDB will error -- so we always include it
+    # in the SQL (the VIEW is deferred; the column only needs to exist
+    # when the view is queried, not when it's created).
+    scd2 = "s._dlt_valid_to IS NULL"
+
+    if props:
+        pivots = ",\n  ".join(
+            f"MAX(CASE WHEN s.property_id = {_sql_str(p.id)} THEN s.value_label END) AS {_slug(p.label)}" for p in props
         )
+    else:
+        pivots = "NULL AS _no_properties"
 
+    view_sql = f"""
+        SELECT e.uuid AS entity_id,
+               e.name,
+               {pivots}
+        FROM shenas_system.entities e
+        LEFT JOIN shenas_system.statements s
+          ON s.entity_id = e.uuid AND {scd2}
+        WHERE e.type = {_sql_str(type_name)}
+        GROUP BY e.uuid, e.name
+    """
 
-def _table_has_column(con: duckdb.DuckDBPyConnection, schema: str, table: str, column: str) -> bool:
-    """Return True if ``column`` exists on ``schema.table``."""
-    try:
-        row = con.execute(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?",
-            [schema, table, column],
-        ).fetchone()
-        return bool(row and row[0] > 0)
-    except Exception:
-        return False
+    columns = [(_slug(p.label), f"Property: {p.label}") for p in props]
+
+    cls = View.build(
+        name=view_name,
+        display_name=f"{type_name.title()} (wide)",
+        sql=view_sql,
+        columns=columns,
+        pk=("entity_id",),
+    )
+    _wide_view_registry[type_name] = cls
+    return cls
 
 
 def _sql_str(s: str) -> str:
@@ -214,21 +247,28 @@ def _slug(label: str) -> str:
     return slug
 
 
-def ensure_all_wide_views(con: duckdb.DuckDBPyConnection) -> None:
-    """Recreate the wide view for every concrete EntityType.
+def ensure_all_wide_views() -> None:
+    """Recreate the wide view for every concrete EntityType + PlacesWide.
 
     Called from ``LocalUser._bootstrap_user_db`` and after each sync so
     new properties picked up by projections or Wikidata enrichment become
-    visible immediately.
+    visible immediately. No connection argument needed -- uses the ORM
+    cursor system internally.
     """
+    import logging
+
+    log = logging.getLogger("shenas.entity")
     for et in EntityType.concrete_types():
         try:
-            et.ensure_wide_view(con)
+            et.ensure_wide_view()
         except Exception:
-            # A bad type or a table-name collision shouldn't take down the whole sync.
-            import logging
+            log.exception("ensure_wide_view failed for %s", et.name)
+    try:
+        from app.entities.places import PlacesWide
 
-            logging.getLogger("shenas.entity").exception("ensure_wide_view failed for %s", et.name)
+        PlacesWide.ensure()
+    except Exception:
+        log.exception("PlacesWide.ensure failed")
 
 
 @dataclass
@@ -395,7 +435,7 @@ class Entity(Table):
         if not self.uuid:
             self.uuid = _new_uuid()
         super().insert()
-        if getattr(type(self), "database", "user") != "system":
+        if getattr(type(self)._Meta, "database", "user") != "system":
             EntityIndex(
                 uuid=self.uuid,
                 db="user",
@@ -415,7 +455,7 @@ class Entity(Table):
         Skipped for system-scoped subclasses (``LocalUser``); cleaning up a
         local user is handled through the normal registry flow.
         """
-        if getattr(type(self), "database", "user") != "system":
+        if getattr(type(self)._Meta, "database", "user") != "system":
             from app.database import cursor
 
             uuid_val = self.uuid
@@ -876,45 +916,28 @@ DEFAULT_RELATIONSHIP_TYPES: list[dict[str, Any]] = [
 ]
 
 
-def seed_entity_types(con: duckdb.DuckDBPyConnection) -> None:
+def seed_entity_types() -> None:
     """Upsert the default entity types. Idempotent."""
     for row in DEFAULT_ENTITY_TYPES:
-        con.execute(
-            "INSERT INTO shenas_system.entity_types "
-            "(name, display_name, parent, description, icon, is_abstract, wikidata_qid) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?) "
-            "ON CONFLICT (name) DO UPDATE SET "
-            "display_name = excluded.display_name, "
-            "parent = excluded.parent, "
-            "description = excluded.description, "
-            "icon = excluded.icon, "
-            "is_abstract = excluded.is_abstract, "
-            "wikidata_qid = excluded.wikidata_qid",
-            [
-                row["name"],
-                row["display_name"],
-                row.get("parent"),
-                row["description"],
-                row["icon"],
-                row.get("is_abstract", False),
-                row.get("wikidata_qid"),
-            ],
-        )
+        EntityType(
+            name=row["name"],
+            display_name=row["display_name"],
+            parent=row.get("parent"),
+            description=row.get("description", ""),
+            icon=row.get("icon", ""),
+            is_abstract=row.get("is_abstract", False),
+            wikidata_qid=row.get("wikidata_qid"),
+        ).upsert()
 
 
-def seed_properties(con: duckdb.DuckDBPyConnection) -> None:
-    """Seed shenas_system.properties with the Wikidata predicates each default
-    EntityType cares about, recording the relation in ``domain_type``.
+def seed_properties() -> None:
+    """Seed shenas_system.properties with each default EntityType's Wikidata PIDs.
 
-    Walks every default EntityType's ``wikidata_properties`` descriptor list
-    (kept as a Python literal on the type dict, no longer a DB column) and
-    upserts one row per (property_id, domain_type) pair with
-    ``source='wikidata'`` and ``wikidata_pid=<pid>``. The per-type domain lets
-    :class:`shenas_sources.wikidata.source.WikidataSource` look up "which
-    PIDs apply to this type" via ``SELECT id FROM shenas_system.properties
-    WHERE domain_type = ? AND source = 'wikidata'`` without needing a
-    dedicated column on ``entity_types``. Idempotent.
+    Idempotent. The per-type ``domain_type`` lets WikidataSource discover
+    which PIDs apply to a type at sync time.
     """
+    from app.entities.properties import Property
+
     for row in DEFAULT_ENTITY_TYPES:
         type_name = row["name"]
         for prop in row.get("wikidata_properties") or []:
@@ -922,47 +945,34 @@ def seed_properties(con: duckdb.DuckDBPyConnection) -> None:
             label = prop.get("label")
             if not pid or not label:
                 continue
-            con.execute(
-                "INSERT INTO shenas_system.properties "
-                "(id, label, datatype, domain_type, source, wikidata_pid) "
-                "VALUES (?, ?, 'string', ?, 'wikidata', ?) "
-                "ON CONFLICT (id) DO UPDATE SET "
-                "label = excluded.label, "
-                "domain_type = excluded.domain_type, "
-                "wikidata_pid = excluded.wikidata_pid",
-                [pid, label, type_name, pid],
-            )
+            Property.from_row((pid, label, "string", type_name, "wikidata", pid, None)).upsert()
 
 
-def seed_relationship_types(con: duckdb.DuckDBPyConnection) -> None:
+def seed_relationship_types() -> None:
     """Upsert the default relationship types. Idempotent."""
     for row in DEFAULT_RELATIONSHIP_TYPES:
-        con.execute(
-            "INSERT INTO shenas_system.entity_relationship_types "
-            "(name, display_name, description, inverse_name, is_symmetric) "
-            "VALUES (?, ?, '', ?, ?) "
-            "ON CONFLICT (name) DO UPDATE SET "
-            "display_name = excluded.display_name, "
-            "inverse_name = excluded.inverse_name, "
-            "is_symmetric = excluded.is_symmetric",
-            [row["name"], row["display_name"], row["inverse_name"], row["is_symmetric"]],
-        )
+        EntityRelationshipType(
+            name=row["name"],
+            display_name=row["display_name"],
+            inverse_name=row["inverse_name"],
+            is_symmetric=row["is_symmetric"],
+        ).upsert()
 
 
-def seed_me_entity_index(con: duckdb.DuckDBPyConnection, local_user_id: int, local_user_uuid: str) -> None:
+def seed_me_entity_index(local_user_id: int, local_user_uuid: str) -> None:
     """Upsert the entity_index row pointing at the current user's LocalUser.
 
     The LocalUser row lives in the registry DB; its matching entity_index
     row lives in the user DB so edges defined in this user's graph can
     reference the user's own row by UUID.
     """
-    con.execute(
-        "INSERT INTO shenas_system.entity_index (uuid, db, table_name, row_id, status) "
-        "VALUES (?, 'shenas', 'local_users', ?, 'enabled') "
-        "ON CONFLICT (uuid) DO UPDATE SET "
-        "db = excluded.db, table_name = excluded.table_name, row_id = excluded.row_id",
-        [local_user_uuid, local_user_id],
-    )
+    EntityIndex(
+        uuid=local_user_uuid,
+        db="shenas",
+        table_name="local_users",
+        row_id=local_user_id,
+        status="enabled",
+    ).upsert()
 
 
 # ---------------------------------------------------------------------------

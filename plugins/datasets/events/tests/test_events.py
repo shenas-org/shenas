@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import duckdb
-
 from shenas_datasets.events import EventsSchema
 from shenas_datasets.events.metrics import ALL_TABLES, Event
 
@@ -29,11 +27,10 @@ class TestSchema:
         assert "source" in ddl
         assert "start_at" in ddl
 
-    def test_ensure_idempotent(self) -> None:
-        con = duckdb.connect(":memory:")
-        EventsSchema.ensure(con)
-        EventsSchema.ensure(con)
-        tables = con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
+    def test_ensure_idempotent(self, db_con) -> None:
+        EventsSchema.ensure()
+        EventsSchema.ensure()
+        tables = db_con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
         assert ("events",) in tables
 
     def test_metadata(self) -> None:

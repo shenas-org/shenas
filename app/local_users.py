@@ -35,8 +35,6 @@ def _verify_password(stored_hash: str, salt_hex: str, password: str) -> bool:
 class LocalUser(Table):
     """Local user registry -- one row per registered user."""
 
-    database: ClassVar[str] = "system"
-
     # Per-process registry of attached user DBs and the contextvar override.
     _attached: ClassVar[dict[int, Any]] = {}
     _attached_lock: ClassVar[Any] = threading.RLock()
@@ -47,6 +45,7 @@ class LocalUser(Table):
         description = "Local user registry with password-based authentication."
         schema = "shenas_system"
         pk = ("id",)
+        database = "system"
 
     id: Annotated[
         int,
@@ -113,14 +112,14 @@ class LocalUser(Table):
                     continue
                 seen.add(sub)
                 walk(sub)
-                if getattr(sub, "database", "user") == "system":
+                if getattr(getattr(sub, "_Meta", None), "database", "user") == "system":
                     continue
                 meta = getattr(sub, "_Meta", None)
                 if meta is None or not getattr(meta, "name", None):
                     continue
                 schema = getattr(meta, "schema", None) or "main"
                 con.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
-                sub.ensure(con, schema=schema)
+                sub.ensure(schema=schema)
 
         walk(Table)
 
@@ -138,7 +137,7 @@ class LocalUser(Table):
                     return
                 schema = getattr(meta, "schema", None) or "config"
                 con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-                tbl_cls.ensure(con, schema=schema)
+                tbl_cls.ensure(schema=schema)
 
             for source_cls in Source.load_all():
                 _ensure_singleton(source_cls.Config)
@@ -153,7 +152,7 @@ class LocalUser(Table):
         try:
             from shenas_datasets.core.dataset import Dataset
 
-            Dataset.ensure_all(con)
+            Dataset.ensure_all()
         except Exception:
             pass
 
@@ -166,10 +165,10 @@ class LocalUser(Table):
         from app.hotkeys import Hotkey
 
         Hotkey.seed()
-        seed_entity_types(con)
-        seed_relationship_types(con)
-        seed_properties(con)
-        ensure_all_wide_views(con)
+        seed_entity_types()
+        seed_relationship_types()
+        seed_properties()
+        ensure_all_wide_views()
 
     def attach(self, key: str) -> DB:
         """Open and attach this user's encrypted DB. Idempotent."""
@@ -302,22 +301,17 @@ class LocalUser(Table):
             return env
         try:
             from app.config import SHENAS_NET_URL
-            from app.database import current_user_id, cursor
+            from app.database import current_user_id
 
             uid = current_user_id.get()
             if uid is None:
                 return None
-            with cursor(database="shenas") as cur:
-                row = cur.execute(
-                    "SELECT remote_token, remote_server FROM shenas_system.local_users WHERE id = ?",
-                    [uid],
-                ).fetchone()
-            if not row or not row[0]:
+            user = LocalUser.find(uid)
+            if user is None or not user.remote_token:
                 return None
-            # Token belongs to a different server -- treat as absent
-            if row[1] and row[1] != SHENAS_NET_URL:
+            if user.remote_server and user.remote_server != SHENAS_NET_URL:
                 return None
-            return row[0]
+            return user.remote_token
         except Exception:
             return None
 

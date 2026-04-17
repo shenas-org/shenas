@@ -201,7 +201,7 @@ class TestExecution:
         db_con.execute("CREATE SCHEMA IF NOT EXISTS metrics")
         db_con.execute("CREATE TABLE IF NOT EXISTS metrics.daily_activities (id INTEGER, source VARCHAR)")
 
-    def test_run_for_source_no_transforms(self, db_con: duckdb.DuckDBPyConnection) -> None:
+    def test_run_for_source_no_transforms(self, patch_db: None) -> None:
         from shenas_transformers.core.transform import Transform
 
-        assert Transform.run_for_source(db_con, "missing") == 0
+        assert Transform.run_for_source("missing") == 0

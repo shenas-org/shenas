@@ -1,7 +1,5 @@
 import dataclasses
 
-import duckdb
-
 from shenas_datasets.habits import (
     ALL_TABLES,
     DailyHabits,
@@ -28,15 +26,15 @@ class TestDDL:
         assert '"duolingo" BOOLEAN' in ddl
         assert "PRIMARY KEY" in ddl
 
-    def test_ensure_schema(self) -> None:
-        con = duckdb.connect(":memory:")
-        HabitsSchema.ensure(con)
+    def test_ensure_schema(self, db_con) -> None:
+        HabitsSchema.ensure()
         tables = {
             r[0]
-            for r in con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
+            for r in db_con.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'"
+            ).fetchall()
         }
         assert "daily_habits" in tables
-        con.close()
 
 
 class TestIntrospect:

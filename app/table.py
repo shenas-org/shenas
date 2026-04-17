@@ -1,228 +1,48 @@
-"""Common Table ABC shared by sources and datasets.
+"""Table: physical DuckDB table with DDL + write operations.
 
-This is the slim base class for any plugin-defined table that has a
-schema (dataclass with ``Annotated[type, Field(...)]`` columns), a name,
-a primary key, and an optional description. It carries no notion of
-how the table is loaded or where its rows come from -- those concerns
-belong to the source-side and dataset-side subclasses:
+Inherits all read-only machinery from :class:`~app.relation.Relation`
+and adds ``to_ddl``, ``ensure``, ``insert``, ``save``, ``delete``,
+``upsert``, and ``clear_rows``.
 
-- ``shenas_sources.core.table.SourceTable`` (and its 7 kind subclasses)
-  is the source layer: adds extract/dlt-resource/cursor/SCD2 machinery.
-- ``shenas_datasets.core.table.MetricTable`` is the dataset layer: adds
-  ``to_ddl()`` and is the future home of per-table transform classmethods.
-
-The metadata ClassVars are prefixed ``table_*`` (``table_name``,
-``table_display_name``, ``table_pk``, ``table_description``) so they
-never collide with row-level columns called ``name``, ``description``,
-``display_name``, etc. -- a real source of confusion in the previous
-``__table__`` / ``__pk__`` dunder convention and the brief
-``name``/``pk``/``description`` design.
-
-Subclassing
------------
-Concrete subclasses just declare their schema fields and three required
-ClassVars (``table_name``, ``table_display_name``, ``table_pk``). The
-``@dataclass`` decorator is auto-applied via ``__init_subclass__``, so
-subclasses don't need to write it explicitly. Abstract intermediate base
-classes (like ``SourceTable``, ``MetricTable``, ``EventTable``, ...) opt
-out of the dataclass + validation by setting
-``_abstract: ClassVar[bool] = True`` in their class body.
-
-Example (dataset side)
-----------------------
-::
-
-    class DailyHRV(MetricTable):
-        table_name = "daily_hrv"
-        table_display_name = "Daily HRV"
-        table_description = "One row per (date, source) heart-rate-variability summary."
-        table_pk = ("date", "source")
-
-        date: Annotated[str, Field(db_type="DATE", description="Calendar date")]
-        source: Annotated[str, Field(db_type="VARCHAR", description="Data source")]
-        rmssd: Annotated[float | None, Field(db_type="DOUBLE", description="...")] = None
+Re-exports :class:`~app.relation.Field` and :class:`~app.relation.Relation`
+so existing ``from app.table import Field, Table`` imports keep working.
 """
 
 from __future__ import annotations
 
 import contextlib
 import dataclasses
-import types
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self, get_args, get_origin, get_type_hints
+from typing import TYPE_CHECKING, Any, ClassVar, Self, get_type_hints
 
 import duckdb
+
+# Re-export so callers can keep doing ``from app.table import Field, Table``.
+from app.relation import Field, Relation  # noqa: F401
+from app.view import View  # noqa: F401
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
 
-@dataclass(frozen=True)
-class Field:
-    """Structured metadata for schema fields and config fields.
+class Table(Relation):
+    """A physical DuckDB table with DDL generation and write operations.
 
-    Used by canonical metric tables and pipe/component config tables alike.
-    The frontend can introspect these to generate UIs on the fly.
+    Required ``_Meta`` attributes (in addition to Relation's):
+    ``pk`` -- tuple of natural primary key column names.
     """
 
-    db_type: str
-    description: str
-    display_name: str | None = None
-    unit: str | None = None
-    value_range: tuple[float, float] | None = None
-    example_value: float | str | None = None
-    category: str | None = None  # "secret", "connection", "schedule", "wellbeing", etc.
-    interpretation: str | None = None
-    default: str | None = None  # default value (for config fields)
-    db_default: str | None = None  # SQL DEFAULT expression (e.g. "current_timestamp", "'{}'")
-    ui_widget: str | None = None  # "text", "number", "toggle", "password", "select", "textarea"
-    options: tuple[str, ...] | None = None  # choices for select widgets
-
-
-class Table:
-    """Slim common base for source-side and dataset-side plugin tables.
-
-    Every concrete subclass declares an inner ``_Meta`` class holding
-    the table's identity. Putting these on a nested class (rather than
-    on the subclass itself) keeps them clear of the row-level dataclass
-    fields -- a real source of confusion in earlier designs where row
-    columns called ``name`` / ``description`` collided with the table's
-    own metadata.
-
-    Required attributes on every concrete subclass's ``_Meta``
-    ---------------------------------------------------------
-    name           : table name (DuckDB ``<schema>.<name>``)
-    display_name   : human-readable label for the frontend
-    pk             : tuple of natural primary key column names
-
-    Optional
-    --------
-    description    : free-text description (rendered in dashboards / docs)
-    schema         : default DuckDB schema for this table
-    """
-
-    class _Meta:
-        # Marker base; concrete subclasses MUST override _Meta with all
-        # required attributes. Defaults are read from this base when a
-        # subclass omits the optional ones.
-        name: ClassVar[str]
-        display_name: ClassVar[str]
-        pk: ClassVar[tuple[str, ...]]
-        description: ClassVar[str | None] = None
-        schema: ClassVar[str | None] = None
-
-    # Per-user data isolation: each Table subclass declares which
-    # logical database it lives in. ``"system"`` = the device-wide
-    # registry DB (local_users, plugin install state, etc.).
-    # ``"user"`` = the current user's encrypted DB (workspace,
-    # hotkeys, source data, metrics, hypotheses). The default is
-    # ``"user"`` because the vast majority of tables are user-scoped;
-    # system tables explicitly opt in. Resolved at query time via
-    # :meth:`_resolve_database`.
-    database: ClassVar[str] = "user"
-
-    # Internal: True on Table itself and on every abstract intermediate base
-    # (SourceTable, MetricTable, EventTable, IntervalTable, ...). False on
-    # concrete subclasses (set by ``__init_subclass__``). When ``_abstract`` is
-    # True we skip the @dataclass decorator and the metadata validation.
     _abstract: ClassVar[bool] = True
-
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        # Re-bind a locally-declared `_Meta` to inherit from the nearest
-        # parent class's `_Meta`, so attributes defined on intermediate
-        # bases (e.g. `_DailyAggregate._Meta.pk`) flow into concrete
-        # leaf subclasses without each leaf having to repeat them.
-        if "_Meta" in cls.__dict__:
-            local_meta = cls.__dict__["_Meta"]
-            parent_meta: type | None = None
-            for base in cls.__mro__[1:]:
-                if "_Meta" in base.__dict__:
-                    parent_meta = base.__dict__["_Meta"]
-                    break
-            if parent_meta is not None and parent_meta not in local_meta.__mro__:
-                cls._Meta = type(  # ty: ignore[invalid-assignment]
-                    "_Meta",
-                    (local_meta, parent_meta),
-                    {k: v for k, v in vars(local_meta).items() if not k.startswith("__")},
-                )
-        # If a subclass doesn't explicitly mark itself abstract, it's concrete.
-        if "_abstract" not in cls.__dict__:
-            cls._abstract = False
-        if cls._abstract:
-            return
-        # Apply @dataclass to concrete subclasses so the field-annotation
-        # syntax (`name: Annotated[type, Field(...)] = default`) just works.
-        if "__dataclass_fields__" not in cls.__dict__:
-            dataclass(cls)
-        cls._validate()
 
     @classmethod
     def _validate(cls) -> None:
-        """Raise TypeError if ``_Meta`` is missing required attributes.
-
-        Subclasses extend this to enforce per-layer requirements (e.g.
-        ``SourceTable`` requires ``kind``; ``IntervalTable`` requires
-        ``time_start`` and ``time_end``).
-        """
-        if cls._Meta is Table._Meta:
-            msg = f"{cls.__name__}: must define an inner `_Meta` class"
+        super()._validate()
+        if not getattr(cls._Meta, "pk", None):
+            msg = f"{cls.__name__}: _Meta missing required attribute `pk`"
             raise TypeError(msg)
-        for required in ("name", "display_name", "pk"):
-            if not getattr(cls._Meta, required, None):
-                msg = f"{cls.__name__}: _Meta missing required attribute `{required}`"
-                raise TypeError(msg)
-
-    @classmethod
-    def _finalize(cls) -> None:
-        """Force-apply the @dataclass + validation that was deferred by an
-        intermediate base class (e.g. ``SourceAuth`` / ``SourceConfig``,
-        which keep subclasses abstract until ``table_name`` is set).
-        """
-        cls._abstract = False
-        if "__dataclass_fields__" not in cls.__dict__:
-            dataclass(cls)
-        cls._validate()
-
-    @classmethod
-    def column_metadata(cls) -> list[dict[str, Any]]:
-        """Return the list of column metadata dicts for this table.
-
-        Walks the dataclass fields, extracts ``Field()`` metadata from each
-        ``Annotated[type, Field(...)]`` hint. Used by system tables
-        (SourceAuth / SourceConfig / SingletonTable subclasses) that need
-        column-level UI/introspection but don't have a data-table kind.
-        Data tables use :meth:`DataTable.table_metadata` which composes
-        this with identity + kind + time_columns + as_of_macro.
-        """
-        # Don't pass `globalns=` here. ``get_type_hints`` walks the MRO and
-        # resolves each base class's annotations against THAT base's own
-        # ``__module__``, which is what we want -- ``ClassVar`` (and other
-        # typing imports) live in whichever file declared them, not
-        # necessarily in the leaf subclass's module. Forcing
-        # ``globalns=vars(leaf_module)`` makes intermediate-base annotations
-        # like ``SingletonTable._abstract: ClassVar[bool]`` resolve in the
-        # leaf's namespace, which often doesn't import ``ClassVar`` and
-        # crashes with a NameError at request time.
-        hints: dict[str, Any] = get_type_hints(cls, include_extras=True)
-        return [
-            {
-                "name": f.name,
-                "nullable": f.name not in cls._Meta.pk,
-                **cls._extract_field_meta(hints[f.name]),
-            }
-            for f in dataclasses.fields(cls)
-        ]
 
     @classmethod
     def to_ddl(cls, *, schema: str = "metrics") -> str:
-        """Render the ``CREATE TABLE IF NOT EXISTS <schema>.<table_name> (...)`` DDL.
-
-        Walks the dataclass fields, maps each to a DuckDB column type via
-        the ``db_type`` from its ``Field`` metadata (or the type-map for
-        bare ``str``/``int``/``float`` annotations), and emits a complete
-        ``CREATE TABLE`` statement with a composite ``PRIMARY KEY`` clause.
-        """
+        """Render the ``CREATE TABLE IF NOT EXISTS`` DDL."""
         hints: dict[str, type] = get_type_hints(cls, include_extras=True)
         lines: list[str] = []
         for f in dataclasses.fields(cls):
@@ -238,22 +58,25 @@ class Table:
         return f'CREATE TABLE IF NOT EXISTS "{schema}"."{cls._Meta.name}" (\n' + ",\n".join(lines) + "\n)"
 
     @classmethod
-    def ensure(cls, con: duckdb.DuckDBPyConnection, *, schema: str = "metrics") -> None:
-        """Create this table in ``schema`` if missing, then add any new columns.
+    def ensure(cls, *, schema: str | None = None) -> None:
+        """Create this table if missing, then add any new columns.
 
-        Caller is responsible for ensuring the schema itself exists -- use
-        :func:`ensure_schema` for the orchestrated multi-table version.
+        Uses the cursor system from :mod:`app.database`.
         """
-        con.execute(cls.to_ddl(schema=schema))
-        cls._add_missing_columns(con, schema=schema)
+        from app.database import cursor
+
+        s = schema or getattr(cls._Meta, "schema", None) or "metrics"
+        with cursor(database=cls._resolve_database()) as cur:
+            cur.execute(cls.to_ddl(schema=s))
+            cls._add_missing_columns(cur, schema=s)
 
     @classmethod
-    def _add_missing_columns(cls, con: duckdb.DuckDBPyConnection, *, schema: str = "metrics") -> None:
+    def _add_missing_columns(cls, cur: duckdb.DuckDBPyConnection, *, schema: str = "metrics") -> None:
         """Add columns that exist on the dataclass but not in the live DuckDB table."""
         hints: dict[str, type] = get_type_hints(cls, include_extras=True)
         existing = {
             row[0]
-            for row in con.execute(
+            for row in cur.execute(
                 "SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ?",
                 [schema, cls._Meta.name],
             ).fetchall()
@@ -262,127 +85,14 @@ class Table:
             if f.name not in existing:
                 col_type = cls._duckdb_type(hints[f.name])
                 with contextlib.suppress(duckdb.CatalogException):
-                    con.execute(f'ALTER TABLE "{schema}"."{cls._Meta.name}" ADD COLUMN "{f.name}" {col_type}')
-
-    @classmethod
-    def _resolve_schema(cls, schema: str | None) -> str:
-        s = schema or cls._Meta.schema
-        if not s:
-            msg = f"{cls.__name__}: no schema specified and no `table_schema` ClassVar set on the class or its bases"
-            raise TypeError(msg)
-        return s
-
-    @classmethod
-    def _resolve_database(cls) -> str | None:
-        """Return the ATTACH alias the cursor should USE for this table.
-
-        ``"system"`` for tables marked ``database = "system"`` (the
-        device-wide registry: local users, sessions, plugin install
-        state). ``f"user_{<current user id>}"`` for everything else.
-
-        The current user id comes from the ``current_user_id``
-        contextvar set by the request middleware. In single-user mode
-        the contextvar defaults to 0, so user-scoped tables resolve to
-        ``user_0`` and the same code path covers both modes.
-        """
-        if cls.database == "system":
-            return "shenas"
-        return None
+                    cur.execute(f'ALTER TABLE "{schema}"."{cls._Meta.name}" ADD COLUMN "{f.name}" {col_type}')
 
     # ------------------------------------------------------------------
-    # Multi-row CRUD (find / all / insert / save / delete)
-    #
-    # Generic primitives that operate on the dataclass fields directly,
-    # so subclasses don't need a wrapper class with hand-written SQL.
-    # The schema is resolved from ``table_schema``; the column list is
-    # taken from ``dataclasses.fields(cls)`` in declaration order, which
-    # matches the DDL emitted by ``to_ddl`` and therefore matches both
-    # SELECT-by-column-name and ``RETURNING *`` row order.
-    #
-    # ``insert`` consults each field's ``Field.db_default`` and skips
-    # values that match the dataclass default -- so DB-side defaults
-    # like ``nextval(...)`` and ``current_timestamp`` actually fire.
+    # Write CRUD (insert / save / delete / upsert / clear_rows)
     # ------------------------------------------------------------------
-
-    @classmethod
-    def _qualified(cls) -> str:
-        return f"{cls._resolve_schema(None)}.{cls._Meta.name}"
-
-    @classmethod
-    def _column_names(cls) -> list[str]:
-        return [f.name for f in dataclasses.fields(cls)]
-
-    @classmethod
-    def from_row(cls, row: tuple[Any, ...]) -> Self:
-        """Build an instance from a row tuple in dataclass field order.
-
-        Passes values as kwargs rather than positional so classes with
-        ``kw_only`` fields (e.g. :class:`~app.entities.places.Place`'s
-        ``latitude`` / ``longitude``) still accept the row.
-        """
-        return cls(**dict(zip(cls._column_names(), row, strict=True)))
-
-    @classmethod
-    def find(cls, *pk_values: Any) -> Self | None:
-        """Look up a single row by its primary key. Returns ``None`` if missing."""
-        from app.database import cursor
-
-        if len(pk_values) != len(cls._Meta.pk):
-            msg = f"{cls.__name__}.find expects {len(cls._Meta.pk)} pk value(s), got {len(pk_values)}"
-            raise TypeError(msg)
-
-        cols = ", ".join(cls._column_names())
-        where = " AND ".join(f"{c} = ?" for c in cls._Meta.pk)
-        with cursor(database=cls._resolve_database()) as cur:
-            row = cur.execute(f"SELECT {cols} FROM {cls._qualified()} WHERE {where}", list(pk_values)).fetchone()
-        return cls.from_row(row) if row else None
-
-    @classmethod
-    def all(
-        cls,
-        *,
-        where: str | None = None,
-        params: list[Any] | None = None,
-        order_by: str | None = None,
-        limit: int | None = None,
-        as_of: str | None = None,
-        include_history: bool = False,
-    ) -> list[Self]:
-        """Return every row matching the optional WHERE clause as instances.
-
-        For SCD2 tables (dimension / snapshot / m2m): the query automatically
-        filters to the **current** slice unless *as_of* is provided (reads the
-        historical state at that timestamp) or *include_history* is True
-        (returns all versions).
-        """
-        from app.database import cursor
-
-        clauses: list[str] = []
-        scd2_fn = getattr(cls, "scd2_filter", None)
-        if scd2_fn is not None and not include_history:
-            scd2 = scd2_fn(as_of=as_of)
-            if scd2:
-                clauses.append(scd2)
-        if where:
-            clauses.append(where)
-
-        cols = ", ".join(cls._column_names())
-        sql = f"SELECT {cols} FROM {cls._qualified()}"
-        if clauses:
-            sql += f" WHERE {' AND '.join(clauses)}"
-        if order_by:
-            sql += f" ORDER BY {order_by}"
-        if limit is not None:
-            sql += f" LIMIT {int(limit)}"
-        with cursor(database=cls._resolve_database()) as cur:
-            rows = cur.execute(sql, params or []).fetchall()
-        return [cls.from_row(r) for r in rows]
 
     def insert(self) -> Self:
-        """INSERT this row, letting DB defaults fire for fields whose value
-        equals the dataclass default. Refreshes ``self`` from ``RETURNING``
-        so DB-generated values (sequence ids, timestamps) are populated.
-        """
+        """INSERT this row, letting DB defaults fire for defaulted fields."""
         from app.database import cursor
 
         cls = type(self)
@@ -418,7 +128,7 @@ class Table:
         return self
 
     def save(self) -> Self:
-        """UPDATE this row by primary key. Refreshes ``self`` from ``RETURNING``."""
+        """UPDATE this row by primary key."""
         from app.database import cursor
 
         cls = type(self)
@@ -442,7 +152,7 @@ class Table:
         return self
 
     def delete(self) -> None:
-        """DELETE this row by primary key. Idempotent: no error if already gone."""
+        """DELETE this row by primary key. Idempotent."""
         from app.database import cursor
 
         cls = type(self)
@@ -453,12 +163,7 @@ class Table:
             cur.execute(f"DELETE FROM {cls._qualified()} WHERE {where}", pk_vals)
 
     def upsert(self) -> Self:
-        """Insert if no row with this PK exists, otherwise update.
-
-        Two-statement (find then insert/save) -- backend-agnostic, no
-        ON CONFLICT. For the small system tables this wraps, the extra
-        round-trip is irrelevant.
-        """
+        """Insert if no row with this PK exists, otherwise update."""
         cls = type(self)
         pk_vals = [getattr(self, c) for c in cls._Meta.pk]
         if cls.find(*pk_vals) is None:
@@ -471,106 +176,31 @@ class Table:
         from app.database import cursor
 
         s = cls._resolve_schema(schema)
-
         with cursor(database=cls._resolve_database()) as cur:
             cur.execute(f"DELETE FROM {s}.{cls._Meta.name}")
 
-    # ------------------------------------------------------------------
-    # Schema-introspection / DDL helpers (used internally by to_ddl,
-    # ensure, table_metadata, and SourceTable.to_dlt_columns)
-    # ------------------------------------------------------------------
-
-    _DUCKDB_TYPE_MAP: ClassVar[dict[type, str]] = {
-        str: "VARCHAR",
-        int: "INTEGER",
-        float: "DOUBLE",
-    }
-
     @staticmethod
-    def _duckdb_type(hint: type) -> str:
-        """Resolve the DuckDB SQL type for an ``Annotated[T, Field(...)]`` hint."""
-        origin = get_origin(hint)
-        if origin is Annotated:
-            meta = get_args(hint)[1]
-            if isinstance(meta, Field):
-                return meta.db_type
-            return meta
-        if origin is types.UnionType or str(origin) == "typing.Union":
-            inner = [a for a in get_args(hint) if a is not type(None)]
-            return Table._duckdb_type(inner[0])
-        if hint in Table._DUCKDB_TYPE_MAP:
-            return Table._DUCKDB_TYPE_MAP[hint]
-        msg = f"No DuckDB mapping for {hint}"
-        raise ValueError(msg)
+    def ensure_schema(all_tables: Sequence[type[Table]], *, schema: str = "metrics") -> None:
+        """Create the named schema and ensure every table exists."""
+        from app.database import cursor
 
-    @staticmethod
-    def _get_field_obj(hint: type) -> Field | None:
-        """Extract a ``Field`` from an ``Annotated[T, Field(...)]`` hint."""
-        origin = get_origin(hint)
-        if origin is Annotated:
-            meta = get_args(hint)[1]
-            if isinstance(meta, Field):
-                return meta
-        if origin is types.UnionType or str(origin) == "typing.Union":
-            for arg in get_args(hint):
-                if arg is not type(None):
-                    result = Table._get_field_obj(arg)
-                    if result:
-                        return result
-        return None
-
-    @staticmethod
-    def _extract_field_meta(hint: type) -> dict[str, Any]:
-        """Extract Field metadata as a dict from an ``Annotated[T, Field(...)]`` hint."""
-        origin = get_origin(hint)
-        if origin is Annotated:
-            meta = get_args(hint)[1]
-            if isinstance(meta, Field):
-                return {k: v for k, v in dataclasses.asdict(meta).items() if v is not None}
-            return {"db_type": meta}
-        if origin is types.UnionType or str(origin) == "typing.Union":
-            inner = [a for a in get_args(hint) if a is not type(None)]
-            return Table._extract_field_meta(inner[0])
-        return {}
-
-    @staticmethod
-    def ensure_schema(con: duckdb.DuckDBPyConnection, all_tables: Sequence[type[Table]], *, schema: str = "metrics") -> None:
-        """Create the named schema and ensure every table in ``all_tables`` exists.
-
-        Also adds any columns that exist on the dataclass but not in the live
-        DuckDB table (forward-compatible schema migration).
-        """
-        con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+        with cursor() as cur:
+            cur.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
         for t in all_tables:
-            t.ensure(con, schema=schema)
+            t.ensure(schema=schema)
+
+
+# ---------------------------------------------------------------------------
+# DataTable: kind-aware base for source + dataset tables
+# ---------------------------------------------------------------------------
 
 
 class DataTable(Table):
-    """Base for tables that hold user-observable data with a typed ``kind``.
-
-    Splits the Table hierarchy into two families:
-
-    - :class:`Table` -- system / registry / config tables (entity types,
-      plugin install state, workspaces, hotkeys, singletons). Structural
-      bookkeeping; no kind taxonomy.
-    - :class:`DataTable` -- raw source data (via ``SourceTable`` and its
-      kind subclasses) and derived metrics (via ``MetricTable`` and its
-      grain subclasses). Every concrete subclass has a ``table_kind()``
-      string from :data:`DataTable._KIND_BY_BASE_NAME`.
-    """
+    """Base for tables with a typed ``kind`` (source data or metrics)."""
 
     _abstract: ClassVar[bool] = True
 
-    # Map of kind base class names to the kind string. Used by ``table_kind()``
-    # to walk the MRO without importing the SourceTable / MetricTable subclasses
-    # (which would create a circular dep). Inspecting class names instead of
-    # identities keeps this in this module.
-    #
-    # Source-side kinds describe *load semantics* (how dlt writes the table);
-    # metric-side kinds describe *query semantics* (how a downstream consumer
-    # asks questions of an already-projected metric).
     _KIND_BY_BASE_NAME: ClassVar[dict[str, str]] = {
-        # Source-side: load semantics
         "EventTable": "event",
         "IntervalTable": "interval",
         "AggregateTable": "aggregate",
@@ -578,18 +208,13 @@ class DataTable(Table):
         "SnapshotTable": "snapshot",
         "CounterTable": "counter",
         "M2MTable": "m2m_relation",
-        # Dataset-side: query semantics for derived metric tables
         "DailyMetricTable": "daily_metric",
         "WeeklyMetricTable": "weekly_metric",
         "MonthlyMetricTable": "monthly_metric",
         "EventMetricTable": "event_metric",
     }
 
-    # One-line query hints, keyed by kind string. The LLM-facing catalog
-    # surfaces these so a model can pick the right primitive without having
-    # to know the SCD2 / observed_at / interval-overlap conventions itself.
     _QUERY_HINT_BY_KIND: ClassVar[dict[str, str]] = {
-        # Source-side load-semantics hints
         "event": "Filter or window by `time_at` (or `observed_at` if no native timestamp). Merge on PK.",
         "interval": "Filter where `time_start <= ts AND time_end > ts` for overlap. Merge on PK.",
         "aggregate": "Point lookup on the window key (`time_at`). Merge on the PK that includes the window key.",
@@ -597,7 +222,6 @@ class DataTable(Table):
         "snapshot": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to read the value at time ts.",
         "counter": "ORDER BY `observed_at` and use `lag()` to compute per-period deltas; raw values are cumulative.",
         "m2m_relation": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to find which entities were linked at ts.",
-        # Dataset-side query-semantics hints
         "daily_metric": "Per-day rollup. Filter or join on `date` (DATE). PK includes (date, source). Lag in days.",
         "weekly_metric": "Per-week rollup. Filter or join on `week` (DATE/VARCHAR). PK includes (week, source). Lag in weeks.",
         "monthly_metric": (
@@ -612,23 +236,12 @@ class DataTable(Table):
 
     @classmethod
     def is_scd2(cls) -> bool:
-        """True if this table uses SCD2 versioning (dimension / snapshot / m2m)."""
+        """True if this table uses SCD2 versioning."""
         return cls.table_kind() in cls._SCD2_KINDS
 
     @classmethod
     def scd2_filter(cls, as_of: str | None = None, *, alias: str = "") -> str:
-        """Return a SQL WHERE fragment for reading SCD2 tables.
-
-        When *as_of* is ``None`` (the default), returns the filter for the
-        **current** slice (``_dlt_valid_to IS NULL``).
-
-        When *as_of* is a timestamp string (e.g. ``'2025-06-01'``), returns a
-        temporal-overlap filter (``_dlt_valid_from <= ts AND (_dlt_valid_to IS
-        NULL OR _dlt_valid_to > ts)``).
-
-        *alias* is an optional table alias prefix (e.g. ``"s."``). If set to
-        ``"s"`` the output uses ``s._dlt_valid_to`` etc.
-        """
+        """Return a SQL WHERE fragment for reading SCD2 tables."""
         if not cls.is_scd2():
             return ""
         pfx = f"{alias}." if alias else ""
@@ -638,12 +251,7 @@ class DataTable(Table):
 
     @classmethod
     def table_kind(cls) -> str | None:
-        """Return the kind string ("event" / "interval" / ... / "event_metric").
-
-        Walks the MRO to find the first kind base class from
-        :data:`_KIND_BY_BASE_NAME`. Returns ``None`` for abstract intermediate
-        bases that haven't picked a kind yet.
-        """
+        """Return the kind string from the MRO."""
         for base in cls.__mro__:
             kind = cls._KIND_BY_BASE_NAME.get(base.__name__)
             if kind is not None:
@@ -652,27 +260,7 @@ class DataTable(Table):
 
     @classmethod
     def table_metadata(cls) -> dict[str, Any]:
-        """Return structured metadata for this data table.
-
-        Composes :meth:`Table.column_metadata` with identity keys plus
-        DataTable-specific enrichment:
-
-        - Identity: ``table``, ``display_name``, ``schema``,
-          ``description``, ``primary_key``, ``columns``.
-        - ``kind`` -- one of the seven source-side kind strings or four
-          metric-grain strings; omitted when ``None``.
-        - ``query_hint`` -- one-line natural-language hint from
-          :data:`_QUERY_HINT_BY_KIND` for the LLM-facing catalog.
-        - ``time_columns`` -- ``time_at`` / ``time_start`` / ``time_end`` /
-          ``cursor_column`` / ``observed_at_injected`` keys (only those
-          actually set on the class).
-        - ``as_of_macro`` -- the qualified SCD2 macro name, set only on
-          dimension / snapshot / m2m tables.
-
-        Used by :meth:`shenas_datasets.core.dataset.Dataset.metadata`, the
-        per-source ``Source.get_*_metadata`` helpers, and (eventually) the
-        analytics catalog endpoint that feeds the LLM.
-        """
+        """Return structured metadata for this data table."""
         meta: dict[str, Any] = {
             "table": cls._Meta.name,
             "display_name": cls._Meta.display_name,
@@ -687,11 +275,6 @@ class DataTable(Table):
             meta["kind"] = kind
             meta["query_hint"] = cls._QUERY_HINT_BY_KIND[kind]
 
-        # Time-axis columns. ``time_at`` / ``time_start`` / ``time_end`` live on
-        # ``_Meta`` (kind-specific); ``cursor_column`` lives on the class root
-        # (declared on ``SourceTable`` itself). ``observed_at_injected`` comes
-        # from the ``_needs_observed_at`` classmethod that EventTable and
-        # CounterTable override.
         time_cols: dict[str, Any] = {}
         for attr in ("time_at", "time_start", "time_end"):
             val = getattr(cls._Meta, attr, None)
@@ -711,40 +294,28 @@ class DataTable(Table):
         if time_cols:
             meta["time_columns"] = time_cols
 
-        # AS-OF macro: only for SCD2 tables (dimension / snapshot / m2m_relation),
-        # generated by apply_as_of_macros() on every Source.sync().
         if kind in ("dimension", "snapshot", "m2m_relation") and cls._Meta.schema:
             meta["as_of_macro"] = f"{cls._Meta.schema}.{cls._Meta.name}_as_of"
 
         return meta
 
 
+# ---------------------------------------------------------------------------
+# SingletonTable: single-row CRUD wrapper
+# ---------------------------------------------------------------------------
+
+
 class SingletonTable(Table):
-    """Base for system tables that hold exactly one row.
-
-    Replaces ad-hoc single-row read/write across the codebase. Concrete
-    subclasses (``SourceConfig``, ``SourceAuth``, ``SystemSettings``,
-    ``LocalSession``, ...) declare their dataclass fields and ``_Meta`` as
-    usual; the singleton semantics live here:
-
-    - :meth:`read_row` -- SELECT the single row as a dict, or ``None``.
-    - :meth:`read_value` -- pluck one column from the row.
-    - :meth:`write_row` -- merge with existing values, then DELETE + INSERT.
-
-    The merge-on-write means callers can pass partial kwargs and only the
-    named fields will be updated; everything else is preserved (or filled
-    in from the dataclass defaults on first write).
-    """
+    """Base for system tables that hold exactly one row."""
 
     _abstract: ClassVar[bool] = True
 
     @classmethod
     def read_row(cls, *, schema: str | None = None) -> dict[str, Any] | None:
-        """Read the single row from this table as a dict, or None if empty."""
+        """Read the single row as a dict, or None if empty."""
         from app.database import cursor
 
         s = cls._resolve_schema(schema)
-
         cols = [f.name for f in dataclasses.fields(cls)]
         col_list = ", ".join(cols)
         with cursor(database=cls._resolve_database()) as cur:
@@ -763,11 +334,10 @@ class SingletonTable(Table):
 
     @classmethod
     def write_row(cls, *, schema: str | None = None, **kwargs: Any) -> None:
-        """Upsert the single row: merge with existing values, then DELETE + INSERT."""
+        """Upsert the single row: merge with existing, then DELETE + INSERT."""
         from app.database import cursor
 
         s = cls._resolve_schema(schema)
-
         existing = cls.read_row(schema=s)
         if existing:
             merged = {**existing, **kwargs}
@@ -789,3 +359,47 @@ class SingletonTable(Table):
         with cursor(database=cls._resolve_database()) as cur:
             cur.execute(f"DELETE FROM {s}.{cls._Meta.name}")
             cur.execute(f"INSERT INTO {s}.{cls._Meta.name} ({col_names}) VALUES ({placeholders})", values)
+
+
+# ---------------------------------------------------------------------------
+# KeyValueTable: two-column (key, value) pattern
+# ---------------------------------------------------------------------------
+
+
+class KeyValueTable(Table):
+    """Base for simple two-column (key, value) tables.
+
+    Marks tables that use the K-V pattern so they're easy to find if we
+    ever introduce a proper key-value store. Concrete subclasses declare
+    ``_Meta`` (name, display_name, schema) plus the two columns::
+
+        class MyKV(KeyValueTable):
+            class _Meta:
+                name = "my_kv"
+                display_name = "My KV"
+                schema = "shenas_system"
+
+            key: Annotated[str, Field(db_type="TEXT", description="...")] = ""
+            value: Annotated[str, Field(db_type="TEXT", description="...")] = ""
+
+    Convenience helpers:
+
+    - ``get(key)`` -- return the value string, or ``None``.
+    - ``put(key, value)`` -- upsert the row.
+    """
+
+    _abstract: ClassVar[bool] = True
+
+    class _Meta:
+        pk: ClassVar[tuple[str, ...]] = ("key",)
+
+    @classmethod
+    def get(cls, key: str) -> str | None:
+        """Return the value for ``key``, or ``None``."""
+        row = cls.find(key)
+        return row.value if row else None  # ty: ignore[unresolved-attribute]
+
+    @classmethod
+    def put(cls, key: str, value: str) -> None:
+        """Upsert ``(key, value)``."""
+        cls.from_row((key, value)).upsert()

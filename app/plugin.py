@@ -39,14 +39,13 @@ class PluginInstance(Table):
     :class:`Plugin` free of dataclass / row-shape concerns.
     """
 
-    database: ClassVar[str] = "system"
-
     class _Meta:
         name = "plugins"
         display_name = "Installed Plugins"
         description = "Per-plugin install / enable / sync state."
         schema = "shenas_system"
         pk = ("kind", "name")
+        database = "system"
 
     kind: Annotated[str, Field(db_type="VARCHAR", description="Plugin kind")] = ""
     name: Annotated[str, Field(db_type="VARCHAR", description="Plugin name")] = ""

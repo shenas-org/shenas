@@ -13,11 +13,6 @@ from shenas_transformers.core.transform import Transform
 log = logging.getLogger(f"shenas.{__name__}")
 
 
-def _ensure_spatial(con: duckdb.DuckDBPyConnection) -> None:
-    """Load the DuckDB spatial extension."""
-    con.execute("INSTALL spatial; LOAD spatial;")
-
-
 class GeofenceTransformer(Transformer):
     """Categorize location data by matching coordinates against user-defined geofences."""
 
@@ -27,11 +22,12 @@ class GeofenceTransformer(Transformer):
 
     def execute(
         self,
-        con: duckdb.DuckDBPyConnection,
         instance: Transform,
         *,
         device_id: str = "local",
     ) -> int:
+        import contextlib
+
         params = instance.get_params()
         lat_col = params.get("latitude_column", "latitude")
         lon_col = params.get("longitude_column", "longitude")
@@ -47,49 +43,50 @@ class GeofenceTransformer(Transformer):
         source = f'"{instance.source_ref.schema}"."{instance.source_ref.table}"'
 
         try:
-            _ensure_spatial(con)
-            con.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
+            from app.database import cursor
 
-            sql = f"""
-                SELECT
-                    '{source_name}' AS source,
-                    ({id_expr}) AS source_id,
-                    v.{time_col}::TIMESTAMP AS arrived_at,
-                    v.{end_time_col}::TIMESTAMP AS left_at,
-                    CASE
-                        WHEN v.{time_col} IS NOT NULL AND v.{end_time_col} IS NOT NULL
-                        THEN EXTRACT(EPOCH FROM (
-                            v.{end_time_col}::TIMESTAMP - v.{time_col}::TIMESTAMP
-                        )) / 60.0
-                        ELSE NULL
-                    END AS duration_min,
-                    v.{lat_col} AS latitude,
-                    v.{lon_col} AS longitude,
-                    g.name AS geofence,
-                    g.category AS geofence_category,
-                    v.{place_col} AS place_name,
-                    v.{confidence_col} AS confidence,
-                    '{device_id}' AS source_device
-                FROM {source} v
-                LEFT JOIN shenas_system.geofences g
-                    ON ST_DWithin(
-                        ST_Point(v.{lon_col}, v.{lat_col}),
-                        ST_Point(g.longitude, g.latitude),
-                        g.radius_m
-                    )
-                    AND v.{lat_col} != 0 AND v.{lon_col} != 0
-                WHERE v.{time_col} IS NOT NULL
-            """
+            with cursor() as cur:
+                cur.execute("INSTALL spatial; LOAD spatial;")
+                cur.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
 
-            if filter_where:
-                sql += f" AND {filter_where}"
+                sql = f"""
+                    SELECT
+                        '{source_name}' AS source,
+                        ({id_expr}) AS source_id,
+                        v.{time_col}::TIMESTAMP AS arrived_at,
+                        v.{end_time_col}::TIMESTAMP AS left_at,
+                        CASE
+                            WHEN v.{time_col} IS NOT NULL AND v.{end_time_col} IS NOT NULL
+                            THEN EXTRACT(EPOCH FROM (
+                                v.{end_time_col}::TIMESTAMP - v.{time_col}::TIMESTAMP
+                            )) / 60.0
+                            ELSE NULL
+                        END AS duration_min,
+                        v.{lat_col} AS latitude,
+                        v.{lon_col} AS longitude,
+                        g.name AS geofence,
+                        g.category AS geofence_category,
+                        v.{place_col} AS place_name,
+                        v.{confidence_col} AS confidence,
+                        '{device_id}' AS source_device
+                    FROM {source} v
+                    LEFT JOIN shenas_system.geofences g
+                        ON ST_DWithin(
+                            ST_Point(v.{lon_col}, v.{lat_col}),
+                            ST_Point(g.longitude, g.latitude),
+                            g.radius_m
+                        )
+                        AND v.{lat_col} != 0 AND v.{lon_col} != 0
+                    WHERE v.{time_col} IS NOT NULL
+                """
 
-            import contextlib
+                if filter_where:
+                    sql += f" AND {filter_where}"
 
-            with contextlib.suppress(duckdb.Error):
-                con.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
+                with contextlib.suppress(duckdb.Error):
+                    cur.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
 
-            con.execute(f"INSERT INTO {target} {sql}")
+                cur.execute(f"INSERT INTO {target} {sql}")
             return 1
         except Exception:
             log.exception("Geofence transform #%d failed (%s -> %s)", instance.id, source_name, target)

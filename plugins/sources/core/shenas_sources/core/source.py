@@ -188,7 +188,7 @@ class Source(Plugin):
         synced_at = s.synced_at
         if not synced_at:
             return True
-        from datetime import datetime, timedelta
+        from datetime import timedelta
 
         # DuckDB TIMESTAMP columns come back as ``datetime``; legacy rows may
         # still hold an ISO string. Accept both.
@@ -362,16 +362,19 @@ class Source(Plugin):
             con = connect()
             try:
                 apply_as_of_macros(con, self.dataset_name)
-                self._project_entities(con)
-                self._refresh_wide_views(con)
             finally:
                 con.close()
         except Exception:
             logger.exception("Failed post-sync hooks for %s", self.name)
+        try:
+            self._project_entities()
+            self._refresh_wide_views()
+        except Exception:
+            logger.exception("Failed entity projection for %s", self.name)
         self._mark_synced()
         self._log_sync_event(full_refresh)
 
-    def _project_entities(self, con: Any) -> None:
+    def _project_entities(self) -> None:
         """Post-sync hook: project raw source rows into statements.
 
         For each :class:`SourceTable` in this source's ``TABLES`` that
@@ -404,81 +407,72 @@ class Source(Plugin):
         if not projection_tables:
             return
 
-        from app.entity import compute_entity_id
-
-        now_iso = datetime.now(UTC).isoformat()
-
         for t in projection_tables:
-            type_name: str = t.entity_type
-            name_col: str | None = getattr(t, "entity_name_column", None)
-            projection: dict[str, str] = dict(t.entity_projection)
-            schema = t._Meta.schema or self.dataset_name
-            table_ref = f"{schema}.{t._Meta.name}"
-            pk_cols_list = list(t._Meta.pk)
+            self._project_table(t)
 
-            # Ensure each declared property exists in the registry.
-            for pid in set(projection.values()):
-                con.execute(
-                    "INSERT INTO shenas_system.properties (id, label, datatype, domain_type, source, wikidata_pid) "
-                    "VALUES (?, ?, 'string', ?, ?, NULL) "
-                    "ON CONFLICT (id) DO NOTHING",
-                    [pid, pid, type_name, self.name],
-                )
+    def _project_table(self, t: type) -> None:
+        """Project one source table's current rows into entities + statements."""
+        from app.entities.properties import Property
+        from app.entities.statements import Statement
+        from app.entity import Entity, compute_entity_id
 
-            scd2 = t.scd2_filter() if hasattr(t, "scd2_filter") else ""
-            where = f"WHERE {scd2}" if scd2 else ""
-            select_cols = [*pk_cols_list]
-            if name_col and name_col not in select_cols:
-                select_cols.append(name_col)
-            for col in projection:
-                if col not in select_cols:
-                    select_cols.append(col)
-            cols_sql = ", ".join(f'"{c}"' for c in select_cols)
-            rows = con.execute(f"SELECT {cols_sql} FROM {table_ref} {where}").fetchall()
+        type_name: str = t.entity_type  # ty: ignore[unresolved-attribute]
+        name_col: str | None = getattr(t, "entity_name_column", None)
+        projection: dict[str, str] = dict(t.entity_projection)  # ty: ignore[unresolved-attribute]
+        pk_cols_list = list(t._Meta.pk)  # ty: ignore[unresolved-attribute]
 
-            for raw in rows:
-                row = dict(zip(select_cols, raw, strict=True))
-                pk_values = tuple(row[c] for c in pk_cols_list)
-                if any(v in (None, "") for v in pk_values):
+        for pid in set(projection.values()):
+            if Property.find(pid) is None:
+                Property.from_row((pid, pid, "string", type_name, self.name, None, None)).insert()
+
+        # t is a SourceTable subclass -- .all() handles SCD2 filtering
+        # automatically for DimensionTable/SnapshotTable kinds.
+        source_rows = t.all()  # ty: ignore[unresolved-attribute]
+
+        for row in source_rows:
+            pk_values = tuple(getattr(row, c) for c in pk_cols_list)
+            if any(v in (None, "") for v in pk_values):
+                continue
+            entity_id = compute_entity_id(type_name, pk_values)
+            entity_name = str(getattr(row, name_col, None) or pk_values[0]) if name_col else str(pk_values[0])
+
+            existing_entity = Entity.find_by_uuid(entity_id) if hasattr(Entity, "find_by_uuid") else None
+            if existing_entity is None:
+                Entity(
+                    uuid=entity_id,
+                    type=type_name,
+                    name=entity_name,
+                    status="disabled",
+                ).insert()
+            else:
+                existing_entity.name = entity_name
+                existing_entity.save()
+
+            for src_col, property_id in projection.items():
+                value = getattr(row, src_col, None)
+                if value is None or value == "":
                     continue
-                entity_id = compute_entity_id(type_name, pk_values)
-                entity_name = str(row.get(name_col) or pk_values[0]) if name_col else str(pk_values[0])
+                value_str = str(value)
+                existing_stmt = Statement.find(entity_id, property_id, value_str)
+                if existing_stmt is None:
+                    Statement.from_row((entity_id, property_id, value_str, value_str, "normal", None, self.name)).insert()
+                else:
+                    existing_stmt.value_label = value_str
+                    existing_stmt.source = self.name
+                    existing_stmt.save()
 
-                con.execute(
-                    "INSERT INTO shenas_system.entities "
-                    "(uuid, type, name, description, status, added_at, updated_at) "
-                    "VALUES (?, ?, ?, '', 'disabled', ?, ?) "
-                    "ON CONFLICT (uuid) DO UPDATE SET "
-                    "name = excluded.name, updated_at = excluded.updated_at",
-                    [entity_id, type_name, entity_name, now_iso, now_iso],
-                )
-
-                for src_col, property_id in projection.items():
-                    value = row.get(src_col)
-                    if value is None or value == "":
-                        continue
-                    value_str = str(value)
-                    con.execute(
-                        "INSERT INTO shenas_system.statements "
-                        "(entity_id, property_id, value, value_label, rank, qualifiers, source) "
-                        "VALUES (?, ?, ?, ?, 'normal', NULL, ?) "
-                        "ON CONFLICT (entity_id, property_id, value) DO UPDATE SET "
-                        "value_label = excluded.value_label, source = excluded.source",
-                        [entity_id, property_id, value_str, value_str, self.name],
-                    )
-
-    def _refresh_wide_views(self, con: Any) -> None:
+    def _refresh_wide_views(self) -> None:
         """Post-sync hook: rebuild every per-type wide view.
 
         Statements added during this sync may introduce new property
-        columns; the per-type ``entities.<type>s_wide`` views need a fresh
-        ``CREATE OR REPLACE VIEW`` to reflect the expanded property set.
-        Cheap (one DDL per type), safe to call unconditionally.
+        columns; the per-type ``shenas_system.<type>s_wide`` views need a
+        fresh ``CREATE OR REPLACE VIEW`` to reflect the expanded property
+        set. Cheap (one DDL per type), safe to call unconditionally.
         """
         try:
             from app.entity import ensure_all_wide_views
 
-            ensure_all_wide_views(con)
+            ensure_all_wide_views()
         except Exception:
             logger.exception("ensure_all_wide_views failed for %s", self.name)
 
@@ -575,17 +569,13 @@ class Source(Plugin):
         from shenas_transformers.core import Transformer
         from shenas_transformers.core.transform import Transform
 
-        from shenas_sources.core.db import connect
-
-        con = connect()
-
         for cls in Transformer.load_all():
             plugin = cls()
             inst = plugin.instance()
             if not inst or inst.enabled:
                 plugin.seed_defaults_for_source(self.name)
 
-        count = Transform.run_for_source(con, self.name)
+        count = Transform.run_for_source(self.name)
         logger.info("Transforms done: %s (%d)", self.name, count)
 
     # -- Auth flow ------------------------------------------------------------

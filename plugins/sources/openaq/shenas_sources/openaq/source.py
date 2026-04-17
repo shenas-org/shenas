@@ -107,39 +107,15 @@ class OpenAQSource(Source):
 def _load_place_entities(allowed: set[str] | None) -> list[tuple[str, float, float, int | None]]:
     """Return ``[(entity_id, latitude, longitude, radius_m), ...]`` for places.
 
-    Reads from ``shenas_system.entities`` filtered to ``city``/``residence``/
-    ``country`` types and joins ``shenas_system.statements`` for the
-    ``latitude`` + ``longitude`` (required) + ``radius_m`` (optional)
-    properties. Entities missing either coordinate are skipped.
+    Reads from the ``shenas_system.places_wide`` view (maintained by
+    :func:`app.entities.places.ensure_places_wide_view`). Entities
+    missing either coordinate are excluded by the view's INNER JOIN.
     """
-    from app.database import cursor
+    from app.entities.places import PlacesWide
 
-    with cursor() as cur:
-        rows = cur.execute(
-            """
-            SELECT e.uuid,
-                   CAST(lat.value AS DOUBLE) AS latitude,
-                   CAST(lng.value AS DOUBLE) AS longitude,
-                   TRY_CAST(rad.value AS INTEGER) AS radius_m
-            FROM shenas_system.entities e
-            JOIN shenas_system.statements lat
-              ON lat.entity_id = e.uuid
-             AND lat.property_id = 'latitude'
-             AND lat._dlt_valid_to IS NULL
-            JOIN shenas_system.statements lng
-              ON lng.entity_id = e.uuid
-             AND lng.property_id = 'longitude'
-             AND lng._dlt_valid_to IS NULL
-            LEFT JOIN shenas_system.statements rad
-              ON rad.entity_id = e.uuid
-             AND rad.property_id = 'radius_m'
-             AND rad._dlt_valid_to IS NULL
-            WHERE e.type IN ('city', 'residence', 'country')
-            """
-        ).fetchall()
-    out: list[tuple[str, float, float, int | None]] = []
-    for uuid, lat, lng, radius in rows:
-        if allowed is not None and uuid not in allowed:
-            continue
-        out.append((uuid, float(lat), float(lng), int(radius) if radius is not None else None))
-    return out
+    rows = PlacesWide.all(where="latitude IS NOT NULL AND longitude IS NOT NULL")
+    return [
+        (r.entity_id, float(r.latitude), float(r.longitude), int(r.radius_m) if r.radius_m is not None else None)  # ty: ignore[invalid-argument-type]
+        for r in rows
+        if allowed is None or r.entity_id in allowed
+    ]

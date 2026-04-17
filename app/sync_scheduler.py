@@ -64,10 +64,7 @@ def _run_sync(src: Source) -> None:
         try:
             from shenas_transformers.core.transform import Transform
 
-            from app.database import cursor
-
-            with cursor() as cur:
-                count = Transform.run_for_source(cur, src.name)
+            count = Transform.run_for_source(src.name)
             if count:
                 log.info("Ran %d transform(s) for %s", count, src.name)
         except Exception:

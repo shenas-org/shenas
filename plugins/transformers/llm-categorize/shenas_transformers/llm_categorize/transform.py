@@ -57,7 +57,6 @@ class LlmCategorizeTransformer(Transformer):
 
     def execute(
         self,
-        con: duckdb.DuckDBPyConnection,
         instance: Transform,
         *,
         device_id: str = "local",
@@ -76,15 +75,19 @@ class LlmCategorizeTransformer(Transformer):
         target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
 
         try:
+            from app.database import cursor
+
             config = self.Config.read_row() or {}
             backend = Backend.from_config(config)
-            cache = LlmCache(con)
+            cache = LlmCache()
 
-            con.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
+            with cursor() as cur:
+                cur.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
 
-            rows = con.execute(
-                f"SELECT DISTINCT {text_col} AS txt FROM {source} WHERE {text_col} IS NOT NULL AND TRIM({text_col}) != ''"
-            ).fetchall()
+                rows = cur.execute(
+                    f"SELECT DISTINCT {text_col} AS txt FROM {source} WHERE {text_col} IS NOT NULL AND TRIM({text_col}) != ''"
+                ).fetchall()
+
             texts = [r[0] for r in rows]
 
             category_hint = f" Valid categories: {categories}." if categories else ""
@@ -98,20 +101,20 @@ class LlmCategorizeTransformer(Transformer):
                 if result is not None:
                     cache.put(text=text, prompt_hash=prompt_hash, model=backend.name, result=result)
 
-            with contextlib.suppress(duckdb.Error):
-                con.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
-
-            con.execute(
-                f"INSERT INTO {target} "
-                + cache.join_sql(
-                    source=source,
-                    text_col=text_col,
-                    prompt_hash=prompt_hash,
-                    model=backend.name,
-                    output_col=output_col,
-                )
-                + f", '{device_id}' AS source_device"
+            join_sql, join_params = cache.join_sql(
+                source=source,
+                text_col=text_col,
+                prompt_hash=prompt_hash,
+                model=backend.name,
+                output_col=output_col,
             )
+            with cursor() as cur:
+                with contextlib.suppress(duckdb.Error):
+                    cur.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
+                cur.execute(
+                    f"INSERT INTO {target} {join_sql}, ? AS source_device",
+                    [*join_params, device_id],
+                )
             return 1
         except Exception:
             log.exception("LLM transform #%d failed (%s -> %s)", instance.id, source_name, target)

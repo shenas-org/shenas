@@ -117,7 +117,7 @@ class DatabaseManager:
         con.execute("CREATE SCHEMA IF NOT EXISTS shenas_system")
         con.execute("CREATE SEQUENCE IF NOT EXISTS shenas_system.local_user_seq START 1")
         for tbl in (LocalUser, LocalSession, SystemSettings, PluginInstance):
-            tbl.ensure(con, schema=tbl._Meta.schema or "shenas_system")
+            tbl.ensure(schema=tbl._Meta.schema or "shenas_system")
 
         try:
             from app.plugin import VALID_KINDS, Plugin
@@ -146,11 +146,10 @@ class DatabaseManager:
 
         # Ensure the default single-user row exists (id=0) so auth
         # token storage works without multi-user mode enabled.
-        row = con.execute("SELECT 1 FROM shenas_system.local_users WHERE id = 0").fetchone()
-        if not row:
-            con.execute(
-                "INSERT INTO shenas_system.local_users (id, username) VALUES (0, 'default')",
-            )
+        from app.local_users import LocalUser
+
+        if LocalUser.find(0) is None:
+            LocalUser(id=0, username="default").insert()
 
     # -- User DB resolver --------------------------------------------------
 
@@ -329,14 +328,14 @@ class DatabaseManager:
             Property,
             Statement,
         ]
-        Table.ensure_schema(con, tables, schema="shenas_system")
+        Table.ensure_schema(tables, schema="shenas_system")
         Hotkey.seed()
-        seed_entity_types(con)
-        seed_relationship_types(con)
-        seed_properties(con)
+        seed_entity_types()
+        seed_relationship_types()
+        seed_properties()
         from shenas_datasets.core.dataset import Dataset
 
-        Dataset.ensure_all(con)
+        Dataset.ensure_all()
 
 
 # -- Module-level singleton + forwarding aliases ---------------------------

@@ -49,16 +49,16 @@ class Dataset(Plugin):
         return info
 
     @classmethod
-    def ensure(cls, con: Any) -> None:
+    def ensure(cls) -> None:
         from app.table import Table
 
-        Table.ensure_schema(con, all_tables=cls.all_tables)  # ty: ignore[invalid-argument-type]
+        Table.ensure_schema(all_tables=cls.all_tables)  # ty: ignore[invalid-argument-type]
 
     @classmethod
-    def ensure_all(cls, con: Any) -> None:
+    def ensure_all(cls) -> None:
         """Ensure all installed dataset plugins have their tables created."""
         for dataset_cls in cls.load_all(include_internal=False):
-            dataset_cls.ensure(con)
+            dataset_cls.ensure()
 
     @classmethod
     def metadata(cls) -> list[dict[str, Any]]:
@@ -111,14 +111,12 @@ class Dataset(Plugin):
             created_transforms.append(ti.id)
 
         # Run the new transforms
-        from app.database import connect
 
-        con = connect()
         for tid in created_transforms:
             ti = Transform.find(tid)
             if ti and ti.enabled:
                 try:
-                    Transform.run_for_target(con, table_name)
+                    Transform.run_for_target(table_name)
                 except Exception:
                     log.exception("Failed to run transforms for %s", table_name)
                 break

@@ -63,7 +63,7 @@ def test_find_by_uuid_roundtrips(db_con: duckdb.DuckDBPyConnection) -> None:
 
 def test_delete_entity_removes_index_and_relationships(db_con: duckdb.DuckDBPyConnection) -> None:
     alice_uuid = "a" * 32  # stand in for a LocalUser uuid
-    seed_me_entity_index(db_con, local_user_id=1, local_user_uuid=alice_uuid)
+    seed_me_entity_index(local_user_id=1, local_user_uuid=alice_uuid)
     max_ = Entity.create(name="Max", type="animal")
     EntityRelationship(from_uuid=alice_uuid, to_uuid=max_.uuid, type="owner_of").upsert()
 
@@ -78,7 +78,7 @@ def test_delete_entity_removes_index_and_relationships(db_con: duckdb.DuckDBPyCo
 
 def test_relationship_upsert_and_for_entity(db_con: duckdb.DuckDBPyConnection) -> None:
     alice_uuid = "b" * 32
-    seed_me_entity_index(db_con, local_user_id=1, local_user_uuid=alice_uuid)
+    seed_me_entity_index(local_user_id=1, local_user_uuid=alice_uuid)
     dog = Entity.create(name="Dog", type="animal")
     house = Entity.create(name="House", type="residence")
 
@@ -147,7 +147,7 @@ def test_seed_me_entity_index_upserts(db_con: duckdb.DuckDBPyConnection) -> None
     from app.local_users import LocalUser
 
     user = LocalUser.create(username="dave", password="secret12345")
-    seed_me_entity_index(db_con, user.id, user.uuid)  # ty: ignore[unresolved-attribute]
+    seed_me_entity_index(user.id, user.uuid)  # ty: ignore[unresolved-attribute]
 
     idx = EntityIndex.find(user.uuid)  # ty: ignore[unresolved-attribute]
     assert idx is not None
@@ -156,7 +156,7 @@ def test_seed_me_entity_index_upserts(db_con: duckdb.DuckDBPyConnection) -> None
     assert idx.row_id == user.id
 
     # Idempotent on re-seed.
-    seed_me_entity_index(db_con, user.id, user.uuid)  # ty: ignore[unresolved-attribute]
+    seed_me_entity_index(user.id, user.uuid)  # ty: ignore[unresolved-attribute]
     idx2 = EntityIndex.find(user.uuid)  # ty: ignore[unresolved-attribute]
     assert idx2 is not None
     assert idx2.row_id == user.id

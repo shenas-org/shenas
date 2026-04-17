@@ -29,7 +29,6 @@ class RegexExtractTransformer(Transformer):
 
     def execute(
         self,
-        con: duckdb.DuckDBPyConnection,
         instance: Transform,
         *,
         device_id: str = "local",
@@ -53,19 +52,20 @@ class RegexExtractTransformer(Transformer):
         target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
 
         try:
-            con.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
+            from app.database import cursor
 
             if mode == "replace":
                 expr = f"regexp_replace({text_col}, '{pattern}', '{replacement}', 'g')"
             else:
                 expr = f"regexp_extract({text_col}, '{pattern}', 1)"
 
-            with contextlib.suppress(duckdb.Error):
-                con.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
-
-            con.execute(
-                f"INSERT INTO {target} SELECT s.*, {expr} AS {output_col}, '{device_id}' AS source_device FROM {source} s"
-            )
+            with cursor() as cur:
+                cur.execute(f"DELETE FROM {target} WHERE source = ?", [source_name])
+                with contextlib.suppress(duckdb.Error):
+                    cur.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
+                cur.execute(
+                    f"INSERT INTO {target} SELECT s.*, {expr} AS {output_col}, '{device_id}' AS source_device FROM {source} s"
+                )
             return 1
         except Exception:
             log.exception(

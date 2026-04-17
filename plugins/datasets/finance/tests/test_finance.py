@@ -1,7 +1,5 @@
 import dataclasses
 
-import duckdb
-
 from shenas_datasets.finance import (
     ALL_TABLES,
     DailySpending,
@@ -63,23 +61,21 @@ class TestDDL:
             assert f'"metrics"."{cls._Meta.name}"' in ddl
             assert "PRIMARY KEY" in ddl
 
-    def test_ensure_schema_creates_tables(self) -> None:
-        con = duckdb.connect(":memory:")
-        FinanceSchema.ensure(con)
+    def test_ensure_schema_creates_tables(self, db_con) -> None:
+        FinanceSchema.ensure()
         tables = {
             r[0]
-            for r in con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
+            for r in db_con.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'"
+            ).fetchall()
         }
         assert tables == set(FinanceSchema.tables)
-        con.close()
 
-    def test_ensure_schema_idempotent(self) -> None:
-        con = duckdb.connect(":memory:")
-        FinanceSchema.ensure(con)
-        FinanceSchema.ensure(con)
-        tables = con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
+    def test_ensure_schema_idempotent(self, db_con) -> None:
+        FinanceSchema.ensure()
+        FinanceSchema.ensure()
+        tables = db_con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
         assert len(tables) == 4
-        con.close()
 
 
 class TestIntrospect:

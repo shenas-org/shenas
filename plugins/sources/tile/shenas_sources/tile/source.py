@@ -101,7 +101,7 @@ class TileSource(Source):
         con = connect()
         try:
             con.execute(f"CREATE SCHEMA IF NOT EXISTS {self.dataset_name}")
-            TileInfo.ensure(con, schema=self.dataset_name)
+            TileInfo.ensure(schema=self.dataset_name)
         finally:
             con.close()
         super().sync(**kwargs)

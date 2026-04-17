@@ -70,7 +70,6 @@ class Transformer(Plugin):
     @abc.abstractmethod
     def execute(
         self,
-        con: Any,
         instance: Any,
         *,
         device_id: str = "local",

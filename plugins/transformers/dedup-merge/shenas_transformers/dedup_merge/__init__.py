@@ -30,7 +30,6 @@ class DedupMergeTransformer(Transformer):
 
     def execute(
         self,
-        con: duckdb.DuckDBPyConnection,
         instance: Transform,
         *,
         device_id: str = "local",
@@ -53,44 +52,45 @@ class DedupMergeTransformer(Transformer):
         target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
 
         try:
-            con.execute(f"DELETE FROM {target} WHERE source IN (?, ?)", [primary_source, secondary_source])
+            from app.database import cursor
 
-            with contextlib.suppress(duckdb.Error):
-                con.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
+            with cursor() as cur:
+                cur.execute(f"DELETE FROM {target} WHERE source IN (?, ?)", [primary_source, secondary_source])
 
-            if prefer == "primary":
-                keep_all = primary_source
-                keep_unmatched = secondary_source
-            else:
-                keep_all = secondary_source
-                keep_unmatched = primary_source
+                with contextlib.suppress(duckdb.Error):
+                    cur.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
 
-            source_schema = instance.source_ref.schema
-            source_table = instance.source_ref.table
+                if prefer == "primary":
+                    keep_all = primary_source
+                    keep_unmatched = secondary_source
+                else:
+                    keep_all = secondary_source
+                    keep_unmatched = primary_source
 
-            # All records from preferred source
-            con.execute(
-                f"INSERT INTO {target} "
-                f"SELECT *, '{device_id}' AS source_device "
-                f'FROM "{source_schema}"."{source_table}" '
-                f"WHERE source = ?",
-                [keep_all],
-            )
+                source_schema = instance.source_ref.schema
+                source_table = instance.source_ref.table
 
-            # Unmatched from secondary source (no overlap within time window)
-            con.execute(
-                f"INSERT INTO {target} "
-                f"SELECT s.*, '{device_id}' AS source_device "
-                f'FROM "{source_schema}"."{source_table}" s '
-                f"WHERE s.source = ? "
-                f"AND NOT EXISTS ("
-                f'  SELECT 1 FROM "{source_schema}"."{source_table}" p '
-                f"  WHERE p.source = ? "
-                f"  AND ABS(EXTRACT(EPOCH FROM (s.{time_col}::TIMESTAMP - p.{time_col}::TIMESTAMP))) "
-                f"      <= ? * 60"
-                f")",
-                [keep_unmatched, keep_all, match_window_min],
-            )
+                cur.execute(
+                    f"INSERT INTO {target} "
+                    f"SELECT *, '{device_id}' AS source_device "
+                    f'FROM "{source_schema}"."{source_table}" '
+                    f"WHERE source = ?",
+                    [keep_all],
+                )
+
+                cur.execute(
+                    f"INSERT INTO {target} "
+                    f"SELECT s.*, '{device_id}' AS source_device "
+                    f'FROM "{source_schema}"."{source_table}" s '
+                    f"WHERE s.source = ? "
+                    f"AND NOT EXISTS ("
+                    f'  SELECT 1 FROM "{source_schema}"."{source_table}" p '
+                    f"  WHERE p.source = ? "
+                    f"  AND ABS(EXTRACT(EPOCH FROM (s.{time_col}::TIMESTAMP - p.{time_col}::TIMESTAMP))) "
+                    f"      <= ? * 60"
+                    f")",
+                    [keep_unmatched, keep_all, match_window_min],
+                )
 
             return 1
         except Exception:

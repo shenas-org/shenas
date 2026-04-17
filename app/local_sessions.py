@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import secrets
-from typing import Annotated, Any, ClassVar
+from typing import Annotated, Any
 
 from app.table import Field, SingletonTable
 
@@ -15,14 +15,13 @@ class LocalSession(SingletonTable):
     in the browser's localStorage and validated here on every request.
     """
 
-    database: ClassVar[str] = "system"
-
     class _Meta:
         name = "local_sessions"
         display_name = "Local Sessions"
         description = "Active user session (single row, persists across restarts)."
         schema = "shenas_system"
         pk = ("id",)
+        database = "system"
 
     id: Annotated[int, Field(db_type="INTEGER", description="Row ID")] = 1
     user_id: Annotated[int | None, Field(db_type="INTEGER", description="FK to local_users.id")] = None

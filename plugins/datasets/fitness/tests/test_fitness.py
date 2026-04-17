@@ -1,6 +1,5 @@
 import dataclasses
 
-import duckdb
 import pytest
 
 from shenas_datasets.fitness import (
@@ -111,23 +110,21 @@ class TestDDL:
         date_line = next(line for line in lines if '"date"' in line)
         assert "NOT NULL" in date_line
 
-    def test_ensure_schema_creates_tables(self) -> None:
-        con = duckdb.connect(":memory:")
-        FitnessSchema.ensure(con)
+    def test_ensure_schema_creates_tables(self, db_con) -> None:
+        FitnessSchema.ensure()
         tables = {
             r[0]
-            for r in con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
+            for r in db_con.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'"
+            ).fetchall()
         }
         assert tables == set(FitnessSchema.tables)
-        con.close()
 
-    def test_ensure_schema_idempotent(self) -> None:
-        con = duckdb.connect(":memory:")
-        FitnessSchema.ensure(con)
-        FitnessSchema.ensure(con)
-        tables = con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
+    def test_ensure_schema_idempotent(self, db_con) -> None:
+        FitnessSchema.ensure()
+        FitnessSchema.ensure()
+        tables = db_con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
         assert len(tables) == 4
-        con.close()
 
 
 class TestIntrospect:

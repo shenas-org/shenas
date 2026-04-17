@@ -1,7 +1,5 @@
 import dataclasses
 
-import duckdb
-
 from shenas_datasets.outcomes import (
     ALL_TABLES,
     DailyOutcome,
@@ -33,15 +31,15 @@ class TestDDL:
         assert '"mood" INTEGER' in ddl
         assert "PRIMARY KEY" in ddl
 
-    def test_ensure_schema(self) -> None:
-        con = duckdb.connect(":memory:")
-        OutcomesSchema.ensure(con)
+    def test_ensure_schema(self, db_con) -> None:
+        OutcomesSchema.ensure()
         tables = {
             r[0]
-            for r in con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
+            for r in db_con.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'"
+            ).fetchall()
         }
         assert "daily_outcomes" in tables
-        con.close()
 
 
 class TestIntrospect:

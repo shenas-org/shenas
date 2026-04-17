@@ -12,13 +12,10 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 
 from app.catalog import DataResourceRef
 from app.table import Field, Table
-
-if TYPE_CHECKING:
-    import duckdb
 
 log = logging.getLogger(f"shenas.{__name__}")
 
@@ -263,7 +260,7 @@ class Transform(Table):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def run_for_source(con: duckdb.DuckDBPyConnection, source_plugin: str) -> int:
+    def run_for_source(source_plugin: str) -> int:
         instances = Transform.for_plugin(source_plugin)
         log.info("Running transforms for %s (%d total)", source_plugin, len(instances))
         device_id = _get_device_id()
@@ -288,7 +285,7 @@ class Transform(Table):
                     inst.id,
                 )
                 continue
-            result = plugin.execute(con, inst, device_id=device_id)
+            result = plugin.execute(inst, device_id=device_id)
             if result:
                 try:
                     from app.data_catalog import catalog
@@ -300,7 +297,7 @@ class Transform(Table):
         return count
 
     @staticmethod
-    def run_for_target(con: duckdb.DuckDBPyConnection, target_table: str) -> int:
+    def run_for_target(target_table: str) -> int:
         matching = [
             t
             for t in Transform.all(order_by="id")
@@ -319,7 +316,7 @@ class Transform(Table):
                     inst.id,
                 )
                 continue
-            result = plugin.execute(con, inst, device_id=device_id)
+            result = plugin.execute(inst, device_id=device_id)
             if result:
                 try:
                     from app.data_catalog import catalog
