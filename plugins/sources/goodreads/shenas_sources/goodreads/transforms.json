@@ -1,10 +1,10 @@
 [
   {
-    "source_duckdb_schema": "goodreads",
-    "source_duckdb_table": "readings",
+    "source_duckdb_schema": "sources",
+    "source_duckdb_table": "goodreads_readings",
     "target_duckdb_schema": "metrics",
     "target_duckdb_table": "events",
     "description": "Map read books to the unified events timeline",
-    "sql": "SELECT 'goodreads' as source, r.book_id as source_id, r.date_read::TIMESTAMP as start_at, r.date_read::TIMESTAMP as end_at, NULL as duration_min, b.title as title, r.my_review as event_description, NULL as location, 'reading' as category, true as all_day, json_object('author', b.author, 'rating', r.my_rating, 'pages', b.num_pages, 'shelf', r.exclusive_shelf) as metadata FROM goodreads.readings r LEFT JOIN goodreads.books b ON r.book_id = b.book_id WHERE r.date_read IS NOT NULL"
+    "sql": "SELECT 'goodreads' as source, r.book_id as source_id, r.date_read::TIMESTAMP as start_at, r.date_read::TIMESTAMP as end_at, NULL as duration_min, b.title as title, r.my_review as event_description, NULL as location, 'reading' as category, true as all_day, json_object('author', b.author, 'rating', r.my_rating, 'pages', b.num_pages, 'shelf', r.exclusive_shelf) as metadata FROM sources.goodreads_readings r LEFT JOIN sources.goodreads_books b ON r.book_id = b.book_id WHERE r.date_read IS NOT NULL"
   }
 ]

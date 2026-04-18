@@ -325,14 +325,19 @@ describe("shenas-plugin-detail", () => {
     el.kind = "source";
     el.name = "garmin";
     const dbStatus = {
-      schemas: [{ name: "garmin", tables: [{ name: "activities" }, { name: "_dlt_loads" }] }],
+      schemas: [
+        {
+          name: "sources",
+          tables: [{ name: "garmin_activities" }, { name: "_dlt_loads" }, { name: "strava_activities" }],
+        },
+      ],
     };
     (globalThis.fetch as any)
       .mockResolvedValueOnce(mockResponse({ data: { pluginInfo: { name: "garmin", kind: "source" } } }))
       .mockResolvedValueOnce(mockResponse({ data: { dbStatus } }));
     await el._fetchInfo();
     expect(el._tables.length).toBe(1);
-    expect(el._tables[0].name).toBe("activities");
+    expect(el._tables[0].name).toBe("garmin_activities");
   });
 
   it("_fetchInfo for dataset filters by ownership", async () => {

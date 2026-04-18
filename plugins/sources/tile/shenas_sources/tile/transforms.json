@@ -1,10 +1,10 @@
 [
   {
-    "source_duckdb_schema": "tile",
-    "source_duckdb_table": "tiles",
+    "source_duckdb_schema": "sources",
+    "source_duckdb_table": "tile_tiles",
     "target_duckdb_schema": "tile",
     "target_duckdb_table": "tile_info",
     "description": "Join tiles + latest tile_locations + current tile_state into tile_info; drop tiles that are dead.",
-    "sql": "WITH latest_loc AS (SELECT tile_uuid, latitude, longitude, last_timestamp, ROW_NUMBER() OVER (PARTITION BY tile_uuid ORDER BY last_timestamp DESC) AS rn FROM tile.tile_locations) SELECT t.tile_uuid AS tile_uuid, t.name AS name, t.tile_type AS tile_type, t.firmware_version AS firmware_version, t.hardware_version AS hardware_version, l.latitude AS latitude, l.longitude AS longitude, l.last_timestamp AS last_seen_at, s.battery_level AS battery_level, s.battery_state AS battery_state, s.connection_state AS connection_state, s.is_dead AS is_dead, 'tile' AS source, NULL::TIMESTAMP AS _dlt_valid_to FROM tile.tiles t LEFT JOIN latest_loc l ON l.tile_uuid = t.tile_uuid AND l.rn = 1 LEFT JOIN tile.tile_state s ON s.tile_uuid = t.tile_uuid AND s._dlt_valid_to IS NULL WHERE t._dlt_valid_to IS NULL AND COALESCE(s.is_dead, FALSE) = FALSE"
+    "sql": "WITH latest_loc AS (SELECT tile_uuid, latitude, longitude, last_timestamp, ROW_NUMBER() OVER (PARTITION BY tile_uuid ORDER BY last_timestamp DESC) AS rn FROM sources.tile_tile_locations) SELECT t.tile_uuid AS tile_uuid, t.name AS name, t.tile_type AS tile_type, t.firmware_version AS firmware_version, t.hardware_version AS hardware_version, l.latitude AS latitude, l.longitude AS longitude, l.last_timestamp AS last_seen_at, s.battery_level AS battery_level, s.battery_state AS battery_state, s.connection_state AS connection_state, s.is_dead AS is_dead, 'tile' AS source, NULL::TIMESTAMP AS _dlt_valid_to FROM sources.tile_tiles t LEFT JOIN latest_loc l ON l.tile_uuid = t.tile_uuid AND l.rn = 1 LEFT JOIN sources.tile_tile_state s ON s.tile_uuid = t.tile_uuid AND s._dlt_valid_to IS NULL WHERE t._dlt_valid_to IS NULL AND COALESCE(s.is_dead, FALSE) = FALSE"
   }
 ]

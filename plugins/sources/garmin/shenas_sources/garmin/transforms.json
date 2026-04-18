@@ -1,42 +1,42 @@
 [
   {
-    "source_duckdb_schema": "garmin",
-    "source_duckdb_table": "hrv",
+    "source_duckdb_schema": "sources",
+    "source_duckdb_table": "garmin_hrv",
     "target_duckdb_schema": "metrics",
     "target_duckdb_table": "daily_hrv",
     "description": "Extract nightly HRV (RMSSD) from Garmin HRV data",
-    "sql": "SELECT calendar_date::DATE as date, 'garmin' as source, hrv_summary__last_night_avg as rmssd FROM garmin.hrv WHERE hrv_summary__last_night_avg IS NOT NULL"
+    "sql": "SELECT calendar_date::DATE as date, 'garmin' as source, hrv_summary__last_night_avg as rmssd FROM sources.garmin_hrv WHERE hrv_summary__last_night_avg IS NOT NULL"
   },
   {
-    "source_duckdb_schema": "garmin",
-    "source_duckdb_table": "sleep",
+    "source_duckdb_schema": "sources",
+    "source_duckdb_table": "garmin_sleep",
     "target_duckdb_schema": "metrics",
     "target_duckdb_table": "daily_sleep",
     "description": "Extract sleep duration, score, and stage breakdown from Garmin sleep data",
-    "sql": "SELECT calendar_date::DATE as date, 'garmin' as source, daily_sleep_dto__sleep_time_seconds / 3600.0 as total_hours, daily_sleep_dto__sleep_scores__overall__value as score, daily_sleep_dto__deep_sleep_seconds / 60 as deep_min, daily_sleep_dto__rem_sleep_seconds / 60 as rem_min, daily_sleep_dto__light_sleep_seconds / 60 as light_min, daily_sleep_dto__awake_sleep_seconds / 60 as awake_min FROM garmin.sleep WHERE daily_sleep_dto__sleep_time_seconds IS NOT NULL"
+    "sql": "SELECT calendar_date::DATE as date, 'garmin' as source, daily_sleep_dto__sleep_time_seconds / 3600.0 as total_hours, daily_sleep_dto__sleep_scores__overall__value as score, daily_sleep_dto__deep_sleep_seconds / 60 as deep_min, daily_sleep_dto__rem_sleep_seconds / 60 as rem_min, daily_sleep_dto__light_sleep_seconds / 60 as light_min, daily_sleep_dto__awake_sleep_seconds / 60 as awake_min FROM sources.garmin_sleep WHERE daily_sleep_dto__sleep_time_seconds IS NOT NULL"
   },
   {
-    "source_duckdb_schema": "garmin",
-    "source_duckdb_table": "daily_stats",
+    "source_duckdb_schema": "sources",
+    "source_duckdb_table": "garmin_daily_stats",
     "target_duckdb_schema": "metrics",
     "target_duckdb_table": "daily_vitals",
     "description": "Extract resting heart rate, steps, and active calories from daily stats",
-    "sql": "SELECT calendar_date::DATE as date, 'garmin' as source, resting_heart_rate as resting_hr, total_steps as steps, active_kilocalories::INTEGER as active_kcal FROM garmin.daily_stats"
+    "sql": "SELECT calendar_date::DATE as date, 'garmin' as source, resting_heart_rate as resting_hr, total_steps as steps, active_kilocalories::INTEGER as active_kcal FROM sources.garmin_daily_stats"
   },
   {
-    "source_duckdb_schema": "garmin",
-    "source_duckdb_table": "body_composition",
+    "source_duckdb_schema": "sources",
+    "source_duckdb_table": "garmin_body_composition",
     "target_duckdb_schema": "metrics",
     "target_duckdb_table": "daily_body",
     "description": "Extract body weight (grams to kg) from body composition data",
-    "sql": "SELECT calendar_date::DATE as date, 'garmin' as source, weight / 1000.0 as weight_kg FROM garmin.body_composition WHERE calendar_date IS NOT NULL AND weight IS NOT NULL"
+    "sql": "SELECT calendar_date::DATE as date, 'garmin' as source, weight / 1000.0 as weight_kg FROM sources.garmin_body_composition WHERE calendar_date IS NOT NULL AND weight IS NOT NULL"
   },
   {
-    "source_duckdb_schema": "garmin",
-    "source_duckdb_table": "activities",
+    "source_duckdb_schema": "sources",
+    "source_duckdb_table": "garmin_activities",
     "target_duckdb_schema": "metrics",
     "target_duckdb_table": "events",
     "description": "Map Garmin activities to unified events timeline",
-    "sql": "SELECT 'garmin' as source, activity_id::VARCHAR as source_id, start_time_local::TIMESTAMP as start_at, start_time_local::TIMESTAMP + (duration * INTERVAL '1 second') as end_at, duration / 60.0 as duration_min, activity_name as title, NULL as description, NULL as location, activity_type__type_key as category, false as all_day, json_object('calories', calories, 'avg_hr', average_hr, 'max_hr', max_hr, 'distance_m', distance) as metadata FROM garmin.activities WHERE start_time_local IS NOT NULL"
+    "sql": "SELECT 'garmin' as source, activity_id::VARCHAR as source_id, start_time_local::TIMESTAMP as start_at, start_time_local::TIMESTAMP + (duration * INTERVAL '1 second') as end_at, duration / 60.0 as duration_min, activity_name as title, NULL as description, NULL as location, activity_type__type_key as category, false as all_day, json_object('calories', calories, 'avg_hr', average_hr, 'max_hr', max_hr, 'distance_m', distance) as metadata FROM sources.garmin_activities WHERE start_time_local IS NOT NULL"
   }
 ]

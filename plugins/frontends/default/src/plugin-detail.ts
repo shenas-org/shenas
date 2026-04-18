@@ -423,8 +423,11 @@ class PluginDetail extends LitElement {
     const ownedTables = this._info?.tables || [];
     if (db) {
       if (this.kind === "source") {
-        const schema = (db.schemas || []).find((s) => s.name === this.name);
-        this._tables = schema ? schema.tables.filter((t) => !t.name.startsWith("_dlt_")) : [];
+        const schema = (db.schemas || []).find((s) => s.name === "sources");
+        const prefix = `${this.name}_`;
+        this._tables = schema
+          ? schema.tables.filter((t) => t.name.startsWith(prefix) && !t.name.startsWith("_dlt_"))
+          : [];
       } else if (this.kind === "dataset") {
         const metricsSchema = (db.schemas || []).find((s) => s.name === "metrics");
         this._tables = metricsSchema ? metricsSchema.tables.filter((t) => ownedTables.includes(t.name)) : [];
@@ -792,7 +795,7 @@ class PluginDetail extends LitElement {
 
   _renderData() {
     const tables = (this._tables || []).filter((t) => !t.name.startsWith("_dlt_"));
-    const defaultSchema = this.kind === "dataset" ? "metrics" : this._info?.name || this.name;
+    const defaultSchema = this.kind === "dataset" ? "metrics" : "sources";
 
     // Sources that write to a non-source schema (e.g. wikidata -> entities.countries)
     // can declare it on primary_table as "<schema>.<table>". Honor that even

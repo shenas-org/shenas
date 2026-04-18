@@ -98,20 +98,25 @@ class Source(Plugin):
             if getattr(cls.Auth._Meta, "name", None) in (None, ""):  # ty: ignore[unresolved-attribute]
                 cls.Auth._Meta = type("_Meta", (cls.Auth._Meta,), {"name": per_pipe_name})  # ty: ignore[invalid-assignment, unresolved-attribute]
             cls.Auth._finalize()  # ty: ignore[unresolved-attribute]
-        # Auto-set _Meta.schema on every SourceTable in this source's TABLES
-        # tuple so the catalog can qualify references like `strava.activities`.
-        # Discovery is by convention: each source's tables module is at
-        # ``shenas_sources.<source_name>.tables`` and exports a ``TABLES``
-        # tuple. The lazy import here mirrors the lazy import in
-        # ``Source.resources()`` and stays tolerant of plugins that don't
-        # follow the convention (or have no source-side raw tables at all).
+        # Auto-set _Meta.schema to SOURCES and prefix _Meta.name with the
+        # source name so all source data lives in one schema:
+        #   garmin.activities -> sources.garmin_activities
+        from app.schema import SOURCES
+
         try:
             import importlib
 
             tables_mod = importlib.import_module(f"shenas_sources.{cls.name}.tables")
             for t in getattr(tables_mod, "TABLES", ()):
-                if not getattr(t._Meta, "schema", None):
-                    t._Meta = type("_Meta", (t._Meta,), {"schema": cls.name})
+                overrides: dict[str, object] = {}
+                if not getattr(t._Meta, "schema", None) or t._Meta.schema != SOURCES:
+                    overrides["schema"] = SOURCES
+                name = t._Meta.name
+                prefixed = f"{cls.name}_{name}"
+                if not name.startswith(f"{cls.name}_"):
+                    overrides["name"] = prefixed
+                if overrides:
+                    t._Meta = type("_Meta", (t._Meta,), overrides)
         except ImportError:
             pass
 
@@ -271,12 +276,19 @@ class Source(Plugin):
             **super().get_info(),
             "is_authenticated": self.is_authenticated,
             "sync_frequency": self.sync_frequency,
-            "primary_table": self.primary_table,
+            "primary_table": self._qualified_primary_table(),
             "entity_types": self.entity_types,
             "default_update_frequency": self.default_update_frequency,
             "commands": self.commands,
             "declared_tables": self._declared_tables(),
         }
+
+    def _qualified_primary_table(self) -> str:
+        """Return the primary_table with source prefix if not already qualified."""
+        pt = self.primary_table
+        if not pt or "." in pt:
+            return pt
+        return f"{self.name}_{pt}"
 
     def _declared_tables(self) -> list[dict[str, Any]]:
         """Return table metadata from the TABLES tuple, available at import time."""
@@ -316,6 +328,9 @@ class Source(Plugin):
     def dataset_name(self) -> str:
         """DuckDB schema name for this source's raw data.
 
+        All sources write to the ``sources`` schema. Table names are
+        prefixed with the source name (e.g. ``sources.garmin_activities``).
+
         When ``current_entity_uuid`` is set to a non-primary entity, the
         schema is suffixed with ``__e<uuid8>`` so each entity's raw data
         lives in its own namespace.
@@ -325,13 +340,12 @@ class Source(Plugin):
 
         entity_uuid = current_entity_uuid.get()
         if entity_uuid is None:
-            return self.name
-        # Check if this is the primary (current user's) entity
+            return "sources"
         user_id = current_user_id.get()
         user = LocalUser.get_by_id(user_id) if user_id else None
         if user and getattr(user, "uuid", None) == entity_uuid:
-            return self.name
-        return f"{self.name}__e{entity_uuid[:8]}"
+            return "sources"
+        return f"e{entity_uuid[:8]}__sources"
 
     def acquire_sync_lock(self) -> bool:
         """Try to acquire the sync lock for this source. Returns False if already locked."""
