@@ -21,22 +21,22 @@ class SqlTransformer(Transformer):
 
     def execute(
         self,
-        instance: Transform,
+        transform: Transform,
         *,
         device_id: str = "local",
     ) -> int:
-        params = instance.get_params()
+        params = transform.get_params()
         sql = params.get("sql", "")
         if not sql:
-            self.log.warning("Transform #%d has no SQL in params", instance.id)
+            self.log.warning("Transform #%d has no SQL in params", transform.id)
             return 0
 
-        target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
+        target = f'"{transform.target_ref.schema}"."{transform.target_ref.table}"'
         try:
             from app.database import cursor
 
             with cursor() as cur:
-                cur.execute(f"DELETE FROM {target} WHERE source = ?", [instance.source_plugin])
+                cur.execute(f"DELETE FROM {target} WHERE source = ?", [transform.source_plugin])
                 cur.execute(f"SELECT * FROM ({sql}) _t LIMIT 0")
                 cols = [d[0] for d in cur.description]
 
@@ -50,7 +50,7 @@ class SqlTransformer(Transformer):
                 cur.execute(f"INSERT INTO {target} ({col_names_with_device}) {sql_with_device}")
             return 1
         except Exception:
-            self.log.exception("Transform #%d failed (%s -> %s)", instance.id, instance.source_plugin, target)
+            self.log.exception("Transform #%d failed (%s -> %s)", transform.id, transform.source_plugin, target)
             return 0
 
     def param_schema(self) -> list[dict[str, Any]]:

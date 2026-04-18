@@ -54,22 +54,22 @@ class LlmCategorizeTransformer(Transformer):
 
     def execute(
         self,
-        instance: Transform,
+        transform: Transform,
         *,
         device_id: str = "local",
     ) -> int:
-        params = instance.get_params()
+        params = transform.get_params()
         text_col = params.get("text_column")
         if not text_col:
-            self.log.warning("LLM transform #%d missing text_column param", instance.id)
+            self.log.warning("LLM transform #%d missing text_column param", transform.id)
             return 0
 
         output_col = params.get("output_column", "category")
         prompt_template = params.get("prompt", "Categorize the following text into one word: {text}")
         categories = params.get("categories", "")
-        source_name = instance.source_plugin
-        source = f'"{instance.source_ref.schema}"."{instance.source_ref.table}"'
-        target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
+        source_name = transform.source_plugin
+        source = f'"{transform.source_ref.schema}"."{transform.source_ref.table}"'
+        target = f'"{transform.target_ref.schema}"."{transform.target_ref.table}"'
 
         try:
             from app.database import cursor
@@ -114,7 +114,7 @@ class LlmCategorizeTransformer(Transformer):
                 )
             return 1
         except Exception:
-            self.log.exception("LLM transform #%d failed (%s -> %s)", instance.id, source_name, target)
+            self.log.exception("LLM transform #%d failed (%s -> %s)", transform.id, source_name, target)
             return 0
 
     def param_schema(self) -> list[dict[str, Any]]:

@@ -26,27 +26,27 @@ class RegexExtractTransformer(Transformer):
 
     def execute(
         self,
-        instance: Transform,
+        transform: Transform,
         *,
         device_id: str = "local",
     ) -> int:
-        params = instance.get_params()
+        params = transform.get_params()
         text_col = params.get("text_column")
         if not text_col:
-            self.log.warning("Regex transform #%d missing text_column param", instance.id)
+            self.log.warning("Regex transform #%d missing text_column param", transform.id)
             return 0
 
         pattern = params.get("pattern", "")
         if not pattern:
-            self.log.warning("Regex transform #%d missing pattern param", instance.id)
+            self.log.warning("Regex transform #%d missing pattern param", transform.id)
             return 0
 
         output_col = params.get("output_column", f"{text_col}_extracted")
         mode = params.get("mode", "extract")
         replacement = params.get("replacement", "\\1")
-        source_name = instance.source_plugin
-        source = f'"{instance.source_ref.schema}"."{instance.source_ref.table}"'
-        target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
+        source_name = transform.source_plugin
+        source = f'"{transform.source_ref.schema}"."{transform.source_ref.table}"'
+        target = f'"{transform.target_ref.schema}"."{transform.target_ref.table}"'
 
         try:
             from app.database import cursor
@@ -67,7 +67,7 @@ class RegexExtractTransformer(Transformer):
         except Exception:
             self.log.exception(
                 "Regex transform #%d failed (%s -> %s)",
-                instance.id,
+                transform.id,
                 source_name,
                 target,
             )

@@ -121,7 +121,7 @@ class Transform(Table):
         description: str = "",
     ) -> Transform:
         """Create a suggested transform instance (disabled until accepted)."""
-        t = cls(
+        transform = cls(
             transform_type=transform_type,
             source_data_resource_id=source_data_resource_id,
             target_data_resource_id=target_data_resource_id,
@@ -131,7 +131,7 @@ class Transform(Table):
             is_suggested=True,
             enabled=False,
         )
-        return t.insert()
+        return transform.insert()
 
     def accept_suggestion(self) -> Transform:
         """Accept: flip is_suggested, enable the transform."""
@@ -161,7 +161,7 @@ class Transform(Table):
         description: str = "",
         is_default: bool = False,
     ) -> Transform:
-        t = cls(
+        transform = cls(
             transform_type=transform_type,
             source_data_resource_id=source_data_resource_id,
             target_data_resource_id=target_data_resource_id,
@@ -170,7 +170,7 @@ class Transform(Table):
             description=description,
             is_default=is_default,
         )
-        return t.insert()
+        return transform.insert()
 
     def update_params(self, params: str) -> Transform:
         self.params = params
@@ -217,7 +217,9 @@ class Transform(Table):
             where="source_plugin = ? AND transform_type = ? AND is_default = true",
             params=[source_plugin, transform_type],
         )
-        existing_by_key = {(t.source_data_resource_id, t.target_data_resource_id): t for t in existing}
+        existing_by_key = {
+            (transform.source_data_resource_id, transform.target_data_resource_id): transform for transform in existing
+        }
 
         for d in defaults:
             src_id = f"{d['source_duckdb_schema']}.{d['source_duckdb_table']}"
@@ -225,10 +227,10 @@ class Transform(Table):
             key = (src_id, tgt_id)
             params_json = d.get("params", "{}")
             if key in existing_by_key:
-                inst = existing_by_key[key]
-                inst.params = params_json
-                inst.description = d.get("description", "")
-                inst.save()
+                transform = existing_by_key[key]
+                transform.params = params_json
+                transform.description = d.get("description", "")
+                transform.save()
                 continue
             cls.create(
                 transform_type=transform_type,
@@ -246,36 +248,36 @@ class Transform(Table):
 
     @staticmethod
     def run_for_source(source_plugin: str) -> int:
-        instances = Transform.for_plugin(source_plugin)
-        log.info("Running transforms for %s (%d total)", source_plugin, len(instances))
+        transforms = Transform.for_plugin(source_plugin)
+        log.info("Running transforms for %s (%d total)", source_plugin, len(transforms))
         device_id = _get_device_id()
         plugin_cache: dict[str, Any] = {}
         count = 0
-        for inst in instances:
-            if not inst.enabled:
+        for transform in transforms:
+            if not transform.enabled:
                 continue
-            if not inst.source_data_resource_id or not inst.target_data_resource_id:
+            if not transform.source_data_resource_id or not transform.target_data_resource_id:
                 log.warning(
                     "Transform #%d missing source/target resource id, skipping (source=%r target=%r)",
-                    inst.id,
-                    inst.source_data_resource_id,
-                    inst.target_data_resource_id,
+                    transform.id,
+                    transform.source_data_resource_id,
+                    transform.target_data_resource_id,
                 )
                 continue
-            plugin = _get_transform_plugin(inst.transform_type, plugin_cache)
+            plugin = _get_transform_plugin(transform.transform_type, plugin_cache)
             if plugin is None:
                 log.warning(
                     "No transformer plugin for type=%s, skipping #%d",
-                    inst.transform_type,
-                    inst.id,
+                    transform.transform_type,
+                    transform.id,
                 )
                 continue
-            result = plugin.execute(inst, device_id=device_id)
+            result = plugin.execute(transform, device_id=device_id)
             if result:
                 try:
                     from app.data_catalog import catalog
 
-                    catalog().mark_refreshed(inst.target_ref.schema, inst.target_ref.table)
+                    catalog().mark_refreshed(transform.target_ref.schema, transform.target_ref.table)
                 except Exception:
                     pass
             count += result
@@ -284,29 +286,29 @@ class Transform(Table):
     @staticmethod
     def run_for_target(target_table: str) -> int:
         matching = [
-            t
-            for t in Transform.all(order_by="id")
-            if t.enabled and t.target_data_resource_id and t.target_ref.table == target_table
+            transform
+            for transform in Transform.all(order_by="id")
+            if transform.enabled and transform.target_data_resource_id and transform.target_ref.table == target_table
         ]
         log.info("Running transforms targeting %s (%d total)", target_table, len(matching))
         device_id = _get_device_id()
         plugin_cache: dict[str, Any] = {}
         count = 0
-        for inst in matching:
-            plugin = _get_transform_plugin(inst.transform_type, plugin_cache)
+        for transform in matching:
+            plugin = _get_transform_plugin(transform.transform_type, plugin_cache)
             if plugin is None:
                 log.warning(
                     "No transformer plugin for type=%s, skipping #%d",
-                    inst.transform_type,
-                    inst.id,
+                    transform.transform_type,
+                    transform.id,
                 )
                 continue
-            result = plugin.execute(inst, device_id=device_id)
+            result = plugin.execute(transform, device_id=device_id)
             if result:
                 try:
                     from app.data_catalog import catalog
 
-                    catalog().mark_refreshed(inst.target_ref.schema, inst.target_ref.table)
+                    catalog().mark_refreshed(transform.target_ref.schema, transform.target_ref.table)
                 except Exception:
                     pass
             count += result

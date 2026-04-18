@@ -51,23 +51,23 @@ class GeocodeTransformer(Transformer):
 
     def execute(
         self,
-        instance: Transform,
+        transform: Transform,
         *,
         device_id: str = "local",
     ) -> int:
         from app.database import cursor
 
-        params = instance.get_params()
+        params = transform.get_params()
         address_col = params.get("address_column")
         if not address_col:
-            self.log.warning("Geocode transform #%d missing address_column param", instance.id)
+            self.log.warning("Geocode transform #%d missing address_column param", transform.id)
             return 0
 
         lat_out = params.get("latitude_output", "latitude")
         lon_out = params.get("longitude_output", "longitude")
-        source_name = instance.source_plugin
-        source = f'"{instance.source_ref.schema}"."{instance.source_ref.table}"'
-        target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
+        source_name = transform.source_plugin
+        source = f'"{transform.source_ref.schema}"."{transform.source_ref.table}"'
+        target = f'"{transform.target_ref.schema}"."{transform.target_ref.table}"'
 
         try:
             with cursor() as con:
@@ -122,7 +122,7 @@ class GeocodeTransformer(Transformer):
                 )
                 return 1
         except Exception:
-            self.log.exception("Geocode transform #%d failed (%s -> %s)", instance.id, source_name, target)
+            self.log.exception("Geocode transform #%d failed (%s -> %s)", transform.id, source_name, target)
             return 0
 
     def param_schema(self) -> list[dict[str, Any]]:

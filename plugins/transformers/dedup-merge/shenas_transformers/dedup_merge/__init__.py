@@ -27,11 +27,11 @@ class DedupMergeTransformer(Transformer):
 
     def execute(
         self,
-        instance: Transform,
+        transform: Transform,
         *,
         device_id: str = "local",
     ) -> int:
-        params = instance.get_params()
+        params = transform.get_params()
         primary_source = params.get("primary_source")
         secondary_source = params.get("secondary_source")
         time_col = params.get("time_column", "start_at")
@@ -41,12 +41,12 @@ class DedupMergeTransformer(Transformer):
         if not primary_source or not secondary_source:
             self.log.warning(
                 "Dedup transform #%d missing primary_source or secondary_source",
-                instance.id,
+                transform.id,
             )
             return 0
 
-        source_name = instance.source_plugin
-        target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
+        source_name = transform.source_plugin
+        target = f'"{transform.target_ref.schema}"."{transform.target_ref.table}"'
 
         try:
             from app.database import cursor
@@ -64,8 +64,8 @@ class DedupMergeTransformer(Transformer):
                     keep_all = secondary_source
                     keep_unmatched = primary_source
 
-                source_schema = instance.source_ref.schema
-                source_table = instance.source_ref.table
+                source_schema = transform.source_ref.schema
+                source_table = transform.source_ref.table
 
                 cur.execute(
                     f"INSERT INTO {target} "
@@ -93,7 +93,7 @@ class DedupMergeTransformer(Transformer):
         except Exception:
             self.log.exception(
                 "Dedup transform #%d failed (%s -> %s)",
-                instance.id,
+                transform.id,
                 source_name,
                 target,
             )

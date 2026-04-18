@@ -53,19 +53,19 @@ class ReverseGeocodeTransformer(Transformer):
 
     def execute(
         self,
-        instance: Transform,
+        transform: Transform,
         *,
         device_id: str = "local",
     ) -> int:
         from app.database import cursor
 
-        params = instance.get_params()
+        params = transform.get_params()
         lat_col = params.get("latitude_column", "latitude")
         lon_col = params.get("longitude_column", "longitude")
         output_col = params.get("output_column", "place_name")
-        source_name = instance.source_plugin
-        source = f'"{instance.source_ref.schema}"."{instance.source_ref.table}"'
-        target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
+        source_name = transform.source_plugin
+        source = f'"{transform.source_ref.schema}"."{transform.source_ref.table}"'
+        target = f'"{transform.target_ref.schema}"."{transform.target_ref.table}"'
 
         try:
             with cursor() as con:
@@ -125,7 +125,7 @@ class ReverseGeocodeTransformer(Transformer):
         except Exception:
             self.log.exception(
                 "Reverse geocode transform #%d failed (%s -> %s)",
-                instance.id,
+                transform.id,
                 source_name,
                 target,
             )

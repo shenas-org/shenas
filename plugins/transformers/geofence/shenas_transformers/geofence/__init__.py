@@ -24,13 +24,13 @@ class GeofenceTransformer(Transformer):
 
     def execute(
         self,
-        instance: Transform,
+        transform: Transform,
         *,
         device_id: str = "local",
     ) -> int:
         from app.database import cursor
 
-        params = instance.get_params()
+        params = transform.get_params()
         lat_col = params.get("latitude_column", "latitude")
         lon_col = params.get("longitude_column", "longitude")
         time_col = params.get("time_column", "start_timestamp")
@@ -39,10 +39,10 @@ class GeofenceTransformer(Transformer):
         id_expr = params.get("id_expression", f"{time_col} || '_' || REPLACE({place_col}, ' ', '_')")
         filter_where = params.get("filter_where", "")
         confidence_col = params.get("confidence_column", "confidence")
-        source_name = instance.source_plugin
+        source_name = transform.source_plugin
 
-        target = f'"{instance.target_ref.schema}"."{instance.target_ref.table}"'
-        source = f'"{instance.source_ref.schema}"."{instance.source_ref.table}"'
+        target = f'"{transform.target_ref.schema}"."{transform.target_ref.table}"'
+        source = f'"{transform.source_ref.schema}"."{transform.source_ref.table}"'
 
         try:
             with cursor() as con:
@@ -91,7 +91,7 @@ class GeofenceTransformer(Transformer):
                 con.execute(f"INSERT INTO {target} {sql}")
                 return 1
         except Exception:
-            self.log.exception("Geofence transform #%d failed (%s -> %s)", instance.id, source_name, target)
+            self.log.exception("Geofence transform #%d failed (%s -> %s)", transform.id, source_name, target)
             return 0
 
     def param_schema(self) -> list[dict[str, Any]]:

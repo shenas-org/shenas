@@ -71,11 +71,11 @@ class Transformer(Plugin):
     @abc.abstractmethod
     def execute(
         self,
-        instance: Any,
+        transform: Any,
         *,
         device_id: str = "local",
     ) -> int:
-        """Execute one transform instance. Returns 1 on success, 0 on failure."""
+        """Execute one transform. Returns 1 on success, 0 on failure."""
         ...
 
     def validate_params(self, params: dict[str, Any]) -> None:
