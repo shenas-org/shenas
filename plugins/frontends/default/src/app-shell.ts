@@ -17,14 +17,7 @@ import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
-import {
-  GET_HOTKEYS,
-  GET_WORKSPACE,
-  GET_DASHBOARDS,
-  GET_PLUGIN_KINDS,
-  GET_DB_STATUS,
-  GET_PLUGINS_BY_KIND,
-} from "./graphql/queries.ts";
+import { GET_HOTKEYS, GET_WORKSPACE, GET_DASHBOARDS, GET_DB_STATUS, GET_PLUGINS_BY_KIND } from "./graphql/queries.ts";
 import {
   SAVE_WORKSPACE,
   SEED_TRANSFORMS,
@@ -763,6 +756,9 @@ class ShenasApp extends LitElement {
       this._rightOpen = true;
       this._rightWidth = Math.max(this._rightWidth, 400);
     }) as unknown as EventListener);
+    this.addEventListener("db-status-updated", ((e: CustomEvent) => {
+      this._dbStatus = e.detail as DbStatus;
+    }) as unknown as EventListener);
     this.addEventListener("show-panel", ((e: CustomEvent) => {
       this._rightPanelComponent = e.detail.component as HTMLElement;
       this._catalogDetail = null;
@@ -1239,35 +1235,39 @@ class ShenasApp extends LitElement {
   async _fetchData(): Promise<void> {
     this._loading = true;
     try {
-      // Fetch available plugin kinds first, then build the main query dynamically.
-      const { data: kindsData } = await this._client.query({ query: GET_PLUGIN_KINDS });
-      const kinds: { id: string; label: string }[] = (kindsData?.pluginKinds as { id: string; label: string }[]) || [];
-      this._pluginKinds = kinds;
+      // One query: pluginKinds + all plugins per kind + app shell data.
       const fields = `name displayName enabled syncedAt hasAuth isAuthenticated`;
-      const kindQueries = kinds.map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`).join("\n        ");
       const { data } = await this._client.query({
         query: gqlTag([
           `{
+        pluginKinds
         dashboards { name displayName tag js description }
         hotkeys
         workspace
-        ${kindQueries}
+        schemaPlugins
         theme { css }
         deviceName
-        schemaPlugins
       }`,
         ] as unknown as TemplateStringsArray),
+        fetchPolicy: "network-only",
+      });
+      const kinds: { id: string; label: string }[] = (data?.pluginKinds as { id: string; label: string }[]) || [];
+      this._pluginKinds = kinds;
+      // Second query: per-kind plugins (needs kinds to build field aliases).
+      const kindQueries = kinds.map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`).join("\n        ");
+      const { data: pluginsData } = await this._client.query({
+        query: gqlTag([`{ ${kindQueries} }`] as unknown as TemplateStringsArray),
         fetchPolicy: "network-only",
       });
       this._dashboards = (data?.dashboards as DashboardInfo[]) || [];
       this._deviceName = (data?.deviceName as string) || "";
       this._hotkeys = (data?.hotkeys as Record<string, string>) || {};
+      this._schemaPlugins = (data?.schemaPlugins as Record<string, string[]>) || {};
       const allPlugins: Record<string, PluginSummary[]> = {};
       for (const { id } of kinds) {
-        allPlugins[id] = (data?.[`p_${id}`] as PluginSummary[]) || [];
+        allPlugins[id] = (pluginsData?.[`p_${id}`] as PluginSummary[]) || [];
       }
       this._allPlugins = allPlugins;
-      this._schemaPlugins = (data?.schemaPlugins as Record<string, string[]>) || {};
       // Apply theme if not already injected by the server
       const themeData = data?.theme as Record<string, string> | undefined;
       if (themeData?.css && !document.querySelector("link[data-shenas-theme]")) {
@@ -1813,6 +1813,7 @@ class ShenasApp extends LitElement {
       entities-view="${entitiesView}"
       .allActions=${this._getAllActions()}
       .allPlugins=${this._allPlugins}
+      .pluginKinds=${this._pluginKinds}
       .schemaPlugins=${this._schemaPlugins}
       .remoteUser=${this._remoteUser}
       server-url=${this._serverUrl}

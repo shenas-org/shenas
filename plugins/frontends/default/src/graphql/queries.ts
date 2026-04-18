@@ -25,12 +25,6 @@ export const GET_DASHBOARDS = gql`
   }
 `;
 
-export const GET_PLUGIN_KINDS = gql`
-  {
-    pluginKinds
-  }
-`;
-
 // --- Dynamic query builders (depend on discovered pluginKinds) ---
 // These build a DocumentNode from a runtime string. Apollo's gql tag only
 // accepts DocumentNode fragments as interpolation values, so we call it with

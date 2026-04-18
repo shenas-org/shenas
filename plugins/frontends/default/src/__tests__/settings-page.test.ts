@@ -140,7 +140,7 @@ describe("shenas-settings", () => {
   it("_displayName falls back to title-cased activeKind", () => {
     const el = mount();
     el.activeKind = "source";
-    expect(el._displayName()).toBe("Sources");
+    expect(el._displayName()).toBe("Source");
   });
 
   it("_togglePlugin calls disable mutation", async () => {

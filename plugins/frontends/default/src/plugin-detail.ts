@@ -413,6 +413,10 @@ class PluginDetail extends LitElement {
         fetchPolicy: "network-only",
       });
       this.dbStatus = (dbData?.dbStatus as DbStatus | null) ?? null;
+      // Propagate to app-shell so its copy stays in sync.
+      this.dispatchEvent(
+        new CustomEvent("db-status-updated", { bubbles: true, composed: true, detail: this.dbStatus }),
+      );
     } catch {
       /* ignore */
     }

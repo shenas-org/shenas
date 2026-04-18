@@ -1,7 +1,6 @@
 import "./categories-page.ts";
 import { LitElement, html, css, render } from "lit";
 import {
-  ApolloQueryController,
   ApolloMutationController,
   getClient,
   gqlTag,
@@ -12,7 +11,7 @@ import {
   linkStyles,
   messageStyles,
 } from "shenas-frontends";
-import { GET_PLUGIN_KINDS, GET_THEME, GET_AVAILABLE_PLUGINS } from "./graphql/queries.ts";
+import { GET_THEME, GET_AVAILABLE_PLUGINS } from "./graphql/queries.ts";
 import { ENABLE_PLUGIN, DISABLE_PLUGIN } from "./graphql/mutations.ts";
 
 type PluginKind = { id: string; label: string };
@@ -67,6 +66,7 @@ class SettingsPage extends LitElement {
     onSwitchUser: { type: Function },
     allActions: { type: Array },
     allPlugins: { type: Object },
+    pluginKinds: { type: Array },
     schemaPlugins: { type: Object },
     remoteUser: { type: Object },
     serverUrl: { type: String, attribute: "server-url" },
@@ -292,6 +292,7 @@ class SettingsPage extends LitElement {
   declare onSwitchUser: (() => void) | null;
   declare allActions: ActionInfo[];
   declare allPlugins: Record<string, PluginSummary[]>;
+  declare pluginKinds: PluginKind[];
   declare schemaPlugins: Record<string, string[]>;
   declare remoteUser: Record<string, unknown> | null;
   declare serverUrl: string;
@@ -307,8 +308,6 @@ class SettingsPage extends LitElement {
   declare _selectedPlugin: string;
   declare _menuOpen: boolean;
   declare _pluginKinds: PluginKind[];
-
-  private _pluginKindsQuery = new ApolloQueryController(this, GET_PLUGIN_KINDS, { client: getClient() });
   private _enablePluginMutation = new ApolloMutationController(this, ENABLE_PLUGIN, { client: getClient() });
   private _disablePluginMutation = new ApolloMutationController(this, DISABLE_PLUGIN, { client: getClient() });
 
@@ -323,6 +322,7 @@ class SettingsPage extends LitElement {
     this.onSwitchUser = null;
     this.allActions = [];
     this.allPlugins = {};
+    this.pluginKinds = [];
     this.schemaPlugins = {};
     this.remoteUser = null;
     this.serverUrl = "https://shenas.net";
@@ -353,12 +353,8 @@ class SettingsPage extends LitElement {
 
   async _fetchAll(_options?: { force?: boolean }): Promise<void> {
     this._loading = true;
-    // Refresh plugin kinds from the Apollo controller
-    const kindsResult = await this._pluginKindsQuery.refetch();
-    const kindsData = kindsResult?.data as Record<string, unknown> | undefined;
-    if (kindsData?.pluginKinds) {
-      this._pluginKinds = (kindsData.pluginKinds as PluginKind[]).sort((a, b) => a.label.localeCompare(b.label));
-    }
+    // Use pluginKinds from the prop (passed by app-shell).
+    this._pluginKinds = [...(this.pluginKinds || [])].sort((a, b) => a.label.localeCompare(b.label));
     // Build a single dynamic GraphQL query for all discovered kinds.
     const fields = `name displayName package version enabled description syncedAt hasAuth isAuthenticated`;
     const kindQueries = this._pluginKinds
@@ -455,8 +451,7 @@ class SettingsPage extends LitElement {
     this._availablePlugins = available.filter((n) => !installed.has(n));
 
     // Build form panel and dispatch to app-shell's right panel
-    const label =
-      this._pluginKinds.find((k) => k.id === kind)?.label || kind.charAt(0).toUpperCase() + kind.slice(1) + "s";
+    const label = this._pluginKinds.find((k) => k.id === kind)?.label || kind.charAt(0).toUpperCase() + kind.slice(1);
     const panel = document.createElement("div");
     panel.style.padding = "1rem";
     this._renderInstallPanel(panel, kind, label);
@@ -614,7 +609,7 @@ class SettingsPage extends LitElement {
     if (this.activeKind === "categories") return "Categories";
     if (this.activeKind === "hotkeys") return "Hotkeys";
     const kind = this._pluginKinds.find((k) => k.id === this.activeKind);
-    return kind ? kind.label : this.activeKind.charAt(0).toUpperCase() + this.activeKind.slice(1) + "s";
+    return kind?.label || this.activeKind.charAt(0).toUpperCase() + this.activeKind.slice(1);
   }
 
   render() {
@@ -792,8 +787,7 @@ class SettingsPage extends LitElement {
 
   _renderKind(kind: string) {
     const plugins = this._plugins[kind] || [];
-    const label =
-      this._pluginKinds.find((k) => k.id === kind)?.label || kind.charAt(0).toUpperCase() + kind.slice(1) + "s";
+    const label = this._pluginKinds.find((k) => k.id === kind)?.label || kind.charAt(0).toUpperCase() + kind.slice(1);
     return html`
       <h3>${label}</h3>
       <shenas-data-list
