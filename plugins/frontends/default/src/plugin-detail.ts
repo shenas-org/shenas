@@ -41,6 +41,7 @@ interface PluginInfo {
   is_authenticated?: boolean | null;
   primary_table?: string;
   icon_url?: string;
+  tables?: string[];
 }
 
 interface TableInfo {
@@ -92,7 +93,6 @@ class PluginDetail extends LitElement {
     name: { type: String },
     activeTab: { type: String, attribute: "active-tab" },
     dbStatus: { type: Object },
-    schemaPlugins: { type: Object },
     initialInfo: { type: Object },
     _info: { state: true },
     _loading: { state: true },
@@ -291,7 +291,6 @@ class PluginDetail extends LitElement {
   declare name: string;
   declare activeTab: string;
   declare dbStatus: DbStatus | null;
-  declare schemaPlugins: Record<string, string[]>;
   declare initialInfo: PluginInfo | null;
   declare _info: PluginInfo | null;
   declare _loading: boolean;
@@ -330,7 +329,6 @@ class PluginDetail extends LitElement {
     this.name = "";
     this.activeTab = "details";
     this.dbStatus = null;
-    this.schemaPlugins = {};
     this.initialInfo = null;
     this._info = null;
     this._loading = true;
@@ -421,9 +419,8 @@ class PluginDetail extends LitElement {
       /* ignore */
     }
     const db = this.dbStatus;
-    const ownership = this.schemaPlugins;
     const allTransforms = data?.transforms as SchemaTransform[] | undefined;
-    const ownedTables = ownership ? ownership[this.name] || [] : [];
+    const ownedTables = this._info?.tables || [];
     if (db) {
       if (this.kind === "source") {
         const schema = (db.schemas || []).find((s) => s.name === this.name);

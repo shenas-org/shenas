@@ -4,7 +4,6 @@ import { Router } from "@lit-labs/router";
 import {
   arrowQuery,
   getClient,
-  gqlTag,
   matchesHotkey,
   openExternal,
   sortActions,
@@ -17,7 +16,7 @@ import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
-import { GET_HOTKEYS, GET_WORKSPACE, GET_DASHBOARDS, GET_DB_STATUS, GET_PLUGINS_BY_KIND } from "./graphql/queries.ts";
+import { GET_APP_DATA, GET_DB_STATUS, dynamicGql } from "./graphql/queries.ts";
 import {
   SAVE_WORKSPACE,
   SEED_TRANSFORMS,
@@ -63,6 +62,7 @@ interface PluginSummary {
   syncedAt?: string;
   hasAuth?: boolean;
   isAuthenticated?: boolean;
+  tables?: string[];
 }
 
 interface TabInfo {
@@ -148,7 +148,6 @@ class ShenasApp extends LitElement {
   private _elementCache = new Map<string, HTMLElement>();
   private _registeredCommands = new Map<string, Command[]>();
   private _keyHandler: ((e: KeyboardEvent) => void) | null = null;
-  private _schemaPlugins: Record<string, string[]> = {};
   private _pluginKinds: { id: string; label: string }[] = [];
   private _deviceName = "";
   private _hotkeys: Record<string, string> = {};
@@ -860,7 +859,7 @@ class ShenasApp extends LitElement {
   }
 
   async _loadHotkeys(): Promise<void> {
-    const { data } = await this._client.query({ query: GET_HOTKEYS, fetchPolicy: "network-only" });
+    const { data } = await this._client.query({ query: GET_APP_DATA, fetchPolicy: "network-only" });
     this._hotkeys = (data?.hotkeys as Record<string, string>) || {};
   }
 
@@ -919,7 +918,15 @@ class ShenasApp extends LitElement {
     const commands: Command[] = [];
     const names: Record<string, string> = {};
     try {
-      const schemaOwnership = this._schemaPlugins || {};
+      // Build schema ownership from plugin tables
+      const schemaOwnership: Record<string, string[]> = {};
+      for (const plugins of Object.values(this._allPlugins)) {
+        for (const p of plugins) {
+          if (p.tables && p.tables.length > 0) {
+            schemaOwnership[p.name] = p.tables;
+          }
+        }
+      }
 
       for (const k of this._pluginKinds) {
         const plugins = this._allPlugins[k.id] || [];
@@ -1157,7 +1164,7 @@ class ShenasApp extends LitElement {
 
   async _loadWorkspace(): Promise<void> {
     try {
-      const { data } = await this._client.query({ query: GET_WORKSPACE, fetchPolicy: "network-only" });
+      const { data } = await this._client.query({ query: GET_APP_DATA, fetchPolicy: "network-only" });
       const state = data?.workspace as Record<string, unknown> | undefined;
       if (!state) return;
       if (state.tabs && (state.tabs as TabInfo[]).length > 0) {
@@ -1211,65 +1218,41 @@ class ShenasApp extends LitElement {
   }
 
   async _refreshDashboards(): Promise<void> {
-    const { data } = await this._client.query({ query: GET_DASHBOARDS, fetchPolicy: "network-only" });
+    const { data } = await this._client.query({ query: GET_APP_DATA, fetchPolicy: "network-only" });
     this._dashboards = (data?.dashboards as DashboardInfo[]) || [];
-  }
-
-  async _refreshPlugins(): Promise<void> {
-    const { data } = await this._client.query({
-      query: GET_PLUGINS_BY_KIND,
-      fetchPolicy: "network-only",
-    });
-    if (data) {
-      this._allPlugins = {
-        source: (data.sources as PluginSummary[]) || [],
-        dataset: (data.datasets as PluginSummary[]) || [],
-        dashboard: (data.dashboardPlugins as PluginSummary[]) || [],
-        frontend: (data.frontends as PluginSummary[]) || [],
-        theme: (data.themes as PluginSummary[]) || [],
-        model: (data.models as PluginSummary[]) || [],
-      };
-    }
   }
 
   async _fetchData(): Promise<void> {
     this._loading = true;
     try {
-      // One query: pluginKinds + all plugins per kind + app shell data.
-      const fields = `name displayName enabled syncedAt hasAuth isAuthenticated`;
-      const { data } = await this._client.query({
-        query: gqlTag([
-          `{
-        pluginKinds
-        dashboards { name displayName tag js description }
-        hotkeys
-        workspace
-        schemaPlugins
-        theme { css }
-        deviceName
-      }`,
-        ] as unknown as TemplateStringsArray),
+      // Step 1: Fetch static app data (includes pluginKinds).
+      const { data: appData } = await this._client.query({
+        query: GET_APP_DATA,
         fetchPolicy: "network-only",
       });
-      const kinds: { id: string; label: string }[] = (data?.pluginKinds as { id: string; label: string }[]) || [];
+      const kinds: { id: string; label: string }[] = (appData?.pluginKinds as { id: string; label: string }[]) || [];
       this._pluginKinds = kinds;
-      // Second query: per-kind plugins (needs kinds to build field aliases).
+      this._dashboards = (appData?.dashboards as DashboardInfo[]) || [];
+      this._deviceName = (appData?.deviceName as string) || "";
+      this._hotkeys = (appData?.hotkeys as Record<string, string>) || {};
+      this._dbStatus = (appData?.dbStatus as DbStatus | null) ?? null;
+
+      // Step 2: Build and fetch per-kind plugins query.
+      const fields = `name displayName enabled syncedAt hasAuth isAuthenticated tables`;
       const kindQueries = kinds.map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`).join("\n        ");
       const { data: pluginsData } = await this._client.query({
-        query: gqlTag([`{ ${kindQueries} }`] as unknown as TemplateStringsArray),
+        query: dynamicGql(`{ ${kindQueries} }`),
         fetchPolicy: "network-only",
       });
-      this._dashboards = (data?.dashboards as DashboardInfo[]) || [];
-      this._deviceName = (data?.deviceName as string) || "";
-      this._hotkeys = (data?.hotkeys as Record<string, string>) || {};
-      this._schemaPlugins = (data?.schemaPlugins as Record<string, string[]>) || {};
+
       const allPlugins: Record<string, PluginSummary[]> = {};
       for (const { id } of kinds) {
         allPlugins[id] = (pluginsData?.[`p_${id}`] as PluginSummary[]) || [];
       }
       this._allPlugins = allPlugins;
+
       // Apply theme if not already injected by the server
-      const themeData = data?.theme as Record<string, string> | undefined;
+      const themeData = appData?.theme as Record<string, string> | undefined;
       if (themeData?.css && !document.querySelector("link[data-shenas-theme]")) {
         const link = document.createElement("link");
         link.rel = "stylesheet";
@@ -1278,7 +1261,7 @@ class ShenasApp extends LitElement {
         document.head.appendChild(link);
       }
       // Restore workspace
-      const ws = data?.workspace as Record<string, unknown> | undefined;
+      const ws = appData?.workspace as Record<string, unknown> | undefined;
       if (ws?.rightPanelOpen !== undefined) this._rightOpen = ws.rightPanelOpen as boolean;
       if (ws?.tabs && (ws.tabs as TabInfo[]).length > 0) {
         this._tabs = ws.tabs as TabInfo[];
@@ -1695,7 +1678,6 @@ class ShenasApp extends LitElement {
     return html`<shenas-pipeline-overview
       api-base="${this.apiBase}"
       .allPlugins=${this._allPlugins}
-      .schemaPlugins=${this._schemaPlugins}
     ></shenas-pipeline-overview>`;
   }
 
@@ -1731,7 +1713,6 @@ class ShenasApp extends LitElement {
       name="${name}"
       active-tab="${tab}"
       .dbStatus=${this._dbStatus}
-      .schemaPlugins=${this._schemaPlugins}
       .initialInfo=${cached || null}
     ></shenas-plugin-detail>`;
   }
@@ -1814,7 +1795,6 @@ class ShenasApp extends LitElement {
       .allActions=${this._getAllActions()}
       .allPlugins=${this._allPlugins}
       .pluginKinds=${this._pluginKinds}
-      .schemaPlugins=${this._schemaPlugins}
       .remoteUser=${this._remoteUser}
       server-url=${this._serverUrl}
       device-name=${this._deviceName || ""}

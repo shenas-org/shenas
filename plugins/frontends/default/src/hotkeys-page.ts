@@ -9,7 +9,7 @@ import {
   formatHotkey,
   sortActions,
 } from "shenas-frontends";
-import { GET_HOTKEYS } from "./graphql/queries.ts";
+import { GET_APP_DATA } from "./graphql/queries.ts";
 import { SET_HOTKEY, DELETE_HOTKEY, RESET_HOTKEYS } from "./graphql/mutations.ts";
 
 interface HotkeyAction {
@@ -109,20 +109,23 @@ class HotkeysPage extends LitElement {
 
   private _client = getClient();
 
-  private _hotkeysQuery = new ApolloQueryController(this, GET_HOTKEYS, {
+  private _hotkeysQuery = new ApolloQueryController(this, GET_APP_DATA, {
     client: this._client,
   });
 
   private _setHotkeyMutation = new ApolloMutationController(this, SET_HOTKEY, {
     client: this._client,
+    refetchQueries: [{ query: GET_APP_DATA }],
   });
 
   private _deleteHotkeyMutation = new ApolloMutationController(this, DELETE_HOTKEY, {
     client: this._client,
+    refetchQueries: [{ query: GET_APP_DATA }],
   });
 
   private _resetHotkeysMutation = new ApolloMutationController(this, RESET_HOTKEYS, {
     client: this._client,
+    refetchQueries: [{ query: GET_APP_DATA }],
   });
 
   private get _loading(): boolean {

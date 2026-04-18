@@ -342,11 +342,10 @@ describe("shenas-plugin-detail", () => {
     const dbStatus = {
       schemas: [{ name: "metrics", tables: [{ name: "hrv" }, { name: "transactions" }] }],
     };
-    el.schemaPlugins = { fitness: ["hrv"] };
     (globalThis.fetch as any)
       .mockResolvedValueOnce(
         mockResponse({
-          data: { pluginInfo: { name: "fitness", kind: "dataset" }, transforms: [] },
+          data: { pluginInfo: { name: "fitness", kind: "dataset", tables: ["hrv"] }, transforms: [] },
         }),
       )
       .mockResolvedValueOnce(mockResponse({ data: { dbStatus } }));

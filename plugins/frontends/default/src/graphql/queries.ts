@@ -1,20 +1,9 @@
 import { gqlTag as gql } from "shenas-frontends";
 
-// --- App Shell ---
-export const GET_HOTKEYS = gql`
+// --- App Shell (consolidated) ---
+export const GET_APP_DATA = gql`
   {
-    hotkeys
-  }
-`;
-
-export const GET_WORKSPACE = gql`
-  {
-    workspace
-  }
-`;
-
-export const GET_DASHBOARDS = gql`
-  {
+    pluginKinds
     dashboards {
       name
       displayName
@@ -22,6 +11,27 @@ export const GET_DASHBOARDS = gql`
       js
       description
     }
+    hotkeys
+    workspace
+    dbStatus {
+      keySource
+      dbPath
+      sizeMb
+      schemas {
+        name
+        tables {
+          name
+          rows
+          cols
+          earliest
+          latest
+        }
+      }
+    }
+    theme {
+      css
+    }
+    deviceName
   }
 `;
 
@@ -30,74 +40,23 @@ export const GET_DASHBOARDS = gql`
 // accepts DocumentNode fragments as interpolation values, so we call it with
 // a single-element TemplateStringsArray containing the already-assembled query.
 
-const PLUGIN_FIELDS = `name displayName enabled syncedAt hasAuth isAuthenticated`;
+export const PLUGIN_FIELDS = `name displayName enabled syncedAt hasAuth isAuthenticated tables`;
 
 function dynamicGql(query: string) {
   return gql(Object.assign([query], { raw: [query] }) as unknown as TemplateStringsArray);
-}
-
-export function buildAppDataQuery(kinds: { id: string }[]) {
-  const kindQueries = kinds.map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${PLUGIN_FIELDS} }`).join("\n    ");
-  return dynamicGql(`{
-    dashboards { name displayName tag js description }
-    hotkeys
-    workspace
-    dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } }
-    ${kindQueries}
-    theme { css }
-    deviceName
-    schemaPlugins
-  }`);
 }
 
 export function buildPluginStatsQuery(kinds: { id: string }[]) {
   const kindQueries = kinds
     .map(
       ({ id }) =>
-        `p_${id}: plugins(kind: "${id}") { name displayName package version enabled description syncedAt hasAuth isAuthenticated }`,
+        `p_${id}: plugins(kind: "${id}") { name displayName package version enabled description syncedAt hasAuth isAuthenticated tables }`,
     )
     .join("\n    ");
   return dynamicGql(`{ ${kindQueries} dbStatus { schemas { name tables { name rows earliest latest } } } }`);
 }
 
-// --- Plugins by kind ---
-export const GET_PLUGINS_BY_KIND = gql`
-  {
-    sources: plugins(kind: "source") {
-      name
-      displayName
-      enabled
-      syncedAt
-      hasAuth
-      isAuthenticated
-    }
-    datasets: plugins(kind: "dataset") {
-      name
-      displayName
-      enabled
-    }
-    dashboardPlugins: plugins(kind: "dashboard") {
-      name
-      displayName
-      enabled
-    }
-    frontends: plugins(kind: "frontend") {
-      name
-      displayName
-      enabled
-    }
-    themes: plugins(kind: "theme") {
-      name
-      displayName
-      enabled
-    }
-    models: plugins(kind: "model") {
-      name
-      displayName
-      enabled
-    }
-  }
-`;
+export { dynamicGql };
 
 // --- DB Status ---
 export const GET_DB_STATUS = gql`

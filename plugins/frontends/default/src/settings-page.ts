@@ -67,7 +67,6 @@ class SettingsPage extends LitElement {
     allActions: { type: Array },
     allPlugins: { type: Object },
     pluginKinds: { type: Array },
-    schemaPlugins: { type: Object },
     remoteUser: { type: Object },
     serverUrl: { type: String, attribute: "server-url" },
     deviceName: { type: String, attribute: "device-name" },
@@ -293,7 +292,6 @@ class SettingsPage extends LitElement {
   declare allActions: ActionInfo[];
   declare allPlugins: Record<string, PluginSummary[]>;
   declare pluginKinds: PluginKind[];
-  declare schemaPlugins: Record<string, string[]>;
   declare remoteUser: Record<string, unknown> | null;
   declare serverUrl: string;
   declare deviceName: string;
@@ -308,6 +306,7 @@ class SettingsPage extends LitElement {
   declare _selectedPlugin: string;
   declare _menuOpen: boolean;
   declare _pluginKinds: PluginKind[];
+
   private _enablePluginMutation = new ApolloMutationController(this, ENABLE_PLUGIN, { client: getClient() });
   private _disablePluginMutation = new ApolloMutationController(this, DISABLE_PLUGIN, { client: getClient() });
 
@@ -323,7 +322,6 @@ class SettingsPage extends LitElement {
     this.allActions = [];
     this.allPlugins = {};
     this.pluginKinds = [];
-    this.schemaPlugins = {};
     this.remoteUser = null;
     this.serverUrl = "https://shenas.net";
     this.deviceName = "";

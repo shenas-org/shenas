@@ -185,12 +185,6 @@ class TestGraphQLQueries:
         assert "errors" not in result
         assert result["data"]["schemaTables"] == {"metrics": ["daily_hrv"]}
 
-    def test_schema_plugins(self, client: TestClient) -> None:
-        with patch("app.api.db.schema_plugin_ownership", return_value={"fitness": ["daily_hrv"]}):
-            result = _gql(client, "{ schemaPlugins }")
-        assert "errors" not in result
-        assert result["data"]["schemaPlugins"] == {"fitness": ["daily_hrv"]}
-
     def test_transforms_empty(self, client: TestClient) -> None:
         result = _gql(client, "{ transforms { id transformType enabled } }")
         assert "errors" not in result

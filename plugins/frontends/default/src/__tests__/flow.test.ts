@@ -45,7 +45,6 @@ describe("shenas-pipeline-overview", () => {
     const el = mount();
     expect(el.apiBase).toBe("/api");
     expect(el.allPlugins).toEqual({});
-    expect(el.schemaPlugins).toEqual({});
     expect(el._loading).toBe(true);
     expect(el._empty).toBe(false);
   });

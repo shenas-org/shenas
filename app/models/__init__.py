@@ -118,6 +118,7 @@ class PluginInfo(BaseModel):
     has_entities: bool = False
     is_authenticated: bool | None = None
     sync_frequency: int | None = None
+    tables: list[str] = []
     config_entries: list[ConfigEntry] = []
     added_at: str | None = None
     updated_at: str | None = None

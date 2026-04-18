@@ -18,11 +18,9 @@ from app.graphql.types import (
     DependencyEdge,
     EntityRelationshipTypeType,
     EntityTypeType,
-    FindingType,
     FreshnessInfoType,
     GqlEntityRelationshipType,
     GqlEntityType,
-    HypothesisSuggestionType,
     HypothesisType,
     ModelInfoType,
     ParamFieldType,
@@ -34,7 +32,6 @@ from app.graphql.types import (
     SuggestedAnalysisType,
     SuggestedDatasetType,
     TableEntry,
-    TableInfoType,
     ThemeInfo,
     TimeColumnsInfoType,
     TransformerInfoType,
@@ -223,12 +220,6 @@ class Query:
 
         return schema_plugin_tables()  # ty: ignore[invalid-return-type]
 
-    @strawberry.field
-    def schema_plugins(self) -> JSON:
-        from app.api.db import schema_plugin_ownership
-
-        return schema_plugin_ownership()  # ty: ignore[invalid-return-type]
-
     # -- Plugins --
 
     @strawberry.field
@@ -259,9 +250,11 @@ class Query:
 
     @strawberry.field
     def plugins(self, kind: str) -> list[PluginInfoType]:
+        from app.api.db import schema_plugin_ownership
         from app.models import ConfigEntry, PluginInfo
         from app.plugin import Plugin
 
+        ownership = schema_plugin_ownership()
         items = []
         for pi in Plugin.list_installed(kind):
             config_entries = [
@@ -273,10 +266,11 @@ class Query:
                 )
                 for e in pi.get("config_entries", [])
             ]
+            name = pi.get("name", "")
             items.append(
                 PluginInfoType.from_pydantic(  # ty: ignore[unresolved-attribute]
                     PluginInfo(
-                        name=pi.get("name", ""),
+                        name=name,
                         display_name=pi.get("display_name", ""),
                         package=pi.get("package", ""),
                         version=pi.get("version", ""),
@@ -290,6 +284,7 @@ class Query:
                         has_entities=pi.get("has_entities", False),
                         is_authenticated=pi.get("is_authenticated"),
                         sync_frequency=pi.get("sync_frequency"),
+                        tables=ownership.get(name, []),
                         config_entries=config_entries,
                         added_at=pi.get("added_at"),
                         updated_at=pi.get("updated_at"),
@@ -420,21 +415,6 @@ class Query:
             for c in Category.all(order_by="display_name")
         ]
 
-    @strawberry.field
-    def category_set(self, set_id: str) -> CategorySetType | None:
-        """Return a single category set with values."""
-        from app.categories import Category
-
-        c = Category.find(set_id)
-        if not c:
-            return None
-        return CategorySetType(
-            id=c.id,
-            display_name=c.display_name,
-            description=c.description,
-            values=[CategoryValueType(value=v.value, sort_order=v.sort_order, color=v.color) for v in c.values],
-        )
-
     # -- Table introspection --
 
     @strawberry.field
@@ -449,86 +429,6 @@ class Query:
                 [schema, table],
             ).fetchall()
         return [r[0] for r in rows]
-
-    @strawberry.field
-    def table_column_info(self, schema: str, table: str) -> list[ColumnInfoType]:
-        """Return column metadata from plugin Field declarations.
-
-        Includes db_type, description, unit, and category for each column.
-        Falls back to DuckDB introspection if no plugin metadata is available.
-        """
-        from app.database import cursor
-        from app.plugin import Plugin
-
-        # Try plugin metadata first
-        for kind in ("source", "dataset"):
-            try:
-                for cls in Plugin.load_by_kind(kind):
-                    plugin_name = getattr(cls, "name", "")
-                    target_schema = "metrics" if kind == "dataset" else plugin_name
-                    if target_schema != schema:
-                        continue
-                    try:
-                        import importlib
-
-                        pkg = cls.__module__.rsplit(".", 1)[0]
-                        tables_mod = importlib.import_module(f"{pkg}.tables")
-                    except Exception:
-                        continue
-                    for t in getattr(tables_mod, "TABLES", ()):
-                        if hasattr(t, "_Meta") and t._Meta.name == table:
-                            meta = t.table_metadata()
-                            return [
-                                ColumnInfoType(
-                                    name=c["name"],
-                                    db_type=c.get("db_type", ""),
-                                    description=c.get("description", ""),
-                                    display_name=c.get("display_name", ""),
-                                    unit=c.get("unit", ""),
-                                    nullable=c.get("nullable", True),
-                                    category=c.get("category", ""),
-                                )
-                                for c in meta.get("columns", [])
-                            ]
-            except Exception:
-                continue
-
-        # Fallback: DuckDB introspection
-        with cursor() as cur:
-            rows = cur.execute(f'DESCRIBE "{schema}"."{table}"').fetchall()
-        return [ColumnInfoType(name=r[0], db_type=r[1]) for r in rows]
-
-    @strawberry.field
-    def table_info(self, schema: str, table: str) -> TableInfoType:
-        """Return table-level metadata: kind, time columns, query hint."""
-        from app.plugin import Plugin
-
-        for kind in ("source", "dataset"):
-            try:
-                for cls in Plugin.load_by_kind(kind):
-                    plugin_name = getattr(cls, "name", "")
-                    target_schema = "metrics" if kind == "dataset" else plugin_name
-                    if target_schema != schema:
-                        continue
-                    try:
-                        import importlib
-
-                        pkg = cls.__module__.rsplit(".", 1)[0]
-                        tables_mod = importlib.import_module(f"{pkg}.tables")
-                    except Exception:
-                        continue
-                    for t in getattr(tables_mod, "TABLES", ()):
-                        if hasattr(t, "_Meta") and t._Meta.name == table:
-                            meta = t.table_metadata()
-                            tc = meta.get("time_columns")
-                            return TableInfoType(
-                                kind=meta.get("kind"),
-                                time_columns=TimeColumnsInfoType(**tc) if tc else None,
-                                query_hint=meta.get("query_hint"),
-                            )
-            except Exception:
-                continue
-        return TableInfoType()
 
     @strawberry.field
     async def transforms(self, info: strawberry.types.Info, source: str | None = None) -> list[TransformType]:
@@ -680,24 +580,6 @@ class Query:
             )
         return sorted(result, key=lambda x: x.name)
 
-    @strawberry.field
-    def model_status(self, name: str) -> JSON:
-        from shenas_models.core import Model
-
-        cls = Model.load_by_name(name)
-        if not cls:
-            return {"name": name, "available": False, "round": None}  # ty: ignore[invalid-return-type]
-        return cls().training_status
-
-    @strawberry.field
-    def model_predict(self, name: str) -> JSON:
-        from shenas_models.core import Model
-
-        cls = Model.load_by_name(name)
-        if not cls:
-            return None  # ty: ignore[invalid-return-type]
-        return cls().predict()
-
     # -- Analytics catalog --
     #
     # Single read-only query that returns the structured metadata for every
@@ -729,41 +611,6 @@ class Query:
 
         Analysis.discover()
         return list_modes()  # ty: ignore[invalid-return-type]
-
-    # -- Literature --
-
-    @strawberry.field
-    def literature_findings(self, limit: int | None = None) -> list[FindingType]:
-        """Return stored literature findings."""
-        from app.finding import Finding
-
-        rows = Finding.all(order_by="id DESC", limit=limit)
-        return [_finding_to_gql(f) for f in rows]
-
-    @strawberry.field
-    def suggested_hypotheses(self, limit: int = 10) -> list[HypothesisSuggestionType]:
-        """Return proactive hypothesis suggestions from literature cross-referenced with installed data."""
-        from app.data_catalog import catalog as get_catalog
-        from app.finding import Finding
-
-        catalog = get_catalog().metadata_by_id()
-        suggestions = Finding.suggest_hypotheses(catalog, limit=limit)
-        return [
-            HypothesisSuggestionType(
-                question=s.question,
-                rationale=s.rationale,
-                datasets_involved=s.datasets_involved,
-                complexity=getattr(s, "complexity", ""),
-                score=getattr(s, "score", 0.0),
-            )
-            for s in suggestions
-        ]
-
-    # -- Hypotheses --
-    #
-    # Read-only listing + single fetch over the Hypothesis system table.
-    # The mutations that create / run / promote hypotheses live in
-    # app/graphql/mutations.py.
 
     # -- Suggestions --
     #
@@ -1021,34 +868,3 @@ def _hypothesis_to_gql(h: Any) -> HypothesisType:
         parent_id=getattr(h, "parent_id", None),
         is_suggested=getattr(h, "is_suggested", None),
     )
-
-
-def _finding_to_gql(f: Any) -> FindingType:
-    return FindingType(
-        id=f.id,
-        exposure=f.exposure,
-        outcome=f.outcome,
-        direction=f.direction or "",
-        effect_size=f.effect_size,
-        ci_low=f.ci_low,
-        ci_high=f.ci_high,
-        evidence_level=f.evidence_level,
-        sample_size=f.sample_size,
-        mechanism=f.mechanism,
-        citation=f.citation or "",
-        doi=f.doi,
-        exposure_categories=f.exposure_categories,
-        outcome_categories=f.outcome_categories,
-        source_ref=f.source_ref,
-    )
-
-
-def _safe_json_load(s: str) -> Any:
-    import json
-
-    if not s:
-        return None
-    try:
-        return json.loads(s)
-    except Exception:
-        return None

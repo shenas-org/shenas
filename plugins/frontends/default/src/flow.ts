@@ -20,6 +20,7 @@ interface PluginInfo {
   name: string;
   displayName?: string;
   enabled?: boolean;
+  tables?: string[];
 }
 
 interface Transform {
@@ -44,7 +45,6 @@ class PipelineOverview extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
     allPlugins: { type: Object },
-    schemaPlugins: { type: Object },
     _empty: { state: true },
     _view: { state: true },
     _suggesting: { state: true },
@@ -200,7 +200,6 @@ class PipelineOverview extends LitElement {
 
   declare apiBase: string;
   declare allPlugins: Record<string, PluginInfo[]>;
-  declare schemaPlugins: Record<string, string[]>;
   declare _empty: boolean;
   declare _view: FlowView;
   declare _suggesting: boolean;
@@ -226,7 +225,6 @@ class PipelineOverview extends LitElement {
     super();
     this.apiBase = "/api";
     this.allPlugins = {};
-    this.schemaPlugins = {};
     this._empty = false;
     this._view = "device";
     this._suggesting = false;
@@ -306,11 +304,20 @@ class PipelineOverview extends LitElement {
     const data = this._overviewQuery.data as Record<string, unknown> | undefined;
     if (!data) return;
     const ap = this.allPlugins || {};
+    // Build schema ownership from plugin tables
+    const ownership: Record<string, string[]> = {};
+    for (const plugins of Object.values(ap)) {
+      for (const p of plugins as PluginInfo[]) {
+        if (p.tables && p.tables.length > 0) {
+          ownership[p.name] = p.tables;
+        }
+      }
+    }
     this._buildElements(
       (ap.source || []) as PluginInfo[],
       (ap.dataset || []) as PluginInfo[],
       (data?.transforms || []) as Transform[],
-      this.schemaPlugins || {},
+      ownership,
       (ap.dashboard || []) as PluginInfo[],
       Object.fromEntries(
         ((data?.dependencies || []) as Array<{ source: string; targets: string[] }>).map((d) => [d.source, d.targets]),
