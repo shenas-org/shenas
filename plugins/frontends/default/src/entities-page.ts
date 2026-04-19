@@ -735,6 +735,106 @@ class EntitiesPage extends LitElement {
     }
   }
 
+  _openRelationshipPanelPrefilled(fromUuid: string, toUuid: string): void {
+    if (this._relationshipTypes.length === 0) {
+      this._message = { type: "error", text: "No relationship types available." };
+      return;
+    }
+
+    const entityOptions = this._entities.map((e) => ({ value: e.uuid, label: e.name }));
+    const relTypeOptions = this._relationshipTypes.map((t) => ({ value: t.name, label: t.displayName }));
+    const form: RelationshipForm = { fromUuid, toUuid, type: relTypeOptions[0]?.value || "" };
+
+    const panel = document.createElement("div");
+    panel.style.padding = "1rem";
+
+    render(
+      html`
+        <shenas-form-panel
+          title="Add relationship"
+          submit-label="Add"
+          @submit=${() => void this._saveRelationship(form)}
+          @cancel=${() => this._closePanel()}
+        >
+          <shenas-dropdown
+            label="From"
+            .options=${entityOptions}
+            value=${form.fromUuid}
+            @change=${(e: CustomEvent) => {
+              form.fromUuid = e.detail.value;
+            }}
+          ></shenas-dropdown>
+          <shenas-dropdown
+            label="Type"
+            .options=${relTypeOptions}
+            value=${form.type}
+            @change=${(e: CustomEvent) => {
+              form.type = e.detail.value;
+            }}
+          ></shenas-dropdown>
+          <shenas-dropdown
+            label="To"
+            .options=${entityOptions}
+            value=${form.toUuid}
+            @change=${(e: CustomEvent) => {
+              form.toUuid = e.detail.value;
+            }}
+          ></shenas-dropdown>
+        </shenas-form-panel>
+      `,
+      panel,
+    );
+
+    this._panelEl = panel;
+    this.dispatchEvent(
+      new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 420 } }),
+    );
+  }
+
+  _openRelationshipDetailPanel(rel: EntityRelationshipRow): void {
+    const fromEntity = this._entityByUuid(rel.fromUuid);
+    const toEntity = this._entityByUuid(rel.toUuid);
+    const relType = this._relationshipTypes.find((t) => t.name === rel.type);
+    const fromLabel = fromEntity?.name || rel.fromUuid;
+    const toLabel = toEntity?.name || rel.toUuid;
+    const typeLabel = relType?.displayName || rel.type;
+
+    const panel = document.createElement("div");
+    panel.style.padding = "1rem";
+    const _lbl = "display:flex;flex-direction:column;gap:0.2rem;font-size:0.85rem;margin-bottom:0.8rem";
+    const _val = "padding:0.4rem;border:1px solid #eee;border-radius:4px;background:#f9f9f9;font-size:0.9rem";
+    panel.innerHTML = `
+      <h3 style="margin:0 0 1rem;font-size:1rem">Relationship</h3>
+      <div style="${_lbl}">
+        <span style="font-weight:600">From</span>
+        <span style="${_val}">${this._escape(fromLabel)}</span>
+      </div>
+      <div style="${_lbl}">
+        <span style="font-weight:600">Type</span>
+        <span style="${_val}">${this._escape(typeLabel)}</span>
+      </div>
+      <div style="${_lbl}">
+        <span style="font-weight:600">To</span>
+        <span style="${_val}">${this._escape(toLabel)}</span>
+      </div>
+      ${rel.description ? `<div style="${_lbl}"><span style="font-weight:600">Description</span><span style="${_val}">${this._escape(rel.description)}</span></div>` : ""}
+      <div style="display:flex;gap:0.5rem;margin-top:1rem">
+        <button id="delete-btn" style="padding:0.4rem 1rem;border:1px solid #c00;border-radius:4px;cursor:pointer;background:#fff;color:#c00">Delete</button>
+        <button id="close-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Close</button>
+      </div>
+    `;
+    panel.querySelector("#delete-btn")?.addEventListener("click", async () => {
+      await this._deleteRelationship(rel);
+      this._closePanel();
+    });
+    panel.querySelector("#close-btn")?.addEventListener("click", () => this._closePanel());
+
+    this._panelEl = panel;
+    this.dispatchEvent(
+      new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 380 } }),
+    );
+  }
+
   // -- Cytoscape ego graph ------------------------------------------------
 
   _buildHierarchyElements(): CyElement[] {
@@ -871,6 +971,24 @@ class EntitiesPage extends LitElement {
             "text-margin-y": -8,
           },
         },
+        {
+          selector: "edge:active",
+          style: {
+            "line-color": "#728f67",
+            "target-arrow-color": "#728f67",
+            width: 3,
+          },
+        },
+        {
+          selector: ".ghost-edge",
+          style: {
+            "line-color": "#728f67",
+            "target-arrow-color": "#728f67",
+            "line-style": "dashed",
+            width: 2,
+            opacity: 0.6,
+          },
+        },
       ] as unknown as cytoscape.StylesheetStyle[],
       layout: {
         name: "concentric",
@@ -883,10 +1001,87 @@ class EntitiesPage extends LitElement {
       userPanningEnabled: true,
     });
 
+    // -- Single-click: edit entity / view relationship -----------------------
     this._cy.on("tap", "node", (evt) => {
       const uuid = evt.target.id();
       const e = this._entityByUuid(uuid);
-      if (e && !e.isMe) this._openEntityPanel(e);
+      if (e) this._openEntityPanel(e);
+    });
+
+    this._cy.on("tap", "edge", (evt) => {
+      const edgeId = evt.target.id() as string;
+      const parts = edgeId.split(":");
+      if (parts.length >= 4) {
+        const rel = this._relationships.find(
+          (r) => r.fromUuid === parts[1] && r.toUuid === parts[2] && r.type === parts.slice(3).join(":"),
+        );
+        if (rel) this._openRelationshipDetailPanel(rel);
+      }
+    });
+
+    // -- Double-click on canvas: add entity ---------------------------------
+    this._cy.on("tap", (evt) => {
+      if (evt.target === this._cy) {
+        // Tap on empty canvas -- open add-entity panel
+        this._openEntityPanel();
+      }
+    });
+
+    // -- Drag from node to node: add relationship ---------------------------
+    let dragSource: string | null = null;
+    let ghostEdge: string | null = null;
+
+    this._cy.on("cxttapstart", "node", (evt) => {
+      // Right-click drag starts a connection attempt
+      dragSource = evt.target.id();
+      // Add a temporary ghost edge for visual feedback
+      ghostEdge = `ghost_${Date.now()}`;
+      this._cy!.add({
+        group: "edges",
+        data: { id: ghostEdge, source: dragSource, target: dragSource, label: "" },
+        classes: "ghost-edge",
+      });
+    });
+
+    this._cy.on("cxtdrag", (evt) => {
+      if (!dragSource || !ghostEdge || !this._cy) return;
+      // Move ghost edge target to the nearest node under the pointer
+      const pos = evt.position;
+      const nearest = this._cy!.nodes().filter(
+        (n) =>
+          n.boundingBox().x1 <= pos.x &&
+          pos.x <= n.boundingBox().x2 &&
+          n.boundingBox().y1 <= pos.y &&
+          pos.y <= n.boundingBox().y2,
+      )[0];
+      if (nearest && nearest.id() !== dragSource) {
+        const edge = this._cy.getElementById(ghostEdge);
+        edge.move({ target: nearest.id() });
+      }
+    });
+
+    this._cy.on("cxttapend", (evt) => {
+      if (!dragSource || !this._cy) return;
+      // Clean up ghost edge
+      if (ghostEdge) {
+        const edge = this._cy.getElementById(ghostEdge);
+        if (edge.length) edge.remove();
+        ghostEdge = null;
+      }
+      // Find the target node under the pointer
+      const pos = evt.position;
+      const nearest = this._cy!.nodes().filter(
+        (n) =>
+          n.boundingBox().x1 <= pos.x &&
+          pos.x <= n.boundingBox().x2 &&
+          n.boundingBox().y1 <= pos.y &&
+          pos.y <= n.boundingBox().y2,
+      )[0];
+      if (nearest && nearest.id() !== dragSource) {
+        const targetUuid = nearest.id();
+        this._openRelationshipPanelPrefilled(dragSource, targetUuid);
+      }
+      dragSource = null;
     });
   }
 
@@ -1081,7 +1276,7 @@ class EntitiesPage extends LitElement {
           },
           { key: "status", label: "Status" },
         ]}
-        .rows=${this._entities as unknown as Record<string, unknown>[]}
+        .rows=${this._entities.filter((e) => e.status === "enabled") as unknown as Record<string, unknown>[]}
         .actions=${(row: Record<string, unknown>) => {
           const e = row as unknown as Entity;
           return e.isMe

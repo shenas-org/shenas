@@ -872,7 +872,8 @@ class PluginDetail extends LitElement {
 
     const schema = primaryFallbackSchema ?? defaultSchema;
     const tableNames = new Set(tables.map((t) => t.name));
-    const preferred = this._dataTable || primaryFallbackTable || this._info?.primary_table || "";
+    const urlTable = new URLSearchParams(window.location.search).get("table");
+    const preferred = urlTable || this._dataTable || primaryFallbackTable || this._info?.primary_table || "";
     const table = (preferred && tableNames.has(preferred) ? preferred : tables[0]?.name) || "";
     if (!this._dataTable && table) {
       requestAnimationFrame(() => {
@@ -1170,6 +1171,9 @@ class PluginDetail extends LitElement {
                     class="tab-select"
                     @change=${(e: Event) => {
                       this._dataTable = (e.target as HTMLSelectElement).value;
+                      const url = new URL(window.location.href);
+                      url.searchParams.set("table", this._dataTable);
+                      window.history.pushState({}, "", url.toString());
                     }}
                   >
                     ${this._tables

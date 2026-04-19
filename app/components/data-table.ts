@@ -265,6 +265,10 @@ export class ShenasDataTable extends LitElement {
       padding: 12px;
       border-radius: 6px;
     }
+    .info-message {
+      color: var(--shenas-text-muted, #888);
+      padding: 12px;
+    }
     .page-info {
       flex: 1;
       text-align: center;
@@ -429,6 +433,18 @@ export class ShenasDataTable extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    // Restore state from URL params
+    const params = new URLSearchParams(window.location.search);
+    const sort = params.get("sort");
+    if (sort) {
+      this._sortCol = sort;
+      this._sortDesc = params.get("desc") === "1";
+    }
+    const page = params.get("page");
+    if (page) this._page = parseInt(page, 10) || 0;
+    const q = params.get("q");
+    if (q) this._searchTerm = q;
+
     if (this.table && this.schema) {
       this._selectedTable = `${this.schema}.${this.table}`;
       this._fetchData();
@@ -444,6 +460,9 @@ export class ShenasDataTable extends LitElement {
     if (changed.has("table") && this.table && this.schema) {
       this._selectedTable = `${this.schema}.${this.table}`;
       this._fetchData();
+    }
+    if (changed.has("_page") && !changed.has("_rows")) {
+      this._pushUrlState();
     }
   }
 
@@ -468,6 +487,7 @@ export class ShenasDataTable extends LitElement {
   async _fetchData(): Promise<void> {
     this._loading = true;
     this._error = null;
+    this._infoMessage = null;
     try {
       const sql = `SELECT * FROM ${this._selectedTable}`;
       const table = await arrowQuery(this.apiBase, sql);
@@ -499,7 +519,7 @@ export class ShenasDataTable extends LitElement {
     } catch (error) {
       const message = (error as Error).message || "";
       if (message.includes("does not exist")) {
-        this._error = "Not synced yet. Sync this source to populate data.";
+        this._infoMessage = "Not synced yet. Sync this source to populate data.";
       } else {
         this._error = message;
       }
@@ -568,6 +588,7 @@ export class ShenasDataTable extends LitElement {
       this._sortCol = col;
       this._sortDesc = false;
     }
+    this._pushUrlState();
   }
 
   _onFilter(col: string, value: string): void {
@@ -650,6 +671,19 @@ export class ShenasDataTable extends LitElement {
     this.dispatchEvent(new CustomEvent("view-change", { bubbles: true, composed: true, detail: { view } }));
   }
 
+  _pushUrlState(): void {
+    const url = new URL(window.location.href);
+    const set = (k: string, v: string | null) => {
+      if (v) url.searchParams.set(k, v);
+      else url.searchParams.delete(k);
+    };
+    set("sort", this._sortCol);
+    set("desc", this._sortDesc && this._sortCol ? "1" : null);
+    set("page", this._page > 0 ? String(this._page) : null);
+    set("q", this._searchTerm || null);
+    window.history.replaceState({}, "", url.toString());
+  }
+
   _onResizeStart(e: MouseEvent, col: string): void {
     e.preventDefault();
     e.stopPropagation();
@@ -667,6 +701,7 @@ export class ShenasDataTable extends LitElement {
   }
 
   render(): TemplateResult {
+    if (this._infoMessage) return html`<div class="info-message">${this._infoMessage}</div>`;
     if (this._error) return html`<div class="error">${this._error}</div>`;
 
     const tableSelector = this.table
@@ -717,6 +752,7 @@ export class ShenasDataTable extends LitElement {
           @input=${(e: Event) => {
             this._searchTerm = (e.target as HTMLInputElement).value;
             this._page = 0;
+            this._pushUrlState();
           }}
         />
         <span style="color:#aaa;font-size:11px">${this._sortedData.length} rows</span>
