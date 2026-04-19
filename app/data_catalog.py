@@ -114,7 +114,7 @@ class DataResource:
     @classmethod
     def from_table_metadata(cls, meta: dict, *, plugin: Plugin) -> DataResource:
         ref = DataResourceRef(
-            schema=meta.get("schema") or "metrics",
+            schema=meta.get("schema") or "datasets",
             table=meta["table"],
         )
         time_raw = meta.get("time_columns", {})
@@ -273,7 +273,7 @@ def _walk_sources() -> list[tuple[dict, Plugin]]:
         except ImportError:
             continue
         plugin = src_cls()
-        out.extend((t.table_metadata(), plugin) for t in getattr(tables_mod, "TABLES", ()))
+        out.extend((t.metadata(), plugin) for t in getattr(tables_mod, "TABLES", ()))
     return out
 
 
@@ -285,7 +285,7 @@ def _walk_metrics() -> list[tuple[dict, Plugin]]:
     out: list[tuple[dict, Plugin]] = []
     for dataset_cls in Dataset.load_all(include_internal=False):
         plugin = dataset_cls()
-        out.extend((t.table_metadata(), plugin) for t in getattr(dataset_cls, "all_tables", ()))
+        out.extend((t.metadata(), plugin) for t in getattr(dataset_cls, "all_tables", ()))
     where = (
         "kind = 'dataset'"
         " AND (is_suggested IS NULL OR is_suggested = FALSE)"
@@ -434,7 +434,7 @@ class DataCatalog:
         """Return {data_resource_id: table_metadata_dict}."""
         out: dict[str, dict[str, Any]] = {}
         for meta, _name in _walk_sources() + _walk_metrics():
-            schema = meta.get("schema") or "metrics"
+            schema = meta.get("schema") or "datasets"
             key = f"{schema}.{meta['table']}"
             out[key] = meta
         return out

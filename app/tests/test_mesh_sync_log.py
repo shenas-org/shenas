@@ -8,14 +8,14 @@ from app.mesh import sync_log
 class TestAppendAndFetch:
     def test_append_single_event_returns_id(self, patch_db: None) -> None:
         sync_log.ensure_sync_tables()
-        eid = sync_log.append_event("metrics", "daily_vitals", "INSERT", row_key="2026-04-07")
+        eid = sync_log.append_event("datasets", "daily_vitals", "INSERT", row_key="2026-04-07")
         assert isinstance(eid, str)
         assert len(eid) == 32  # uuid4 hex
 
     def test_get_events_since_returns_all_initially(self, patch_db: None) -> None:
         sync_log.ensure_sync_tables()
-        e1 = sync_log.append_event("metrics", "daily_vitals", "INSERT", row_key="r1")
-        e2 = sync_log.append_event("metrics", "daily_vitals", "UPDATE", row_key="r2")
+        e1 = sync_log.append_event("datasets", "daily_vitals", "INSERT", row_key="r1")
+        e2 = sync_log.append_event("datasets", "daily_vitals", "UPDATE", row_key="r2")
         rows = sync_log.get_events_since(None)
         ids = {r["event_id"] for r in rows}
         assert {e1, e2}.issubset(ids)
@@ -25,12 +25,12 @@ class TestAppendAndFetch:
 
     def test_get_events_since_filters_by_event_id(self, patch_db: None) -> None:
         sync_log.ensure_sync_tables()
-        e1 = sync_log.append_event("metrics", "tbl", "INSERT", row_key="r1")
+        e1 = sync_log.append_event("datasets", "tbl", "INSERT", row_key="r1")
         # Force a 1ms gap so the second event has a strictly higher ts
         import time
 
         time.sleep(0.005)
-        e2 = sync_log.append_event("metrics", "tbl", "INSERT", row_key="r2")
+        e2 = sync_log.append_event("datasets", "tbl", "INSERT", row_key="r2")
         rows = sync_log.get_events_since(e1)
         ids = {r["event_id"] for r in rows}
         assert e2 in ids
@@ -38,7 +38,7 @@ class TestAppendAndFetch:
 
     def test_get_events_since_unknown_id_falls_back_to_full(self, patch_db: None) -> None:
         sync_log.ensure_sync_tables()
-        e1 = sync_log.append_event("metrics", "tbl", "INSERT", row_key="r1")
+        e1 = sync_log.append_event("datasets", "tbl", "INSERT", row_key="r1")
         rows = sync_log.get_events_since("nonexistent-id-12345")
         ids = {r["event_id"] for r in rows}
         assert e1 in ids
@@ -46,7 +46,7 @@ class TestAppendAndFetch:
     def test_limit_is_respected(self, patch_db: None) -> None:
         sync_log.ensure_sync_tables()
         for i in range(5):
-            sync_log.append_event("metrics", "tbl", "INSERT", row_key=f"r{i}")
+            sync_log.append_event("datasets", "tbl", "INSERT", row_key=f"r{i}")
         rows = sync_log.get_events_since(None, limit=3)
         assert len(rows) == 3
 

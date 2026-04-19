@@ -129,12 +129,6 @@ class CatalogPage extends LitElement {
         grid-column: 1 / -1;
       }
       .badge {
-        display: inline-block;
-        font-size: 0.7rem;
-        padding: 1px 6px;
-        border-radius: 3px;
-        background: var(--shenas-border-light, #f0f0f0);
-        color: var(--shenas-text-muted, #888);
         margin-left: 4px;
       }
       .dot {
@@ -322,12 +316,12 @@ class CatalogPage extends LitElement {
     await this._expand(this._expanded);
   }
 
-  _navigateToPlugin(name: string): void {
+  _navigateToPlugin(name: string, kind: string): void {
     this.dispatchEvent(
       new CustomEvent("navigate", {
         bubbles: true,
         composed: true,
-        detail: { path: `/settings/source/${name}`, label: name },
+        detail: { path: `/settings/${kind}/${name}`, label: name },
       }),
     );
   }
@@ -394,7 +388,8 @@ class CatalogPage extends LitElement {
               label: "Plugin",
               render: (r: DataResource) =>
                 html`<a
-                  @click=${() => this._navigateToPlugin(r.plugin.name)}
+                  @click=${() =>
+                    this._navigateToPlugin(r.plugin.name, r.schemaName === "datasets" ? "dataset" : "source")}
                   style="cursor:pointer;text-decoration:underline;color:inherit"
                   >${r.plugin.displayName || r.plugin.name}</a
                 >`,
@@ -407,7 +402,7 @@ class CatalogPage extends LitElement {
                     style="cursor:pointer;text-decoration:underline;color:inherit"
                     >${r.displayName}</a
                   >
-                  <span class="badge">${r.kind || "table"}</span>`,
+                  <shenas-badge>${r.kind || "table"}</shenas-badge>`,
             },
             {
               label: "Rows",
@@ -431,7 +426,7 @@ class CatalogPage extends LitElement {
   _renderDetail(r: DataResource) {
     return html`
       <div class="detail-panel">
-        <h3>${r.displayName} <span class="badge">${r.kind || "table"}</span> <span class="muted">${r.id}</span></h3>
+        <h3>${r.displayName} <shenas-badge>${r.kind || "table"}</shenas-badge> <span class="muted">${r.id}</span></h3>
         <p class="muted">${r.description}</p>
 
         <div class="section-label">Columns</div>

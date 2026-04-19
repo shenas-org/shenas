@@ -11,7 +11,7 @@ class TestSchema:
         assert len(ALL_TABLES) == 1
 
     def test_table_names(self) -> None:
-        assert Event._Meta.name == "events"
+        assert Event._Meta.name == "events__events"
 
     def test_pk(self) -> None:
         assert Event._Meta.pk == ("source", "source_id")
@@ -19,7 +19,7 @@ class TestSchema:
     def test_schema_class(self) -> None:
         assert EventsSchema.name == "events"
         assert EventsSchema.display_name == "Events"
-        assert EventsSchema.tables == ["events"]
+        assert EventsSchema.tables == ["events__events"]
 
     def test_generate_ddl(self) -> None:
         ddl = Event.to_ddl()
@@ -30,8 +30,8 @@ class TestSchema:
     def test_ensure_idempotent(self, db_con) -> None:
         EventsSchema.ensure()
         EventsSchema.ensure()
-        tables = db_con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
-        assert ("events",) in tables
+        tables = db_con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'datasets'").fetchall()
+        assert ("events__events",) in tables
 
     def test_metadata(self) -> None:
         meta = EventsSchema.metadata()

@@ -5,7 +5,7 @@ from shenas_datasets.outcomes.metrics import ALL_TABLES, DailyOutcome
 
 class OutcomesSchema(Dataset):
     name = "outcomes"
-    display_name = "Daily Outcomes"
+    display_name = "Outcomes"
     description = "Daily self-reported outcomes: mood, stress, productivity, health"
     all_tables = ALL_TABLES
     primary_table = "daily_outcomes"

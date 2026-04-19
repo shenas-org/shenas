@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
+from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
 
@@ -15,6 +16,18 @@ class LunchMoneySource(Source):
     display_name = "Lunch Money"
     primary_table = "transactions"
     description = "Syncs financial data from Lunch Money.\n\nAuthenticates via API key from Lunch Money Settings > Developers."
+
+    @dataclass
+    class Config(SourceConfig):
+        lookback_period: Annotated[
+            int | None,
+            Field(
+                db_type="INTEGER",
+                description="How many days back to fetch on initial sync (unset = source default)",
+                ui_widget="text",
+                example_value="90",
+            ),
+        ] = None
 
     @dataclass
     class Auth(SourceAuth):
@@ -54,4 +67,5 @@ class LunchMoneySource(Source):
         # merge, dimensions/snapshots -> SCD2, etc.) automatically. The
         # `start_date` context kwarg is forwarded to extract() where it's
         # consumed by the cursor-based / windowed tables that need it.
-        return [t.to_resource(client, start_date="90 days ago") for t in TABLES]
+        start = self._lookback_start_date(90)
+        return [t.to_resource(client, start_date=start) for t in TABLES]

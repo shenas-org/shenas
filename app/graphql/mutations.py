@@ -359,11 +359,27 @@ class Mutation:
         return TransformRunResultType(name=source, count=count)
 
     @strawberry.mutation
-    def run_schema_transforms(self, schema: str) -> TransformRunResultType:
+    def run_dataset_transforms(self, dataset: str) -> TransformRunResultType:
         from shenas_transformers.core.transform import Transform
 
-        count = Transform.run_for_target(schema)
-        return TransformRunResultType(name=schema, count=count)
+        # ``dataset`` is a dataset plugin name (e.g. "habits").  Resolve to the
+        # actual metric table names (e.g. ["daily_habits"]) so the filter in
+        # run_for_target matches the transforms' target_ref.table.
+        table_names = [dataset]
+        try:
+            from app.plugin import Plugin
+
+            plugin = Plugin.load_by_name(dataset)
+            tables = getattr(plugin, "tables", None) if plugin is not None else None
+            if tables:
+                table_names = list(tables)
+        except Exception:
+            pass
+
+        count = 0
+        for table_name in table_names:
+            count += Transform.run_for_target(table_name)
+        return TransformRunResultType(name=dataset, count=count)
 
     # -- Hotkeys --
 
@@ -520,7 +536,7 @@ class Mutation:
     # -- Promotion --
 
     @strawberry.mutation
-    def promote_hypothesis(self, hypothesis_id: int, name: str, metric_schema: str = "metrics") -> JSON:
+    def promote_hypothesis(self, hypothesis_id: int, name: str, metric_schema: str = "datasets") -> JSON:
         """Promote a hypothesis into a canonical MetricTable.
 
         Inserts a row into ``analysis.promoted_metrics``. The
@@ -761,7 +777,7 @@ class Mutation:
             for t in s.get("transforms", []):
                 Transform.create_suggested(
                     source_data_resource_id=f"{t['source_schema']}.{t['source_table']}",
-                    target_data_resource_id=f"metrics.{s['table_name']}",
+                    target_data_resource_id=f"datasets.{s['table_name']}",
                     source_plugin=t["source_plugin"],
                     params=json.dumps({"sql": t["sql"]}),
                     description=t.get("description", ""),

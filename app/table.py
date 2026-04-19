@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self, get_type_hints
 import duckdb
 
 # Re-export so callers can keep doing ``from app.table import Field, Table``.
-from app.relation import Field, Relation  # noqa: F401
+from app.relation import DataRelation, Field, Relation  # noqa: F401
 from app.view import View  # noqa: F401
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ class Table(Relation):
             raise TypeError(msg)
 
     @classmethod
-    def to_ddl(cls, *, schema: str = "metrics") -> str:
+    def to_ddl(cls, *, schema: str = "datasets") -> str:
         """Render the ``CREATE TABLE IF NOT EXISTS`` DDL."""
         hints: dict[str, type] = get_type_hints(cls, include_extras=True)
         lines: list[str] = []
@@ -80,7 +80,7 @@ class Table(Relation):
             cls._add_missing_columns(cur, schema=s)
 
     @classmethod
-    def _add_missing_columns(cls, cur: duckdb.DuckDBPyConnection, *, schema: str = "metrics") -> None:
+    def _add_missing_columns(cls, cur: duckdb.DuckDBPyConnection, *, schema: str = "datasets") -> None:
         """Add columns that exist on the dataclass but not in the live DuckDB table."""
         hints: dict[str, type] = get_type_hints(cls, include_extras=True)
         existing = {
@@ -200,49 +200,21 @@ class Table(Relation):
 # ---------------------------------------------------------------------------
 
 
-class DataTable(Table):
-    """Base for tables with a typed ``kind`` (source data or metrics)."""
+class DataTable(Table, DataRelation):
+    """Base for tables with a typed ``kind`` (source data or metrics).
+
+    Combines Table (DDL + write ops) with DataRelation (metadata for
+    UI-exposed tables). Internal system tables inherit from Table directly.
+    """
 
     _abstract: ClassVar[bool] = True
-
-    _KIND_BY_BASE_NAME: ClassVar[dict[str, str]] = {
-        "EventTable": "event",
-        "IntervalTable": "interval",
-        "AggregateTable": "aggregate",
-        "DimensionTable": "dimension",
-        "SnapshotTable": "snapshot",
-        "CounterTable": "counter",
-        "M2MTable": "m2m_relation",
-        "DailyMetricTable": "daily_metric",
-        "WeeklyMetricTable": "weekly_metric",
-        "MonthlyMetricTable": "monthly_metric",
-        "EventMetricTable": "event_metric",
-    }
-
-    _QUERY_HINT_BY_KIND: ClassVar[dict[str, str]] = {
-        "event": "Filter or window by `time_at` (or `observed_at` if no native timestamp). Merge on PK.",
-        "interval": "Filter where `time_start <= ts AND time_end > ts` for overlap. Merge on PK.",
-        "aggregate": "Point lookup on the window key (`time_at`). Merge on the PK that includes the window key.",
-        "dimension": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro. Never naive equi-join.",
-        "snapshot": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to read the value at time ts.",
-        "counter": "ORDER BY `observed_at` and use `lag()` to compute per-period deltas; raw values are cumulative.",
-        "m2m_relation": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to find which entities were linked at ts.",
-        "daily_metric": "Per-day rollup. Filter or join on `date` (DATE). PK includes (date, source). Lag in days.",
-        "weekly_metric": "Per-week rollup. Filter or join on `week` (DATE/VARCHAR). PK includes (week, source). Lag in weeks.",
-        "monthly_metric": (
-            "Per-month rollup. Filter or join on `month` (VARCHAR YYYY-MM). PK includes (month, source). Lag in months."
-        ),
-        "event_metric": (
-            "Discrete event in the unified timeline. Filter or window by `occurred_at`. PK is typically (source, source_id)."
-        ),
-    }
 
     _SCD2_KINDS: ClassVar[frozenset[str]] = frozenset({"dimension", "snapshot", "m2m_relation"})
 
     @classmethod
     def is_scd2(cls) -> bool:
         """True if this table uses SCD2 versioning."""
-        return cls.table_kind() in cls._SCD2_KINDS
+        return cls.kind() in cls._SCD2_KINDS
 
     @classmethod
     def scd2_filter(cls, as_of: str | None = None, *, alias: str = "") -> str:
@@ -253,60 +225,6 @@ class DataTable(Table):
         if as_of is None:
             return f"{pfx}_dlt_valid_to IS NULL"
         return f"{pfx}_dlt_valid_from <= '{as_of}' AND ({pfx}_dlt_valid_to IS NULL OR {pfx}_dlt_valid_to > '{as_of}')"
-
-    @classmethod
-    def table_kind(cls) -> str | None:
-        """Return the kind string from the MRO."""
-        for base in cls.__mro__:
-            kind = cls._KIND_BY_BASE_NAME.get(base.__name__)
-            if kind is not None:
-                return kind
-        return None
-
-    @classmethod
-    def table_metadata(cls) -> dict[str, Any]:
-        """Return structured metadata for this data table."""
-        meta: dict[str, Any] = {
-            "table": cls._Meta.name,
-            "display_name": cls._Meta.display_name,
-            "schema": cls._Meta.schema,
-            "description": cls._Meta.description or cls.__doc__,
-            "primary_key": list(cls._Meta.pk),
-            "columns": cls.column_metadata(),
-        }
-
-        kind = cls.table_kind()
-        if kind is not None:
-            meta["kind"] = kind
-            meta["query_hint"] = cls._QUERY_HINT_BY_KIND[kind]
-
-        time_cols: dict[str, Any] = {}
-        for attr in ("time_at", "time_start", "time_end"):
-            val = getattr(cls._Meta, attr, None)
-            if val:
-                time_cols[attr] = val
-        cursor_val = getattr(cls, "cursor_column", None)
-        if cursor_val:
-            time_cols["cursor_column"] = cursor_val
-        needs_observed_at = getattr(cls, "_needs_observed_at", None)
-        if callable(needs_observed_at):
-            try:
-                injected = bool(needs_observed_at())
-            except Exception:
-                injected = False
-            if injected:
-                time_cols["observed_at_injected"] = True
-        if time_cols:
-            meta["time_columns"] = time_cols
-
-        if kind in ("dimension", "snapshot", "m2m_relation") and cls._Meta.schema:
-            meta["as_of_macro"] = f"{cls._Meta.schema}.{cls._Meta.name}_as_of"
-
-        plot = getattr(cls._Meta, "plot", ())
-        if plot:
-            meta["plot"] = [dataclasses.asdict(p) for p in plot]
-
-        return meta
 
 
 # ---------------------------------------------------------------------------

@@ -12,7 +12,7 @@ class TestMetrics:
         assert len(ALL_TABLES) == 1
 
     def test_canonical_table_names(self) -> None:
-        assert OutcomesSchema.tables == ["daily_outcomes"]
+        assert OutcomesSchema.tables == ["outcomes__daily_outcomes"]
 
     def test_daily_outcome_fields(self) -> None:
         field_names = [f.name for f in dataclasses.fields(DailyOutcome)]
@@ -27,7 +27,7 @@ class TestMetrics:
 class TestDDL:
     def test_generate_ddl(self) -> None:
         ddl = DailyOutcome.to_ddl()
-        assert 'CREATE TABLE IF NOT EXISTS "metrics"."daily_outcomes"' in ddl
+        assert 'CREATE TABLE IF NOT EXISTS "datasets"."outcomes__daily_outcomes"' in ddl
         assert '"mood" INTEGER' in ddl
         assert "PRIMARY KEY" in ddl
 
@@ -36,27 +36,27 @@ class TestDDL:
         tables = {
             r[0]
             for r in db_con.execute(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'"
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'datasets'"
             ).fetchall()
         }
-        assert "daily_outcomes" in tables
+        assert "outcomes__daily_outcomes" in tables
 
 
 class TestIntrospect:
     def test_schema_metadata(self) -> None:
         meta = OutcomesSchema.metadata()
         assert len(meta) == 1
-        assert meta[0]["table"] == "daily_outcomes"
+        assert meta[0]["table"] == "outcomes__daily_outcomes"
 
     def test_column_metadata(self) -> None:
-        meta = DailyOutcome.table_metadata()
+        meta = DailyOutcome.metadata()
         mood = next(c for c in meta["columns"] if c["name"] == "mood")
         assert mood["db_type"] == "INTEGER"
         assert mood.get("value_range") == (0, 9)
         assert "interpretation" in mood
 
     def test_all_fields_have_metadata(self) -> None:
-        for col in DailyOutcome.table_metadata()["columns"]:
+        for col in DailyOutcome.metadata()["columns"]:
             assert "description" in col, f"{col['name']} missing description"
 
 
@@ -65,4 +65,4 @@ class TestSchema:
         assert OutcomesSchema.name == "outcomes"
 
     def test_schema_tables(self) -> None:
-        assert OutcomesSchema.tables == ["daily_outcomes"]
+        assert OutcomesSchema.tables == ["outcomes__daily_outcomes"]

@@ -10,6 +10,7 @@ from typing import Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
+from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
 _pending_mfa: dict[str, Any] = {}
@@ -35,6 +36,18 @@ class GarminSource(Source):
             ]
             | None
         ) = None
+
+    @dataclass
+    class Config(SourceConfig):
+        lookback_period: Annotated[
+            int | None,
+            Field(
+                db_type="INTEGER",
+                description="How many days back to fetch on initial sync (unset = source default)",
+                ui_widget="text",
+                example_value="30",
+            ),
+        ] = None
 
     auth_instructions = (
         "Log in with your Garmin Connect email and password.\n"
@@ -109,4 +122,5 @@ class GarminSource(Source):
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.garmin.tables import TABLES
 
-        return [t.to_resource(client, start_date="30 days ago") for t in TABLES]
+        start = self._lookback_start_date(30)
+        return [t.to_resource(client, start_date=start) for t in TABLES]

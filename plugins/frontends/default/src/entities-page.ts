@@ -69,6 +69,8 @@ interface RelationshipTypeInfo {
   displayName: string;
   inverseName: string | null;
   isSymmetric: boolean;
+  domainTypes: string[];
+  rangeTypes: string[];
 }
 
 interface EntityForm {
@@ -326,7 +328,9 @@ class EntitiesPage extends LitElement {
     const SENTINEL = "__new__";
     let showNewNameField = false;
 
-    const typeOptions = this._entityTypes.map((t) => ({ value: t.name, label: t.displayName }));
+    const typeOptions = this._entityTypes
+      .filter((entityType) => !entityType.isAbstract)
+      .map((entityType) => ({ value: entityType.name, label: entityType.displayName }));
 
     const renderPanel = () => {
       const candidates = this._disabledOfType(current.type);
@@ -618,54 +622,76 @@ class EntitiesPage extends LitElement {
       return;
     }
 
-    const entityOptions = this._entities.map((e) => ({ value: e.uuid, label: e.name }));
-    const relTypeOptions = this._relationshipTypes.map((t) => ({ value: t.name, label: t.displayName }));
-
     const form: RelationshipForm = { fromUuid: "", toUuid: "", type: "" };
-
     const panel = document.createElement("div");
     panel.style.padding = "1rem";
 
-    render(
-      html`
-        <shenas-form-panel
-          title="Add relationship"
-          submit-label="Add"
-          @submit=${() => void this._saveRelationship(form)}
-          @cancel=${() => this._closePanel()}
-        >
-          <shenas-dropdown
-            label="From"
-            placeholder="--"
-            .options=${entityOptions}
-            value=${form.fromUuid}
-            @change=${(e: CustomEvent) => {
-              form.fromUuid = e.detail.value;
-            }}
-          ></shenas-dropdown>
-          <shenas-dropdown
-            label="Type"
-            placeholder="--"
-            .options=${relTypeOptions}
-            value=${form.type}
-            @change=${(e: CustomEvent) => {
-              form.type = e.detail.value;
-            }}
-          ></shenas-dropdown>
-          <shenas-dropdown
-            label="To"
-            placeholder="--"
-            .options=${entityOptions}
-            value=${form.toUuid}
-            @change=${(e: CustomEvent) => {
-              form.toUuid = e.detail.value;
-            }}
-          ></shenas-dropdown>
-        </shenas-form-panel>
-      `,
-      panel,
-    );
+    const rerender = () => {
+      const entityOptions = this._entities.map((entity) => ({ value: entity.uuid, label: entity.name }));
+      const fromEntity = this._entities.find((entity) => entity.uuid === form.fromUuid);
+      const toEntity = this._entities.find((entity) => entity.uuid === form.toUuid);
+      const fromType = fromEntity?.type || "";
+      const toType = toEntity?.type || "";
 
+      // Filter relationship types by domain/range constraints.
+      // A type matches if its domain_types is empty (any) or includes the from entity's type,
+      // AND its range_types is empty (any) or includes the to entity's type.
+      const filteredRelTypes = this._relationshipTypes.filter((relType) => {
+        if (fromType && relType.domainTypes.length > 0 && !relType.domainTypes.includes(fromType)) return false;
+        if (toType && relType.rangeTypes.length > 0 && !relType.rangeTypes.includes(toType)) return false;
+        return true;
+      });
+      const relTypeOptions = filteredRelTypes.map((relType) => ({ value: relType.name, label: relType.displayName }));
+
+      // Reset type if it's no longer in the filtered list
+      if (form.type && !filteredRelTypes.some((relType) => relType.name === form.type)) {
+        form.type = "";
+      }
+
+      render(
+        html`
+          <shenas-form-panel
+            title="Add relationship"
+            submit-label="Add"
+            @submit=${() => void this._saveRelationship(form)}
+            @cancel=${() => this._closePanel()}
+          >
+            <shenas-dropdown
+              label="From"
+              placeholder="--"
+              .options=${entityOptions}
+              value=${form.fromUuid}
+              @change=${(e: CustomEvent) => {
+                form.fromUuid = e.detail.value;
+                rerender();
+              }}
+            ></shenas-dropdown>
+            <shenas-dropdown
+              label="Type"
+              placeholder="--"
+              .options=${relTypeOptions}
+              value=${form.type}
+              @change=${(e: CustomEvent) => {
+                form.type = e.detail.value;
+              }}
+            ></shenas-dropdown>
+            <shenas-dropdown
+              label="To"
+              placeholder="--"
+              .options=${entityOptions}
+              value=${form.toUuid}
+              @change=${(e: CustomEvent) => {
+                form.toUuid = e.detail.value;
+                rerender();
+              }}
+            ></shenas-dropdown>
+          </shenas-form-panel>
+        `,
+        panel,
+      );
+    };
+
+    rerender();
     this._panelEl = panel;
     this.dispatchEvent(
       new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 420 } }),
@@ -739,16 +765,17 @@ class EntitiesPage extends LitElement {
 
   _buildGraphElements(): CyElement[] {
     const elements: CyElement[] = [];
+    const enabledEntities = this._entities.filter((entity) => entity.status === "enabled");
     const byUuid: Record<string, Entity> = {};
-    for (const e of this._entities) byUuid[e.uuid] = e;
+    for (const entity of enabledEntities) byUuid[entity.uuid] = entity;
 
-    for (const e of this._entities) {
+    for (const entity of enabledEntities) {
       elements.push({
         data: {
-          id: e.uuid,
-          label: e.name + (e.isMe ? " (me)" : ""),
-          kind: e.type,
-          isMe: e.isMe ? "yes" : "no",
+          id: entity.uuid,
+          label: entity.name + (entity.isMe ? " (me)" : ""),
+          kind: entity.type,
+          isMe: entity.isMe ? "yes" : "no",
         },
       });
     }
@@ -1032,7 +1059,9 @@ class EntitiesPage extends LitElement {
             label: "Name",
             render: (row: Record<string, unknown>) => {
               const e = row as unknown as Entity;
-              return html`${e.name}${e.isMe ? html`<span class="me-badge">me</span>` : ""}`;
+              return html`${e.name}${e.isMe
+                ? html`<shenas-badge variant="success" style="margin-left:0.4rem">me</shenas-badge>`
+                : ""}`;
             },
           },
           {

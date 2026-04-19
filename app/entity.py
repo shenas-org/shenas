@@ -93,6 +93,14 @@ class EntityType(Table):
             description="Wikidata Q-ID for this type class (e.g. 'Q5' for human), or NULL when there is no clean equivalent.",
         ),
     ] = None
+    wikidata_seed: Annotated[
+        bool,
+        Field(
+            db_type="BOOLEAN",
+            description="If true, the Wikidata source seeds the top entities of this type on sync.",
+            db_default="FALSE",
+        ),
+    ] = False
     added_at: Annotated[
         str | None,
         Field(db_type="TIMESTAMP", description="When seeded", db_default="current_timestamp"),
@@ -292,6 +300,18 @@ class EntityRelationshipType(Table):
         bool,
         Field(db_type="BOOLEAN", description="True if the relation is symmetric", db_default="FALSE"),
     ] = False
+    domain_types: Annotated[
+        str,
+        Field(db_type="VARCHAR", description="Comma-separated entity types valid as source (empty = any)", db_default="''"),
+    ] = ""
+    range_types: Annotated[
+        str,
+        Field(db_type="VARCHAR", description="Comma-separated entity types valid as target (empty = any)", db_default="''"),
+    ] = ""
+    wikidata_pid: Annotated[
+        str | None,
+        Field(db_type="VARCHAR", description="Wikidata property ID (e.g. P127)"),
+    ] = None
     added_at: Annotated[
         str | None,
         Field(db_type="TIMESTAMP", description="When seeded", db_default="current_timestamp"),
@@ -770,6 +790,7 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "map-pin",
         "is_abstract": False,
         "wikidata_qid": "Q515",  # city
+        "wikidata_seed": True,
         "wikidata_properties": [
             {"pid": "P17", "label": "country"},
             {"pid": "P625", "label": "coordinate location"},
@@ -858,6 +879,7 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "icon": "flag",
         "is_abstract": False,
         "wikidata_qid": "Q6256",  # country
+        "wikidata_seed": True,
         "wikidata_properties": [
             {"pid": "P297", "label": "ISO 3166-1 alpha-2 code"},
             {"pid": "P36", "label": "capital"},
@@ -901,15 +923,77 @@ _DEFAULT_ENTITY_TYPES_BY_NAME: dict[str, EntityType] | None = None
 
 
 DEFAULT_RELATIONSHIP_TYPES: list[dict[str, Any]] = [
-    {"name": "owner_of", "display_name": "Owner of", "inverse_name": "owned by", "is_symmetric": False},
-    {"name": "parent_of", "display_name": "Parent of", "inverse_name": "child of", "is_symmetric": False},
-    {"name": "lives_in", "display_name": "Lives in", "inverse_name": "houses", "is_symmetric": False},
-    {"name": "works_at", "display_name": "Works at", "inverse_name": "employs", "is_symmetric": False},
-    {"name": "uses", "display_name": "Uses", "inverse_name": "used by", "is_symmetric": False},
-    {"name": "paired_with", "display_name": "Paired with", "inverse_name": "paired with", "is_symmetric": True},
-    {"name": "sibling_of", "display_name": "Sibling of", "inverse_name": "sibling of", "is_symmetric": True},
-    {"name": "friend_of", "display_name": "Friend of", "inverse_name": "friend of", "is_symmetric": True},
-    {"name": "located_in", "display_name": "Located in", "inverse_name": "location of", "is_symmetric": False},
+    {
+        "name": "owner_of",
+        "display_name": "Owner of",
+        "inverse_name": "owned by",
+        "is_symmetric": False,
+        "wikidata_pid": "P127",
+        "domain_types": "human",
+        "range_types": "vehicle,device,residence",
+    },
+    {
+        "name": "parent_of",
+        "display_name": "Parent of",
+        "inverse_name": "child of",
+        "is_symmetric": False,
+        "wikidata_pid": "P40",
+        "domain_types": "human",
+        "range_types": "human",
+    },
+    {
+        "name": "lives_in",
+        "display_name": "Lives in",
+        "inverse_name": "houses",
+        "is_symmetric": False,
+        "wikidata_pid": "P551",
+        "domain_types": "human",
+        "range_types": "residence,city,country",
+    },
+    {
+        "name": "works_at",
+        "display_name": "Works at",
+        "inverse_name": "employs",
+        "is_symmetric": False,
+        "wikidata_pid": "P108",
+        "domain_types": "human",
+        "range_types": "organization,company",
+    },
+    {
+        "name": "uses",
+        "display_name": "Uses",
+        "inverse_name": "used by",
+        "is_symmetric": False,
+        "wikidata_pid": "P1535",
+        "domain_types": "human",
+        "range_types": "device,vehicle,software_project",
+    },
+    {
+        "name": "sibling_of",
+        "display_name": "Sibling of",
+        "inverse_name": "sibling of",
+        "is_symmetric": True,
+        "wikidata_pid": "P3373",
+        "domain_types": "human",
+        "range_types": "human",
+    },
+    {
+        "name": "friend_of",
+        "display_name": "Friend of",
+        "inverse_name": "friend of",
+        "is_symmetric": True,
+        "domain_types": "human",
+        "range_types": "human",
+    },
+    {
+        "name": "located_in",
+        "display_name": "Located in",
+        "inverse_name": "location of",
+        "is_symmetric": False,
+        "wikidata_pid": "P276,P17",
+        "domain_types": "residence,device,city",
+        "range_types": "city,country",
+    },
 ]
 
 
@@ -924,6 +1008,7 @@ def seed_entity_types() -> None:
             icon=row.get("icon", ""),
             is_abstract=row.get("is_abstract", False),
             wikidata_qid=row.get("wikidata_qid"),
+            wikidata_seed=row.get("wikidata_seed", False),
         ).upsert()
 
 
@@ -953,6 +1038,9 @@ def seed_relationship_types() -> None:
             display_name=row["display_name"],
             inverse_name=row["inverse_name"],
             is_symmetric=row["is_symmetric"],
+            domain_types=row.get("domain_types", ""),
+            range_types=row.get("range_types", ""),
+            wikidata_pid=row.get("wikidata_pid"),
         ).upsert()
 
 

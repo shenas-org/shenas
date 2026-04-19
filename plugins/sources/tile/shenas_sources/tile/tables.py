@@ -16,7 +16,7 @@ Each table is a subclass of one of the kind base classes in
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.relation import PlotHint
 from app.table import Field
@@ -227,95 +227,4 @@ class TileState(SnapshotTable):
             }
 
 
-class TileInfo(DimensionTable):
-    """Derived per-tile snapshot joining Tiles + TileLocations + TileState.
-
-    Populated by the bundled SQL transform, which filters out tiles whose
-    ``connection_state`` is ``DISCONNECTED`` or whose ``is_dead`` flag is set.
-    Each surviving row projects to a ``physical_entity`` entity via the
-    statement graph -- the user can rename / re-type the resulting entity
-    from the entity detail panel.
-    """
-
-    class _Meta:
-        name = "tile_info"
-        display_name = "Tile Info"
-        description = "Live device snapshot for each active Tile (derived)."
-        pk = ("tile_uuid",)
-
-    # Statement projection (new graph model). Per-tile attributes land as
-    # entities.statements rows so the entity panel can render them without
-    # needing a per-plugin resolver.
-    entity_type: ClassVar[str] = "physical_entity"
-    entity_name_column: ClassVar[str] = "name"
-    entity_projection: ClassVar[dict[str, str]] = {
-        "tile_type": "tile:type",
-        "firmware_version": "tile:firmware",
-        "hardware_version": "tile:hardware",
-        "latitude": "tile:latitude",
-        "longitude": "tile:longitude",
-        "last_seen_at": "tile:last_seen",
-        "battery_level": "tile:battery_level",
-        "battery_state": "tile:battery_state",
-        "connection_state": "tile:connection_state",
-    }
-
-    tile_uuid: Annotated[str, Field(db_type="VARCHAR", description="Tile device UUID", display_name="Tile UUID")] = ""
-    name: Annotated[
-        str | None, Field(db_type="VARCHAR", description="User-assigned device name", display_name="Device Name")
-    ] = None
-    tile_type: Annotated[
-        str | None,
-        Field(db_type="VARCHAR", description="Tile product type", display_name="Tile Type"),
-    ] = None
-    firmware_version: Annotated[
-        str | None, Field(db_type="VARCHAR", description="Current firmware version", display_name="Firmware Version")
-    ] = None
-    hardware_version: Annotated[
-        str | None, Field(db_type="VARCHAR", description="Hardware version", display_name="Hardware Version")
-    ] = None
-    latitude: Annotated[float | None, Field(db_type="DOUBLE", description="Latest latitude", display_name="Latitude")] = None
-    longitude: Annotated[float | None, Field(db_type="DOUBLE", description="Latest longitude", display_name="Longitude")] = (
-        None
-    )
-    last_seen_at: Annotated[
-        str | None,
-        Field(db_type="TIMESTAMP", description="Timestamp of the latest location observation", display_name="Last Seen"),
-    ] = None
-    battery_level: Annotated[
-        int | None,
-        Field(
-            db_type="INTEGER",
-            description="Battery level",
-            display_name="Battery",
-            unit="percent",
-            value_range=(0, 100),
-        ),
-    ] = None
-    battery_state: Annotated[
-        str | None, Field(db_type="VARCHAR", description="Battery state", display_name="Battery State")
-    ] = None
-    connection_state: Annotated[
-        str | None, Field(db_type="VARCHAR", description="Connection state", display_name="Connection State")
-    ] = None
-    is_dead: Annotated[
-        bool, Field(db_type="BOOLEAN", description="Tile battery depleted", display_name="Dead", db_default="FALSE")
-    ] = False
-    source: Annotated[
-        str,
-        Field(db_type="VARCHAR", description="Source plugin that produced the row", db_default="'tile'"),
-    ] = "tile"
-    _dlt_valid_to: Annotated[
-        str | None,
-        Field(db_type="TIMESTAMP", description="SCD2 row close time; NULL = current slice"),
-    ] = None
-
-    @classmethod
-    def extract(cls, client: TileClient, **_: Any) -> Iterator[dict[str, Any]]:  # noqa: ARG003
-        # Populated by the bundled SQL transform, not by dlt. Yield nothing so
-        # the dlt sync path is a no-op; the transform fills the table.
-        if False:
-            yield {}
-
-
-TABLES: tuple[type[SourceTable], ...] = (Tiles, TileLocations, TileState, TileInfo)
+TABLES: tuple[type[SourceTable], ...] = (Tiles, TileLocations, TileState)

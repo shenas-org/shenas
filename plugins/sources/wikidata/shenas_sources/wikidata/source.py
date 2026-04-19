@@ -14,7 +14,6 @@ https://query.wikidata.org/sparql is public.
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any
 
 from shenas_sources.core.source import Source
@@ -56,6 +55,10 @@ class WikidataSource(Source):
         client = self.build_client()
         total = 0
         try:
+            # Seed entities for types with wikidata_seed=True (e.g. country, city).
+            types = {t.name: t for t in EntityType.all()}
+            self._seed_reference_entities(client, types, on_progress)
+
             groups = self._load_entity_groups()
             if not groups:
                 if on_progress:
@@ -63,13 +66,10 @@ class WikidataSource(Source):
                 self.log.info("wikidata sync: no entities with wikidata:qid; nothing to fetch")
                 return
 
-            types = {t.name: t for t in EntityType.all()}
-
             for type_name, pairs in groups.items():
-                et = types.get(type_name)
-                if et is None:
+                if type_name not in types:
                     continue
-                pids = _pids_for_type(et)
+                pids = _pids_for_type(type_name)
                 if not pids:
                     continue
                 qids = sorted({qid for _, qid in pairs})
@@ -90,11 +90,139 @@ class WikidataSource(Source):
         finally:
             client.close()
 
+        # Convert entity-typed statements into EntityRelationship rows.
+        relationships_created = self._create_entity_relationships(on_progress)
+
         if on_progress:
-            on_progress("statements", f"Wrote {total} statements from Wikidata.")
-        self.log.info("wikidata sync: wrote %d statements", total)
+            on_progress("statements", f"Wrote {total} statements, {relationships_created} relationships from Wikidata.")
+        self.log.info("wikidata sync: wrote %d statements, %d relationships", total, relationships_created)
         self._mark_synced()
         self._log_sync_event(full_refresh)
+
+    # ------------------------------------------------------------------
+    # Seed reference entities
+    # ------------------------------------------------------------------
+
+    def _seed_reference_entities(
+        self,
+        client: Any,
+        types: dict[str, Any],
+        on_progress: Callable[[str, str], None] | None,
+    ) -> None:
+        """Create entities for types with wikidata_seed=True.
+
+        Fetches the top 500 instances of each seedable type from Wikidata
+        and creates entity + wikidata:qid statement rows. Skips entities
+        that already exist. Runs before the main enrichment pass so the
+        seeded entities are immediately available for property fetching.
+        """
+        from app.entities.properties import Property
+        from app.entities.statements import Statement
+        from app.entity import Entity, compute_entity_id
+
+        # Ensure the wikidata:qid property exists.
+        if Property.find("wikidata:qid") is None:
+            Property.from_row(("wikidata:qid", "Wikidata QID", "string", None, "wikidata", None, None)).insert()
+
+        for entity_type in types.values():
+            if not getattr(entity_type, "wikidata_seed", False):
+                continue
+            qid = getattr(entity_type, "wikidata_qid", None)
+            if not qid:
+                continue
+
+            if on_progress:
+                on_progress("seed", f"Seeding {entity_type.display_name} entities from Wikidata...")
+            self.log.info("Seeding %s entities (Q=%s) from Wikidata", entity_type.name, qid)
+
+            instances = client.fetch_instances(qid, limit=500)
+            created = 0
+            for instance in instances:
+                instance_qid = instance["qid"]
+                label = instance["label"]
+                entity_id = compute_entity_id(entity_type.name, (instance_qid,))
+
+                existing = Entity.find_by_uuid(entity_id) if hasattr(Entity, "find_by_uuid") else None
+                if existing is None:
+                    Entity(
+                        uuid=entity_id,
+                        type=entity_type.name,
+                        name=label,
+                        status="disabled",
+                    ).insert()
+                    created += 1
+
+                # Ensure wikidata:qid statement exists.
+                if Statement.find(entity_id, "wikidata:qid", instance_qid) is None:
+                    Statement.from_row(
+                        (entity_id, "wikidata:qid", instance_qid, instance_qid, "normal", None, "wikidata")
+                    ).insert()
+
+            self.log.info("Seeded %d new %s entities", created, entity_type.name)
+            if on_progress:
+                on_progress("seed", f"Seeded {created} new {entity_type.display_name} entities.")
+
+    # ------------------------------------------------------------------
+    # Entity relationships from Wikidata statements
+    # ------------------------------------------------------------------
+
+    def _create_entity_relationships(
+        self,
+        on_progress: Callable[[str, str], None] | None,
+    ) -> int:
+        """Create EntityRelationship rows from entity-typed Wikidata statements.
+
+        For each statement with source='wikidata' whose value is a QID
+        matching a known entity's wikidata:qid, and whose property maps
+        to a relationship type (via wikidata_pid), create a relationship.
+        """
+        from app.entities.statements import Statement
+        from app.entity import EntityRelationship, EntityRelationshipType
+
+        # Build PID -> relationship_type name mapping.
+        # wikidata_pid can be comma-separated (e.g. "P276,P17" for located_in).
+        pid_to_relationship: dict[str, str] = {}
+        for relationship_type in EntityRelationshipType.all():
+            raw_pid = getattr(relationship_type, "wikidata_pid", None) or ""
+            for single_pid in raw_pid.split(","):
+                stripped = single_pid.strip()
+                if stripped:
+                    pid_to_relationship[stripped] = relationship_type.name
+
+        if not pid_to_relationship:
+            return 0
+
+        # Build QID -> entity_id mapping from wikidata:qid statements.
+        qid_statements = Statement.all(where="property_id = 'wikidata:qid' AND value IS NOT NULL AND value <> ''")
+        qid_to_entity: dict[str, str] = {statement.value: statement.entity_id for statement in qid_statements}
+
+        # Find Wikidata statements whose PID maps to a relationship type
+        # and whose value is a QID of a known entity.
+        wikidata_statements = Statement.all(where="source = 'wikidata'")
+        created = 0
+        for statement in wikidata_statements:
+            relationship_name = pid_to_relationship.get(statement.property_id)
+            if not relationship_name:
+                continue
+            target_entity_id = qid_to_entity.get(statement.value)
+            if not target_entity_id:
+                continue
+            if statement.entity_id == target_entity_id:
+                continue
+
+            existing = EntityRelationship.find(statement.entity_id, target_entity_id, relationship_name)
+            if existing is None:
+                EntityRelationship(
+                    from_uuid=statement.entity_id,
+                    to_uuid=target_entity_id,
+                    type=relationship_name,
+                ).upsert()
+                created += 1
+
+        if created and on_progress:
+            on_progress("relationships", f"Created {created} entity relationships from Wikidata.")
+        self.log.info("wikidata: created %d entity relationships", created)
+        return created
 
     # ------------------------------------------------------------------
     # Helpers
@@ -150,15 +278,16 @@ class WikidataSource(Source):
             existing.save()
 
 
-def _pids_for_type(et: Any) -> list[str]:
-    """Return the list of Wikidata P-ids declared on an EntityType."""
-    raw = getattr(et, "wikidata_properties", None)
-    if not raw:
-        return []
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError:
-        return []
-    if not isinstance(parsed, list):
-        return []
-    return [p["pid"] for p in parsed if isinstance(p, dict) and p.get("pid")]
+def _pids_for_type(type_name: str) -> list[str]:
+    """Return the Wikidata P-ids for properties that belong to this entity type.
+
+    Queries the properties table for properties with source='wikidata'
+    and a matching domain_type, returning their wikidata_pid values.
+    """
+    from app.entities.properties import Property
+
+    properties = Property.all(
+        where="source = 'wikidata' AND domain_type = ? AND wikidata_pid IS NOT NULL",
+        params=[type_name],
+    )
+    return [prop.wikidata_pid for prop in properties if prop.wikidata_pid]

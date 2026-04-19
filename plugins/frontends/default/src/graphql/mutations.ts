@@ -21,8 +21,8 @@ export const DISABLE_PLUGIN = gql`
 
 // --- Transforms ---
 export const RUN_SOURCE_TRANSFORMS = gql`
-  mutation RunSourceTransforms($pipe: String!) {
-    runSourceTransforms(pipe: $pipe) {
+  mutation RunSourceTransforms($source: String!) {
+    runSourceTransforms(source: $source) {
       name
       count
     }
@@ -38,9 +38,9 @@ export const SEED_TRANSFORMS = gql`
   }
 `;
 
-export const RUN_SCHEMA_TRANSFORMS = gql`
-  mutation RunSchemaTransforms($schema: String!) {
-    runSchemaTransforms(schema: $schema) {
+export const RUN_DATASET_TRANSFORMS = gql`
+  mutation RunDatasetTransforms($dataset: String!) {
+    runDatasetTransforms(dataset: $dataset) {
       name
       count
     }
@@ -264,8 +264,8 @@ export const SET_CONFIG = gql`
 
 // --- Auth ---
 export const AUTHENTICATE = gql`
-  mutation Authenticate($pipe: String!, $creds: JSON!, $callbackUrl: String) {
-    authenticate(pipe: $pipe, credentials: $creds, callbackUrl: $callbackUrl) {
+  mutation Authenticate($source: String!, $creds: JSON!, $callbackUrl: String) {
+    authenticate(source: $source, credentials: $creds, callbackUrl: $callbackUrl) {
       ok
       message
       error

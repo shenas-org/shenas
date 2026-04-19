@@ -78,6 +78,12 @@ class Relation:
         database: ClassVar[str] = "user"
         sequences: ClassVar[tuple[str, ...]] = ()
         plot: ClassVar[tuple[PlotHint, ...]] = ()
+        # Entity projection: set on SourceTable subclasses to auto-project
+        # rows into entities + statements at sync time.
+        entity_type: ClassVar[str | None] = None
+        entity_name_column: ClassVar[str | None] = None
+        entity_projection: ClassVar[dict[str, str]] = {}
+        entity_wikidata_qid: ClassVar[str | None] = None
 
     _abstract: ClassVar[bool] = True
 
@@ -288,3 +294,124 @@ class Relation:
                 else:
                     raise
         return [cls.from_row(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# DataRelation mixin: metadata for UI-exposed tables and views
+# ---------------------------------------------------------------------------
+
+
+class DataRelation:
+    """Mixin for tables/views exposed in the UI (sources, datasets).
+
+    Provides ``metadata()`` and ``kind()`` for structured introspection.
+    Internal system tables (hotkeys, workspace, plugin instances) don't
+    need these and inherit only from Table/View directly.
+    """
+
+    _abstract: ClassVar[bool] = True
+
+    _KIND_BY_BASE_NAME: ClassVar[dict[str, str]] = {
+        "EventTable": "event",
+        "IntervalTable": "interval",
+        "AggregateTable": "aggregate",
+        "DimensionTable": "dimension",
+        "SnapshotTable": "snapshot",
+        "CounterTable": "counter",
+        "M2MTable": "m2m_relation",
+        "DailyMetricTable": "daily_metric",
+        "WeeklyMetricTable": "weekly_metric",
+        "MonthlyMetricTable": "monthly_metric",
+        "EventMetricTable": "event_metric",
+    }
+
+    _QUERY_HINT_BY_KIND: ClassVar[dict[str, str]] = {
+        "event": "Filter or window by `time_at` (or `observed_at` if no native timestamp). Merge on PK.",
+        "interval": "Filter where `time_start <= ts AND time_end > ts` for overlap. Merge on PK.",
+        "aggregate": "Point lookup on the window key (`time_at`). Merge on the PK that includes the window key.",
+        "dimension": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro. Never naive equi-join.",
+        "snapshot": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to read the value at time ts.",
+        "counter": "ORDER BY `observed_at` and use `lag()` to compute per-period deltas; raw values are cumulative.",
+        "m2m_relation": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to find which entities were linked at ts.",
+        "daily_metric": "Per-day rollup. Filter or join on `date` (DATE). PK includes (date, source). Lag in days.",
+        "weekly_metric": "Per-week rollup. Filter or join on `week` (DATE/VARCHAR). PK includes (week, source). Lag in weeks.",
+        "monthly_metric": (
+            "Per-month rollup. Filter or join on `month` (VARCHAR YYYY-MM). PK includes (month, source). Lag in months."
+        ),
+        "event_metric": (
+            "Discrete event in the unified timeline. Filter or window by `occurred_at`. PK is typically (source, source_id)."
+        ),
+    }
+
+    @classmethod
+    def kind(cls) -> str | None:
+        """Return the kind string from the MRO."""
+        for base in cls.__mro__:
+            result = cls._KIND_BY_BASE_NAME.get(base.__name__)
+            if result is not None:
+                return result
+        return None
+
+    @classmethod
+    def _time_column_metadata(cls) -> dict[str, Any]:
+        """Extract time column info from _Meta and class attributes."""
+        meta_obj = getattr(cls, "_Meta", None)
+        time_cols: dict[str, Any] = {}
+        for attr in ("time_at", "time_start", "time_end"):
+            val = getattr(meta_obj, attr, None)
+            if val:
+                time_cols[attr] = val
+        cursor_val = getattr(cls, "cursor_column", None)
+        if cursor_val:
+            time_cols["cursor_column"] = cursor_val
+        needs_observed_at = getattr(cls, "_needs_observed_at", None)
+        if callable(needs_observed_at):
+            try:
+                if needs_observed_at():
+                    time_cols["observed_at_injected"] = True
+            except Exception:
+                pass
+        return time_cols
+
+    @classmethod
+    def metadata(cls) -> dict[str, Any]:
+        """Return structured metadata for this data table/view."""
+        meta_obj = getattr(cls, "_Meta", None)
+        meta: dict[str, Any] = {
+            "table": getattr(meta_obj, "name", ""),
+            "display_name": getattr(meta_obj, "display_name", ""),
+            "schema": getattr(meta_obj, "schema", None),
+            "description": getattr(meta_obj, "description", None) or cls.__doc__,
+            "primary_key": list(getattr(meta_obj, "pk", ())),
+            "columns": cls.column_metadata(),  # ty: ignore[unresolved-attribute]
+        }
+
+        table_kind = cls.kind()
+        if table_kind is not None:
+            meta["kind"] = table_kind
+            hint = cls._QUERY_HINT_BY_KIND.get(table_kind)
+            if hint:
+                meta["query_hint"] = hint
+
+        time_cols = cls._time_column_metadata()
+        if time_cols:
+            meta["time_columns"] = time_cols
+
+        schema = getattr(meta_obj, "schema", None)
+        if table_kind in ("dimension", "snapshot", "m2m_relation") and schema:
+            meta["as_of_macro"] = f"{schema}.{getattr(meta_obj, 'name', '')}_as_of"
+
+        plot = getattr(meta_obj, "plot", ())
+        if plot:
+            meta["plot"] = [dataclasses.asdict(p) for p in plot]
+
+        entity_type = getattr(meta_obj, "entity_type", None)
+        if entity_type:
+            meta["entity_type"] = entity_type
+        entity_projection = getattr(meta_obj, "entity_projection", None)
+        if entity_projection:
+            meta["entity_projection"] = dict(entity_projection)
+
+        return meta
+
+        return meta

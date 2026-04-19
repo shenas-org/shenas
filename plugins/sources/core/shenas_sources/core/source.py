@@ -54,7 +54,7 @@ def _iso8601_recurring_to_minutes(value: str) -> int | None:
 
 
 class Source(Plugin):
-    """Data pipeline plugin.
+    """Data source plugin.
 
     Subclass this, set class attributes, and implement ``resources()``.
     The base class provides default ``sync()`` (build_client -> resources ->
@@ -86,21 +86,21 @@ class Source(Plugin):
             return
         # Auto-set _Meta.name on Config/Auth classes (one row per source), then
         # call _finalize() to apply the deferred @dataclass + Table validation.
-        per_pipe_name = f"pipe_{cls.name}"
+        config_table_name = f"source_{cls.name}"
         if cls.Config is SourceConfig:
             # Source uses base SourceConfig -- create a per-source subclass so the table name is unique.
-            per_pipe_meta = type("_Meta", (SourceConfig._Meta,), {"name": per_pipe_name})
-            cls.Config = type(f"{cls.name.title()}Config", (SourceConfig,), {"_Meta": per_pipe_meta})
+            config_meta = type("_Meta", (SourceConfig._Meta,), {"name": config_table_name})
+            cls.Config = type(f"{cls.name.title()}Config", (SourceConfig,), {"_Meta": config_meta})
         elif getattr(cls.Config._Meta, "name", None) in (None, ""):  # ty: ignore[unresolved-attribute]
-            cls.Config._Meta = type("_Meta", (cls.Config._Meta,), {"name": per_pipe_name})  # ty: ignore[invalid-assignment, unresolved-attribute]
+            cls.Config._Meta = type("_Meta", (cls.Config._Meta,), {"name": config_table_name})  # ty: ignore[invalid-assignment, unresolved-attribute]
         cls.Config._finalize()  # ty: ignore[unresolved-attribute]
         if cls.Auth is not SourceAuth:
             if getattr(cls.Auth._Meta, "name", None) in (None, ""):  # ty: ignore[unresolved-attribute]
-                cls.Auth._Meta = type("_Meta", (cls.Auth._Meta,), {"name": per_pipe_name})  # ty: ignore[invalid-assignment, unresolved-attribute]
+                cls.Auth._Meta = type("_Meta", (cls.Auth._Meta,), {"name": config_table_name})  # ty: ignore[invalid-assignment, unresolved-attribute]
             cls.Auth._finalize()  # ty: ignore[unresolved-attribute]
         # Auto-set _Meta.schema to SOURCES and prefix _Meta.name with the
         # source name so all source data lives in one schema:
-        #   garmin.activities -> sources.garmin_activities
+        #   garmin.activities -> sources.garmin__activities
         from app.schema import SOURCES
 
         try:
@@ -112,8 +112,8 @@ class Source(Plugin):
                 if not getattr(t._Meta, "schema", None) or t._Meta.schema != SOURCES:
                     overrides["schema"] = SOURCES
                 name = t._Meta.name
-                prefixed = f"{cls.name}_{name}"
-                if not name.startswith(f"{cls.name}_"):
+                prefixed = f"{cls.name}__{name}"
+                if not name.startswith(f"{cls.name}__"):
                     overrides["name"] = prefixed
                 if overrides:
                     t._Meta = type("_Meta", (t._Meta,), overrides)
@@ -213,7 +213,7 @@ class Source(Plugin):
 
     @property
     def has_config(self) -> bool:
-        return True  # All sources have config (at minimum sync_frequency, lookback_period)
+        return True  # All sources have config (at minimum sync_frequency)
 
     @property
     def commands(self) -> list[str]:
@@ -280,18 +280,22 @@ class Source(Plugin):
             "entity_types": self.entity_types,
             "default_update_frequency": self.default_update_frequency,
             "commands": self.commands,
-            "declared_tables": self._declared_tables(),
+            "table_metadata": self._table_metadata(),
         }
 
     def _qualified_primary_table(self) -> str:
         """Return the primary_table with source prefix if not already qualified."""
-        pt = self.primary_table
-        if not pt or "." in pt:
-            return pt
-        return f"{self.name}_{pt}"
+        table = self.primary_table
+        if not table or "." in table:
+            return table
+        return f"{self.name}__{table}"
 
-    def _declared_tables(self) -> list[dict[str, Any]]:
-        """Return table metadata from the TABLES tuple, available at import time."""
+    def _table_metadata(self) -> list[dict[str, Any]]:
+        """Return table metadata from the TABLES tuple, enriched with live stats.
+
+        Each entry gets ``rows``, ``earliest``, and ``latest`` from DuckDB
+        when the table exists (0/null otherwise).
+        """
         import importlib
 
         try:
@@ -299,21 +303,69 @@ class Source(Plugin):
         except ImportError:
             return []
         tables = list(getattr(tables_mod, "TABLES", ()))
+        views: list[type] = []
+        try:
+            views_mod = importlib.import_module(f"shenas_sources.{self.name}.views")
+            views = list(getattr(views_mod, "VIEWS", ()))
+        except ImportError:
+            pass
         result: list[dict[str, Any]] = []
-        for t in tables:
-            if not (isinstance(t, type) and hasattr(t, "table_metadata")):
+        for relation in [*tables, *views]:
+            if not (isinstance(relation, type) and hasattr(relation, "metadata")):
                 continue
             try:
-                meta = t.table_metadata()
-                # Resolve Schema to string for JSON serialization
+                meta = relation.metadata()  # ty: ignore[call-non-callable]
                 if hasattr(meta.get("schema"), "name"):
                     meta["schema"] = meta["schema"].name
+                meta.update(self._live_table_stats(meta.get("schema", "sources"), meta["table"]))
                 result.append(meta)
             except Exception:
                 continue
         return result
 
+    @staticmethod
+    def _live_table_stats(schema: str, table: str) -> dict[str, Any]:
+        """Query DuckDB for row count and date range of a table."""
+        try:
+            from app.database import cursor
+
+            qualified = f'"{schema}"."{table}"'
+            with cursor() as cur:
+                row = cur.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()
+                rows = row[0] if row else 0
+                earliest = None
+                latest = None
+                for date_col in ("date", "calendar_date", "start_time_local", "occurred_at"):
+                    try:
+                        result = cur.execute(f"SELECT MIN({date_col}), MAX({date_col}) FROM {qualified}").fetchone()
+                        if result and result[0]:
+                            earliest = str(result[0])[:10]
+                            latest = str(result[1])[:10]
+                            break
+                    except Exception:
+                        continue
+                return {"rows": rows, "earliest": earliest, "latest": latest}
+        except Exception:
+            return {"rows": 0, "earliest": None, "latest": None}
+
     # -- Sync lifecycle -------------------------------------------------------
+
+    def _lookback_start_date(self, default_days: int) -> str:
+        """Read ``lookback_period`` from Config, fall back to ``default_days``.
+
+        Sources that support a configurable lookback call this from
+        ``resources()`` to get the ``start_date`` string. The Config field
+        is in days; the return value is ``"N days ago"`` for
+        :func:`resolve_start_date`.
+        """
+        try:
+            row = self.Config.read_row()  # ty: ignore[unresolved-attribute]
+            val = getattr(row, "lookback_period", None) if row else None
+            if val is not None and int(val) > 0:
+                return f"{int(val)} days ago"
+        except Exception:
+            pass
+        return f"{default_days} days ago"
 
     @abc.abstractmethod
     def resources(self, client: Any) -> list[Any]:
@@ -389,18 +441,35 @@ class Source(Plugin):
         """
         from shenas_sources.core.as_of import apply_as_of_macros
         from shenas_sources.core.cli import run_sync
-        from shenas_sources.core.db import connect
 
         client = self.build_client()
         res = self.resources(client)
-        run_sync(self.name, self.dataset_name, res, full_refresh, self._auto_transform, on_progress=on_progress)
+        # Build resource name -> display name map from table classes.
+        rdn: dict[str, str] = {}
+        try:
+            import importlib
+
+            tables_mod = importlib.import_module(f"shenas_sources.{self.name}.tables")
+            for t in getattr(tables_mod, "TABLES", ()):
+                rdn[t._Meta.name] = getattr(t._Meta, "display_name", t._Meta.name)
+        except (ImportError, AttributeError):
+            pass
+        run_sync(
+            self.name,
+            self.dataset_name,
+            res,
+            full_refresh,
+            self._auto_transform,
+            on_progress=on_progress,
+            display_name=self.display_name,
+            resource_display_names=rdn,
+        )
         # Refresh AS-OF macros for any SCD2 tables in this source's schema.
         try:
-            con = connect()
-            try:
-                apply_as_of_macros(con, self.dataset_name)
-            finally:
-                con.close()
+            from app.database import cursor
+
+            with cursor() as cur:
+                apply_as_of_macros(cur, self.dataset_name)
         except Exception:
             logger.exception("Failed post-sync hooks for %s", self.name)
         try:
@@ -435,17 +504,34 @@ class Source(Plugin):
             tables_mod = importlib.import_module(f"shenas_sources.{self.name}.tables")
         except ImportError:
             return
+
         all_tables = list(getattr(tables_mod, "TABLES", ()))
-        projection_tables = [
-            t
-            for t in all_tables
-            if isinstance(t, type) and getattr(t, "entity_type", None) and getattr(t, "entity_projection", None)
+
+        # Load views from views.py (e.g. TileInfo) and ensure them.
+        all_views: list[type] = []
+        try:
+            views_mod = importlib.import_module(f"shenas_sources.{self.name}.views")
+            all_views = list(getattr(views_mod, "VIEWS", ()))
+        except ImportError:
+            pass
+        for view in all_views:
+            try:
+                view.ensure()  # ty: ignore[unresolved-attribute]
+            except Exception:
+                logger.debug("View %s could not be ensured, skipping", getattr(getattr(view, "_Meta", None), "name", "?"))
+
+        projectable = [
+            relation
+            for relation in [*all_tables, *all_views]
+            if isinstance(relation, type)
+            and getattr(getattr(relation, "_Meta", None), "entity_type", None)
+            and getattr(getattr(relation, "_Meta", None), "entity_projection", None)
         ]
-        if not projection_tables:
+        if not projectable:
             return
 
-        for t in projection_tables:
-            self._project_table(t)
+        for relation in projectable:
+            self._project_table(relation)
 
     def _project_table(self, t: type) -> None:
         """Project one source table's current rows into entities + statements."""
@@ -453,9 +539,9 @@ class Source(Plugin):
         from app.entities.statements import Statement
         from app.entity import Entity, compute_entity_id
 
-        type_name: str = t.entity_type  # ty: ignore[unresolved-attribute]
-        name_col: str | None = getattr(t, "entity_name_column", None)
-        projection: dict[str, str] = dict(t.entity_projection)  # ty: ignore[unresolved-attribute]
+        type_name: str = t._Meta.entity_type  # ty: ignore[unresolved-attribute]
+        name_col: str | None = getattr(t._Meta, "entity_name_column", None)  # ty: ignore[unresolved-attribute]
+        projection: dict[str, str] = dict(t._Meta.entity_projection)  # ty: ignore[unresolved-attribute]
         pk_cols_list = list(t._Meta.pk)  # ty: ignore[unresolved-attribute]
 
         for pid in set(projection.values()):
@@ -525,13 +611,14 @@ class Source(Plugin):
 
         from app.jobs import bind_job_id, get_job_id
 
-        logger.info("Sync started: %s", self.name)
+        source_label = self.display_name or self.name
+        logger.info("Sync started: %s", source_label)
         # No "starting sync" yield -- the spinner already shows the job is
         # running, and the next line is always "Fetching (1/N): ...".
 
         if self.has_auth and not self.is_authenticated:
             msg = "Not authenticated. Configure credentials in the Auth tab."
-            logger.warning("Sync skipped: %s -- %s", self.name, msg)
+            logger.warning("Sync skipped: %s -- %s", source_label, msg)
             yield ("error", msg)
             return
 
@@ -541,7 +628,7 @@ class Source(Plugin):
             self.build_client()
         except Exception as exc:
             msg = str(exc)
-            logger.warning("Sync skipped: %s -- %s", self.name, msg)
+            logger.warning("Sync skipped: %s -- %s", source_label, msg)
             yield ("error", msg)
             return
 
@@ -555,10 +642,9 @@ class Source(Plugin):
             with bind_job_id(job_id):
                 try:
                     self.sync(full_refresh=full_refresh, on_progress=lambda e, m: q.put((e, m)))
-                    label = getattr(self, "display_name", None) or self.name
-                    q.put(("__done__", f"Sync complete: {label}"))
+                    q.put(("__done__", f"Sync complete: {source_label}"))
                 except Exception as exc:
-                    logger.exception("Sync failed: %s", self.name)
+                    logger.exception("Sync failed: %s", source_label)
                     q.put(("__error__", str(exc)))
                 finally:
                     q.put(None)  # sentinel: end-of-stream
@@ -577,7 +663,7 @@ class Source(Plugin):
                 break
             evt, msg = item
             if evt == "__done__":
-                logger.info("Sync complete: %s", self.name)
+                logger.info("Sync complete: %s", source_label)
                 yield ("complete", msg)
             elif evt == "__error__":
                 yield ("error", msg)

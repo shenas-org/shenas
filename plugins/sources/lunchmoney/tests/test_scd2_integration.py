@@ -15,6 +15,7 @@ import dlt
 import duckdb
 import pytest
 
+import shenas_sources.lunchmoney.source  # noqa: F401 -- triggers __init_subclass__
 from shenas_sources.lunchmoney.tables import Categories
 
 
@@ -37,7 +38,7 @@ def pipeline(tmp_path):
     return dlt.pipeline(
         pipeline_name="lunchmoney_scd2_test",
         destination=dlt.destinations.duckdb(str(db_path)),
-        dataset_name="lunchmoney",
+        dataset_name="sources",
     )
 
 
@@ -58,7 +59,8 @@ class TestCategoriesScd2:
         # Inspect what landed in DuckDB.
         con = duckdb.connect(str(pipeline.destination_client().config.credentials.database))
         rows = con.execute(
-            "SELECT id, category_name, _dlt_valid_from, _dlt_valid_to FROM lunchmoney.categories ORDER BY _dlt_valid_from"
+            "SELECT id, category_name, _dlt_valid_from, _dlt_valid_to"
+            " FROM sources.lunchmoney__categories ORDER BY _dlt_valid_from"
         ).fetchall()
         con.close()
 
@@ -79,7 +81,7 @@ class TestCategoriesScd2:
         pipeline.run(Categories.to_resource(client))
 
         con = duckdb.connect(str(pipeline.destination_client().config.credentials.database))
-        rows = con.execute("SELECT id, category_name FROM lunchmoney.categories").fetchall()
+        rows = con.execute("SELECT id, category_name FROM sources.lunchmoney__categories").fetchall()
         con.close()
 
         # SCD2 hashes the row -- identical syncs do NOT create a new version.

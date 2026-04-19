@@ -14,7 +14,6 @@ from app.graphql.types import (
     ColumnInfoType,
     DashboardType,
     DataResourceType,
-    DBStatusType,
     DependencyEdge,
     EntityRelationshipTypeType,
     EntityTypeType,
@@ -120,14 +119,34 @@ def _data_resource_to_gql(r: DataResource) -> DataResourceType:
     )
 
 
+def _stub_resource(ref: Any) -> DataResourceType:
+    """Minimal stub for a resource that isn't in the catalog (e.g. stale ref)."""
+    from app.models import PluginInfo
+
+    return DataResourceType(
+        id=ref.id if ref else "",
+        schema_name=ref.schema if ref else "",
+        table_name=ref.table if ref else "",
+        display_name=ref.table if ref else "(unknown)",
+        description="",
+        plugin=PluginInfoType.from_pydantic(PluginInfo(name="", display_name="")),  # ty: ignore[unresolved-attribute]
+        primary_key=[],
+        columns=[],
+        time_columns=TimeColumnsInfoType(),
+        freshness=FreshnessInfoType(),
+        quality=QualityInfoType(latest_checks=[]),
+        tags=[],
+    )
+
+
 def _transform_to_gql(
     t: Transform,
     *,
     resource_map: dict[str, Any] | None = None,
 ) -> TransformType:
     if resource_map:
-        source_r = resource_map[t.source_ref.id]
-        target_r = resource_map[t.target_ref.id]
+        source_r = resource_map.get(t.source_ref.id)
+        target_r = resource_map.get(t.target_ref.id)
     else:
         from app.data_catalog import catalog
 
@@ -137,8 +156,8 @@ def _transform_to_gql(
     return TransformType(
         id=t.id,
         transform_type=t.transform_type,
-        source=_data_resource_to_gql(source_r),
-        target=_data_resource_to_gql(target_r),
+        source=_data_resource_to_gql(source_r) if source_r else _stub_resource(t.source_ref),
+        target=_data_resource_to_gql(target_r) if target_r else _stub_resource(t.target_ref),
         source_plugin=t.source_plugin,
         params=t.params or "{}",
         description=t.description or "",
@@ -191,14 +210,6 @@ class Query:
         except Exception:
             return None
 
-    # -- Database --
-
-    @strawberry.field
-    def db_status(self) -> DBStatusType:
-        from app.api.db import db_status
-
-        return DBStatusType.from_pydantic(db_status())  # ty: ignore[unresolved-attribute]
-
     @strawberry.field
     def device_name(self) -> str:
         try:
@@ -207,18 +218,6 @@ class Query:
             return get_device_info()["device_name"]
         except Exception:
             return ""
-
-    @strawberry.field
-    def db_tables(self) -> JSON:
-        from app.api.db import db_tables
-
-        return db_tables()  # ty: ignore[invalid-return-type]
-
-    @strawberry.field
-    def schema_tables(self) -> JSON:
-        from app.api.db import schema_plugin_tables
-
-        return schema_plugin_tables()  # ty: ignore[invalid-return-type]
 
     # -- Plugins --
 
@@ -255,6 +254,38 @@ class Query:
         from app.plugin import Plugin
 
         ownership = schema_plugin_ownership()
+        # Compute total rows per plugin from owned tables.
+        plugin_rows: dict[str, int] = {}
+        try:
+            from app.database import cursor
+
+            with cursor() as cur:
+                for schema_name in ("sources", "datasets"):
+                    try:
+                        tables = cur.execute(
+                            "SELECT table_name FROM information_schema.tables "
+                            "WHERE table_schema = ? AND table_name NOT LIKE '_dlt_%'",
+                            [schema_name],
+                        ).fetchall()
+                        for (table_name,) in tables:
+                            row = cur.execute(f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}"').fetchone()
+                            count = row[0] if row else 0
+                            # Find which plugin owns this table
+                            for plugin_name, owned in ownership.items():
+                                if table_name in owned:
+                                    plugin_rows[plugin_name] = plugin_rows.get(plugin_name, 0) + count
+                                    break
+                            else:
+                                # Source tables: prefix is plugin__
+                                prefix_end = table_name.find("__")
+                                if prefix_end > 0:
+                                    source_name = table_name[:prefix_end]
+                                    plugin_rows[source_name] = plugin_rows.get(source_name, 0) + count
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+
         items = []
         for pi in Plugin.list_installed(kind):
             config_entries = [
@@ -285,6 +316,7 @@ class Query:
                         is_authenticated=pi.get("is_authenticated"),
                         sync_frequency=pi.get("sync_frequency"),
                         tables=ownership.get(name, []),
+                        total_rows=plugin_rows.get(name, 0),
                         config_entries=config_entries,
                         added_at=pi.get("added_at"),
                         updated_at=pi.get("updated_at"),
@@ -429,6 +461,42 @@ class Query:
                 [schema, table],
             ).fetchall()
         return [r[0] for r in rows]
+
+    @strawberry.field
+    def table_metadata(self, schema: str, table: str) -> JSON:
+        """Return full table metadata (columns, kind, time columns, plot hints)."""
+        from app.database import cursor
+        from app.plugin import Plugin
+
+        for kind in ("source", "dataset"):
+            try:
+                for cls in Plugin.load_by_kind(kind):
+                    expected_schema = "datasets" if kind == "dataset" else "sources"
+                    if expected_schema != schema:
+                        continue
+                    try:
+                        import importlib
+
+                        pkg = cls.__module__.rsplit(".", 1)[0]
+                        tables_mod = importlib.import_module(f"{pkg}.tables")
+                    except Exception:
+                        continue
+                    for source_table in getattr(tables_mod, "TABLES", ()):
+                        if hasattr(source_table, "_Meta") and source_table._Meta.name == table:
+                            meta = source_table.metadata()
+                            if hasattr(meta.get("schema"), "name"):
+                                meta["schema"] = meta["schema"].name
+                            return meta  # ty: ignore[invalid-return-type]
+            except Exception:
+                continue
+        # Fallback: derive minimal metadata from DuckDB schema
+        with cursor() as cur:
+            rows = cur.execute(f'DESCRIBE "{schema}"."{table}"').fetchall()
+        return {  # ty: ignore[invalid-return-type]
+            "table": table,
+            "schema": schema,
+            "columns": [{"name": row[0], "db_type": row[1]} for row in rows],
+        }
 
     @strawberry.field
     async def transforms(self, info: strawberry.types.Info, source: str | None = None) -> list[TransformType]:
@@ -701,17 +769,42 @@ class Query:
 
     @strawberry.field
     def entity_relationship_types(self) -> list[EntityRelationshipTypeType]:
-        from app.entity import EntityRelationshipType
+        from app.entity import EntityRelationshipType, EntityType
+
+        # Build parent -> children map to expand type constraints to include subtypes.
+        all_types = EntityType.all()
+        children_of: dict[str, set[str]] = {}
+        for entity_type in all_types:
+            if entity_type.parent:
+                children_of.setdefault(entity_type.parent, set()).add(entity_type.name)
+
+        def expand_with_subtypes(type_names: list[str]) -> list[str]:
+            """Expand a list of type names to include all descendants."""
+            result: set[str] = set()
+            stack = list(type_names)
+            while stack:
+                current = stack.pop()
+                if current not in result:
+                    result.add(current)
+                    stack.extend(children_of.get(current, ()))
+            return sorted(result)
 
         return [
             EntityRelationshipTypeType(
-                name=t.name,
-                display_name=t.display_name,
-                description=t.description,
-                inverse_name=t.inverse_name,
-                is_symmetric=t.is_symmetric,
+                name=rel_type.name,
+                display_name=rel_type.display_name,
+                description=rel_type.description,
+                inverse_name=rel_type.inverse_name,
+                is_symmetric=rel_type.is_symmetric,
+                domain_types=expand_with_subtypes(
+                    [name.strip() for name in (rel_type.domain_types or "").split(",") if name.strip()]
+                ),
+                range_types=expand_with_subtypes(
+                    [name.strip() for name in (rel_type.range_types or "").split(",") if name.strip()]
+                ),
+                wikidata_pid=getattr(rel_type, "wikidata_pid", None),
             )
-            for t in EntityRelationshipType.all(order_by="name")
+            for rel_type in EntityRelationshipType.all(order_by="name")
         ]
 
     @strawberry.field
@@ -745,11 +838,19 @@ class Query:
         me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
         me_uuid = me_candidates[0].uuid if me_candidates else None
         with cursor() as cur:
+            # SCD2 columns may not exist before the first dlt sync.
+            has_scd2 = bool(
+                cur.execute(
+                    "SELECT 1 FROM information_schema.columns "
+                    "WHERE table_schema = 'entities' AND table_name = 'statements' AND column_name = '_dlt_valid_to'"
+                ).fetchone()
+            )
+            scd2_filter = "AND s._dlt_valid_to IS NULL " if has_scd2 else ""
             rows = cur.execute(
                 "SELECT DISTINCT e.uuid, e.type, e.name, e.description, e.status, e.added_at, e.updated_at "
                 "FROM entities.entities e "
                 "JOIN entities.statements s "
-                "  ON s.entity_id = e.uuid AND s._dlt_valid_to IS NULL AND s.source = ? "
+                f"  ON s.entity_id = e.uuid {scd2_filter}AND s.source = ? "
                 "ORDER BY LOWER(e.name)",
                 [plugin],
             ).fetchall()

@@ -12,7 +12,7 @@ class TestMetrics:
         assert len(ALL_TABLES) == 1
 
     def test_canonical_table_names(self) -> None:
-        assert HabitsSchema.tables == ["daily_habits"]
+        assert HabitsSchema.tables == ["habits__daily_habits"]
 
     def test_daily_habits_fields(self) -> None:
         field_names = [f.name for f in dataclasses.fields(DailyHabits)]
@@ -22,7 +22,7 @@ class TestMetrics:
 class TestDDL:
     def test_generate_ddl(self) -> None:
         ddl = DailyHabits.to_ddl()
-        assert 'CREATE TABLE IF NOT EXISTS "metrics"."daily_habits"' in ddl
+        assert 'CREATE TABLE IF NOT EXISTS "datasets"."habits__daily_habits"' in ddl
         assert '"duolingo" BOOLEAN' in ddl
         assert "PRIMARY KEY" in ddl
 
@@ -31,20 +31,20 @@ class TestDDL:
         tables = {
             r[0]
             for r in db_con.execute(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'"
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'datasets'"
             ).fetchall()
         }
-        assert "daily_habits" in tables
+        assert "habits__daily_habits" in tables
 
 
 class TestIntrospect:
     def test_schema_metadata(self) -> None:
         meta = HabitsSchema.metadata()
         assert len(meta) == 1
-        assert meta[0]["table"] == "daily_habits"
+        assert meta[0]["table"] == "habits__daily_habits"
 
     def test_column_metadata(self) -> None:
-        meta = DailyHabits.table_metadata()
+        meta = DailyHabits.metadata()
         duo = next(c for c in meta["columns"] if c["name"] == "duolingo")
         assert duo["db_type"] == "BOOLEAN"
 
@@ -54,4 +54,4 @@ class TestSchema:
         assert HabitsSchema.name == "habits"
 
     def test_schema_tables(self) -> None:
-        assert HabitsSchema.tables == ["daily_habits"]
+        assert HabitsSchema.tables == ["habits__daily_habits"]

@@ -1,34 +1,34 @@
 [
   {
     "source_duckdb_schema": "sources",
-    "source_duckdb_table": "lunchmoney_transactions",
-    "target_duckdb_schema": "metrics",
-    "target_duckdb_table": "transactions",
+    "source_duckdb_table": "lunchmoney__transactions",
+    "target_duckdb_schema": "datasets",
+    "target_duckdb_table": "finance__transactions",
     "description": "Map raw transactions to canonical format with income/expense classification",
-    "sql": "SELECT id::VARCHAR as id, 'lunchmoney' as source, date::DATE as date, CASE WHEN is_income THEN ABS(to_base) ELSE -ABS(to_base) END as amount, payee, category_name as category, category_group_name as category_group, COALESCE(account_display_name, plaid_account_name) as account, currency, CASE WHEN is_income THEN 1 ELSE 0 END as is_income, display_notes as notes, CASE WHEN recurring_id IS NOT NULL THEN 1 ELSE 0 END as recurring FROM sources.lunchmoney_transactions WHERE status != 'pending'"
+    "sql": "SELECT id::VARCHAR as id, 'lunchmoney' as source, date::DATE as date, CASE WHEN is_income THEN ABS(to_base) ELSE -ABS(to_base) END as amount, payee, category_name as category, category_group_name as category_group, COALESCE(account_display_name, plaid_account_name) as account, currency, CASE WHEN is_income THEN 1 ELSE 0 END as is_income, display_notes as notes, CASE WHEN recurring_id IS NOT NULL THEN 1 ELSE 0 END as recurring FROM sources.lunchmoney__transactions WHERE status != 'pending'"
   },
   {
     "source_duckdb_schema": "sources",
-    "source_duckdb_table": "lunchmoney_transactions",
-    "target_duckdb_schema": "metrics",
-    "target_duckdb_table": "daily_spending",
+    "source_duckdb_table": "lunchmoney__transactions",
+    "target_duckdb_schema": "datasets",
+    "target_duckdb_table": "finance__daily_spending",
     "description": "Aggregate daily spending and income totals from transactions",
-    "sql": "SELECT date::DATE as date, 'lunchmoney' as source, SUM(CASE WHEN NOT is_income THEN ABS(to_base) ELSE 0 END) as total_spent, SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END) as total_income, COUNT(*) as transaction_count FROM sources.lunchmoney_transactions WHERE status != 'pending' GROUP BY date"
+    "sql": "SELECT date::DATE as date, 'lunchmoney' as source, SUM(CASE WHEN NOT is_income THEN ABS(to_base) ELSE 0 END) as total_spent, SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END) as total_income, COUNT(*) as transaction_count FROM sources.lunchmoney__transactions WHERE status != 'pending' GROUP BY date"
   },
   {
     "source_duckdb_schema": "sources",
-    "source_duckdb_table": "lunchmoney_transactions",
-    "target_duckdb_schema": "metrics",
-    "target_duckdb_table": "monthly_category",
+    "source_duckdb_table": "lunchmoney__transactions",
+    "target_duckdb_schema": "datasets",
+    "target_duckdb_table": "finance__monthly_category",
     "description": "Aggregate monthly spending by category",
-    "sql": "SELECT STRFTIME(date::DATE, '%Y-%m') as month, COALESCE(category_name, 'Uncategorized') as category, 'lunchmoney' as source, SUM(ABS(to_base)) as amount_spent, COUNT(*) as transaction_count, NULL as budget_amount FROM sources.lunchmoney_transactions WHERE status != 'pending' AND NOT is_income GROUP BY STRFTIME(date::DATE, '%Y-%m'), COALESCE(category_name, 'Uncategorized')"
+    "sql": "SELECT STRFTIME(date::DATE, '%Y-%m') as month, COALESCE(category_name, 'Uncategorized') as category, 'lunchmoney' as source, SUM(ABS(to_base)) as amount_spent, COUNT(*) as transaction_count, NULL as budget_amount FROM sources.lunchmoney__transactions WHERE status != 'pending' AND NOT is_income GROUP BY STRFTIME(date::DATE, '%Y-%m'), COALESCE(category_name, 'Uncategorized')"
   },
   {
     "source_duckdb_schema": "sources",
-    "source_duckdb_table": "lunchmoney_transactions",
-    "target_duckdb_schema": "metrics",
-    "target_duckdb_table": "monthly_overview",
+    "source_duckdb_table": "lunchmoney__transactions",
+    "target_duckdb_schema": "datasets",
+    "target_duckdb_table": "finance__monthly_overview",
     "description": "Monthly income, spending, net, and savings rate overview",
-    "sql": "SELECT STRFTIME(date::DATE, '%Y-%m') as month, 'lunchmoney' as source, SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END) as total_income, SUM(CASE WHEN NOT is_income THEN ABS(to_base) ELSE 0 END) as total_spent, SUM(CASE WHEN is_income THEN ABS(to_base) ELSE -ABS(to_base) END) as net, COUNT(*) as transaction_count, CASE WHEN SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END) > 0 THEN (SUM(CASE WHEN is_income THEN ABS(to_base) ELSE -ABS(to_base) END) / SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END)) * 100 ELSE NULL END as savings_rate FROM sources.lunchmoney_transactions WHERE status != 'pending' GROUP BY STRFTIME(date::DATE, '%Y-%m')"
+    "sql": "SELECT STRFTIME(date::DATE, '%Y-%m') as month, 'lunchmoney' as source, SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END) as total_income, SUM(CASE WHEN NOT is_income THEN ABS(to_base) ELSE 0 END) as total_spent, SUM(CASE WHEN is_income THEN ABS(to_base) ELSE -ABS(to_base) END) as net, COUNT(*) as transaction_count, CASE WHEN SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END) > 0 THEN (SUM(CASE WHEN is_income THEN ABS(to_base) ELSE -ABS(to_base) END) / SUM(CASE WHEN is_income THEN ABS(to_base) ELSE 0 END)) * 100 ELSE NULL END as savings_rate FROM sources.lunchmoney__transactions WHERE status != 'pending' GROUP BY STRFTIME(date::DATE, '%Y-%m')"
   }
 ]

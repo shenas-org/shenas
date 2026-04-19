@@ -30,10 +30,10 @@ def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
     app.db._resolvers[None] = lambda: stub  # ty: ignore[invalid-assignment]
     app.database._ensure_system_tables(con)
 
-    con.execute("CREATE SCHEMA IF NOT EXISTS metrics")
-    con.execute("DROP TABLE IF EXISTS metrics.daily_hrv")
-    con.execute("CREATE TABLE metrics.daily_hrv (date DATE, source VARCHAR, rmssd DOUBLE)")
-    con.execute("INSERT INTO metrics.daily_hrv VALUES ('2026-03-15', 'garmin', 42.0)")
+    con.execute("CREATE SCHEMA IF NOT EXISTS datasets")
+    con.execute("DROP TABLE IF EXISTS datasets.fitness__daily_hrv")
+    con.execute("CREATE TABLE datasets.fitness__daily_hrv (date DATE, source VARCHAR, rmssd DOUBLE)")
+    con.execute("INSERT INTO datasets.fitness__daily_hrv VALUES ('2026-03-15', 'garmin', 42.0)")
     con.execute("CREATE SCHEMA IF NOT EXISTS garmin")
     con.execute("DROP TABLE IF EXISTS garmin.activities")
     con.execute("CREATE TABLE garmin.activities (id INTEGER, start_time_local DATE)")
@@ -102,13 +102,13 @@ class TestApiTables:
         assert resp.status_code == 200
         data = resp.json()
         schemas = {(r["schema"], r["table"]) for r in data}
-        assert ("metrics", "daily_hrv") in schemas
+        assert ("datasets", "fitness__daily_hrv") in schemas
         assert ("garmin", "activities") in schemas
 
 
 class TestApiQuery:
     def test_valid_query(self, client: TestClient) -> None:
-        resp = client.get("/api/query?sql=SELECT * FROM metrics.daily_hrv")
+        resp = client.get("/api/query?sql=SELECT * FROM datasets.fitness__daily_hrv")
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/vnd.apache.arrow.stream"
         table = pa.ipc.open_stream(resp.content).read_all()
@@ -121,7 +121,7 @@ class TestApiQuery:
         assert "text/plain" in resp.headers["content-type"]
 
     def test_arrow_roundtrip(self, client: TestClient) -> None:
-        resp = client.get("/api/query?sql=SELECT rmssd FROM metrics.daily_hrv")
+        resp = client.get("/api/query?sql=SELECT rmssd FROM datasets.fitness__daily_hrv")
         table = pa.ipc.open_stream(resp.content).read_all()
         assert table.column("rmssd").to_pylist() == [42.0]
 

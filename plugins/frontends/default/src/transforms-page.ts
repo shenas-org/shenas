@@ -11,13 +11,7 @@ import {
   tableStyles,
 } from "shenas-frontends";
 import type { MessageBanner } from "shenas-frontends";
-import {
-  GET_TRANSFORMS,
-  GET_TRANSFORM_TYPES,
-  GET_TABLE_COLUMNS,
-  GET_CREATE_TRANSFORM_DATA,
-  GET_CATEGORY_SETS,
-} from "./graphql/queries.ts";
+import { GET_TRANSFORMS, GET_TABLE_COLUMNS, GET_CATEGORY_SETS } from "./graphql/queries.ts";
 import {
   CREATE_TRANSFORM,
   UPDATE_TRANSFORM,
@@ -71,6 +65,8 @@ class TransformsPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
     source: { type: String },
+    sourceTables: { type: Array },
+    targetTables: { type: Array },
     showSuggest: { type: Boolean, attribute: "show-suggest" },
     suggesting: { type: Boolean },
     _transforms: { state: true },
@@ -81,8 +77,6 @@ class TransformsPage extends LitElement {
     _previewRows: { state: true },
     _creating: { state: true },
     _newForm: { state: true },
-    _dbTables: { state: true },
-    _schemaTables: { state: true },
     _transformTypes: { state: true },
     _sourceColumns: { state: true },
     _targetColumns: { state: true },
@@ -164,6 +158,8 @@ class TransformsPage extends LitElement {
 
   declare apiBase: string;
   declare source: string;
+  declare sourceTables: { table: string; display_name: string }[];
+  declare targetTables: string[];
   declare showSuggest: boolean;
   declare suggesting: boolean;
   declare _transforms: Transform[];
@@ -174,8 +170,6 @@ class TransformsPage extends LitElement {
   declare _previewRows: Record<string, unknown>[] | null;
   declare _creating: boolean;
   declare _newForm: TransformForm;
-  declare _dbTables: Record<string, string[]>;
-  declare _schemaTables: Record<string, string[]>;
   declare _transformTypes: TransformTypeInfo[];
   declare _sourceColumns: string[];
   declare _targetColumns: string[];
@@ -209,8 +203,6 @@ class TransformsPage extends LitElement {
     this._previewRows = null;
     this._creating = false;
     this._newForm = this._emptyForm();
-    this._dbTables = {};
-    this._schemaTables = {};
     this._transformTypes = [];
     this._sourceColumns = [];
     this._targetColumns = [];
@@ -241,19 +233,15 @@ class TransformsPage extends LitElement {
       fetchPolicy: "network-only",
     });
     this._transforms = (data?.transforms as Transform[]) || [];
+    this._transformTypes = (data?.transformTypes as TransformTypeInfo[]) || [];
     this._loading = false;
     this._registerCommands();
   }
 
-  async _ensureTransformTypes(): Promise<void> {
-    if (this._transformTypes.length) return;
-    const [typesResult, catsResult] = await Promise.all([
-      this._client.query({ query: GET_TRANSFORM_TYPES }),
-      this._client.query({ query: GET_CATEGORY_SETS }),
-    ]);
-    this._transformTypes = (typesResult.data?.transformTypes as TransformTypeInfo[]) || [];
-    this._categorySets =
-      (catsResult.data?.categorySets as Array<{ displayName: string; values: Array<{ value: string }> }>) || [];
+  async _ensureCategorySets(): Promise<void> {
+    if (this._categorySets.length) return;
+    const { data } = await this._client.query({ query: GET_CATEGORY_SETS });
+    this._categorySets = (data?.categorySets as Array<{ displayName: string; values: Array<{ value: string }> }>) || [];
   }
 
   async _fetchColumns(schema: string, table: string): Promise<string[]> {
@@ -273,8 +261,8 @@ class TransformsPage extends LitElement {
 
   async _onTargetTableSelected(table: string): Promise<void> {
     this._updateNewForm("target_duckdb_table", table);
-    // Target schema is always "metrics" for now
-    this._targetColumns = await this._fetchColumns("metrics", table);
+    // Target schema is always "datasets" for now
+    this._targetColumns = await this._fetchColumns("datasets", table);
   }
 
   _typeInfoFor(name: string): TransformTypeInfo | undefined {
@@ -370,7 +358,7 @@ class TransformsPage extends LitElement {
         </div>
         ${t.description ? `<div style="${_lbl}"><span style="font-weight:600">Description</span><span style="${_val}">${t.description}</span></div>` : ""}
         ${paramEntries.map(([k, v]) => `<div style="${_lbl}"><span style="font-weight:600">${k}</span><span style="${_val};white-space:pre-wrap">${v}</span></div>`).join("")}
-        ${t.sql ? `<div style="${_lbl}"><span style="font-weight:600">SQL</span><pre style="${_val};font-family:monospace;overflow-x:auto">${t.sql}</pre></div>` : ""}
+        ${t.sql ? `<div style="${_lbl}"><span style="font-weight:600">SQL</span><textarea readonly style="${_val};font-family:monospace;resize:vertical;min-height:6rem;white-space:pre;overflow:auto">${t.sql}</textarea></div>` : ""}
         <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.5rem">
           <button id="close-btn" style="padding:0.4rem 1rem;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#fff">Close</button>
         </div>
@@ -410,16 +398,7 @@ class TransformsPage extends LitElement {
     this._newForm = this._emptyForm();
     this._editing = null;
     this._previewRows = null;
-    const [{ data }, catsResult] = await Promise.all([
-      this._client.query({ query: GET_CREATE_TRANSFORM_DATA, fetchPolicy: "network-only" }),
-      this._client.query({ query: GET_CATEGORY_SETS }),
-    ]);
-    this._dbTables = (data?.dbTables as Record<string, string[]>) || {};
-    this._schemaTables = (data?.schemaTables as Record<string, string[]>) || {};
-    this._transformTypes = (data?.transformTypes as TransformTypeInfo[]) || [];
-    this._categorySets =
-      (catsResult.data?.categorySets as Array<{ displayName: string; values: Array<{ value: string }> }>) || [];
-    // Show create form in app-shell's right panel
+    await this._ensureCategorySets();
     this._showCreatePanel();
   }
 
@@ -453,10 +432,9 @@ class TransformsPage extends LitElement {
   private _panelEl: HTMLElement | null = null;
 
   _showCreatePanel(): void {
-    const pipe = this.source;
     const f = this._newForm;
-    const sourceTables = this._dbTables[pipe] || [];
-    const allSchemaTables = Object.values(this._schemaTables || {}).flat();
+    const sourceTableNames = (this.sourceTables || []).map((entry) => entry.table);
+    const targetTableNames = this.targetTables || [];
 
     if (!this._panelEl) {
       this._panelEl = document.createElement("div");
@@ -528,7 +506,7 @@ class TransformsPage extends LitElement {
           Source table
           <select id="src-table" style="${_inp}">
             <option value="">-- select --</option>
-            ${sourceTables.map((t) => `<option value="${t}" ${f.source_duckdb_table === t ? "selected" : ""}>${t}</option>`).join("")}
+            ${sourceTableNames.map((name) => `<option value="${name}" ${f.source_duckdb_table === name ? "selected" : ""}>${name}</option>`).join("")}
           </select>
         </label>
         ${sourceParams.map(renderParam).join("")}
@@ -536,7 +514,7 @@ class TransformsPage extends LitElement {
           Target table
           <select id="tgt-table" style="${_inp}">
             <option value="">-- select --</option>
-            ${allSchemaTables.map((t) => `<option value="${t}" ${f.target_duckdb_table === t ? "selected" : ""}>${t}</option>`).join("")}
+            ${targetTableNames.map((name) => `<option value="${name}" ${f.target_duckdb_table === name ? "selected" : ""}>${name}</option>`).join("")}
           </select>
         </label>
         ${targetParams.map(renderParam).join("")}
@@ -587,7 +565,7 @@ class TransformsPage extends LitElement {
       });
     }
     if (f.target_duckdb_table && this._targetColumns.length === 0) {
-      this._fetchColumns("metrics", f.target_duckdb_table).then((cols) => {
+      this._fetchColumns("datasets", f.target_duckdb_table).then((cols) => {
         this._targetColumns = cols;
         this._showCreatePanel();
       });
@@ -614,7 +592,7 @@ class TransformsPage extends LitElement {
             transformType: f.transform_type || "sql",
             sourceDuckdbSchema: this.source,
             sourceDuckdbTable: f.source_duckdb_table,
-            targetDuckdbSchema: "metrics",
+            targetDuckdbSchema: "datasets",
             targetDuckdbTable: f.target_duckdb_table,
             sourcePlugin: this.source,
             params: JSON.stringify(params),
@@ -714,9 +692,8 @@ class TransformsPage extends LitElement {
 
   _renderCreateForm() {
     const f = this._newForm;
-    const pipe = this.source;
-    const sourceTables = this._dbTables[pipe] || [];
-    const allSchemaTables = Object.values(this._schemaTables || {}).flat();
+    const sourceTableNames = (this.sourceTables || []).map((entry) => entry.table);
+    const targetTableNames = this.targetTables || [];
     return html`
       <shenas-form-panel
         title="New transform"
@@ -726,26 +703,26 @@ class TransformsPage extends LitElement {
       >
         <div class="form-grid">
           <label>
-            Pipe table
+            Source table
             <select
               .value=${f.source_duckdb_table}
               @change=${(e: Event) => this._updateNewForm("source_duckdb_table", (e.target as HTMLSelectElement).value)}
             >
               <option value="">-- select --</option>
-              ${sourceTables.map(
-                (t) => html`<option value=${t} ?selected=${f.source_duckdb_table === t}>${t}</option>`,
+              ${sourceTableNames.map(
+                (name) => html`<option value=${name} ?selected=${f.source_duckdb_table === name}>${name}</option>`,
               )}
             </select>
           </label>
           <label>
-            Schema table
+            Target table
             <select
               .value=${f.target_duckdb_table}
               @change=${(e: Event) => this._updateNewForm("target_duckdb_table", (e.target as HTMLSelectElement).value)}
             >
               <option value="">-- select --</option>
-              ${allSchemaTables.map(
-                (t) => html`<option value=${t} ?selected=${f.target_duckdb_table === t}>${t}</option>`,
+              ${targetTableNames.map(
+                (name) => html`<option value=${name} ?selected=${f.target_duckdb_table === name}>${name}</option>`,
               )}
             </select>
           </label>
@@ -760,7 +737,7 @@ class TransformsPage extends LitElement {
         <textarea
           .value=${f.sql}
           @input=${(e: InputEvent) => this._updateNewForm("sql", (e.target as HTMLTextAreaElement).value)}
-          placeholder="SELECT ... FROM ${pipe}.${f.source_duckdb_table || "table_name"}"
+          placeholder="SELECT ... FROM sources.${f.source_duckdb_table || "table_name"}"
         ></textarea>
       </shenas-form-panel>
     `;

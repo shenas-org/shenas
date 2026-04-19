@@ -159,7 +159,7 @@ class TestSeedDefaults:
             {
                 "source_duckdb_schema": "garmin",
                 "source_duckdb_table": "activities",
-                "target_duckdb_schema": "metrics",
+                "target_duckdb_schema": "datasets",
                 "target_duckdb_table": "daily_activities",
                 "params": json.dumps({"sql": "SELECT 1"}),
                 "description": "d",
@@ -178,7 +178,7 @@ class TestSeedDefaults:
             {
                 "source_duckdb_schema": "garmin",
                 "source_duckdb_table": "activities",
-                "target_duckdb_schema": "metrics",
+                "target_duckdb_schema": "datasets",
                 "target_duckdb_table": "daily_activities",
                 "params": json.dumps({"sql": "SELECT 1"}),
                 "description": "v1",

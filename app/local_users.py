@@ -17,6 +17,30 @@ if TYPE_CHECKING:
     from app.db import DB
 
 
+def _seed_entity_graph() -> None:
+    """Seed default entity types, relationship types, properties, and wide views."""
+    from app.entity import (
+        ensure_all_wide_views,
+        seed_entity_types,
+        seed_properties,
+        seed_relationship_types,
+    )
+
+    seed_entity_types()
+    seed_relationship_types()
+    seed_properties()
+    ensure_all_wide_views()
+
+
+def _register_source_entity_types() -> None:
+    """Register entity types from all enabled source plugins."""
+    from app.plugin import Plugin
+
+    for source_cls in Plugin.load_by_kind("source"):
+        with contextlib.suppress(Exception):
+            source_cls().register_entity_types()  # ty: ignore[unresolved-attribute]
+
+
 def _hash_password(password: str, salt_hex: str) -> str:
     """Hash a password using scrypt with the given hex salt."""
     salt = bytes.fromhex(salt_hex)
@@ -98,7 +122,7 @@ class LocalUser(Table):
         with contextlib.suppress(ImportError):
             import shenas_datasets.promoted  # noqa: F401
 
-        for schema in ("transforms", "analysis", "entities", "metrics", "ui", "cache", "catalog", "mesh"):
+        for schema in ("transforms", "analysis", "entities", "datasets", "ui", "cache", "catalog", "mesh"):
             con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
 
         seen: set[type[Table]] = set()
@@ -119,7 +143,7 @@ class LocalUser(Table):
         walk(Table)
 
         # Source plugins have Config/Auth SingletonTable subclasses with
-        # dynamic names (pipe_<source>) created by Source.__init_subclass__. (table name kept for DB compat)
+        # dynamic names (source_<name>) created by Source.__init_subclass__.
         # The MRO walk above misses them because they are generated at
         # class-creation time, not declared as top-level classes. Discover
         # them by walking installed Source subclasses.
@@ -149,19 +173,11 @@ class LocalUser(Table):
         except Exception:
             pass
 
-        from app.entity import (
-            ensure_all_wide_views,
-            seed_entity_types,
-            seed_properties,
-            seed_relationship_types,
-        )
         from app.hotkeys import Hotkey
 
         Hotkey.seed()
-        seed_entity_types()
-        seed_relationship_types()
-        seed_properties()
-        ensure_all_wide_views()
+        _seed_entity_graph()
+        _register_source_entity_types()
 
     def attach(self, key: str) -> DB:
         """Open and attach this user's encrypted DB. Idempotent."""

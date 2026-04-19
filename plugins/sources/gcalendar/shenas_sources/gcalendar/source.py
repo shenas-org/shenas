@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
+from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
 
@@ -18,6 +19,18 @@ class GCalendarSource(Source):
         "Syncs events and calendar metadata from Google Calendar.\n\n"
         "Uses Google OAuth2 with shared credentials from shenas-source-core."
     )
+
+    @dataclass
+    class Config(SourceConfig):
+        lookback_period: Annotated[
+            int | None,
+            Field(
+                db_type="INTEGER",
+                description="How many days back to fetch on initial sync (unset = source default)",
+                ui_widget="text",
+                example_value="30",
+            ),
+        ] = None
 
     @dataclass
     class Auth(SourceAuth):
@@ -64,5 +77,6 @@ class GCalendarSource(Source):
 
         # Pre-fetch all raw events once and share between Events + EventAttendees
         # via the `raw_events` context kwarg so we don't call events.list() twice.
-        raw_events = fetch_all_events(client)
+        start = self._lookback_start_date(30)
+        raw_events = fetch_all_events(client, start_date=start)
         return [t.to_resource(client, raw_events=raw_events) for t in TABLES]

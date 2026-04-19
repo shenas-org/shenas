@@ -13,6 +13,7 @@ import dlt
 import duckdb
 import pytest
 
+import shenas_sources.spotify.source  # noqa: F401 -- triggers __init_subclass__
 from shenas_sources.spotify.tables import SavedTracks
 
 
@@ -36,7 +37,7 @@ def pipeline(tmp_path):
     return dlt.pipeline(
         pipeline_name="spotify_saved_scd2",
         destination=dlt.destinations.duckdb(str(db_path)),
-        dataset_name="spotify",
+        dataset_name="sources",
     )
 
 
@@ -52,7 +53,7 @@ class TestSavedTracksScd2:
         pipeline.run(SavedTracks.to_resource(client))
 
         con = _open_db(pipeline)
-        rows = con.execute("SELECT track_id, _dlt_valid_to FROM spotify.saved_tracks ORDER BY track_id").fetchall()
+        rows = con.execute("SELECT track_id, _dlt_valid_to FROM sources.spotify__saved_tracks ORDER BY track_id").fetchall()
         con.close()
         assert len(rows) == 2
         assert all(r[1] is None for r in rows)
@@ -61,7 +62,7 @@ class TestSavedTracksScd2:
         pipeline.run(SavedTracks.to_resource(client))
 
         con = _open_db(pipeline)
-        rows = con.execute("SELECT track_id, _dlt_valid_to FROM spotify.saved_tracks ORDER BY track_id").fetchall()
+        rows = con.execute("SELECT track_id, _dlt_valid_to FROM sources.spotify__saved_tracks ORDER BY track_id").fetchall()
         con.close()
 
         active = [r for r in rows if r[1] is None]

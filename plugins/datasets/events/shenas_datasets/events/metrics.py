@@ -60,7 +60,7 @@ class Event(EventMetricTable):
     all_day: Annotated[
         bool, Field(db_type="BOOLEAN", description="Whether this is an all-day event", display_name="All Day")
     ] = False
-    metadata: Annotated[
+    event_metadata: Annotated[
         str | None, Field(db_type="JSON", description="Source-specific metadata as JSON", display_name="Metadata")
     ] = None
 

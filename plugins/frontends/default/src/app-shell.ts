@@ -16,13 +16,13 @@ import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
-import { GET_APP_DATA, GET_DB_STATUS, dynamicGql } from "./graphql/queries.ts";
+import { GET_APP_DATA } from "./graphql/queries.ts";
 import {
   SAVE_WORKSPACE,
   SEED_TRANSFORMS,
   REFRESH_LITERATURE,
   RUN_SOURCE_TRANSFORMS,
-  RUN_SCHEMA_TRANSFORMS,
+  RUN_DATASET_TRANSFORMS,
   ENABLE_PLUGIN,
   DISABLE_PLUGIN,
 } from "./graphql/mutations.ts";
@@ -63,6 +63,7 @@ interface PluginSummary {
   hasAuth?: boolean;
   isAuthenticated?: boolean;
   tables?: string[];
+  totalRows?: number;
 }
 
 interface TabInfo {
@@ -80,15 +81,6 @@ interface Command {
   action?: () => void;
 }
 
-interface DbStatus {
-  size_mb?: number;
-  schemas: Array<{
-    name: string;
-    tables: Array<{ name: string; rows: number; cols: number; earliest?: string; latest?: string }>;
-  }>;
-  [key: string]: unknown;
-}
-
 class ShenasApp extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
@@ -97,7 +89,6 @@ class ShenasApp extends LitElement {
     _loadedScripts: { state: true },
     _leftWidth: { state: true },
     _rightWidth: { state: true },
-    _dbStatus: { state: true },
     _inspectTable: { state: true },
     _inspectRows: { state: true },
     _catalogDetail: { state: true },
@@ -125,7 +116,6 @@ class ShenasApp extends LitElement {
   declare _loadedScripts: Set<string>;
   declare _leftWidth: number;
   declare _rightWidth: number;
-  declare _dbStatus: DbStatus | null;
   declare _inspectTable: string | null;
   declare _inspectRows: Record<string, unknown>[] | null;
   declare _catalogDetail: Record<string, unknown> | null;
@@ -668,7 +658,7 @@ class ShenasApp extends LitElement {
           top: 0;
           right: 0;
           bottom: 0;
-          width: 260px;
+          width: 100%;
           z-index: 201;
           background: var(--shenas-bg, #fff);
           box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
@@ -716,7 +706,6 @@ class ShenasApp extends LitElement {
     this._loadedScripts = new Set();
     this._leftWidth = 160;
     this._rightWidth = 220;
-    this._dbStatus = null;
     this._inspectTable = null;
     this._inspectRows = null;
     this._catalogDetail = null;
@@ -755,9 +744,6 @@ class ShenasApp extends LitElement {
       this._rightOpen = true;
       this._rightWidth = Math.max(this._rightWidth, 400);
     }) as unknown as EventListener);
-    this.addEventListener("db-status-updated", ((e: CustomEvent) => {
-      this._dbStatus = e.detail as DbStatus;
-    }) as unknown as EventListener);
     this.addEventListener("show-panel", ((e: CustomEvent) => {
       this._rightPanelComponent = e.detail.component as HTMLElement;
       this._catalogDetail = null;
@@ -765,9 +751,15 @@ class ShenasApp extends LitElement {
       this._inspectRows = null;
       this._rightOpen = true;
       this._rightWidth = Math.max(this._rightWidth, e.detail.width || 380);
+      // On narrow viewports the right panel is a fixed overlay that needs
+      // _mobileDrawerOpen to become visible.
+      if (window.innerWidth <= 768) {
+        this._mobileDrawerOpen = true;
+      }
     }) as unknown as EventListener);
     this.addEventListener("close-panel", (() => {
       this._rightPanelComponent = null;
+      this._mobileDrawerOpen = false;
     }) as EventListener);
     this.addEventListener("page-title", ((e: CustomEvent) => {
       if (this._activeTabId != null) {
@@ -972,7 +964,7 @@ class ShenasApp extends LitElement {
               category: "Transform",
               label: `Run Transforms: ${name}`,
               action: () => {
-                this._client.mutate({ mutation: RUN_SOURCE_TRANSFORMS, variables: { pipe: p.name } });
+                this._client.mutate({ mutation: RUN_SOURCE_TRANSFORMS, variables: { source: p.name } });
               },
             });
           }
@@ -1021,7 +1013,7 @@ class ShenasApp extends LitElement {
             category: "Transform",
             label: `Run Transforms -> ${s.displayName || s.name}: ${table}`,
             action: () => {
-              this._client.mutate({ mutation: RUN_SCHEMA_TRANSFORMS, variables: { schema: table } });
+              this._client.mutate({ mutation: RUN_DATASET_TRANSFORMS, variables: { dataset: table } });
             },
           });
         }
@@ -1225,7 +1217,7 @@ class ShenasApp extends LitElement {
   async _fetchData(): Promise<void> {
     this._loading = true;
     try {
-      // Step 1: Fetch static app data (includes pluginKinds).
+      // Single query: app data + plugin lists for all kinds.
       const { data: appData } = await this._client.query({
         query: GET_APP_DATA,
         fetchPolicy: "network-only",
@@ -1235,24 +1227,14 @@ class ShenasApp extends LitElement {
       this._dashboards = (appData?.dashboards as DashboardInfo[]) || [];
       this._deviceName = (appData?.deviceName as string) || "";
       this._hotkeys = (appData?.hotkeys as Record<string, string>) || {};
-      this._dbStatus = (appData?.dbStatus as DbStatus | null) ?? null;
-
-      // Step 2: Build and fetch per-kind plugins query.
-      const fields = `name displayName enabled syncedAt hasAuth isAuthenticated tables`;
-      const kindQueries = kinds.map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`).join("\n        ");
-      const { data: pluginsData } = await this._client.query({
-        query: dynamicGql(`{ ${kindQueries} }`),
-        fetchPolicy: "network-only",
-      });
-
       const allPlugins: Record<string, PluginSummary[]> = {};
       for (const { id } of kinds) {
-        allPlugins[id] = (pluginsData?.[`p_${id}`] as PluginSummary[]) || [];
+        allPlugins[id] = (appData?.[id] as PluginSummary[]) || [];
       }
       this._allPlugins = allPlugins;
 
       // Apply theme if not already injected by the server
-      const themeData = appData?.theme as Record<string, string> | undefined;
+      const themeData = appData?.themeData as Record<string, string> | undefined;
       if (themeData?.css && !document.querySelector("link[data-shenas-theme]")) {
         const link = document.createElement("link");
         link.rel = "stylesheet";
@@ -1297,23 +1279,6 @@ class ShenasApp extends LitElement {
     }
     this._loading = false;
     this._registerGlobalCommands();
-  }
-
-  private _dbStatusPending = false;
-
-  async _fetchDbStatus(): Promise<void> {
-    if (this._dbStatus || this._dbStatusPending) return;
-    this._dbStatusPending = true;
-    try {
-      const { data } = await this._client.query({
-        query: GET_DB_STATUS,
-        fetchPolicy: "network-only",
-      });
-      this._dbStatus = (data?.dbStatus as DbStatus | null) ?? null;
-    } catch {
-      /* ignore */
-    }
-    this._dbStatusPending = false;
   }
 
   async _checkUserSession(): Promise<void> {
@@ -1526,6 +1491,7 @@ class ShenasApp extends LitElement {
           class="drawer-overlay ${this._mobileDrawerOpen ? "visible" : ""}"
           @click=${() => {
             this._mobileDrawerOpen = false;
+            this._rightPanelComponent = null;
           }}
         ></div>
         <div
@@ -1534,9 +1500,11 @@ class ShenasApp extends LitElement {
         >
           ${this._rightPanelComponent
             ? this._rightPanelComponent
-            : this._catalogDetail
-              ? this._renderCatalogDetail()
-              : this._renderDbStats()}
+            : this._inspectTable
+              ? this._renderInspect()
+              : this._catalogDetail
+                ? this._renderCatalogDetail()
+                : this._renderDbStats()}
         </div>
         <div class="bottom-nav">
           <nav>
@@ -1707,13 +1675,14 @@ class ShenasApp extends LitElement {
 
   _renderPluginDetail(kind: string, name: string, tab = "details") {
     const cached = (this._allPlugins[kind] || []).find((p) => p.name === name);
+    const datasetTables = (this._allPlugins["dataset"] || []).flatMap((plugin) => plugin.tables || []);
     return html`<shenas-plugin-detail
       api-base="${this.apiBase}"
       kind="${kind}"
       name="${name}"
       active-tab="${tab}"
-      .dbStatus=${this._dbStatus}
       .initialInfo=${cached || null}
+      .datasetTables=${datasetTables}
     ></shenas-plugin-detail>`;
   }
 
@@ -1831,6 +1800,9 @@ class ShenasApp extends LitElement {
     }
     this._inspectTable = key;
     this._inspectRows = null;
+    this._rightPanelComponent = null;
+    this._catalogDetail = null;
+    this._rightOpen = true;
     try {
       this._inspectRows =
         ((await arrowQuery(this.apiBase, `SELECT * FROM "${schema}"."${table}" ORDER BY 1 DESC LIMIT 50`)) as Record<
@@ -1843,39 +1815,18 @@ class ShenasApp extends LitElement {
   }
 
   _renderDbStats() {
-    const db = this._dbStatus;
-    if (!db) {
-      this._fetchDbStatus();
-      return html`<p class="empty">Loading...</p>`;
-    }
-    const INTERNAL = new Set([
-      "auth",
-      "config",
-      "shenas",
-      "plugins",
-      "entities",
-      "mesh",
-      "cache",
-      "ui",
-      "analysis",
-      "catalog",
-      "transforms",
-      "telemetry",
-    ]);
-    const displayNames: Record<string, string> = {};
-    for (const plugins of Object.values(this._allPlugins)) {
-      for (const p of plugins) {
-        if (p.displayName) displayNames[p.name] = p.displayName;
+    const dataKinds = ["source", "dataset"];
+    const perPlugin: { name: string; rows: number }[] = [];
+    for (const kind of dataKinds) {
+      for (const plugin of this._allPlugins[kind] || []) {
+        const rows = plugin.totalRows || 0;
+        if (rows > 0) {
+          perPlugin.push({ name: plugin.displayName || plugin.name, rows });
+        }
       }
     }
-    const perSource: { name: string; rows: number }[] = [];
-    for (const s of db.schemas || []) {
-      if (INTERNAL.has(s.name)) continue;
-      const total = s.tables.reduce((sum, t) => sum + (t.rows || 0), 0);
-      if (total > 0) perSource.push({ name: displayNames[s.name] || s.name, rows: total });
-    }
-    perSource.sort((a, b) => b.rows - a.rows);
-    const grandTotal = perSource.reduce((s, d) => s + d.rows, 0);
+    perPlugin.sort((a, b) => b.rows - a.rows);
+    const grandTotal = perPlugin.reduce((sum, entry) => sum + entry.rows, 0);
     if (grandTotal === 0) return html`<p class="empty">No data synced yet</p>`;
 
     const COLORS = [
@@ -1901,18 +1852,18 @@ class ShenasApp extends LitElement {
       this._dbChart.setOption({
         tooltip: {
           trigger: "item",
-          formatter: (p: { seriesName: string; value: number; color: string }) =>
-            `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color};margin-right:4px"></span>${p.seriesName}: ${p.value.toLocaleString()}`,
+          formatter: (params: { seriesName: string; value: number; color: string }) =>
+            `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${params.color};margin-right:4px"></span>${params.seriesName}: ${params.value.toLocaleString()}`,
         },
         grid: { left: 0, right: 0, top: 0, bottom: 0, containLabel: false },
         xAxis: { type: "category", show: false, data: [""] },
         yAxis: { type: "value", show: false, max: grandTotal },
-        series: [...perSource].reverse().map((d, i) => ({
-          name: d.name,
+        series: [...perPlugin].reverse().map((entry, index) => ({
+          name: entry.name,
           type: "bar" as const,
           stack: "total",
-          data: [d.rows],
-          itemStyle: { color: COLORS[(perSource.length - 1 - i) % COLORS.length] },
+          data: [entry.rows],
+          itemStyle: { color: COLORS[(perPlugin.length - 1 - index) % COLORS.length] },
           emphasis: { itemStyle: { opacity: 0.8 } },
           barWidth: "100%",
         })),
@@ -1921,19 +1872,18 @@ class ShenasApp extends LitElement {
 
     return html`
       <div style="display:flex;flex-direction:column;height:100%;padding:0.5rem;font-size:0.8rem;box-sizing:border-box">
-        <div style="text-align:center;color:var(--shenas-text-muted,#888);margin-bottom:0.3rem">
-          ${db.size_mb != null ? html`${db.size_mb} MB` : ""}
-        </div>
         <div id="db-chart" style="width:100%;flex:1;min-height:0"></div>
         <div style="margin-top:0.6rem">
-          ${perSource.map(
-            (d, i) => html`
+          ${perPlugin.map(
+            (entry, index) => html`
               <div style="display:flex;align-items:center;gap:0.4rem;padding:0.15rem 0;font-size:0.75rem">
                 <span
-                  style="width:8px;height:8px;border-radius:2px;background:${COLORS[i % COLORS.length]};flex-shrink:0"
+                  style="width:8px;height:8px;border-radius:2px;background:${COLORS[
+                    index % COLORS.length
+                  ]};flex-shrink:0"
                 ></span>
-                <span style="flex:1;color:var(--shenas-text,#222)">${d.name}</span>
-                <span style="color:var(--shenas-text-muted,#888)">${d.rows.toLocaleString()}</span>
+                <span style="flex:1;color:var(--shenas-text,#222)">${entry.name}</span>
+                <span style="color:var(--shenas-text-muted,#888)">${entry.rows.toLocaleString()}</span>
               </div>
             `,
           )}

@@ -15,7 +15,12 @@ class TestMetrics:
         assert len(ALL_TABLES) == 4
 
     def test_canonical_table_names(self) -> None:
-        assert set(FinanceSchema.tables) == {"transactions", "daily_spending", "monthly_category", "monthly_overview"}
+        assert set(FinanceSchema.tables) == {
+            "finance__transactions",
+            "finance__daily_spending",
+            "finance__monthly_category",
+            "finance__monthly_overview",
+        }
 
     def test_each_table_has_pk(self) -> None:
         for cls in ALL_TABLES:
@@ -49,7 +54,7 @@ class TestMetrics:
 class TestDDL:
     def test_generate_ddl_transactions(self) -> None:
         ddl = Transaction.to_ddl()
-        assert 'CREATE TABLE IF NOT EXISTS "metrics"."transactions"' in ddl
+        assert 'CREATE TABLE IF NOT EXISTS "datasets"."finance__transactions"' in ddl
         assert '"id" VARCHAR NOT NULL' in ddl
         assert '"source" VARCHAR NOT NULL' in ddl
         assert '"amount" DOUBLE' in ddl
@@ -58,7 +63,7 @@ class TestDDL:
     def test_generate_ddl_all_tables(self) -> None:
         for cls in ALL_TABLES:
             ddl = cls.to_ddl()
-            assert f'"metrics"."{cls._Meta.name}"' in ddl
+            assert f'"datasets"."{cls._Meta.name}"' in ddl
             assert "PRIMARY KEY" in ddl
 
     def test_ensure_schema_creates_tables(self, db_con) -> None:
@@ -66,7 +71,7 @@ class TestDDL:
         tables = {
             r[0]
             for r in db_con.execute(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'"
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'datasets'"
             ).fetchall()
         }
         assert tables == set(FinanceSchema.tables)
@@ -74,7 +79,7 @@ class TestDDL:
     def test_ensure_schema_idempotent(self, db_con) -> None:
         FinanceSchema.ensure()
         FinanceSchema.ensure()
-        tables = db_con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
+        tables = db_con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'datasets'").fetchall()
         assert len(tables) == 4
 
 
@@ -84,29 +89,29 @@ class TestIntrospect:
         assert len(meta) == 4
 
     def test_table_metadata_structure(self) -> None:
-        meta = Transaction.table_metadata()
-        assert meta["table"] == "transactions"
+        meta = Transaction.metadata()
+        assert meta["table"] == "finance__transactions"
         assert meta["primary_key"] == ["id", "source"]
         assert len(meta["columns"]) == 12
 
     def test_column_metadata_has_description(self) -> None:
-        meta = Transaction.table_metadata()
+        meta = Transaction.metadata()
         amount = next(c for c in meta["columns"] if c["name"] == "amount")
         assert "description" in amount
         assert amount["db_type"] == "DOUBLE"
 
     def test_column_metadata_has_interpretation(self) -> None:
-        meta = DailySpending.table_metadata()
+        meta = DailySpending.metadata()
         total_spent = next(c for c in meta["columns"] if c["name"] == "total_spent")
         assert "interpretation" in total_spent
 
     def test_savings_rate_has_range(self) -> None:
-        meta = MonthlyOverview.table_metadata()
+        meta = MonthlyOverview.metadata()
         savings = next(c for c in meta["columns"] if c["name"] == "savings_rate")
         assert savings.get("value_range") == (-100, 100)
 
     def test_nullable_flag(self) -> None:
-        meta = Transaction.table_metadata()
+        meta = Transaction.metadata()
         id_col = next(c for c in meta["columns"] if c["name"] == "id")
         amount_col = next(c for c in meta["columns"] if c["name"] == "amount")
         assert id_col["nullable"] is False
@@ -124,4 +129,9 @@ class TestSchema:
         assert FinanceSchema.name == "finance"
 
     def test_schema_tables(self) -> None:
-        assert set(FinanceSchema.tables) == {"transactions", "daily_spending", "monthly_category", "monthly_overview"}
+        assert set(FinanceSchema.tables) == {
+            "finance__transactions",
+            "finance__daily_spending",
+            "finance__monthly_category",
+            "finance__monthly_overview",
+        }

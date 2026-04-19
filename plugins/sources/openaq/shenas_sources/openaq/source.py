@@ -49,6 +49,15 @@ class OpenAQSource(Source):
 
     @dataclass
     class Config(SourceConfig):
+        lookback_period: Annotated[
+            int | None,
+            Field(
+                db_type="INTEGER",
+                description="How many days back to fetch on initial sync (unset = source default)",
+                ui_widget="text",
+                example_value="90",
+            ),
+        ] = None
         place_uuids: Annotated[
             str | None,
             Field(
@@ -101,7 +110,8 @@ class OpenAQSource(Source):
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.openaq.tables import TABLES
 
-        return [t.to_resource(client) for t in TABLES]
+        start = self._lookback_start_date(90)
+        return [t.to_resource(client, start_date=start) for t in TABLES]
 
 
 def _load_place_entities(allowed: set[str] | None) -> list[tuple[str, float, float, int | None]]:

@@ -19,21 +19,9 @@ echarts.use([
   CanvasRenderer,
 ]);
 
-const GET_TABLE_COLUMN_INFO = gqlTag`
-  query GetTableColumnInfo($s: String!, $t: String!) {
-    tableColumnInfo(schema: $s, table: $t) {
-      name dbType displayName description unit nullable valueRange exampleValue interpretation
-    }
-  }
-`;
-
-const GET_TABLE_INFO = gqlTag`
-  query GetTableInfo($s: String!, $t: String!) {
-    tableInfo(schema: $s, table: $t) {
-      kind
-      timeColumns { timeAt timeStart timeEnd cursorColumn observedAtInjected }
-      queryHint
-    }
+const GET_TABLE_METADATA = gqlTag`
+  query GetTableMetadata($s: String!, $t: String!) {
+    tableMetadata(schema: $s, table: $t)
   }
 `;
 
@@ -60,6 +48,7 @@ export class ShenasDataTable extends LitElement {
     table: { type: String },
     pageSize: { type: Number, attribute: "page-size" },
     refreshKey: { type: String, attribute: "refresh-key" },
+    tableMetadata: { type: Object, attribute: false },
     _tables: { state: true },
     _selectedTable: { state: true },
     _columns: { state: true },
@@ -77,6 +66,7 @@ export class ShenasDataTable extends LitElement {
     _tableKind: { state: true },
     _timeColumns: { state: true },
     _intervalMode: { state: true },
+    _plotHints: { state: true },
   };
 
   declare apiBase: string;
@@ -84,6 +74,7 @@ export class ShenasDataTable extends LitElement {
   declare table: string;
   declare pageSize: number;
   declare refreshKey: string;
+  declare tableMetadata: Record<string, unknown> | null;
   declare _tables: TableInfo[];
   declare _selectedTable: string;
   declare _columns: string[];
@@ -107,6 +98,7 @@ export class ShenasDataTable extends LitElement {
     observedAtInjected?: boolean;
   } | null;
   declare _intervalMode: "packed" | "concurrency" | "histogram";
+  declare _plotHints: Array<{ y: string; groupBy?: string; chartType?: string; label?: string }> | null;
 
   static styles: CSSResult = css`
     :host {
@@ -483,25 +475,29 @@ export class ShenasDataTable extends LitElement {
       this._columns = table.schema.fields.map((f) => f.name).filter((c) => !c.startsWith("_dlt_"));
       this._data = arrowToRows(table);
 
-      // Fetch column type metadata and table-level metadata in parallel
-      const [s, t] = this._selectedTable.split(".");
-      const [colResult, metaResult] = await Promise.all([
-        this._client.query({ query: GET_TABLE_COLUMN_INFO, variables: { s, t }, fetchPolicy: "network-only" }),
-        this._client.query({ query: GET_TABLE_INFO, variables: { s, t }, fetchPolicy: "network-only" }),
-      ]);
-      this._colMeta = {};
-      for (const c of (colResult?.data?.tableColumnInfo || []) as Array<ColMeta & { name: string }>) {
-        this._colMeta[c.name] = c;
+      // Use table metadata prop if available, otherwise fetch via GraphQL.
+      let meta = this.tableMetadata as Record<string, unknown> | null;
+      if (!meta?.columns) {
+        const [schemaName, tableName] = this._selectedTable.split(".");
+        const { data: result } = await this._client.query({
+          query: GET_TABLE_METADATA,
+          variables: { s: schemaName, t: tableName },
+          fetchPolicy: "network-only",
+        });
+        meta = result?.tableMetadata as Record<string, unknown> | null;
       }
-      const tm = metaResult?.data?.tableInfo as Record<string, unknown> | undefined;
-      this._tableKind = (tm?.kind as string) || null;
-      this._timeColumns = (tm?.timeColumns as typeof this._timeColumns) || null;
+      this._applyTableMetadata(meta);
       this._page = 0;
       this._filters = {};
       this._searchTerm = "";
       this._sortCol = null;
-    } catch (e) {
-      this._error = (e as Error).message;
+    } catch (error) {
+      const message = (error as Error).message || "";
+      if (message.includes("does not exist")) {
+        this._error = "Not synced yet. Sync this source to populate data.";
+      } else {
+        this._error = message;
+      }
     }
     this._loading = false;
   }
@@ -583,6 +579,10 @@ export class ShenasDataTable extends LitElement {
       return isDate ? value.toISOString().slice(0, 10) : value.toISOString().replace("T", " ").slice(0, 19);
     }
     if (typeof value === "bigint") {
+      if (isDate) {
+        const ms = value > 100_000_000n ? Number(value) : Number(value) * 86_400_000;
+        return new Date(ms).toISOString().slice(0, 10);
+      }
       if (isTimestamp) {
         // bigint timestamps: >1e15 = microseconds, >1e12 = milliseconds, else seconds
         let ms: number;
@@ -592,6 +592,11 @@ export class ShenasDataTable extends LitElement {
         return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
       }
       return value.toString();
+    }
+    if (typeof value === "number" && isDate) {
+      // DATE values from Arrow: days since epoch or milliseconds
+      const ms = value > 1e8 ? value : value * 86_400_000;
+      return new Date(ms).toISOString().slice(0, 10);
     }
     if (typeof value === "number" && isTimestamp) {
       // number timestamps: >1e15 = microseconds, >1e12 = milliseconds, else seconds
@@ -817,8 +822,24 @@ export class ShenasDataTable extends LitElement {
       return { col, type: "text" as const, count, nullCount, unique, top: top ? `${top[0]} (${top[1]})` : "-" };
     });
 
+    const timeRoles = this._getTimeRoles();
     const statsCols: { key: string; label: string; default: number; cell: (s: (typeof stats)[number]) => unknown }[] = [
-      { key: "column", label: "Column", default: 200, cell: (s) => this._colMeta[s.col]?.displayName || s.col },
+      {
+        key: "column",
+        label: "Column",
+        default: 200,
+        cell: (s) => {
+          const displayName = this._colMeta[s.col]?.displayName || s.col;
+          const role = timeRoles[s.col];
+          return role
+            ? html`${displayName}
+                <span
+                  style="font-size:0.75rem;color:var(--shenas-text-muted,#888);background:var(--shenas-border-light,#f0f0f0);padding:1px 5px;border-radius:3px;margin-left:4px"
+                  >${role}</span
+                >`
+            : displayName;
+        },
+      },
       { key: "type", label: "Type", default: 80, cell: (s) => s.type },
       { key: "count", label: "Non-null", default: 80, cell: (s) => s.count },
       { key: "nullCount", label: "Null", default: 60, cell: (s) => s.nullCount },
@@ -901,6 +922,49 @@ export class ShenasDataTable extends LitElement {
     `;
   }
 
+  _applyTableMetadata(meta: Record<string, unknown> | null): void {
+    this._colMeta = {};
+    if (meta?.columns) {
+      for (const col of meta.columns as Array<Record<string, unknown>>) {
+        const name = (col.name as string) || "";
+        this._colMeta[name] = {
+          dbType: (col.db_type as string) || "",
+          displayName: (col.display_name as string) || "",
+          description: (col.description as string) || "",
+          unit: (col.unit as string) || "",
+          nullable: (col.nullable as boolean) ?? true,
+          valueRange: (col.value_range as number[]) || null,
+          exampleValue: (col.example_value as string) || "",
+          interpretation: (col.interpretation as string) || "",
+        };
+      }
+    }
+    this._tableKind = (meta?.kind as string) || null;
+    const timeColumns = meta?.time_columns as Record<string, unknown> | undefined;
+    this._timeColumns = timeColumns
+      ? {
+          timeAt: timeColumns.time_at as string | undefined,
+          timeStart: timeColumns.time_start as string | undefined,
+          timeEnd: timeColumns.time_end as string | undefined,
+          cursorColumn: timeColumns.cursor_column as string | undefined,
+          observedAtInjected: timeColumns.observed_at_injected as boolean | undefined,
+        }
+      : null;
+    this._plotHints = (meta?.plot as typeof this._plotHints) || null;
+  }
+
+  _getTimeRoles(): Record<string, string> {
+    const roles: Record<string, string> = {};
+    const tc = this._timeColumns;
+    if (!tc) return roles;
+    if (tc.timeAt) roles[tc.timeAt] = "time";
+    if (tc.timeStart) roles[tc.timeStart] = "start";
+    if (tc.timeEnd) roles[tc.timeEnd] = "end";
+    if (tc.cursorColumn && tc.cursorColumn !== tc.timeAt) roles[tc.cursorColumn] = "cursor";
+    if (tc.observedAtInjected && this._columns.includes("observed_at")) roles["observed_at"] = "observed";
+    return roles;
+  }
+
   _getTimeColumn(): string | null {
     const tc = this._timeColumns;
     // GQL returns camelCase; the actual DB column names are snake_case
@@ -928,7 +992,9 @@ export class ShenasDataTable extends LitElement {
         dbType.includes("DOUBLE") ||
         dbType.includes("DECIMAL") ||
         dbType.includes("NUMERIC") ||
-        dbType === "BIGINT"
+        dbType === "BIGINT" ||
+        dbType === "BOOLEAN" ||
+        dbType === "BOOL"
       ) {
         return true;
       }
@@ -992,7 +1058,49 @@ export class ShenasDataTable extends LitElement {
 
     let option: echarts.EChartsCoreOption;
 
-    if (kind === "interval") {
+    if (this._plotHints?.length && timeCol) {
+      // Use plot hints from table metadata
+      const xData = rows.map((r) => {
+        const ts = this._toTimestamp(r[timeCol]);
+        return ts ? new Date(ts).toISOString().slice(0, 10) : "";
+      });
+      const series: Array<{
+        name: string;
+        type: string;
+        data: Array<[string, number | null]> | Array<number | null>;
+        smooth?: boolean;
+        symbol?: string;
+      }> = [];
+      for (const hint of this._plotHints) {
+        if (hint.groupBy) {
+          const groups = new Map<string, Array<[string, number | null]>>();
+          for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            const group = String(r[hint.groupBy] ?? "");
+            if (!groups.has(group)) groups.set(group, []);
+            groups.get(group)!.push([xData[i], r[hint.y] != null ? Number(r[hint.y]) : null]);
+          }
+          for (const [groupName, data] of groups) {
+            series.push({
+              name: `${hint.label || hint.y} (${groupName})`,
+              type: hint.chartType || "line",
+              data,
+              smooth: true,
+              symbol: "none",
+            });
+          }
+        } else {
+          series.push({
+            name: hint.label || hint.y,
+            type: hint.chartType || "line",
+            data: rows.map((r) => (r[hint.y] != null ? Number(r[hint.y]) : null)),
+            smooth: true,
+            symbol: "none",
+          });
+        }
+      }
+      option = this._timeSeriesOption(xData, series, "line");
+    } else if (kind === "interval") {
       const start = this._timeColumns?.timeStart;
       const end = this._timeColumns?.timeEnd;
       if (start && end) {

@@ -339,7 +339,7 @@ class TestToResource:
 
 
 class TestTableKindAndMetadata:
-    """Tests for the kind-aware extensions to ``Table.table_metadata()``."""
+    """Tests for the kind-aware extensions to ``Table.metadata()``."""
 
     def test_kind_event_with_time_at(self) -> None:
         class _Evt(EventTable):
@@ -352,8 +352,8 @@ class TestTableKindAndMetadata:
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
 
-        assert _Evt.table_kind() == "event"
-        meta = _Evt.table_metadata()
+        assert _Evt.kind() == "event"
+        meta = _Evt.metadata()
         assert meta["kind"] == "event"
         assert meta["time_columns"] == {"time_at": "ts"}
         assert "as_of_macro" not in meta
@@ -368,7 +368,7 @@ class TestTableKindAndMetadata:
 
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
-        meta = _Evt.table_metadata()
+        meta = _Evt.metadata()
         assert meta["kind"] == "event"
         # Without time_at, EventTable._needs_observed_at() is True -> the loader
         # auto-injects an observed_at column. The catalog should advertise that.
@@ -387,7 +387,7 @@ class TestTableKindAndMetadata:
             starts_at: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
             ends_at: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
 
-        meta = _Iv.table_metadata()
+        meta = _Iv.metadata()
         assert meta["kind"] == "interval"
         assert meta["time_columns"]["time_start"] == "starts_at"
         assert meta["time_columns"]["time_end"] == "ends_at"
@@ -403,7 +403,7 @@ class TestTableKindAndMetadata:
 
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
-        meta = _Dim.table_metadata()
+        meta = _Dim.metadata()
         assert meta["kind"] == "dimension"
         assert meta["as_of_macro"] == "mysrc.dims_as_of"
         assert "AS-OF" in meta["query_hint"]
@@ -418,7 +418,7 @@ class TestTableKindAndMetadata:
 
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
-        meta = _Snap.table_metadata()
+        meta = _Snap.metadata()
         assert meta["kind"] == "snapshot"
         assert meta["as_of_macro"] == "mysrc.snap_as_of"
 
@@ -433,7 +433,7 @@ class TestTableKindAndMetadata:
             a_id: Annotated[int, Field(db_type="BIGINT", description="x")]
             b_id: Annotated[int, Field(db_type="BIGINT", description="x")]
 
-        meta = _Link.table_metadata()
+        meta = _Link.metadata()
         assert meta["kind"] == "m2m_relation"
         assert meta["as_of_macro"] == "mysrc.links_as_of"
         assert "linked at ts" in meta["query_hint"]
@@ -449,7 +449,7 @@ class TestTableKindAndMetadata:
 
             date: Annotated[str, Field(db_type="DATE", description="x")]
 
-        meta = _Agg.table_metadata()
+        meta = _Agg.metadata()
         assert meta["kind"] == "aggregate"
         assert "as_of_macro" not in meta
         assert meta["time_columns"] == {"time_at": "date"}
@@ -465,7 +465,7 @@ class TestTableKindAndMetadata:
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             distance_m: Annotated[float, Field(db_type="DOUBLE", description="cum")] = 0.0
 
-        meta = _Ctr.table_metadata()
+        meta = _Ctr.metadata()
         assert meta["kind"] == "counter"
         # Counters always inject observed_at.
         assert meta["time_columns"] == {"observed_at_injected": True}
@@ -482,7 +482,7 @@ class TestTableKindAndMetadata:
             id: Annotated[str, Field(db_type="VARCHAR", description="x")]
             internal_date: Annotated[int, Field(db_type="BIGINT", description="x")]
 
-        meta = _Cursored.table_metadata()
+        meta = _Cursored.metadata()
         assert meta["time_columns"]["time_at"] == "internal_date"
         assert meta["time_columns"]["cursor_column"] == "internal_date"
 
@@ -521,7 +521,7 @@ class TestTableKindAndMetadata:
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
 
-        meta = _NoSchema.table_metadata()
+        meta = _NoSchema.metadata()
         assert meta["schema"] is None
 
         class _WithSchema(EventTable):
@@ -535,5 +535,5 @@ class TestTableKindAndMetadata:
             id: Annotated[int, Field(db_type="BIGINT", description="x")]
             ts: Annotated[str, Field(db_type="TIMESTAMP", description="x")]
 
-        meta = _WithSchema.table_metadata()
+        meta = _WithSchema.metadata()
         assert meta["schema"] == "garmin"

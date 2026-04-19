@@ -44,8 +44,7 @@ describe("shenas-transforms", () => {
       sql: "",
       params: {},
     });
-    expect(el._dbTables).toEqual({});
-    expect(el._schemaTables).toEqual({});
+    expect(el._transformTypes).toEqual([]);
   });
 
   it("fetches on connect", async () => {
@@ -77,7 +76,7 @@ describe("shenas-transforms", () => {
       id: 7,
       sourceDuckdbSchema: "garmin",
       sourceDuckdbTable: "activities",
-      targetDuckdbSchema: "metrics",
+      targetDuckdbSchema: "datasets",
       targetDuckdbTable: "exercise",
       sourcePlugin: "garmin",
       description: "test",

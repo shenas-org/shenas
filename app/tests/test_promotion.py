@@ -101,10 +101,10 @@ def test_inserts_row_with_provenance():
         )
     )
     record = promote_hypothesis(h, name="caffeine_mood")
-    assert record.qualified == "metrics.caffeine_mood"
+    assert record.qualified == "datasets.caffeine_mood"
     assert record.hypothesis_id == h.id
 
-    row = PromotedMetric.find("caffeine_mood", "metrics")
+    row = PromotedMetric.find("caffeine_mood", "datasets")
     assert row is not None
     assert row.hypothesis_id == h.id
     assert row.recipe_json == h.recipe_json
@@ -119,7 +119,7 @@ def test_marks_hypothesis_promoted():
     promote_hypothesis(h, name="caffeine_mood")
     refreshed = Hypothesis.find(h.id)
     assert refreshed is not None
-    assert refreshed.promoted_to == "metrics.caffeine_mood"
+    assert refreshed.promoted_to == "datasets.caffeine_mood"
 
 
 def test_synthesized_class_carries_meta_and_provenance():
@@ -143,7 +143,7 @@ def test_synthesized_class_carries_meta_and_provenance():
     assert len(classes) == 1
     cls = classes[0]
     assert cls._Meta.name == "caffeine_mood"
-    assert cls._Meta.schema == "metrics"
+    assert cls._Meta.schema == "datasets"
     assert cls._Meta.pk == ("date", "source")
     assert cls.promoted_from_hypothesis == h.id
     assert "metrics.daily_intake" in cls.derived_from

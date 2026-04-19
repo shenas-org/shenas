@@ -31,48 +31,35 @@ def keygen() -> None:
 
 @app.command()
 def status() -> None:
-    """Show database key source, file status, and table summary."""
+    """Show data summary per plugin."""
     try:
-        data = ShenasClient().db_status()
+        data = ShenasClient().db_plugins()
     except ShenasServerError as exc:
         console.print(f"[red]{exc.detail}[/red]")
         raise typer.Exit(code=1)
 
-    # Key source
-    key_labels = {
-        "env": "Key source: [green]SHENAS_DB_KEY environment variable[/green]",
-        "keyring": "Key source: [green]OS keyring[/green]",
-        "not_set": "Key source: [red]not set[/red]",
-        "unavailable": "Key source: [red]keyring unavailable[/red]",
-    }
-    console.print(key_labels.get(data["key_source"], f"Key source: {data['key_source']}"))
-    if data["key_source"] == "not_set":
-        console.print("Run [bold]shenasctl db keygen[/bold] or set SHENAS_DB_KEY.")
+    table = Table(title="[bold]Data Summary[/bold]", show_lines=True)
+    table.add_column("Plugin", style="green")
+    table.add_column("Kind", style="dim")
+    table.add_column("Rows", justify="right")
+    table.add_column("Tables", justify="right")
 
-    # DB file
-    if data["size_mb"] is not None:
-        console.print(f"Database: [green]{data['db_path']}[/green] ({data['size_mb']:.1f} MB)")
-    else:
-        console.print(f"Database: [dim]{data['db_path']} (not created yet)[/dim]")
+    total_rows = 0
+    for plugin in data:
+        rows = plugin.get("totalRows", 0)
+        tables = len(plugin.get("tables", []))
+        if rows > 0 or tables > 0:
+            table.add_row(
+                plugin.get("displayName") or plugin["name"],
+                plugin.get("kind", ""),
+                str(rows),
+                str(tables),
+            )
+            total_rows += rows
+
+    if total_rows == 0:
+        console.print("[dim]No data synced yet.[/dim]")
         return
 
-    # Table summary
-    for schema_info in data.get("schemas", []):
-        schema_name = schema_info["name"]
-        label = "metrics  ·  canonical" if schema_name == "metrics" else f"metrics  ·  {schema_name}"
-        table = Table(title=f"[bold]{label}[/bold]", show_lines=True)
-        table.add_column("Table", style="green")
-        table.add_column("Rows", justify="right")
-        table.add_column("Earliest", justify="right")
-        table.add_column("Latest", justify="right")
-        table.add_column("Cols", justify="right")
-
-        for t in schema_info["tables"]:
-            table.add_row(
-                t["name"],
-                str(t["rows"]),
-                t["earliest"] or "---",
-                t["latest"] or "---",
-                str(t["cols"]),
-            )
-        console.print(table)
+    console.print(table)
+    console.print(f"\n[bold]Total rows:[/bold] {total_rows:,}")

@@ -11,16 +11,17 @@ import {
   tabStyles,
 } from "shenas-frontends";
 import "shenas-components";
-import { GET_THEME, GET_SUGGESTED_DATASETS, GET_SOURCE_ENTITIES, GET_DB_STATUS } from "./graphql/queries.ts";
+import { GET_THEME, GET_SUGGESTED_DATASETS, GET_SOURCE_ENTITIES } from "./graphql/queries.ts";
 import {
   ENABLE_PLUGIN,
   DISABLE_PLUGIN,
-  RUN_SCHEMA_TRANSFORMS,
+  RUN_DATASET_TRANSFORMS,
   FLUSH_SCHEMA,
   SUGGEST_DATASETS,
   ACCEPT_DATASET_SUGGESTION,
   DISMISS_DATASET_SUGGESTION,
   SET_ENTITY_STATUS,
+  UPDATE_ENTITY,
 } from "./graphql/mutations.ts";
 
 interface PluginInfo {
@@ -61,16 +62,13 @@ interface SuggestedDataset {
 
 interface SchemaTransform {
   id: number;
-  source: { id: string; schemaName: string; tableName: string };
-  target: { id: string; schemaName: string; tableName: string };
+  transformType: string;
+  transformTypeDisplayName: string;
+  source: { id: string; schemaName: string; tableName: string; displayName: string; plugin?: { displayName: string } };
+  target: { id: string; schemaName: string; tableName: string; displayName: string };
   sourcePlugin: string;
   description?: string;
   enabled: boolean;
-}
-
-interface DbStatus {
-  schemas: Array<{ name: string; tables: TableInfo[] }>;
-  [key: string]: unknown;
 }
 
 interface SourceEntity {
@@ -79,6 +77,13 @@ interface SourceEntity {
   name: string;
   description: string;
   status: string;
+}
+
+interface EntityTypeOption {
+  name: string;
+  displayName: string;
+  isAbstract: boolean;
+  parent: string | null;
 }
 
 interface Message {
@@ -92,8 +97,8 @@ class PluginDetail extends LitElement {
     kind: { type: String },
     name: { type: String },
     activeTab: { type: String, attribute: "active-tab" },
-    dbStatus: { type: Object },
     initialInfo: { type: Object },
+    datasetTables: { type: Array },
     _info: { state: true },
     _loading: { state: true },
     _showLoading: { state: true },
@@ -107,6 +112,7 @@ class PluginDetail extends LitElement {
     _dataTable: { state: true },
     _dataRefreshKey: { state: true },
     _entities: { state: true },
+    _entityTypes: { state: true },
     _entitiesLoading: { state: true },
   };
 
@@ -290,8 +296,8 @@ class PluginDetail extends LitElement {
   declare kind: string;
   declare name: string;
   declare activeTab: string;
-  declare dbStatus: DbStatus | null;
   declare initialInfo: PluginInfo | null;
+  declare datasetTables: string[];
   declare _info: PluginInfo | null;
   declare _loading: boolean;
   declare _showLoading: boolean;
@@ -305,14 +311,16 @@ class PluginDetail extends LitElement {
   declare _dataTable: string;
   declare _dataRefreshKey: number;
   declare _entities: SourceEntity[];
+  declare _entityTypes: EntityTypeOption[];
   declare _entitiesLoading: boolean;
   private _loadingTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _client = getClient();
   private _setEntityStatusMutation = new ApolloMutationController(this, SET_ENTITY_STATUS, { client: this._client });
+  private _updateEntityMutation = new ApolloMutationController(this, UPDATE_ENTITY, { client: this._client });
   private _enablePlugin = new ApolloMutationController(this, ENABLE_PLUGIN, { client: this._client });
   private _disablePlugin = new ApolloMutationController(this, DISABLE_PLUGIN, { client: this._client });
-  private _runSchemaTransforms = new ApolloMutationController(this, RUN_SCHEMA_TRANSFORMS, { client: this._client });
+  private _runDatasetTransforms = new ApolloMutationController(this, RUN_DATASET_TRANSFORMS, { client: this._client });
   private _flushSchema = new ApolloMutationController(this, FLUSH_SCHEMA, { client: this._client });
   private _suggestDatasetsMutation = new ApolloMutationController(this, SUGGEST_DATASETS, { client: this._client });
   private _acceptDatasetSuggestion = new ApolloMutationController(this, ACCEPT_DATASET_SUGGESTION, {
@@ -328,7 +336,6 @@ class PluginDetail extends LitElement {
     this.kind = "";
     this.name = "";
     this.activeTab = "details";
-    this.dbStatus = null;
     this.initialInfo = null;
     this._info = null;
     this._loading = true;
@@ -343,6 +350,7 @@ class PluginDetail extends LitElement {
     this._dataTable = "";
     this._dataRefreshKey = 0;
     this._entities = [];
+    this._entityTypes = [];
     this._entitiesLoading = false;
   }
 
@@ -394,7 +402,7 @@ class PluginDetail extends LitElement {
     const fields = [
       `pluginInfo(kind: $kind, name: $name)`,
       needsSchema
-        ? `transforms { id source { id schemaName tableName } target { id schemaName tableName } sourcePlugin description enabled }`
+        ? `transforms { id transformType transformTypeDisplayName source { id schemaName tableName displayName plugin { displayName } } target { id schemaName tableName displayName } sourcePlugin description enabled }`
         : "",
     ]
       .filter(Boolean)
@@ -405,34 +413,22 @@ class PluginDetail extends LitElement {
       fetchPolicy: "network-only",
     });
     this._info = data?.pluginInfo as PluginInfo | null;
-    try {
-      const { data: dbData } = await this._client.query({
-        query: GET_DB_STATUS,
-        fetchPolicy: "network-only",
-      });
-      this.dbStatus = (dbData?.dbStatus as DbStatus | null) ?? null;
-      // Propagate to app-shell so its copy stays in sync.
-      this.dispatchEvent(
-        new CustomEvent("db-status-updated", { bubbles: true, composed: true, detail: this.dbStatus }),
-      );
-    } catch {
-      /* ignore */
-    }
-    const db = this.dbStatus;
     const allTransforms = data?.transforms as SchemaTransform[] | undefined;
     const ownedTables = this._info?.tables || [];
-    if (db) {
-      if (this.kind === "source") {
-        const schema = (db.schemas || []).find((s) => s.name === "sources");
-        const prefix = `${this.name}_`;
-        this._tables = schema
-          ? schema.tables.filter((t) => t.name.startsWith(prefix) && !t.name.startsWith("_dlt_"))
-          : [];
-      } else if (this.kind === "dataset") {
-        const metricsSchema = (db.schemas || []).find((s) => s.name === "metrics");
-        this._tables = metricsSchema ? metricsSchema.tables.filter((t) => ownedTables.includes(t.name)) : [];
-      }
-    }
+    // Build _tables from plugin table_metadata (includes live stats).
+    const tableMeta =
+      ((this._info as unknown as Record<string, unknown>)?.table_metadata as {
+        table: string;
+        rows?: number;
+        earliest?: string;
+        latest?: string;
+      }[]) || [];
+    this._tables = tableMeta.map((entry) => ({
+      name: entry.table,
+      rows: entry.rows || 0,
+      earliest: entry.earliest || undefined,
+      latest: entry.latest || undefined,
+    }));
     if (allTransforms) {
       this._schemaTransforms = allTransforms.filter((t) => ownedTables.includes(t.target.tableName));
     }
@@ -609,8 +605,8 @@ class PluginDetail extends LitElement {
     this._transforming = true;
     this._message = null;
     try {
-      const { data } = await this._runSchemaTransforms.mutate({ variables: { schema: this.name } });
-      const tResult = data?.runSchemaTransforms as Record<string, unknown> | undefined;
+      const { data } = await this._runDatasetTransforms.mutate({ variables: { dataset: this.name } });
+      const tResult = data?.runDatasetTransforms as Record<string, unknown> | undefined;
       if (tResult?.count != null) {
         this._message = { type: "success", text: `Ran ${tResult.count} transform(s)` };
         await this._fetchInfo();
@@ -716,6 +712,7 @@ class PluginDetail extends LitElement {
     window.history.pushState({}, "", path);
     if (tab === "transforms") this._fetchSuggestions();
     if (tab === "entities") this._fetchEntities();
+    if (tab === "data" && this.kind === "dataset") this._fetchInfo();
   }
 
   async _fetchEntities(): Promise<void> {
@@ -727,6 +724,7 @@ class PluginDetail extends LitElement {
         fetchPolicy: "network-only",
       });
       this._entities = (result.data?.sourceEntitiesForPlugin as SourceEntity[]) || [];
+      this._entityTypes = (result.data?.entityTypes as EntityTypeOption[]) || [];
     } catch (e) {
       this._message = { type: "error", text: (e as Error).message };
     }
@@ -741,6 +739,20 @@ class PluginDetail extends LitElement {
     } catch (e) {
       this._entities = this._entities.map((e) => (e.uuid === entity.uuid ? { ...e, status: entity.status } : e));
       this._message = { type: "error", text: (e as Error).message };
+    }
+  }
+
+  async _changeEntityType(entity: SourceEntity, newType: string): Promise<void> {
+    this._entities = this._entities.map((existing) =>
+      existing.uuid === entity.uuid ? { ...existing, type: newType } : existing,
+    );
+    try {
+      await this._updateEntityMutation.mutate({ variables: { uuid: entity.uuid, input: { type: newType } } });
+    } catch (error) {
+      this._entities = this._entities.map((existing) =>
+        existing.uuid === entity.uuid ? { ...existing, type: entity.type } : existing,
+      );
+      this._message = { type: "error", text: (error as Error).message };
     }
   }
 
@@ -769,20 +781,42 @@ class PluginDetail extends LitElement {
             key: "name",
             label: "Name",
             render: (row: Record<string, unknown>) => {
-              const e = row as unknown as SourceEntity;
-              return e.name || e.uuid.slice(0, 8);
+              const entity = row as unknown as SourceEntity;
+              return entity.name || entity.uuid.slice(0, 8);
+            },
+          },
+          {
+            label: "Type",
+            render: (row: Record<string, unknown>) => {
+              const entity = row as unknown as SourceEntity;
+              const concreteTypes = this._entityTypes.filter((entityType) => !entityType.isAbstract);
+              return html`<select
+                .value=${entity.type}
+                @change=${(event: Event) => {
+                  const newType = (event.target as HTMLSelectElement).value;
+                  if (newType !== entity.type) this._changeEntityType(entity, newType);
+                }}
+                style="font-size:0.85rem;padding:2px 4px;border:1px solid var(--shenas-border-light,#ddd);border-radius:3px;background:transparent"
+              >
+                ${concreteTypes.map(
+                  (entityType) =>
+                    html`<option value=${entityType.name} ?selected=${entity.type === entityType.name}>
+                      ${entityType.displayName}
+                    </option>`,
+                )}
+              </select>`;
             },
           },
           {
             key: "status",
-            label: "Status",
+            label: "Enabled",
             render: (row: Record<string, unknown>) => {
-              const e = row as unknown as SourceEntity;
+              const entity = row as unknown as SourceEntity;
               return html`<input
                 type="checkbox"
-                title=${e.status === "enabled" ? "Shown in entity graph" : "Hidden from entity graph"}
-                .checked=${e.status === "enabled"}
-                @change=${() => this._toggleEntityStatus(e)}
+                title=${entity.status === "enabled" ? "Shown in entity graph" : "Hidden from entity graph"}
+                .checked=${entity.status === "enabled"}
+                @change=${() => this._toggleEntityStatus(entity)}
               />`;
             },
           },
@@ -793,9 +827,20 @@ class PluginDetail extends LitElement {
     `;
   }
 
+  _tableDisplayName(dbName: string): string {
+    const declared = ((this._info as unknown as Record<string, unknown>)?.table_metadata || []) as {
+      table: string;
+      display_name: string;
+    }[];
+    for (const entry of declared) {
+      if (entry.table === dbName) return entry.display_name || dbName;
+    }
+    return dbName;
+  }
+
   _renderData() {
     const tables = (this._tables || []).filter((t) => !t.name.startsWith("_dlt_"));
-    const defaultSchema = this.kind === "dataset" ? "metrics" : "sources";
+    const defaultSchema = this.kind === "dataset" ? "datasets" : "sources";
 
     // Sources that write to a non-source schema (e.g. wikidata -> entities.countries)
     // can declare it on primary_table as "<schema>.<table>". Honor that even
@@ -810,7 +855,7 @@ class PluginDetail extends LitElement {
     }
 
     if (tables.length === 0 && !primaryFallbackTable) {
-      const declared = (this._info as unknown as Record<string, unknown>)?.declared_tables as
+      const declared = (this._info as unknown as Record<string, unknown>)?.table_metadata as
         | {
             table: string;
             display_name: string;
@@ -834,10 +879,14 @@ class PluginDetail extends LitElement {
         this._dataTable = table;
       });
     }
+    const tableMeta =
+      ((this._info as unknown as Record<string, unknown>)?.table_metadata as Record<string, unknown>[]) || [];
+    const matchingMeta = tableMeta.find((entry) => entry.table === table) || null;
     return html`<shenas-data-table
       api-base="${this.apiBase}"
       schema="${schema}"
       table="${table}"
+      .tableMetadata=${matchingMeta}
       page-size="100"
       refresh-key="${this._dataRefreshKey}"
       style="height:calc(100vh - 180px);min-height:300px"
@@ -898,6 +947,75 @@ class PluginDetail extends LitElement {
     `;
   }
 
+  _renderResourceSchema() {
+    const tableMeta =
+      ((this._info as unknown as Record<string, unknown>)?.table_metadata as {
+        table: string;
+        display_name: string;
+        description: string;
+        kind: string;
+        rows?: number;
+        earliest?: string;
+        latest?: string;
+        columns: { name: string; db_type: string; display_name?: string; description: string }[];
+      }[]) || [];
+    if (tableMeta.length === 0) {
+      return html`<p style="color:var(--shenas-text-muted,#888)">No tables declared.</p>`;
+    }
+    return html`${tableMeta.map(
+      (resource) => html`
+        <details style="margin-bottom:0.8rem">
+          <summary style="cursor:pointer;font-weight:600;font-size:0.9rem">
+            ${resource.display_name || resource.table}
+            ${resource.rows
+              ? html`<span
+                  style="font-weight:400;color:var(--shenas-text-muted,#888);margin-left:0.5rem;font-size:0.8rem"
+                  >${resource.rows} rows</span
+                >`
+              : ""}
+            ${resource.earliest
+              ? html`<span
+                  style="font-weight:400;color:var(--shenas-text-muted,#888);margin-left:0.5rem;font-size:0.8rem"
+                  >${resource.earliest} - ${resource.latest}</span
+                >`
+              : ""}
+            ${resource.kind
+              ? html`<span
+                  style="font-weight:400;color:var(--shenas-text-muted,#888);margin-left:0.5rem;font-size:0.8rem"
+                  >${resource.kind}</span
+                >`
+              : ""}
+          </summary>
+          ${resource.description
+            ? html`<p style="color:var(--shenas-text-muted,#888);font-size:0.85rem;margin:0.3rem 0 0.4rem 1rem">
+                ${resource.description}
+              </p>`
+            : ""}
+          <table style="margin-left:1rem;font-size:0.85rem;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:2px 12px 2px 0">Column</th>
+                <th style="text-align:left;padding:2px 12px 2px 0">Type</th>
+                <th style="text-align:left;padding:2px 0">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(resource.columns || []).map(
+                (col) => html`
+                  <tr>
+                    <td style="padding:2px 12px 2px 0;font-family:monospace">${col.display_name || col.name}</td>
+                    <td style="padding:2px 12px 2px 0;color:var(--shenas-text-muted,#888)">${col.db_type}</td>
+                    <td style="padding:2px 0">${col.description || ""}</td>
+                  </tr>
+                `,
+              )}
+            </tbody>
+          </table>
+        </details>
+      `,
+    )}`;
+  }
+
   render() {
     return html`
       <shenas-page
@@ -945,7 +1063,7 @@ class PluginDetail extends LitElement {
               />`
             : html`<span style="font-size:1.4rem;vertical-align:middle;margin-right:0.4rem"
                 >&#x1F4E6;</span
-              >`}${info.display_name || info.name} <span class="kind-badge">${info.kind}</span>${info.version
+              >`}${info.display_name || info.name} <shenas-badge>${info.kind}</shenas-badge>${info.version
             ? html` <span class="version">${info.version}</span>`
             : ""}
         </h2>
@@ -1044,11 +1162,11 @@ class PluginDetail extends LitElement {
                     }}
                   >
                     ${this._tables
-                      .filter((t) => !t.name.startsWith("_dlt_"))
+                      .filter((table) => !table.name.startsWith("_dlt_"))
                       .map(
-                        (t) =>
-                          html`<option value=${t.name} ?selected=${this._dataTable === t.name}>
-                            ${t.name}${t.rows ? ` (${t.rows})` : ""}
+                        (table) =>
+                          html`<option value=${table.name} ?selected=${this._dataTable === table.name}>
+                            ${this._tableDisplayName(table.name)}${table.rows ? ` (${table.rows})` : ""}
                           </option>`,
                       )}
                   </select>`
@@ -1084,7 +1202,7 @@ class PluginDetail extends LitElement {
       ${this.activeTab === "config"
         ? html`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`
         : this.activeTab === "auth"
-          ? html`<shenas-auth api-base="${this.apiBase}" pipe-name="${this.name}"></shenas-auth>`
+          ? html`<shenas-auth api-base="${this.apiBase}" source-name="${this.name}"></shenas-auth>`
           : this.activeTab === "transforms"
             ? this._renderTransforms()
             : this.activeTab === "data"
@@ -1114,43 +1232,62 @@ class PluginDetail extends LitElement {
 
       ${this.kind === "source" || this.kind === "dataset"
         ? html` <h4 class="section-title">Resources</h4>
-            <shenas-data-list
-              .columns=${[
-                { key: "name", label: "Table", class: "mono" },
-                { key: "rows", label: "Rows", class: "muted" },
-                {
-                  label: "Range",
-                  class: "muted",
-                  render: (t: TableInfo) => (t.earliest ? `${t.earliest} - ${t.latest}` : ""),
-                },
-              ]}
-              .rows=${this._tables}
-              empty-text="No tables synced yet"
-            ></shenas-data-list>`
+            ${this._renderResourceSchema()}`
         : ""}
       ${this.kind === "dataset" && this._schemaTransforms.length > 0
         ? html` <h4 class="section-title">Transforms</h4>
             <shenas-data-list
               .columns=${[
-                { key: "id", label: "ID", class: "muted" },
                 {
                   label: "Source",
-                  class: "mono",
-                  render: (t: SchemaTransform) => `${t.source.schemaName}.${t.source.tableName}`,
+                  render: (transform: SchemaTransform) =>
+                    html`<span
+                      style="cursor:pointer;text-decoration:underline;text-decoration-color:var(--shenas-text-faint,#ccc)"
+                      title="${transform.source.schemaName}.${transform.source.tableName}"
+                      @click=${() =>
+                        this.dispatchEvent(
+                          new CustomEvent("inspect-table", {
+                            bubbles: true,
+                            composed: true,
+                            detail: { schema: transform.source.schemaName, table: transform.source.tableName },
+                          }),
+                        )}
+                      >${transform.source.plugin?.displayName
+                        ? `${transform.source.plugin.displayName} > `
+                        : ""}${transform.source.displayName || transform.source.tableName}</span
+                    >`,
                 },
                 {
                   label: "Target",
-                  class: "mono",
-                  render: (t: SchemaTransform) => `${t.target.schemaName}.${t.target.tableName}`,
+                  render: (transform: SchemaTransform) =>
+                    html`<span
+                      style="cursor:pointer;text-decoration:underline;text-decoration-color:var(--shenas-text-faint,#ccc)"
+                      title="${transform.target.schemaName}.${transform.target.tableName}"
+                      @click=${() =>
+                        this.dispatchEvent(
+                          new CustomEvent("inspect-table", {
+                            bubbles: true,
+                            composed: true,
+                            detail: { schema: transform.target.schemaName, table: transform.target.tableName },
+                          }),
+                        )}
+                      >${transform.target.displayName || transform.target.tableName}</span
+                    >`,
                 },
-                { label: "Description", render: (t: SchemaTransform) => t.description || "" },
+                {
+                  label: "Type",
+                  class: "muted",
+                  render: (transform: SchemaTransform) =>
+                    transform.transformTypeDisplayName || transform.transformType || "",
+                },
                 {
                   label: "Status",
-                  render: (t: SchemaTransform) => html`<status-toggle ?enabled=${t.enabled}></status-toggle>`,
+                  render: (transform: SchemaTransform) =>
+                    html`<status-toggle ?enabled=${transform.enabled}></status-toggle>`,
                 },
               ]}
               .rows=${this._schemaTransforms}
-              .rowClass=${(t: SchemaTransform) => (t.enabled ? "" : "disabled-row")}
+              .rowClass=${(transform: SchemaTransform) => (transform.enabled ? "" : "disabled-row")}
               empty-text="No transforms"
             ></shenas-data-list>`
         : ""}
@@ -1162,6 +1299,9 @@ class PluginDetail extends LitElement {
       <shenas-transforms
         api-base="${this.apiBase}"
         source="${this.name}"
+        .sourceTables=${((this._info as unknown as Record<string, unknown>)?.table_metadata as { table: string }[]) ||
+        []}
+        .targetTables=${this.datasetTables || []}
         ?show-suggest=${true}
         ?suggesting=${this._suggesting}
         @suggest=${this._suggestDatasets}

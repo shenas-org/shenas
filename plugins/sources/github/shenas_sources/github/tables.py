@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import DimensionTable, EventTable, SourceTable
@@ -88,22 +88,19 @@ class Repositories(DimensionTable):
         display_name = "Repositories"
         description = "GitHub repositories owned by the authenticated user."
         pk = ("full_name",)
-
-    # Statement projection (new graph model). Each raw column listed here
-    # becomes an entities.statements row on every sync, keyed on the
-    # repository's deterministic entity_id.
-    entity_type: ClassVar[str] = "repository"
-    entity_name_column: ClassVar[str] = "full_name"
-    entity_projection: ClassVar[dict[str, str]] = {
-        "description": "github:description",
-        "language": "github:language",
-        "private": "github:private",
-        "stargazers_count": "github:stars",
-        "forks_count": "github:forks",
-        "open_issues_count": "github:open_issues",
-        "pushed_at": "github:pushed_at",
-        "created_at": "github:created_at",
-    }
+        entity_type = "repository"
+        entity_name_column = "full_name"
+        entity_wikidata_qid = "Q1334294"
+        entity_projection = {  # noqa: RUF012
+            "description": "description",
+            "language": "P277",  # programming language
+            "private": "private",
+            "stargazers_count": "stars",
+            "forks_count": "forks",
+            "open_issues_count": "open_issues",
+            "pushed_at": "pushed_at",
+            "created_at": "P571",  # inception
+        }
 
     id: Annotated[
         int,

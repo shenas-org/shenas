@@ -46,7 +46,12 @@ class TestMetrics:
         assert len(ALL_TABLES) == 4
 
     def test_canonical_table_names(self) -> None:
-        assert set(FitnessSchema.tables) == {"daily_hrv", "daily_sleep", "daily_vitals", "daily_body"}
+        assert set(FitnessSchema.tables) == {
+            "fitness__daily_hrv",
+            "fitness__daily_sleep",
+            "fitness__daily_vitals",
+            "fitness__daily_body",
+        }
 
     def test_each_table_has_pk(self) -> None:
         for cls in ALL_TABLES:
@@ -86,7 +91,7 @@ class TestMetrics:
 class TestDDL:
     def test_generate_ddl_hrv(self) -> None:
         ddl = DailyHRV.to_ddl()
-        assert '"metrics"."daily_hrv"' in ddl
+        assert '"datasets"."fitness__daily_hrv"' in ddl
         assert '"date" DATE NOT NULL' in ddl
         assert '"source" VARCHAR NOT NULL' in ddl
         assert '"rmssd" DOUBLE' in ddl
@@ -95,7 +100,7 @@ class TestDDL:
     def test_generate_ddl_all_tables(self) -> None:
         for cls in ALL_TABLES:
             ddl = cls.to_ddl()
-            assert f'"metrics"."{cls._Meta.name}"' in ddl
+            assert f'"datasets"."{cls._Meta.name}"' in ddl
             assert "PRIMARY KEY" in ddl
 
     def test_nullable_fields_have_no_not_null(self) -> None:
@@ -115,7 +120,7 @@ class TestDDL:
         tables = {
             r[0]
             for r in db_con.execute(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'"
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'datasets'"
             ).fetchall()
         }
         assert tables == set(FitnessSchema.tables)
@@ -123,7 +128,7 @@ class TestDDL:
     def test_ensure_schema_idempotent(self, db_con) -> None:
         FitnessSchema.ensure()
         FitnessSchema.ensure()
-        tables = db_con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'metrics'").fetchall()
+        tables = db_con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'datasets'").fetchall()
         assert len(tables) == 4
 
 
@@ -135,31 +140,31 @@ class TestIntrospect:
         assert names == set(FitnessSchema.tables)
 
     def test_table_metadata_structure(self) -> None:
-        meta = DailyHRV.table_metadata()
-        assert meta["table"] == "daily_hrv"
+        meta = DailyHRV.metadata()
+        assert meta["table"] == "fitness__daily_hrv"
         assert meta["primary_key"] == ["date", "source"]
         assert isinstance(meta["columns"], list)
         assert len(meta["columns"]) == 4
 
     def test_column_metadata_has_description(self) -> None:
-        meta = DailyHRV.table_metadata()
+        meta = DailyHRV.metadata()
         rmssd = next(c for c in meta["columns"] if c["name"] == "rmssd")
         assert "description" in rmssd
         assert "db_type" in rmssd
         assert rmssd["db_type"] == "DOUBLE"
 
     def test_column_metadata_has_unit(self) -> None:
-        meta = DailyHRV.table_metadata()
+        meta = DailyHRV.metadata()
         rmssd = next(c for c in meta["columns"] if c["name"] == "rmssd")
         assert rmssd.get("unit") == "ms"
 
     def test_column_metadata_has_interpretation(self) -> None:
-        meta = DailyHRV.table_metadata()
+        meta = DailyHRV.metadata()
         rmssd = next(c for c in meta["columns"] if c["name"] == "rmssd")
         assert "interpretation" in rmssd
 
     def test_nullable_flag(self) -> None:
-        meta = DailyHRV.table_metadata()
+        meta = DailyHRV.metadata()
         date_col = next(c for c in meta["columns"] if c["name"] == "date")
         rmssd_col = next(c for c in meta["columns"] if c["name"] == "rmssd")
         assert date_col["nullable"] is False
@@ -178,4 +183,9 @@ class TestSchema:
         assert FitnessSchema.name == "fitness"
 
     def test_schema_tables(self) -> None:
-        assert set(FitnessSchema.tables) == {"daily_hrv", "daily_sleep", "daily_vitals", "daily_body"}
+        assert set(FitnessSchema.tables) == {
+            "fitness__daily_hrv",
+            "fitness__daily_sleep",
+            "fitness__daily_vitals",
+            "fitness__daily_body",
+        }

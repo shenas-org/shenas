@@ -31,7 +31,7 @@ describe("shenas-auth", () => {
   it("has default property values", () => {
     const el = mount() as AnyEl;
     expect(el.apiBase).toBe("/api");
-    expect(el.pipeName).toBe("");
+    expect(el.sourceName).toBe("");
     expect(el._fields).toEqual([]);
     expect(el._loading).toBe(false);
     expect(el._needsMfa).toBe(false);
@@ -46,9 +46,9 @@ describe("shenas-auth", () => {
     expect(el.shadowRoot).toBeTruthy();
   });
 
-  it("fetches fields when pipeName is set", async () => {
+  it("fetches fields when sourceName is set", async () => {
     const el = mount() as AnyEl;
-    el.pipeName = "garmin";
+    el.sourceName = "garmin";
     await el.updateComplete;
     await new Promise((r) => setTimeout(r, 20));
     expect(globalThis.fetch).toHaveBeenCalled();

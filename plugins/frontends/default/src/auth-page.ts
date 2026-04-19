@@ -25,7 +25,7 @@ interface Message {
 class AuthPage extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
-    pipeName: { type: String, attribute: "pipe-name" },
+    sourceName: { type: String, attribute: "source-name" },
     _fields: { state: true },
     _instructions: { state: true },
     _message: { state: true },
@@ -73,7 +73,7 @@ class AuthPage extends LitElement {
   ];
 
   declare apiBase: string;
-  declare pipeName: string;
+  declare sourceName: string;
   declare _fields: AuthField[];
   declare _instructions: string;
   declare _message: Message | null;
@@ -98,7 +98,7 @@ class AuthPage extends LitElement {
   constructor() {
     super();
     this.apiBase = "/api";
-    this.pipeName = "";
+    this.sourceName = "";
     this._fields = [];
     this._instructions = "";
     this._message = null;
@@ -109,18 +109,18 @@ class AuthPage extends LitElement {
   }
 
   willUpdate(changed: Map<string, unknown>): void {
-    if (changed.has("pipeName") && this.pipeName) {
+    if (changed.has("sourceName") && this.sourceName) {
       this._fetchFields();
     }
   }
 
   async _fetchFields(): Promise<void> {
-    if (!this.pipeName) return;
+    if (!this.sourceName) return;
     this._needsMfa = false;
     this._oauthUrl = null;
     const result = await this._authFieldsQuery.client!.query({
       query: GET_AUTH_FIELDS,
-      variables: { pipe: this.pipeName },
+      variables: { source: this.sourceName },
       fetchPolicy: "network-only",
     });
     const authFields = result.data?.authFields as Record<string, unknown> | undefined;
@@ -152,9 +152,9 @@ class AuthPage extends LitElement {
 
     const result = await this._authenticateMutation.mutate({
       variables: {
-        pipe: this.pipeName,
+        source: this.sourceName,
         creds: credentials,
-        callbackUrl: `${window.location.origin}/api/auth/source/${this.pipeName}/callback`,
+        callbackUrl: `${window.location.origin}/api/auth/source/${this.sourceName}/callback`,
       },
     });
     this._submitting = false;

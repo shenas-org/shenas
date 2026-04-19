@@ -77,29 +77,6 @@ class ConfigValueResponse(BaseModel):
     value: str
 
 
-# --- DB ---
-
-
-class TableStats(BaseModel):
-    name: str
-    rows: int = 0
-    earliest: str | None = None
-    latest: str | None = None
-    cols: int = 0
-
-
-class SchemaInfo(BaseModel):
-    name: str
-    tables: list[TableStats] = []
-
-
-class DBStatusResponse(BaseModel):
-    key_source: str
-    db_path: str
-    size_mb: float | None = None
-    schemas: list[SchemaInfo] = []
-
-
 # --- Plugins ---
 
 
@@ -119,6 +96,7 @@ class PluginInfo(BaseModel):
     is_authenticated: bool | None = None
     sync_frequency: int | None = None
     tables: list[str] = []
+    total_rows: int = 0
     config_entries: list[ConfigEntry] = []
     added_at: str | None = None
     updated_at: str | None = None

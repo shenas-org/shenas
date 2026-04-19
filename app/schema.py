@@ -9,7 +9,7 @@ catalog / frontend a discoverable list of namespaces.
 
 Well-known instances are defined at module level and importable directly::
 
-    from app.schema import CACHE, ENTITIES, METRICS
+    from app.schema import CACHE, DATASETS, ENTITIES
 
 Source-side schemas (``garmin``, ``strava``, ...) are managed by dlt, not
 by this registry. They get a ``Schema`` instance lazily via
@@ -92,7 +92,7 @@ class Schema:
         """Return (or create) the Schema for a dlt-managed source.
 
         Source schemas are lazily registered the first time they're
-        referenced. dlt owns the actual ``CREATE SCHEMA`` via its pipeline;
+        referenced. dlt owns the actual ``CREATE SCHEMA`` during sync;
         this just provides a consistent ``Schema`` object.
         """
         if source_name in cls._registry:
@@ -129,10 +129,10 @@ ENTITIES = Schema(
     description="Entity graph, types, relationships, statements",
     sequences=("entity_seq",),
 )
-METRICS = Schema("metrics", owner="datasets", description="Canonical derived metric tables")
+DATASETS = Schema("datasets", owner="datasets", description="Canonical derived metric tables")
 CACHE = Schema("cache", owner="core", description="Shared caches (LLM, geocode, reverse-geocode)")
 MESH = Schema("mesh", owner="mesh", description="Device identity, sync log, sync state")
 TELEMETRY = Schema("telemetry", owner="telemetry", description="OpenTelemetry spans and logs")
 CONFIG = Schema("config", owner="plugins", description="Per-plugin configuration singletons")
 AUTH = Schema("auth", owner="plugins", description="Per-source authentication credentials")
-SOURCES = Schema("sources", owner="dlt", description="Raw source data loaded by dlt pipelines")
+SOURCES = Schema("sources", owner="dlt", description="Raw source data loaded by dlt syncs")

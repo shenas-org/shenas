@@ -36,6 +36,21 @@ class SqlTransformer(Transformer):
             from app.database import cursor
 
             with cursor() as cur:
+                # Skip if the source table doesn't exist yet (e.g. first sync returned no data).
+                src = transform.source_ref
+                row = cur.execute(
+                    "SELECT 1 FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
+                    [src.schema, src.table],
+                ).fetchone()
+                if not row:
+                    self.log.debug(
+                        "Transform #%d skipped: source table %s.%s does not exist",
+                        transform.id,
+                        src.schema,
+                        src.table,
+                    )
+                    return 0
+
                 cur.execute(f"DELETE FROM {target} WHERE source = ?", [transform.source_plugin])
                 cur.execute(f"SELECT * FROM ({sql}) _t LIMIT 0")
                 cols = [d[0] for d in cur.description]

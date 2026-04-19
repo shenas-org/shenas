@@ -71,6 +71,7 @@ declare module "shenas-frontends" {
     type: string;
     text: string;
   }
+  export const badgeStyles: import("lit").CSSResult;
   export const buttonStyles: import("lit").CSSResult;
   export const linkStyles: import("lit").CSSResult;
   export const tabStyles: import("lit").CSSResult;

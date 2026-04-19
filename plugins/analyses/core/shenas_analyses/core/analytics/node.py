@@ -37,7 +37,7 @@ class RecipeNode:
     time_columns
         The time-axis columns the operations need: ``time_at`` for
         events / aggregates / metrics, ``time_start`` + ``time_end`` for
-        intervals. Lifted from ``Table.table_metadata()['time_columns']``
+        intervals. Lifted from ``Table.metadata()['time_columns']``
         on the source table at recipe-build time.
     table_ref
         Qualified ``"<schema>.<table>"`` name of the originating table.

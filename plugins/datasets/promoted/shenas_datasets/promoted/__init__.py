@@ -44,7 +44,9 @@ class PromotedMetric(Table):
         pk = ("name", "metric_schema")
 
     name: Annotated[str, Field(db_type="VARCHAR", description="snake_case metric name")] = ""
-    metric_schema: Annotated[str, Field(db_type="VARCHAR", description="DuckDB schema for the materialized table")] = "metrics"
+    metric_schema: Annotated[str, Field(db_type="VARCHAR", description="DuckDB schema for the materialized table")] = (
+        "datasets"
+    )
     recipe_json: Annotated[str, Field(db_type="TEXT", description="Recipe DAG, frozen at promotion time")] = ""
     inputs: Annotated[str, Field(db_type="VARCHAR", description="Comma-separated input table names", db_default="''")] = ""
     columns_json: Annotated[

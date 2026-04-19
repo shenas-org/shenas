@@ -1,7 +1,7 @@
 """Dataset-side metric-table base class + grain-specific subclasses.
 
 ``MetricTable`` extends the common :class:`shenas_plugins.core.table.Table`
-for canonical metric tables in the ``metrics.*`` schema. Concrete metric
+for canonical metric tables in the ``datasets.*`` schema. Concrete metric
 tables should inherit from one of the **grain-specific subclasses** below
 rather than from ``MetricTable`` directly, so the catalog can advertise
 their natural query axis to LLM consumers:
@@ -23,12 +23,12 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from app.schema import METRICS
+from app.schema import DATASETS
 from app.table import DataTable
 
 
 class MetricTable(DataTable):
-    """Base class for canonical metric tables (the ``metrics.*`` schema).
+    """Base class for canonical metric tables (the ``datasets.*`` schema).
 
     A metric table is a downstream projection: nothing extracts it from an
     external API, and it has no SCD2 / cursor / write-disposition concerns.
@@ -40,7 +40,7 @@ class MetricTable(DataTable):
     _abstract: ClassVar[bool] = True
 
     class _Meta:
-        schema = METRICS
+        schema = DATASETS
 
 
 class DailyMetricTable(MetricTable):

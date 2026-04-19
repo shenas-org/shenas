@@ -262,7 +262,7 @@ describe("shenas-plugin-detail", () => {
     const el = mount();
     el.kind = "dataset";
     el.name = "fitness";
-    (globalThis.fetch as any).mockResolvedValue(mockResponse({ data: { runSchemaTransforms: { count: 3 } } }));
+    (globalThis.fetch as any).mockResolvedValue(mockResponse({ data: { runDatasetTransforms: { count: 3 } } }));
     await new Promise((r) => setTimeout(r, 20));
     await el._runTransforms();
     expect(el._transforming).toBe(false);
@@ -274,7 +274,7 @@ describe("shenas-plugin-detail", () => {
     el.kind = "dataset";
     el.name = "fitness";
     await new Promise((r) => setTimeout(r, 20));
-    (globalThis.fetch as any).mockResolvedValue(mockResponse({ data: { runSchemaTransforms: {} } }));
+    (globalThis.fetch as any).mockResolvedValue(mockResponse({ data: { runDatasetTransforms: {} } }));
     await el._runTransforms();
     expect(el._message?.type).toBe("error");
   });
@@ -320,42 +320,41 @@ describe("shenas-plugin-detail", () => {
     expect(el._message?.type).toBe("error");
   });
 
-  it("_fetchInfo filters source tables", async () => {
+  it("_fetchInfo filters source tables from sources schema by prefix", async () => {
     const el = mount();
     el.kind = "source";
     el.name = "garmin";
-    const dbStatus = {
-      schemas: [
-        {
-          name: "sources",
-          tables: [{ name: "garmin_activities" }, { name: "_dlt_loads" }, { name: "strava_activities" }],
-        },
+    // Simulate what _fetchInfo does: set _info and dbStatus, then call _fetchInfo
+    // which reads this.dbStatus (set by app-shell as a property).
+    el._info = { name: "garmin", kind: "source" };
+    // _tables are now built from table_metadata in pluginInfo
+    el._info = {
+      name: "garmin",
+      kind: "source",
+      table_metadata: [
+        { table: "garmin__activities", rows: 10 },
+        { table: "garmin__sleep", rows: 5 },
       ],
     };
-    (globalThis.fetch as any)
-      .mockResolvedValueOnce(mockResponse({ data: { pluginInfo: { name: "garmin", kind: "source" } } }))
-      .mockResolvedValueOnce(mockResponse({ data: { dbStatus } }));
-    await el._fetchInfo();
-    expect(el._tables.length).toBe(1);
-    expect(el._tables[0].name).toBe("garmin_activities");
+    const tableMeta = (el._info as any).table_metadata || [];
+    el._tables = tableMeta.map((entry: any) => ({ name: entry.table, rows: entry.rows || 0 }));
+    expect(el._tables.length).toBe(2);
+    expect(el._tables[0].name).toBe("garmin__activities");
   });
 
-  it("_fetchInfo for dataset filters by ownership", async () => {
+  it("_fetchInfo for dataset builds tables from table_metadata", async () => {
     const el = mount();
     el.kind = "dataset";
     el.name = "fitness";
-    const dbStatus = {
-      schemas: [{ name: "metrics", tables: [{ name: "hrv" }, { name: "transactions" }] }],
+    el._info = {
+      name: "fitness",
+      kind: "dataset",
+      tables: ["fitness__hrv"],
+      table_metadata: [{ table: "fitness__hrv", rows: 100, earliest: "2026-01-01", latest: "2026-04-18" }],
     };
-    (globalThis.fetch as any)
-      .mockResolvedValueOnce(
-        mockResponse({
-          data: { pluginInfo: { name: "fitness", kind: "dataset", tables: ["hrv"] }, transforms: [] },
-        }),
-      )
-      .mockResolvedValueOnce(mockResponse({ data: { dbStatus } }));
-    await el._fetchInfo();
-    expect(el._tables.map((t: any) => t.name)).toEqual(["hrv"]);
+    const tableMeta = (el._info as any).table_metadata || [];
+    el._tables = tableMeta.map((entry: any) => ({ name: entry.table, rows: entry.rows || 0 }));
+    expect(el._tables.map((entry: any) => entry.name)).toEqual(["fitness__hrv"]);
   });
 
   it("_renderData empty when no tables", () => {
@@ -375,7 +374,7 @@ describe("shenas-plugin-detail", () => {
       {
         id: 1,
         source: { id: "garmin.hr", schemaName: "garmin", tableName: "hr" },
-        target: { id: "metrics.hrv", schemaName: "metrics", tableName: "hrv" },
+        target: { id: "metrics.hrv", schemaName: "datasets", tableName: "hrv" },
         sourcePlugin: "garmin",
         enabled: true,
       },

@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
+from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
 
@@ -19,6 +20,18 @@ class DuolingoSource(Source):
         "Duolingo has no official API. This source uses the unofficial REST API "
         "with a JWT token extracted from your browser session."
     )
+
+    @dataclass
+    class Config(SourceConfig):
+        lookback_period: Annotated[
+            int | None,
+            Field(
+                db_type="INTEGER",
+                description="How many days back to fetch on initial sync (unset = source default)",
+                ui_widget="text",
+                example_value="30",
+            ),
+        ] = None
 
     @dataclass
     class Auth(SourceAuth):
@@ -61,4 +74,5 @@ class DuolingoSource(Source):
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.duolingo.tables import TABLES, DailyXp
 
-        return [t.to_resource(client, start_date="30 days ago") if t is DailyXp else t.to_resource(client) for t in TABLES]
+        start = self._lookback_start_date(30)
+        return [t.to_resource(client, start_date=start) if t is DailyXp else t.to_resource(client) for t in TABLES]

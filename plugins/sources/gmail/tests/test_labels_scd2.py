@@ -14,6 +14,7 @@ import dlt
 import duckdb
 import pytest
 
+import shenas_sources.gmail.source  # noqa: F401 -- triggers __init_subclass__
 from shenas_sources.gmail.tables import Labels
 
 
@@ -27,7 +28,7 @@ def pipeline(tmp_path):
     return dlt.pipeline(
         pipeline_name="gmail_labels_scd2",
         destination=dlt.destinations.duckdb(str(db_path)),
-        dataset_name="gmail",
+        dataset_name="sources",
     )
 
 
@@ -43,7 +44,9 @@ class TestLabelsScd2:
         pipeline.run(Labels.to_resource(client))
 
         con = _open_db(pipeline)
-        rows = con.execute("SELECT id, label_name, _dlt_valid_to FROM gmail.labels ORDER BY _dlt_valid_from").fetchall()
+        rows = con.execute(
+            "SELECT id, label_name, _dlt_valid_to FROM sources.gmail__labels ORDER BY _dlt_valid_from"
+        ).fetchall()
         con.close()
         assert len(rows) == 1
         assert rows[0][1] == "Work"
@@ -53,7 +56,9 @@ class TestLabelsScd2:
         pipeline.run(Labels.to_resource(client))
 
         con = _open_db(pipeline)
-        rows = con.execute("SELECT id, label_name, _dlt_valid_to FROM gmail.labels ORDER BY _dlt_valid_from").fetchall()
+        rows = con.execute(
+            "SELECT id, label_name, _dlt_valid_to FROM sources.gmail__labels ORDER BY _dlt_valid_from"
+        ).fetchall()
         con.close()
 
         assert len(rows) == 2

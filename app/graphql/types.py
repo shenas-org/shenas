@@ -12,15 +12,12 @@ from app.models import (
     AuthFieldsResponse,
     AuthResponse,
     ConfigEntry,
-    DBStatusResponse,
     InstallResponse,
     InstallResult,
     OkResponse,
     PluginInfo,
     RemoveResponse,
     ScheduleInfo,
-    SchemaInfo,
-    TableStats,
 )
 
 # -- Wrapped Pydantic types --------------------------------------------------
@@ -48,21 +45,6 @@ class AuthResponseType:
 
 @strawberry.experimental.pydantic.type(model=ConfigEntry, all_fields=True)
 class ConfigEntryType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=TableStats, all_fields=True)
-class TableStatsType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=SchemaInfo, all_fields=True)
-class SchemaInfoType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=DBStatusResponse, all_fields=True)
-class DBStatusType:
     pass
 
 
@@ -120,6 +102,18 @@ class TransformType:
     added_at: str | None
     updated_at: str | None
     status_changed_at: str | None
+
+    @strawberry.field
+    def transform_type_display_name(self) -> str:
+        from app.plugin import Plugin
+
+        try:
+            for cls in Plugin.load_by_kind("transformer"):
+                if getattr(cls, "name", "") == self.transform_type:
+                    return getattr(cls, "display_name", self.transform_type)
+        except Exception:
+            pass
+        return self.transform_type
 
     @strawberry.field
     def sql(self) -> str:
@@ -352,10 +346,11 @@ class TimeColumnsInfoType:
 
 
 @strawberry.type
-class TableInfoType:
-    kind: str | None = None
-    time_columns: TimeColumnsInfoType | None = None
-    query_hint: str | None = None
+class PlotHintType:
+    y: str
+    group_by: str | None = None
+    chart_type: str = "line"
+    label: str | None = None
 
 
 @strawberry.type
@@ -435,6 +430,9 @@ class EntityRelationshipTypeType:
     description: str = ""
     inverse_name: str | None = None
     is_symmetric: bool = False
+    domain_types: list[str] = strawberry.field(default_factory=list)
+    range_types: list[str] = strawberry.field(default_factory=list)
+    wikidata_pid: str | None = None
 
 
 @strawberry.type
@@ -581,7 +579,6 @@ __all__ = [
     "AuthResponseType",
     "ColumnInfoType",
     "ConfigEntryType",
-    "DBStatusType",
     "DataResourceAnnotationInput",
     "DataResourceRefType",
     "DataResourceType",
@@ -595,16 +592,15 @@ __all__ = [
     "InstallResponseType",
     "InstallResultType",
     "OkType",
+    "PlotHintType",
     "PluginInfoType",
     "PropertyCreateInput",
     "PropertyType",
     "RemoveResponseType",
     "ScheduleInfoType",
-    "SchemaInfoType",
     "StatementType",
     "StatementUpsertInput",
     "TableEntry",
-    "TableStatsType",
     "ThemeInfo",
     "TransformCreateInput",
     "TransformType",

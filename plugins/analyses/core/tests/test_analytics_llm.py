@@ -55,7 +55,7 @@ def test_system_prompt_lists_every_operation():
 
 def test_user_prompt_includes_question_and_catalog():
     catalog = {
-        "metrics.daily_intake": {"table": "daily_intake", "schema": "metrics", "kind": "daily_metric"},
+        "metrics.daily_intake": {"table": "daily_intake", "schema": "datasets", "kind": "daily_metric"},
     }
     prompt = build_user_prompt("does coffee affect mood?", catalog)
     assert "does coffee affect mood?" in prompt

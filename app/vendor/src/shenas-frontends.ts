@@ -37,6 +37,7 @@ export {
 export type { BarPosition, EventItem } from "./shenas-frontends/timeline-utils.ts";
 
 export {
+  badgeStyles,
   buttonStyles,
   formStyles,
   linkStyles,
@@ -55,3 +56,4 @@ import "./shenas-frontends/data-list.ts";
 import "./shenas-frontends/form-panel.ts";
 import "./shenas-frontends/field.ts";
 import "./shenas-frontends/dropdown.ts";
+import "./shenas-frontends/badge.ts";

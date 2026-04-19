@@ -1,6 +1,9 @@
 import { gqlTag as gql } from "shenas-frontends";
 
-// --- App Shell (consolidated) ---
+// --- App Shell (single init query) ---
+// Fetches everything the app shell needs in one round-trip: app config,
+// db status, plugin lists for all kinds.
+const PLUGIN_FIELDS = `name displayName enabled syncedAt hasAuth isAuthenticated tables totalRows`;
 export const GET_APP_DATA = gql`
   {
     pluginKinds
@@ -13,71 +16,26 @@ export const GET_APP_DATA = gql`
     }
     hotkeys
     workspace
-    dbStatus {
-      keySource
-      dbPath
-      sizeMb
-      schemas {
-        name
-        tables {
-          name
-          rows
-          cols
-          earliest
-          latest
-        }
-      }
-    }
-    theme {
+    themeData: theme {
       css
     }
     deviceName
+    source: plugins(kind: "source") { ${PLUGIN_FIELDS} }
+    dataset: plugins(kind: "dataset") { ${PLUGIN_FIELDS} }
+    dashboard: plugins(kind: "dashboard") { ${PLUGIN_FIELDS} }
+    frontend: plugins(kind: "frontend") { ${PLUGIN_FIELDS} }
+    theme: plugins(kind: "theme") { ${PLUGIN_FIELDS} }
+    model: plugins(kind: "model") { ${PLUGIN_FIELDS} }
+    transformer: plugins(kind: "transformer") { ${PLUGIN_FIELDS} }
+    analysis: plugins(kind: "analysis") { ${PLUGIN_FIELDS} }
   }
 `;
-
-// --- Dynamic query builders (depend on discovered pluginKinds) ---
-// These build a DocumentNode from a runtime string. Apollo's gql tag only
-// accepts DocumentNode fragments as interpolation values, so we call it with
-// a single-element TemplateStringsArray containing the already-assembled query.
-
-export const PLUGIN_FIELDS = `name displayName enabled syncedAt hasAuth isAuthenticated tables`;
 
 function dynamicGql(query: string) {
   return gql(Object.assign([query], { raw: [query] }) as unknown as TemplateStringsArray);
 }
 
-export function buildPluginStatsQuery(kinds: { id: string }[]) {
-  const kindQueries = kinds
-    .map(
-      ({ id }) =>
-        `p_${id}: plugins(kind: "${id}") { name displayName package version enabled description syncedAt hasAuth isAuthenticated tables }`,
-    )
-    .join("\n    ");
-  return dynamicGql(`{ ${kindQueries} dbStatus { schemas { name tables { name rows earliest latest } } } }`);
-}
-
 export { dynamicGql };
-
-// --- DB Status ---
-export const GET_DB_STATUS = gql`
-  {
-    dbStatus {
-      keySource
-      dbPath
-      sizeMb
-      schemas {
-        name
-        tables {
-          name
-          rows
-          cols
-          earliest
-          latest
-        }
-      }
-    }
-  }
-`;
 
 // --- Catalog ---
 export const GET_DATA_RESOURCES = gql`
@@ -228,6 +186,8 @@ export const GET_ENTITIES_DATA = gql`
       displayName
       inverseName
       isSymmetric
+      domainTypes
+      rangeTypes
     }
   }
 `;
@@ -286,11 +246,6 @@ export const GET_TRANSFORMS = gql`
       source
       targets
     }
-  }
-`;
-
-export const GET_TRANSFORM_TYPES = gql`
-  {
     transformTypes {
       name
       displayName
@@ -311,27 +266,6 @@ export const GET_TRANSFORM_TYPES = gql`
 export const GET_TABLE_COLUMNS = gql`
   query GetTableColumns($s: String!, $t: String!) {
     tableColumns(schema: $s, table: $t)
-  }
-`;
-
-export const GET_CREATE_TRANSFORM_DATA = gql`
-  {
-    dbTables
-    schemaTables
-    transformTypes {
-      name
-      displayName
-      description
-      paramSchema {
-        name
-        label
-        type
-        required
-        description
-        default
-        options
-      }
-    }
   }
 `;
 
@@ -390,8 +324,8 @@ export const GET_PLUGIN_CONFIG = gql`
 
 // --- Auth ---
 export const GET_AUTH_FIELDS = gql`
-  query GetAuthFields($pipe: String!) {
-    authFields(pipe: $pipe) {
+  query GetAuthFields($source: String!) {
+    authFields(source: $source) {
       fields {
         name
         prompt
@@ -419,6 +353,12 @@ export const GET_SOURCE_ENTITIES = gql`
       name
       description
       status
+    }
+    entityTypes {
+      name
+      displayName
+      isAbstract
+      parent
     }
   }
 `;

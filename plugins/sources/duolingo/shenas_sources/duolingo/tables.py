@@ -27,6 +27,7 @@ from shenas_sources.core.table import (
     SnapshotTable,
     SourceTable,
 )
+from shenas_sources.core.utils import resolve_start_date
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -81,7 +82,8 @@ class DailyXp(AggregateTable):
         cursor: Any = None,
         **_: Any,
     ) -> Iterator[dict[str, Any]]:
-        effective_start = str((cursor.last_value if cursor is not None else None) or start_date)[:10]
+        raw = str((cursor.last_value if cursor is not None else None) or start_date)
+        effective_start = resolve_start_date(raw)
         for summary in client.get_xp_summaries(effective_start):
             raw_date = summary.get("date")
             if raw_date is None:

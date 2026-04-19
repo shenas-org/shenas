@@ -15,6 +15,7 @@ import dlt
 import duckdb
 import pytest
 
+import shenas_sources.strava.source  # noqa: F401 -- triggers __init_subclass__
 from shenas_sources.strava.tables import Kudos
 
 
@@ -28,7 +29,7 @@ def pipeline(tmp_path):
     return dlt.pipeline(
         pipeline_name="strava_kudos_scd2",
         destination=dlt.destinations.duckdb(str(db_path)),
-        dataset_name="strava",
+        dataset_name="sources",
     )
 
 
@@ -47,7 +48,9 @@ class TestKudosScd2:
         pipeline.run(Kudos.to_resource(client, detailed=detailed))
 
         con = _open_db(pipeline)
-        rows = con.execute("SELECT activity_id, athlete_id, _dlt_valid_to FROM strava.kudos ORDER BY athlete_id").fetchall()
+        rows = con.execute(
+            "SELECT activity_id, athlete_id, _dlt_valid_to FROM sources.strava__kudos ORDER BY athlete_id"
+        ).fetchall()
         con.close()
         assert len(rows) == 2
         assert all(r[2] is None for r in rows), "both kudos should be open after sync 1"
@@ -57,7 +60,9 @@ class TestKudosScd2:
         pipeline.run(Kudos.to_resource(client, detailed=detailed))
 
         con = _open_db(pipeline)
-        rows = con.execute("SELECT activity_id, athlete_id, _dlt_valid_to FROM strava.kudos ORDER BY athlete_id").fetchall()
+        rows = con.execute(
+            "SELECT activity_id, athlete_id, _dlt_valid_to FROM sources.strava__kudos ORDER BY athlete_id"
+        ).fetchall()
         con.close()
 
         active = [r for r in rows if r[2] is None]

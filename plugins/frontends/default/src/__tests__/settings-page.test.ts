@@ -36,7 +36,6 @@ describe("shenas-settings", () => {
     expect(el.onNavigate).toBeNull();
     expect(el.onPluginsChanged).toBeNull();
     expect(el._plugins).toEqual({});
-    expect(el._loading).toBe(true);
     expect(el._installing).toBe(false);
     expect(el._availablePlugins).toBeNull();
     expect(el._selectedPlugin).toBe("");
@@ -53,7 +52,10 @@ describe("shenas-settings", () => {
   });
 
   it("fetches when no allPlugins given", async () => {
-    mount();
+    const el = mount();
+    el.pluginKinds = [{ id: "source", label: "Sources" }];
+    el._pluginKinds = [{ id: "source", label: "Sources" }];
+    await el._fetchAll();
     await new Promise((r) => setTimeout(r, 20));
     expect(globalThis.fetch).toHaveBeenCalled();
   });

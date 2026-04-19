@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
+from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
 SCOPES = "user.info,user.metrics,user.activity,user.sleepevents"
@@ -40,6 +41,18 @@ class WithingsSource(Source):
         "Syncs body measurements (weight, body fat, blood pressure, SpO2), "
         "sleep summaries, daily activity, and device info from Withings."
     )
+
+    @dataclass
+    class Config(SourceConfig):
+        lookback_period: Annotated[
+            int | None,
+            Field(
+                db_type="INTEGER",
+                description="How many days back to fetch on initial sync (unset = source default)",
+                ui_widget="text",
+                example_value="30",
+            ),
+        ] = None
 
     @dataclass
     class Auth(SourceAuth):
@@ -148,4 +161,5 @@ class WithingsSource(Source):
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.withings.tables import TABLES
 
-        return [t.to_resource(client, start_date="30 days ago") for t in TABLES]
+        start = self._lookback_start_date(30)
+        return [t.to_resource(client, start_date=start) for t in TABLES]

@@ -93,7 +93,7 @@ def promote_hypothesis(
     hypothesis: Hypothesis,
     *,
     name: str,
-    metric_schema: str = "metrics",
+    metric_schema: str = "datasets",
 ) -> PromotionResult:
     """Insert a row into ``analysis.promoted_metrics``.
 

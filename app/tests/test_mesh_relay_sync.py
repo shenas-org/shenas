@@ -74,8 +74,8 @@ class TestApplyRemoteEvents:
         sync_log.ensure_sync_tables()
         local_id = sync_log._get_device_id()
         events = [
-            {"device_id": local_id, "table_schema": "metrics", "table_name": "t", "operation": "INSERT"},
-            {"device_id": "other", "table_schema": "metrics", "table_name": "t", "operation": "INSERT", "row_key": "r1"},
+            {"device_id": local_id, "table_schema": "datasets", "table_name": "t", "operation": "INSERT"},
+            {"device_id": "other", "table_schema": "datasets", "table_name": "t", "operation": "INSERT", "row_key": "r1"},
         ]
         count = relay_sync.apply_remote_events(json.dumps(events))
         assert count == 1
@@ -87,7 +87,7 @@ class TestApplyRemoteEvents:
         events = [
             {
                 "device_id": "peer-1",
-                "table_schema": "metrics",
+                "table_schema": "datasets",
                 "table_name": "tbl",
                 "operation": "INSERT",
                 "row_key": "r1",
@@ -110,7 +110,7 @@ class TestSyncWithPeers:
         from app.mesh import sync_log
 
         sync_log.ensure_sync_tables()
-        sync_log.append_event("metrics", "tbl", "INSERT", row_key="r1")
+        sync_log.append_event("datasets", "tbl", "INSERT", row_key="r1")
 
         peers_resp = MagicMock(status_code=200, json=lambda: [{"id": "self"}, {"id": "peer-1"}])
         empty_pull = MagicMock(status_code=200, json=list)

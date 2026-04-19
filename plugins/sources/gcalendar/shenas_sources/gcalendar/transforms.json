@@ -1,10 +1,10 @@
 [
   {
     "source_duckdb_schema": "sources",
-    "source_duckdb_table": "gcalendar_events",
-    "target_duckdb_schema": "metrics",
-    "target_duckdb_table": "events",
+    "source_duckdb_table": "gcalendar__events",
+    "target_duckdb_schema": "datasets",
+    "target_duckdb_table": "events__events",
     "description": "Map Google Calendar events to unified events timeline",
-    "sql": "SELECT 'gcalendar' as source, id as source_id, start_date::TIMESTAMP as start_at, end_date::TIMESTAMP as end_at, CASE WHEN start_date IS NOT NULL AND end_date IS NOT NULL THEN EXTRACT(EPOCH FROM (end_date::TIMESTAMP - start_date::TIMESTAMP)) / 60.0 ELSE NULL END as duration_min, summary as title, description, location, CASE WHEN all_day THEN 'all-day' ELSE 'calendar' END as category, all_day, json_object('calendar_id', calendar_id, 'status', status, 'attendees', attendees_count, 'organizer', organizer_email) as metadata FROM sources.gcalendar_events WHERE start_date IS NOT NULL"
+    "sql": "SELECT 'gcalendar' as source, id as source_id, start_date::TIMESTAMP as start_at, end_date::TIMESTAMP as end_at, CASE WHEN start_date IS NOT NULL AND end_date IS NOT NULL THEN EXTRACT(EPOCH FROM (end_date::TIMESTAMP - start_date::TIMESTAMP)) / 60.0 ELSE NULL END as duration_min, summary as title, description, location, CASE WHEN all_day THEN 'all-day' ELSE 'calendar' END as category, all_day, json_object('calendar_id', calendar_id, 'status', status, 'attendees', attendees_count, 'organizer', organizer_email) as event_metadata FROM sources.gcalendar__events WHERE start_date IS NOT NULL"
   }
 ]

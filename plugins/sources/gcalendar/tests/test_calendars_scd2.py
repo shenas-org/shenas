@@ -14,6 +14,7 @@ import dlt
 import duckdb
 import pytest
 
+import shenas_sources.gcalendar.source  # noqa: F401 -- triggers __init_subclass__ to prefix table names
 from shenas_sources.gcalendar.tables import Calendars
 
 
@@ -33,7 +34,7 @@ def pipeline(tmp_path):
     return dlt.pipeline(
         pipeline_name="gcal_calendars_scd2",
         destination=dlt.destinations.duckdb(str(db_path)),
-        dataset_name="gcalendar",
+        dataset_name="sources",
     )
 
 
@@ -49,7 +50,9 @@ class TestCalendarsScd2:
         pipeline.run(Calendars.to_resource(client))
 
         con = _open_db(pipeline)
-        rows = con.execute("SELECT id, summary, _dlt_valid_to FROM gcalendar.calendars ORDER BY _dlt_valid_from").fetchall()
+        rows = con.execute(
+            "SELECT id, summary, _dlt_valid_to FROM sources.gcalendar__calendars ORDER BY _dlt_valid_from"
+        ).fetchall()
         con.close()
         assert len(rows) == 1
         assert rows[0][1] == "Work"
@@ -59,7 +62,9 @@ class TestCalendarsScd2:
         pipeline.run(Calendars.to_resource(client))
 
         con = _open_db(pipeline)
-        rows = con.execute("SELECT id, summary, _dlt_valid_to FROM gcalendar.calendars ORDER BY _dlt_valid_from").fetchall()
+        rows = con.execute(
+            "SELECT id, summary, _dlt_valid_to FROM sources.gcalendar__calendars ORDER BY _dlt_valid_from"
+        ).fetchall()
         con.close()
 
         assert len(rows) == 2

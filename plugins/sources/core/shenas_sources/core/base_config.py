@@ -1,6 +1,6 @@
 """Base config dataclass for all sources.
 
-Provides the common fields (``id``, ``sync_frequency``, ``lookback_period``)
+Provides the common fields (``id``, ``sync_frequency``)
 and the ``table_pk`` class var so individual sources only need to declare
 their custom fields and a ``table_name`` (set dynamically by
 ``Source.__init_subclass__``).
@@ -46,18 +46,6 @@ class SourceConfig(SingletonTable):
                 description="Sync frequency in minutes (unset = no scheduled sync)",
                 ui_widget="text",
                 example_value="60",
-            ),
-        ]
-        | None
-    ) = None
-    lookback_period: (
-        Annotated[
-            int,
-            Field(
-                db_type="INTEGER",
-                description="How far back to look on initial or full-refresh sync, in minutes (unset = source default)",
-                ui_widget="text",
-                example_value="43200",
             ),
         ]
         | None

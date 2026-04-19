@@ -123,28 +123,8 @@ class LogsPage extends LitElement {
         min-width: 140px;
       }
       .severity {
-        font-size: 0.7rem;
-        font-weight: 600;
-        padding: 1px 4px;
-        border-radius: 3px;
         min-width: 40px;
         text-align: center;
-      }
-      .severity.INFO {
-        color: var(--shenas-primary, #0066cc);
-        background: var(--shenas-bg-selected, #f0f4ff);
-      }
-      .severity.WARNING {
-        color: #f57c00;
-        background: #fff3e0;
-      }
-      .severity.ERROR {
-        color: var(--shenas-error, #c62828);
-        background: var(--shenas-error-bg, #fce4ec);
-      }
-      .severity.DEBUG {
-        color: var(--shenas-text-muted, #888);
-        background: var(--shenas-bg-secondary, #fafafa);
       }
       .body {
         color: var(--shenas-text, #222);
@@ -437,7 +417,9 @@ class LogsPage extends LitElement {
       <div class="row" @click=${() => this._toggleExpand(idx)}>
         <div class="row-header">
           <span class="timestamp">${this._formatTime(log.timestamp)}</span>
-          <span class="severity ${log.severity || ""}">${log.severity || "-"}</span>
+          <shenas-badge variant=${(log.severity || "debug").toLowerCase()} class="severity"
+            >${log.severity || "-"}</shenas-badge
+          >
           <span class="body">${log.body || ""}</span>
         </div>
         ${expanded

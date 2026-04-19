@@ -40,6 +40,46 @@ export const buttonStyles = css`
   button.danger:hover {
     background: var(--shenas-danger-bg, #fef0f0);
   }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  button:disabled:hover {
+    background: var(--shenas-bg, #fff);
+  }
+`;
+
+export const badgeStyles = css`
+  .badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: var(--shenas-border-light, #f0f0f0);
+    color: var(--shenas-text-muted, #888);
+    vertical-align: middle;
+  }
+  .badge-success {
+    background: var(--shenas-accent-soft, #e8efe4);
+    color: var(--shenas-primary, #728f67);
+  }
+  .badge-warning {
+    background: #fff3e0;
+    color: #f57c00;
+  }
+  .badge-error {
+    background: var(--shenas-danger-bg, #fce4ec);
+    color: var(--shenas-error, #c62828);
+  }
+  .badge-info {
+    background: var(--shenas-bg-selected, #f0f4ff);
+    color: var(--shenas-primary, #0066cc);
+  }
+  .badge-debug {
+    background: var(--shenas-bg-secondary, #fafafa);
+    color: var(--shenas-text-muted, #888);
+  }
 `;
 
 export const tabStyles = css`

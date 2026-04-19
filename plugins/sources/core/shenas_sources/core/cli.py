@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, Any
 
 import typer
@@ -7,6 +8,10 @@ from opentelemetry import trace
 from rich.console import Console
 
 from app.plugin import Plugin
+
+# Use direct naming so dlt preserves double-underscore separators in table
+# names (e.g. "garmin__activities" instead of normalizing to "garmin_activities").
+os.environ.setdefault("SCHEMA__NAMING", "direct")
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -37,18 +42,20 @@ def print_load_info(load_info: Any) -> None:
 
 
 def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally inline
-    pipeline_name: str,
+    source_name: str,
     dataset_name: str,
     resources: list[Any],
     full_refresh: bool = False,
     transform_fn: Callable[[], None] | None = None,
     on_progress: Callable[[str, str], None] | None = None,
+    display_name: str = "",
+    resource_display_names: dict[str, str] | None = None,
 ) -> None:
-    """Create a dlt pipeline, run it to memory, flush to encrypted DB, then transform.
+    """Run a source sync: fetch via dlt to memory, flush to encrypted DB, then transform.
 
     This handles the full sync lifecycle:
     1. Create an in-memory dlt DuckDB destination (data never on disk unencrypted)
-    2. Run the pipeline with the given resources
+    2. Run each resource through dlt
     3. Flush in-memory data to the encrypted database
     4. Optionally run a transform function
 
@@ -56,17 +63,20 @@ def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally 
     so callers like `Source.run_sync_stream` can surface fine-grained progress to
     the frontend job panel without parsing logs. Events: `fetch_start`,
     `fetch_done`, `flush`, `transform_start`.
+
+    `display_name` is the human-readable source name for logs (e.g. "Duolingo").
+    `resource_display_names` maps resource names to their display names.
     """
+    label = display_name or source_name
+    rdn = resource_display_names or {}
 
     def _emit(evt: str, msg: str) -> None:
         if on_progress is not None:
             on_progress(evt, msg)
 
-    logger.info("Sync started: %s (dataset=%s, full_refresh=%s)", pipeline_name, dataset_name, full_refresh)
-    _emit("sync_started", f"Sync started: {pipeline_name}")
-    with tracer.start_as_current_span(
-        "source.sync", attributes={"source.name": pipeline_name, "source.dataset": dataset_name}
-    ):
+    logger.info("Sync started: %s", label)
+    _emit("sync_started", f"Sync started: {label}")
+    with tracer.start_as_current_span("source.sync", attributes={"source.name": source_name, "source.dataset": dataset_name}):
         import threading
 
         import dlt
@@ -80,13 +90,14 @@ def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally 
 
         for i, resource in enumerate(resources):
             resource_name = getattr(resource, "name", None) or f"resource_{i}"
+            resource_label = rdn.get(resource_name, resource_name)
             with tracer.start_as_current_span("source.fetch", attributes={"resource": resource_name}):
-                logger.info("Fetching %s (%d/%d): %s", pipeline_name, i + 1, total, resource_name)
-                _emit("fetch_start", f"Fetching ({i + 1}/{total}): {resource_name}")
+                logger.info("Fetching %s (%d/%d): %s", label, i + 1, total, resource_label)
+                _emit("fetch_start", f"Fetching ({i + 1}/{total}): {resource_label}")
                 dest, mem_con = dlt_destination()
 
                 pipeline = dlt.pipeline(
-                    pipeline_name=pipeline_name,
+                    pipeline_name=source_name,
                     destination=dest,
                     dataset_name=dataset_name,
                 )
@@ -113,22 +124,22 @@ def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally 
                     t.join(timeout=10)
                     if t.is_alive():
                         elapsed += 10
-                        msg = f"Still fetching {resource_name}... ({elapsed}s elapsed)"
-                        logger.info("Still fetching %s/%s... (%ds elapsed)", pipeline_name, resource_name, elapsed)
+                        msg = f"Still fetching {resource_label}... ({elapsed}s elapsed)"
+                        logger.info("Still fetching %s/%s... (%ds elapsed)", label, resource_label, elapsed)
                         _emit("fetch_progress", msg)
 
                 if load_error:
-                    logger.error("Fetch failed for %s/%s: %s", pipeline_name, resource_name, load_error[0])
+                    logger.error("Fetch failed for %s/%s: %s", label, resource_label, load_error[0])
                     raise load_error[0]
                 if not load_result:
-                    logger.error("Fetch returned no result for %s/%s", pipeline_name, resource_name)
-                    raise RuntimeError(f"pipeline.run() returned no result for {resource_name}")
+                    logger.error("Fetch returned no result for %s/%s", label, resource_label)
+                    raise RuntimeError(f"dlt sync returned no result for {resource_label}")
 
                 print_load_info(load_result[0])
-                logger.info("Fetch complete: %s/%s", pipeline_name, resource_name)
+                logger.info("Fetch complete: %s/%s", label, resource_label)
 
             with tracer.start_as_current_span("source.flush", attributes={"resource": resource_name}):
-                logger.info("Flushing %s/%s to encrypted database", pipeline_name, resource_name)
+                logger.info("Flushing %s/%s to encrypted database", label, resource_label)
                 flush_to_encrypted(mem_con, dataset_name)
 
             # Only apply refresh on the first resource
@@ -136,8 +147,8 @@ def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally 
 
         if transform_fn:
             with tracer.start_as_current_span("source.transform"):
-                logger.info("Running transforms: %s", pipeline_name)
+                logger.info("Running transforms: %s", label)
                 _emit("transform_start", "Running transforms")
                 transform_fn()
 
-        logger.info("Sync complete: %s", pipeline_name)
+        logger.info("Sync complete: %s", label)

@@ -10,6 +10,7 @@ from shenas_sources.core.source import Source
 
 class _FakeSource(Source):
     name = "fake"
+    display_name = "fake"
 
     def __init__(self, sync_impl: Any) -> None:
         # Skip the real Source.__init__ which initializes auth/config stores --

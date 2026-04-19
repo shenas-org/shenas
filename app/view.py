@@ -16,7 +16,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, ClassVar
 
-from app.relation import Field, Relation
+from app.relation import DataRelation, Field, Relation
 
 
 class View(Relation):
@@ -145,3 +145,14 @@ class View(Relation):
         )
         view_cls._abstract = False  # ty: ignore[unresolved-attribute]
         return view_cls  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+
+
+class DataView(View, DataRelation):
+    """A View with metadata for UI exposure.
+
+    Combines View (CREATE OR REPLACE VIEW, read-only) with DataRelation
+    (metadata(), kind()). Use for derived views like TileInfo that should
+    appear in the Data tab and support entity projection.
+    """
+
+    _abstract: ClassVar[bool] = True

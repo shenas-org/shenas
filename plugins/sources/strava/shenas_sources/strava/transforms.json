@@ -1,18 +1,18 @@
 [
   {
     "source_duckdb_schema": "sources",
-    "source_duckdb_table": "strava_activities",
-    "target_duckdb_schema": "metrics",
-    "target_duckdb_table": "daily_vitals",
+    "source_duckdb_table": "strava__activities",
+    "target_duckdb_schema": "datasets",
+    "target_duckdb_table": "fitness__daily_vitals",
     "description": "Aggregate Strava activity calories into daily active_kcal",
-    "sql": "SELECT CAST(start_date AS DATE) as date, 'strava' as source, SUM(calories)::INTEGER as active_kcal FROM sources.strava_activities WHERE start_date IS NOT NULL AND calories IS NOT NULL GROUP BY 1"
+    "sql": "SELECT CAST(start_date AS DATE) as date, 'strava' as source, SUM(calories)::INTEGER as active_kcal FROM sources.strava__activities WHERE start_date IS NOT NULL AND calories IS NOT NULL GROUP BY 1"
   },
   {
     "source_duckdb_schema": "sources",
-    "source_duckdb_table": "strava_activities",
-    "target_duckdb_schema": "metrics",
-    "target_duckdb_table": "events",
+    "source_duckdb_table": "strava__activities",
+    "target_duckdb_schema": "datasets",
+    "target_duckdb_table": "events__events",
     "description": "Map Strava activities to unified events timeline",
-    "sql": "SELECT 'strava' as source, id::VARCHAR as source_id, start_date::TIMESTAMP as start_at, end_date::TIMESTAMP as end_at, moving_time_s / 60.0 as duration_min, COALESCE(name_, sport_type) as title, activity_description as event_description, NULL as location, sport_type as category, false as all_day, json_object('distance_m', distance_m, 'elevation_gain_m', elevation_gain_m, 'avg_hr', average_heartrate, 'max_hr', max_heartrate, 'calories', calories, 'suffer_score', suffer_score, 'avg_watts', average_watts, 'kudos', kudos_count, 'gear_id', gear_id, 'commute', commute, 'trainer', trainer) as metadata FROM sources.strava_activities WHERE start_date IS NOT NULL"
+    "sql": "SELECT 'strava' as source, id::VARCHAR as source_id, start_date::TIMESTAMP as start_at, end_date::TIMESTAMP as end_at, moving_time_s / 60.0 as duration_min, COALESCE(name_, sport_type) as title, activity_description as event_description, NULL as location, sport_type as category, false as all_day, json_object('distance_m', distance_m, 'elevation_gain_m', elevation_gain_m, 'avg_hr', average_heartrate, 'max_hr', max_heartrate, 'calories', calories, 'suffer_score', suffer_score, 'avg_watts', average_watts, 'kudos', kudos_count, 'gear_id', gear_id, 'commute', commute, 'trainer', trainer) as event_metadata FROM sources.strava__activities WHERE start_date IS NOT NULL"
   }
 ]

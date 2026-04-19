@@ -1,10 +1,10 @@
 [
   {
     "source_duckdb_schema": "sources",
-    "source_duckdb_table": "obsidian_daily_notes",
-    "target_duckdb_schema": "metrics",
-    "target_duckdb_table": "daily_outcomes",
+    "source_duckdb_table": "obsidian__daily_notes",
+    "target_duckdb_schema": "datasets",
+    "target_duckdb_table": "outcomes__daily_outcomes",
     "description": "Map Obsidian daily note frontmatter fields to daily outcomes metrics",
-    "sql": "SELECT date::DATE as date, 'obsidian' as source, mood, stress, COALESCE(productivity, productive) as productivity, CASE WHEN exercise__v_bool IS NOT NULL THEN CASE WHEN exercise__v_bool THEN 1 ELSE 0 END ELSE exercise END as exercise, friends, family, partner, learning, career, rosacea, left_ankle FROM sources.obsidian_daily_notes WHERE date IS NOT NULL"
+    "sql": "SELECT date::DATE as date, 'obsidian' as source, mood, stress, COALESCE(productivity, productive) as productivity, CASE WHEN exercise__v_bool IS NOT NULL THEN CASE WHEN exercise__v_bool THEN 1 ELSE 0 END ELSE exercise END as exercise, friends, family, partner, learning, career, rosacea, left_ankle FROM sources.obsidian__daily_notes WHERE date IS NOT NULL"
   }
 ]

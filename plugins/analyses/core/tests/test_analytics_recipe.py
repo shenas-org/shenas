@@ -53,13 +53,13 @@ def catalog():
     return {
         "metrics.daily_intake": {
             "table": "daily_intake",
-            "schema": "metrics",
+            "schema": "datasets",
             "kind": "daily_metric",
             "time_columns": {"time_at": "date"},
         },
         "metrics.daily_outcomes": {
             "table": "daily_outcomes",
-            "schema": "metrics",
+            "schema": "datasets",
             "kind": "daily_metric",
             "time_columns": {"time_at": "date"},
         },

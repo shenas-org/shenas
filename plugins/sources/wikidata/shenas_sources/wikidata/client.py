@@ -95,6 +95,33 @@ class WikidataClient:
                 )
         return results
 
+    def fetch_instances(self, class_qid: str, limit: int = 500) -> list[dict[str, str]]:
+        """Fetch the top ``limit`` instances of a Wikidata class.
+
+        Returns ``[{"qid": "Q183", "label": "Germany"}, ...]`` ordered by
+        number of Wikipedia sitelinks (a proxy for notability). Uses the
+        wikibase:sitelinks hint to filter to items with at least 20
+        sitelinks, which keeps the query fast even for large classes
+        like Q515 (city).
+        """
+        query = f"""
+        SELECT ?item ?itemLabel ?sl WHERE {{
+          ?item wdt:P31 wd:{class_qid};
+                wikibase:sitelinks ?sl.
+          FILTER(?sl >= 20)
+          SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
+        }}
+        ORDER BY DESC(?sl)
+        LIMIT {limit}
+        """
+        results: list[dict[str, str]] = []
+        for binding in self.sparql(query):
+            qid = _qid_from_uri(_val(binding.get("item")))
+            label = _val(binding.get("itemLabel")) or ""
+            if qid and label:
+                results.append({"qid": qid, "label": label})
+        return results
+
 
 def _val(binding: dict[str, Any] | None) -> str | None:
     if not binding:

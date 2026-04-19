@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
+from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
 
@@ -29,6 +30,18 @@ class GmailSource(Source):
             ]
             | None
         ) = None
+
+    @dataclass
+    class Config(SourceConfig):
+        lookback_period: Annotated[
+            int | None,
+            Field(
+                db_type="INTEGER",
+                description="How many days back to fetch (unset = all mail)",
+                ui_widget="text",
+                example_value="90",
+            ),
+        ] = None
 
     @property
     def auth_fields(self) -> list:  # No user input -- browser OAuth
@@ -79,7 +92,10 @@ class GmailSource(Source):
             page_num = 0
             total_msgs = 0
 
-            for page in message_pages(service):
+            query = self._gmail_lookback_query()
+            if query:
+                self.log.info("Gmail lookback query: %s", query)
+            for page in message_pages(service, query=query):
                 page_num += 1
 
                 with tracer.start_as_current_span("source.fetch", attributes={"resource": "messages", "page": page_num}):
@@ -110,6 +126,17 @@ class GmailSource(Source):
                 flush_to_encrypted(mem_con, "gmail")
 
             self.log.info("Sync complete: gmail (%d messages in %d pages)", total_msgs, page_num)
+
+    def _gmail_lookback_query(self) -> str:
+        """Build a Gmail search query from the lookback_period config."""
+        try:
+            row = self.Config.read_row()  # ty: ignore[unresolved-attribute]
+            val = getattr(row, "lookback_period", None) if row else None
+            if val is not None and int(val) > 0:
+                return f"newer_than:{int(val)}d"
+        except Exception:
+            pass
+        return ""
 
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.gmail.tables import TABLES

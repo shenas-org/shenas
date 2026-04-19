@@ -13,6 +13,7 @@ import dlt
 import duckdb
 import pytest
 
+import shenas_sources.duolingo.source  # noqa: F401 -- triggers __init_subclass__
 from shenas_sources.duolingo.tables import Friends
 
 
@@ -26,7 +27,7 @@ def pipeline(tmp_path):
     return dlt.pipeline(
         pipeline_name="duolingo_friends_scd2",
         destination=dlt.destinations.duckdb(str(db_path)),
-        dataset_name="duolingo",
+        dataset_name="sources",
     )
 
 
@@ -43,7 +44,7 @@ class TestFriendsScd2:
         pipeline.run(Friends.to_resource(client))
 
         con = _open_db(pipeline)
-        rows = con.execute("SELECT user_id, _dlt_valid_to FROM duolingo.friends ORDER BY user_id").fetchall()
+        rows = con.execute("SELECT user_id, _dlt_valid_to FROM sources.duolingo__friends ORDER BY user_id").fetchall()
         con.close()
         assert len(rows) == 2
         assert all(r[1] is None for r in rows)
@@ -52,7 +53,7 @@ class TestFriendsScd2:
         pipeline.run(Friends.to_resource(client))
 
         con = _open_db(pipeline)
-        rows = con.execute("SELECT user_id, _dlt_valid_to FROM duolingo.friends ORDER BY user_id").fetchall()
+        rows = con.execute("SELECT user_id, _dlt_valid_to FROM sources.duolingo__friends ORDER BY user_id").fetchall()
         con.close()
 
         active = [r for r in rows if r[1] is None]

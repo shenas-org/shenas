@@ -28,9 +28,9 @@ def test_con() -> Iterator[duckdb.DuckDBPyConnection]:
     con = duckdb.connect()
     con.execute("ATTACH ':memory:' AS db")
     con.execute("USE db")
-    con.execute("CREATE SCHEMA metrics")
-    con.execute("CREATE TABLE metrics.daily_hrv (date DATE, source VARCHAR, rmssd DOUBLE)")
-    con.execute("INSERT INTO metrics.daily_hrv VALUES ('2026-03-15', 'garmin', 42.0)")
+    con.execute("CREATE SCHEMA datasets")
+    con.execute("CREATE TABLE datasets.fitness__daily_hrv (date DATE, source VARCHAR, rmssd DOUBLE)")
+    con.execute("INSERT INTO datasets.fitness__daily_hrv VALUES ('2026-03-15', 'garmin', 42.0)")
     con.execute("CREATE SCHEMA garmin")
     con.execute("CREATE TABLE garmin.activities (id INTEGER, start_time_local DATE)")
     con.execute("INSERT INTO garmin.activities VALUES (1, '2026-03-15')")
@@ -88,7 +88,7 @@ def _gql(client: TestClient, query: str, variables: dict | None = None) -> dict:
 # Module-scope test fixture for catalog tests. Defined here (rather than
 # inside the test function) so `get_type_hints` can resolve `Annotated`
 # and `Field` from this module's namespace.
-from app.schema import METRICS  # noqa: E402
+from app.schema import DATASETS  # noqa: E402
 from app.table import Field  # noqa: E402
 from shenas_datasets.core import DailyMetricTable  # noqa: E402
 
@@ -98,7 +98,7 @@ class _CatalogMood(DailyMetricTable):
         name = "daily_mood_test"
         display_name = "Daily Mood (test)"
         description = "Test metric."
-        schema = METRICS
+        schema = DATASETS
         pk = ("date", "source")
 
     date: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
@@ -112,7 +112,7 @@ class TestGraphQLQueries:
         assert "errors" not in result
         tables = result["data"]["tables"]
         schemas = {(t["schema"], t["table"]) for t in tables}
-        assert ("metrics", "daily_hrv") in schemas
+        assert ("datasets", "fitness__daily_hrv") in schemas
         assert ("garmin", "activities") in schemas
 
     def test_tables_excludes_staging(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
@@ -163,27 +163,6 @@ class TestGraphQLQueries:
         )
         result = _gql(client, "{ workspace }")
         assert result["data"]["workspace"] == {"tabs": [1, 2]}
-
-    def test_db_status(self, client: TestClient) -> None:
-        with patch("app.api.db.db_status") as mock_status:
-            from app.models import DBStatusResponse
-
-            mock_status.return_value = DBStatusResponse(key_source="env", db_path="/tmp/test.duckdb", size_mb=1.0, schemas=[])
-            result = _gql(client, "{ dbStatus { keySource dbPath sizeMb } }")
-        assert "errors" not in result
-        assert result["data"]["dbStatus"]["keySource"] == "env"
-
-    def test_db_tables(self, client: TestClient) -> None:
-        with patch("app.api.db.db_tables", return_value={"metrics": ["daily_hrv"]}):
-            result = _gql(client, "{ dbTables }")
-        assert "errors" not in result
-        assert result["data"]["dbTables"] == {"metrics": ["daily_hrv"]}
-
-    def test_schema_tables(self, client: TestClient) -> None:
-        with patch("app.api.db.schema_plugin_tables", return_value={"metrics": ["daily_hrv"]}):
-            result = _gql(client, "{ schemaTables }")
-        assert "errors" not in result
-        assert result["data"]["schemaTables"] == {"metrics": ["daily_hrv"]}
 
     def test_transforms_empty(self, client: TestClient) -> None:
         result = _gql(client, "{ transforms { id transformType enabled } }")
@@ -368,7 +347,7 @@ class TestGraphQLQueries:
         catalog = result["data"]["catalog"]
         assert len(catalog) == 1
         entry = catalog[0]
-        assert entry["id"] == "metrics.daily_mood_test"
+        assert entry["id"] == "datasets.daily_mood_test"
         assert entry["kind"] == "daily_metric"
 
     def test_sync_schedule_with_data(self, client: TestClient) -> None:
@@ -500,10 +479,10 @@ class TestGraphQLMutations:
         assert not single["data"]["hypothesis"]["resultJson"]
 
     def test_run_recipe_attaches_result(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
-        test_con.execute("DROP TABLE IF EXISTS metrics.daily_intake")
-        test_con.execute("CREATE TABLE metrics.daily_intake (date DATE, source VARCHAR, caffeine_mg DOUBLE)")
+        test_con.execute("DROP TABLE IF EXISTS datasets.daily_intake")
+        test_con.execute("CREATE TABLE datasets.daily_intake (date DATE, source VARCHAR, caffeine_mg DOUBLE)")
         test_con.execute(
-            "INSERT INTO metrics.daily_intake VALUES "
+            "INSERT INTO datasets.daily_intake VALUES "
             "('2026-01-01', 'manual', 100), ('2026-01-02', 'manual', 200), ('2026-01-03', 'manual', 0)"
         )
 
@@ -514,9 +493,9 @@ class TestGraphQLMutations:
         # plugin loading cleanly under get_type_hints. The runner only
         # consults the catalog for kind / time-axis hints.
         fake_catalog = {
-            "metrics.daily_intake": {
+            "datasets.daily_intake": {
                 "table": "daily_intake",
-                "schema": "metrics",
+                "schema": "datasets",
                 "primary_key": ["date", "source"],
                 "kind": "daily_metric",
                 "columns": [
@@ -526,7 +505,7 @@ class TestGraphQLMutations:
                 ],
             }
         }
-        recipe_json = ('{"nodes": {"a": {"type": "source", "table": "metrics.daily_intake"}}, "final": "a"}').replace(
+        recipe_json = ('{"nodes": {"a": {"type": "source", "table": "datasets.daily_intake"}}, "final": "a"}').replace(
             '"', '\\"'
         )
         with patch("app.graphql.mutations._build_catalog", return_value=fake_catalog):
@@ -553,21 +532,21 @@ class TestGraphQLMutations:
     def test_ask_hypothesis_with_fake_provider(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         from shenas_analyses.core.analytics import FakeProvider
 
-        test_con.execute("DROP TABLE IF EXISTS metrics.daily_intake")
-        test_con.execute("CREATE TABLE metrics.daily_intake (date DATE, source VARCHAR, caffeine_mg DOUBLE)")
+        test_con.execute("DROP TABLE IF EXISTS datasets.daily_intake")
+        test_con.execute("CREATE TABLE datasets.daily_intake (date DATE, source VARCHAR, caffeine_mg DOUBLE)")
         test_con.execute(
-            "INSERT INTO metrics.daily_intake VALUES ('2026-01-01', 'manual', 100), ('2026-01-02', 'manual', 200)"
+            "INSERT INTO datasets.daily_intake VALUES ('2026-01-01', 'manual', 100), ('2026-01-02', 'manual', 200)"
         )
 
         canned = {
             "plan": "Read daily caffeine intake.",
-            "nodes": {"a": {"type": "source", "table": "metrics.daily_intake"}},
+            "nodes": {"a": {"type": "source", "table": "datasets.daily_intake"}},
             "final": "a",
         }
         fake_catalog = {
-            "metrics.daily_intake": {
+            "datasets.daily_intake": {
                 "table": "daily_intake",
-                "schema": "metrics",
+                "schema": "datasets",
                 "primary_key": ["date", "source"],
                 "kind": "daily_metric",
                 "columns": [
@@ -595,18 +574,18 @@ class TestGraphQLMutations:
     def test_ask_hypothesis_records_cost_and_latency(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         from shenas_analyses.core.analytics import FakeProvider
 
-        test_con.execute("DROP TABLE IF EXISTS metrics.daily_intake")
-        test_con.execute("CREATE TABLE metrics.daily_intake (date DATE, source VARCHAR, x DOUBLE)")
-        test_con.execute("INSERT INTO metrics.daily_intake VALUES ('2026-01-01', 'm', 1)")
+        test_con.execute("DROP TABLE IF EXISTS datasets.daily_intake")
+        test_con.execute("CREATE TABLE datasets.daily_intake (date DATE, source VARCHAR, x DOUBLE)")
+        test_con.execute("INSERT INTO datasets.daily_intake VALUES ('2026-01-01', 'm', 1)")
         canned = {
             "plan": "p",
-            "nodes": {"a": {"type": "source", "table": "metrics.daily_intake"}},
+            "nodes": {"a": {"type": "source", "table": "datasets.daily_intake"}},
             "final": "a",
         }
         catalog = {
-            "metrics.daily_intake": {
+            "datasets.daily_intake": {
                 "table": "daily_intake",
-                "schema": "metrics",
+                "schema": "datasets",
                 "primary_key": ["date", "source"],
                 "kind": "daily_metric",
                 "columns": [
@@ -637,7 +616,7 @@ class TestGraphQLMutations:
 
         from app.hypotheses import Hypothesis
 
-        recipe = Recipe(nodes={"a": SourceRef(table="metrics.daily_intake")}, final="a")
+        recipe = Recipe(nodes={"a": SourceRef(table="datasets.daily_intake")}, final="a")
         parent = Hypothesis.create("does coffee affect mood?", recipe, plan="initial plan")
 
         result = _gql(client, f"mutation {{ forkHypothesis(hypothesisId: {parent.id}) }}")
@@ -666,7 +645,7 @@ class TestGraphQLMutations:
         from shenas_datasets.promoted import PromotedMetric
 
         recipe = Recipe(
-            nodes={"a": SourceRef(table="metrics.daily_intake")},
+            nodes={"a": SourceRef(table="datasets.daily_intake")},
             final="a",
         )
         h = Hypothesis.create("q", recipe)
@@ -677,9 +656,9 @@ class TestGraphQLMutations:
         )
         assert "errors" not in result
         body = result["data"]["promoteHypothesis"]
-        assert body["promoted_to"] == "metrics.my_metric"
+        assert body["promoted_to"] == "datasets.my_metric"
         # Row landed in analysis.promoted_metrics
-        row = PromotedMetric.find("my_metric", "metrics")
+        row = PromotedMetric.find("my_metric", "datasets")
         assert row is not None
         assert row.hypothesis_id == h.id
 
@@ -729,7 +708,7 @@ class TestGraphQLMutations:
                     transformType: "sql",
                     sourceDuckdbSchema: "garmin",
                     sourceDuckdbTable: "activities",
-                    targetDuckdbSchema: "metrics",
+                    targetDuckdbSchema: "datasets",
                     targetDuckdbTable: "daily_activities",
                     sourcePlugin: "garmin",
                     params: "{\\"sql\\": \\"SELECT 1 AS id, 'garmin' AS source\\"}",
@@ -979,13 +958,13 @@ class TestGraphQLMutationsExtra:
         mock_set.assert_called_once_with("newkey")
 
     def test_flush_schema(self, client: TestClient) -> None:
-        with patch("app.api.db.flush_schema", return_value={"flushed": "metrics", "rows_deleted": 10}):
+        with patch("app.api.db.flush_schema", return_value={"flushed": "datasets", "rows_deleted": 10}):
             result = _gql(
                 client,
                 'mutation { flushSchema(schemaPlugin: "fitness") }',
             )
         assert "errors" not in result
-        assert result["data"]["flushSchema"]["flushed"] == "metrics"
+        assert result["data"]["flushSchema"]["flushed"] == "datasets"
 
     def test_install_plugins(self, client: TestClient) -> None:
         with patch("app.plugin.Plugin.install", return_value=(True, "installed")):
@@ -1055,9 +1034,9 @@ class TestGraphQLMutationsExtra:
         assert result["data"]["runSourceTransforms"]["name"] == "garmin"
         assert result["data"]["runSourceTransforms"]["count"] == 3
 
-    def test_run_schema_transforms(self, client: TestClient) -> None:
+    def test_run_dataset_transforms(self, client: TestClient) -> None:
         with patch("shenas_transformers.core.transform.Transform.run_for_target", return_value=2):
-            result = _gql(client, 'mutation { runSchemaTransforms(schema: "metrics") { name count } }')
+            result = _gql(client, 'mutation { runDatasetTransforms(dataset: "metrics") { name count } }')
         assert "errors" not in result
-        assert result["data"]["runSchemaTransforms"]["name"] == "metrics"
-        assert result["data"]["runSchemaTransforms"]["count"] == 2
+        assert result["data"]["runDatasetTransforms"]["name"] == "metrics"
+        assert result["data"]["runDatasetTransforms"]["count"] == 2

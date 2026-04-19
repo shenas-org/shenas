@@ -5,7 +5,7 @@ from shenas_datasets.habits.metrics import ALL_TABLES, DailyHabits
 
 class HabitsSchema(Dataset):
     name = "habits"
-    display_name = "Daily Habits"
+    display_name = "Habits"
     description = "Daily habit tracking: boolean per-habit columns"
     all_tables = ALL_TABLES
     primary_table = "daily_habits"

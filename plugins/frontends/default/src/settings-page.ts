@@ -78,6 +78,7 @@ class SettingsPage extends LitElement {
     _installing: { state: true },
     _availablePlugins: { state: true },
     _selectedPlugin: { state: true },
+    _pluginKinds: { state: true },
     _menuOpen: { state: true },
   };
 
@@ -99,6 +100,7 @@ class SettingsPage extends LitElement {
       .sidebar {
         min-width: 140px;
         flex-shrink: 0;
+        overflow-y: auto;
       }
       .sidebar ul {
         list-style: none;
@@ -340,28 +342,30 @@ class SettingsPage extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    this._pluginKinds = [...(this.pluginKinds || [])].sort((a, b) => a.label.localeCompare(b.label));
     if (this.allPlugins && Object.keys(this.allPlugins).length > 0) {
       this._plugins = this.allPlugins;
       this._loading = false;
     } else {
-      // pluginKindsQuery auto-fetches; once it resolves, _fetchAll picks up kinds
       this._fetchAll();
     }
   }
 
   async _fetchAll(_options?: { force?: boolean }): Promise<void> {
     this._loading = true;
-    // Use pluginKinds from the prop (passed by app-shell).
     this._pluginKinds = [...(this.pluginKinds || [])].sort((a, b) => a.label.localeCompare(b.label));
-    // Build a single dynamic GraphQL query for all discovered kinds.
-    const fields = `name displayName package version enabled description syncedAt hasAuth isAuthenticated`;
+    const fields = `name displayName package version enabled description syncedAt hasAuth isAuthenticated totalRows`;
     const kindQueries = this._pluginKinds
       .map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`)
       .join("\n      ");
+    if (!kindQueries) {
+      this._plugins = {};
+      this._schemaStats = {};
+      this._loading = false;
+      return;
+    }
     const { data } = await getClient().query({
-      query: gqlTag([
-        `{ ${kindQueries} dbStatus { schemas { name tables { name rows earliest latest } } } }`,
-      ] as unknown as TemplateStringsArray),
+      query: gqlTag([`{ ${kindQueries} }`] as unknown as TemplateStringsArray),
       fetchPolicy: "network-only",
     });
     const result: Record<string, PluginSummary[]> = {};
@@ -369,25 +373,14 @@ class SettingsPage extends LitElement {
       result[id] = (data?.[`p_${id}`] as PluginSummary[]) || [];
     }
     this._plugins = result;
-    // Build per-schema stats for the source data column
+    // Build per-plugin stats from totalRows field
     const schemaStats: Record<string, { totalRows: number; earliest: string; latest: string }> = {};
-    const schemas = (data?.dbStatus as Record<string, unknown>)?.schemas as
-      | Array<{
-          name: string;
-          tables: Array<{ rows: number; earliest: string; latest: string }>;
-        }>
-      | undefined;
-    if (schemas) {
-      for (const s of schemas) {
-        let totalRows = 0;
-        let earliest = "";
-        let latest = "";
-        for (const t of s.tables) {
-          totalRows += t.rows || 0;
-          if (t.earliest && (!earliest || t.earliest < earliest)) earliest = t.earliest;
-          if (t.latest && (!latest || t.latest > latest)) latest = t.latest;
+    for (const plugins of Object.values(result)) {
+      for (const plugin of plugins) {
+        const rows = (plugin as unknown as { totalRows?: number }).totalRows || 0;
+        if (rows > 0) {
+          schemaStats[plugin.name] = { totalRows: rows, earliest: "", latest: "" };
         }
-        schemaStats[s.name] = { totalRows, earliest, latest };
       }
     }
     this._schemaStats = schemaStats;

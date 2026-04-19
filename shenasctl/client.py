@@ -150,11 +150,14 @@ class ShenasClient:
 
     # --- DB ---
 
-    def db_status(self) -> dict[str, Any]:
+    def db_plugins(self) -> list[dict[str, Any]]:
         data = self._graphql(
-            "{ dbStatus { keySource dbPath sizeMb schemas { name tables { name rows cols earliest latest } } } }"
+            '{ sources: plugins(kind: "source") { name displayName tables totalRows }'
+            '  datasets: plugins(kind: "dataset") { name displayName tables totalRows } }'
         )
-        return data["dbStatus"]
+        return [{**plugin, "kind": "source"} for plugin in data.get("sources", [])] + [
+            {**plugin, "kind": "dataset"} for plugin in data.get("datasets", [])
+        ]
 
     def db_keygen(self) -> dict[str, Any]:
         data = self._graphql("mutation { generateDbKey { ok } }")

@@ -115,6 +115,7 @@ class PluginInstance(Table):
                 other.updated_at = now
                 other.save()
         self.set_enabled(True)
+        self._on_enable()
         label = "Selected" if self._is_single_active else "Enabled"
         return f"{label} {self.kind} {self.name}"
 
@@ -125,6 +126,7 @@ class PluginInstance(Table):
                 msg = f"Cannot deselect the default {self.kind}"
                 raise ValueError(msg)
             self.set_enabled(False)
+            self._on_disable()
             now = _now_iso()
             default = PluginInstance.find(self.kind, "default")
             if default is not None:
@@ -136,7 +138,30 @@ class PluginInstance(Table):
                 PluginInstance(kind=self.kind, name="default", enabled=True, status_changed_at=now).insert()
             return f"Switched {self.kind} to default"
         self.set_enabled(False)
+        self._on_disable()
         return f"Disabled {self.kind} {self.name}"
+
+    def _on_enable(self) -> None:
+        """Hook called after a plugin is enabled. Register entity types for sources."""
+        if self.kind != "source":
+            return
+        try:
+            plugin_cls = Plugin.load_by_name_and_kind(self.name, "source")
+            if plugin_cls:
+                plugin_cls().register_entity_types()  # ty: ignore[unresolved-attribute]
+        except Exception:
+            pass
+
+    def _on_disable(self) -> None:
+        """Hook called after a plugin is disabled. Deregister entity types for sources."""
+        if self.kind != "source":
+            return
+        try:
+            plugin_cls = Plugin.load_by_name_and_kind(self.name, "source")
+            if plugin_cls:
+                plugin_cls().deregister_entity_types()  # ty: ignore[unresolved-attribute]
+        except Exception:
+            pass
 
     def mark_synced(self) -> None:
         """Stamp synced_at and updated_at."""
@@ -369,17 +394,30 @@ class Plugin(abc.ABC):
 
     @property
     def has_entities(self) -> bool:
-        """True if this plugin declares an ``entity_projection`` on any of its tables."""
-        try:
-            import importlib
+        """True if this plugin declares an ``entity_projection`` on any table or view."""
+        import importlib
 
-            tables_mod = importlib.import_module(f"shenas_sources.{self.name}.tables")
+        def _has_projection(classes: tuple[type, ...]) -> bool:
             return any(
-                isinstance(t, type) and getattr(t, "entity_type", None) and getattr(t, "entity_projection", None)
-                for t in getattr(tables_mod, "TABLES", ())
+                isinstance(relation, type)
+                and getattr(getattr(relation, "_Meta", None), "entity_type", None)
+                and getattr(getattr(relation, "_Meta", None), "entity_projection", None)
+                for relation in classes
             )
+
+        try:
+            tables_mod = importlib.import_module(f"shenas_sources.{self.name}.tables")
+            if _has_projection(getattr(tables_mod, "TABLES", ())):
+                return True
         except Exception:
-            return False
+            pass
+        try:
+            views_mod = importlib.import_module(f"shenas_sources.{self.name}.views")
+            if _has_projection(getattr(views_mod, "VIEWS", ())):
+                return True
+        except Exception:
+            pass
+        return False
 
     def get_config_entries(self) -> list[dict[str, str | None]]:
         return []
