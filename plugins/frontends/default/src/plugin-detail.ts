@@ -882,13 +882,24 @@ class PluginDetail extends LitElement {
     const tableMeta =
       ((this._info as unknown as Record<string, unknown>)?.table_metadata as Record<string, unknown>[]) || [];
     const matchingMeta = tableMeta.find((entry) => entry.table === table) || null;
+    const viewParam = new URLSearchParams(window.location.search).get("view") || "table";
     return html`<shenas-data-table
       api-base="${this.apiBase}"
       schema="${schema}"
       table="${table}"
+      data-view="${viewParam}"
       .tableMetadata=${matchingMeta}
       page-size="100"
       refresh-key="${this._dataRefreshKey}"
+      @view-change=${(event: CustomEvent) => {
+        const url = new URL(window.location.href);
+        if (event.detail.view === "table") {
+          url.searchParams.delete("view");
+        } else {
+          url.searchParams.set("view", event.detail.view);
+        }
+        window.history.pushState({}, "", url.toString());
+      }}
       style="height:calc(100vh - 180px);min-height:300px"
     ></shenas-data-table>`;
   }

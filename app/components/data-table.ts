@@ -62,8 +62,7 @@ export class ShenasDataTable extends LitElement {
     _colMeta: { state: true },
     _loading: { state: true },
     _error: { state: true },
-    _infoMessage: { state: true },
-    _dataView: { state: true },
+    dataView: { type: String, attribute: "data-view" },
     _tableKind: { state: true },
     _timeColumns: { state: true },
     _intervalMode: { state: true },
@@ -89,8 +88,7 @@ export class ShenasDataTable extends LitElement {
   declare _colMeta: Record<string, ColMeta>;
   declare _loading: boolean;
   declare _error: string | null;
-  declare _infoMessage: string | null;
-  declare _dataView: "table" | "stats" | "graph";
+  declare dataView: "table" | "stats" | "graph";
   declare _tableKind: string | null;
   declare _timeColumns: {
     timeAt?: string;
@@ -267,10 +265,6 @@ export class ShenasDataTable extends LitElement {
       padding: 12px;
       border-radius: 6px;
     }
-    .info-message {
-      color: var(--shenas-text-muted, #888);
-      padding: 12px;
-    }
     .page-info {
       flex: 1;
       text-align: center;
@@ -396,8 +390,7 @@ export class ShenasDataTable extends LitElement {
     this._colMeta = {};
     this._loading = false;
     this._error = null;
-    this._infoMessage = null;
-    this._dataView = "table";
+    this.dataView = "table";
     this._tableKind = null;
     this._timeColumns = null;
     this._intervalMode = "packed";
@@ -422,13 +415,13 @@ export class ShenasDataTable extends LitElement {
 
   updated(changed: PropertyValues): void {
     if (
-      this._dataView === "graph" &&
+      this.dataView === "graph" &&
       (changed.has("_dataView") || changed.has("_data") || changed.has("_tableKind") || changed.has("_intervalMode"))
     ) {
       // Defer to next frame so the chart-wrap div is in the DOM
       requestAnimationFrame(() => this._buildChart());
     }
-    if (changed.has("_dataView") && this._dataView !== "graph" && this._chart) {
+    if (changed.has("_dataView") && this.dataView !== "graph" && this._chart) {
       this._chart.dispose();
       this._chart = null;
     }
@@ -475,7 +468,6 @@ export class ShenasDataTable extends LitElement {
   async _fetchData(): Promise<void> {
     this._loading = true;
     this._error = null;
-    this._infoMessage = null;
     try {
       const sql = `SELECT * FROM ${this._selectedTable}`;
       const table = await arrowQuery(this.apiBase, sql);
@@ -495,6 +487,11 @@ export class ShenasDataTable extends LitElement {
         meta = result?.tableMetadata as Record<string, unknown> | null;
       }
       this._applyTableMetadata(meta);
+      // Move time columns to the front of the column list.
+      const timeRoles = this._getTimeRoles();
+      const timeCols = this._columns.filter((column) => column in timeRoles);
+      const otherCols = this._columns.filter((column) => !(column in timeRoles));
+      this._columns = [...timeCols, ...otherCols];
       this._page = 0;
       this._filters = {};
       this._searchTerm = "";
@@ -502,7 +499,7 @@ export class ShenasDataTable extends LitElement {
     } catch (error) {
       const message = (error as Error).message || "";
       if (message.includes("does not exist")) {
-        this._infoMessage = "Not synced yet. Sync this source to populate data.";
+        this._error = "Not synced yet. Sync this source to populate data.";
       } else {
         this._error = message;
       }
@@ -617,6 +614,42 @@ export class ShenasDataTable extends LitElement {
     return String(value);
   }
 
+  _autoResizeColumn(event: MouseEvent, col: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    // Find the column index by matching the resize handle's parent <th>.
+    const handle = event.target as HTMLElement;
+    const header = handle.closest("th");
+    if (!header) return;
+    const table = header.closest("table");
+    if (!table) return;
+    const headerIndex = Array.from(header.parentElement?.children || []).indexOf(header);
+    if (headerIndex < 0) return;
+
+    // Measure the max content width across all rows in this column.
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.font = "14px system-ui, -apple-system, sans-serif";
+
+    let maxWidth = context.measureText(header.textContent?.trim() || "").width + 24;
+    const rows = table.querySelectorAll("tbody tr");
+    for (const row of rows) {
+      const cell = row.children[headerIndex] as HTMLElement | undefined;
+      if (cell) {
+        const text = cell.textContent?.trim() || "";
+        const measured = context.measureText(text).width + 24;
+        if (measured > maxWidth) maxWidth = measured;
+      }
+    }
+    this._colWidths = { ...this._colWidths, [col]: Math.max(50, Math.ceil(maxWidth)) };
+  }
+
+  _setView(view: "table" | "stats" | "graph"): void {
+    this.dataView = view;
+    this.dispatchEvent(new CustomEvent("view-change", { bubbles: true, composed: true, detail: { view } }));
+  }
+
   _onResizeStart(e: MouseEvent, col: string): void {
     e.preventDefault();
     e.stopPropagation();
@@ -634,7 +667,6 @@ export class ShenasDataTable extends LitElement {
   }
 
   render(): TemplateResult {
-    if (this._infoMessage) return html`<div class="info-message">${this._infoMessage}</div>`;
     if (this._error) return html`<div class="error">${this._error}</div>`;
 
     const tableSelector = this.table
@@ -691,26 +723,26 @@ export class ShenasDataTable extends LitElement {
         <div class="view-toggle">
           <button
             title="Descriptive Statistics"
-            aria-pressed=${this._dataView === "stats"}
-            @click=${() => (this._dataView = "stats")}
+            aria-pressed=${this.dataView === "stats"}
+            @click=${() => this._setView("stats")}
           >
             <svg viewBox="0 0 24 24">
               <path d="M3 3v18h18v-2H5V3H3zm14 4h-4v12h4V7zm-6 4H7v8h4v-8zm12-2h-4v10h4V9z" />
             </svg>
           </button>
-          <button title="Table" aria-pressed=${this._dataView === "table"} @click=${() => (this._dataView = "table")}>
+          <button title="Table" aria-pressed=${this.dataView === "table"} @click=${() => this._setView("table")}>
             <svg viewBox="0 0 24 24">
               <path d="M3 3h18v18H3V3zm2 4v4h6V7H5zm8 0v4h6V7h-6zM5 13v4h6v-4H5zm8 0v4h6v-4h-6z" />
             </svg>
           </button>
-          <button title="Graph" aria-pressed=${this._dataView === "graph"} @click=${() => (this._dataView = "graph")}>
+          <button title="Graph" aria-pressed=${this.dataView === "graph"} @click=${() => this._setView("graph")}>
             <svg viewBox="0 0 24 24"><path d="M3.5 18.5l6-6 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z" /></svg>
           </button>
         </div>
       </div>
-      ${this._dataView === "table" ? this._renderTableView(visibleCols, rows) : ""}
-      ${this._dataView === "stats" ? this._renderStatsView(visibleCols) : ""}
-      ${this._dataView === "graph" ? this._renderGraphView() : ""}
+      ${this.dataView === "table" ? this._renderTableView(visibleCols, rows) : ""}
+      ${this.dataView === "stats" ? this._renderStatsView(visibleCols) : ""}
+      ${this.dataView === "graph" ? this._renderGraphView() : ""}
     `;
   }
 
@@ -727,11 +759,17 @@ export class ShenasDataTable extends LitElement {
                     title="${this._colTooltip(col)}"
                     @click=${() => this._onSort(col)}
                   >
-                    ${this._colMeta[col]?.displayName || col}
+                    ${this._colMeta[col]?.displayName || col}${this._getTimeRoles()[col]
+                      ? html`<shenas-badge style="margin-left:4px">${this._getTimeRoles()[col]}</shenas-badge>`
+                      : ""}
                     ${this._sortCol === col
                       ? html`<span class="sort-indicator">${this._sortDesc ? "v" : "^"}</span>`
                       : ""}
-                    <div class="resize-handle" @mousedown=${(e: MouseEvent) => this._onResizeStart(e, col)}></div>
+                    <div
+                      class="resize-handle"
+                      @mousedown=${(e: MouseEvent) => this._onResizeStart(e, col)}
+                      @dblclick=${(e: MouseEvent) => this._autoResizeColumn(e, col)}
+                    ></div>
                   </th>
                 `,
               )}
@@ -808,24 +846,7 @@ export class ShenasDataTable extends LitElement {
             : sorted[Math.floor(sorted.length / 2)];
         const variance = sorted.reduce((acc, v) => acc + (v - mean) ** 2, 0) / sorted.length;
         const stddev = Math.sqrt(variance);
-
-        // Detect time columns and format as ISO instead of raw numbers.
-        const dbType = (this._colMeta[col]?.dbType || "").toUpperCase();
-        const isTime = dbType.includes("TIMESTAMP") || dbType === "DATE";
-        const fmt = isTime
-          ? (n: number) => {
-              if (dbType === "DATE") {
-                const ms = n > 1e8 ? n : n * 86_400_000;
-                return new Date(ms).toISOString().slice(0, 10);
-              }
-              let ms: number;
-              if (n > 1e15) ms = n / 1000;
-              else if (n > 1e12) ms = n;
-              else ms = n * 1000;
-              return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
-            }
-          : (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
-
+        const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
         return {
           col,
           type: "numeric" as const,
@@ -834,9 +855,9 @@ export class ShenasDataTable extends LitElement {
           unique,
           min: fmt(min),
           max: fmt(max),
-          mean: isTime ? fmt(mean) : Number.isInteger(mean) ? String(mean) : mean.toFixed(2),
-          median: isTime ? fmt(median) : Number.isInteger(median) ? String(median) : median.toFixed(2),
-          stddev: isTime ? "-" : Number.isInteger(stddev) ? String(stddev) : stddev.toFixed(2),
+          mean: fmt(mean),
+          median: fmt(median),
+          stddev: fmt(stddev),
         };
       }
       const freqMap = new Map<string, number>();
@@ -857,13 +878,7 @@ export class ShenasDataTable extends LitElement {
         cell: (s) => {
           const displayName = this._colMeta[s.col]?.displayName || s.col;
           const role = timeRoles[s.col];
-          return role
-            ? html`${displayName}
-                <span
-                  style="font-size:0.75rem;color:var(--shenas-text-muted,#888);background:var(--shenas-border-light,#f0f0f0);padding:1px 5px;border-radius:3px;margin-left:4px"
-                  >${role}</span
-                >`
-            : displayName;
+          return role ? html`${displayName} <shenas-badge style="margin-left:4px">${role}</shenas-badge>` : displayName;
         },
       },
       { key: "type", label: "Type", default: 80, cell: (s) => s.type },
@@ -893,6 +908,7 @@ export class ShenasDataTable extends LitElement {
                     <div
                       class="resize-handle"
                       @mousedown=${(e: MouseEvent) => this._onResizeStart(e, `__stats__${c.key}`)}
+                      @dblclick=${(e: MouseEvent) => this._autoResizeColumn(e, `__stats__${c.key}`)}
                     ></div>
                   </th>
                 `,
