@@ -19,7 +19,7 @@ USER_AGENT = "shenas-source-wikidata/0.1 (https://shenas.net; contact@shenas.net
 # How many entities to fetch per SPARQL request. The public endpoint starts
 # returning timeouts well before 200 items when the predicate list is wide;
 # 50 is a safe compromise.
-BATCH_SIZE = 50
+BATCH_SIZE = 100
 
 
 class WikidataClient:
@@ -94,6 +94,26 @@ class WikidataClient:
                     }
                 )
         return results
+
+    def fetch_instances_with_properties(
+        self, class_qid: str, pids: list[str], limit: int = 500
+    ) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+        """Fetch instances of a class AND their properties in one pass.
+
+        Returns ``(instances, statements)`` where:
+        - ``instances`` is ``[{"qid": "Q183", "label": "Germany"}, ...]``
+        - ``statements`` is the same shape as :meth:`fetch_statements` output
+
+        First fetches instance QIDs+labels, then batch-fetches their
+        properties -- but the instance list is retrieved in a single query
+        instead of requiring a separate seed step.
+        """
+        instances = self.fetch_instances(class_qid, limit=limit)
+        if not instances or not pids:
+            return instances, []
+        qids = [instance["qid"] for instance in instances]
+        statements = self.fetch_statements(qids, pids)
+        return instances, statements
 
     def fetch_instances(self, class_qid: str, limit: int = 500) -> list[dict[str, str]]:
         """Fetch the top ``limit`` instances of a Wikidata class.

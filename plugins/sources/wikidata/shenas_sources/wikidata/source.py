@@ -56,37 +56,23 @@ class WikidataSource(Source):
         total = 0
         try:
             # Seed entities for types with wikidata_seed=True (e.g. country, city).
+            # This also fetches their properties in the same pass.
             types = {t.name: t for t in EntityType.all()}
-            self._seed_reference_entities(client, types, on_progress)
+            seeded_types: set[str] = set()
+            for entity_type in types.values():
+                if getattr(entity_type, "wikidata_seed", False):
+                    seeded_types.add(entity_type.name)
+            total += self._seed_reference_entities(client, types, on_progress)
 
+            # Enrich remaining (non-seeded) entities that have wikidata:qid.
             groups = self._load_entity_groups()
-            if not groups:
+            if not groups and total == 0:
                 if on_progress:
                     on_progress("statements", "No entities with wikidata:qid found. Set a QID on an entity first.")
                 self.log.info("wikidata sync: no entities with wikidata:qid; nothing to fetch")
                 return
 
-            for type_name, pairs in groups.items():
-                if type_name not in types:
-                    continue
-                pids = _pids_for_type(type_name)
-                if not pids:
-                    continue
-                qids = sorted({qid for _, qid in pairs})
-                if on_progress:
-                    on_progress(
-                        type_name,
-                        f"Fetching {len(pids)} properties for {len(qids)} {type_name} entities...",
-                    )
-                bindings = client.fetch_statements(qids, pids)
-                qid_to_entity = {qid: entity_id for entity_id, qid in pairs}
-                for b in bindings:
-                    entity_id = qid_to_entity.get(b["qid"])
-                    if not entity_id:
-                        continue
-                    self._upsert_property(b["pid"], b.get("value_type", "string"))
-                    self._upsert_statement(entity_id, b)
-                    total += 1
+            total += self._enrich_entities(client, groups, types, seeded_types, on_progress)
         finally:
             client.close()
 
@@ -103,47 +89,81 @@ class WikidataSource(Source):
     # Seed reference entities
     # ------------------------------------------------------------------
 
+    def _enrich_entities(
+        self,
+        client: Any,
+        groups: dict[str, list[tuple[str, str]]],
+        types: dict[str, Any],
+        skip_types: set[str],
+        on_progress: Callable[[str, str], None] | None,
+    ) -> int:
+        """Fetch Wikidata properties for non-seeded entity types."""
+        total = 0
+        for type_name, pairs in groups.items():
+            if type_name in skip_types or type_name not in types:
+                continue
+            pids = _pids_for_type(type_name)
+            if not pids:
+                continue
+            qids = sorted({qid for _, qid in pairs})
+            if on_progress:
+                on_progress(type_name, f"Fetching {len(pids)} properties for {len(qids)} {type_name} entities...")
+            bindings = client.fetch_statements(qids, pids)
+            qid_to_entity = {qid: entity_id for entity_id, qid in pairs}
+            for binding in bindings:
+                entity_id = qid_to_entity.get(binding["qid"])
+                if not entity_id:
+                    continue
+                self._upsert_property(binding["pid"], binding.get("value_type", "string"))
+                self._upsert_statement(entity_id, binding)
+                total += 1
+        return total
+
     def _seed_reference_entities(
         self,
         client: Any,
         types: dict[str, Any],
         on_progress: Callable[[str, str], None] | None,
-    ) -> None:
-        """Create entities for types with wikidata_seed=True.
+    ) -> int:
+        """Seed entities for types with wikidata_seed=True and fetch their properties.
 
-        Fetches the top 500 instances of each seedable type from Wikidata
-        and creates entity + wikidata:qid statement rows. Skips entities
-        that already exist. Runs before the main enrichment pass so the
-        seeded entities are immediately available for property fetching.
+        Uses fetch_instances_with_properties to get both the entity list and
+        their property values in one combined pass per type, avoiding a
+        separate enrichment round-trip for seeded entities.
+
+        Returns the total number of statements written.
         """
         from app.entities.properties import Property
-        from app.entities.statements import Statement
         from app.entity import Entity, compute_entity_id
 
-        # Ensure the wikidata:qid property exists.
         if Property.find("wikidata:qid") is None:
             Property.from_row(("wikidata:qid", "Wikidata QID", "string", None, "wikidata", None, None)).insert()
 
+        total_statements = 0
         for entity_type in types.values():
             if not getattr(entity_type, "wikidata_seed", False):
                 continue
-            qid = getattr(entity_type, "wikidata_qid", None)
-            if not qid:
+            type_qid = getattr(entity_type, "wikidata_qid", None)
+            if not type_qid:
                 continue
 
+            pids = _pids_for_type(entity_type.name)
             if on_progress:
-                on_progress("seed", f"Seeding {entity_type.display_name} entities from Wikidata...")
-            self.log.info("Seeding %s entities (Q=%s) from Wikidata", entity_type.name, qid)
+                on_progress("seed", f"Seeding {entity_type.display_name} entities + properties from Wikidata...")
+            self.log.info("Seeding %s entities (Q=%s) with %d properties", entity_type.name, type_qid, len(pids))
 
-            instances = client.fetch_instances(qid, limit=500)
+            instances, statements = client.fetch_instances_with_properties(type_qid, pids, limit=500)
+
+            # Create entities + wikidata:qid statements.
             created = 0
+            qid_to_entity: dict[str, str] = {}
             for instance in instances:
                 instance_qid = instance["qid"]
                 label = instance["label"]
                 entity_id = compute_entity_id(entity_type.name, (instance_qid,))
+                qid_to_entity[instance_qid] = entity_id
 
-                existing = Entity.find_by_uuid(entity_id) if hasattr(Entity, "find_by_uuid") else None
-                if existing is None:
+                if Entity.find_by_uuid(entity_id) is None:
                     Entity(
                         uuid=entity_id,
                         type=entity_type.name,
@@ -152,15 +172,32 @@ class WikidataSource(Source):
                     ).insert()
                     created += 1
 
-                # Ensure wikidata:qid statement exists.
-                if Statement.find(entity_id, "wikidata:qid", instance_qid) is None:
-                    Statement.from_row(
-                        (entity_id, "wikidata:qid", instance_qid, instance_qid, "normal", None, "wikidata")
-                    ).insert()
+                # Upsert wikidata:qid statement. Use _upsert_statement to handle SCD2.
+                self._upsert_statement(
+                    entity_id,
+                    {
+                        "pid": "wikidata:qid",
+                        "value": instance_qid,
+                        "value_label": label,
+                        "rank": "normal",
+                        "value_type": "string",
+                    },
+                )
 
-            self.log.info("Seeded %d new %s entities", created, entity_type.name)
+            # Process property statements from the same fetch.
+            for binding in statements:
+                entity_id = qid_to_entity.get(binding["qid"])
+                if not entity_id:
+                    continue
+                self._upsert_property(binding["pid"], binding.get("value_type", "string"))
+                self._upsert_statement(entity_id, binding)
+                total_statements += 1
+
+            self.log.info("Seeded %d new %s entities, %d statements", created, entity_type.name, total_statements)
             if on_progress:
                 on_progress("seed", f"Seeded {created} new {entity_type.display_name} entities.")
+
+        return total_statements
 
     # ------------------------------------------------------------------
     # Entity relationships from Wikidata statements
@@ -267,15 +304,22 @@ class WikidataSource(Source):
     def _upsert_statement(self, entity_id: str, b: dict[str, Any]) -> None:
         from app.entities.statements import Statement
 
-        existing = Statement.find(entity_id, b["pid"], b["value"])
-        if existing is None:
-            Statement.from_row(  # ty: ignore[invalid-argument-type]
-                (entity_id, b["pid"], b["value"], b.get("value_label"), b.get("rank", "normal"), None, "wikidata")
-            ).insert()
-        else:
-            existing.value_label = b.get("value_label")
-            existing.rank = b.get("rank", "normal")
-            existing.save()
+        statement = Statement.from_row(  # ty: ignore[invalid-argument-type]
+            (entity_id, b["pid"], b["value"], b.get("value_label"), b.get("rank", "normal"), None, "wikidata")
+        )
+        try:
+            statement.insert()
+        except Exception:
+            # Row exists (possibly with SCD2 columns that hide it from find()).
+            # Update value_label and rank directly.
+            from app.database import cursor
+
+            with cursor() as cur:
+                cur.execute(
+                    f"UPDATE {Statement._qualified()} SET value_label = ?, rank = ? "
+                    "WHERE entity_id = ? AND property_id = ? AND value = ?",
+                    [b.get("value_label"), b.get("rank", "normal"), entity_id, b["pid"], b["value"]],
+                )
 
 
 def _pids_for_type(type_name: str) -> list[str]:
