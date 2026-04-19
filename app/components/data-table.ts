@@ -62,6 +62,7 @@ export class ShenasDataTable extends LitElement {
     _colMeta: { state: true },
     _loading: { state: true },
     _error: { state: true },
+    _infoMessage: { state: true },
     _dataView: { state: true },
     _tableKind: { state: true },
     _timeColumns: { state: true },
@@ -88,6 +89,7 @@ export class ShenasDataTable extends LitElement {
   declare _colMeta: Record<string, ColMeta>;
   declare _loading: boolean;
   declare _error: string | null;
+  declare _infoMessage: string | null;
   declare _dataView: "table" | "stats" | "graph";
   declare _tableKind: string | null;
   declare _timeColumns: {
@@ -265,6 +267,10 @@ export class ShenasDataTable extends LitElement {
       padding: 12px;
       border-radius: 6px;
     }
+    .info-message {
+      color: var(--shenas-text-muted, #888);
+      padding: 12px;
+    }
     .page-info {
       flex: 1;
       text-align: center;
@@ -390,6 +396,7 @@ export class ShenasDataTable extends LitElement {
     this._colMeta = {};
     this._loading = false;
     this._error = null;
+    this._infoMessage = null;
     this._dataView = "table";
     this._tableKind = null;
     this._timeColumns = null;
@@ -468,6 +475,7 @@ export class ShenasDataTable extends LitElement {
   async _fetchData(): Promise<void> {
     this._loading = true;
     this._error = null;
+    this._infoMessage = null;
     try {
       const sql = `SELECT * FROM ${this._selectedTable}`;
       const table = await arrowQuery(this.apiBase, sql);
@@ -494,7 +502,7 @@ export class ShenasDataTable extends LitElement {
     } catch (error) {
       const message = (error as Error).message || "";
       if (message.includes("does not exist")) {
-        this._error = "Not synced yet. Sync this source to populate data.";
+        this._infoMessage = "Not synced yet. Sync this source to populate data.";
       } else {
         this._error = message;
       }
@@ -626,6 +634,7 @@ export class ShenasDataTable extends LitElement {
   }
 
   render(): TemplateResult {
+    if (this._infoMessage) return html`<div class="info-message">${this._infoMessage}</div>`;
     if (this._error) return html`<div class="error">${this._error}</div>`;
 
     const tableSelector = this.table
@@ -799,7 +808,24 @@ export class ShenasDataTable extends LitElement {
             : sorted[Math.floor(sorted.length / 2)];
         const variance = sorted.reduce((acc, v) => acc + (v - mean) ** 2, 0) / sorted.length;
         const stddev = Math.sqrt(variance);
-        const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+
+        // Detect time columns and format as ISO instead of raw numbers.
+        const dbType = (this._colMeta[col]?.dbType || "").toUpperCase();
+        const isTime = dbType.includes("TIMESTAMP") || dbType === "DATE";
+        const fmt = isTime
+          ? (n: number) => {
+              if (dbType === "DATE") {
+                const ms = n > 1e8 ? n : n * 86_400_000;
+                return new Date(ms).toISOString().slice(0, 10);
+              }
+              let ms: number;
+              if (n > 1e15) ms = n / 1000;
+              else if (n > 1e12) ms = n;
+              else ms = n * 1000;
+              return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
+            }
+          : (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+
         return {
           col,
           type: "numeric" as const,
@@ -808,9 +834,9 @@ export class ShenasDataTable extends LitElement {
           unique,
           min: fmt(min),
           max: fmt(max),
-          mean: fmt(mean),
-          median: fmt(median),
-          stddev: fmt(stddev),
+          mean: isTime ? fmt(mean) : Number.isInteger(mean) ? String(mean) : mean.toFixed(2),
+          median: isTime ? fmt(median) : Number.isInteger(median) ? String(median) : median.toFixed(2),
+          stddev: isTime ? "-" : Number.isInteger(stddev) ? String(stddev) : stddev.toFixed(2),
         };
       }
       const freqMap = new Map<string, number>();

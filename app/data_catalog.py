@@ -32,27 +32,6 @@ log = logging.getLogger(f"shenas.{__name__}")
 
 
 @dataclass
-class ColumnMeta:
-    name: str
-    db_type: str
-    nullable: bool
-    description: str
-    unit: str | None = None
-    value_range: list[float] | None = None
-    example_value: str | None = None
-    interpretation: str | None = None
-
-
-@dataclass
-class TimeMeta:
-    time_at: str | None = None
-    time_start: str | None = None
-    time_end: str | None = None
-    cursor_column: str | None = None
-    observed_at_injected: bool = False
-
-
-@dataclass
 class QualityCheck:
     check_type: str
     status: str
@@ -63,20 +42,18 @@ class QualityCheck:
 
 @dataclass
 class DataResource:
-    """Full representation of a data resource: code metadata + annotations."""
+    """A data resource: structural metadata (from DataRelation.metadata()) + annotations.
+
+    Structural fields (display_name, columns, kind, time_columns, etc.) live in
+    ``metadata_dict`` -- the raw dict returned by ``DataRelation.metadata()``.
+    This class adds the annotation/quality/lineage layer on top.
+    """
 
     ref: DataResourceRef
-    display_name: str
-    description: str
     plugin: Plugin
-    kind: str | None = None
-    query_hint: str | None = None
-    as_of_macro: str | None = None
-    primary_key: list[str] = field(default_factory=list)
-    columns: list[ColumnMeta] = field(default_factory=list)
-    time_columns: TimeMeta = field(default_factory=TimeMeta)
+    metadata_dict: dict[str, Any] = field(default_factory=dict)
 
-    # Annotation layer
+    # Annotation layer (from ResourceAnnotation table)
     last_refreshed: str | None = None
     freshness_sla_minutes: int | None = None
     expected_row_count_min: int | None = None
@@ -89,7 +66,7 @@ class DataResource:
     # Quality
     quality_checks: list[QualityCheck] = field(default_factory=list)
 
-    # Lineage (populated on detail view) -- transforms feeding into / out of this resource
+    # Lineage (populated on detail view)
     upstream_transforms: list[Transform] | None = None
     downstream_transforms: list[Transform] | None = None
 
@@ -98,8 +75,20 @@ class DataResource:
         return self.ref.id
 
     @property
+    def display_name(self) -> str:
+        return self.metadata_dict.get("display_name") or self.ref.table
+
+    @property
+    def description(self) -> str:
+        return self.metadata_dict.get("description") or ""
+
+    @property
     def effective_description(self) -> str:
         return self.description_override or self.description
+
+    @property
+    def kind(self) -> str | None:
+        return self.metadata_dict.get("kind")
 
     @property
     def is_stale(self) -> bool:
@@ -112,41 +101,14 @@ class DataResource:
             return False
 
     @classmethod
-    def from_table_metadata(cls, meta: dict, *, plugin: Plugin) -> DataResource:
-        ref = DataResourceRef(
-            schema=meta.get("schema") or "datasets",
-            table=meta["table"],
-        )
-        time_raw = meta.get("time_columns", {})
+    def from_metadata(cls, metadata: dict[str, Any], *, plugin: Plugin) -> DataResource:
+        schema = metadata.get("schema") or "datasets"
+        if hasattr(schema, "name"):
+            schema = schema.name
         return cls(
-            ref=ref,
-            display_name=meta.get("display_name", meta["table"]),
-            description=meta.get("description") or "",
+            ref=DataResourceRef(schema=schema, table=metadata["table"]),
             plugin=plugin,
-            kind=meta.get("kind"),
-            query_hint=meta.get("query_hint"),
-            as_of_macro=meta.get("as_of_macro"),
-            primary_key=meta.get("primary_key", []),
-            columns=[
-                ColumnMeta(
-                    name=c["name"],
-                    db_type=c.get("db_type", ""),
-                    nullable=c.get("nullable", True),
-                    description=c.get("description", ""),
-                    unit=c.get("unit"),
-                    value_range=c.get("value_range"),
-                    example_value=str(c["example_value"]) if c.get("example_value") is not None else None,
-                    interpretation=c.get("interpretation"),
-                )
-                for c in meta.get("columns", [])
-            ],
-            time_columns=TimeMeta(
-                time_at=time_raw.get("time_at"),
-                time_start=time_raw.get("time_start"),
-                time_end=time_raw.get("time_end"),
-                cursor_column=time_raw.get("cursor_column"),
-                observed_at_injected=time_raw.get("observed_at_injected", False),
-            ),
+            metadata_dict=metadata,
         )
 
 
@@ -327,18 +289,17 @@ class DataCatalog:
         stub_plugin.display_name = ref.schema
         return DataResource(
             ref=ref,
-            display_name=ref.table,
-            description="",
             plugin=stub_plugin,
+            metadata_dict={"table": ref.table, "schema": ref.schema, "display_name": ref.table},
         )
 
     def _walk_all(self) -> list[DataResource]:
         """Build DataResource list from code-derived metadata."""
         resources: list[DataResource] = []
         for meta, plugin in _walk_sources():
-            resources.append(DataResource.from_table_metadata(meta, plugin=plugin))
+            resources.append(DataResource.from_metadata(meta, plugin=plugin))
         for meta, plugin in _walk_metrics():
-            resources.append(DataResource.from_table_metadata(meta, plugin=plugin))
+            resources.append(DataResource.from_metadata(meta, plugin=plugin))
         return resources
 
     def _enrich_with_annotations(self, resources: list[DataResource]) -> None:

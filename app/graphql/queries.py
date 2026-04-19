@@ -56,65 +56,68 @@ def _plugin_to_gql(plugin: Plugin) -> PluginInfoType:
     )
 
 
-def _data_resource_to_gql(r: DataResource) -> DataResourceType:
+def _data_resource_to_gql(resource: DataResource) -> DataResourceType:
+    meta = resource.metadata_dict
+    time_raw = meta.get("time_columns") or {}
+    columns_raw = meta.get("columns") or []
     return DataResourceType(
-        id=r.id,
-        schema_name=r.ref.schema,
-        table_name=r.ref.table,
-        display_name=r.display_name,
-        description=r.effective_description,
-        plugin=_plugin_to_gql(r.plugin),
-        kind=r.kind,
-        query_hint=r.query_hint,
-        as_of_macro=r.as_of_macro,
-        primary_key=r.primary_key,
+        id=resource.id,
+        schema_name=resource.ref.schema,
+        table_name=resource.ref.table,
+        display_name=resource.display_name,
+        description=resource.effective_description,
+        plugin=_plugin_to_gql(resource.plugin),
+        kind=meta.get("kind"),
+        query_hint=meta.get("query_hint"),
+        as_of_macro=meta.get("as_of_macro"),
+        primary_key=meta.get("primary_key", []),
         columns=[
             ColumnInfoType(
-                name=c.name,
-                db_type=c.db_type,
-                nullable=c.nullable,
-                description=c.description,
-                unit=c.unit,
-                value_range=list(c.value_range) if c.value_range else None,
-                example_value=c.example_value,
-                interpretation=c.interpretation,
+                name=column.get("name", ""),
+                db_type=column.get("db_type", ""),
+                nullable=column.get("nullable", True),
+                description=column.get("description", ""),
+                unit=column.get("unit"),
+                value_range=list(column["value_range"]) if column.get("value_range") else None,
+                example_value=str(column["example_value"]) if column.get("example_value") is not None else None,
+                interpretation=column.get("interpretation"),
             )
-            for c in r.columns
+            for column in columns_raw
         ],
         time_columns=TimeColumnsInfoType(
-            time_at=r.time_columns.time_at,
-            time_start=r.time_columns.time_start,
-            time_end=r.time_columns.time_end,
-            cursor_column=r.time_columns.cursor_column,
-            observed_at_injected=r.time_columns.observed_at_injected,
+            time_at=time_raw.get("time_at"),
+            time_start=time_raw.get("time_start"),
+            time_end=time_raw.get("time_end"),
+            cursor_column=time_raw.get("cursor_column"),
+            observed_at_injected=time_raw.get("observed_at_injected", False),
         ),
         freshness=FreshnessInfoType(
-            last_refreshed=r.last_refreshed,
-            sla_minutes=r.freshness_sla_minutes,
-            is_stale=r.is_stale,
+            last_refreshed=resource.last_refreshed,
+            sla_minutes=resource.freshness_sla_minutes,
+            is_stale=resource.is_stale,
         ),
         quality=QualityInfoType(
-            expected_row_count_min=r.expected_row_count_min,
-            expected_row_count_max=r.expected_row_count_max,
-            actual_row_count=r.actual_row_count,
+            expected_row_count_min=resource.expected_row_count_min,
+            expected_row_count_max=resource.expected_row_count_max,
+            actual_row_count=resource.actual_row_count,
             latest_checks=[
                 QualityCheckType(
-                    check_type=c.check_type,
-                    status=c.status,
-                    message=c.message,
-                    value=c.value,
-                    checked_at=c.checked_at,
+                    check_type=check.check_type,
+                    status=check.status,
+                    message=check.message,
+                    value=check.value,
+                    checked_at=check.checked_at,
                 )
-                for c in r.quality_checks
+                for check in resource.quality_checks
             ],
         ),
-        user_notes=r.user_notes,
-        tags=r.tags,
-        upstream_transforms=[_transform_to_gql(t) for t in r.upstream_transforms]
-        if r.upstream_transforms is not None
+        user_notes=resource.user_notes,
+        tags=resource.tags,
+        upstream_transforms=[_transform_to_gql(transform) for transform in resource.upstream_transforms]
+        if resource.upstream_transforms is not None
         else None,
-        downstream_transforms=[_transform_to_gql(t) for t in r.downstream_transforms]
-        if r.downstream_transforms is not None
+        downstream_transforms=[_transform_to_gql(transform) for transform in resource.downstream_transforms]
+        if resource.downstream_transforms is not None
         else None,
     )
 
