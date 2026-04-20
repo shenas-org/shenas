@@ -70,12 +70,12 @@ interface SuggestedDataset {
 interface SchemaTransform {
   id: number;
   transformType: string;
-  transformTypeDisplayName: string;
   source: { id: string; schemaName: string; tableName: string; displayName: string; plugin?: { displayName: string } };
   target: { id: string; schemaName: string; tableName: string; displayName: string };
   sourcePlugin: string;
   description?: string;
   enabled: boolean;
+  sql?: string;
 }
 
 interface SourceEntity {
@@ -431,7 +431,7 @@ class PluginDetail extends LitElement {
     const fields = [
       `pluginInfo(kind: $kind, name: $name)`,
       needsSchema
-        ? `transforms { id transformType transformTypeDisplayName source { id schemaName tableName displayName plugin { displayName } } target { id schemaName tableName displayName } sourcePlugin description enabled }`
+        ? `transforms { id transformType source { id schemaName tableName displayName plugin { displayName } } target { id schemaName tableName displayName } sourcePlugin description enabled sql }`
         : "",
     ]
       .filter(Boolean)
@@ -1458,8 +1458,7 @@ class PluginDetail extends LitElement {
                 {
                   label: "Type",
                   class: "muted",
-                  render: (transform: SchemaTransform) =>
-                    transform.transformTypeDisplayName || transform.transformType || "",
+                  render: (transform: SchemaTransform) => transform.transformType || "",
                 },
                 {
                   label: "Status",

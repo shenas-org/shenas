@@ -60,14 +60,23 @@ def _resolve_python_type(hint: Any, field_meta: Field | None) -> Any:
         origin = get_origin(hint)
         args = get_args(hint)
 
-    # Check for Union with None (Optional)
-    if origin is type(int | str):  # types.UnionType
+    # Check for Union with None (Optional) -- handles both
+    # types.UnionType (T | None) and typing.Union (Optional[T]).
+    import typing
+
+    if origin is type(int | str) or origin is typing.Union:
         non_none = [a for a in args if a is not type(None)]
         if len(non_none) == 1 and type(None) in args:
             is_optional = True
             hint = non_none[0]
             origin = get_origin(hint)
             args = get_args(hint)
+
+    # Strip Annotated again (handles Optional[Annotated[T, ...]])
+    if origin is Annotated:
+        hint = args[0]
+        origin = get_origin(hint)
+        args = get_args(hint)
 
     # Resolve from db_type if available
     if field_meta and field_meta.db_type:
@@ -81,7 +90,21 @@ def _resolve_python_type(hint: Any, field_meta: Field | None) -> Any:
 
 
 def _get_field_meta(hint: Any) -> Field | None:
-    """Extract the Field metadata from an Annotated type hint."""
+    """Extract the Field metadata from an Annotated type hint.
+
+    Handles both ``Annotated[T, Field(...)]`` and
+    ``Optional[Annotated[T, Field(...)]]`` (i.e. ``Annotated[T, ...] | None``).
+    """
+    origin = get_origin(hint)
+    args = get_args(hint)
+    # Unwrap Optional/Union to find the Annotated inner type.
+    import typing
+
+    if (origin is type(int | str) or origin is typing.Union) and args:
+        for arg in args:
+            if arg is not type(None) and get_origin(arg) is Annotated:
+                hint = arg
+                break
     if get_origin(hint) is not Annotated:
         return None
     for arg in get_args(hint)[1:]:
@@ -95,7 +118,7 @@ def gql_type_from_table(
     *,
     name: str | None = None,
     exclude: set[str] | None = None,
-    extra_fields: dict[str, Any] | None = None,
+    overrides: dict[str, tuple[Any, Any]] | None = None,
 ) -> Any:
     """Generate a @strawberry.type from a Table/Relation subclass.
 
@@ -107,9 +130,12 @@ def gql_type_from_table(
         GraphQL type name. Defaults to the class name.
     exclude
         Field names to omit (e.g. ``{"id"}`` for auto-PK fields).
-    extra_fields
-        Additional fields to add that don't exist on the Table
-        (e.g. computed/resolved fields). Mapping of name -> type.
+    overrides
+        Additional or replacement fields. Mapping of
+        ``field_name -> (type, value)`` where *value* is either:
+
+        - a callable (resolver function) -- becomes a ``@strawberry.field``
+        - any other value -- used as the default (e.g. ``None``).
 
     Returns
     -------
@@ -119,8 +145,12 @@ def gql_type_from_table(
     """
     if exclude is None:
         exclude = set()
+    if overrides is None:
+        overrides = {}
     # Always exclude internal dlt fields
     exclude = exclude | {"_dlt_valid_from", "_dlt_valid_to", "_dlt_id", "_dlt_load_id"}
+    # Also exclude any fields that overrides will replace
+    exclude = exclude | set(overrides.keys())
 
     type_name = name or table_cls.__name__
     hints = get_type_hints(table_cls, include_extras=True)
@@ -146,13 +176,13 @@ def gql_type_from_table(
             namespace[f.name] = None
         # else: required field, no default
 
-    # Add extra fields (for computed/resolver fields added later)
-    if extra_fields:
-        for field_name, field_type in extra_fields.items():
-            annotations[field_name] = field_type
-            # Optional extras default to None
-            if get_origin(field_type) and type(None) in get_args(field_type):
-                namespace[field_name] = None
+    # Apply overrides (resolver functions or typed defaults).
+    for field_name, (field_type, value) in overrides.items():
+        annotations[field_name] = field_type
+        if callable(value) and not isinstance(value, type):
+            namespace[field_name] = strawberry.field(resolver=value)
+        else:
+            namespace[field_name] = value
 
     namespace["__annotations__"] = annotations
 

@@ -167,9 +167,6 @@ def _transform_to_gql(
         description=t.description or "",
         is_default=bool(t.is_default),
         enabled=bool(t.enabled),
-        added_at=t.added_at,
-        updated_at=t.updated_at,
-        status_changed_at=t.status_changed_at,
     )
 
 
