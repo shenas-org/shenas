@@ -451,6 +451,10 @@ _EntityRelTypeBase = _derive(
     __import__("app.entity", fromlist=["EntityRelationshipType"]).EntityRelationshipType,
     name="EntityRelationshipTypeType",
     exclude={"added_at"},
+    overrides={
+        "domain_types": (list[str], strawberry.field(default_factory=list)),
+        "range_types": (list[str], strawberry.field(default_factory=list)),
+    },
 )
 EntityRelationshipTypeType = _EntityRelTypeBase
 

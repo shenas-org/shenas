@@ -4,12 +4,13 @@ import { gqlTag as gql } from "shenas-frontends";
 // Each fragment declares the fields a specific UI concern needs.
 // Page-level queries compose fragments via ...spread.
 
-/** Sidebar plugin card: fields for the plugin list, counts, and stats. */
+/** Sidebar plugin card: fields for the plugin list, counts, stats, and flow graph. */
 export const PLUGIN_CARD_FRAGMENT = gql`
   fragment PluginCard on PluginInfoType {
     name
     displayName
     enabled
+    entityUuids
     tables
     totalRows
   }

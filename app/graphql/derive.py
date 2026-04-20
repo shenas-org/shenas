@@ -179,7 +179,10 @@ def gql_type_from_table(
     # Apply overrides (resolver functions or typed defaults).
     for field_name, (field_type, value) in overrides.items():
         annotations[field_name] = field_type
-        if callable(value) and not isinstance(value, type):
+        if isinstance(value, strawberry.types.field.StrawberryField):
+            # Already a strawberry.field() descriptor -- use as-is
+            namespace[field_name] = value
+        elif callable(value) and not isinstance(value, type):
             namespace[field_name] = strawberry.field(resolver=value)
         else:
             namespace[field_name] = value

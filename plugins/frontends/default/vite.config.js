@@ -67,6 +67,8 @@ export default defineConfig({
       "shenas-components": new URL("../../../app/components/data-table.ts", import.meta.url).pathname,
       echarts: new URL("../../../app/vendor/node_modules/echarts", import.meta.url).pathname,
       "shenas-frontends": new URL("../../../app/vendor/src/shenas-frontends.ts", import.meta.url).pathname,
+      "cytoscape": new URL("src/__tests__/mock-cytoscape.ts", import.meta.url).pathname,
+      "/vendor/cytoscape.js": new URL("src/__tests__/mock-cytoscape.ts", import.meta.url).pathname,
       "echarts/core": new URL("node_modules/echarts/core.js", import.meta.url).pathname,
       "echarts/charts": new URL("node_modules/echarts/charts.js", import.meta.url).pathname,
       "echarts/components": new URL("node_modules/echarts/components.js", import.meta.url).pathname,

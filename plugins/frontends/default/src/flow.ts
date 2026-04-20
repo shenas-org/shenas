@@ -382,19 +382,20 @@ class PipelineOverview extends LitElement {
     nodeIds.add(deviceId);
     elements.push({ data: { id: deviceId, label: "This Device", kind: "device" } });
 
-    // 2. Sources with data (totalRows > 0) + Device -> Source edges
-    const activeSources = new Set<string>();
+    // 2. Enabled sources + Device -> Source edges
+    const sourceNames = new Set<string>();
     for (const source of allSources) {
-      if (!source.totalRows || source.totalRows <= 0) continue;
+      if (source.enabled === false) continue;
       const id = `source:${source.name}`;
-      activeSources.add(source.name);
+      sourceNames.add(source.name);
       nodeIds.add(id);
       elements.push({
         data: {
           id,
           label: source.displayName || source.name,
           kind: "source",
-          enabled: source.enabled !== false ? "yes" : "no",
+          enabled: "yes",
+          hasData: source.totalRows && source.totalRows > 0 ? "yes" : "no",
         },
       });
       elements.push({
@@ -402,14 +403,31 @@ class PipelineOverview extends LitElement {
       });
     }
 
-    // 3. Datasets connected via transforms from active sources
+    // 3. Datasets connected via enabled transforms
     const connectedDatasets = new Set<string>();
     const edgePairs = new Set<string>();
     for (const transform of transforms) {
-      if (!transform.enabled || !activeSources.has(transform.sourcePlugin)) continue;
+      if (!transform.enabled) continue;
       const ownerPlugin = tableToPlugin[transform.target.tableName];
       if (!ownerPlugin) continue;
+      // Ensure the source plugin node exists (may be a source not in the enabled list)
       const sourceId = `source:${transform.sourcePlugin}`;
+      if (!nodeIds.has(sourceId)) {
+        const info = allSources.find((s) => s.name === transform.sourcePlugin);
+        nodeIds.add(sourceId);
+        elements.push({
+          data: {
+            id: sourceId,
+            label: info?.displayName || transform.sourcePlugin,
+            kind: "source",
+            enabled: info?.enabled !== false ? "yes" : "no",
+            hasData: info?.totalRows && info.totalRows > 0 ? "yes" : "no",
+          },
+        });
+        elements.push({
+          data: { id: `edge:device:${transform.sourcePlugin}`, source: deviceId, target: sourceId, edgeType: "device" },
+        });
+      }
       const datasetId = `dataset:${ownerPlugin}`;
       const pair = `${sourceId}:${datasetId}`;
       if (edgePairs.has(pair)) continue;
@@ -432,7 +450,7 @@ class PipelineOverview extends LitElement {
       });
     }
 
-    // 4. Dashboards and models that depend on connected datasets
+    // 4. Dashboards and models that depend on any dataset in the graph
     for (const consumer of [...dashboards, ...models]) {
       const kind = dashboards.includes(consumer) ? "dashboard" : "model";
       const consumerId = `${kind}:${consumer.name}`;
@@ -460,7 +478,7 @@ class PipelineOverview extends LitElement {
     }
 
     this._elements = elements;
-    this._empty = activeSources.size === 0;
+    this._empty = sourceNames.size === 0;
   }
 
   private async _fetchEntityFlow(): Promise<void> {
