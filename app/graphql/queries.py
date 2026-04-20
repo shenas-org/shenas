@@ -12,6 +12,7 @@ from app.graphql.types import (
     CategorySetType,
     CategoryValueType,
     ColumnInfoType,
+    ConfigEntryType,
     DashboardType,
     DataResourceType,
     DependencyEdge,
@@ -257,37 +258,7 @@ class Query:
         from app.plugin import Plugin
 
         ownership = schema_plugin_ownership()
-        # Compute total rows per plugin from owned tables.
-        plugin_rows: dict[str, int] = {}
-        try:
-            from app.database import cursor
-
-            with cursor() as cur:
-                for schema_name in ("sources", "datasets"):
-                    try:
-                        tables = cur.execute(
-                            "SELECT table_name FROM information_schema.tables "
-                            "WHERE table_schema = ? AND table_name NOT LIKE '_dlt_%'",
-                            [schema_name],
-                        ).fetchall()
-                        for (table_name,) in tables:
-                            row = cur.execute(f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}"').fetchone()
-                            count = row[0] if row else 0
-                            # Find which plugin owns this table
-                            for plugin_name, owned in ownership.items():
-                                if table_name in owned:
-                                    plugin_rows[plugin_name] = plugin_rows.get(plugin_name, 0) + count
-                                    break
-                            else:
-                                # Source tables: prefix is plugin__
-                                prefix_end = table_name.find("__")
-                                if prefix_end > 0:
-                                    source_name = table_name[:prefix_end]
-                                    plugin_rows[source_name] = plugin_rows.get(source_name, 0) + count
-                    except Exception:
-                        continue
-        except Exception:
-            pass
+        plugin_rows = Plugin.compute_plugin_rows()
 
         items = []
         for pi in Plugin.list_installed(kind):
@@ -318,6 +289,8 @@ class Query:
                         has_entities=pi.get("has_entities", False),
                         is_authenticated=pi.get("is_authenticated"),
                         sync_frequency=pi.get("sync_frequency"),
+                        entity_types=pi.get("entity_types", []),
+                        entity_uuids=pi.get("entity_uuids", []),
                         tables=ownership.get(name, []),
                         total_rows=plugin_rows.get(name, 0),
                         config_entries=config_entries,
@@ -331,6 +304,30 @@ class Query:
         return items
 
     @strawberry.field
+    def plugin_config(self, kind: str, name: str) -> list[ConfigEntryType]:
+        """Config entries for a single plugin. Fast -- no subprocess, no full listing."""
+        from app.models import ConfigEntry
+        from app.plugin import Plugin
+
+        cls = Plugin.load_by_name_and_kind(name, kind) or Plugin._load_fresh(kind, name)
+        if not cls:
+            return []
+        plugin = cls()
+        if not plugin.has_config:
+            return []
+        return [
+            ConfigEntryType.from_pydantic(  # ty: ignore[unresolved-attribute]
+                ConfigEntry(
+                    key=str(entry["key"]),
+                    label=str(entry.get("label") or ""),
+                    value=entry.get("value"),
+                    description=str(entry.get("description") or ""),
+                )
+            )
+            for entry in plugin.get_config_entries()
+        ]
+
+    @strawberry.field
     def plugin_info(self, kind: str, name: str) -> JSON:
         from app.plugin import Plugin
 
@@ -342,32 +339,9 @@ class Query:
     @strawberry.field
     def available_plugins(self, kind: str) -> list[str]:
         """List plugin names available on the repository server for a given kind."""
-        import re
-        from html.parser import HTMLParser
-        from urllib.request import urlopen
+        from app.plugin import Plugin
 
-        from app.plugin import DEFAULT_INDEX
-
-        prefix = f"shenas-{kind}-"
-        try:
-            with urlopen(f"{DEFAULT_INDEX}/simple/", timeout=5) as resp:
-                html = resp.read().decode()
-        except Exception:
-            return []
-
-        names: list[str] = []
-
-        class _Parser(HTMLParser):
-            def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-                if tag == "a":
-                    for attr_name, val in attrs:
-                        if attr_name == "href" and val:
-                            pkg = val.strip("/").split("/")[-1]
-                            if pkg.startswith(prefix) and pkg != f"{prefix}core":
-                                names.append(re.sub(r"[-_]+", "-", pkg.removeprefix(prefix)))
-
-        _Parser().feed(html)
-        return sorted(set(names))
+        return Plugin.available_by_kind(kind)
 
     # -- Sync --
 
@@ -471,27 +445,9 @@ class Query:
         from app.database import cursor
         from app.plugin import Plugin
 
-        for kind in ("source", "dataset"):
-            try:
-                for cls in Plugin.load_by_kind(kind):
-                    expected_schema = "datasets" if kind == "dataset" else "sources"
-                    if expected_schema != schema:
-                        continue
-                    try:
-                        import importlib
-
-                        pkg = cls.__module__.rsplit(".", 1)[0]
-                        tables_mod = importlib.import_module(f"{pkg}.tables")
-                    except Exception:
-                        continue
-                    for source_table in getattr(tables_mod, "TABLES", ()):
-                        if hasattr(source_table, "_Meta") and source_table._Meta.name == table:
-                            meta = source_table.metadata()
-                            if hasattr(meta.get("schema"), "name"):
-                                meta["schema"] = meta["schema"].name
-                            return meta  # ty: ignore[invalid-return-type]
-            except Exception:
-                continue
+        meta = Plugin.find_table_metadata(schema, table)
+        if meta:
+            return meta  # ty: ignore[invalid-return-type]
         # Fallback: derive minimal metadata from DuckDB schema
         with cursor() as cur:
             rows = cur.execute(f'DESCRIBE "{schema}"."{table}"').fetchall()
@@ -819,7 +775,7 @@ class Query:
         me_uuid = me_candidates[0].uuid if me_candidates else None
         where = f"status = '{status}'" if status else None
         return [
-            GqlEntityType(
+            GqlEntityType.build(
                 uuid=e.uuid,
                 type=e.type,
                 name=e.name,
@@ -858,7 +814,7 @@ class Query:
                 [plugin],
             ).fetchall()
         return [
-            GqlEntityType(
+            GqlEntityType.build(
                 uuid=r[0],
                 type=r[1],
                 name=r[2] or "",
@@ -915,7 +871,7 @@ class Query:
         e = Entity.find_by_uuid(uuid)
         if e is None:
             return None
-        return GqlEntityType(
+        return GqlEntityType.build(
             uuid=e.uuid,
             type=e.type,
             name=e.name,

@@ -16,7 +16,8 @@ def resolve_start_date(value: str) -> str:
     if match:
         from datetime import UTC, datetime
 
-        return (datetime.now(UTC).date() - timedelta(days=int(match.group(1)))).isoformat()
+        days = min(int(match.group(1)), 36500)  # Clamp to ~100 years
+        return (datetime.now(UTC).date() - timedelta(days=days)).isoformat()
     raise ValueError(f"Cannot parse start_date: {value!r}. Use 'YYYY-MM-DD' or 'N days ago'.")
 
 

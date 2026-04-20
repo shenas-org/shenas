@@ -1,4 +1,4 @@
-import { LitElement, html, css } from "lit";
+import { LitElement, html, css, render } from "lit";
 import {
   ApolloMutationController,
   getClient,
@@ -22,6 +22,7 @@ import {
   DISMISS_DATASET_SUGGESTION,
   SET_ENTITY_STATUS,
   UPDATE_ENTITY,
+  CREATE_ENTITY_TYPE,
 } from "./graphql/mutations.ts";
 
 interface PluginInfo {
@@ -318,6 +319,7 @@ class PluginDetail extends LitElement {
   private _client = getClient();
   private _setEntityStatusMutation = new ApolloMutationController(this, SET_ENTITY_STATUS, { client: this._client });
   private _updateEntityMutation = new ApolloMutationController(this, UPDATE_ENTITY, { client: this._client });
+  private _createEntityTypeMutation = new ApolloMutationController(this, CREATE_ENTITY_TYPE, { client: this._client });
   private _enablePlugin = new ApolloMutationController(this, ENABLE_PLUGIN, { client: this._client });
   private _disablePlugin = new ApolloMutationController(this, DISABLE_PLUGIN, { client: this._client });
   private _runDatasetTransforms = new ApolloMutationController(this, RUN_DATASET_TRANSFORMS, { client: this._client });
@@ -756,6 +758,116 @@ class PluginDetail extends LitElement {
     }
   }
 
+  /** Return concrete (non-abstract) subtypes of a given type, recursively. */
+  _concreteSubtypes(parentName: string): EntityTypeOption[] {
+    const result: EntityTypeOption[] = [];
+    const visit = (name: string) => {
+      for (const entityType of this._entityTypes) {
+        if (entityType.parent === name) {
+          if (entityType.isAbstract) {
+            visit(entityType.name);
+          } else {
+            result.push(entityType);
+          }
+        }
+      }
+    };
+    visit(parentName);
+    return result;
+  }
+
+  _openAddEntityTypePanel(defaultName?: string, defaultParent?: string, forEntity?: SourceEntity): void {
+    const parentOptions = this._entityTypes
+      .filter((entityType) => entityType.isAbstract)
+      .map((entityType) => ({ value: entityType.name, label: entityType.displayName }));
+    const form = {
+      displayName: defaultName || "",
+      parent: defaultParent || parentOptions[0]?.value || "",
+      description: "",
+    };
+
+    const panel = document.createElement("div");
+    panel.style.padding = "1rem";
+
+    const renderPanel = () => {
+      render(
+        html`
+          <shenas-form-panel
+            title="Add entity type"
+            submit-label="Add"
+            @submit=${() => void this._saveEntityTypeCreate(form, forEntity)}
+            @cancel=${() => this._closePanel()}
+          >
+            <shenas-dropdown
+              label="Parent"
+              .value=${form.parent}
+              .options=${parentOptions}
+              @change=${(e: CustomEvent) => {
+                form.parent = e.detail.value;
+                renderPanel();
+              }}
+            ></shenas-dropdown>
+            <shenas-field
+              label="Name"
+              .value=${form.displayName}
+              @input=${(e: InputEvent) => {
+                form.displayName = (e.target as HTMLInputElement).value;
+              }}
+            ></shenas-field>
+            <shenas-field
+              label="Description"
+              .value=${form.description}
+              @input=${(e: InputEvent) => {
+                form.description = (e.target as HTMLInputElement).value;
+              }}
+            ></shenas-field>
+          </shenas-form-panel>
+        `,
+        panel,
+      );
+    };
+
+    renderPanel();
+    this.dispatchEvent(
+      new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 420 } }),
+    );
+  }
+
+  async _saveEntityTypeCreate(
+    form: { displayName: string; parent: string; description: string },
+    forEntity?: SourceEntity,
+  ): Promise<void> {
+    if (!form.displayName.trim()) {
+      this._message = { type: "error", text: "Name is required." };
+      return;
+    }
+    try {
+      const { data } = await this._createEntityTypeMutation.mutate({
+        variables: {
+          input: {
+            displayName: form.displayName.trim(),
+            parent: form.parent || null,
+            description: form.description,
+          },
+        },
+      });
+      const created = data?.createEntityType as { name: string; displayName: string } | undefined;
+      this._message = { type: "success", text: `Added entity type "${form.displayName.trim()}"` };
+      this._closePanel();
+      // Assign the new type to the entity that triggered the add.
+      if (forEntity && created?.name) {
+        await this._changeEntityType(forEntity, created.name);
+      }
+      this._fetchEntities();
+    } catch (error) {
+      this._message = { type: "error", text: (error as Error).message };
+    }
+  }
+
+  _closePanel(): void {
+    this.dispatchEvent(new CustomEvent("close-panel", { bubbles: true, composed: true }));
+  }
+
   _renderEntities() {
     if (this._entitiesLoading && this._entities.length === 0) {
       return html`<p style="color:var(--shenas-text-muted,#888)">Loading entities...</p>`;
@@ -786,24 +898,38 @@ class PluginDetail extends LitElement {
             },
           },
           {
+            key: "type",
             label: "Type",
             render: (row: Record<string, unknown>) => {
               const entity = row as unknown as SourceEntity;
-              const concreteTypes = this._entityTypes.filter((entityType) => !entityType.isAbstract);
+              const currentType = this._entityTypes.find((entityType) => entityType.name === entity.type);
+              // Concrete type: fixed, no choice.
+              if (currentType && !currentType.isAbstract) {
+                return currentType.displayName;
+              }
+              // Abstract type: show dropdown with concrete subtypes.
+              const subtypes = currentType ? this._concreteSubtypes(currentType.name) : [];
+              if (subtypes.length === 0) {
+                return currentType?.displayName ?? entity.type;
+              }
+              const entityUuid = entity.uuid;
               return html`<select
-                .value=${entity.type}
+                data-entity=${entityUuid}
                 @change=${(event: Event) => {
-                  const newType = (event.target as HTMLSelectElement).value;
-                  if (newType !== entity.type) this._changeEntityType(entity, newType);
+                  const select = event.target as HTMLSelectElement;
+                  const newType = select.value;
+                  if (newType === "__add__") {
+                    select.selectedIndex = 0;
+                    this._openAddEntityTypePanel(entity.name, currentType?.name, entity);
+                  } else if (newType && newType !== entity.type) {
+                    this._changeEntityType(entity, newType);
+                  }
                 }}
                 style="font-size:0.85rem;padding:2px 4px;border:1px solid var(--shenas-border-light,#ddd);border-radius:3px;background:transparent"
               >
-                ${concreteTypes.map(
-                  (entityType) =>
-                    html`<option value=${entityType.name} ?selected=${entity.type === entityType.name}>
-                      ${entityType.displayName}
-                    </option>`,
-                )}
+                <option value="" selected>Select type...</option>
+                ${subtypes.map((subtype) => html`<option value=${subtype.name}>${subtype.displayName}</option>`)}
+                <option value="__add__">+ Add type...</option>
               </select>`;
             },
           },
@@ -1264,7 +1390,11 @@ class PluginDetail extends LitElement {
                           new CustomEvent("inspect-table", {
                             bubbles: true,
                             composed: true,
-                            detail: { schema: transform.source.schemaName, table: transform.source.tableName },
+                            detail: {
+                              schema: transform.source.schemaName,
+                              table: transform.source.tableName,
+                              displayName: transform.source.displayName,
+                            },
                           }),
                         )}
                       >${transform.source.plugin?.displayName
@@ -1283,7 +1413,11 @@ class PluginDetail extends LitElement {
                           new CustomEvent("inspect-table", {
                             bubbles: true,
                             composed: true,
-                            detail: { schema: transform.target.schemaName, table: transform.target.tableName },
+                            detail: {
+                              schema: transform.target.schemaName,
+                              table: transform.target.tableName,
+                              displayName: transform.target.displayName,
+                            },
                           }),
                         )}
                       >${transform.target.displayName || transform.target.tableName}</span

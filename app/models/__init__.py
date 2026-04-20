@@ -95,6 +95,8 @@ class PluginInfo(BaseModel):
     has_entities: bool = False
     is_authenticated: bool | None = None
     sync_frequency: int | None = None
+    entity_types: list[str] = []
+    entity_uuids: list[str] = []
     tables: list[str] = []
     total_rows: int = 0
     config_entries: list[ConfigEntry] = []

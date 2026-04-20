@@ -176,7 +176,7 @@ class Messages(EventTable):
 
     class _Meta:
         name = "messages"
-        display_name = "Gmail Messages"
+        display_name = "Messages"
         description = "Email metadata, headers, and label-derived state flags."
         pk = ("id",)
         time_at = "internal_date"
@@ -238,8 +238,8 @@ class Messages(EventTable):
     ] = 0
 
     @classmethod
-    def extract(cls, client: Any, **_: Any) -> Iterator[dict[str, Any]]:
-        for page in message_pages(client):
+    def extract(cls, client: Any, *, query: str = "", **_: Any) -> Iterator[dict[str, Any]]:
+        for page in message_pages(client, query=query):
             yield from page
 
 
@@ -248,7 +248,7 @@ class Labels(DimensionTable):
 
     class _Meta:
         name = "labels"
-        display_name = "Gmail Labels"
+        display_name = "Labels"
         description = "Labels defined on the user's mailbox."
         pk = ("id",)
 
@@ -274,7 +274,7 @@ class Profile(SnapshotTable):
 
     class _Meta:
         name = "profile"
-        display_name = "Gmail Profile"
+        display_name = "Profile"
         description = "Per-account mailbox totals snapshot."
         pk = ("email_address",)
 
@@ -305,7 +305,7 @@ class Filters(SnapshotTable):
 
     class _Meta:
         name = "filters"
-        display_name = "Gmail Filters"
+        display_name = "Filters"
         description = "Server-side filter rules."
         pk = ("id",)
 

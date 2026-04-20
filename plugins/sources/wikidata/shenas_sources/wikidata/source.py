@@ -82,8 +82,7 @@ class WikidataSource(Source):
         if on_progress:
             on_progress("statements", f"Wrote {total} statements, {relationships_created} relationships from Wikidata.")
         self.log.info("wikidata sync: wrote %d statements, %d relationships", total, relationships_created)
-        self._mark_synced()
-        self._log_sync_event(full_refresh)
+        self._post_sync(full_refresh)
 
     # ------------------------------------------------------------------
     # Seed reference entities
@@ -160,7 +159,7 @@ class WikidataSource(Source):
             for instance in instances:
                 instance_qid = instance["qid"]
                 label = instance["label"]
-                entity_id = compute_entity_id(entity_type.name, (instance_qid,))
+                entity_id = compute_entity_id(entity_type.name, (label,))
                 qid_to_entity[instance_qid] = entity_id
 
                 if Entity.find_by_uuid(entity_id) is None:
@@ -304,7 +303,7 @@ class WikidataSource(Source):
     def _upsert_statement(self, entity_id: str, b: dict[str, Any]) -> None:
         from app.entities.statements import Statement
 
-        statement = Statement.from_row(  # ty: ignore[invalid-argument-type]
+        statement = Statement.from_row(
             (entity_id, b["pid"], b["value"], b.get("value_label"), b.get("rank", "normal"), None, "wikidata")
         )
         try:

@@ -6,13 +6,13 @@ import contextlib
 from typing import TYPE_CHECKING, Any
 
 import duckdb
-from shenas_transformers.core import Transformer
+from shenas_transformers.core import ColumnTransformer
 
 if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform
 
 
-class RegexExtractTransformer(Transformer):
+class RegexExtractTransformer(ColumnTransformer):
     """Extract or replace text using regular expressions.
 
     Supports two modes:

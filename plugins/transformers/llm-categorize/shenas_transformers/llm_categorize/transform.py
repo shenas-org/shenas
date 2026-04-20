@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any
 
 import duckdb
-from shenas_transformers.core import Transformer, TransformerConfig
+from shenas_transformers.core import ColumnTransformer, TransformerConfig
 
 from app.llm import Backend, LlmCache
 from app.table import Field
@@ -43,7 +43,7 @@ class _LlmConfig(TransformerConfig):
     ] = "claude-sonnet-4-6"
 
 
-class LlmCategorizeTransformer(Transformer):
+class LlmCategorizeTransformer(ColumnTransformer):
     """Use an LLM to categorize or enrich data."""
 
     name = "llm-categorize"

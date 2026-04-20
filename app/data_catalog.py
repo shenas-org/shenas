@@ -10,7 +10,6 @@ table metadata from code, then enriches each resource with user annotations
 from __future__ import annotations
 
 import contextlib
-import importlib
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -230,12 +229,8 @@ def _walk_sources() -> list[tuple[dict, Plugin]]:
     """Return [(table_metadata, plugin_instance)] for source tables."""
     out: list[tuple[dict, Plugin]] = []
     for src_cls in Plugin.load_by_kind("source", include_internal=False):
-        try:
-            tables_mod = importlib.import_module(f"shenas_sources.{src_cls.name}.tables")
-        except ImportError:
-            continue
         plugin = src_cls()
-        out.extend((t.metadata(), plugin) for t in getattr(tables_mod, "TABLES", ()))
+        out.extend((t.metadata(), plugin) for t in Plugin.load_tables(src_cls.name, kind="source"))  # ty: ignore[unresolved-attribute]
     return out
 
 

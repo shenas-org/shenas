@@ -16,10 +16,13 @@ import httpx
 SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
 USER_AGENT = "shenas-source-wikidata/0.1 (https://shenas.net; contact@shenas.net)"
 
-# How many entities to fetch per SPARQL request. The public endpoint starts
-# returning timeouts well before 200 items when the predicate list is wide;
-# 50 is a safe compromise.
-BATCH_SIZE = 100
+# How many entities to fetch per SPARQL request. The public endpoint
+# has a 60-second query timeout; keep batches small to stay under it.
+BATCH_SIZE = 50
+
+# How many instances to seed per type. Kept modest to avoid SPARQL
+# timeouts on the public endpoint (city alone has thousands of instances).
+SEED_LIMIT = 200
 
 
 class WikidataClient:
@@ -27,7 +30,7 @@ class WikidataClient:
 
     def __init__(self) -> None:
         self._http = httpx.Client(
-            timeout=120.0,
+            timeout=httpx.Timeout(connect=10.0, read=65.0, write=10.0, pool=10.0),
             headers={"User-Agent": USER_AGENT, "Accept": "application/sparql-results+json"},
         )
 
@@ -96,17 +99,16 @@ class WikidataClient:
         return results
 
     def fetch_instances_with_properties(
-        self, class_qid: str, pids: list[str], limit: int = 500
+        self, class_qid: str, pids: list[str], limit: int = SEED_LIMIT
     ) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
-        """Fetch instances of a class AND their properties in one pass.
+        """Fetch instances of a class AND their properties in two passes.
 
         Returns ``(instances, statements)`` where:
         - ``instances`` is ``[{"qid": "Q183", "label": "Germany"}, ...]``
         - ``statements`` is the same shape as :meth:`fetch_statements` output
 
         First fetches instance QIDs+labels, then batch-fetches their
-        properties -- but the instance list is retrieved in a single query
-        instead of requiring a separate seed step.
+        properties via :meth:`fetch_statements`.
         """
         instances = self.fetch_instances(class_qid, limit=limit)
         if not instances or not pids:
@@ -115,30 +117,53 @@ class WikidataClient:
         statements = self.fetch_statements(qids, pids)
         return instances, statements
 
-    def fetch_instances(self, class_qid: str, limit: int = 500) -> list[dict[str, str]]:
+    def fetch_instances(self, class_qid: str, limit: int = SEED_LIMIT) -> list[dict[str, str]]:
         """Fetch the top ``limit`` instances of a Wikidata class.
 
         Returns ``[{"qid": "Q183", "label": "Germany"}, ...]`` ordered by
-        number of Wikipedia sitelinks (a proxy for notability). Uses the
-        wikibase:sitelinks hint to filter to items with at least 20
-        sitelinks, which keeps the query fast even for large classes
-        like Q515 (city).
+        number of Wikipedia sitelinks (a proxy for notability).
+
+        The query uses a high sitelinks threshold (50) to pre-filter and
+        avoids the label SERVICE (which can timeout on large result sets),
+        fetching labels in a separate batched pass instead.
         """
+        # Step 1: fetch QIDs only (fast, no label resolution).
         query = f"""
-        SELECT ?item ?itemLabel ?sl WHERE {{
+        SELECT ?item ?sl WHERE {{
           ?item wdt:P31 wd:{class_qid};
                 wikibase:sitelinks ?sl.
-          FILTER(?sl >= 20)
-          SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
+          FILTER(?sl >= 50)
         }}
         ORDER BY DESC(?sl)
         LIMIT {limit}
         """
-        results: list[dict[str, str]] = []
+        qids: list[str] = []
         for binding in self.sparql(query):
             qid = _qid_from_uri(_val(binding.get("item")))
-            label = _val(binding.get("itemLabel")) or ""
-            if qid and label:
+            if qid:
+                qids.append(qid)
+        if not qids:
+            return []
+
+        # Step 2: fetch labels in batches (label SERVICE is fast with VALUES).
+        results: list[dict[str, str]] = []
+        for batch_start in range(0, len(qids), BATCH_SIZE):
+            batch = qids[batch_start : batch_start + BATCH_SIZE]
+            values = " ".join(f"wd:{q}" for q in batch)
+            label_query = f"""
+            SELECT ?item ?itemLabel WHERE {{
+              VALUES ?item {{ {values} }}
+              SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
+            }}
+            """
+            labels: dict[str, str] = {}
+            for binding in self.sparql(label_query):
+                qid = _qid_from_uri(_val(binding.get("item")))
+                label = _val(binding.get("itemLabel")) or ""
+                if qid and label:
+                    labels[qid] = label
+            for qid in batch:
+                label = labels.get(qid, qid)
                 results.append({"qid": qid, "label": label})
         return results
 

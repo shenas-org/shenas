@@ -176,8 +176,9 @@ class SleepSummary(AggregateTable):
         **_: Any,
     ) -> Iterator[dict[str, Any]]:
         cursor_val = cursor.last_value if cursor is not None else None
-        last_str = str(cursor_val)[:10] if cursor_val else start_date
-        start = resolve_start_date(last_str)
+        cursor_date = resolve_start_date(str(cursor_val)[:10]) if cursor_val else None
+        lookback_date = resolve_start_date(start_date)
+        start = min(cursor_date, lookback_date) if cursor_date else lookback_date
         end = pendulum.now().to_date_string()
         for row in client.get_sleep_summary(start, end):
             yield {
@@ -251,8 +252,9 @@ class DailyActivity(AggregateTable):
         **_: Any,
     ) -> Iterator[dict[str, Any]]:
         cursor_val = cursor.last_value if cursor is not None else None
-        last_str = str(cursor_val)[:10] if cursor_val else start_date
-        start = resolve_start_date(last_str)
+        cursor_date = resolve_start_date(str(cursor_val)[:10]) if cursor_val else None
+        lookback_date = resolve_start_date(start_date)
+        start = min(cursor_date, lookback_date) if cursor_date else lookback_date
         end = pendulum.now().to_date_string()
         for row in client.get_activity(start, end):
             yield {

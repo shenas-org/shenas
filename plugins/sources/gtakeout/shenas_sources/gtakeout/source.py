@@ -96,6 +96,7 @@ class GTakeoutSource(Source):
         from shenas_sources.gtakeout.tables import TABLES
 
         service = self.build_client()
+        dataset = self.dataset_name
 
         # Read config for latest/name_filter
         row = self.Config.read_row()
@@ -132,6 +133,11 @@ class GTakeoutSource(Source):
             )
             raise RuntimeError(msg)
 
+        # Build resource name -> display name map from table classes.
+        rdn: dict[str, str] = {}
+        for table in TABLES:
+            rdn[table._Meta.name] = getattr(table._Meta, "display_name", table._Meta.name)
+
         tmp_dir = Path(tempfile.mkdtemp(prefix="takeout_", dir=str(cache_dir)))
         try:
             for archive_info in archives:
@@ -140,12 +146,22 @@ class GTakeoutSource(Source):
 
                 resources = [t.to_resource(extract_dir) for t in TABLES]
 
-                run_sync("gtakeout", "gtakeout", resources, full_refresh, self._auto_transform)
+                run_sync(
+                    self.name,
+                    dataset,
+                    resources,
+                    full_refresh,
+                    self._auto_transform,
+                    display_name=self.display_name,
+                    resource_display_names=rdn,
+                )
 
                 shutil.rmtree(extract_dir, ignore_errors=True)
                 archive_path.unlink(missing_ok=True)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
+
+        self._post_sync(full_refresh)
 
     def resources(self, _client: Any) -> list[Any]:  # ty: ignore[invalid-method-override]
         return []  # sync() is overridden

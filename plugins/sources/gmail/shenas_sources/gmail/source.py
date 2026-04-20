@@ -37,11 +37,11 @@ class GmailSource(Source):
             int | None,
             Field(
                 db_type="INTEGER",
-                description="How many days back to fetch (unset = all mail)",
+                description="How many days back to fetch",
                 ui_widget="text",
                 example_value="90",
             ),
-        ] = None
+        ] = 90
 
     @property
     def auth_fields(self) -> list:  # No user input -- browser OAuth
@@ -73,72 +73,21 @@ class GmailSource(Source):
     def complete_oauth(self, *, code: str, state: str | None = None) -> None:
         self._google_auth().complete_oauth(code, state)
 
-    def sync(self, *, full_refresh: bool = False, **_kwargs: Any) -> None:
-        """Custom sync: page-by-page flush for large mailboxes."""
-        import dlt
-        from opentelemetry import trace
+    def resources(self, client: Any) -> list[Any]:
+        import time
 
-        from shenas_sources.core.cli import print_load_info
-        from shenas_sources.core.db import DB_PATH, dlt_destination, flush_to_encrypted
-        from shenas_sources.gmail.tables import Labels, message_pages
+        from shenas_sources.gmail.tables import TABLES, Messages
 
-        tracer = trace.get_tracer("shenas.sources")
-        service = self.build_client()
-        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-        self.log.info("Sync started: gmail (dataset=gmail, full_refresh=%s)", full_refresh)
-
-        with tracer.start_as_current_span("source.sync", attributes={"source.name": "gmail"}):
-            page_num = 0
-            total_msgs = 0
-
-            query = self._gmail_lookback_query()
-            if query:
-                self.log.info("Gmail lookback query: %s", query)
-            for page in message_pages(service, query=query):
-                page_num += 1
-
-                with tracer.start_as_current_span("source.fetch", attributes={"resource": "messages", "page": page_num}):
-                    dest, mem_con = dlt_destination()
-                    pipeline = dlt.pipeline(pipeline_name="gmail", destination=dest, dataset_name="gmail")
-
-                    @dlt.resource(name="messages", write_disposition="merge", primary_key="id")
-                    def _page_data(_data: tuple[dict[str, Any], ...] = tuple(page)) -> Any:
-                        yield from _data
-
-                    ref = "drop_sources" if full_refresh and page_num == 1 else None
-                    load_info = pipeline.run(_page_data(), refresh=ref)  # ty: ignore[invalid-argument-type]
-                    print_load_info(load_info)
-
-                with tracer.start_as_current_span("source.flush", attributes={"resource": "messages", "page": page_num}):
-                    flush_to_encrypted(mem_con, "gmail")
-                    total_msgs += len(page)
-                    self.log.info("Flushed page %d (%d messages, %d total)", page_num, len(page), total_msgs)
-
-            # Sync labels (small, single pass)
-            with tracer.start_as_current_span("source.fetch", attributes={"resource": "labels"}):
-                dest, mem_con = dlt_destination()
-                pipeline = dlt.pipeline(pipeline_name="gmail", destination=dest, dataset_name="gmail")
-                load_info = pipeline.run(Labels.to_resource(service))
-                print_load_info(load_info)
-
-            with tracer.start_as_current_span("source.flush", attributes={"resource": "labels"}):
-                flush_to_encrypted(mem_con, "gmail")
-
-            self.log.info("Sync complete: gmail (%d messages in %d pages)", total_msgs, page_num)
-
-    def _gmail_lookback_query(self) -> str:
-        """Build a Gmail search query from the lookback_period config."""
+        days = 90
+        query = ""
         try:
             row = self.Config.read_row()  # ty: ignore[unresolved-attribute]
-            val = getattr(row, "lookback_period", None) if row else None
-            if val is not None and int(val) > 0:
-                return f"newer_than:{int(val)}d"
+            raw = row.get("lookback_period") if row else None
+            days = int(raw) if raw is not None else 90
         except Exception:
             pass
-        return ""
-
-    def resources(self, client: Any) -> list[Any]:
-        from shenas_sources.gmail.tables import TABLES
-
-        return [t.to_resource(client) for t in TABLES]
+        if days > 0:
+            cutoff = int(time.time()) - days * 86400
+            query = f"after:{cutoff}"
+        self.log.info("Gmail lookback: %d days, query=%r", days, query)
+        return [table.to_resource(client, query=query) if table is Messages else table.to_resource(client) for table in TABLES]

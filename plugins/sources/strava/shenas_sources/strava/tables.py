@@ -415,6 +415,12 @@ class Athlete(SnapshotTable):
         display_name = "Athlete"
         description = "Authenticated Strava athlete profile."
         pk = ("id",)
+        entity_type = "human"
+        entity_name_column = "username"
+        entity_projection = {  # noqa: RUF012
+            "city": {"entity_type": "city"},
+            "country": {"entity_type": "country"},
+        }
 
     id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID", display_name="Athlete ID")]
     username: Annotated[str | None, Field(db_type="VARCHAR", description="Username", display_name="Username")] = None

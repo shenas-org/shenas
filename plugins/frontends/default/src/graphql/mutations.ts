@@ -141,6 +141,15 @@ export const CREATE_ENTITY = gql`
   }
 `;
 
+export const CREATE_ENTITY_TYPE = gql`
+  mutation CreateEntityType($input: EntityTypeCreateInput!) {
+    createEntityType(input: $input) {
+      name
+      displayName
+    }
+  }
+`;
+
 export const UPDATE_ENTITY = gql`
   mutation UpdateEntity($uuid: String!, $input: EntityUpdateInput!) {
     updateEntity(uuid: $uuid, entityInput: $input) {

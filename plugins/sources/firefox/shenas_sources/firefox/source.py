@@ -62,7 +62,7 @@ class FirefoxSource(Source):
     name = "firefox"
     display_name = "Firefox"
     primary_table = "visits"
-    entity_types: ClassVar[list[str]] = ["human"]
+    entity_types: ClassVar[list[str]] = ["device"]
     description = (
         "Extracts browsing history and bookmarks from a local Firefox profile.\n\n"
         "Reads Firefox's SQLite places.sqlite database directly from disk. "
@@ -116,31 +116,6 @@ class FirefoxSource(Source):
 
         return [t.to_resource(client) for t in TABLES]
 
-    def sync(
-        self,
-        *,
-        full_refresh: bool = False,
-        on_progress: Any = None,
-        **_kwargs: Any,
-    ) -> None:
-        """Sync with temp-file cleanup after completion."""
-        client = self.build_client()
-        try:
-            from shenas_sources.core.as_of import apply_as_of_macros
-            from shenas_sources.core.cli import run_sync
-            from shenas_sources.core.db import connect
-
-            res = self.resources(client)
-            run_sync(self.name, self.name, res, full_refresh, self._auto_transform, on_progress=on_progress)
-            try:
-                con = connect()
-                try:
-                    apply_as_of_macros(con, self.name)
-                finally:
-                    con.close()
-            except Exception:
-                self.log.exception("Failed to refresh AS-OF macros for %s", self.name)
-            self._mark_synced()
-            self._log_sync_event(full_refresh)
-        finally:
-            Path(client).unlink(missing_ok=True)
+    def cleanup_client(self, client: Any) -> None:
+        """Remove the temporary copy of places.sqlite."""
+        Path(client).unlink(missing_ok=True)

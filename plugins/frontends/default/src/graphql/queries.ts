@@ -1,33 +1,103 @@
 import { gqlTag as gql } from "shenas-frontends";
 
-// --- App Shell (single init query) ---
-// Fetches everything the app shell needs in one round-trip: app config,
-// db status, plugin lists for all kinds.
-const PLUGIN_FIELDS = `name displayName enabled syncedAt hasAuth isAuthenticated tables totalRows`;
-export const GET_APP_DATA = gql`
+// --- Fragments ---
+// Each fragment declares the fields a specific UI concern needs.
+// Page-level queries compose fragments via ...spread.
+
+/** Sidebar plugin card: minimal fields for the plugin list. */
+export const PLUGIN_CARD_FRAGMENT = gql`
+  fragment PluginCard on PluginInfoType {
+    name
+    displayName
+    enabled
+    syncedAt
+    hasAuth
+    isAuthenticated
+    entityTypes
+    entityUuids
+    tables
+    totalRows
+  }
+`;
+
+/** Dashboard entry for the top nav bar. */
+export const DASHBOARD_FRAGMENT = gql`
+  fragment DashboardEntry on DashboardType {
+    name
+    displayName
+    tag
+    js
+    description
+  }
+`;
+
+// --- Shell data (blocking: app can't render without this) ---
+export const GET_SHELL_DATA = gql`
+  ${DASHBOARD_FRAGMENT}
   {
     pluginKinds
     dashboards {
-      name
-      displayName
-      tag
-      js
-      description
+      ...DashboardEntry
     }
-    hotkeys
-    workspace
     themeData: theme {
       css
     }
     deviceName
-    source: plugins(kind: "source") { ${PLUGIN_FIELDS} }
-    dataset: plugins(kind: "dataset") { ${PLUGIN_FIELDS} }
-    dashboard: plugins(kind: "dashboard") { ${PLUGIN_FIELDS} }
-    frontend: plugins(kind: "frontend") { ${PLUGIN_FIELDS} }
-    theme: plugins(kind: "theme") { ${PLUGIN_FIELDS} }
-    model: plugins(kind: "model") { ${PLUGIN_FIELDS} }
-    transformer: plugins(kind: "transformer") { ${PLUGIN_FIELDS} }
-    analysis: plugins(kind: "analysis") { ${PLUGIN_FIELDS} }
+    workspace
+    hotkeys
+  }
+`;
+
+// --- Sidebar plugin lists (non-blocking: sidebar populates after shell renders) ---
+export const GET_SIDEBAR_PLUGINS = gql`
+  ${PLUGIN_CARD_FRAGMENT}
+  {
+    source: plugins(kind: "source") {
+      ...PluginCard
+    }
+    dataset: plugins(kind: "dataset") {
+      ...PluginCard
+    }
+    dashboard: plugins(kind: "dashboard") {
+      ...PluginCard
+    }
+    frontend: plugins(kind: "frontend") {
+      ...PluginCard
+    }
+    theme: plugins(kind: "theme") {
+      ...PluginCard
+    }
+    model: plugins(kind: "model") {
+      ...PluginCard
+    }
+    transformer: plugins(kind: "transformer") {
+      ...PluginCard
+    }
+    analysis: plugins(kind: "analysis") {
+      ...PluginCard
+    }
+  }
+`;
+
+// --- Focused single-purpose queries (lazy, avoid re-fetching the monolith) ---
+export const GET_HOTKEYS = gql`
+  {
+    hotkeys
+  }
+`;
+
+export const GET_WORKSPACE = gql`
+  {
+    workspace
+  }
+`;
+
+export const GET_DASHBOARDS = gql`
+  ${DASHBOARD_FRAGMENT}
+  {
+    dashboards {
+      ...DashboardEntry
+    }
   }
 `;
 
@@ -38,102 +108,70 @@ function dynamicGql(query: string) {
 export { dynamicGql };
 
 // --- Catalog ---
+
+/** Core data resource fields used by both list and detail views. */
+export const DATA_RESOURCE_FRAGMENT = gql`
+  fragment DataResourceFields on DataResourceType {
+    id
+    schemaName
+    tableName
+    displayName
+    description
+    plugin {
+      name
+      displayName
+    }
+    kind
+    queryHint
+    asOfMacro
+    primaryKey
+    columns {
+      name
+      dbType
+      nullable
+      description
+      unit
+    }
+    timeColumns {
+      timeAt
+      timeStart
+      timeEnd
+    }
+    freshness {
+      lastRefreshed
+      slaMinutes
+      isStale
+    }
+    quality {
+      expectedRowCountMin
+      expectedRowCountMax
+      actualRowCount
+      latestChecks {
+        checkType
+        status
+        message
+        checkedAt
+      }
+    }
+    userNotes
+    tags
+  }
+`;
+
 export const GET_DATA_RESOURCES = gql`
+  ${DATA_RESOURCE_FRAGMENT}
   {
     dataResources {
-      id
-      schemaName
-      tableName
-      displayName
-      description
-      plugin {
-        name
-        displayName
-      }
-      kind
-      queryHint
-      asOfMacro
-      primaryKey
-      columns {
-        name
-        dbType
-        nullable
-        description
-        unit
-      }
-      timeColumns {
-        timeAt
-        timeStart
-        timeEnd
-      }
-      freshness {
-        lastRefreshed
-        slaMinutes
-        isStale
-      }
-      quality {
-        expectedRowCountMin
-        expectedRowCountMax
-        actualRowCount
-        latestChecks {
-          checkType
-          status
-          message
-          checkedAt
-        }
-      }
-      userNotes
-      tags
+      ...DataResourceFields
     }
   }
 `;
 
 export const GET_DATA_RESOURCE_DETAIL = gql`
+  ${DATA_RESOURCE_FRAGMENT}
   query GetDataResourceDetail($id: String!) {
     dataResource(resourceId: $id) {
-      id
-      schemaName
-      tableName
-      displayName
-      description
-      plugin {
-        name
-        displayName
-      }
-      kind
-      queryHint
-      asOfMacro
-      primaryKey
-      columns {
-        name
-        dbType
-        nullable
-        description
-        unit
-      }
-      timeColumns {
-        timeAt
-        timeStart
-        timeEnd
-      }
-      freshness {
-        lastRefreshed
-        slaMinutes
-        isStale
-      }
-      quality {
-        expectedRowCountMin
-        expectedRowCountMax
-        actualRowCount
-        latestChecks {
-          checkType
-          status
-          message
-          checkedAt
-        }
-      }
-      userNotes
-      tags
+      ...DataResourceFields
       upstreamTransforms {
         id
         transformType
@@ -157,15 +195,48 @@ export const GET_DATA_RESOURCE_DETAIL = gql`
 `;
 
 // --- Entities ---
+
+export const ENTITY_FRAGMENT = gql`
+  fragment EntityFields on GqlEntityType {
+    uuid
+    type
+    name
+    description
+    status
+    isMe
+    sources
+  }
+`;
+
+export const ENTITY_TYPE_FRAGMENT = gql`
+  fragment EntityTypeFields on EntityTypeType {
+    name
+    displayName
+    description
+    icon
+    parent
+    isAbstract
+  }
+`;
+
+export const ENTITY_REL_TYPE_FRAGMENT = gql`
+  fragment EntityRelTypeFields on EntityRelationshipTypeType {
+    name
+    displayName
+    inverseName
+    isSymmetric
+    domainTypes
+    rangeTypes
+  }
+`;
+
 export const GET_ENTITIES_DATA = gql`
+  ${ENTITY_FRAGMENT}
+  ${ENTITY_TYPE_FRAGMENT}
+  ${ENTITY_REL_TYPE_FRAGMENT}
   {
     entities {
-      uuid
-      type
-      name
-      description
-      status
-      isMe
+      ...EntityFields
     }
     entityRelationships {
       fromUuid
@@ -174,20 +245,10 @@ export const GET_ENTITIES_DATA = gql`
       description
     }
     entityTypes {
-      name
-      displayName
-      description
-      icon
-      parent
-      isAbstract
+      ...EntityTypeFields
     }
     entityRelationshipTypes {
-      name
-      displayName
-      inverseName
-      isSymmetric
-      domainTypes
-      rangeTypes
+      ...EntityRelTypeFields
     }
   }
 `;
@@ -218,29 +279,41 @@ export const GET_ANALYSIS_MODES = gql`
 `;
 
 // --- Transforms ---
+
+export const DATA_RESOURCE_REF_FRAGMENT = gql`
+  fragment DataResourceRef on DataResourceRefType {
+    id
+    schemaName
+    tableName
+    displayName
+  }
+`;
+
+export const TRANSFORM_FRAGMENT = gql`
+  ${DATA_RESOURCE_REF_FRAGMENT}
+  fragment TransformFields on TransformType {
+    id
+    transformType
+    source {
+      ...DataResourceRef
+    }
+    target {
+      ...DataResourceRef
+    }
+    sourcePlugin
+    params
+    description
+    isDefault
+    enabled
+    sql
+  }
+`;
+
 export const GET_TRANSFORMS = gql`
+  ${TRANSFORM_FRAGMENT}
   query GetTransforms($source: String) {
     transforms(source: $source) {
-      id
-      transformType
-      source {
-        id
-        schemaName
-        tableName
-        displayName
-      }
-      target {
-        id
-        schemaName
-        tableName
-        displayName
-      }
-      sourcePlugin
-      params
-      description
-      isDefault
-      enabled
-      sql
+      ...TransformFields
     }
     dependencies {
       source
@@ -308,16 +381,12 @@ export const GET_CATEGORY_SETS = gql`
 
 // --- Config ---
 export const GET_PLUGIN_CONFIG = gql`
-  query GetPluginConfig($kind: String!) {
-    plugins(kind: $kind) {
-      name
-      hasConfig
-      configEntries {
-        key
-        label
-        value
-        description
-      }
+  query GetPluginConfig($kind: String!, $name: String!) {
+    pluginConfig(kind: $kind, name: $name) {
+      key
+      label
+      value
+      description
     }
   }
 `;

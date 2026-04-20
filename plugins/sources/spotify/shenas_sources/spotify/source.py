@@ -107,8 +107,7 @@ class SpotifySource(Source):
             raise RuntimeError(msg)
 
         if token_info["access_token"] != tokens["access_token"]:
-            self._auth_store.set(  # ty: ignore[unresolved-attribute]
-                self.Auth,
+            self.Auth.write_row(
                 tokens=json.dumps(
                     {
                         **tokens,
@@ -152,7 +151,6 @@ class SpotifySource(Source):
 
         auth_url = pkce.get_authorize_url()
         state: dict[str, Any] = {}
-        auth_cls = self.Auth
         auth_cls = self.Auth
 
         def _run_flow() -> None:

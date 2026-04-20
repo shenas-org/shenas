@@ -296,12 +296,12 @@ class TransformsPage extends LitElement {
     registerCommands(this, `transforms:${this.source}`, commands);
   }
 
-  _inspectTable(schema: string, table: string): void {
+  _inspectTable(schema: string, table: string, displayName?: string): void {
     this.dispatchEvent(
       new CustomEvent("inspect-table", {
         bubbles: true,
         composed: true,
-        detail: { schema, table },
+        detail: { schema, table, displayName },
       }),
     );
   }
@@ -646,7 +646,7 @@ class TransformsPage extends LitElement {
                 html`<span
                   style="cursor:pointer;color:var(--shenas-text,#333);text-decoration:underline;text-decoration-color:var(--shenas-text-faint,#ccc)"
                   title="${t.source.schemaName}.${t.source.tableName}"
-                  @click=${() => this._inspectTable(t.source.schemaName, t.source.tableName)}
+                  @click=${() => this._inspectTable(t.source.schemaName, t.source.tableName, t.source.displayName)}
                   >${t.source.displayName || t.source.tableName}</span
                 >`,
             },
@@ -656,7 +656,7 @@ class TransformsPage extends LitElement {
                 html`<span
                   style="cursor:pointer;color:var(--shenas-text,#333);text-decoration:underline;text-decoration-color:var(--shenas-text-faint,#ccc)"
                   title="${t.target.schemaName}.${t.target.tableName}"
-                  @click=${() => this._inspectTable(t.target.schemaName, t.target.tableName)}
+                  @click=${() => this._inspectTable(t.target.schemaName, t.target.tableName, t.target.displayName)}
                   >${t.target.displayName || t.target.tableName}</span
                 >`,
             },

@@ -68,7 +68,7 @@ class Source(Plugin):
 
     auth_instructions: ClassVar[str] = ""
     primary_table: ClassVar[str] = ""
-    entity_types: ClassVar[list[str]] = ["human"]  # references EntityType.name
+    entity_types: ClassVar[list[str]] = []  # references EntityType.name
     # ISO 8601 recurring interval describing the source's natural cadence
     # (e.g. "R/P1D" for daily, "R/P1W" for weekly, "R/PT1H" for hourly).
     # Mirrors DCAT's `dct:accrualPeriodicity`. Used as the fallback when
@@ -101,24 +101,19 @@ class Source(Plugin):
         # Auto-set _Meta.schema to SOURCES and prefix _Meta.name with the
         # source name so all source data lives in one schema:
         #   garmin.activities -> sources.garmin__activities
+        from app.plugin import Plugin
         from app.schema import SOURCES
 
-        try:
-            import importlib
-
-            tables_mod = importlib.import_module(f"shenas_sources.{cls.name}.tables")
-            for t in getattr(tables_mod, "TABLES", ()):
-                overrides: dict[str, object] = {}
-                if not getattr(t._Meta, "schema", None) or t._Meta.schema != SOURCES:
-                    overrides["schema"] = SOURCES
-                name = t._Meta.name
-                prefixed = f"{cls.name}__{name}"
-                if not name.startswith(f"{cls.name}__"):
-                    overrides["name"] = prefixed
-                if overrides:
-                    t._Meta = type("_Meta", (t._Meta,), overrides)
-        except ImportError:
-            pass
+        for t in Plugin.load_tables(cls.name, kind="source"):
+            overrides: dict[str, object] = {}
+            if not getattr(t._Meta, "schema", None) or t._Meta.schema != SOURCES:  # ty: ignore[unresolved-attribute]
+                overrides["schema"] = SOURCES
+            name = t._Meta.name  # ty: ignore[unresolved-attribute]
+            prefixed = f"{cls.name}__{name}"
+            if not name.startswith(f"{cls.name}__"):
+                overrides["name"] = prefixed
+            if overrides:
+                t._Meta = type("_Meta", (t._Meta,), overrides)  # ty: ignore[unresolved-attribute]
 
     # -- Auth field derivation ------------------------------------------------
 
@@ -278,6 +273,7 @@ class Source(Plugin):
             "sync_frequency": self.sync_frequency,
             "primary_table": self._qualified_primary_table(),
             "entity_types": self.entity_types,
+            "entity_uuids": self._source_entity_uuids(),
             "default_update_frequency": self.default_update_frequency,
             "commands": self.commands,
             "table_metadata": self._table_metadata(),
@@ -296,19 +292,11 @@ class Source(Plugin):
         Each entry gets ``rows``, ``earliest``, and ``latest`` from DuckDB
         when the table exists (0/null otherwise).
         """
-        import importlib
 
-        try:
-            tables_mod = importlib.import_module(f"shenas_sources.{self.name}.tables")
-        except ImportError:
-            return []
-        tables = list(getattr(tables_mod, "TABLES", ()))
-        views: list[type] = []
-        try:
-            views_mod = importlib.import_module(f"shenas_sources.{self.name}.views")
-            views = list(getattr(views_mod, "VIEWS", ()))
-        except ImportError:
-            pass
+        from app.plugin import Plugin
+
+        tables = list(Plugin.load_tables(self.name, kind="source"))
+        views = list(Plugin.load_views(self.name))
         result: list[dict[str, Any]] = []
         for relation in [*tables, *views]:
             if not (isinstance(relation, type) and hasattr(relation, "metadata")):
@@ -348,6 +336,113 @@ class Source(Plugin):
         except Exception:
             return {"rows": 0, "earliest": None, "latest": None}
 
+    def _source_entity_uuids(self) -> list[str]:
+        """Return entity UUIDs this source is about.
+
+        Combines two sources:
+        1. Entities produced by this source (via ``entities.statements``).
+        2. The "me" entity if this source declares ``"human"`` in
+           ``entity_types`` (data about the user, even without explicit
+           entity projection).
+        """
+        uuids: list[str] = []
+        seen: set[str] = set()
+        # "human" in entity_types -> include "me".
+        if "human" in self.entity_types:
+            me_uuids = self.resolve_entity_uuids(["human"])
+            for uuid in me_uuids:
+                if uuid not in seen:
+                    seen.add(uuid)
+                    uuids.append(uuid)
+        # Entities this source actually produced (via statements).
+        try:
+            from app.entities.statements import Statement
+            from app.entity import Entity
+
+            stmts = Statement.all(
+                where="source = ?",
+                params=[self.name],
+            )
+            entity_ids = sorted({s.entity_id for s in stmts})
+            for entity_id in entity_ids:
+                if entity_id in seen:
+                    continue
+                entity = Entity.find_by_uuid(entity_id)
+                if entity and entity.status == "enabled":
+                    seen.add(entity_id)
+                    uuids.append(entity_id)
+        except Exception:
+            pass
+        return uuids
+
+    # -- Entity type registration ----------------------------------------------
+
+    def register_entity_types(self) -> None:
+        """Upsert entity types declared in this source's ``entities.py``.
+
+        Each source plugin may define ``ENTITY_TYPES`` in its
+        ``shenas_sources.<name>.entities`` module. On enable (and at
+        startup for already-enabled sources), these types are upserted
+        into ``entities.entity_types`` together with their Wikidata
+        properties.
+        """
+        import importlib
+
+        try:
+            entities_mod = importlib.import_module(f"shenas_sources.{self.name}.entities")
+        except ImportError:
+            return
+
+        type_rows = getattr(entities_mod, "ENTITY_TYPES", None) or []
+        if not type_rows:
+            return
+
+        from app.entities.properties import Property
+        from app.entity import EntityType
+
+        for row in type_rows:
+            EntityType(
+                name=row["name"],
+                display_name=row["display_name"],
+                parent=row.get("parent"),
+                description=row.get("description", ""),
+                icon=row.get("icon", ""),
+                is_abstract=row.get("is_abstract", False),
+                wikidata_qid=row.get("wikidata_qid"),
+                wikidata_seed=row.get("wikidata_seed", False),
+            ).upsert()
+            type_name = row["name"]
+            for prop in row.get("wikidata_properties") or []:
+                pid = prop.get("pid")
+                label = prop.get("label")
+                if not pid or not label:
+                    continue
+                Property.from_row((pid, label, "string", type_name, "wikidata", pid, None)).upsert()
+
+        logger.info("Registered %d entity types for %s", len(type_rows), self.name)
+
+    def deregister_entity_types(self) -> None:
+        """Remove entity types declared in this source's ``entities.py``."""
+        import importlib
+
+        try:
+            entities_mod = importlib.import_module(f"shenas_sources.{self.name}.entities")
+        except ImportError:
+            return
+
+        type_rows = getattr(entities_mod, "ENTITY_TYPES", None) or []
+        if not type_rows:
+            return
+
+        from app.entity import EntityType
+
+        for row in type_rows:
+            existing = EntityType.find(row["name"])
+            if existing is not None:
+                existing.delete()
+
+        logger.info("Deregistered %d entity types for %s", len(type_rows), self.name)
+
     # -- Sync lifecycle -------------------------------------------------------
 
     def _lookback_start_date(self, default_days: int) -> str:
@@ -360,11 +455,12 @@ class Source(Plugin):
         """
         try:
             row = self.Config.read_row()  # ty: ignore[unresolved-attribute]
-            val = getattr(row, "lookback_period", None) if row else None
-            if val is not None and int(val) > 0:
-                return f"{int(val)} days ago"
+            if row is not None:
+                val = row.get("lookback_period") if isinstance(row, dict) else getattr(row, "lookback_period", None)
+                if val is not None and int(val) > 0:
+                    return f"{int(val)} days ago"
         except Exception:
-            pass
+            logger.exception("_lookback_start_date: failed to read config")
         return f"{default_days} days ago"
 
     @abc.abstractmethod
@@ -375,6 +471,14 @@ class Source(Plugin):
     def build_client(self) -> Any:
         """Build an API client from stored credentials. Override for auth."""
         return None
+
+    def cleanup_client(self, client: Any) -> None:
+        """Clean up resources created by ``build_client``.
+
+        Called in a ``finally`` block after sync completes (or fails).
+        Override for sources that create temp files or hold connections.
+        The default implementation does nothing.
+        """
 
     @property
     def dataset_name(self) -> str:
@@ -439,32 +543,42 @@ class Source(Plugin):
         `on_progress`, if given, is forwarded to `run_sync` and called at each
         per-resource checkpoint so streaming consumers can surface progress.
         """
-        from shenas_sources.core.as_of import apply_as_of_macros
         from shenas_sources.core.cli import run_sync
 
         client = self.build_client()
-        res = self.resources(client)
-        # Build resource name -> display name map from table classes.
-        rdn: dict[str, str] = {}
         try:
-            import importlib
+            res = self.resources(client)
+            # Build resource name -> display name map from table classes.
+            rdn: dict[str, str] = {}
+            try:
+                from app.plugin import Plugin
 
-            tables_mod = importlib.import_module(f"shenas_sources.{self.name}.tables")
-            for t in getattr(tables_mod, "TABLES", ()):
-                rdn[t._Meta.name] = getattr(t._Meta, "display_name", t._Meta.name)
-        except (ImportError, AttributeError):
-            pass
-        run_sync(
-            self.name,
-            self.dataset_name,
-            res,
-            full_refresh,
-            self._auto_transform,
-            on_progress=on_progress,
-            display_name=self.display_name,
-            resource_display_names=rdn,
-        )
-        # Refresh AS-OF macros for any SCD2 tables in this source's schema.
+                for t in Plugin.load_tables(self.name, kind="source"):
+                    rdn[t._Meta.name] = getattr(t._Meta, "display_name", t._Meta.name)  # ty: ignore[unresolved-attribute]
+            except AttributeError:
+                pass
+            run_sync(
+                self.name,
+                self.dataset_name,
+                res,
+                full_refresh,
+                self._auto_transform,
+                on_progress=on_progress,
+                display_name=self.display_name,
+                resource_display_names=rdn,
+            )
+            self._post_sync(full_refresh)
+        finally:
+            self.cleanup_client(client)
+
+    def _post_sync(self, full_refresh: bool) -> None:
+        """Run all post-sync hooks: AS-OF macros, entity projection, mark synced.
+
+        Called at the end of :meth:`sync` and by custom sync overrides
+        (Gmail, Google Takeout) to avoid duplicating the hook sequence.
+        """
+        from shenas_sources.core.as_of import apply_as_of_macros
+
         try:
             from app.database import cursor
 
@@ -498,22 +612,15 @@ class Source(Plugin):
         set is small relative to the raw table and always represents the
         current truth of the entity.
         """
-        import importlib
 
-        try:
-            tables_mod = importlib.import_module(f"shenas_sources.{self.name}.tables")
-        except ImportError:
+        from app.plugin import Plugin
+
+        all_tables = list(Plugin.load_tables(self.name, kind="source"))
+        if not all_tables:
             return
 
-        all_tables = list(getattr(tables_mod, "TABLES", ()))
-
         # Load views from views.py (e.g. TileInfo) and ensure them.
-        all_views: list[type] = []
-        try:
-            views_mod = importlib.import_module(f"shenas_sources.{self.name}.views")
-            all_views = list(getattr(views_mod, "VIEWS", ()))
-        except ImportError:
-            pass
+        all_views = list(Plugin.load_views(self.name))
         for view in all_views:
             try:
                 view.ensure()  # ty: ignore[unresolved-attribute]
@@ -534,17 +641,34 @@ class Source(Plugin):
             self._project_table(relation)
 
     def _project_table(self, t: type) -> None:
-        """Project one source table's current rows into entities + statements."""
+        """Project one source table's current rows into entities + statements.
+
+        Projection entries can be:
+        - **string** (property): maps column to a property on the row's entity.
+          ``{"language": "P277"}`` -> Statement(entity, "P277", row.language).
+        - **dict** (entity reference): the column value names a *different*
+          entity.  ``{"city": {"entity_type": "city"}}`` -> upserts a city
+          Entity whose name (and PK) is the column value.
+        """
         from app.entities.properties import Property
         from app.entities.statements import Statement
         from app.entity import Entity, compute_entity_id
 
         type_name: str = t._Meta.entity_type  # ty: ignore[unresolved-attribute]
         name_col: str | None = getattr(t._Meta, "entity_name_column", None)  # ty: ignore[unresolved-attribute]
-        projection: dict[str, str] = dict(t._Meta.entity_projection)  # ty: ignore[unresolved-attribute]
+        raw_projection: dict[str, str | dict[str, str]] = dict(t._Meta.entity_projection)  # ty: ignore[unresolved-attribute]
         pk_cols_list = list(t._Meta.pk)  # ty: ignore[unresolved-attribute]
 
-        for pid in set(projection.values()):
+        # Split into property projections and entity reference projections.
+        property_projection: dict[str, str] = {}
+        entity_ref_projection: dict[str, str] = {}  # column -> entity_type
+        for col, spec in raw_projection.items():
+            if isinstance(spec, dict):
+                entity_ref_projection[col] = spec["entity_type"]
+            else:
+                property_projection[col] = spec
+
+        for pid in set(property_projection.values()):
             if Property.find(pid) is None:
                 Property.from_row((pid, pid, "string", type_name, self.name, None, None)).insert()
 
@@ -559,7 +683,7 @@ class Source(Plugin):
             entity_id = compute_entity_id(type_name, pk_values)
             entity_name = str(getattr(row, name_col, None) or pk_values[0]) if name_col else str(pk_values[0])
 
-            existing_entity = Entity.find_by_uuid(entity_id) if hasattr(Entity, "find_by_uuid") else None
+            existing_entity = Entity.find_by_uuid(entity_id)
             if existing_entity is None:
                 Entity(
                     uuid=entity_id,
@@ -571,18 +695,61 @@ class Source(Plugin):
                 existing_entity.name = entity_name
                 existing_entity.save()
 
-            for src_col, property_id in projection.items():
-                value = getattr(row, src_col, None)
-                if value is None or value == "":
-                    continue
-                value_str = str(value)
-                existing_stmt = Statement.find(entity_id, property_id, value_str)
-                if existing_stmt is None:
-                    Statement.from_row((entity_id, property_id, value_str, value_str, "normal", None, self.name)).insert()
-                else:
-                    existing_stmt.value_label = value_str
-                    existing_stmt.source = self.name
-                    existing_stmt.save()
+            # Property statements on the row's own entity.
+            for src_col, property_id in property_projection.items():
+                self._upsert_property_statement(row, src_col, property_id, entity_id, Statement)
+
+            # Entity reference columns: upsert referenced entities.
+            for src_col, ref_type in entity_ref_projection.items():
+                self._upsert_entity_ref(row, src_col, ref_type)
+
+    def _upsert_property_statement(
+        self, row: object, column: str, property_id: str, entity_id: str, statement_cls: type
+    ) -> None:
+        """Upsert a property statement on an entity from a row column value."""
+        value = getattr(row, column, None)
+        if value is None or value == "":
+            return
+        value_str = str(value)
+        existing = statement_cls.find(entity_id, property_id, value_str)  # ty: ignore[unresolved-attribute]
+        if existing is None:
+            statement_cls.from_row((entity_id, property_id, value_str, value_str, "normal", None, self.name)).insert()  # ty: ignore[unresolved-attribute]
+        else:
+            existing.value_label = value_str
+            existing.source = self.name
+            existing.save()
+
+    def _upsert_entity_ref(self, row: object, column: str, entity_type: str) -> None:
+        """Upsert an entity referenced by a column value (e.g. city name).
+
+        If the entity already exists (e.g. seeded by Wikidata) and is
+        disabled, enable it -- the user's data references it, so it's
+        relevant. Also creates a statement linking the entity to this
+        source so it appears in the source's entities tab.
+        """
+        from app.entities.statements import Statement
+        from app.entity import Entity, compute_entity_id
+
+        ref_name = getattr(row, column, None)
+        if not ref_name or str(ref_name).strip() == "":
+            return
+        ref_name_str = str(ref_name).strip()
+        ref_id = compute_entity_id(entity_type, (ref_name_str,))
+        existing = Entity.find_by_uuid(ref_id)
+        if existing is None:
+            Entity(
+                uuid=ref_id,
+                type=entity_type,
+                name=ref_name_str,
+                status="enabled",
+            ).insert()
+        elif existing.status == "disabled":
+            existing.status = "enabled"
+            existing.save()
+        # Link entity to this source via a statement.
+        property_id = f"referenced_by:{column}"
+        if Statement.find(ref_id, property_id, self.name) is None:
+            Statement.from_row((ref_id, property_id, self.name, self.name, "normal", None, self.name)).insert()
 
     def _refresh_wide_views(self) -> None:
         """Post-sync hook: rebuild every per-type wide view.
@@ -625,7 +792,8 @@ class Source(Plugin):
         # Pre-check: try building the client to catch config errors early
         # without a full traceback in the logs.
         try:
-            self.build_client()
+            pre_client = self.build_client()
+            self.cleanup_client(pre_client)
         except Exception as exc:
             msg = str(exc)
             logger.warning("Sync skipped: %s -- %s", source_label, msg)

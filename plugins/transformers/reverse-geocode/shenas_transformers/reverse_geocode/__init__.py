@@ -6,7 +6,7 @@ import hashlib
 from typing import TYPE_CHECKING, Any
 
 import duckdb
-from shenas_transformers.core import Transformer, TransformerConfig
+from shenas_transformers.core import ColumnTransformer, TransformerConfig
 
 from app.plugin import Plugin
 
@@ -42,7 +42,7 @@ class _ReverseGeocodeConfig(TransformerConfig):
     ] = None
 
 
-class ReverseGeocodeTransformer(Transformer):
+class ReverseGeocodeTransformer(ColumnTransformer):
     """Convert latitude/longitude to place names using a reverse geocoding API."""
 
     name = "reverse-geocode"

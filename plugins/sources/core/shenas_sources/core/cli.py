@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from typing import TYPE_CHECKING, Any
 
 import typer
@@ -19,6 +20,11 @@ if TYPE_CHECKING:
 console = Console()
 logger = Plugin.get_logger(__name__)
 tracer = trace.get_tracer("shenas.sources")
+
+# Serializes DuckDB writes across concurrent source syncs.
+# Fetching (API calls, dlt to in-memory DB) runs in parallel;
+# only the flush step (writing to the encrypted user DB) is serialized.
+_flush_lock = threading.Lock()
 
 
 def create_source_app(help_text: str) -> typer.Typer:
@@ -74,7 +80,6 @@ def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally 
         if on_progress is not None:
             on_progress(evt, msg)
 
-    logger.info("Sync started: %s", label)
     _emit("sync_started", f"Sync started: {label}")
     with tracer.start_as_current_span("source.sync", attributes={"source.name": source_name, "source.dataset": dataset_name}):
         import threading
@@ -140,7 +145,8 @@ def run_sync(  # noqa: PLR0915  -- the per-resource fetch loop is intentionally 
 
             with tracer.start_as_current_span("source.flush", attributes={"resource": resource_name}):
                 logger.info("Flushing %s/%s to encrypted database", label, resource_label)
-                flush_to_encrypted(mem_con, dataset_name)
+                with _flush_lock:
+                    flush_to_encrypted(mem_con, dataset_name)
 
             # Only apply refresh on the first resource
             refresh = None

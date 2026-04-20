@@ -10,10 +10,13 @@ Measurement values from ``getmeas`` require scaling:
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
 
 import httpx
+
+log = logging.getLogger("shenas.source.withings")
 
 BASE_URL = "https://wbsapi.withings.net"
 TOKEN_URL = f"{BASE_URL}/v2/oauth2"
@@ -62,26 +65,42 @@ class WithingsClient:
 
         Returns flattened measurement groups with type codes mapped to
         named columns and values scaled by their unit exponent.
+        Paginates automatically via the ``more``/``offset`` fields.
         """
-        body = self._post(
-            "/measure",
-            action="getmeas",
-            startdate=str(start_epoch),
-            enddate=str(end_epoch),
-            meastypes=",".join(str(t) for t in MEASURE_TYPES),
+        log.info(
+            "Fetching measurements from %s to %s",
+            datetime.fromtimestamp(start_epoch).isoformat()[:10],  # noqa: DTZ006
+            datetime.fromtimestamp(end_epoch).isoformat()[:10],  # noqa: DTZ006
         )
-        groups = body.get("measuregrps") or []
         rows: list[dict[str, Any]] = []
-        for grp in groups:
-            row: dict[str, Any] = {
-                "grpid": grp["grpid"],
-                "created_at": datetime.fromtimestamp(grp["date"]).isoformat(),  # noqa: DTZ006
+        offset = 0
+        while True:
+            params: dict[str, str] = {
+                "action": "getmeas",
+                "startdate": str(start_epoch),
+                "enddate": str(end_epoch),
             }
-            for m in grp.get("measures") or []:
-                col = MEASURE_TYPES.get(m["type"])
-                if col:
-                    row[col] = m["value"] * 10 ** m["unit"]
-            rows.append(row)
+            if offset:
+                params["offset"] = str(offset)
+            body = self._post("/measure", **params)
+            page_groups = body.get("measuregrps") or []
+            log.info("Got %d measurement groups (more=%s, offset=%s)", len(page_groups), body.get("more"), body.get("offset"))
+            for grp in page_groups:
+                row: dict[str, Any] = {
+                    "grpid": grp["grpid"],
+                    "created_at": datetime.fromtimestamp(grp["date"]).isoformat(),  # noqa: DTZ006
+                }
+                for measurement in grp.get("measures") or []:
+                    col = MEASURE_TYPES.get(measurement["type"])
+                    if col:
+                        row[col] = measurement["value"] * 10 ** measurement["unit"]
+                    else:
+                        log.debug("Unknown measure type %d, value=%s", measurement["type"], measurement["value"])
+                rows.append(row)
+            if not body.get("more"):
+                break
+            offset = body.get("offset", 0)
+        log.info("Total measurements fetched: %d", len(rows))
         return rows
 
     def get_sleep_summary(self, start_date: str, end_date: str) -> list[dict[str, Any]]:
@@ -91,13 +110,18 @@ class WithingsClient:
             start_date: YYYY-MM-DD
             end_date: YYYY-MM-DD
         """
-        body = self._post(
-            "/v2/sleep",
-            action="getsummary",
-            startdateymd=start_date,
-            enddateymd=end_date,
-        )
-        return body.get("series") or []
+        results: list[dict[str, Any]] = []
+        offset = 0
+        while True:
+            params: dict[str, str] = {"action": "getsummary", "startdateymd": start_date, "enddateymd": end_date}
+            if offset:
+                params["offset"] = str(offset)
+            body = self._post("/v2/sleep", **params)
+            results.extend(body.get("series") or [])
+            if not body.get("more"):
+                break
+            offset = body.get("offset", 0)
+        return results
 
     def get_activity(self, start_date: str, end_date: str) -> list[dict[str, Any]]:
         """Fetch daily activity summaries.
@@ -106,13 +130,18 @@ class WithingsClient:
             start_date: YYYY-MM-DD
             end_date: YYYY-MM-DD
         """
-        body = self._post(
-            "/v2/measure",
-            action="getactivity",
-            startdateymd=start_date,
-            enddateymd=end_date,
-        )
-        return body.get("activities") or []
+        results: list[dict[str, Any]] = []
+        offset = 0
+        while True:
+            params: dict[str, str] = {"action": "getactivity", "startdateymd": start_date, "enddateymd": end_date}
+            if offset:
+                params["offset"] = str(offset)
+            body = self._post("/v2/measure", **params)
+            results.extend(body.get("activities") or [])
+            if not body.get("more"):
+                break
+            offset = body.get("offset", 0)
+        return results
 
     def get_devices(self) -> list[dict[str, Any]]:
         """Fetch connected Withings devices."""
@@ -158,6 +187,7 @@ class WithingsClient:
         resp.raise_for_status()
         data = resp.json()
         if data.get("status") != 0:
-            msg = f"Token refresh failed: {data}"
+            error_detail = data.get("error") or f"status {data.get('status')}"
+            msg = f"Token refresh failed: {error_detail}. Please re-authenticate."
             raise RuntimeError(msg)
         return data.get("body") or {}

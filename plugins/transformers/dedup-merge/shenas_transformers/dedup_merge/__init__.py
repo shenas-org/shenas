@@ -6,13 +6,13 @@ import contextlib
 from typing import TYPE_CHECKING, Any
 
 import duckdb
-from shenas_transformers.core import Transformer
+from shenas_transformers.core import TableTransformer
 
 if TYPE_CHECKING:
     from shenas_transformers.core.transform import Transform
 
 
-class DedupMergeTransformer(Transformer):
+class DedupMergeTransformer(TableTransformer):
     """Unify records from two sources that represent the same entity.
 
     Matches records by overlapping time windows and configurable key

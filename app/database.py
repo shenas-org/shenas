@@ -230,26 +230,29 @@ class DatabaseManager:
         return dlt.destinations.duckdb(credentials=mem_con), mem_con
 
     def flush_to_encrypted(self, mem_con: duckdb.DuckDBPyConnection, dataset_name: str) -> None:
-        """Copy tables from the in-memory dlt connection into the current user's DB."""
-        import sys
+        """Copy tables from the in-memory dlt connection into the current user's DB.
 
-        server_con = sys.modules[__name__].connect()
+        Uses a child cursor (not the parent connection) so concurrent
+        syncs that also hold cursors don't deadlock on the connection mutex.
+        """
+        import sys
 
         all_schemas = [r[0] for r in mem_con.execute("SELECT schema_name FROM information_schema.schemata").fetchall()]
         schemas_to_copy = [s for s in all_schemas if s in (dataset_name, f"{dataset_name}_staging")]
 
-        for schema in schemas_to_copy:
-            server_con.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
-            tables = mem_con.execute(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_catalog = 'memory'",
-                [schema],
-            ).fetchall()
-            for (table_name,) in tables:
-                tmp_name = f"_flush_{schema}_{table_name}".replace("-", "_")
-                arrow_tbl = mem_con.execute(f'SELECT * FROM memory."{schema}"."{table_name}"').arrow()
-                server_con.register(tmp_name, arrow_tbl)
-                server_con.execute(f'CREATE OR REPLACE TABLE "{schema}"."{table_name}" AS SELECT * FROM {tmp_name}')
-                server_con.unregister(tmp_name)
+        with sys.modules[__name__].cursor() as cur:
+            for schema in schemas_to_copy:
+                cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
+                tables = mem_con.execute(
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_catalog = 'memory'",
+                    [schema],
+                ).fetchall()
+                for (table_name,) in tables:
+                    tmp_name = f"_flush_{schema}_{table_name}".replace("-", "_")
+                    arrow_tbl = mem_con.execute(f'SELECT * FROM memory."{schema}"."{table_name}"').arrow()
+                    cur.register(tmp_name, arrow_tbl)
+                    cur.execute(f'CREATE OR REPLACE TABLE "{schema}"."{table_name}" AS SELECT * FROM {tmp_name}')
+                    cur.unregister(tmp_name)
 
         mem_con.close()
 

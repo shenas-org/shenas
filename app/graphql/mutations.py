@@ -17,6 +17,8 @@ from app.graphql.types import (
     DataResourceAnnotationInput,
     DataResourceType,
     EntityCreateInput,
+    EntityTypeCreateInput,
+    EntityTypeType,
     EntityUpdateInput,
     GqlEntityRelationshipType,
     GqlEntityType,
@@ -941,6 +943,33 @@ class Mutation:
         h.dismiss_suggestion()
         return OkType.from_pydantic(OkResponse(ok=True, message=f"Dismissed analysis #{hypothesis_id}"))  # ty: ignore[unresolved-attribute]
 
+    # -- Entity types --
+
+    @strawberry.mutation
+    def create_entity_type(self, input: EntityTypeCreateInput) -> EntityTypeType:  # noqa: A002
+        import re
+
+        from app.entity import EntityType
+
+        slug = re.sub(r"[^a-z0-9]+", "_", input.display_name.lower()).strip("_")
+        entity_type = EntityType(
+            name=slug,
+            display_name=input.display_name,
+            parent=input.parent,
+            description=input.description,
+            icon=input.icon,
+        )
+        entity_type.insert()
+        return EntityTypeType(
+            name=entity_type.name,
+            display_name=entity_type.display_name,
+            description=entity_type.description,
+            icon=entity_type.icon,
+            parent=entity_type.parent,
+            is_abstract=entity_type.is_abstract,
+            wikidata_qid=entity_type.wikidata_qid,
+        )
+
     # -- Entities --
 
     @strawberry.mutation
@@ -955,7 +984,7 @@ class Mutation:
         )
         me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
         me_uuid = me_candidates[0].uuid if me_candidates else None
-        return GqlEntityType(
+        return GqlEntityType.build(
             uuid=e.uuid,
             type=e.type,
             name=e.name,
@@ -984,7 +1013,7 @@ class Mutation:
         e.save()
         me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
         me_uuid = me_candidates[0].uuid if me_candidates else None
-        return GqlEntityType(
+        return GqlEntityType.build(
             uuid=e.uuid,
             type=e.type,
             name=e.name,
@@ -1077,7 +1106,7 @@ class Mutation:
         from app.entity import _slug, ensure_all_wide_views
 
         prop_id = property_input.id or f"user:{_slug(property_input.label)}"
-        prop = Property.from_row(  # ty: ignore[invalid-argument-type]
+        prop = Property.from_row(
             (
                 prop_id,
                 property_input.label,
@@ -1110,7 +1139,7 @@ class Mutation:
         from app.entities.statements import Statement
 
         qualifiers_json = json.dumps(statement_input.qualifiers) if statement_input.qualifiers is not None else None
-        stmt = Statement.from_row(  # ty: ignore[invalid-argument-type]
+        stmt = Statement.from_row(
             (
                 statement_input.entity_id,
                 statement_input.property_id,

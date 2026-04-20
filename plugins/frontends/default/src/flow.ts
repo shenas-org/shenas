@@ -13,24 +13,36 @@ import {
   renderMessage,
 } from "shenas-frontends";
 import type { MessageBanner } from "shenas-frontends";
-import { GET_TRANSFORMS, GET_SUGGESTED_DATASETS } from "./graphql/queries.ts";
+import { GET_TRANSFORMS, GET_SUGGESTED_DATASETS, GET_ENTITIES_DATA } from "./graphql/queries.ts";
 import { SUGGEST_DATASETS, ACCEPT_DATASET_SUGGESTION, DISMISS_DATASET_SUGGESTION } from "./graphql/mutations.ts";
 
 interface PluginInfo {
   name: string;
   displayName?: string;
   enabled?: boolean;
+  entityTypes?: string[];
+  entityUuids?: string[];
   tables?: string[];
+  totalRows?: number;
 }
 
 interface Transform {
   id: number;
   transformType: string;
-  source: { id: string; schemaName: string; tableName: string };
-  target: { id: string; schemaName: string; tableName: string };
+  source: { id: string; schemaName: string; tableName: string; displayName?: string };
+  target: { id: string; schemaName: string; tableName: string; displayName?: string };
   sourcePlugin: string;
   description?: string;
   enabled: boolean;
+}
+
+interface FlowEntity {
+  uuid: string;
+  type: string;
+  name: string;
+  status: string;
+  isMe: boolean;
+  sources: string[];
 }
 
 interface CyElement {
@@ -62,7 +74,7 @@ class PipelineOverview extends LitElement {
       }
       #cy {
         width: 100%;
-        height: calc(100vh - 16rem);
+        height: calc(100vh - 13rem);
         border: 1px solid var(--shenas-border, #e0e0e0);
         border-radius: 8px;
         background: var(--shenas-bg-secondary, #fafafa);
@@ -72,7 +84,7 @@ class PipelineOverview extends LitElement {
         display: flex;
         flex-wrap: wrap;
         gap: 0.8rem;
-        margin-top: 0.8rem;
+        margin-top: 0.4rem;
         font-size: 0.8rem;
         color: var(--shenas-text-secondary, #666);
       }
@@ -98,6 +110,10 @@ class PipelineOverview extends LitElement {
       .legend-dot.model {
         background: var(--shenas-node-model, #ab47bc);
       }
+      .legend-dot.entity {
+        background: #78909c;
+        border-radius: 50%;
+      }
       .legend-line {
         width: 20px;
         height: 2px;
@@ -119,7 +135,7 @@ class PipelineOverview extends LitElement {
         overflow: hidden;
         width: fit-content;
       }
-      .view-switcher button {
+      .view-switcher a {
         padding: 0.4rem 1rem;
         border: none;
         background: var(--shenas-bg-secondary, #fafafa);
@@ -127,15 +143,16 @@ class PipelineOverview extends LitElement {
         font-size: 0.8rem;
         cursor: pointer;
         border-right: 1px solid var(--shenas-border, #e0e0e0);
+        text-decoration: none;
       }
-      .view-switcher button:last-child {
+      .view-switcher a:last-child {
         border-right: none;
       }
-      .view-switcher button.active {
+      .view-switcher a.active {
         background: var(--shenas-accent, #728f67);
         color: #fff;
       }
-      .view-switcher button:not(.active):hover {
+      .view-switcher a:not(.active):hover {
         background: var(--shenas-bg-hover, #f0f0f0);
       }
       .placeholder {
@@ -207,6 +224,7 @@ class PipelineOverview extends LitElement {
   declare _message: MessageBanner | null;
   private _cy: cytoscape.Core | null = null;
   private _elements: CyElement[] | null = null;
+  private _entityFetching = false;
   private _resizeObserver: ResizeObserver | null = null;
   private _client = getClient();
 
@@ -226,7 +244,9 @@ class PipelineOverview extends LitElement {
     this.apiBase = "/api";
     this.allPlugins = {};
     this._empty = false;
-    this._view = "device";
+    // Derive initial view from URL: /flow/entity, /flow/data, or /flow (device).
+    const segment = window.location.pathname.split("/").pop() || "";
+    this._view = segment === "entity" || segment === "data" ? segment : "device";
     this._suggesting = false;
     this._suggestions = [];
     this._message = null;
@@ -243,6 +263,17 @@ class PipelineOverview extends LitElement {
       fetchPolicy: "network-only",
     });
     this._suggestions = (data?.suggestedDatasets as typeof this._suggestions) || [];
+  }
+
+  _openPluginPanel(kind: string, name: string): void {
+    const panel = document.createElement("shenas-plugin-detail");
+    panel.setAttribute("api-base", this.apiBase);
+    panel.setAttribute("kind", kind);
+    panel.setAttribute("name", name);
+    panel.setAttribute("active-tab", "details");
+    this.dispatchEvent(
+      new CustomEvent("show-panel", { bubbles: true, composed: true, detail: { component: panel, width: 600 } }),
+    );
   }
 
   async _suggest(): Promise<void> {
@@ -300,7 +331,7 @@ class PipelineOverview extends LitElement {
     }
   }
 
-  private _processQueryData(): void {
+  private _buildDeviceElements(): void {
     const data = this._overviewQuery.data as Record<string, unknown> | undefined;
     if (!data) return;
     const ap = this.allPlugins || {};
@@ -327,18 +358,18 @@ class PipelineOverview extends LitElement {
   }
 
   _buildElements(
-    pipes: PluginInfo[],
-    schemas: PluginInfo[],
+    allSources: PluginInfo[],
+    allDatasets: PluginInfo[],
     transforms: Transform[],
     ownership: Record<string, string[]>,
-    components: PluginInfo[],
+    dashboards: PluginInfo[],
     deps: Record<string, string[]>,
     models: PluginInfo[] = [],
   ): void {
     const elements: CyElement[] = [];
     const nodeIds = new Set<string>();
 
-    // Build reverse lookup: table -> schema plugin name
+    // Build reverse lookup: table -> dataset plugin name
     const tableToPlugin: Record<string, string> = {};
     for (const [pluginName, tables] of Object.entries(ownership)) {
       for (const table of tables) {
@@ -346,123 +377,225 @@ class PipelineOverview extends LitElement {
       }
     }
 
-    // Device node (current machine)
+    // 1. Device node
     const deviceId = "device:local";
     nodeIds.add(deviceId);
     elements.push({ data: { id: deviceId, label: "This Device", kind: "device" } });
 
-    // Source nodes + Device -> Source edges
-    for (const p of pipes) {
-      const id = `source:${p.name}`;
+    // 2. Sources with data (totalRows > 0) + Device -> Source edges
+    const activeSources = new Set<string>();
+    for (const source of allSources) {
+      if (!source.totalRows || source.totalRows <= 0) continue;
+      const id = `source:${source.name}`;
+      activeSources.add(source.name);
       nodeIds.add(id);
-      elements.push({
-        data: { id, label: p.displayName || p.name, kind: "source", enabled: p.enabled !== false ? "yes" : "no" },
-      });
-      elements.push({
-        data: { id: `edge:device:${p.name}`, source: deviceId, target: id, edgeType: "device" },
-      });
-    }
-
-    // Dataset nodes
-    for (const s of schemas) {
-      const id = `dataset:${s.name}`;
-      nodeIds.add(id);
-      elements.push({
-        data: { id, label: s.displayName || s.name, kind: "dataset", enabled: s.enabled !== false ? "yes" : "no" },
-      });
-    }
-
-    // Dashboard nodes
-    for (const c of components) {
-      const id = `dashboard:${c.name}`;
-      nodeIds.add(id);
-      elements.push({
-        data: { id, label: c.displayName || c.name, kind: "dashboard", enabled: c.enabled !== false ? "yes" : "no" },
-      });
-    }
-
-    // Model nodes
-    for (const m of models) {
-      const id = `model:${m.name}`;
-      nodeIds.add(id);
-      elements.push({
-        data: { id, label: m.displayName || m.name, kind: "model", enabled: m.enabled !== false ? "yes" : "no" },
-      });
-    }
-
-    // Transform edges (pipe -> schema via data)
-    for (const t of transforms) {
-      const sourceId = `source:${t.sourcePlugin}`;
-      const ownerPlugin = tableToPlugin[t.target.tableName];
-      const targetId = ownerPlugin ? `dataset:${ownerPlugin}` : null;
-      if (!targetId || !nodeIds.has(sourceId) || !nodeIds.has(targetId)) continue;
-      const typeTag = t.transformType ? `[${t.transformType}] ` : "";
-      const desc = t.description || `${t.source.tableName} -> ${t.target.tableName}`;
-      const full = `${typeTag}${desc}`;
-      const label = full.length > 35 ? full.slice(0, 33) + "..." : full;
       elements.push({
         data: {
-          id: `transform:${t.id}`,
-          source: sourceId,
-          target: targetId,
-          label,
-          enabled: t.enabled ? "yes" : "no",
-          sourcePlugin: t.sourcePlugin,
-          edgeType: "transform",
+          id,
+          label: source.displayName || source.name,
+          kind: "source",
+          enabled: source.enabled !== false ? "yes" : "no",
         },
+      });
+      elements.push({
+        data: { id: `edge:device:${source.name}`, source: deviceId, target: id, edgeType: "device" },
       });
     }
 
-    // Track which pipe->schema pairs already have transform edges
-    const transformPairs = new Set<string>();
-    for (const el of elements) {
-      if (el.data.edgeType === "transform") {
-        transformPairs.add(`${el.data.source}:${el.data.target}`);
-      }
-    }
-
-    // Dependency edges (from package metadata)
-    const depEdgeIds = new Set<string>();
-    for (const [depSource, targets] of Object.entries(deps)) {
-      for (const depTarget of targets) {
-        const sourceKind = depSource.split(":")[0];
-        let edgeSource: string;
-        let edgeTarget: string;
-        if (sourceKind === "dashboard" || sourceKind === "model") {
-          // Component/model depends on schema -> show as schema -> component/model
-          edgeSource = depTarget;
-          edgeTarget = depSource;
-        } else {
-          edgeSource = depSource;
-          edgeTarget = depTarget;
-        }
-        if (!nodeIds.has(edgeSource) || !nodeIds.has(edgeTarget)) continue;
-        // Skip pipe->schema dep edges when transforms already connect them
-        if (sourceKind === "source" && transformPairs.has(`${edgeSource}:${edgeTarget}`)) continue;
-        const edgeId = `dep:${edgeSource}:${edgeTarget}`;
-        if (depEdgeIds.has(edgeId)) continue;
-        depEdgeIds.add(edgeId);
+    // 3. Datasets connected via transforms from active sources
+    const connectedDatasets = new Set<string>();
+    const edgePairs = new Set<string>();
+    for (const transform of transforms) {
+      if (!transform.enabled || !activeSources.has(transform.sourcePlugin)) continue;
+      const ownerPlugin = tableToPlugin[transform.target.tableName];
+      if (!ownerPlugin) continue;
+      const sourceId = `source:${transform.sourcePlugin}`;
+      const datasetId = `dataset:${ownerPlugin}`;
+      const pair = `${sourceId}:${datasetId}`;
+      if (edgePairs.has(pair)) continue;
+      edgePairs.add(pair);
+      if (!nodeIds.has(datasetId)) {
+        const dataset = allDatasets.find((d) => d.name === ownerPlugin);
+        nodeIds.add(datasetId);
         elements.push({
           data: {
-            id: edgeId,
-            source: edgeSource,
-            target: edgeTarget,
-            edgeType: "dependency",
+            id: datasetId,
+            label: dataset?.displayName || ownerPlugin,
+            kind: "dataset",
+            enabled: dataset?.enabled !== false ? "yes" : "no",
           },
+        });
+      }
+      connectedDatasets.add(ownerPlugin);
+      elements.push({
+        data: { id: `transform:${pair}`, source: sourceId, target: datasetId, edgeType: "transform" },
+      });
+    }
+
+    // 4. Dashboards and models that depend on connected datasets
+    for (const consumer of [...dashboards, ...models]) {
+      const kind = dashboards.includes(consumer) ? "dashboard" : "model";
+      const consumerId = `${kind}:${consumer.name}`;
+      const depTargets = deps[consumerId] || [];
+      let added = false;
+      for (const target of depTargets) {
+        const datasetName = target.replace("dataset:", "");
+        if (!connectedDatasets.has(datasetName)) continue;
+        if (!added) {
+          nodeIds.add(consumerId);
+          elements.push({
+            data: {
+              id: consumerId,
+              label: consumer.displayName || consumer.name,
+              kind,
+              enabled: consumer.enabled !== false ? "yes" : "no",
+            },
+          });
+          added = true;
+        }
+        elements.push({
+          data: { id: `dep:${target}:${consumerId}`, source: target, target: consumerId, edgeType: "dependency" },
         });
       }
     }
 
-    // Hide non-source nodes that have no edges (no relationships).
-    const connectedNodes = new Set<string>();
-    for (const el of elements) {
-      if (el.data.source) connectedNodes.add(el.data.source as string);
-      if (el.data.target) connectedNodes.add(el.data.target as string);
+    this._elements = elements;
+    this._empty = activeSources.size === 0;
+  }
+
+  private async _fetchEntityFlow(): Promise<void> {
+    const { data } = await this._client.query({ query: GET_ENTITIES_DATA, fetchPolicy: "network-only" });
+    const all = (data?.entities || []) as FlowEntity[];
+    const entities = all.filter((entity) => entity.isMe || entity.status === "enabled");
+    const relationships = (data?.entityRelationships || []) as Array<{
+      fromUuid: string;
+      toUuid: string;
+      type: string;
+    }>;
+    this._buildEntityElements(entities, relationships);
+    this.requestUpdate();
+  }
+
+  private _buildEntityElements(
+    entities: FlowEntity[],
+    relationships: Array<{ fromUuid: string; toUuid: string; type: string }> = [],
+  ): void {
+    const ap = this.allPlugins || {};
+    const sources = (ap.source || []) as PluginInfo[];
+    const datasets = (ap.dataset || []) as PluginInfo[];
+
+    const elements: CyElement[] = [];
+    const nodeIds = new Set<string>();
+    const edgeIds = new Set<string>();
+
+    // Index entities by UUID for lookup.
+    const entityByUuid = new Map(entities.map((entity) => [entity.uuid, entity]));
+
+    // Collect entity UUIDs referenced by any plugin.
+    const referencedUuids = new Set<string>();
+    for (const plugin of [...sources, ...datasets]) {
+      for (const uuid of plugin.entityUuids || []) referencedUuids.add(uuid);
     }
-    this._elements = elements.filter(
-      (el) => el.data.source || el.data.kind === "source" || connectedNodes.has(el.data.id as string),
-    );
-    this._empty = this._elements.filter((e) => e.data.source).length === 0;
+
+    // Entity nodes (center column) -- only entities referenced by a plugin.
+    for (const uuid of referencedUuids) {
+      const entity = entityByUuid.get(uuid);
+      if (!entity) continue;
+      const id = `entity:${uuid}`;
+      const label = entity.isMe ? "Me" : entity.name;
+      nodeIds.add(id);
+      elements.push({ data: { id, label, kind: "entity", entityType: entity.type, isMe: entity.isMe ? "yes" : "no" } });
+    }
+
+    const addEdge = (edgeId: string, source: string, target: string, edgeType: string) => {
+      if (edgeIds.has(edgeId)) return;
+      edgeIds.add(edgeId);
+      elements.push({ data: { id: edgeId, source, target, edgeType } });
+    };
+
+    // Source "is about" Entity -- arrow points from source to entity.
+    for (const source of sources) {
+      for (const uuid of source.entityUuids || []) {
+        if (!nodeIds.has(`entity:${uuid}`)) continue;
+        const sourceId = `source:${source.name}`;
+        if (!nodeIds.has(sourceId)) {
+          nodeIds.add(sourceId);
+          elements.push({
+            data: {
+              id: sourceId,
+              label: source.displayName || source.name,
+              kind: "source",
+              enabled: source.enabled !== false ? "yes" : "no",
+            },
+          });
+        }
+        addEdge(`edge:${sourceId}:entity:${uuid}`, sourceId, `entity:${uuid}`, "entity");
+      }
+    }
+
+    // Dataset "is about" Entity -- arrow points from dataset to entity.
+    for (const dataset of datasets) {
+      const datasetId = `dataset:${dataset.name}`;
+      let added = false;
+      for (const uuid of dataset.entityUuids || []) {
+        if (!nodeIds.has(`entity:${uuid}`)) continue;
+        if (!added) {
+          nodeIds.add(datasetId);
+          elements.push({
+            data: {
+              id: datasetId,
+              label: dataset.displayName || dataset.name,
+              kind: "dataset",
+              enabled: dataset.enabled !== false ? "yes" : "no",
+            },
+          });
+          added = true;
+        }
+        addEdge(`edge:${datasetId}:entity:${uuid}`, datasetId, `entity:${uuid}`, "entity");
+      }
+    }
+
+    // Dataset "is about" Source -- arrow from dataset to source via transforms.
+    const overviewData = this._overviewQuery.data as Record<string, unknown> | undefined;
+    const transforms = (overviewData?.transforms || []) as Transform[];
+    // Build dataset table -> dataset plugin lookup.
+    const tableToDataset = new Map<string, string>();
+    for (const dataset of datasets) {
+      for (const table of dataset.tables || []) tableToDataset.set(table, dataset.name);
+    }
+    for (const transform of transforms) {
+      if (!transform.enabled) continue;
+      const datasetName = tableToDataset.get(transform.target.tableName);
+      if (!datasetName) continue;
+      const datasetId = `dataset:${datasetName}`;
+      if (!nodeIds.has(datasetId)) continue;
+      const sourceId = `source:${transform.sourcePlugin}`;
+      if (!nodeIds.has(sourceId)) {
+        const info = sources.find((source) => source.name === transform.sourcePlugin);
+        nodeIds.add(sourceId);
+        elements.push({
+          data: {
+            id: sourceId,
+            label: info?.displayName || transform.sourcePlugin,
+            kind: "source",
+            enabled: info?.enabled !== false ? "yes" : "no",
+          },
+        });
+      }
+      addEdge(`edge:${datasetId}:${sourceId}`, datasetId, sourceId, "transform");
+    }
+
+    // Entity-to-entity relationship edges.
+    for (const rel of relationships) {
+      const fromId = `entity:${rel.fromUuid}`;
+      const toId = `entity:${rel.toUuid}`;
+      if (nodeIds.has(fromId) && nodeIds.has(toId)) {
+        addEdge(`rel:${rel.fromUuid}:${rel.toUuid}:${rel.type}`, fromId, toId, "relationship");
+      }
+    }
+
+    this._elements = elements;
+    this._empty = referencedUuids.size === 0;
   }
 
   _initCytoscape(): void {
@@ -489,12 +622,12 @@ class PipelineOverview extends LitElement {
             label: "data(label)",
             "text-valign": "center",
             "text-halign": "center",
-            "font-size": 12,
+            "font-size": this._view === "entity" ? 9 : 12,
             color: "#fff",
             "text-wrap": "wrap",
-            "text-max-width": 100,
-            width: 120,
-            height: 40,
+            "text-max-width": this._view === "entity" ? 80 : 100,
+            width: this._view === "entity" ? 90 : 120,
+            height: this._view === "entity" ? 30 : 40,
             shape: "round-rectangle",
           },
         },
@@ -519,6 +652,28 @@ class PipelineOverview extends LitElement {
           style: { "background-color": "#ab47bc", cursor: "pointer" },
         },
         {
+          selector: 'node[kind="entity"]',
+          style: {
+            "background-color": "#78909c",
+            shape: "ellipse",
+            width: 80,
+            height: 35,
+            "font-weight": "bold",
+            cursor: "pointer",
+          },
+        },
+        {
+          selector: 'node[isMe="yes"]',
+          style: {
+            "background-color": "#546e7a",
+            width: 100,
+            height: 45,
+            "font-size": 12,
+            "border-width": 3,
+            "border-color": "#37474f",
+          },
+        },
+        {
           selector: 'node[enabled="no"]',
           style: { opacity: 0.4, "border-width": 2, "border-color": "#999", "border-style": "dashed" },
         },
@@ -530,7 +685,7 @@ class PipelineOverview extends LitElement {
             "target-arrow-color": "#999",
             "line-color": "#999",
             cursor: "pointer",
-            width: 2,
+            width: this._view === "entity" ? 1 : 2,
             label: "data(label)",
             "font-size": 9,
             color: "#888",
@@ -571,14 +726,59 @@ class PipelineOverview extends LitElement {
             label: "",
           },
         },
+        {
+          selector: 'edge[edgeType="entity"]',
+          style: {
+            "line-style": "solid",
+            "line-color": "#78909c",
+            "target-arrow-color": "#78909c",
+            width: 2,
+            label: "",
+          },
+        },
+        {
+          selector: 'edge[edgeType="transform"]',
+          style: {
+            "line-style": "dashed",
+            "line-color": "#66bb6a",
+            "target-arrow-color": "#66bb6a",
+            width: 1.5,
+            label: "",
+          },
+        },
+        {
+          selector: 'edge[edgeType="relationship"]',
+          style: {
+            "line-style": "solid",
+            "line-color": "#b0bec5",
+            "target-arrow-color": "#b0bec5",
+            width: 1.5,
+            label: "",
+          },
+        },
       ] as unknown as cytoscape.StylesheetStyle[],
-      layout: {
-        name: "dagre",
-        rankDir: "LR",
-        nodeSep: 60,
-        rankSep: 150,
-        padding: 30,
-      } as unknown as cytoscape.LayoutOptions,
+      layout: (this._view === "entity"
+        ? {
+            name: "cose",
+            boundingBox: container
+              ? { x1: 0, y1: 0, w: container.clientWidth - 60, h: container.clientHeight - 60 }
+              : undefined,
+            idealEdgeLength: 100,
+            nodeOverlap: 40,
+            nodeRepulsion: 60000,
+            gravity: 0.1,
+            numIter: 2000,
+            padding: 30,
+            animate: false,
+            fit: true,
+          }
+        : {
+            name: "dagre",
+            rankDir: "LR",
+            nodeSep: 60,
+            rankSep: 150,
+            padding: 30,
+          }) as unknown as cytoscape.LayoutOptions,
       userZoomingEnabled: true,
       userPanningEnabled: true,
       boxSelectionEnabled: false,
@@ -587,25 +787,15 @@ class PipelineOverview extends LitElement {
     this._cy.on("tap", "node", (evt) => {
       const data = evt.target.data() as Record<string, string>;
       const name = data.id.substring(data.id.indexOf(":") + 1);
-      let path: string | undefined;
-      if (data.kind === "source") path = `/settings/source/${name}`;
-      else if (data.kind === "dataset") path = `/settings/dataset/${name}`;
-      else if (data.kind === "dashboard") path = `/settings/dashboard/${name}`;
-      else if (data.kind === "model") path = `/settings/model/${name}`;
-      else return;
-      this.dispatchEvent(new CustomEvent("navigate", { bubbles: true, composed: true, detail: { path } }));
+      const kind = data.kind as string | undefined;
+      if (!kind || !name) return;
+      this._openPluginPanel(kind, name);
     });
 
     this._cy.on("tap", "edge", (evt) => {
       const plugin = evt.target.data("sourcePlugin") as string | undefined;
       if (plugin) {
-        this.dispatchEvent(
-          new CustomEvent("navigate", {
-            bubbles: true,
-            composed: true,
-            detail: { path: `/settings/source/${plugin}` },
-          }),
-        );
+        this._openPluginPanel("source", plugin);
       }
     });
 
@@ -625,18 +815,28 @@ class PipelineOverview extends LitElement {
     if (this._view === view) return;
     this._view = view;
     this._elements = null;
+    this._entityFetching = false;
     if (this._cy) {
       this._cy.destroy();
       this._cy = null;
     }
+    const path = view === "device" ? "/flow" : `/flow/${view}`;
+    window.history.replaceState({}, "", path);
   }
 
   updated(): void {
-    if (this._view !== "device") return;
-    if (!this._loading && !this._elements) {
-      this._processQueryData();
+    if (this._view === "entity" && !this._elements && !this._entityFetching) {
+      this._entityFetching = true;
+      this._fetchEntityFlow().finally(() => {
+        this._entityFetching = false;
+      });
+      return;
     }
-    if (!this._loading && this._elements) {
+    if (!this._loading && !this._elements) {
+      if (this._view === "device") this._buildDeviceElements();
+      else if (this._view === "data") this._buildDataElements();
+    }
+    if (this._elements) {
       requestAnimationFrame(() => this._initCytoscape());
     }
   }
@@ -667,19 +867,197 @@ class PipelineOverview extends LitElement {
     `;
   }
 
+  private _buildDataElements(): void {
+    const ap = this.allPlugins || {};
+    const allPluginsList = Object.values(ap).flat() as PluginInfo[];
+    const data = this._overviewQuery.data as Record<string, unknown> | undefined;
+    const transforms = (data?.transforms || []) as Transform[];
+
+    const elements: CyElement[] = [];
+    const nodeIds = new Set<string>();
+
+    // Plugin name -> display name lookup for badge labels.
+    const pluginDisplayName = new Map(allPluginsList.map((plugin) => [plugin.name, plugin.displayName || plugin.name]));
+
+    // Determine table kind (source vs dataset) from schema.
+    const tableKind = (schemaName: string) => (schemaName === "datasets" ? "dataset" : "source");
+
+    const ensureTableNode = (
+      tableName: string,
+      displayName: string | undefined,
+      schemaName: string,
+      pluginName: string,
+    ) => {
+      const id = `table:${tableName}`;
+      if (nodeIds.has(id)) return id;
+      nodeIds.add(id);
+      const pluginLabel = pluginDisplayName.get(pluginName) || pluginName;
+      const shortName = displayName || tableName.replace(/^[^_]+__/, "");
+      const label = `${shortName}\n(${pluginLabel})`;
+      elements.push({ data: { id, label, kind: tableKind(schemaName) } });
+      return id;
+    };
+
+    // Build target table -> dataset plugin lookup from table ownership.
+    const tableToDataset = new Map<string, string>();
+    for (const plugin of allPluginsList) {
+      for (const table of plugin.tables || []) tableToDataset.set(table, plugin.name);
+    }
+
+    // Transform edges: source table -> target table.
+    for (const transform of transforms) {
+      if (!transform.enabled) continue;
+      const targetPlugin = tableToDataset.get(transform.target.tableName) || "";
+      const sourceId = ensureTableNode(
+        transform.source.tableName,
+        transform.source.displayName,
+        transform.source.schemaName,
+        transform.sourcePlugin,
+      );
+      const targetId = ensureTableNode(
+        transform.target.tableName,
+        transform.target.displayName,
+        transform.target.schemaName,
+        targetPlugin,
+      );
+      elements.push({
+        data: {
+          id: `transform:${transform.id}`,
+          source: sourceId,
+          target: targetId,
+          edgeType: "transform",
+          enabled: "yes",
+        },
+      });
+    }
+
+    // Dashboard/model nodes connected to dataset tables via dependencies.
+    const deps = Object.fromEntries(
+      ((data?.dependencies || []) as Array<{ source: string; targets: string[] }>).map((d) => [d.source, d.targets]),
+    );
+    const dashboards = (ap.dashboard || []) as PluginInfo[];
+    const models = (ap.model || []) as PluginInfo[];
+    // Build dataset plugin -> table nodes lookup from what we've created.
+    const datasetPluginTables = new Map<string, string[]>();
+    for (const id of nodeIds) {
+      const tableName = id.replace("table:", "");
+      const datasetPlugin = tableToDataset.get(tableName);
+      if (datasetPlugin) {
+        const list = datasetPluginTables.get(datasetPlugin) || [];
+        list.push(id);
+        datasetPluginTables.set(datasetPlugin, list);
+      }
+    }
+    for (const consumer of [...dashboards, ...models]) {
+      const kind = dashboards.includes(consumer) ? "dashboard" : "model";
+      const consumerId = `${kind}:${consumer.name}`;
+      const depTargets = deps[consumerId] || [];
+      let added = false;
+      for (const depTarget of depTargets) {
+        const datasetName = depTarget.replace("dataset:", "");
+        for (const tableNodeId of datasetPluginTables.get(datasetName) || []) {
+          if (!added) {
+            nodeIds.add(consumerId);
+            elements.push({
+              data: {
+                id: consumerId,
+                label: consumer.displayName || consumer.name,
+                kind,
+                enabled: consumer.enabled !== false ? "yes" : "no",
+              },
+            });
+            added = true;
+          }
+          elements.push({
+            data: {
+              id: `dep:${tableNodeId}:${consumerId}`,
+              source: tableNodeId,
+              target: consumerId,
+              edgeType: "dependency",
+            },
+          });
+        }
+      }
+    }
+
+    this._elements = elements;
+    this._empty = elements.filter((e) => e.data.source).length === 0;
+  }
+
+  private _renderEntityFlow() {
+    return html`
+      <div id="cy"></div>
+      <div class="legend">
+        <span class="legend-item"
+          ><span class="legend-dot" style="background:#78909c;border-radius:50%"></span> Entity</span
+        >
+        <span class="legend-item"><span class="legend-dot pipe"></span> Source</span>
+        <span class="legend-item"><span class="legend-dot schema"></span> Dataset</span>
+        <span class="legend-item"><span class="legend-dot component"></span> Dashboard</span>
+        <span class="legend-item"><span class="legend-dot model"></span> Model</span>
+      </div>
+      ${this._empty
+        ? html`<p class="empty">No entity types declared. Sources and datasets declare entity_types.</p>`
+        : ""}
+    `;
+  }
+
+  private _renderDataFlow() {
+    return html`
+      <div id="cy"></div>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#4a90d9"></span> Source table</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#66bb6a"></span> Dataset table</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#ffa726"></span> Dashboard</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#ab47bc"></span> Model</span>
+        <span class="legend-item"><span class="legend-line enabled"></span> Transform</span>
+        <span class="legend-item"
+          ><span
+            class="legend-line"
+            style="border-top:2px dotted var(--shenas-text-faint, #aaa);height:0;background:none"
+          ></span>
+          Dependency</span
+        >
+      </div>
+      ${this._empty
+        ? html`<p class="empty">No transforms found. Add transforms to connect source tables to dataset tables.</p>`
+        : ""}
+    `;
+  }
+
   render() {
     const view = this._view;
     return html`
       <shenas-page ?loading=${view === "device" && this._loading} loading-text="Loading overview...">
         ${renderMessage(this._message)}
         <div class="view-switcher">
-          <button class=${view === "device" ? "active" : ""} @click=${() => this._setView("device")}>
-            Device-centric
-          </button>
-          <button class=${view === "entity" ? "active" : ""} @click=${() => this._setView("entity")}>
-            Entity-centric
-          </button>
-          <button class=${view === "data" ? "active" : ""} @click=${() => this._setView("data")}>Data-centric</button>
+          <a
+            href="/flow"
+            class=${view === "device" ? "active" : ""}
+            @click=${(e: Event) => {
+              e.preventDefault();
+              this._setView("device");
+            }}
+            >Device-centric</a
+          >
+          <a
+            href="/flow/entity"
+            class=${view === "entity" ? "active" : ""}
+            @click=${(e: Event) => {
+              e.preventDefault();
+              this._setView("entity");
+            }}
+            >Entity-centric</a
+          >
+          <a
+            href="/flow/data"
+            class=${view === "data" ? "active" : ""}
+            @click=${(e: Event) => {
+              e.preventDefault();
+              this._setView("data");
+            }}
+            >Data-centric</a
+          >
         </div>
         <div class="toolbar">
           <button @click=${this._suggest} ?disabled=${this._suggesting}>
@@ -710,8 +1088,8 @@ class PipelineOverview extends LitElement {
         ${view === "device"
           ? this._renderDeviceFlow()
           : view === "entity"
-            ? html`<div class="placeholder">Entity-centric flow (coming soon)</div>`
-            : html`<div class="placeholder">Data-centric flow (coming soon)</div>`}
+            ? this._renderEntityFlow()
+            : this._renderDataFlow()}
       </shenas-page>
     `;
   }

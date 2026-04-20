@@ -31,12 +31,16 @@ class ShellHistorySource(Source):
     name = "shell_history"
     display_name = "Shell History"
     primary_table = "commands"
-    entity_types: ClassVar[list[str]] = ["human"]
+    entity_types: ClassVar[list[str]] = ["device"]
     description = (
         "Extracts command history from bash, zsh, or fish shell history files.\n\n"
         "Parses timestamps (where available) and commands. Zsh extended history "
         "also provides command duration. No API auth needed -- just configure "
-        "the history file path."
+        "the history file path.\n\n"
+        "Bash does not save timestamps by default. To enable them, run:\n"
+        "  echo 'export HISTTIMEFORMAT=\"%Y-%m-%d %T \"' >> ~/.bash_profile\n"
+        "  source ~/.bash_profile\n\n"
+        "Only commands entered after this change will have timestamps."
     )
 
     @dataclass

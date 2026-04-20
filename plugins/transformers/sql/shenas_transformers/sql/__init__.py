@@ -7,11 +7,11 @@ import json
 from typing import Any
 
 import duckdb
-from shenas_transformers.core import Transformer
+from shenas_transformers.core import TableTransformer
 from shenas_transformers.core.transform import Transform
 
 
-class SqlTransformer(Transformer):
+class SqlTransformer(TableTransformer):
     """Execute arbitrary SQL to transform source data into target tables."""
 
     name = "sql"

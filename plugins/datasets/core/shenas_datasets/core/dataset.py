@@ -32,6 +32,10 @@ class Dataset(Plugin):
     has_data = True
     all_tables: ClassVar[list[type]]
     primary_table: ClassVar[str] = ""
+    # Entity types this dataset is *about*. When the list contains a single
+    # type like ``["human"]`` without a specific entity being set, the data
+    # is implicitly about the current user ("me").
+    entity_types: ClassVar[list[str]] = []
     # ISO 8601 recurring interval describing how often this dataset refreshes
     # once its feeding transforms have run (e.g. "R/P1D" for daily rollups).
     # Mirrors DCAT's `dct:accrualPeriodicity`. Empty string means unspecified.
@@ -61,6 +65,8 @@ class Dataset(Plugin):
         info = super().get_info()
         info["primary_table"] = self.primary_table
         info["default_update_frequency"] = self.default_update_frequency
+        info["entity_types"] = list(self.entity_types)
+        info["entity_uuids"] = self.resolve_entity_uuids(self.entity_types)
         info["tables"] = list(getattr(self, "tables", []))
         info["table_metadata"] = self._table_metadata()
         return info

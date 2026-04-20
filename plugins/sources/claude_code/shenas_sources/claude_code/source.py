@@ -20,7 +20,7 @@ class ClaudeCodeSource(Source):
     name = "claude_code"
     display_name = "Claude Code"
     primary_table = "prompts"
-    entity_types: ClassVar[list[str]] = ["human", "software_project"]
+    entity_types: ClassVar[list[str]] = ["device", "software_project"]
     description = (
         "Extracts usage history from local Claude Code data files.\n\n"
         "Parses prompt history (what you asked) and turn statistics "

@@ -28,7 +28,7 @@ class TileInfo(DataView):
         description = "Live device snapshot for each active Tile (derived view)."
         schema = SOURCES
         pk = ("tile_uuid",)
-        entity_type = "physical_entity"
+        entity_type = "device"
         entity_name_column = "name"
         entity_wikidata_qid = "Q223557"
         entity_projection = {  # noqa: RUF012

@@ -3,6 +3,7 @@ import cytoscape from "cytoscape";
 // The vendor bundle re-exports cytoscape-dagre as `dagre` from "cytoscape".
 // @ts-expect-error dagre is provided by the vendor bundle, not the real cytoscape package
 import { dagre } from "cytoscape";
+import { entityNodeStyles, ENTITY_EDGE_STYLES, ENTITY_NODE_DEFAULT_COLOR } from "./graph-styles.ts";
 import {
   ApolloQueryController,
   ApolloMutationController,
@@ -943,34 +944,11 @@ class EntitiesPage extends LitElement {
             width: 110,
             height: 40,
             shape: "round-rectangle",
-            "background-color": "#8a9a84",
+            "background-color": ENTITY_NODE_DEFAULT_COLOR,
           },
         },
-        { selector: 'node[kind="human"]', style: { "background-color": "#728f67" } },
-        { selector: 'node[kind="animal"]', style: { "background-color": "#c98a5c" } },
-        { selector: 'node[kind="residence"]', style: { "background-color": "#6b8ab0" } },
-        { selector: 'node[kind="vehicle"]', style: { "background-color": "#7a7a9c" } },
-        { selector: 'node[kind="device"]', style: { "background-color": "#9a6b8a" } },
-        { selector: 'node[kind="organization"]', style: { "background-color": "#8a7a6b" } },
-        {
-          selector: 'node[isMe="yes"]',
-          style: { "border-width": 3, "border-color": "#2c2c28" },
-        },
-        {
-          selector: "edge",
-          style: {
-            "curve-style": "bezier",
-            "target-arrow-shape": "triangle",
-            "target-arrow-color": "#999",
-            "line-color": "#999",
-            width: 2,
-            label: "data(label)",
-            "font-size": 9,
-            color: "#666",
-            "text-rotation": "autorotate",
-            "text-margin-y": -8,
-          },
-        },
+        ...entityNodeStyles(),
+        ...ENTITY_EDGE_STYLES,
         {
           selector: "edge:active",
           style: {
@@ -991,15 +969,30 @@ class EntitiesPage extends LitElement {
         },
       ] as unknown as cytoscape.StylesheetStyle[],
       layout: {
-        name: "concentric",
-        concentric: (n: cytoscape.NodeSingular) => (n.id() === meUuid ? 10 : 1),
-        levelWidth: () => 1,
-        minNodeSpacing: 60,
+        name: "cose",
+        boundingBox: container ? { x1: 0, y1: 0, w: container.clientWidth, h: container.clientHeight } : undefined,
+        idealEdgeLength: 120,
+        nodeOverlap: 30,
+        nodeRepulsion: 40000,
+        gravity: 0.25,
+        numIter: 2000,
         padding: 30,
+        animate: false,
+        fit: true,
       } as unknown as cytoscape.LayoutOptions,
       userZoomingEnabled: true,
       userPanningEnabled: true,
     });
+
+    // Pin Me to center after layout.
+    if (meUuid) {
+      const meNode = this._cy.getElementById(meUuid);
+      if (meNode.length > 0) {
+        meNode.position({ x: container.clientWidth / 2, y: container.clientHeight / 2 });
+        meNode.lock();
+        this._cy.fit(undefined, 20);
+      }
+    }
 
     // -- Single-click: edit entity / view relationship -----------------------
     this._cy.on("tap", "node", (evt) => {
@@ -1274,7 +1267,6 @@ class EntitiesPage extends LitElement {
               >`;
             },
           },
-          { key: "status", label: "Status" },
         ]}
         .rows=${this._entities.filter((e) => e.status === "enabled") as unknown as Record<string, unknown>[]}
         .actions=${(row: Record<string, unknown>) => {

@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from app.table import Field
 from shenas_datasets.core.dataset import Dataset
 from shenas_datasets.location.metrics import ALL_TABLES, LocationVisit
@@ -9,6 +11,7 @@ class LocationSchema(Dataset):
     description = "Geofence-categorized location visits"
     all_tables = ALL_TABLES
     primary_table = "location_visits"
+    entity_types: ClassVar[list[str]] = ["human"]
 
 
 ensure_schema = LocationSchema.ensure

@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 import duckdb
-from shenas_transformers.core import Transformer
+from shenas_transformers.core import ColumnTransformer
 from shenas_transformers.core.transform import Transform
 
 
@@ -15,7 +15,7 @@ def _ensure_spatial(con: duckdb.DuckDBPyConnection) -> None:
     con.execute("INSTALL spatial; LOAD spatial;")
 
 
-class GeofenceTransformer(Transformer):
+class GeofenceTransformer(ColumnTransformer):
     """Categorize location data by matching coordinates against user-defined geofences."""
 
     name = "geofence"

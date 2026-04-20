@@ -1,22 +1,14 @@
 import "./catalog-page.ts";
 import { LitElement, html, css } from "lit";
 import { Router } from "@lit-labs/router";
-import {
-  arrowQuery,
-  getClient,
-  matchesHotkey,
-  openExternal,
-  sortActions,
-  linkStyles,
-  utilityStyles,
-} from "shenas-frontends";
+import { getClient, matchesHotkey, openExternal, sortActions, linkStyles, utilityStyles } from "shenas-frontends";
 import * as echarts from "echarts/core";
 import { BarChart } from "echarts/charts";
 import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
-import { GET_APP_DATA } from "./graphql/queries.ts";
+import { GET_DASHBOARDS, GET_HOTKEYS, GET_SHELL_DATA, GET_SIDEBAR_PLUGINS, GET_WORKSPACE } from "./graphql/queries.ts";
 import {
   SAVE_WORKSPACE,
   SEED_TRANSFORMS,
@@ -90,7 +82,7 @@ class ShenasApp extends LitElement {
     _leftWidth: { state: true },
     _rightWidth: { state: true },
     _inspectTable: { state: true },
-    _inspectRows: { state: true },
+    _inspectDisplayName: { state: true },
     _catalogDetail: { state: true },
     _rightPanelComponent: { state: true },
     _paletteOpen: { state: true },
@@ -117,7 +109,7 @@ class ShenasApp extends LitElement {
   declare _leftWidth: number;
   declare _rightWidth: number;
   declare _inspectTable: string | null;
-  declare _inspectRows: Record<string, unknown>[] | null;
+  declare _inspectDisplayName: string | null;
   declare _catalogDetail: Record<string, unknown> | null;
   declare _rightPanelComponent: HTMLElement | null;
   declare _paletteOpen: boolean;
@@ -149,6 +141,7 @@ class ShenasApp extends LitElement {
   _router = new Router(this, [
     { path: "/", render: () => this._renderDynamicHome() },
     { path: "/flow", render: () => this._renderFlow() },
+    { path: "/flow/:view", render: () => this._renderFlow() },
     { path: "/catalog", render: () => this._renderCatalog() },
     { path: "/settings", render: () => this._renderSettings("profile") },
     {
@@ -707,7 +700,6 @@ class ShenasApp extends LitElement {
     this._leftWidth = 160;
     this._rightWidth = 220;
     this._inspectTable = null;
-    this._inspectRows = null;
     this._catalogDetail = null;
     this._rightPanelComponent = null;
     this._paletteOpen = false;
@@ -735,12 +727,11 @@ class ShenasApp extends LitElement {
     this.addEventListener("job-finish", ((e: CustomEvent) =>
       this._getJobPanel()?.finishJob(e.detail.id, e.detail.ok, e.detail.message)) as EventListener);
     this.addEventListener("inspect-table", ((e: CustomEvent) =>
-      this._inspect(e.detail.schema, e.detail.table)) as unknown as EventListener);
+      this._inspect(e.detail.schema, e.detail.table, e.detail.displayName)) as unknown as EventListener);
     this.addEventListener("show-resource", ((e: CustomEvent) => {
       this._catalogDetail = e.detail;
       this._rightPanelComponent = null;
       this._inspectTable = null;
-      this._inspectRows = null;
       this._rightOpen = true;
       this._rightWidth = Math.max(this._rightWidth, 400);
     }) as unknown as EventListener);
@@ -748,7 +739,6 @@ class ShenasApp extends LitElement {
       this._rightPanelComponent = e.detail.component as HTMLElement;
       this._catalogDetail = null;
       this._inspectTable = null;
-      this._inspectRows = null;
       this._rightOpen = true;
       this._rightWidth = Math.max(this._rightWidth, e.detail.width || 380);
       // On narrow viewports the right panel is a fixed overlay that needs
@@ -851,7 +841,7 @@ class ShenasApp extends LitElement {
   }
 
   async _loadHotkeys(): Promise<void> {
-    const { data } = await this._client.query({ query: GET_APP_DATA, fetchPolicy: "network-only" });
+    const { data } = await this._client.query({ query: GET_HOTKEYS, fetchPolicy: "network-only" });
     this._hotkeys = (data?.hotkeys as Record<string, string>) || {};
   }
 
@@ -1156,7 +1146,7 @@ class ShenasApp extends LitElement {
 
   async _loadWorkspace(): Promise<void> {
     try {
-      const { data } = await this._client.query({ query: GET_APP_DATA, fetchPolicy: "network-only" });
+      const { data } = await this._client.query({ query: GET_WORKSPACE, fetchPolicy: "network-only" });
       const state = data?.workspace as Record<string, unknown> | undefined;
       if (!state) return;
       if (state.tabs && (state.tabs as TabInfo[]).length > 0) {
@@ -1194,6 +1184,7 @@ class ShenasApp extends LitElement {
     const p = path.replace(/^\/+/, "");
     if (!p || p === "settings") return "Flow";
     if (p === "settings/flow") return "Flow";
+    if (p.startsWith("flow")) return "Flow";
     const parts = p.split("/");
     if (parts[0] === "settings") {
       if (parts.length === 2) {
@@ -1210,31 +1201,26 @@ class ShenasApp extends LitElement {
   }
 
   async _refreshDashboards(): Promise<void> {
-    const { data } = await this._client.query({ query: GET_APP_DATA, fetchPolicy: "network-only" });
+    const { data } = await this._client.query({ query: GET_DASHBOARDS, fetchPolicy: "network-only" });
     this._dashboards = (data?.dashboards as DashboardInfo[]) || [];
   }
 
   async _fetchData(): Promise<void> {
     this._loading = true;
     try {
-      // Single query: app data + plugin lists for all kinds.
-      const { data: appData } = await this._client.query({
-        query: GET_APP_DATA,
+      // Tier 1: shell data (blocking -- app can't render without this)
+      const { data: shellData } = await this._client.query({
+        query: GET_SHELL_DATA,
         fetchPolicy: "network-only",
       });
-      const kinds: { id: string; label: string }[] = (appData?.pluginKinds as { id: string; label: string }[]) || [];
+      const kinds: { id: string; label: string }[] = (shellData?.pluginKinds as { id: string; label: string }[]) || [];
       this._pluginKinds = kinds;
-      this._dashboards = (appData?.dashboards as DashboardInfo[]) || [];
-      this._deviceName = (appData?.deviceName as string) || "";
-      this._hotkeys = (appData?.hotkeys as Record<string, string>) || {};
-      const allPlugins: Record<string, PluginSummary[]> = {};
-      for (const { id } of kinds) {
-        allPlugins[id] = (appData?.[id] as PluginSummary[]) || [];
-      }
-      this._allPlugins = allPlugins;
+      this._dashboards = (shellData?.dashboards as DashboardInfo[]) || [];
+      this._deviceName = (shellData?.deviceName as string) || "";
+      this._hotkeys = (shellData?.hotkeys as Record<string, string>) || {};
 
       // Apply theme if not already injected by the server
-      const themeData = appData?.themeData as Record<string, string> | undefined;
+      const themeData = shellData?.themeData as Record<string, string> | undefined;
       if (themeData?.css && !document.querySelector("link[data-shenas-theme]")) {
         const link = document.createElement("link");
         link.rel = "stylesheet";
@@ -1243,7 +1229,7 @@ class ShenasApp extends LitElement {
         document.head.appendChild(link);
       }
       // Restore workspace
-      const ws = appData?.workspace as Record<string, unknown> | undefined;
+      const ws = shellData?.workspace as Record<string, unknown> | undefined;
       if (ws?.rightPanelOpen !== undefined) this._rightOpen = ws.rightPanelOpen as boolean;
       if (ws?.tabs && (ws.tabs as TabInfo[]).length > 0) {
         this._tabs = ws.tabs as TabInfo[];
@@ -1279,6 +1265,26 @@ class ShenasApp extends LitElement {
     }
     this._loading = false;
     this._registerGlobalCommands();
+
+    // Tier 2: sidebar plugins (non-blocking -- populates after shell renders)
+    this._client
+      .query({ query: GET_SIDEBAR_PLUGINS, fetchPolicy: "network-only" })
+      .then(({ data: pluginData }: { data: Record<string, unknown> }) => {
+        const allPlugins: Record<string, PluginSummary[]> = {};
+        for (const { id } of this._pluginKinds) {
+          allPlugins[id] = (pluginData?.[id] as PluginSummary[]) || [];
+        }
+        this._allPlugins = allPlugins;
+        // Build display name lookup for tab labels
+        const displayNames: Record<string, string> = {};
+        for (const [kind, plugins] of Object.entries(allPlugins)) {
+          for (const p of plugins) {
+            displayNames[`${kind}:${p.name}`] = p.displayName || p.name;
+          }
+        }
+        this._pluginDisplayNames = displayNames;
+      })
+      .catch(() => {});
   }
 
   async _checkUserSession(): Promise<void> {
@@ -1790,28 +1796,19 @@ class ShenasApp extends LitElement {
     ></shenas-settings>`;
   }
 
-  async _inspect(schema: string, table: string): Promise<void> {
+  _inspect(schema: string, table: string, displayName?: string): void {
     if (!/^[a-zA-Z_]\w*$/.test(schema) || !/^[a-zA-Z_]\w*$/.test(table)) return;
     const key = `${schema}.${table}`;
     if (this._inspectTable === key) {
       this._inspectTable = null;
-      this._inspectRows = null;
+      this._inspectDisplayName = null;
       return;
     }
     this._inspectTable = key;
-    this._inspectRows = null;
+    this._inspectDisplayName = displayName || null;
     this._rightPanelComponent = null;
     this._catalogDetail = null;
     this._rightOpen = true;
-    try {
-      this._inspectRows =
-        ((await arrowQuery(this.apiBase, `SELECT * FROM "${schema}"."${table}" ORDER BY 1 DESC LIMIT 50`)) as Record<
-          string,
-          unknown
-        >[]) || [];
-    } catch {
-      this._inspectRows = [];
-    }
   }
 
   _renderDbStats() {
@@ -2018,43 +2015,27 @@ class ShenasApp extends LitElement {
   }
 
   _renderInspect() {
+    const [schema, table] = (this._inspectTable || "").split(".");
     return html`
       <div class="inspect-header">
-        <h4>${this._inspectTable}</h4>
+        <h4>${this._inspectDisplayName || this._inspectTable}</h4>
         <button
           class="inspect-close"
           title="Close"
           @click=${() => {
             this._inspectTable = null;
-            this._inspectRows = null;
           }}
         >
           x
         </button>
       </div>
-      ${!this._inspectRows
-        ? html`<p class="loading" style="font-size:0.75rem">Loading...</p>`
-        : this._inspectRows.length === 0
-          ? html`<p class="empty" style="font-size:0.75rem">No rows</p>`
-          : html`
-              <div style="overflow-x: auto;">
-                <table class="inspect-table">
-                  <thead>
-                    <tr>
-                      ${Object.keys(this._inspectRows[0]).map((c) => html`<th>${c}</th>`)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${this._inspectRows.map(
-                      (row) =>
-                        html`<tr>
-                          ${Object.keys(row).map((c) => html`<td title="${row[c] ?? ""}">${row[c] ?? ""}</td>`)}
-                        </tr>`,
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            `}
+      <shenas-data-table
+        api-base="${this.apiBase}"
+        schema="${schema}"
+        table="${table}"
+        page-size="50"
+        style="height:calc(100% - 40px)"
+      ></shenas-data-table>
     `;
   }
 

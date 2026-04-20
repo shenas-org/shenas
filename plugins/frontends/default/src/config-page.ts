@@ -147,14 +147,11 @@ class ConfigPage extends LitElement {
     if (!this.kind || !this.name) return;
     const result = await this._configQuery.client!.query({
       query: GET_PLUGIN_CONFIG,
-      variables: { kind: this.kind },
+      variables: { kind: this.kind, name: this.name },
       fetchPolicy: "network-only",
     });
-    const plugins = (result.data?.plugins as Array<Record<string, unknown>>) || [];
-    const match = plugins.find((p) => p.name === this.name && p.hasConfig);
-    this._config = match
-      ? { kind: this.kind, name: match.name as string, entries: match.configEntries as ConfigEntry[] }
-      : null;
+    const entries = (result.data?.pluginConfig as ConfigEntry[]) || [];
+    this._config = entries.length > 0 ? { kind: this.kind, name: this.name, entries } : null;
     this.requestUpdate();
   }
 

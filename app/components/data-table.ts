@@ -41,6 +41,29 @@ interface ColMeta {
   interpretation: string;
 }
 
+// ---------------------------------------------------------------------------
+// Universal value formatting helpers
+// ---------------------------------------------------------------------------
+
+function _epochToDateISO(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function _epochToTimestampISO(ms: number): string {
+  return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
+}
+
+/** Format a numeric value as an ISO date or timestamp based on db_type. */
+function _formatNumericTime(value: number, dbType: string): string {
+  if (dbType === "DATE") return _epochToDateISO(value > 1e8 ? value : value * 86_400_000);
+  // TIMESTAMP: detect microseconds vs milliseconds vs seconds
+  let ms: number;
+  if (value > 1e15) ms = value / 1000;
+  else if (value > 1e12) ms = value;
+  else ms = value * 1000;
+  return _epochToTimestampISO(ms);
+}
+
 export class ShenasDataTable extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
@@ -67,6 +90,7 @@ export class ShenasDataTable extends LitElement {
     _timeColumns: { state: true },
     _intervalMode: { state: true },
     _plotHints: { state: true },
+    _infoMessage: { state: true },
   };
 
   declare apiBase: string;
@@ -99,6 +123,7 @@ export class ShenasDataTable extends LitElement {
   } | null;
   declare _intervalMode: "packed" | "concurrency" | "histogram";
   declare _plotHints: Array<{ y: string; groupBy?: string; chartType?: string; label?: string }> | null;
+  declare _infoMessage: string | null;
 
   static styles: CSSResult = css`
     :host {
@@ -596,43 +621,42 @@ export class ShenasDataTable extends LitElement {
     this._page = 0;
   }
 
-  _formatCell(value: unknown, col?: string): string {
+  /**
+   * Format a value for display based on column metadata and time role.
+   *
+   * Handles DATE, TIMESTAMP, BOOLEAN, bigint, number, and Date objects.
+   * The ``meta`` parameter provides db_type; ``timeRole`` (from the
+   * relation's time_columns) gives additional context (e.g. "time",
+   * "start", "end") -- a numeric column with a time role is treated as
+   * a timestamp even without an explicit TIMESTAMP db_type.
+   */
+  _formatValue(value: unknown, meta?: { dbType?: string; unit?: string }, timeRole?: string): string {
     if (value == null) return "";
-    const dbType = col ? (this._colMeta[col]?.dbType || "").toUpperCase() : "";
-    const isTimestamp = dbType.includes("TIMESTAMP");
+    const dbType = (meta?.dbType || "").toUpperCase();
     const isDate = dbType === "DATE";
+    const isTime = isDate || dbType.includes("TIMESTAMP") || !!timeRole;
+    const effectiveDbType = isDate ? "DATE" : isTime ? "TIMESTAMP" : "";
+
     if (value instanceof Date) {
       return isDate ? value.toISOString().slice(0, 10) : value.toISOString().replace("T", " ").slice(0, 19);
     }
     if (typeof value === "bigint") {
-      if (isDate) {
-        const ms = value > 100_000_000n ? Number(value) : Number(value) * 86_400_000;
-        return new Date(ms).toISOString().slice(0, 10);
-      }
-      if (isTimestamp) {
-        // bigint timestamps: >1e15 = microseconds, >1e12 = milliseconds, else seconds
-        let ms: number;
-        if (value > 1_000_000_000_000_000n) ms = Number(value / 1000n);
-        else if (value > 1_000_000_000_000n) ms = Number(value);
-        else ms = Number(value) * 1000;
-        return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
-      }
+      if (isTime) return _formatNumericTime(Number(value), effectiveDbType);
       return value.toString();
     }
-    if (typeof value === "number" && isDate) {
-      // DATE values from Arrow: days since epoch or milliseconds
-      const ms = value > 1e8 ? value : value * 86_400_000;
-      return new Date(ms).toISOString().slice(0, 10);
+    if (typeof value === "number") {
+      if (isTime) return _formatNumericTime(value, effectiveDbType);
     }
-    if (typeof value === "number" && isTimestamp) {
-      // number timestamps: >1e15 = microseconds, >1e12 = milliseconds, else seconds
-      let ms: number;
-      if (value > 1e15) ms = value / 1000;
-      else if (value > 1e12) ms = value;
-      else ms = value * 1000;
-      return new Date(ms).toISOString().replace("T", " ").slice(0, 19);
-    }
+
     return String(value);
+  }
+
+  /** Shorthand: format a table cell by column name. */
+  _formatCell(value: unknown, col?: string): string {
+    if (value == null) return "";
+    const meta = col ? this._colMeta[col] : undefined;
+    const timeRole = col ? this._getTimeRoles()[col] : undefined;
+    return this._formatValue(value, meta ? { dbType: meta.dbType, unit: meta.unit } : undefined, timeRole);
   }
 
   _autoResizeColumn(event: MouseEvent, col: string): void {
@@ -882,7 +906,12 @@ export class ShenasDataTable extends LitElement {
             : sorted[Math.floor(sorted.length / 2)];
         const variance = sorted.reduce((acc, v) => acc + (v - mean) ** 2, 0) / sorted.length;
         const stddev = Math.sqrt(variance);
-        const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+        const colMeta = this._colMeta[col];
+        const colDbType = (colMeta?.dbType || "").toUpperCase();
+        const timeRole = this._getTimeRoles()[col];
+        const isTime = colDbType.includes("TIMESTAMP") || colDbType === "DATE" || !!timeRole;
+        const fmt = (n: number) =>
+          isTime ? _formatNumericTime(n, colDbType || "TIMESTAMP") : Number.isInteger(n) ? String(n) : n.toFixed(2);
         return {
           col,
           type: "numeric" as const,
@@ -893,7 +922,7 @@ export class ShenasDataTable extends LitElement {
           max: fmt(max),
           mean: fmt(mean),
           median: fmt(median),
-          stddev: fmt(stddev),
+          stddev: isTime ? "-" : fmt(stddev),
         };
       }
       const freqMap = new Map<string, number>();

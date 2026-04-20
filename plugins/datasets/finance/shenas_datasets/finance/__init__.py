@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from app.table import Field
 from shenas_datasets.core import Dataset
 from shenas_datasets.finance.metrics import (
@@ -15,6 +17,7 @@ class FinanceSchema(Dataset):
     description = "Canonical finance metrics: transactions, spending, budgets"
     all_tables = ALL_TABLES
     primary_table = "transactions"
+    entity_types: ClassVar[list[str]] = ["human"]
 
 
 __all__ = [

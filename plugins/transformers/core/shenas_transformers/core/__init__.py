@@ -94,7 +94,25 @@ class Transformer(Plugin):
         return info
 
 
+class TableTransformer(Transformer):
+    """Whole-table transformer that reshapes entire result sets.
+
+    Subclasses operate on complete tables via arbitrary SQL or
+    multi-source merging (e.g. SQL transforms, dedup-merge).
+    """
+
+
+class ColumnTransformer(Transformer):
+    """Column-level enrichment transformer.
+
+    Subclasses read specific source columns and produce new output
+    columns -- geocoding, regex extraction, LLM categorization, etc.
+    """
+
+
 __all__ = [
+    "ColumnTransformer",
+    "TableTransformer",
     "Transformer",
     "TransformerConfig",
 ]

@@ -14,7 +14,7 @@ class GithubSource(Source):
     name = "github"
     display_name = "GitHub"
     primary_table = "events"
-    entity_types: ClassVar[list[str]] = ["human", "software_project"]
+    entity_types: ClassVar[list[str]] = ["repository"]
     description = (
         "Extracts your GitHub activity feed, repositories, and pull requests.\n\n"
         "Uses a personal access token (classic or fine-grained) for "

@@ -395,7 +395,6 @@ class Plugin(abc.ABC):
     @property
     def has_entities(self) -> bool:
         """True if this plugin declares an ``entity_projection`` on any table or view."""
-        import importlib
 
         def _has_projection(classes: tuple[type, ...]) -> bool:
             return any(
@@ -405,19 +404,9 @@ class Plugin(abc.ABC):
                 for relation in classes
             )
 
-        try:
-            tables_mod = importlib.import_module(f"shenas_sources.{self.name}.tables")
-            if _has_projection(getattr(tables_mod, "TABLES", ())):
-                return True
-        except Exception:
-            pass
-        try:
-            views_mod = importlib.import_module(f"shenas_sources.{self.name}.views")
-            if _has_projection(getattr(views_mod, "VIEWS", ())):
-                return True
-        except Exception:
-            pass
-        return False
+        if _has_projection(Plugin.load_tables(self.name, kind="source")):
+            return True
+        return _has_projection(Plugin.load_views(self.name))
 
     def get_config_entries(self) -> list[dict[str, str | None]]:
         return []
@@ -489,10 +478,73 @@ class Plugin(abc.ABC):
             "synced_at": str(s.synced_at) if s and s.synced_at else None,
         }
 
+    @staticmethod
+    def resolve_entity_uuids(entity_types: list[str]) -> list[str]:
+        """Resolve declared ``entity_types`` to actual entity UUIDs.
+
+        For ``"human"``, returns the "me" entity (the first human entity,
+        which represents the current user). For other types, returns all
+        enabled entities of that type. Returns a deduplicated list of UUIDs.
+        """
+        if not entity_types:
+            return []
+        try:
+            from app.entity import Entity
+
+            uuids: list[str] = []
+            seen: set[str] = set()
+            for type_name in entity_types:
+                if type_name == "human":
+                    me = Entity.all(where="type = 'human'", order_by="id", limit=1)
+                    if me and me[0].uuid not in seen:
+                        seen.add(me[0].uuid)
+                        uuids.append(me[0].uuid)
+                else:
+                    for entity in Entity.all(where="type = ? AND status = 'enabled'", params=[type_name]):
+                        if entity.uuid not in seen:
+                            seen.add(entity.uuid)
+                            uuids.append(entity.uuid)
+            return uuids
+        except Exception:
+            return []
+
     # -- Entry-point discovery (classmethods) --
 
     _EP_GROUP_OVERRIDES: ClassVar[dict[str, str]] = {"analysis": "shenas.analyses"}
     _cache_clear_hooks: ClassVar[list[Any]] = []
+
+    @staticmethod
+    def load_views(plugin_name: str) -> tuple[type, ...]:
+        """Load the VIEWS tuple from a source plugin's views module."""
+        import importlib
+
+        try:
+            mod = importlib.import_module(f"shenas_sources.{plugin_name}.views")
+            return tuple(getattr(mod, "VIEWS", ()))
+        except ImportError:
+            return ()
+
+    @staticmethod
+    def load_tables(plugin_name: str, *, kind: str = "source") -> tuple[type, ...]:
+        """Load the TABLES (or ALL_TABLES) tuple from a plugin's tables module.
+
+        Returns an empty tuple if the module doesn't exist or has no TABLES.
+        Works for both sources (``shenas_sources.<name>.tables``) and
+        datasets (``shenas_datasets.<name>.metrics`` or ``.tables``).
+        """
+        import importlib
+
+        pkg_map = {"source": f"shenas_sources.{plugin_name}", "dataset": f"shenas_datasets.{plugin_name}"}
+        pkg = pkg_map.get(kind, f"shenas_sources.{plugin_name}")
+        for mod_name in (f"{pkg}.tables", f"{pkg}.metrics"):
+            try:
+                mod = importlib.import_module(mod_name)
+                tables = getattr(mod, "TABLES", None) or getattr(mod, "ALL_TABLES", ())
+                if tables:
+                    return tuple(tables)
+            except ImportError:
+                continue
+        return ()
 
     @classmethod
     def _ep_group(cls, kind: str) -> str:
@@ -635,6 +687,82 @@ class Plugin(abc.ABC):
                 }
             )
         return items
+
+    @staticmethod
+    @staticmethod
+    def compute_plugin_rows() -> dict[str, int]:
+        """Count total rows per plugin across sources + datasets schemas."""
+        from app.database import cursor
+
+        plugin_rows: dict[str, int] = {}
+        try:
+            with cursor() as cur:
+                for schema_name in ("sources", "datasets"):
+                    try:
+                        tables = cur.execute(
+                            "SELECT table_name FROM information_schema.tables "
+                            "WHERE table_schema = ? AND table_name NOT LIKE '_dlt_%'",
+                            [schema_name],
+                        ).fetchall()
+                        for (table_name,) in tables:
+                            row = cur.execute(f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}"').fetchone()
+                            count = row[0] if row else 0
+                            prefix_end = table_name.find("__")
+                            if prefix_end > 0:
+                                plugin_name = table_name[:prefix_end]
+                                plugin_rows[plugin_name] = plugin_rows.get(plugin_name, 0) + count
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+        return plugin_rows
+
+    @staticmethod
+    def find_table_metadata(schema: str, table: str) -> dict[str, Any] | None:
+        """Find table metadata by walking installed source/dataset plugins."""
+        for kind in ("source", "dataset"):
+            expected_schema = "datasets" if kind == "dataset" else "sources"
+            if expected_schema != schema:
+                continue
+            try:
+                for cls in Plugin.load_by_kind(kind):
+                    for t in Plugin.load_tables(cls.name, kind=kind):
+                        if hasattr(t, "_Meta") and t._Meta.name == table:  # ty: ignore[unresolved-attribute]
+                            meta = t.metadata()  # ty: ignore[unresolved-attribute]
+                            if hasattr(meta.get("schema"), "name"):
+                                meta["schema"] = meta["schema"].name
+                            return meta
+            except Exception:
+                continue
+        return None
+
+    @staticmethod
+    def available_by_kind(kind: str) -> list[str]:
+        """List plugin names available on the repository server."""
+        import re
+        from html.parser import HTMLParser
+        from urllib.request import urlopen
+
+        prefix = f"shenas-{kind}-"
+        try:
+            with urlopen(f"{DEFAULT_INDEX}/simple/", timeout=5) as resp:
+                html = resp.read().decode()
+        except Exception:
+            return []
+
+        names: list[str] = []
+
+        class _Parser(HTMLParser):
+            def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+                if tag == "a":
+                    for attr_name, val in attrs:
+                        if attr_name == "href" and val:
+                            pkg = val.strip("/").split("/")[-1]
+                            if pkg.startswith(prefix) and pkg != f"{prefix}core":
+                                names.append(re.sub(r"[-_]+", "-", pkg.removeprefix(prefix)))
+
+        _Parser().feed(html)
+        return sorted(set(names))
 
     @staticmethod
     def install(

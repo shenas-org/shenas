@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import contextlib
+from typing import Any
 
 import strawberry
 from strawberry.scalars import JSON
 
+from app.graphql.derive import gql_type_from_table as _derive
 from app.models import (
     AuthField,
     AuthFieldsResponse,
@@ -412,39 +414,48 @@ class DataResourceAnnotationInput:
 # -- Entity types --------------------------------------------------------------
 
 
-@strawberry.type
-class EntityTypeType:
-    name: str
-    display_name: str
-    description: str = ""
-    icon: str = ""
-    parent: str | None = None
-    is_abstract: bool = False
-    wikidata_qid: str | None = None
+# -- Entity types: auto-derived from Table classes --------------------------
+# See docs/graphql-architecture.md for the rationale. The derive helper reads
+# _Meta + dataclass fields from the Table class and generates a @strawberry.type
+# with matching fields. Extra resolver fields (sources, statements) are added
+# by subclassing.
+
+_EntityTypeBase = _derive(
+    __import__("app.entity", fromlist=["EntityType"]).EntityType,
+    name="EntityTypeType",
+    exclude={"wikidata_seed", "wikidata_properties", "added_at"},
+)
+EntityTypeType = _EntityTypeBase
+
+_EntityRelTypeBase = _derive(
+    __import__("app.entity", fromlist=["EntityRelationshipType"]).EntityRelationshipType,
+    name="EntityRelationshipTypeType",
+    exclude={"added_at"},
+)
+EntityRelationshipTypeType = _EntityRelTypeBase
+
+_EntityBase = _derive(
+    __import__("app.entity", fromlist=["Entity"]).Entity,
+    name="_EntityBase",
+    exclude={"id", "status_changed_at"},
+)
 
 
-@strawberry.type
-class EntityRelationshipTypeType:
-    name: str
-    display_name: str
-    description: str = ""
-    inverse_name: str | None = None
-    is_symmetric: bool = False
-    domain_types: list[str] = strawberry.field(default_factory=list)
-    range_types: list[str] = strawberry.field(default_factory=list)
-    wikidata_pid: str | None = None
-
-
-@strawberry.type
-class GqlEntityType:
-    uuid: str
-    type: str
-    name: str
-    description: str = ""
-    status: str = "enabled"
-    added_at: str | None = None
-    updated_at: str | None = None
+@strawberry.type(description="A typed node in the entity graph.")
+class GqlEntityType(_EntityBase):
     is_me: bool = False
+
+    @classmethod
+    def build(cls, *, is_me: bool = False, **kwargs: Any) -> GqlEntityType:
+        return cls(**kwargs, is_me=is_me)
+
+    @strawberry.field
+    def sources(self) -> list[str]:
+        """Distinct source plugin names that produced statements for this entity."""
+        from app.entities.statements import Statement
+
+        stmts = Statement.all(where="entity_id = ? AND source IS NOT NULL", params=[self.uuid])
+        return sorted({s.source for s in stmts if s.source})
 
     @strawberry.field
     def statements(self) -> list[StatementType]:
@@ -462,11 +473,7 @@ class GqlEntityType:
         pids = {s.property_id for s in stmts}
         props_by_id: dict[str, Property] = {}
         for pid in pids:
-            p = Property.all(
-                where="id = ?",
-                params=[pid],
-                limit=1,
-            )
+            p = Property.all(where="id = ?", params=[pid], limit=1)
             if p:
                 props_by_id[pid] = p[0]
 
@@ -493,14 +500,19 @@ class GqlEntityType:
         return out
 
 
-@strawberry.type
-class GqlEntityRelationshipType:
-    from_uuid: str
-    to_uuid: str
-    type: str
+GqlEntityRelationshipType = _derive(
+    __import__("app.entity", fromlist=["EntityRelationship"]).EntityRelationship,
+    name="GqlEntityRelationshipType",
+    exclude={"id"},
+)
+
+
+@strawberry.input
+class EntityTypeCreateInput:
+    display_name: str
+    parent: str | None = None
     description: str = ""
-    added_at: str | None = None
-    updated_at: str | None = None
+    icon: str = ""
 
 
 @strawberry.input
@@ -584,6 +596,7 @@ __all__ = [
     "DataResourceType",
     "EntityCreateInput",
     "EntityRelationshipTypeType",
+    "EntityTypeCreateInput",
     "EntityTypeType",
     "EntityUpdateInput",
     "FreshnessInfoType",

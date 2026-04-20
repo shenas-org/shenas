@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any
 
 import duckdb
-from shenas_transformers.core import Transformer, TransformerConfig
+from shenas_transformers.core import ColumnTransformer, TransformerConfig
 
 from app.plugin import Plugin
 from app.table import Field
@@ -40,7 +40,7 @@ class _GeocodeConfig(TransformerConfig):
     ] = None
 
 
-class GeocodeTransformer(Transformer):
+class GeocodeTransformer(ColumnTransformer):
     """Convert address strings to latitude/longitude using a geocoding API."""
 
     name = "geocode"
