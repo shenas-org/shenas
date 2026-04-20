@@ -1,12 +1,4 @@
-"""Strawberry GraphQL types.
-
-Organised into four sections:
-
-1. **Pydantic-wrapped**: auto-generated from ``app.models`` Pydantic classes.
-2. **Table-derived**: auto-generated from ``Table`` subclasses via ``gql_type_from_table``.
-3. **Hand-written output types**: view-model types that don't map 1:1 to a model.
-4. **Input types**: mutation input arguments.
-"""
+"""Strawberry GraphQL types -- wraps existing Pydantic models."""
 
 from __future__ import annotations
 
@@ -30,45 +22,60 @@ from app.models import (
     ScheduleInfo,
 )
 
-# ============================================================================
-# 1. Pydantic-wrapped types
-# ============================================================================
-
-_PYDANTIC_TYPES: list[dict[str, Any]] = [
-    {"model": OkResponse, "name": "OkType"},
-    {"model": AuthField, "name": "AuthFieldType"},
-    {"model": AuthFieldsResponse, "name": "AuthFieldsType"},
-    {"model": AuthResponse, "name": "AuthResponseType"},
-    {"model": ConfigEntry, "name": "ConfigEntryType"},
-    {"model": PluginInfo, "name": "PluginInfoType"},
-    {"model": InstallResult, "name": "InstallResultType"},
-    {"model": InstallResponse, "name": "InstallResponseType"},
-    {"model": RemoveResponse, "name": "RemoveResponseType"},
-    {"model": ScheduleInfo, "name": "ScheduleInfoType"},
-]
-
-for _pydantic_cfg in _PYDANTIC_TYPES:
-    _pydantic_cls = type(_pydantic_cfg["name"], (), {})
-    _pydantic_cls = strawberry.experimental.pydantic.type(model=_pydantic_cfg["model"], all_fields=True)(_pydantic_cls)
-    globals()[_pydantic_cfg["name"]] = _pydantic_cls
-
-OkType = globals()["OkType"]
-AuthFieldType = globals()["AuthFieldType"]
-AuthFieldsType = globals()["AuthFieldsType"]
-AuthResponseType = globals()["AuthResponseType"]
-ConfigEntryType = globals()["ConfigEntryType"]
-PluginInfoType = globals()["PluginInfoType"]
-InstallResultType = globals()["InstallResultType"]
-InstallResponseType = globals()["InstallResponseType"]
-RemoveResponseType = globals()["RemoveResponseType"]
-ScheduleInfoType = globals()["ScheduleInfoType"]
+# -- Wrapped Pydantic types --------------------------------------------------
 
 
-# ============================================================================
-# 2. Hand-written output types (view models, no 1:1 model mapping)
-# ============================================================================
+@strawberry.experimental.pydantic.type(model=OkResponse, all_fields=True)
+class OkType:
+    pass
 
-# -- Misc --------------------------------------------------------------------
+
+@strawberry.experimental.pydantic.type(model=AuthField, all_fields=True)
+class AuthFieldType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=AuthFieldsResponse, all_fields=True)
+class AuthFieldsType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=AuthResponse, all_fields=True)
+class AuthResponseType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=ConfigEntry, all_fields=True)
+class ConfigEntryType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=PluginInfo, all_fields=True)
+class PluginInfoType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=InstallResult, all_fields=True)
+class InstallResultType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=InstallResponse, all_fields=True)
+class InstallResponseType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=RemoveResponse, all_fields=True)
+class RemoveResponseType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=ScheduleInfo, all_fields=True)
+class ScheduleInfoType:
+    pass
+
+
+# -- New types (not from Pydantic) --------------------------------------------
 
 
 @strawberry.type
@@ -81,6 +88,98 @@ class TableEntry:
 class ThemeInfo:
     name: str | None
     css: str | None
+
+
+@strawberry.type
+class TransformType:
+    id: int
+    transform_type: str
+    source: DataResourceType
+    target: DataResourceType
+    source_plugin: str
+    params: str
+    description: str
+    is_default: bool
+    enabled: bool
+    added_at: str | None
+    updated_at: str | None
+    status_changed_at: str | None
+    steps: list[TransformStepType]
+
+    @strawberry.field
+    def transform_type_display_name(self) -> str:
+        from app.plugin import Plugin
+
+        try:
+            for cls in Plugin.load_by_kind("transformer"):
+                if getattr(cls, "name", "") == self.transform_type:
+                    return getattr(cls, "display_name", self.transform_type)
+        except Exception:
+            pass
+        return self.transform_type
+
+    @strawberry.field
+    def sql(self) -> str:
+        """Extract SQL from params JSON for convenience."""
+        import json
+
+        try:
+            return json.loads(self.params).get("sql", "")
+        except (json.JSONDecodeError, TypeError):
+            return ""
+
+
+# -- Input types --------------------------------------------------------------
+
+
+@strawberry.input
+class TransformStepInput:
+    transformer: str
+    params: str = "{}"
+    description: str = ""
+
+
+@strawberry.input
+class TransformCreateInput:
+    source_duckdb_schema: str
+    source_duckdb_table: str
+    target_duckdb_schema: str
+    target_duckdb_table: str
+    source_plugin: str
+    description: str = ""
+    steps: list[TransformStepInput] | None = None
+    # Legacy single-step fields (used when steps is None)
+    transform_type: str = "sql"
+    params: str = "{}"
+
+
+# -- Model types ---------------------------------------------------------------
+
+
+@strawberry.type
+class ModelInfoType:
+    name: str
+    display_name: str = ""
+    description: str = ""
+    version: str = ""
+    enabled: bool = True
+
+
+@strawberry.type
+class ModelStatusType:
+    name: str
+    available: bool = False
+    current_round: int | None = None
+
+
+@strawberry.type
+class ModelPredictionType:
+    name: str
+    predictions: list[float]
+    labels: list[str]
+
+
+# -- Dashboard + Dependency types -----------------------------------------------
 
 
 @strawberry.type
@@ -98,7 +197,144 @@ class DependencyEdge:
     targets: list[str]
 
 
-# -- Data catalog ------------------------------------------------------------
+# -- Hypothesis types ----------------------------------------------------------
+
+
+@strawberry.type
+class HypothesisType:
+    id: int
+    question: str
+    plan: str | None = None
+    recipe_json: str = ""
+    inputs: str | None = None
+    result_json: str | None = None
+    interpretation: str | None = None
+    created_at: str | None = None
+    model: str | None = None
+    promoted_to: str | None = None
+    llm_input_tokens: int | None = None
+    llm_output_tokens: int | None = None
+    llm_elapsed_ms: float | None = None
+    query_elapsed_ms: float | None = None
+    wall_clock_ms: float | None = None
+    mode: str | None = None
+    parent_id: int | None = None
+    is_suggested: bool | None = None
+
+
+@strawberry.type
+class FindingType:
+    id: int
+    exposure: str
+    outcome: str
+    direction: str = ""
+    effect_size: float | None = None
+    ci_low: float | None = None
+    ci_high: float | None = None
+    evidence_level: str | None = None
+    sample_size: int | None = None
+    mechanism: str | None = None
+    citation: str = ""
+    doi: str | None = None
+    exposure_categories: str | None = None
+    outcome_categories: str | None = None
+    source_ref: str | None = None
+
+
+@strawberry.type
+class HypothesisSuggestionType:
+    question: str
+    rationale: str = ""
+    datasets_involved: list[str]
+    complexity: str = ""
+    score: float = 0.0
+
+
+# -- Transformer info types ----------------------------------------------------
+
+
+@strawberry.type
+class ParamFieldType:
+    name: str
+    label: str = ""
+    type: str = "text"
+    required: bool = False
+    description: str = ""
+    default: str | None = None
+    options: list[str] | None = None
+    role: str | None = None
+
+
+@strawberry.type
+class TransformerInfoType:
+    name: str
+    display_name: str
+    description: str = ""
+    param_schema: list[ParamFieldType]
+
+
+@strawberry.type
+class TransformStepType:
+    id: int
+    ordinal: int
+    transformer: TransformerInfoType
+    params: str
+    description: str
+
+
+@strawberry.type
+class SeedResultType:
+    seeded: list[str]
+    count: int
+
+
+@strawberry.type
+class TransformRunResultType:
+    name: str
+    count: int
+
+
+# -- Suggestion types ----------------------------------------------------------
+
+
+@strawberry.type
+class SuggestedDatasetType:
+    name: str
+    is_suggested: bool = True
+    enabled: bool = False
+    table_name: str | None = None
+    grain: str | None = None
+    title: str | None = None
+
+
+@strawberry.type
+class SuggestedAnalysisType:
+    id: int
+    question: str
+    rationale: str = ""
+    datasets_involved: list[str]
+    complexity: str = ""
+
+
+# -- Category types ------------------------------------------------------------
+
+
+@strawberry.type
+class CategoryValueType:
+    value: str
+    sort_order: int = 0
+    color: str | None = None
+
+
+@strawberry.type
+class CategorySetType:
+    id: str
+    display_name: str
+    description: str = ""
+    values: list[CategoryValueType]
+
+
+# -- Data Catalog types --------------------------------------------------------
 
 
 @strawberry.type
@@ -163,239 +399,6 @@ class QualityInfoType:
     latest_checks: list[QualityCheckType]
 
 
-# DataResourceType is defined after the derive section (it references TransformType).
-
-# -- Models ------------------------------------------------------------------
-
-
-@strawberry.type
-class ModelInfoType:
-    name: str
-    display_name: str = ""
-    description: str = ""
-    version: str = ""
-    enabled: bool = True
-
-
-@strawberry.type
-class ModelStatusType:
-    name: str
-    available: bool = False
-    current_round: int | None = None
-
-
-@strawberry.type
-class ModelPredictionType:
-    name: str
-    predictions: list[float]
-    labels: list[str]
-
-
-# -- Transformers ------------------------------------------------------------
-
-
-@strawberry.type
-class ParamFieldType:
-    name: str
-    label: str = ""
-    type: str = "text"
-    required: bool = False
-    description: str = ""
-    default: str | None = None
-    options: list[str] | None = None
-
-
-@strawberry.type
-class TransformerInfoType:
-    name: str
-    display_name: str
-    description: str = ""
-    param_schema: list[ParamFieldType]
-
-
-@strawberry.type
-class SeedResultType:
-    seeded: list[str]
-    count: int
-
-
-@strawberry.type
-class TransformRunResultType:
-    name: str
-    count: int
-
-
-# -- Suggestions -------------------------------------------------------------
-
-
-@strawberry.type
-class HypothesisSuggestionType:
-    question: str
-    rationale: str = ""
-    datasets_involved: list[str]
-    complexity: str = ""
-    score: float = 0.0
-
-
-@strawberry.type
-class SuggestedDatasetType:
-    name: str
-    is_suggested: bool = True
-    enabled: bool = False
-    table_name: str | None = None
-    grain: str | None = None
-    title: str | None = None
-
-
-@strawberry.type
-class SuggestedAnalysisType:
-    id: int
-    question: str
-    rationale: str = ""
-    datasets_involved: list[str]
-    complexity: str = ""
-
-
-# -- Categories --------------------------------------------------------------
-
-
-@strawberry.type
-class CategoryValueType:
-    value: str
-    sort_order: int = 0
-    color: str | None = None
-
-
-@strawberry.type
-class CategorySetType:
-    id: str
-    display_name: str
-    description: str = ""
-    values: list[CategoryValueType]
-
-
-# -- Statements / Properties -------------------------------------------------
-
-
-@strawberry.type
-class PropertyType:
-    """A predicate in entities.properties (registry of statement predicates)."""
-
-    id: str
-    label: str
-    datatype: str = "string"
-    domain_type: str | None = None
-    source: str = "user"
-    wikidata_pid: str | None = None
-    description: str | None = None
-
-
-@strawberry.type
-class StatementType:
-    """A single (entity, property, value) triple from entities.statements."""
-
-    entity_id: str
-    property_id: str
-    value: str
-    value_label: str | None = None
-    rank: str = "normal"
-    qualifiers: JSON | None = None
-    source: str = "user"
-    property_label: str | None = None
-    datatype: str | None = None
-
-
-# ============================================================================
-# 3. Table-derived types (auto-generated from Table subclasses)
-# ============================================================================
-#
-# Each entry declares:
-#   cls      -- "module.path:ClassName" to import
-#   name     -- GraphQL type name
-#   exclude  -- fields to omit (optional)
-#   overrides -- {field: (type, resolver_or_default)} for computed fields (optional)
-
-
-def _sql_from_params(self: Any) -> str:
-    """Extract SQL from params JSON for convenience."""
-    import json
-
-    try:
-        return json.loads(self.params).get("sql", "")
-    except (json.JSONDecodeError, TypeError):
-        return ""
-
-
-def _import_class(path: str) -> type:
-    """Import a class from 'module.path:ClassName'."""
-    module_path, class_name = path.rsplit(":", 1)
-    return getattr(__import__(module_path, fromlist=[class_name]), class_name)
-
-
-# NOTE: DataResourceType references TransformType, so TransformType must be
-# derived before DataResourceType is defined. The list order matters.
-_DERIVED_TYPES: list[dict[str, Any]] = [
-    {
-        "cls": "app.hypotheses:Hypothesis",
-        "name": "HypothesisType",
-    },
-    {
-        "cls": "app.finding:Finding",
-        "name": "FindingType",
-    },
-    {
-        "cls": "app.entity:EntityType",
-        "name": "EntityTypeType",
-        "exclude": {"wikidata_seed", "wikidata_properties", "added_at"},
-    },
-    {
-        "cls": "app.entity:EntityRelationshipType",
-        "name": "EntityRelationshipTypeType",
-        "exclude": {"added_at"},
-    },
-    {
-        "cls": "app.entity:Entity",
-        "name": "_EntityBase",
-        "exclude": {"id", "status_changed_at"},
-    },
-    {
-        "cls": "app.entity:EntityRelationship",
-        "name": "GqlEntityRelationshipType",
-        "exclude": {"id"},
-    },
-]
-
-for _cfg in _DERIVED_TYPES:
-    _type = _derive(
-        _import_class(_cfg["cls"]),
-        name=_cfg["name"],
-        exclude=_cfg.get("exclude"),
-        overrides=_cfg.get("overrides"),
-    )
-    globals()[_cfg["name"]] = _type
-
-# Aliases (make names visible to static analysis / IDE imports).
-HypothesisType = globals()["HypothesisType"]
-FindingType = globals()["FindingType"]
-EntityTypeType = globals()["EntityTypeType"]
-EntityRelationshipTypeType = globals()["EntityRelationshipTypeType"]
-GqlEntityRelationshipType = globals()["GqlEntityRelationshipType"]
-_EntityBase = globals()["_EntityBase"]
-
-
-# -- TransformType + DataResourceType have a circular reference.
-# Derive TransformType base, define DataResourceType, then subclass.
-
-_TransformBase = _derive(
-    _import_class("shenas_transformers.core.transform:Transform"),
-    name="_TransformBase",
-    exclude={"source_data_resource_id", "target_data_resource_id", "is_suggested"},
-    overrides={
-        "sql": (str, _sql_from_params),
-    },
-)
-
-
 @strawberry.type
 class DataResourceType:
     id: str
@@ -414,19 +417,48 @@ class DataResourceType:
     quality: QualityInfoType
     user_notes: str = ""
     tags: list[str]
-    upstream_transforms: list[_TransformBase] | None = None
-    downstream_transforms: list[_TransformBase] | None = None
+    upstream_transforms: list[TransformType] | None = None
+    downstream_transforms: list[TransformType] | None = None
 
 
-@strawberry.type
-class TransformType(_TransformBase):  # type: ignore[misc]
-    """Adds resolved source/target resources to the derived Transform fields."""
+@strawberry.input
+class DataResourceAnnotationInput:
+    user_notes: str | None = None
+    tags: str | None = None
+    description: str | None = None
+    freshness_sla_minutes: int | None = None
+    expected_row_count_min: int | None = None
+    expected_row_count_max: int | None = None
 
-    source: DataResourceType | None = None
-    target: DataResourceType | None = None
+
+# -- Entity types --------------------------------------------------------------
 
 
-# -- GqlEntityType (subclass of derived _EntityBase, has complex resolvers) --
+# -- Entity types: auto-derived from Table classes --------------------------
+# See docs/graphql-architecture.md for the rationale. The derive helper reads
+# _Meta + dataclass fields from the Table class and generates a @strawberry.type
+# with matching fields. Extra resolver fields (sources, statements) are added
+# by subclassing.
+
+_EntityTypeBase = _derive(
+    __import__("app.entity", fromlist=["EntityType"]).EntityType,
+    name="EntityTypeType",
+    exclude={"wikidata_seed", "wikidata_properties", "added_at"},
+)
+EntityTypeType = _EntityTypeBase
+
+_EntityRelTypeBase = _derive(
+    __import__("app.entity", fromlist=["EntityRelationshipType"]).EntityRelationshipType,
+    name="EntityRelationshipTypeType",
+    exclude={"added_at"},
+)
+EntityRelationshipTypeType = _EntityRelTypeBase
+
+_EntityBase = _derive(
+    __import__("app.entity", fromlist=["Entity"]).Entity,
+    name="_EntityBase",
+    exclude={"id", "status_changed_at"},
+)
 
 
 @strawberry.type(description="A typed node in the entity graph.")
@@ -488,31 +520,11 @@ class GqlEntityType(_EntityBase):
         return out
 
 
-# ============================================================================
-# 4. Input types
-# ============================================================================
-
-
-@strawberry.input
-class TransformCreateInput:
-    transform_type: str
-    source_duckdb_schema: str
-    source_duckdb_table: str
-    target_duckdb_schema: str
-    target_duckdb_table: str
-    source_plugin: str
-    params: str = "{}"
-    description: str = ""
-
-
-@strawberry.input
-class DataResourceAnnotationInput:
-    user_notes: str | None = None
-    tags: str | None = None
-    description: str | None = None
-    freshness_sla_minutes: int | None = None
-    expected_row_count_min: int | None = None
-    expected_row_count_max: int | None = None
+GqlEntityRelationshipType = _derive(
+    __import__("app.entity", fromlist=["EntityRelationship"]).EntityRelationship,
+    name="GqlEntityRelationshipType",
+    exclude={"id"},
+)
 
 
 @strawberry.input
@@ -539,6 +551,38 @@ class EntityUpdateInput:
     status: str | None = None
 
 
+# -- Statement / Property graph -----------------------------------------------
+
+
+@strawberry.type
+class PropertyType:
+    """A predicate in entities.properties (registry of statement predicates)."""
+
+    id: str
+    label: str
+    datatype: str = "string"
+    domain_type: str | None = None
+    source: str = "user"
+    wikidata_pid: str | None = None
+    description: str | None = None
+
+
+@strawberry.type
+class StatementType:
+    """A single (entity, property, value) triple from entities.statements."""
+
+    entity_id: str
+    property_id: str
+    value: str
+    value_label: str | None = None
+    rank: str = "normal"
+    qualifiers: JSON | None = None
+    source: str = "user"
+    # Resolved property fields (joined from entities.properties for convenience).
+    property_label: str | None = None
+    datatype: str | None = None
+
+
 @strawberry.input
 class PropertyCreateInput:
     label: str
@@ -546,6 +590,7 @@ class PropertyCreateInput:
     domain_type: str | None = None
     wikidata_pid: str | None = None
     description: str | None = None
+    # If omitted, the resolver derives ``user:<slug(label)>``.
     id: str | None = None
 
 
@@ -559,60 +604,37 @@ class StatementUpsertInput:
     qualifiers: JSON | None = None
 
 
-# ============================================================================
-# __all__
-# ============================================================================
-
 __all__ = [
     "JSON",
     "AuthFieldType",
     "AuthFieldsType",
     "AuthResponseType",
-    "CategorySetType",
-    "CategoryValueType",
     "ColumnInfoType",
     "ConfigEntryType",
-    "DashboardType",
     "DataResourceAnnotationInput",
     "DataResourceRefType",
     "DataResourceType",
-    "DependencyEdge",
     "EntityCreateInput",
     "EntityRelationshipTypeType",
     "EntityTypeCreateInput",
     "EntityTypeType",
     "EntityUpdateInput",
-    "FindingType",
     "FreshnessInfoType",
     "GqlEntityRelationshipType",
     "GqlEntityType",
-    "HypothesisSuggestionType",
-    "HypothesisType",
     "InstallResponseType",
     "InstallResultType",
-    "ModelInfoType",
-    "ModelPredictionType",
-    "ModelStatusType",
     "OkType",
-    "ParamFieldType",
     "PlotHintType",
     "PluginInfoType",
     "PropertyCreateInput",
     "PropertyType",
-    "QualityCheckType",
-    "QualityInfoType",
     "RemoveResponseType",
     "ScheduleInfoType",
-    "SeedResultType",
     "StatementType",
     "StatementUpsertInput",
-    "SuggestedAnalysisType",
-    "SuggestedDatasetType",
     "TableEntry",
     "ThemeInfo",
-    "TimeColumnsInfoType",
     "TransformCreateInput",
-    "TransformRunResultType",
     "TransformType",
-    "TransformerInfoType",
 ]

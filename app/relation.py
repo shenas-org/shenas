@@ -306,9 +306,12 @@ class Relation:
         """Return distinct non-NULL values of a single column."""
         from app.database import cursor
 
+        null_filter = f"{column} IS NOT NULL"
         sql = f"SELECT DISTINCT {column} FROM {cls._qualified()}"
         if where:
-            sql += f" WHERE {where}"
+            sql += f" WHERE ({where}) AND {null_filter}"
+        else:
+            sql += f" WHERE {null_filter}"
         with cursor(database=cls._resolve_database()) as cur:
             rows = cur.execute(sql, params or []).fetchall()
         return [r[0] for r in rows]

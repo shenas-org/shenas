@@ -33,6 +33,7 @@ from app.graphql.types import (
     StatementUpsertInput,
     TransformCreateInput,
     TransformRunResultType,
+    TransformStepInput,
     TransformType,
 )
 
@@ -280,6 +281,11 @@ class Mutation:
     def create_transform(self, transform_input: TransformCreateInput) -> TransformType:
         from shenas_transformers.core.transform import Transform
 
+        steps = None
+        if transform_input.steps:
+            steps = [
+                {"transformer": s.transformer, "params": s.params, "description": s.description} for s in transform_input.steps
+            ]
         t = Transform.create(
             transform_type=transform_input.transform_type,
             source_data_resource_id=f"{transform_input.source_duckdb_schema}.{transform_input.source_duckdb_table}",
@@ -287,6 +293,7 @@ class Mutation:
             source_plugin=transform_input.source_plugin,
             params=transform_input.params,
             description=transform_input.description,
+            steps=steps,
         )
         return _transform_to_gql(t)
 
@@ -299,6 +306,16 @@ class Mutation:
             return None
         t = existing.update_params(params)
         return _transform_to_gql(t) if t else None
+
+    @strawberry.mutation
+    def update_transform_steps(self, transform_id: int, steps: list[TransformStepInput]) -> TransformType | None:
+        from shenas_transformers.core.transform import Transform
+
+        existing = Transform.find(transform_id)
+        if not existing:
+            return None
+        existing.set_steps([{"transformer": s.transformer, "params": s.params, "description": s.description} for s in steps])
+        return _transform_to_gql(existing)
 
     @strawberry.mutation
     def delete_transform(self, transform_id: int) -> OkType:

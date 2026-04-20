@@ -192,3 +192,345 @@ def test_entity_create_with_valid_type(db_con: duckdb.DuckDBPyConnection, type_n
     row = Entity.create(name=f"Test {type_name}", type=type_name)
     assert row.type == type_name
     assert row.uuid
+
+
+# ---------------------------------------------------------------------------
+# EntityType.concrete_types -- returns only non-abstract types
+# ---------------------------------------------------------------------------
+
+
+class TestConcreteTypes:
+    def test_returns_only_non_abstract(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        concrete = EntityLookupType.concrete_types()
+        assert len(concrete) > 0
+        for entity_type in concrete:
+            assert entity_type.is_abstract is False
+
+    def test_excludes_abstract_types(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        concrete_names = {t.name for t in EntityLookupType.concrete_types()}
+        # These are declared abstract in DEFAULT_ENTITY_TYPES
+        abstract_names = {"entity", "physical_entity", "virtual_entity", "living_entity", "place", "group", "project"}
+        assert concrete_names.isdisjoint(abstract_names)
+
+    def test_includes_known_concrete_types(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        concrete_names = {t.name for t in EntityLookupType.concrete_types()}
+        assert "human" in concrete_names
+        assert "animal" in concrete_names
+        assert "residence" in concrete_names
+        assert "vehicle" in concrete_names
+        assert "device" in concrete_names
+
+    def test_results_sorted_by_name(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        concrete = EntityLookupType.concrete_types()
+        names = [t.name for t in concrete]
+        assert names == sorted(names)
+
+
+# ---------------------------------------------------------------------------
+# EntityType.is_subtype_of -- traverses the type hierarchy
+# ---------------------------------------------------------------------------
+
+
+class TestIsSubtypeOf:
+    def test_self_is_subtype_of_self(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        assert EntityLookupType.is_subtype_of("human", "human") is True
+
+    def test_direct_child(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        # human -> living_entity
+        assert EntityLookupType.is_subtype_of("human", "living_entity") is True
+
+    def test_transitive_ancestor(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        # human -> living_entity -> physical_entity -> entity
+        assert EntityLookupType.is_subtype_of("human", "physical_entity") is True
+        assert EntityLookupType.is_subtype_of("human", "entity") is True
+
+    def test_not_subtype(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        # human is not a subtype of vehicle
+        assert EntityLookupType.is_subtype_of("human", "vehicle") is False
+
+    def test_ancestor_is_not_subtype_of_child(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        # entity is not a subtype of human (reversed)
+        assert EntityLookupType.is_subtype_of("entity", "human") is False
+
+    def test_sibling_types_are_not_subtypes(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        # animal and human are siblings (both under living_entity)
+        assert EntityLookupType.is_subtype_of("animal", "human") is False
+        assert EntityLookupType.is_subtype_of("human", "animal") is False
+
+    def test_deep_hierarchy(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        # car -> vehicle -> physical_entity -> entity
+        assert EntityLookupType.is_subtype_of("car", "vehicle") is True
+        assert EntityLookupType.is_subtype_of("car", "physical_entity") is True
+        assert EntityLookupType.is_subtype_of("car", "entity") is True
+
+    def test_unknown_type_returns_false(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        assert EntityLookupType.is_subtype_of("nonexistent", "entity") is False
+
+
+# ---------------------------------------------------------------------------
+# EntityType.ensure_wide_view -- creates the wide view
+# ---------------------------------------------------------------------------
+
+
+class TestEnsureWideView:
+    def test_creates_view_in_duckdb(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        human_type = EntityLookupType.all(where="name = 'human'")[0]
+        human_type.ensure_wide_view()
+
+        # Verify the view exists and is queryable via raw SQL
+        rows = db_con.execute("SELECT * FROM entities.humans_wide").fetchall()
+        assert isinstance(rows, list)
+
+    def test_view_reflects_entities(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        Entity.create(name="Alice", type="human")
+        human_type = EntityLookupType.all(where="name = 'human'")[0]
+        human_type.ensure_wide_view()
+
+        rows = db_con.execute("SELECT name FROM entities.humans_wide").fetchall()
+        names = [r[0] for r in rows]
+        assert "Alice" in names
+
+    def test_registers_in_wide_view_registry(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entity import get_wide_view
+
+        human_type = EntityLookupType.all(where="name = 'human'")[0]
+        human_type.ensure_wide_view()
+
+        view_cls = get_wide_view("human")
+        assert view_cls is not None
+
+    def test_get_wide_view_raises_before_ensure(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entity import _wide_view_registry, get_wide_view
+
+        # Remove any cached view for a type to test the error
+        _wide_view_registry.pop("_test_missing_", None)
+        with pytest.raises(KeyError, match="No wide view"):
+            get_wide_view("_test_missing_")
+
+    def test_idempotent(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        human_type = EntityLookupType.all(where="name = 'human'")[0]
+        # Calling twice should not raise
+        human_type.ensure_wide_view()
+        human_type.ensure_wide_view()
+
+
+# ---------------------------------------------------------------------------
+# compute_entity_id -- deterministic UUID generation
+# ---------------------------------------------------------------------------
+
+
+class TestComputeEntityId:
+    def test_deterministic(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entity import compute_entity_id
+
+        result1 = compute_entity_id("human", ["alice"])
+        result2 = compute_entity_id("human", ["alice"])
+        assert result1 == result2
+
+    def test_different_type_different_id(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entity import compute_entity_id
+
+        id_human = compute_entity_id("human", ["alice"])
+        id_animal = compute_entity_id("animal", ["alice"])
+        assert id_human != id_animal
+
+    def test_different_pk_different_id(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entity import compute_entity_id
+
+        id1 = compute_entity_id("human", ["alice"])
+        id2 = compute_entity_id("human", ["bob"])
+        assert id1 != id2
+
+    def test_returns_32_char_hex(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entity import compute_entity_id
+
+        result = compute_entity_id("device", ["phone-1"])
+        assert len(result) == 32
+        # Should be valid hex
+        int(result, 16)
+
+    def test_composite_pk(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entity import compute_entity_id
+
+        result = compute_entity_id("city", ["US", "San Francisco"])
+        assert len(result) == 32
+        # Different order gives different id
+        result2 = compute_entity_id("city", ["San Francisco", "US"])
+        assert result != result2
+
+
+# ---------------------------------------------------------------------------
+# Entity.create -- factory method
+# ---------------------------------------------------------------------------
+
+
+class TestEntityCreate:
+    def test_assigns_uuid(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        entity = Entity.create(name="Test", type="device")
+        assert entity.uuid
+        assert len(entity.uuid) == 32
+
+    def test_assigns_sequential_id(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        entity1 = Entity.create(name="First", type="device")
+        entity2 = Entity.create(name="Second", type="device")
+        assert entity2.id > entity1.id
+
+    def test_default_status_is_enabled(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        entity = Entity.create(name="Test", type="animal")
+        assert entity.status == "enabled"
+
+    def test_custom_description(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        entity = Entity.create(name="Buddy", type="animal", description="A friendly dog")
+        assert entity.description == "A friendly dog"
+
+    def test_registers_in_entity_index(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        entity = Entity.create(name="Indexed", type="vehicle")
+        idx = EntityIndex.find(entity.uuid)
+        assert idx is not None
+        assert idx.db == "user"
+        assert idx.table_name == "entities"
+        assert idx.row_id == entity.id
+        assert idx.status == "enabled"
+
+
+# ---------------------------------------------------------------------------
+# Entity.delete -- removes entity, index, and relationships
+# ---------------------------------------------------------------------------
+
+
+class TestEntityDelete:
+    def test_removes_entity_row(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        entity = Entity.create(name="ToDelete", type="device")
+        entity_uuid = entity.uuid
+        entity.delete()
+        assert Entity.find_by_uuid(entity_uuid) is None
+
+    def test_removes_entity_index(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        entity = Entity.create(name="ToDelete", type="device")
+        entity_uuid = entity.uuid
+        entity.delete()
+        assert EntityIndex.find(entity_uuid) is None
+
+    def test_removes_relationships_from(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        source = Entity.create(name="Source", type="human")
+        target = Entity.create(name="Target", type="device")
+        EntityRelationship(from_uuid=source.uuid, to_uuid=target.uuid, type="owner_of").upsert()
+
+        source.delete()
+        assert EntityRelationship.find(source.uuid, target.uuid, "owner_of") is None
+
+    def test_removes_relationships_to(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        source = Entity.create(name="Source", type="human")
+        target = Entity.create(name="Target", type="device")
+        EntityRelationship(from_uuid=source.uuid, to_uuid=target.uuid, type="owner_of").upsert()
+
+        target.delete()
+        assert EntityRelationship.find(source.uuid, target.uuid, "owner_of") is None
+
+
+# ---------------------------------------------------------------------------
+# seed_entity_types -- idempotent seeding
+# ---------------------------------------------------------------------------
+
+
+class TestSeedEntityTypes:
+    def test_idempotent(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entity import seed_entity_types
+
+        count_before = len(EntityLookupType.all())
+        seed_entity_types()
+        count_after = len(EntityLookupType.all())
+        assert count_before == count_after
+
+    def test_all_default_types_present(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entity import DEFAULT_ENTITY_TYPES
+
+        all_names = {t.name for t in EntityLookupType.all()}
+        for entry in DEFAULT_ENTITY_TYPES:
+            assert entry["name"] in all_names
+
+    def test_parent_relationships_set(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        human = EntityLookupType.all(where="name = 'human'")[0]
+        assert human.parent == "living_entity"
+
+    def test_abstract_flag_set(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        entity_root = EntityLookupType.all(where="name = 'entity'")[0]
+        assert entity_root.is_abstract is True
+        human = EntityLookupType.all(where="name = 'human'")[0]
+        assert human.is_abstract is False
+
+
+# ---------------------------------------------------------------------------
+# seed_relationship_types -- idempotent seeding
+# ---------------------------------------------------------------------------
+
+
+class TestSeedRelationshipTypes:
+    def test_idempotent(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entity import seed_relationship_types
+
+        count_before = len(EntityRelationshipType.all())
+        seed_relationship_types()
+        count_after = len(EntityRelationshipType.all())
+        assert count_before == count_after
+
+    def test_all_default_relationship_types_present(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entity import DEFAULT_RELATIONSHIP_TYPES
+
+        all_names = {t.name for t in EntityRelationshipType.all()}
+        for entry in DEFAULT_RELATIONSHIP_TYPES:
+            assert entry["name"] in all_names
+
+    def test_inverse_names_set(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        owner = EntityRelationshipType.all(where="name = 'owner_of'")[0]
+        assert owner.inverse_name == "owned by"
+
+    def test_symmetric_flag(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        sibling = EntityRelationshipType.all(where="name = 'sibling_of'")[0]
+        assert sibling.is_symmetric is True
+        owner = EntityRelationshipType.all(where="name = 'owner_of'")[0]
+        assert owner.is_symmetric is False
+
+    def test_domain_and_range_types(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        owner = EntityRelationshipType.all(where="name = 'owner_of'")[0]
+        assert "human" in owner.domain_types
+        assert "vehicle" in owner.range_types
+
+
+# ---------------------------------------------------------------------------
+# seed_properties -- idempotent seeding
+# ---------------------------------------------------------------------------
+
+
+class TestSeedProperties:
+    def test_idempotent(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entities.properties import Property
+        from app.entity import seed_properties
+
+        count_before = len(Property.all())
+        seed_properties()
+        count_after = len(Property.all())
+        assert count_before == count_after
+
+    def test_seeds_wikidata_properties(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entities.properties import Property
+
+        all_props = Property.all()
+        pids = {p.id for p in all_props}
+        # P21 (sex or gender) should be seeded for human
+        assert "P21" in pids
+
+    def test_domain_type_assigned(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entities.properties import Property
+
+        # P106 (occupation) is declared only for human
+        p106_list = Property.all(where="id = 'P106'")
+        assert len(p106_list) > 0
+        domains = {p.domain_type for p in p106_list}
+        assert "human" in domains
+
+    def test_source_is_wikidata(self, db_con: duckdb.DuckDBPyConnection) -> None:
+        from app.entities.properties import Property
+
+        props = Property.all(where="source = 'wikidata'")
+        assert len(props) > 0

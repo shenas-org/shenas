@@ -141,6 +141,7 @@ class GeocodeTransformer(ColumnTransformer):
                 "required": False,
                 "description": "Output latitude column name",
                 "default": "latitude",
+                "role": "output_column",
             },
             {
                 "name": "longitude_output",
@@ -149,6 +150,7 @@ class GeocodeTransformer(ColumnTransformer):
                 "required": False,
                 "description": "Output longitude column name",
                 "default": "longitude",
+                "role": "output_column",
             },
         ]
 

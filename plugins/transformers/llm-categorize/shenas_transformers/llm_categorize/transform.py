@@ -133,6 +133,7 @@ class LlmCategorizeTransformer(ColumnTransformer):
                 "required": False,
                 "description": "Column name for the category in the target table",
                 "default": "category",
+                "role": "output_column",
             },
             {
                 "name": "categories",

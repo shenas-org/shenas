@@ -4,17 +4,12 @@ import { gqlTag as gql } from "shenas-frontends";
 // Each fragment declares the fields a specific UI concern needs.
 // Page-level queries compose fragments via ...spread.
 
-/** Sidebar plugin card: minimal fields for the plugin list. */
+/** Sidebar plugin card: fields for the plugin list, counts, and stats. */
 export const PLUGIN_CARD_FRAGMENT = gql`
   fragment PluginCard on PluginInfoType {
     name
     displayName
     enabled
-    syncedAt
-    hasAuth
-    isAuthenticated
-    entityTypes
-    entityUuids
     tables
     totalRows
   }
@@ -281,7 +276,7 @@ export const GET_ANALYSIS_MODES = gql`
 // --- Transforms ---
 
 export const DATA_RESOURCE_REF_FRAGMENT = gql`
-  fragment DataResourceRef on DataResourceRefType {
+  fragment DataResourceRef on DataResourceType {
     id
     schemaName
     tableName
@@ -306,6 +301,27 @@ export const TRANSFORM_FRAGMENT = gql`
     isDefault
     enabled
     sql
+    steps {
+      id
+      ordinal
+      transformer {
+        name
+        displayName
+        description
+        paramSchema {
+          name
+          label
+          type
+          required
+          description
+          default
+          options
+          role
+        }
+      }
+      params
+      description
+    }
   }
 `;
 
@@ -331,6 +347,7 @@ export const GET_TRANSFORMS = gql`
         description
         default
         options
+        role
       }
     }
   }
@@ -339,6 +356,12 @@ export const GET_TRANSFORMS = gql`
 export const GET_TABLE_COLUMNS = gql`
   query GetTableColumns($s: String!, $t: String!) {
     tableColumns(schema: $s, table: $t)
+  }
+`;
+
+export const PREVIEW_TRANSFORM_SQL = gql`
+  query PreviewTransformSql($params: String!, $sourceSchema: String!, $sourceTable: String!) {
+    previewTransformSql(params: $params, sourceSchema: $sourceSchema, sourceTable: $sourceTable)
   }
 `;
 

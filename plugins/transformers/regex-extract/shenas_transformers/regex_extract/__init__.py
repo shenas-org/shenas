@@ -96,6 +96,7 @@ class RegexExtractTransformer(ColumnTransformer):
                 "required": False,
                 "description": "Output column name",
                 "default": "{text_column}_extracted",
+                "role": "output_column",
             },
             {
                 "name": "mode",

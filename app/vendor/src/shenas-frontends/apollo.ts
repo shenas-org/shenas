@@ -51,7 +51,7 @@ export function getClient(apiBase: string = "/api"): ApolloClient {
     link,
     cache: new InMemoryCache({
       typePolicies: {
-        PluginInfoType: { keyFields: ["kind", "name"] },
+        PluginInfoType: { keyFields: false },
         GqlEntityType: { keyFields: ["uuid"] },
         EntityTypeType: { keyFields: ["name"] },
         EntityRelationshipTypeType: { keyFields: ["name"] },

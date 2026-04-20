@@ -156,6 +156,7 @@ class ReverseGeocodeTransformer(ColumnTransformer):
                 "required": False,
                 "description": "Output column name for the place name",
                 "default": "place_name",
+                "role": "output_column",
             },
         ]
 

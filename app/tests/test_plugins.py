@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from unittest.mock import MagicMock, patch
 
 if TYPE_CHECKING:
@@ -559,3 +559,125 @@ class TestRemoveStream:
     def test_remove_stream_invalid_kind(self) -> None:
         resp = client.post("/api/plugins/bogus/garmin/remove-stream")
         assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# PluginInstance lifecycle (requires DB)
+# ---------------------------------------------------------------------------
+
+
+class TestPluginInstanceLifecycle:
+    def test_get_or_create_creates_new(self, db_con) -> None:
+        from app.plugin import PluginInstance
+
+        PluginInstance.ensure()
+        instance = PluginInstance.get_or_create("source", "test-new")
+        assert instance.kind == "source"
+        assert instance.name == "test-new"
+        assert instance.enabled is True
+        assert instance.status_changed_at is not None
+
+    def test_get_or_create_returns_existing(self, db_con) -> None:
+        from app.plugin import PluginInstance
+
+        PluginInstance.ensure()
+        first = PluginInstance.get_or_create("source", "test-existing")
+        second = PluginInstance.get_or_create("source", "test-existing")
+        assert first.kind == second.kind
+        assert first.name == second.name
+        assert first.added_at == second.added_at
+
+    def test_enable_sets_enabled_true(self, db_con) -> None:
+        from app.plugin import PluginInstance
+
+        PluginInstance.ensure()
+        instance = PluginInstance.get_or_create("source", "test-enable")
+        instance.set_enabled(False)
+        assert instance.enabled is False
+
+        with patch("app.plugin.Plugin.load_by_name_and_kind", return_value=None):
+            result = instance.enable()
+        assert instance.enabled is True
+        assert instance.status_changed_at is not None
+        assert instance.updated_at is not None
+        assert "Enabled" in result
+
+    def test_disable_sets_enabled_false(self, db_con) -> None:
+        from app.plugin import PluginInstance
+
+        PluginInstance.ensure()
+        instance = PluginInstance.get_or_create("source", "test-disable")
+        assert instance.enabled is True
+
+        with patch("app.plugin.Plugin.load_by_name_and_kind", return_value=None):
+            result = instance.disable()
+        assert instance.enabled is False
+        assert "Disabled" in result
+
+    def test_mark_synced_updates_synced_at(self, db_con) -> None:
+        from app.plugin import PluginInstance
+
+        PluginInstance.ensure()
+        instance = PluginInstance.get_or_create("source", "test-sync")
+        assert instance.synced_at is None
+
+        instance.mark_synced()
+        assert instance.synced_at is not None
+        assert instance.updated_at is not None
+
+
+# ---------------------------------------------------------------------------
+# Plugin.resolve_entity_uuids
+# ---------------------------------------------------------------------------
+
+
+class TestResolveEntityUuids:
+    def test_empty_types_returns_empty(self) -> None:
+        result = Plugin.resolve_entity_uuids([])
+        assert result == []
+
+    def test_human_type_returns_me_entity(self, db_con) -> None:
+        from app.entity import Entity
+
+        Entity.ensure()
+        Entity(uuid="abc123def456", type="human", name="Me").insert()
+
+        result = Plugin.resolve_entity_uuids(["human"])
+        assert result == ["abc123def456"]
+
+
+# ---------------------------------------------------------------------------
+# Plugin.has_entities
+# ---------------------------------------------------------------------------
+
+
+class TestHasEntities:
+    def test_has_entities_true_when_entity_types_set(self) -> None:
+        class _TestPlugin(Plugin):
+            name = "test"
+            display_name = "Test"
+            entity_types: ClassVar[list[str]] = ["human"]
+
+            @property
+            def _kind(self):
+                return "source"
+
+        plugin = _TestPlugin()
+        assert plugin.has_entities is True
+
+    def test_has_entities_false_when_empty(self) -> None:
+        class _TestPlugin(Plugin):
+            name = "test"
+            display_name = "Test"
+            entity_types: ClassVar[list[str]] = []
+
+            @property
+            def _kind(self):
+                return "source"
+
+        with (
+            patch("app.plugin.Plugin.load_tables", return_value=()),
+            patch("app.plugin.Plugin.load_views", return_value=()),
+        ):
+            plugin = _TestPlugin()
+            assert plugin.has_entities is False

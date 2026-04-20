@@ -35,6 +35,7 @@ from app.graphql.types import (
     ThemeInfo,
     TimeColumnsInfoType,
     TransformerInfoType,
+    TransformStepType,
     TransformType,
 )
 
@@ -143,6 +144,28 @@ def _stub_resource(ref: Any) -> DataResourceType:
     )
 
 
+def _transformer_info(transformer_name: str) -> TransformerInfoType:
+    from app.plugin import Plugin
+
+    try:
+        for cls in Plugin.load_by_kind("transformer"):
+            if getattr(cls, "name", "") == transformer_name:
+                inst = cls()
+                return TransformerInfoType(
+                    name=transformer_name,
+                    display_name=getattr(cls, "display_name", transformer_name),
+                    description=getattr(cls, "description", ""),
+                    param_schema=[ParamFieldType(**p) for p in inst.param_schema()],  # ty: ignore[unresolved-attribute]
+                )
+    except Exception:
+        pass
+    return TransformerInfoType(
+        name=transformer_name,
+        display_name=transformer_name,
+        param_schema=[],
+    )
+
+
 def _transform_to_gql(
     t: Transform,
     *,
@@ -157,6 +180,17 @@ def _transform_to_gql(
         source_r = catalog().get_resource(t.source_ref.id)
         target_r = catalog().get_resource(t.target_ref.id)
 
+    steps = [
+        TransformStepType(
+            id=step.id,
+            ordinal=step.ordinal,
+            transformer=_transformer_info(step.transformer),
+            params=step.params or "{}",
+            description=step.description or "",
+        )
+        for step in t.steps
+    ]
+
     return TransformType(
         id=t.id,
         transform_type=t.transform_type,
@@ -167,6 +201,10 @@ def _transform_to_gql(
         description=t.description or "",
         is_default=bool(t.is_default),
         enabled=bool(t.enabled),
+        added_at=t.added_at,
+        updated_at=t.updated_at,
+        status_changed_at=t.status_changed_at,
+        steps=steps,
     )
 
 
@@ -396,6 +434,7 @@ class Query:
                                 description=p.get("description", ""),
                                 default=str(p["default"]) if p.get("default") is not None else None,
                                 options=p.get("options"),
+                                role=p.get("role"),
                             )
                             for p in schema
                         ],
@@ -454,6 +493,21 @@ class Query:
             "schema": schema,
             "columns": [{"name": row[0], "db_type": row[1]} for row in rows],
         }
+
+    @strawberry.field
+    def preview_transform_sql(self, params: str, source_schema: str, source_table: str) -> str:
+        """Generate SQL from structured SelectQuery params (for preview)."""
+        import json
+
+        from shenas_transformers.sql.query import SelectQuery
+
+        data = json.loads(params)
+        if "columns" not in data:
+            return data.get("sql", "")
+        query = SelectQuery.from_dict(data)
+        source_qualified = f'"{source_schema}"."{source_table}"'
+        sql, _ = query.to_sql(source_qualified)
+        return sql
 
     @strawberry.field
     async def transforms(self, info: strawberry.types.Info, source: str | None = None) -> list[TransformType]:

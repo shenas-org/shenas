@@ -55,6 +55,14 @@ export const CREATE_TRANSFORM = gql`
   }
 `;
 
+export const UPDATE_TRANSFORM_STEPS = gql`
+  mutation UpdateTransformSteps($id: Int!, $steps: [TransformStepInput!]!) {
+    updateTransformSteps(transformId: $id, steps: $steps) {
+      id
+    }
+  }
+`;
+
 export const UPDATE_TRANSFORM = gql`
   mutation UpdateTransform($id: Int!, $sql: String!) {
     updateTransform(transformId: $id, sql: $sql) {

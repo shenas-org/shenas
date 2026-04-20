@@ -354,9 +354,10 @@ class SettingsPage extends LitElement {
   async _fetchAll(_options?: { force?: boolean }): Promise<void> {
     this._loading = true;
     this._pluginKinds = [...(this.pluginKinds || [])].sort((a, b) => a.label.localeCompare(b.label));
-    const fields = `name displayName package version enabled description syncedAt hasAuth isAuthenticated totalRows`;
+    const baseFields = `name displayName package version enabled description hasAuth isAuthenticated`;
+    const sourceFields = `${baseFields} syncedAt totalRows`;
     const kindQueries = this._pluginKinds
-      .map(({ id }) => `p_${id}: plugins(kind: "${id}") { ${fields} }`)
+      .map(({ id }) => `${id}: plugins(kind: "${id}") { ${id === "source" ? sourceFields : baseFields} }`)
       .join("\n      ");
     if (!kindQueries) {
       this._plugins = {};
@@ -364,28 +365,34 @@ class SettingsPage extends LitElement {
       this._loading = false;
       return;
     }
-    const { data } = await getClient().query({
-      query: gqlTag([`{ ${kindQueries} }`] as unknown as TemplateStringsArray),
-      fetchPolicy: "network-only",
-    });
-    const result: Record<string, PluginSummary[]> = {};
-    for (const { id } of this._pluginKinds) {
-      result[id] = (data?.[`p_${id}`] as PluginSummary[]) || [];
-    }
-    this._plugins = result;
-    // Build per-plugin stats from totalRows field
-    const schemaStats: Record<string, { totalRows: number; earliest: string; latest: string }> = {};
-    for (const plugins of Object.values(result)) {
-      for (const plugin of plugins) {
-        const rows = (plugin as unknown as { totalRows?: number }).totalRows || 0;
-        if (rows > 0) {
-          schemaStats[plugin.name] = { totalRows: rows, earliest: "", latest: "" };
+    try {
+      const { data } = await getClient().query({
+        query: gqlTag([`{ ${kindQueries} }`] as unknown as TemplateStringsArray),
+        fetchPolicy: "network-only",
+      });
+      const result: Record<string, PluginSummary[]> = {};
+      for (const { id } of this._pluginKinds) {
+        result[id] = (data?.[id] as PluginSummary[]) || [];
+      }
+      this._plugins = result;
+      // Build per-plugin stats from totalRows field
+      const schemaStats: Record<string, { totalRows: number; earliest: string; latest: string }> = {};
+      for (const plugins of Object.values(result)) {
+        for (const plugin of plugins) {
+          const rows = (plugin as unknown as { totalRows?: number }).totalRows || 0;
+          if (rows > 0) {
+            schemaStats[plugin.name] = { totalRows: rows, earliest: "", latest: "" };
+          }
         }
       }
+      this._schemaStats = schemaStats;
+      if (this.onPluginsChanged) this.onPluginsChanged(result);
+    } catch (error) {
+      console.error("Failed to load plugins:", error);
+      this._actionMessage = { type: "error", text: "Failed to load plugins" };
+    } finally {
+      this._loading = false;
     }
-    this._schemaStats = schemaStats;
-    this._loading = false;
-    if (this.onPluginsChanged) this.onPluginsChanged(result);
   }
 
   async _togglePlugin(kind: string, name: string, currentlyEnabled: boolean): Promise<void> {
