@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
@@ -15,6 +15,7 @@ class RescueTimeSource(Source):
     name = "rescuetime"
     display_name = "RescueTime"
     primary_table = "daily_summary"
+    entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Extracts daily productivity summaries and per-app activity data "
         "from RescueTime.\n\n"

@@ -57,3 +57,4 @@ import "./shenas-frontends/form-panel.ts";
 import "./shenas-frontends/field.ts";
 import "./shenas-frontends/dropdown.ts";
 import "./shenas-frontends/badge.ts";
+import "./shenas-frontends/multi-select.ts";

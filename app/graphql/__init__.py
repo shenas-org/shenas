@@ -20,6 +20,7 @@ from strawberry.fastapi import GraphQLRouter
 from app.graphql.extensions import _discover_mixins
 from app.graphql.mutations import Mutation as CoreMutation
 from app.graphql.queries import Query as CoreQuery
+from app.graphql.subscriptions import Subscription
 
 
 async def _get_context(request: Request) -> dict[str, Any]:
@@ -35,8 +36,12 @@ def _build_schema() -> strawberry.Schema:
     Query = strawberry.type(type("Query", (*query_mixins, CoreQuery), {})) if query_mixins else CoreQuery
     Mutation = strawberry.type(type("Mutation", (*mutation_mixins, CoreMutation), {})) if mutation_mixins else CoreMutation
 
-    return strawberry.Schema(query=Query, mutation=Mutation)
+    return strawberry.Schema(query=Query, mutation=Mutation, subscription=Subscription)
 
 
 schema = _build_schema()
-graphql_app = GraphQLRouter(schema, context_getter=_get_context)
+graphql_app = GraphQLRouter(
+    schema,
+    context_getter=_get_context,
+    subscription_protocols=["graphql-transport-ws"],
+)

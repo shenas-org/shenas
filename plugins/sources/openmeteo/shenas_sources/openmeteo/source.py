@@ -1,11 +1,8 @@
-"""Open-Meteo source -- daily weather and air quality for N configured places.
+"""Open-Meteo source -- daily weather and air quality for configured places.
 
-No authentication required. Configure a comma-separated list of place-entity
-UUIDs via the Config tab; each UUID must resolve through
-the entity index to a source-contributed
-:class:`app.entity.place entity` row carrying ``latitude`` and
-``longitude``. The sync fans out across every configured place and tags
-each row with ``place_uuid``. Data available back to 1940 (weather) and
+No authentication required. Enable place entities (city, residence) in
+the Entities tab; the sync fetches data for each enabled place that has
+latitude and longitude. Data available back to 1940 (weather) and
 2022 (air quality).
 """
 
@@ -27,12 +24,11 @@ class OpenMeteoSource(Source):
     default_update_frequency = "R/P1D"
     description = (
         "Daily weather and air quality data from Open-Meteo, one time-series per "
-        "configured place entity.\n\n"
+        "enabled place entity.\n\n"
         "Uses the ERA5 reanalysis archive (back to 1940) and the CAMS air quality "
         "model. No API key required.\n\n"
-        "In the Config tab, set `place_uuids` to a comma-separated list of "
-        "place-entity UUIDs. Each must resolve (via the entity index) to a "
-        "source-contributed place entity row with latitude / longitude set."
+        "Enable place entities (cities, residences) in the Entities tab. Each "
+        "must have latitude and longitude statements set."
     )
 
     @dataclass
@@ -46,14 +42,13 @@ class OpenMeteoSource(Source):
                 example_value="365",
             ),
         ] = None
-        place_uuids: Annotated[
+        entity_uuids: Annotated[
             str | None,
             Field(
                 db_type="VARCHAR",
-                description=(
-                    "Comma-separated place-entity UUIDs to sync (each must resolve "
-                    "to a place entity row with latitude / longitude)."
-                ),
+                display_name="Places",
+                description="Select places to fetch weather data for",
+                ui_widget="entity_picker",
             ),
         ] = None
 
@@ -61,16 +56,14 @@ class OpenMeteoSource(Source):
         from shenas_sources.openmeteo.client import OpenMeteoClient
 
         row = self.Config.read_row()
-        raw_uuids = (row or {}).get("place_uuids") or ""
-        allowed: set[str] | None = {u.strip() for u in raw_uuids.split(",") if u.strip()} or None
-
-        places = _load_place_entities(allowed)
+        raw_uuids = (row or {}).get("entity_uuids") or ""
+        selected = [u.strip() for u in raw_uuids.split(",") if u.strip()]
+        if not selected:
+            msg = "No places selected. Choose city or residence entities in the Config tab."
+            raise RuntimeError(msg)
+        places = _load_enabled_places(selected)
         if not places:
-            msg = (
-                "No places to sync. Create city / residence / country entities "
-                "and add 'latitude' + 'longitude' statements to them, or set "
-                "place_uuids in the Config tab to filter."
-            )
+            msg = "Selected places are missing latitude/longitude. Ensure the entities have coordinate statements set."
             raise RuntimeError(msg)
         return OpenMeteoClient(places)
 
@@ -81,18 +74,16 @@ class OpenMeteoSource(Source):
         return [t.to_resource(client, start_date=start) for t in TABLES]
 
 
-def _load_place_entities(allowed: set[str] | None) -> list[tuple[str, float, float]]:
-    """Return ``[(entity_id, latitude, longitude), ...]`` for place entities.
-
-    Reads from the ``entities.places_wide`` view (maintained by
-    :func:`app.entities.places.ensure_places_wide_view`). Entities
-    missing either coordinate are excluded by the view's INNER JOIN.
-    """
+def _load_enabled_places(entity_uuids: list[str]) -> list[tuple[str, float, float]]:
+    """Return ``[(entity_id, latitude, longitude), ...]`` for enabled place entities."""
     from app.entities.places import PlacesWide
 
+    if not entity_uuids:
+        return []
+    uuid_set = set(entity_uuids)
     rows = PlacesWide.all(where="latitude IS NOT NULL AND longitude IS NOT NULL")
     return [
         (r.entity_id, float(r.latitude), float(r.longitude))  # ty: ignore[invalid-argument-type]
         for r in rows
-        if allowed is None or r.entity_id in allowed
+        if r.entity_id in uuid_set
     ]

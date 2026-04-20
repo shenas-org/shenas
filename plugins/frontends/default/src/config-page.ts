@@ -10,12 +10,30 @@ import {
 } from "shenas-frontends";
 import { GET_PLUGIN_CONFIG } from "./graphql/queries.ts";
 import { SET_CONFIG } from "./graphql/mutations.ts";
+import { gqlTag as gql } from "shenas-frontends";
+
+const GET_ENTITIES_BY_STATUS = gql`
+  {
+    entities(status: "enabled") {
+      uuid
+      type
+      name
+    }
+  }
+`;
 
 interface ConfigEntry {
   key: string;
   label: string;
   value: string;
   description: string;
+  uiWidget?: string;
+}
+
+interface EntityOption {
+  uuid: string;
+  name: string;
+  type: string;
 }
 
 interface PluginConfig {
@@ -34,12 +52,14 @@ class ConfigPage extends LitElement {
     apiBase: { type: String, attribute: "api-base" },
     kind: { type: String },
     name: { type: String },
+    entityTypes: { type: Array },
     _config: { state: true },
     _message: { state: true },
     _editing: { state: true },
     _editValue: { state: true },
     _freqNum: { state: true },
     _freqUnit: { state: true },
+    _entityOptions: { state: true },
   };
 
   static styles = [
@@ -104,12 +124,14 @@ class ConfigPage extends LitElement {
   declare apiBase: string;
   declare kind: string;
   declare name: string;
+  declare entityTypes: string[];
   declare _config: PluginConfig | null;
   declare _message: Message | null;
   declare _editing: string | null;
   declare _editValue: string;
   declare _freqNum: string;
   declare _freqUnit: string;
+  declare _entityOptions: EntityOption[];
 
   private _configQuery = new ApolloQueryController(this, GET_PLUGIN_CONFIG, {
     client: getClient(),
@@ -129,12 +151,14 @@ class ConfigPage extends LitElement {
     this.apiBase = "/api";
     this.kind = "";
     this.name = "";
+    this.entityTypes = [];
     this._config = null;
     this._message = null;
     this._editing = null;
     this._editValue = "";
     this._freqNum = "";
     this._freqUnit = "hours";
+    this._entityOptions = [];
   }
 
   willUpdate(changed: Map<string, unknown>): void {
@@ -152,7 +176,20 @@ class ConfigPage extends LitElement {
     });
     const entries = (result.data?.pluginConfig as ConfigEntry[]) || [];
     this._config = entries.length > 0 ? { kind: this.kind, name: this.name, entries } : null;
+    // Fetch entities if any config entry uses the entity_picker widget.
+    if (entries.some((entry) => entry.uiWidget === "entity_picker") && this.entityTypes.length > 0) {
+      await this._fetchEntities();
+    }
     this.requestUpdate();
+  }
+
+  private _client = getClient();
+
+  async _fetchEntities(): Promise<void> {
+    const { data } = await this._client.query({ query: GET_ENTITIES_BY_STATUS, fetchPolicy: "network-only" });
+    const all = (data?.entities || []) as EntityOption[];
+    const typeSet = new Set(this.entityTypes);
+    this._entityOptions = all.filter((entity) => typeSet.has(entity.type));
   }
 
   _startEdit(key: string, currentValue: string): void {
@@ -267,7 +304,46 @@ class ConfigPage extends LitElement {
     </div>`;
   }
 
+  _renderEntityPicker(entry: ConfigEntry) {
+    const selected = entry.value
+      ? entry.value
+          .split(",")
+          .map((uuid) => uuid.trim())
+          .filter(Boolean)
+      : [];
+    const options = this._entityOptions.map((entity) => ({ value: entity.uuid, label: entity.name }));
+    return html`
+      <div class="config-detail">
+        <shenas-multi-select
+          label=""
+          .options=${options}
+          .value=${selected}
+          @change=${async (event: CustomEvent) => {
+            const uuids = (event.detail.value as string[]).join(",");
+            try {
+              await this._setConfigMutation.mutate({
+                variables: { kind: this.kind, name: this.name, key: entry.key, value: uuids || null },
+              });
+              await this._fetchConfig();
+            } catch (error) {
+              this._message = { type: "error", text: (error as Error).message };
+            }
+          }}
+        ></shenas-multi-select>
+        ${entry.description ? html`<div class="config-desc">${entry.description}</div>` : ""}
+      </div>
+    `;
+  }
+
   _renderEntry(entry: ConfigEntry) {
+    if (entry.uiWidget === "entity_picker") {
+      return html`
+        <div class="config-row">
+          <div class="config-key">${entry.label || entry.key}</div>
+          ${this._renderEntityPicker(entry)}
+        </div>
+      `;
+    }
     const isEditing = this._editing === entry.key;
     const isFreq = ConfigPage._DURATION_FIELDS.has(entry.key);
     const displayValue = isFreq && entry.value ? this._formatFreq(entry.value) : entry.value;

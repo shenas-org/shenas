@@ -94,7 +94,7 @@ class Mutation:
     # -- Config --
 
     @strawberry.mutation
-    def set_config(self, kind: str, name: str, key: str, value: str) -> OkType:
+    def set_config(self, kind: str, name: str, key: str, value: str | None = None) -> OkType:
         from app.models import OkResponse
         from app.plugin import Plugin
 
@@ -982,6 +982,9 @@ class Mutation:
             description=entity_input.description,
             status=entity_input.status,
         )
+        from app.pubsub import pubsub
+
+        pubsub.publish_sync("entity_changed", {"uuid": e.uuid, "type": e.type, "name": e.name})
         me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
         me_uuid = me_candidates[0].uuid if me_candidates else None
         return GqlEntityType.build(
@@ -1011,6 +1014,9 @@ class Mutation:
         if entity_input.status is not None:
             e.status = entity_input.status
         e.save()
+        from app.pubsub import pubsub
+
+        pubsub.publish_sync("entity_changed", {"uuid": e.uuid, "type": e.type, "name": e.name})
         me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
         me_uuid = me_candidates[0].uuid if me_candidates else None
         return GqlEntityType.build(
@@ -1151,6 +1157,9 @@ class Mutation:
             )
         )
         stmt.upsert()
+        from app.pubsub import pubsub
+
+        pubsub.publish_sync("entity_changed", {"uuid": stmt.entity_id, "type": "", "name": ""})
         return StatementType(
             entity_id=stmt.entity_id,
             property_id=stmt.property_id,

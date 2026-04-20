@@ -62,7 +62,22 @@ class PlacesWide(View):
 
     @classmethod
     def _view_sql(cls) -> str:
-        return """
+        from app.database import cursor
+
+        has_scd2 = False
+        try:
+            with cursor() as cur:
+                has_scd2 = bool(
+                    cur.execute(
+                        "SELECT 1 FROM information_schema.columns "
+                        "WHERE table_schema = 'entities' AND table_name = 'statements' "
+                        "AND column_name = '_dlt_valid_to'"
+                    ).fetchone()
+                )
+        except Exception:
+            pass
+        scd2 = "AND s._dlt_valid_to IS NULL" if has_scd2 else ""
+        return f"""
         SELECT e.uuid AS entity_id,
                e.name,
                e.type AS entity_type,
@@ -73,15 +88,15 @@ class PlacesWide(View):
         JOIN entities.statements lat
           ON lat.entity_id = e.uuid
          AND lat.property_id = 'latitude'
-         AND lat._dlt_valid_to IS NULL
+         {scd2}
         JOIN entities.statements lng
           ON lng.entity_id = e.uuid
          AND lng.property_id = 'longitude'
-         AND lng._dlt_valid_to IS NULL
+         {scd2}
         LEFT JOIN entities.statements rad
           ON rad.entity_id = e.uuid
          AND rad.property_id = 'radius_m'
-         AND rad._dlt_valid_to IS NULL
+         {scd2}
         WHERE e.type IN ('city', 'residence', 'country')
         """
 

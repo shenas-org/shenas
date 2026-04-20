@@ -1341,7 +1341,12 @@ class PluginDetail extends LitElement {
       </div>
 
       ${this.activeTab === "config"
-        ? html`<shenas-config api-base="${this.apiBase}" kind="${this.kind}" name="${this.name}"></shenas-config>`
+        ? html`<shenas-config
+            api-base="${this.apiBase}"
+            kind="${this.kind}"
+            name="${this.name}"
+            .entityTypes=${(this._info as unknown as Record<string, unknown>)?.entity_types || []}
+          ></shenas-config>`
         : this.activeTab === "auth"
           ? html`<shenas-auth api-base="${this.apiBase}" source-name="${this.name}"></shenas-auth>`
           : this.activeTab === "transforms"

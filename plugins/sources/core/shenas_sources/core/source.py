@@ -231,14 +231,15 @@ class Source(Plugin):
             val = row.get(col["name"]) if row else None
             is_secret = col.get("category") == "secret"
             display_val = "********" if (is_secret and val) else (str(val) if val is not None else None)
-            entries.append(
-                {
-                    "key": col["name"],
-                    "label": col["name"].replace("_", " ").title(),
-                    "value": display_val,
-                    "description": col.get("description", ""),
-                }
-            )
+            entry: dict[str, str | None] = {
+                "key": col["name"],
+                "label": col.get("display_name") or col["name"].replace("_", " ").title(),
+                "value": display_val,
+                "description": col.get("description", ""),
+            }
+            if col.get("ui_widget"):
+                entry["ui_widget"] = col["ui_widget"]
+            entries.append(entry)
         return entries
 
     def set_config_value(self, key: str, value: str | None) -> None:
@@ -359,12 +360,8 @@ class Source(Plugin):
             from app.entities.statements import Statement
             from app.entity import Entity
 
-            stmts = Statement.all(
-                where="source = ?",
-                params=[self.name],
-            )
-            entity_ids = sorted({s.entity_id for s in stmts})
-            for entity_id in entity_ids:
+            source_entity_ids = Statement.distinct_values("entity_id", where="source = ?", params=[self.name])
+            for entity_id in source_entity_ids:
                 if entity_id in seen:
                     continue
                 entity = Entity.find_by_uuid(entity_id)

@@ -162,14 +162,27 @@ class WikidataSource(Source):
                 entity_id = compute_entity_id(entity_type.name, (label,))
                 qid_to_entity[instance_qid] = entity_id
 
-                if Entity.find_by_uuid(entity_id) is None:
-                    Entity(
-                        uuid=entity_id,
-                        type=entity_type.name,
-                        name=label,
-                        status="disabled",
-                    ).insert()
-                    created += 1
+                existing = Entity.find_by_uuid(entity_id)
+                if existing is None:
+                    # Check for an existing entity with a similar name
+                    # (e.g. "New York" vs "New York City").
+                    similar = Entity.all(
+                        where="type = ? AND (LOWER(name) = LOWER(?) OR LOWER(?) LIKE '%' || LOWER(name) || '%')",
+                        params=[entity_type.name, label, label],
+                        limit=1,
+                    )
+                    if similar:
+                        # Map this QID to the existing entity instead of creating a duplicate.
+                        entity_id = similar[0].uuid
+                        qid_to_entity[instance_qid] = entity_id
+                    else:
+                        Entity(
+                            uuid=entity_id,
+                            type=entity_type.name,
+                            name=label,
+                            status="disabled",
+                        ).insert()
+                        created += 1
 
                 # Upsert wikidata:qid statement. Use _upsert_statement to handle SCD2.
                 self._upsert_statement(

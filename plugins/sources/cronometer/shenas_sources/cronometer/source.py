@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_config import SourceConfig
@@ -15,6 +15,7 @@ class CronometerSource(Source):
     name = "cronometer"
     display_name = "Cronometer"
     primary_table = "daily_nutrition"
+    entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Imports nutrition data from Cronometer CSV exports.\n\n"
         "Export your data from Cronometer (Settings > Export Data) and drop "

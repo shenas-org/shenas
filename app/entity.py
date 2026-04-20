@@ -197,12 +197,23 @@ def _build_wide_view(type_name: str) -> type:
         order_by="id",
     )
 
-    # The SCD2 _dlt_valid_to column may not exist before the first sync.
-    # Use a safe filter: if the view SQL references _dlt_valid_to and the
-    # column doesn't exist, DuckDB will error -- so we always include it
-    # in the SQL (the VIEW is deferred; the column only needs to exist
-    # when the view is queried, not when it's created).
-    scd2 = "s._dlt_valid_to IS NULL"
+    # The SCD2 _dlt_valid_to column only exists after the first dlt sync
+    # with SCD2 tables. Check and conditionally include the filter.
+    from app.database import cursor
+
+    has_scd2 = False
+    try:
+        with cursor() as cur:
+            has_scd2 = bool(
+                cur.execute(
+                    "SELECT 1 FROM information_schema.columns "
+                    "WHERE table_schema = 'entities' AND table_name = 'statements' "
+                    "AND column_name = '_dlt_valid_to'"
+                ).fetchone()
+            )
+    except Exception:
+        pass
+    scd2 = "s._dlt_valid_to IS NULL" if has_scd2 else "TRUE"
 
     if props:
         pivots = ",\n  ".join(

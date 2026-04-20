@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
@@ -15,6 +15,7 @@ class DuolingoSource(Source):
     name = "duolingo"
     display_name = "Duolingo"
     primary_table = "daily_xp"
+    entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Syncs daily XP, course progress, and profile data from Duolingo.\n\n"
         "Duolingo has no official API. This source uses the unofficial REST API "

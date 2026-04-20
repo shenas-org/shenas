@@ -20,9 +20,8 @@ USER_AGENT = "shenas-source-wikidata/0.1 (https://shenas.net; contact@shenas.net
 # has a 60-second query timeout; keep batches small to stay under it.
 BATCH_SIZE = 50
 
-# How many instances to seed per type. Kept modest to avoid SPARQL
-# timeouts on the public endpoint (city alone has thousands of instances).
-SEED_LIMIT = 200
+# How many instances to seed per type.
+SEED_LIMIT = 100
 
 
 class WikidataClient:
@@ -37,12 +36,23 @@ class WikidataClient:
     def close(self) -> None:
         self._http.close()
 
-    def sparql(self, query: str) -> list[dict[str, Any]]:
-        """Run a SPARQL SELECT and return the raw ``bindings`` list."""
-        resp = self._http.get(SPARQL_ENDPOINT, params={"query": query, "format": "json"})
-        resp.raise_for_status()
-        data = resp.json()
-        return data.get("results", {}).get("bindings", [])
+    def sparql(self, query: str, retries: int = 2) -> list[dict[str, Any]]:
+        """Run a SPARQL SELECT and return the raw ``bindings`` list.
+
+        Retries on 5xx errors with a short backoff, since the Wikidata
+        Query Service returns 502/503 under load.
+        """
+        import time
+
+        for attempt in range(retries + 1):
+            resp = self._http.get(SPARQL_ENDPOINT, params={"query": query, "format": "json"})
+            if resp.status_code >= 500 and attempt < retries:
+                time.sleep(2 * (attempt + 1))
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("results", {}).get("bindings", [])
+        return []
 
     # ------------------------------------------------------------------
     # Generic statement fetch -- used by the new graph-model sync.
@@ -73,6 +83,7 @@ class WikidataClient:
               ?item ?claim ?statement.
               ?statement ?ps ?v;
                          wikibase:rank ?rank.
+              FILTER(?rank != wikibase:DeprecatedRank)
               ?p wikibase:claim ?claim;
                  wikibase:statementProperty ?ps.
               SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}

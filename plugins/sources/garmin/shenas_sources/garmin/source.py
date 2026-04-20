@@ -6,7 +6,7 @@ import json
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
@@ -20,6 +20,7 @@ class GarminSource(Source):
     name = "garmin"
     display_name = "Garmin Connect"
     primary_table = "daily_stats"
+    entity_types: ClassVar[list[str]] = ["human"]
     default_update_frequency = "R/P1D"
     description = (
         "Syncs health and fitness data from Garmin Connect.\n\n"

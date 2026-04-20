@@ -9,7 +9,7 @@ and to-read shelves and extracts book metadata, ratings, and dates.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_config import SourceConfig
@@ -20,6 +20,7 @@ class GoodreadsSource(Source):
     name = "goodreads"
     display_name = "Goodreads"
     primary_table = "readings"
+    entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Scrapes public reading history, ratings, and shelf data from Goodreads.\n\n"
         "Uses RSS feeds -- no API key needed. Set your Goodreads user ID in config.\n"

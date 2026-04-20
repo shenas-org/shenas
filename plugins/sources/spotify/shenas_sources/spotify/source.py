@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import threading
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from spotipy.cache_handler import CacheHandler
 
@@ -34,6 +34,7 @@ class SpotifySource(Source):
     name = "spotify"
     display_name = "Spotify"
     primary_table = "recently_played"
+    entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Syncs listening data from Spotify.\n\n"
         "Uses OAuth2 PKCE flow (no client secret needed). Create an app at "

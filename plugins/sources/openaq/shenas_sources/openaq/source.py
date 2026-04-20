@@ -1,11 +1,8 @@
 """OpenAQ source -- air quality measurements from government monitoring stations.
 
-Requires an API key (free, register at explore.openaq.org). Configure a
-comma-separated list of place-entity UUIDs; each UUID must resolve through
-the entity index to a :class:`app.entity.place entity`
-row carrying latitude / longitude (and optional ``radius_m``). The sync
-fans out across every configured place and tags each row with
-``place_uuid``.
+Requires an API key (free, register at explore.openaq.org). Enable place
+entities (city, residence) in the Entities tab; the sync fetches data for
+each enabled place that has latitude and longitude.
 """
 
 from __future__ import annotations
@@ -26,12 +23,11 @@ class OpenAQSource(Source):
     entity_types: ClassVar[list[str]] = ["place"]
     description = (
         "Air quality data from government monitoring stations via OpenAQ, one "
-        "time-series per configured place entity.\n\n"
+        "time-series per enabled place entity.\n\n"
         "Provides PM2.5, PM10, NO2, SO2, CO, O3, and other pollutants at hourly "
         "resolution, aggregated to daily summaries.\n\n"
-        "In the Config tab, set `place_uuids` to a comma-separated list of "
-        "place-entity UUIDs. Each must resolve to a place entity row with "
-        "latitude / longitude (and optional `radius_m` to cap the search radius).\n\n"
+        "Enable place entities (cities, residences) in the Entities tab. Each "
+        "must have latitude and longitude statements set.\n\n"
         "Requires a free API key from explore.openaq.org."
     )
     auth_instructions = (
@@ -58,15 +54,13 @@ class OpenAQSource(Source):
                 example_value="90",
             ),
         ] = None
-        place_uuids: Annotated[
+        entity_uuids: Annotated[
             str | None,
             Field(
                 db_type="VARCHAR",
-                description=(
-                    "Comma-separated place-entity UUIDs to sync (each must resolve "
-                    "to a place entity row with latitude / longitude; "
-                    "`radius_m` on the row caps the per-place search radius)."
-                ),
+                display_name="Places",
+                description="Select places to fetch air quality data for",
+                ui_widget="entity_picker",
             ),
         ] = None
 
@@ -78,17 +72,15 @@ class OpenAQSource(Source):
             msg = "Set your OpenAQ API key in the Auth tab."
             raise RuntimeError(msg)
 
-        cfg = self.Config.read_row()
-        raw_uuids = (cfg or {}).get("place_uuids") or ""
-        allowed: set[str] | None = {u.strip() for u in raw_uuids.split(",") if u.strip()} or None
-
-        places = _load_place_entities(allowed)
+        row = self.Config.read_row()
+        raw_uuids = (row or {}).get("entity_uuids") or ""
+        selected = [u.strip() for u in raw_uuids.split(",") if u.strip()]
+        if not selected:
+            msg = "No places selected. Choose city or residence entities in the Config tab."
+            raise RuntimeError(msg)
+        places = _load_enabled_places(selected)
         if not places:
-            msg = (
-                "No places to sync. Create city / residence / country entities "
-                "and add 'latitude' + 'longitude' statements (optionally "
-                "'radius_m'), or set place_uuids in the Config tab to filter."
-            )
+            msg = "Selected places are missing latitude/longitude. Ensure the entities have coordinate statements set."
             raise RuntimeError(msg)
         return OpenAQClient(api_key=auth["api_key"], places=places)
 
@@ -99,7 +91,6 @@ class OpenAQSource(Source):
         if not api_key:
             msg = "api_key is required"
             raise ValueError(msg)
-        # Probe the API with no places -- only validates the key.
         client = OpenAQClient(api_key=api_key, places=[])
         try:
             client.get_parameters()
@@ -114,18 +105,16 @@ class OpenAQSource(Source):
         return [t.to_resource(client, start_date=start) for t in TABLES]
 
 
-def _load_place_entities(allowed: set[str] | None) -> list[tuple[str, float, float, int | None]]:
-    """Return ``[(entity_id, latitude, longitude, radius_m), ...]`` for places.
-
-    Reads from the ``entities.places_wide`` view (maintained by
-    :func:`app.entities.places.ensure_places_wide_view`). Entities
-    missing either coordinate are excluded by the view's INNER JOIN.
-    """
+def _load_enabled_places(entity_uuids: list[str]) -> list[tuple[str, float, float, int | None]]:
+    """Return ``[(entity_id, latitude, longitude, radius_m), ...]`` for enabled places."""
     from app.entities.places import PlacesWide
 
+    if not entity_uuids:
+        return []
+    uuid_set = set(entity_uuids)
     rows = PlacesWide.all(where="latitude IS NOT NULL AND longitude IS NOT NULL")
     return [
         (r.entity_id, float(r.latitude), float(r.longitude), int(r.radius_m) if r.radius_m is not None else None)  # ty: ignore[invalid-argument-type]
         for r in rows
-        if allowed is None or r.entity_id in allowed
+        if r.entity_id in uuid_set
     ]

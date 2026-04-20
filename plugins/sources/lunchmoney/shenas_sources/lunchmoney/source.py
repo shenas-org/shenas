@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
@@ -15,6 +15,7 @@ class LunchMoneySource(Source):
     name = "lunchmoney"
     display_name = "Lunch Money"
     primary_table = "transactions"
+    entity_types: ClassVar[list[str]] = ["human"]
     description = "Syncs financial data from Lunch Money.\n\nAuthenticates via API key from Lunch Money Settings > Developers."
 
     @dataclass

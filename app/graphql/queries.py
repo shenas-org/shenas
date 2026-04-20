@@ -322,6 +322,7 @@ class Query:
                     label=str(entry.get("label") or ""),
                     value=entry.get("value"),
                     description=str(entry.get("description") or ""),
+                    ui_widget=str(entry.get("ui_widget") or ""),
                 )
             )
             for entry in plugin.get_config_entries()
@@ -790,14 +791,43 @@ class Query:
 
     @strawberry.field
     def source_entities_for_plugin(self, plugin: str) -> list[GqlEntityType]:
-        """Entities produced by a specific source plugin, from its projected statements."""
+        """Entities related to a source plugin.
+
+        Returns the union of:
+        1. Entities this source produced (via ``statements.source``).
+        2. Entities whose type matches the source's ``entity_types``
+           declaration (so consumable entities like cities appear for
+           OpenMeteo even before sync).
+        """
         from app.database import cursor
-        from app.entity import Entity
+        from app.entity import Entity, EntityType
+        from app.plugin import Plugin
 
         me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
         me_uuid = me_candidates[0].uuid if me_candidates else None
+
+        seen: set[str] = set()
+        results: list[GqlEntityType] = []
+
+        def _add(entity: Entity) -> None:
+            if entity.uuid in seen:
+                return
+            seen.add(entity.uuid)
+            results.append(
+                GqlEntityType.build(
+                    uuid=entity.uuid,
+                    type=entity.type,
+                    name=entity.name,
+                    description=entity.description,
+                    status=entity.status,
+                    added_at=str(entity.added_at) if entity.added_at else None,
+                    updated_at=str(entity.updated_at) if entity.updated_at else None,
+                    is_me=(entity.uuid == me_uuid),
+                )
+            )
+
+        # 1. Entities produced by this source (via statements).
         with cursor() as cur:
-            # SCD2 columns may not exist before the first dlt sync.
             has_scd2 = bool(
                 cur.execute(
                     "SELECT 1 FROM information_schema.columns "
@@ -806,26 +836,33 @@ class Query:
             )
             scd2_filter = "AND s._dlt_valid_to IS NULL " if has_scd2 else ""
             rows = cur.execute(
-                "SELECT DISTINCT e.uuid, e.type, e.name, e.description, e.status, e.added_at, e.updated_at "
-                "FROM entities.entities e "
-                "JOIN entities.statements s "
-                f"  ON s.entity_id = e.uuid {scd2_filter}AND s.source = ? "
-                "ORDER BY LOWER(e.name)",
+                f"SELECT DISTINCT s.entity_id FROM entities.statements s WHERE s.source = ? {scd2_filter}",
                 [plugin],
             ).fetchall()
-        return [
-            GqlEntityType.build(
-                uuid=r[0],
-                type=r[1],
-                name=r[2] or "",
-                description=r[3] or "",
-                status=r[4] or "enabled",
-                added_at=str(r[5]) if r[5] else None,
-                updated_at=str(r[6]) if r[6] else None,
-                is_me=(r[0] == me_uuid),
-            )
-            for r in rows
-        ]
+        for (entity_id,) in rows:
+            entity = Entity.find_by_uuid(entity_id)
+            if entity:
+                _add(entity)
+
+        # 2. Entities whose type matches the source's entity_types.
+        source_cls = Plugin.load_by_name_and_kind(plugin, "source")
+        if source_cls:
+            declared_types = getattr(source_cls, "entity_types", [])
+            for type_name in declared_types:
+                # Resolve concrete subtypes for abstract types.
+                entity_type = EntityType.find(type_name)
+                if entity_type and entity_type.is_abstract:
+                    concrete = EntityType.all(where="is_abstract = FALSE")
+                    for concrete_type in concrete:
+                        if EntityType.is_subtype_of(concrete_type.name, type_name):
+                            for entity in Entity.all(where="type = ?", params=[concrete_type.name], order_by="name"):
+                                _add(entity)
+                else:
+                    for entity in Entity.all(where="type = ?", params=[type_name], order_by="name"):
+                        _add(entity)
+
+        results.sort(key=lambda entity: (entity.name or "").lower())
+        return results
 
     @strawberry.field
     def properties(self, domain_type: str | None = None) -> list[PropertyType]:

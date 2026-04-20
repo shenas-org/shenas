@@ -65,6 +65,7 @@ class ConfigEntry(BaseModel):
     label: str = ""
     value: str | None = None
     description: str = ""
+    ui_widget: str = ""
 
 
 class ConfigSetRequest(BaseModel):

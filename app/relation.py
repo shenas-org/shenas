@@ -295,6 +295,24 @@ class Relation:
                     raise
         return [cls.from_row(r) for r in rows]
 
+    @classmethod
+    def distinct_values(
+        cls,
+        column: str,
+        *,
+        where: str | None = None,
+        params: list[Any] | None = None,
+    ) -> list[Any]:
+        """Return distinct non-NULL values of a single column."""
+        from app.database import cursor
+
+        sql = f"SELECT DISTINCT {column} FROM {cls._qualified()}"
+        if where:
+            sql += f" WHERE {where}"
+        with cursor(database=cls._resolve_database()) as cur:
+            rows = cur.execute(sql, params or []).fetchall()
+        return [r[0] for r in rows]
+
 
 # ---------------------------------------------------------------------------
 # DataRelation mixin: metadata for UI-exposed tables and views

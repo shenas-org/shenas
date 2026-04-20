@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
@@ -15,6 +15,7 @@ class GmailSource(Source):
     name = "gmail"
     display_name = "Gmail"
     primary_table = "messages"
+    entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Syncs email metadata from Gmail.\n\n"
         "Uses Google OAuth2 with shared credentials from shenas-source-core. "

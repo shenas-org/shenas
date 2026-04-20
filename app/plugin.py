@@ -394,7 +394,9 @@ class Plugin(abc.ABC):
 
     @property
     def has_entities(self) -> bool:
-        """True if this plugin declares an ``entity_projection`` on any table or view."""
+        """True if this plugin declares ``entity_types`` or ``entity_projection``."""
+        if getattr(self, "entity_types", None):
+            return True
 
         def _has_projection(classes: tuple[type, ...]) -> bool:
             return any(

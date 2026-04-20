@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
 from shenas_sources.core.base_config import SourceConfig
@@ -14,6 +14,7 @@ class ObsidianSource(Source):
     name = "obsidian"
     display_name = "Obsidian"
     primary_table = "daily_notes"
+    entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Extracts frontmatter fields from Obsidian daily notes.\n\n"
         "Scans a configured daily notes folder for markdown files, parses YAML "

@@ -264,7 +264,7 @@ export const DELETE_CATEGORY_SET = gql`
 
 // --- Config ---
 export const SET_CONFIG = gql`
-  mutation SetConfig($kind: String!, $name: String!, $key: String!, $value: String!) {
+  mutation SetConfig($kind: String!, $name: String!, $key: String!, $value: String) {
     setConfig(kind: $kind, name: $name, key: $key, value: $value) {
       ok
     }

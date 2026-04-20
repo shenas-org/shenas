@@ -6,7 +6,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, ClassVar, cast
 
 from app.table import Field
 from shenas_sources.core.base_auth import SourceAuth
@@ -35,6 +35,7 @@ class StravaSource(Source):
     name = "strava"
     display_name = "Strava"
     primary_table = "activities"
+    entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Syncs activities (with laps, kudos, comments), athlete profile, "
         "athlete totals, heart rate / power zones, and gear from Strava."

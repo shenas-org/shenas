@@ -387,6 +387,7 @@ export const GET_PLUGIN_CONFIG = gql`
       label
       value
       description
+      uiWidget
     }
   }
 `;

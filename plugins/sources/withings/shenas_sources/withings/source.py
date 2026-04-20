@@ -6,7 +6,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 from urllib.parse import urlencode
 
 from app.table import Field
@@ -37,6 +37,7 @@ class WithingsSource(Source):
     name = "withings"
     display_name = "Withings"
     primary_table = "measurements"
+    entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Syncs body measurements (weight, body fat, blood pressure, SpO2), "
         "sleep summaries, daily activity, and device info from Withings."
