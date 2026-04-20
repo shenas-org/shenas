@@ -77,8 +77,8 @@ class RegexExtractTransformer(ColumnTransformer):
         return [
             {
                 "name": "text_column",
-                "label": "Text column",
-                "type": "text",
+                "label": "Source column",
+                "type": "source_column",
                 "required": True,
                 "description": "Column containing text to match against",
             },
@@ -91,10 +91,10 @@ class RegexExtractTransformer(ColumnTransformer):
             },
             {
                 "name": "output_column",
-                "label": "Output column",
-                "type": "text",
+                "label": "Target column",
+                "type": "target_column",
                 "required": False,
-                "description": "Output column name",
+                "description": "Column name for the result in the target table",
                 "default": "{text_column}_extracted",
                 "role": "output_column",
             },

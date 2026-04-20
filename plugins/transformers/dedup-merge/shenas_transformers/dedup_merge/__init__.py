@@ -118,9 +118,9 @@ class DedupMergeTransformer(TableTransformer):
             {
                 "name": "time_column",
                 "label": "Time column",
-                "type": "text",
+                "type": "source_column",
                 "required": False,
-                "description": "Timestamp column used for matching",
+                "description": "Source column with timestamp for matching",
                 "default": "start_at",
             },
             {

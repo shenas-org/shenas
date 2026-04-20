@@ -300,6 +300,7 @@ export const TRANSFORM_FRAGMENT = gql`
     params
     description
     isDefault
+    materialization
     enabled
     sql
     steps {
@@ -360,6 +361,12 @@ export const GET_TABLE_COLUMNS = gql`
   }
 `;
 
+export const GET_TABLE_METADATA = gql`
+  query GetTableMetadata($s: String!, $t: String!) {
+    tableMetadata(schema: $s, table: $t)
+  }
+`;
+
 export const PREVIEW_TRANSFORM_SQL = gql`
   query PreviewTransformSql($params: String!, $sourceSchema: String!, $sourceTable: String!) {
     previewTransformSql(params: $params, sourceSchema: $sourceSchema, sourceTable: $sourceTable)
@@ -412,6 +419,7 @@ export const GET_PLUGIN_CONFIG = gql`
       value
       description
       uiWidget
+      defaultValue
     }
   }
 `;

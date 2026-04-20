@@ -1,12 +1,10 @@
 from typing import Annotated
 
 from app.table import Field
-from shenas_datasets.core import DailyMetricTable
+from shenas_datasets.core import DailyMetricTable, TransformId
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date", category="time")]
-Source = Annotated[
-    str, Field(db_type="VARCHAR", description="Data source identifier (e.g. garmin, oura)", display_name="Source")
-]
+Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier", display_name="Source")]
 
 
 class DailyHRV(DailyMetricTable):
@@ -16,10 +14,11 @@ class DailyHRV(DailyMetricTable):
         name = "daily_hrv"
         display_name = "Daily HRV"
         description = "Per-day heart rate variability summary."
-        pk = ("date", "source")
+        pk = ("date", "transform_id")
 
     date: Date
-    source: Source
+    source: Source = ""
+    transform_id: TransformId = 0
     rmssd: (
         Annotated[
             float,
@@ -61,10 +60,11 @@ class DailySleep(DailyMetricTable):
         name = "daily_sleep"
         display_name = "Daily Sleep"
         description = "Per-day sleep summary (duration, score, stage breakdown)."
-        pk = ("date", "source")
+        pk = ("date", "transform_id")
 
     date: Date
-    source: Source
+    source: Source = ""
+    transform_id: TransformId = 0
     total_hours: (
         Annotated[
             float,
@@ -169,10 +169,11 @@ class DailyVitals(DailyMetricTable):
         name = "daily_vitals"
         display_name = "Daily Vitals"
         description = "Per-day vital signs and activity totals (HR, steps, calories, SpO2)."
-        pk = ("date", "source")
+        pk = ("date", "transform_id")
 
     date: Date
-    source: Source
+    source: Source = ""
+    transform_id: TransformId = 0
     resting_hr: (
         Annotated[
             int,
@@ -246,10 +247,11 @@ class DailyBody(DailyMetricTable):
         name = "daily_body"
         display_name = "Daily Body Composition"
         description = "Per-day body weight, BMI, body fat, and muscle mass."
-        pk = ("date", "source")
+        pk = ("date", "transform_id")
 
     date: Date
-    source: Source
+    source: Source = ""
+    transform_id: TransformId = 0
     weight_kg: (
         Annotated[
             float,

@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from app.table import Field
-from shenas_datasets.core import DailyMetricTable
+from shenas_datasets.core import DailyMetricTable, TransformId
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date", category="time")]
 Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier (e.g. obsidian)", display_name="Source")]
@@ -14,10 +14,11 @@ class DailyOutcome(DailyMetricTable):
         name = "daily_outcomes"
         display_name = "Daily Outcomes"
         description = "Per-day self-reported wellbeing, social, and health signals."
-        pk = ("date", "source")
+        pk = ("date", "transform_id")
 
     date: Date
-    source: Source
+    source: Source = ""
+    transform_id: TransformId = 0
     mood: (
         Annotated[
             int,

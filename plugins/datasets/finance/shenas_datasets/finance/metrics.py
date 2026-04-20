@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from app.table import Field
-from shenas_datasets.core import DailyMetricTable, EventMetricTable, MonthlyMetricTable
+from shenas_datasets.core import DailyMetricTable, EventMetricTable, MonthlyMetricTable, TransformId
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date", category="time")]
 Source = Annotated[
@@ -16,7 +16,7 @@ class Transaction(EventMetricTable):
         name = "transactions"
         display_name = "Transactions"
         description = "Per-transaction financial events from spending sources."
-        pk = ("id", "source")
+        pk = ("id", "transform_id")
         time_at = "date"
 
     id: Annotated[
@@ -27,8 +27,9 @@ class Transaction(EventMetricTable):
             display_name="Transaction ID",
         ),
     ]
-    source: Source
     date: Date
+    source: Source = ""
+    transform_id: TransformId = 0
     amount: (
         Annotated[
             float,
@@ -150,10 +151,11 @@ class DailySpending(DailyMetricTable):
         name = "daily_spending"
         display_name = "Daily Spending"
         description = "Per-day rollup of transaction outflows / inflows."
-        pk = ("date", "source")
+        pk = ("date", "transform_id")
 
     date: Date
-    source: Source
+    source: Source = ""
+    transform_id: TransformId = 0
     total_spent: (
         Annotated[
             float,
@@ -207,7 +209,7 @@ class MonthlyCategory(MonthlyMetricTable):
         name = "monthly_category"
         display_name = "Monthly Spending by Category"
         description = "Per-month spend totals broken down by category."
-        pk = ("month", "category", "source")
+        pk = ("month", "category", "transform_id")
 
     month: Annotated[
         str,
@@ -227,7 +229,8 @@ class MonthlyCategory(MonthlyMetricTable):
             category="spending",
         ),
     ]
-    source: Source
+    source: Source = ""
+    transform_id: TransformId = 0
     amount_spent: (
         Annotated[
             float,
@@ -280,7 +283,7 @@ class MonthlyOverview(MonthlyMetricTable):
         name = "monthly_overview"
         display_name = "Monthly Overview"
         description = "Per-month income, spending, net, and savings rate summary."
-        pk = ("month", "source")
+        pk = ("month", "transform_id")
 
     month: Annotated[
         str,
@@ -291,7 +294,8 @@ class MonthlyOverview(MonthlyMetricTable):
             category="time",
         ),
     ]
-    source: Source
+    source: Source = ""
+    transform_id: TransformId = 0
     total_income: (
         Annotated[
             float,

@@ -93,7 +93,7 @@ class TestDDL:
         ddl = DailyHRV.to_ddl()
         assert '"datasets"."fitness__daily_hrv"' in ddl
         assert '"date" DATE NOT NULL' in ddl
-        assert '"source" VARCHAR NOT NULL' in ddl
+        assert '"transform_id" INTEGER NOT NULL' in ddl
         assert '"rmssd" DOUBLE' in ddl
         assert "PRIMARY KEY" in ddl
 
@@ -142,9 +142,9 @@ class TestIntrospect:
     def test_table_metadata_structure(self) -> None:
         meta = DailyHRV.metadata()
         assert meta["table"] == "fitness__daily_hrv"
-        assert meta["primary_key"] == ["date", "source"]
+        assert meta["primary_key"] == ["date", "transform_id"]
         assert isinstance(meta["columns"], list)
-        assert len(meta["columns"]) == 4
+        assert len(meta["columns"]) == 5
 
     def test_column_metadata_has_description(self) -> None:
         meta = DailyHRV.metadata()

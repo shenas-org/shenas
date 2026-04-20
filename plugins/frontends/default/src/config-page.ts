@@ -28,6 +28,7 @@ interface ConfigEntry {
   value: string;
   description: string;
   uiWidget?: string;
+  defaultValue?: string;
 }
 
 interface EntityOption {
@@ -375,7 +376,7 @@ class ConfigPage extends LitElement {
                 style="cursor: pointer"
                 title="Click to edit"
               >
-                ${displayValue || "not set"}
+                ${displayValue || (entry.defaultValue ? `${entry.defaultValue} (default)` : "not set")}
               </div>
               ${entry.description ? html`<div class="config-desc">${entry.description}</div>` : ""}
             </div>`}

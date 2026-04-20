@@ -67,3 +67,29 @@ class GithubClient:
 
     def search_prs(self, username: str) -> Iterator[dict[str, Any]]:
         yield from self._paginate(f"/search/issues?q=author:{username}+type:pr+sort:created-desc")
+
+    # -- Traffic endpoints (require push access to the repo) --
+
+    def get_traffic_views(self, owner: str, repo: str) -> dict[str, Any]:
+        """Daily page view counts for the last 14 days."""
+        resp = self._client.get(f"/repos/{owner}/{repo}/traffic/views")
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_traffic_clones(self, owner: str, repo: str) -> dict[str, Any]:
+        """Daily clone counts for the last 14 days."""
+        resp = self._client.get(f"/repos/{owner}/{repo}/traffic/clones")
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_traffic_referrers(self, owner: str, repo: str) -> list[dict[str, Any]]:
+        """Top 10 referral sources for the last 14 days."""
+        resp = self._client.get(f"/repos/{owner}/{repo}/traffic/popular/referrers")
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_traffic_paths(self, owner: str, repo: str) -> list[dict[str, Any]]:
+        """Top 10 popular content paths for the last 14 days."""
+        resp = self._client.get(f"/repos/{owner}/{repo}/traffic/popular/paths")
+        resp.raise_for_status()
+        return resp.json()

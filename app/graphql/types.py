@@ -104,6 +104,7 @@ class TransformType:
     added_at: str | None
     updated_at: str | None
     status_changed_at: str | None
+    materialization: str = "table"
     steps: list[TransformStepType]
 
     @strawberry.field
@@ -147,6 +148,7 @@ class TransformCreateInput:
     target_duckdb_table: str
     source_plugin: str
     description: str = ""
+    materialization: str = "table"
     steps: list[TransformStepInput] | None = None
     # Legacy single-step fields (used when steps is None)
     transform_type: str = "sql"

@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
-from shenas_sources.core.table import DimensionTable, EventTable, SourceTable
+from shenas_sources.core.table import AggregateTable, DimensionTable, EventTable, SnapshotTable, SourceTable
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -263,4 +263,158 @@ class PullRequests(EventTable):
             }
 
 
-TABLES: tuple[type[SourceTable], ...] = (Events, Repositories, PullRequests)
+class TrafficViews(AggregateTable):
+    """Daily page views per repository (last 14 days from GitHub)."""
+
+    class _Meta:
+        name = "traffic_views"
+        display_name = "Traffic Views"
+        description = "Daily page view counts per repository."
+        pk = ("repo_full_name", "date")
+        time_at = "date"
+
+    repo_full_name: Annotated[str, Field(db_type="VARCHAR", description="Full repository name", display_name="Repository")]
+    date: Annotated[str, Field(db_type="DATE", description="Day of the count", display_name="Date")]
+    views: Annotated[int, Field(db_type="INTEGER", description="Total page views", display_name="Views")] = 0
+    unique_visitors: Annotated[
+        int, Field(db_type="INTEGER", description="Unique visitors", display_name="Unique Visitors")
+    ] = 0
+
+    @classmethod
+    def extract(cls, client: GithubClient, **_: Any) -> Iterator[dict[str, Any]]:
+        import httpx
+
+        for repo in client.get_repos():
+            full_name = repo["full_name"]
+            owner, name = full_name.split("/", 1)
+            try:
+                data = client.get_traffic_views(owner, name)
+            except httpx.HTTPStatusError:
+                continue
+            for day in data.get("views", []):
+                yield {
+                    "repo_full_name": full_name,
+                    "date": day["timestamp"][:10],
+                    "views": day.get("count", 0),
+                    "unique_visitors": day.get("uniques", 0),
+                }
+
+
+class TrafficClones(AggregateTable):
+    """Daily clone counts per repository (last 14 days from GitHub)."""
+
+    class _Meta:
+        name = "traffic_clones"
+        display_name = "Traffic Clones"
+        description = "Daily git clone counts per repository."
+        pk = ("repo_full_name", "date")
+        time_at = "date"
+
+    repo_full_name: Annotated[str, Field(db_type="VARCHAR", description="Full repository name", display_name="Repository")]
+    date: Annotated[str, Field(db_type="DATE", description="Day of the count", display_name="Date")]
+    clones: Annotated[int, Field(db_type="INTEGER", description="Total clones", display_name="Clones")] = 0
+    unique_cloners: Annotated[int, Field(db_type="INTEGER", description="Unique cloners", display_name="Unique Cloners")] = 0
+
+    @classmethod
+    def extract(cls, client: GithubClient, **_: Any) -> Iterator[dict[str, Any]]:
+        import httpx
+
+        for repo in client.get_repos():
+            full_name = repo["full_name"]
+            owner, name = full_name.split("/", 1)
+            try:
+                data = client.get_traffic_clones(owner, name)
+            except httpx.HTTPStatusError:
+                continue
+            for day in data.get("clones", []):
+                yield {
+                    "repo_full_name": full_name,
+                    "date": day["timestamp"][:10],
+                    "clones": day.get("count", 0),
+                    "unique_cloners": day.get("uniques", 0),
+                }
+
+
+class TrafficReferrers(SnapshotTable):
+    """Top referral sources per repository (current snapshot, last 14 days)."""
+
+    class _Meta:
+        name = "traffic_referrers"
+        display_name = "Traffic Referrers"
+        description = "Top 10 referral sources per repository."
+        pk = ("repo_full_name", "referrer")
+
+    repo_full_name: Annotated[str, Field(db_type="VARCHAR", description="Full repository name", display_name="Repository")]
+    referrer: Annotated[str, Field(db_type="VARCHAR", description="Referrer domain or source", display_name="Referrer")]
+    views: Annotated[int, Field(db_type="INTEGER", description="Views from this referrer", display_name="Views")] = 0
+    unique_visitors: Annotated[
+        int, Field(db_type="INTEGER", description="Unique visitors from this referrer", display_name="Unique Visitors")
+    ] = 0
+
+    @classmethod
+    def extract(cls, client: GithubClient, **_: Any) -> Iterator[dict[str, Any]]:
+        import httpx
+
+        for repo in client.get_repos():
+            full_name = repo["full_name"]
+            owner, name = full_name.split("/", 1)
+            try:
+                referrers = client.get_traffic_referrers(owner, name)
+            except httpx.HTTPStatusError:
+                continue
+            for ref in referrers:
+                yield {
+                    "repo_full_name": full_name,
+                    "referrer": ref.get("referrer", ""),
+                    "views": ref.get("count", 0),
+                    "unique_visitors": ref.get("uniques", 0),
+                }
+
+
+class TrafficPaths(SnapshotTable):
+    """Top content paths per repository (current snapshot, last 14 days)."""
+
+    class _Meta:
+        name = "traffic_paths"
+        display_name = "Traffic Paths"
+        description = "Top 10 popular content paths per repository."
+        pk = ("repo_full_name", "path")
+
+    repo_full_name: Annotated[str, Field(db_type="VARCHAR", description="Full repository name", display_name="Repository")]
+    path: Annotated[str, Field(db_type="VARCHAR", description="Content path (e.g. /readme)", display_name="Path")]
+    title: Annotated[str | None, Field(db_type="VARCHAR", description="Page title", display_name="Title")] = None
+    views: Annotated[int, Field(db_type="INTEGER", description="Views of this path", display_name="Views")] = 0
+    unique_visitors: Annotated[
+        int, Field(db_type="INTEGER", description="Unique visitors to this path", display_name="Unique Visitors")
+    ] = 0
+
+    @classmethod
+    def extract(cls, client: GithubClient, **_: Any) -> Iterator[dict[str, Any]]:
+        import httpx
+
+        for repo in client.get_repos():
+            full_name = repo["full_name"]
+            owner, name = full_name.split("/", 1)
+            try:
+                paths = client.get_traffic_paths(owner, name)
+            except httpx.HTTPStatusError:
+                continue
+            for p in paths:
+                yield {
+                    "repo_full_name": full_name,
+                    "path": p.get("path", ""),
+                    "title": p.get("title"),
+                    "views": p.get("count", 0),
+                    "unique_visitors": p.get("uniques", 0),
+                }
+
+
+TABLES: tuple[type[SourceTable], ...] = (
+    Events,
+    Repositories,
+    PullRequests,
+    TrafficViews,
+    TrafficClones,
+    TrafficReferrers,
+    TrafficPaths,
+)

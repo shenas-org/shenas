@@ -4,6 +4,7 @@ from shenas_datasets.core.table import (
     EventMetricTable,
     MetricTable,
     MonthlyMetricTable,
+    TransformId,
     WeeklyMetricTable,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "EventMetricTable",
     "MetricTable",
     "MonthlyMetricTable",
+    "TransformId",
     "WeeklyMetricTable",
 ]

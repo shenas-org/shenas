@@ -40,7 +40,8 @@ describe("shenas-transforms", () => {
       source_duckdb_table: "",
       target_duckdb_table: "",
       description: "",
-      steps: [{ transformer: "sql", params: {}, description: "" }],
+      materialization: "table",
+      steps: [{ transformer: "sql", params: { mode: "builder" }, description: "" }],
     });
     expect(el._transformTypes).toEqual([]);
   });
@@ -57,7 +58,7 @@ describe("shenas-transforms", () => {
     expect(f.source_duckdb_table).toBe("");
     expect(f.target_duckdb_table).toBe("");
     expect(f.description).toBe("");
-    expect(f.steps).toEqual([{ transformer: "sql", params: {}, description: "" }]);
+    expect(f.steps).toEqual([{ transformer: "sql", params: { mode: "builder" }, description: "" }]);
   });
 
   it("renders shadow root", async () => {
@@ -70,15 +71,16 @@ describe("shenas-transforms", () => {
     const el = mount();
     el._startEdit({
       id: 7,
-      sourceDuckdbSchema: "garmin",
-      sourceDuckdbTable: "activities",
-      targetDuckdbSchema: "datasets",
-      targetDuckdbTable: "exercise",
+      transformType: "sql",
+      source: { id: "garmin.activities", schemaName: "garmin", tableName: "activities", displayName: "Activities" },
+      target: { id: "datasets.exercise", schemaName: "datasets", tableName: "exercise", displayName: "Exercise" },
       sourcePlugin: "garmin",
       description: "test",
+      params: '{"sql": "SELECT 1", "mode": "raw"}',
       sql: "SELECT 1",
       isDefault: false,
       enabled: true,
+      steps: [],
     });
     expect(el._editing).toBe(7);
     expect(el._editSql).toBe("SELECT 1");

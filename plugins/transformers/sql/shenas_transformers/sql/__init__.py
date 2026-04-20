@@ -68,30 +68,75 @@ class SqlTransformer(TableTransformer):
                     )
                     return 0
 
-                cur.execute(f"DELETE FROM {target} WHERE source = ?", [transform.source_plugin])
-
-                # Validate and infer columns
-                if bind_params:
-                    cur.execute(f"SELECT * FROM ({sql}) _t LIMIT 0", bind_params)
-                else:
-                    cur.execute(f"SELECT * FROM ({sql}) _t LIMIT 0")
-                cols = [d[0] for d in cur.description]
-
-                col_names = ", ".join(f'"{c}"' for c in cols)
-
-                with contextlib.suppress(duckdb.Error):
-                    cur.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
-
-                col_names_with_device = col_names + ', "source_device"'
-                wrapped_sql = f"SELECT *, '{device_id}' as source_device FROM ({sql}) _t"
-                if bind_params:
-                    cur.execute(f"INSERT INTO {target} ({col_names_with_device}) {wrapped_sql}", bind_params)
-                else:
-                    cur.execute(f"INSERT INTO {target} ({col_names_with_device}) {wrapped_sql}")
+                if transform.materialization == "view":
+                    return self._execute_view(cur, transform, sql, bind_params, target)
+                return self._execute_table(cur, transform, sql, bind_params, target, device_id)
             return 1
         except Exception:
             self.log.exception("Transform #%d failed (%s -> %s)", transform.id, transform.source_plugin, target)
             return 0
+
+    def _execute_view(self, cur: Any, transform: Transform, sql: str, bind_params: list[Any], target: str) -> int:
+        """Materialize as a DuckDB VIEW (no data movement, always fresh)."""
+        # Ensure the target schema exists
+        schema = transform.target_ref.schema
+        cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
+        if bind_params:
+            # Views don't support bind params -- inline them
+            # For now, only parameterless queries can be views
+            self.log.warning(
+                "Transform #%d: view mode does not support bind params",
+                transform.id,
+            )
+            return 0
+        cur.execute(f"CREATE OR REPLACE VIEW {target} AS {sql}")
+        return 1
+
+    def _execute_table(
+        self,
+        cur: Any,
+        transform: Transform,
+        sql: str,
+        bind_params: list[Any],
+        target: str,
+        device_id: str,
+    ) -> int:
+        """Materialize as table rows (DELETE + INSERT INTO)."""
+        cur.execute(f"DELETE FROM {target} WHERE transform_id = ?", [transform.id])
+
+        # Validate and infer columns
+        if bind_params:
+            cur.execute(f"SELECT * FROM ({sql}) _t LIMIT 0", bind_params)
+        else:
+            cur.execute(f"SELECT * FROM ({sql}) _t LIMIT 0")
+        cols = [d[0] for d in cur.description]
+
+        # Ensure injected columns exist on the target table.
+        with contextlib.suppress(duckdb.Error):
+            cur.execute(f"ALTER TABLE {target} ADD COLUMN transform_id INTEGER DEFAULT 0")
+        with contextlib.suppress(duckdb.Error):
+            cur.execute(f"ALTER TABLE {target} ADD COLUMN source_device TEXT DEFAULT 'local'")
+
+        # Filter SQL output columns to only those on the target table.
+        target_cols = {
+            d[0]
+            for d in cur.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ?",
+                [transform.target_ref.schema, transform.target_ref.table],
+            ).fetchall()
+        }
+        matched_cols = [c for c in cols if c in target_cols]
+        col_names = ", ".join(f'"{c}"' for c in matched_cols)
+        select_cols = ", ".join(f'_t."{c}"' for c in matched_cols)
+
+        # Inject transform_id and source_device into every row.
+        full_col_names = col_names + ', "transform_id", "source_device"'
+        wrapped_sql = f"SELECT {select_cols}, {transform.id} as transform_id, '{device_id}' as source_device FROM ({sql}) _t"
+        if bind_params:
+            cur.execute(f"INSERT INTO {target} ({full_col_names}) {wrapped_sql}", bind_params)
+        else:
+            cur.execute(f"INSERT INTO {target} ({full_col_names}) {wrapped_sql}")
+        return 1
 
     def param_schema(self) -> list[dict[str, Any]]:
         return [

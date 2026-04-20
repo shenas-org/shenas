@@ -14,7 +14,7 @@ class TestSchema:
         assert Event._Meta.name == "events__events"
 
     def test_pk(self) -> None:
-        assert Event._Meta.pk == ("source", "source_id")
+        assert Event._Meta.pk == ("id",)
 
     def test_schema_class(self) -> None:
         assert EventsSchema.name == "events"

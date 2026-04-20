@@ -204,6 +204,7 @@ def _transform_to_gql(
         added_at=t.added_at,
         updated_at=t.updated_at,
         status_changed_at=t.status_changed_at,
+        materialization=t.materialization or "table",
         steps=steps,
     )
 
@@ -358,6 +359,7 @@ class Query:
                     value=entry.get("value"),
                     description=str(entry.get("description") or ""),
                     ui_widget=str(entry.get("ui_widget") or ""),
+                    default_value=entry.get("default_value"),
                 )
             )
             for entry in plugin.get_config_entries()

@@ -835,6 +835,7 @@ class ShenasApp extends LitElement {
   }
 
   private _dbChart: echarts.ECharts | null = null;
+  private _dbStatsView: "all" | "source" | "dataset" = "all";
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
@@ -1464,7 +1465,11 @@ class ShenasApp extends LitElement {
                     <span class="sub-heading">Plugins</span>
                     ${this._pluginKinds.map(
                       ({ id, label }) => html`
-                        ${this._settingsNavItem(id, `${label} (${(this._allPlugins[id] || []).length})`, activePath)}
+                        ${this._settingsNavItem(
+                          id,
+                          this._allPlugins[id] ? `${label} (${this._allPlugins[id].length})` : label,
+                          activePath,
+                        )}
                       `,
                     )}
                   </div>
@@ -1836,7 +1841,8 @@ class ShenasApp extends LitElement {
   }
 
   _renderDbStats() {
-    const dataKinds = ["source", "dataset"];
+    const view = this._dbStatsView;
+    const dataKinds = view === "all" ? ["source", "dataset"] : [view];
     const perPlugin: { name: string; rows: number }[] = [];
     for (const kind of dataKinds) {
       for (const plugin of this._allPlugins[kind] || []) {
@@ -1891,8 +1897,32 @@ class ShenasApp extends LitElement {
       });
     });
 
+    const setView = (v: "all" | "source" | "dataset") => {
+      this._dbStatsView = v;
+      if (this._dbChart) {
+        this._dbChart.dispose();
+        this._dbChart = null;
+      }
+      this.requestUpdate();
+    };
+
     return html`
       <div style="display:flex;flex-direction:column;height:100%;padding:0.5rem;font-size:0.8rem;box-sizing:border-box">
+        <div style="display:flex;gap:2px;margin-bottom:0.4rem">
+          ${(["all", "source", "dataset"] as const).map(
+            (v) => html`
+              <button
+                style="flex:1;padding:3px 0;font-size:0.7rem;border:1px solid var(--shenas-border,#ddd);border-radius:3px;cursor:pointer;background:${view ===
+                v
+                  ? "var(--shenas-primary,#728f67)"
+                  : "none"};color:${view === v ? "#fff" : "var(--shenas-text-muted,#999)"}"
+                @click=${() => setView(v)}
+              >
+                ${v === "all" ? "All" : v === "source" ? "Sources" : "Datasets"}
+              </button>
+            `,
+          )}
+        </div>
         <div id="db-chart" style="width:100%;flex:1;min-height:0"></div>
         <div style="margin-top:0.6rem">
           ${perPlugin.map(

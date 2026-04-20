@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from app.table import Field
-from shenas_datasets.core import EventMetricTable
+from shenas_datasets.core import EventMetricTable, TransformId
 
 Source = Annotated[str, Field(db_type="VARCHAR", description="Source plugin (e.g. gtakeout)", display_name="Source")]
 
@@ -23,14 +23,17 @@ class LocationVisit(EventMetricTable):
         name = "location_visits"
         display_name = "Location Visits"
         description = "Geofence-categorized location visits from all sources."
-        pk = ("source", "source_id")
+        pk = ("id",)
         time_at = "arrived_at"
+        sequences = ("datasets.location_visits_seq",)
 
-    source: Source
-    source_id: Annotated[
-        str, Field(db_type="VARCHAR", description="Unique visit identifier within the source", display_name="Source ID")
-    ]
     arrived_at: Annotated[str, Field(db_type="TIMESTAMP", description="Arrival timestamp", display_name="Arrived At")]
+    id: Annotated[
+        int,
+        Field(db_type="INTEGER", description="Auto-increment visit ID", db_default="nextval('datasets.location_visits_seq')"),
+    ] = 0
+    source: Source = ""
+    transform_id: TransformId = 0
     left_at: Annotated[str | None, Field(db_type="TIMESTAMP", description="Departure timestamp", display_name="Left At")] = (
         None
     )

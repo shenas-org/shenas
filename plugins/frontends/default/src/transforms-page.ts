@@ -11,7 +11,13 @@ import {
   tableStyles,
 } from "shenas-frontends";
 import type { MessageBanner } from "shenas-frontends";
-import { GET_TRANSFORMS, GET_TABLE_COLUMNS, GET_CATEGORY_SETS } from "./graphql/queries.ts";
+import {
+  GET_TRANSFORMS,
+  GET_TABLE_COLUMNS,
+  GET_TABLE_METADATA,
+  GET_CATEGORY_SETS,
+  GET_DATA_RESOURCES,
+} from "./graphql/queries.ts";
 import "./sql-builder.ts";
 import {
   CREATE_TRANSFORM,
@@ -61,6 +67,7 @@ interface Transform {
   sql: string;
   isDefault: boolean;
   enabled: boolean;
+  materialization: string;
   steps: TransformStep[];
 }
 
@@ -74,7 +81,19 @@ interface TransformForm {
   source_duckdb_table: string;
   target_duckdb_table: string;
   description: string;
+  materialization: string;
   steps: StepForm[];
+}
+
+interface TargetColumnMeta {
+  name: string;
+  db_type: string;
+  nullable: boolean;
+}
+
+interface TargetMeta {
+  columns: TargetColumnMeta[];
+  primary_key: string[];
 }
 
 class TransformsPage extends LitElement {
@@ -214,7 +233,7 @@ class TransformsPage extends LitElement {
       }
       .step-table td {
         padding: 0.4rem 0.5rem;
-        vertical-align: top;
+        vertical-align: middle;
         border-bottom: 1px solid var(--shenas-border-light, #f0f0f0);
       }
       .step-table select,
@@ -277,8 +296,8 @@ class TransformsPage extends LitElement {
 
   declare apiBase: string;
   declare source: string;
-  declare sourceTables: { table: string; display_name: string }[];
-  declare targetTables: string[];
+  declare sourceTables: { table: string; display_name: string; schema?: string }[];
+  declare targetTables: string[] | { table: string; display_name: string }[];
   declare showSuggest: boolean;
   declare suggesting: boolean;
   declare _transforms: Transform[];
@@ -295,6 +314,10 @@ class TransformsPage extends LitElement {
   declare _targetColumns: string[];
   declare _targetColumnsFor: string;
   declare _categorySets: Array<{ displayName: string; values: Array<{ value: string }> }>;
+  private _targetDisplayNames: Map<string, string> = new Map();
+  private _targetMeta: TargetMeta | null = null;
+  private _newTargetMode = false;
+  private _newTargetDisplayName = "";
 
   private _client = getClient();
 
@@ -340,7 +363,8 @@ class TransformsPage extends LitElement {
       source_duckdb_table: "",
       target_duckdb_table: "",
       description: "",
-      steps: [{ transformer: "sql", params: {}, description: "" }],
+      materialization: "table",
+      steps: [{ transformer: "sql", params: { mode: "builder" }, description: "" }],
     };
   }
 
@@ -382,24 +406,36 @@ class TransformsPage extends LitElement {
     return this._transformTypes.find((t) => t.name === name);
   }
 
-  /** Columns available at a given step index (source columns + output columns from prior steps). */
+  /** Columns available at a given step index (output of previous step, or source columns for step 0). */
   _columnsForStep(stepIndex: number): string[] {
     const baseCols = this._sourceColumns.filter((c) => !c.startsWith("_dlt_"));
     if (stepIndex === 0) return baseCols;
 
-    const outputCols: string[] = [];
+    // Start from the columns the previous step produces.
+    let cols = baseCols;
     for (let prior = 0; prior < stepIndex; prior++) {
       const step = this._newForm.steps[prior];
+
+      // SQL builder step: output is the selected columns (aliased names take precedence).
+      if (step.transformer === "sql" && step.params["mode"] !== "raw") {
+        const selected = (step.params["columns"] as unknown as Array<{ name: string; alias: string | null }>) || [];
+        if (selected.length > 0) {
+          cols = selected.map((c) => c.alias || c.name);
+        }
+      }
+
+      // Append any output columns declared by the transformer (e.g. LLM categorize adds a column).
       const typeInfo = this._typeInfoFor(step.transformer);
-      if (!typeInfo) continue;
-      for (const param of typeInfo.paramSchema) {
-        if (param.role === "output_column") {
-          const colName = step.params[param.name] || param.default || "";
-          if (colName) outputCols.push(colName);
+      if (typeInfo) {
+        for (const param of typeInfo.paramSchema) {
+          if (param.role === "output_column") {
+            const colName = step.params[param.name] || param.default || "";
+            if (colName && !cols.includes(colName)) cols = [...cols, colName];
+          }
         }
       }
     }
-    return [...baseCols, ...outputCols];
+    return cols;
   }
 
   // -- Commands ------------------------------------------------------------
@@ -464,10 +500,36 @@ class TransformsPage extends LitElement {
     }
   }
 
-  _startEdit(t: Transform): void {
+  async _startEdit(t: Transform): Promise<void> {
     this._editing = t.id;
     this._editSql = t.sql;
     this._previewRows = null;
+
+    // Populate the create modal form from the existing transform
+    const steps: StepForm[] =
+      t.steps && t.steps.length > 0
+        ? t.steps.map((step) => {
+            let params: Record<string, string> = {};
+            try {
+              params = JSON.parse(step.params);
+            } catch {
+              /* ignore */
+            }
+            return { transformer: step.transformer.name, params, description: step.description };
+          })
+        : [{ transformer: t.transformType, params: { mode: "builder" }, description: "" }];
+
+    this._newForm = {
+      source_duckdb_table: t.source.tableName,
+      target_duckdb_table: t.target.tableName,
+      description: t.description,
+      materialization: (t as unknown as { materialization?: string }).materialization || "table",
+      steps,
+    };
+    this._creating = true;
+    this._sourceColumnsFor = "";
+    this._targetColumnsFor = "";
+    await Promise.all([this._ensureCategorySets(), this._ensureTargetDisplayNames()]);
   }
 
   _cancelEdit(): void {
@@ -498,20 +560,41 @@ class TransformsPage extends LitElement {
     this._targetColumnsFor = "";
     this._editing = null;
     this._previewRows = null;
-    await this._ensureCategorySets();
+    await Promise.all([this._ensureCategorySets(), this._ensureTargetDisplayNames()]);
+  }
+
+  private async _ensureTargetDisplayNames(): Promise<void> {
+    if (this._targetDisplayNames.size > 0) return;
+    const { data } = await this._client.query({ query: GET_DATA_RESOURCES });
+    for (const resource of (data?.dataResources || []) as Array<{
+      tableName: string;
+      displayName: string;
+      schemaName: string;
+    }>) {
+      if (resource.schemaName === "datasets") {
+        this._targetDisplayNames.set(resource.tableName, resource.displayName);
+      }
+    }
+    this.requestUpdate();
   }
 
   _cancelCreate(): void {
     this._creating = false;
+    this._editing = null;
     this._newForm = this._emptyForm();
     this._sourceColumnsFor = "";
     this._targetColumnsFor = "";
+    this._targetMeta = null;
+    this._newTargetMode = false;
+    this._newTargetDisplayName = "";
   }
 
   async _onSourceTableChange(table: string): Promise<void> {
     this._newForm = { ...this._newForm, source_duckdb_table: table };
     this._sourceColumnsFor = table;
-    this._sourceColumns = await this._fetchColumns(this.source, table);
+    const entry = (this.sourceTables || []).find((entry) => entry.table === table);
+    const schema = entry?.schema || this.source;
+    this._sourceColumns = await this._fetchColumns(schema, table);
     this.requestUpdate();
   }
 
@@ -519,7 +602,65 @@ class TransformsPage extends LitElement {
     this._newForm = { ...this._newForm, target_duckdb_table: table };
     this._targetColumnsFor = table;
     this._targetColumns = await this._fetchColumns("datasets", table);
+    // Fetch full target schema for compatibility validation
+    try {
+      const { data } = await this._client.query({
+        query: GET_TABLE_METADATA,
+        variables: { s: "datasets", t: table },
+        fetchPolicy: "network-only",
+      });
+      const meta = data?.tableMetadata as Record<string, unknown> | null;
+      if (meta) {
+        this._targetMeta = {
+          columns: (meta.columns as TargetColumnMeta[]) || [],
+          primary_key: (meta.primary_key as string[]) || [],
+        };
+      } else {
+        this._targetMeta = null;
+      }
+    } catch {
+      this._targetMeta = null;
+    }
     this.requestUpdate();
+  }
+
+  /** Compute output column names from all configured steps. */
+  _outputColumns(): string[] {
+    const lastStepIndex = this._newForm.steps.length - 1;
+    return this._columnsForStep(lastStepIndex + 1);
+  }
+
+  /** Render compatibility indicator between transform output and target table. */
+  _renderCompatibility() {
+    if (!this._targetMeta || this._sourceColumns.length === 0) return "";
+    const output = new Set(this._outputColumns());
+    const targetCols = this._targetMeta.columns.map((c) => c.name);
+    const pk = this._targetMeta.primary_key;
+
+    const missingPK = pk.filter((col) => !output.has(col));
+    const missingRequired = this._targetMeta.columns.filter(
+      (c) => !c.nullable && !output.has(c.name) && !pk.includes(c.name),
+    );
+    const extraCols = [...output].filter((col) => !targetCols.includes(col) && !col.startsWith("_"));
+    const matchedCols = targetCols.filter((col) => output.has(col));
+
+    if (missingPK.length > 0 || missingRequired.length > 0) {
+      const issues: string[] = [];
+      if (missingPK.length > 0) issues.push(`Missing primary key: ${missingPK.join(", ")}`);
+      if (missingRequired.length > 0) issues.push(`Missing required: ${missingRequired.map((c) => c.name).join(", ")}`);
+      return html`<div style="font-size:0.8rem;color:var(--shenas-error,#c62828);margin-top:0.5rem">
+        ${issues.join(". ")}. ${matchedCols.length}/${targetCols.length} target columns matched.
+      </div>`;
+    }
+    if (extraCols.length > 0) {
+      return html`<div style="font-size:0.8rem;color:#f57c00;margin-top:0.5rem">
+        ${matchedCols.length}/${targetCols.length} target columns matched. ${extraCols.length} extra
+        column${extraCols.length > 1 ? "s" : ""} will be ignored: ${extraCols.join(", ")}
+      </div>`;
+    }
+    return html`<div style="font-size:0.8rem;color:var(--shenas-success,#628261);margin-top:0.5rem">
+      ${matchedCols.length}/${targetCols.length} target columns matched.
+    </div>`;
   }
 
   _addStep(): void {
@@ -566,27 +707,38 @@ class TransformsPage extends LitElement {
     }));
 
     try {
-      await this._createTransform.mutate({
-        variables: {
-          input: {
-            sourceDuckdbSchema: this.source,
-            sourceDuckdbTable: f.source_duckdb_table,
-            targetDuckdbSchema: "datasets",
-            targetDuckdbTable: f.target_duckdb_table,
-            sourcePlugin: this.source,
-            description: f.description,
-            steps,
-            transformType: f.steps[0].transformer,
-            params: JSON.stringify(f.steps[0].params),
+      if (this._editing) {
+        // Update existing transform's steps
+        await this._updateTransformSteps.mutate({
+          variables: { transformId: this._editing, steps },
+        });
+        this._message = { type: "success", text: "Transform updated" };
+      } else {
+        await this._createTransform.mutate({
+          variables: {
+            input: {
+              sourceDuckdbSchema:
+                (this.sourceTables || []).find((entry) => entry.table === f.source_duckdb_table)?.schema || this.source,
+              sourceDuckdbTable: f.source_duckdb_table,
+              targetDuckdbSchema: "datasets",
+              targetDuckdbTable: f.target_duckdb_table,
+              sourcePlugin: this.source,
+              description: f.description,
+              materialization: f.materialization,
+              steps,
+              transformType: f.steps[0].transformer,
+              params: JSON.stringify(f.steps[0].params),
+            },
           },
-        },
-      });
-      this._message = { type: "success", text: "Transform created" };
+        });
+        this._message = { type: "success", text: "Transform created" };
+      }
       this._creating = false;
+      this._editing = null;
       this._newForm = this._emptyForm();
       await this._fetchAll();
     } catch {
-      this._message = { type: "error", text: "Create failed" };
+      this._message = { type: "error", text: this._editing ? "Update failed" : "Create failed" };
     }
   }
 
@@ -685,14 +837,22 @@ class TransformsPage extends LitElement {
 
   _renderCreateModal() {
     const f = this._newForm;
-    const sourceTableNames = (this.sourceTables || []).map((entry) => entry.table);
-    const targetTableNames = this.targetTables || [];
+    const sourceTableEntries = (this.sourceTables || []).map((entry) => ({
+      value: entry.table,
+      label: entry.display_name || entry.table,
+    }));
+    const targetTableEntries = (this.targetTables || []).map((entry) => {
+      if (typeof entry === "string") {
+        return { value: entry, label: this._targetDisplayNames.get(entry) || entry };
+      }
+      return { value: entry.table, label: entry.display_name || entry.table };
+    });
 
     // Kick off column fetch if table is selected but not yet fetched
     if (f.source_duckdb_table && this._sourceColumnsFor !== f.source_duckdb_table) {
       this._onSourceTableChange(f.source_duckdb_table);
     }
-    if (f.target_duckdb_table && this._targetColumnsFor !== f.target_duckdb_table) {
+    if (f.target_duckdb_table && !this._newTargetMode && this._targetColumnsFor !== f.target_duckdb_table) {
       this._onTargetTableChange(f.target_duckdb_table);
     }
 
@@ -704,26 +864,65 @@ class TransformsPage extends LitElement {
         }}
       >
         <div class="modal-dialog">
-          <h2>New transform</h2>
+          <h2>${this._editing ? "Edit transform" : "New transform"}</h2>
 
           <div class="modal-header-row">
             <label>
               Source table
-              <select @change=${(e: Event) => this._onSourceTableChange((e.target as HTMLSelectElement).value)}>
+              <select
+                ?disabled=${!!this._editing}
+                @change=${(e: Event) => this._onSourceTableChange((e.target as HTMLSelectElement).value)}
+              >
                 <option value="">-- select --</option>
-                ${sourceTableNames.map(
-                  (name) => html`<option value=${name} ?selected=${f.source_duckdb_table === name}>${name}</option>`,
+                ${sourceTableEntries.map(
+                  (entry) =>
+                    html`<option value=${entry.value} ?selected=${f.source_duckdb_table === entry.value}>
+                      ${entry.label}
+                    </option>`,
                 )}
               </select>
             </label>
             <label>
               Target table
-              <select @change=${(e: Event) => this._onTargetTableChange((e.target as HTMLSelectElement).value)}>
-                <option value="">-- select --</option>
-                ${targetTableNames.map(
-                  (name) => html`<option value=${name} ?selected=${f.target_duckdb_table === name}>${name}</option>`,
-                )}
-              </select>
+              ${this._newTargetMode
+                ? html`<input
+                    type="text"
+                    placeholder="e.g. Daily Downloads"
+                    .value=${this._newTargetDisplayName}
+                    @input=${(e: InputEvent) => {
+                      this._newTargetDisplayName = (e.target as HTMLInputElement).value;
+                      const slug = this._newTargetDisplayName
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "_")
+                        .replace(/^_|_$/g, "");
+                      const tableName = slug ? `custom__${slug}` : "";
+                      this._newForm = { ...this._newForm, target_duckdb_table: tableName };
+                    }}
+                  />`
+                : html`<select
+                    ?disabled=${!!this._editing}
+                    @change=${(e: Event) => {
+                      const val = (e.target as HTMLSelectElement).value;
+                      if (val === "__new__") {
+                        this._newTargetMode = true;
+                        this._newTargetDisplayName = "";
+                        this._newForm = { ...this._newForm, target_duckdb_table: "" };
+                        this._targetMeta = null;
+                        this.requestUpdate();
+                      } else {
+                        this._onTargetTableChange(val);
+                      }
+                    }}
+                  >
+                    <option value="">-- select --</option>
+                    ${targetTableEntries.map(
+                      (entry) =>
+                        html`<option value=${entry.value} ?selected=${f.target_duckdb_table === entry.value}>
+                          ${entry.label}
+                        </option>`,
+                    )}
+                    ${!this._editing ? html`<option value="__new__">+ New table...</option>` : ""}
+                  </select>`}
             </label>
           </div>
 
@@ -745,6 +944,38 @@ class TransformsPage extends LitElement {
 
           <button @click=${this._addStep} style="align-self:flex-start">+ Add step</button>
 
+          ${this._renderCompatibility()}
+
+          <div style="display:flex;gap:1rem;align-items:center;font-size:0.85rem">
+            <span>Output as</span>
+            <label style="display:flex;align-items:center;gap:0.3rem">
+              <input
+                type="radio"
+                name="materialization"
+                value="table"
+                ?checked=${f.materialization === "table"}
+                ?disabled=${!!this._editing}
+                @change=${() => {
+                  this._newForm = { ...this._newForm, materialization: "table" };
+                }}
+              />
+              Table
+            </label>
+            <label style="display:flex;align-items:center;gap:0.3rem">
+              <input
+                type="radio"
+                name="materialization"
+                value="view"
+                ?checked=${f.materialization === "view"}
+                ?disabled=${!!this._editing}
+                @change=${() => {
+                  this._newForm = { ...this._newForm, materialization: "view" };
+                }}
+              />
+              View
+            </label>
+          </div>
+
           <label style="display:flex;flex-direction:column;gap:0.2rem;font-size:0.85rem">
             Description
             <input
@@ -756,7 +987,7 @@ class TransformsPage extends LitElement {
           </label>
 
           <div class="modal-footer">
-            <button @click=${this._saveCreate}>Create</button>
+            <button @click=${this._saveCreate}>${this._editing ? "Save" : "Create"}</button>
             <button @click=${this._cancelCreate}>Cancel</button>
           </div>
         </div>
@@ -768,7 +999,7 @@ class TransformsPage extends LitElement {
     const types = this._transformTypes;
     const typeInfo = this._typeInfoFor(step.transformer);
     const paramFields = typeInfo?.paramSchema || [];
-    const inlineParams = paramFields.filter((p) => p.type !== "textarea");
+    const inlineParams = paramFields.filter((p) => p.type !== "textarea" && p.name !== "mode");
     const textareaParams = paramFields.filter((p) => p.type === "textarea");
     const availableCols = this._columnsForStep(index);
 

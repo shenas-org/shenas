@@ -239,6 +239,8 @@ class Source(Plugin):
             }
             if col.get("ui_widget"):
                 entry["ui_widget"] = col["ui_widget"]
+            if col.get("example_value") is not None:
+                entry["default_value"] = str(col["example_value"])
             entries.append(entry)
         return entries
 
@@ -595,6 +597,10 @@ class Source(Plugin):
             self._refresh_wide_views()
         except Exception:
             logger.exception("Failed entity projection for %s", self.name)
+        try:
+            self._ensure_timeseries_view()
+        except Exception:
+            logger.exception("Failed timeseries view for %s", self.name)
         self._mark_synced()
         self._log_sync_event(full_refresh)
 
@@ -754,6 +760,167 @@ class Source(Plugin):
         property_id = f"referenced_by:{column}"
         if Statement.find(ref_id, property_id, self.name) is None:
             Statement.from_row((ref_id, property_id, self.name, self.name, "normal", None, self.name)).insert()
+
+    def _ensure_timeseries_view(self) -> None:  # noqa: PLR0912, PLR0915
+        """Post-sync hook: create or replace a ``{source}__timeseries`` wide view.
+
+        Joins all time-series tables from this source into a single view
+        bucketed to the auto-detected grain (day for all-DATE sources,
+        hour for TIMESTAMP sources, year for INTEGER-year sources).
+        Each table becomes a CTE aggregated to that grain, then all CTEs
+        are FULL OUTER JOINed on ``time_bucket``.
+
+        Columns are prefixed with the table's short name (without the source
+        prefix) to avoid collisions: ``daily_stats__calories``, ``sleep__score``.
+        """
+        from shenas_sources.core.table import (
+            AggregateTable,
+            CounterTable,
+            DimensionTable,
+            EventTable,
+            IntervalTable,
+            M2MTable,
+            SnapshotTable,
+            SourceTable,
+        )
+
+        tables = list(getattr(type(self), "_source_tables", ()))
+        if not tables:
+            return
+
+        schema = self.dataset_name
+        view_name = f"{self.name}__timeseries"
+
+        # Detect the natural grain from time-column db_types.
+        # If all time columns are DATE, use 'day'. If any are TIMESTAMP,
+        # use 'hour'. INTEGER columns (year/month) use 'year'.
+        grain = SourceTable.detect_grain(tables, (EventTable, IntervalTable, AggregateTable, CounterTable))
+
+        # Map db_type -> default SQL aggregation function
+        agg_map = {
+            "integer": "SUM",
+            "bigint": "SUM",
+            "double": "AVG",
+            "float": "AVG",
+            "real": "AVG",
+            "boolean": "BOOL_OR",
+            "varchar": "FIRST",
+            "text": "FIRST",
+            "timestamp": "MIN",
+            "date": "MIN",
+        }
+
+        # Build per-table CTEs
+        ctes: list[str] = []
+        cte_names: list[str] = []
+        skip_cols = {"id", "entity_id", "observed_at", "source", "source_device"}
+
+        for table_cls in tables:
+            meta = table_cls._Meta
+            full_name = meta.name
+            qualified = f'"{schema}"."{full_name}"'
+            # Short name: strip the source prefix (garmin__daily_stats -> daily_stats)
+            short = full_name.removeprefix(f"{self.name}__") if full_name.startswith(f"{self.name}__") else full_name
+
+            time_col = table_cls.timeseries_time_col()
+            if not time_col:
+                continue
+
+            # Get column metadata for aggregation
+            try:
+                import dataclasses
+                from typing import get_type_hints
+
+                from app.relation import Field as FieldMeta
+
+                hints = get_type_hints(table_cls, include_extras=True)
+                fields = dataclasses.fields(table_cls)
+            except Exception:
+                continue
+
+            agg_cols: list[tuple[str, str, str]] = []
+            for field in fields:
+                col = field.name
+                if col.startswith("_") or col in skip_cols or col == time_col:
+                    continue
+                if col in meta.pk:
+                    continue
+                # Skip time_end column for IntervalTable
+                if issubclass(table_cls, IntervalTable) and col == getattr(meta, "time_end", None):
+                    continue
+                hint = hints.get(col)
+                field_meta = FieldMeta.from_hint(hint) if hint else None
+                db_type = field_meta.db_type.lower() if field_meta else "varchar"
+
+                # Use explicit aggregation from Field, or fall back to db_type default
+                if field_meta and field_meta.aggregation:
+                    if field_meta.aggregation.lower() == "skip":
+                        continue
+                    agg_fn = field_meta.aggregation.upper()
+                else:
+                    agg_fn = agg_map.get(db_type, "FIRST")
+                agg_cols.append((agg_fn, col, f"{short}__{col}"))
+
+            if not agg_cols:
+                continue
+
+            # For SCD2 tables, filter to current slice
+            where = ""
+            if issubclass(table_cls, (DimensionTable, SnapshotTable, M2MTable)):
+                where = " WHERE _dlt_valid_to IS NULL"
+
+            cte_name = f"cte_{short}"
+            cte_sql = table_cls.timeseries_cte(
+                cte_name=cte_name,
+                short=short,
+                qualified=qualified,
+                grain=grain,
+                time_col=time_col,
+                agg_exprs=agg_cols,
+                where=where,
+            )
+            ctes.append(cte_sql)
+            cte_names.append(cte_name)
+
+        if not ctes:
+            return
+
+        # Build the final SELECT with FULL OUTER JOINs
+        select_cols = ["COALESCE(" + ", ".join(f"{c}.time_bucket" for c in cte_names) + ") AS time_bucket"]
+        select_cols.extend(f"{cte_name}.*" for cte_name in cte_names)
+
+        # Build JOIN chain
+        first = cte_names[0]
+        join_clauses = [
+            f"FULL OUTER JOIN {cte_name} ON {first}.time_bucket = {cte_name}.time_bucket" for cte_name in cte_names[1:]
+        ]
+
+        # Assemble the view DDL — use SELECT with explicit EXCLUDE to drop
+        # the per-CTE time_bucket columns (we have the COALESCE'd one).
+        excludes = ", ".join(f"{c}.time_bucket" for c in cte_names)
+
+        cte_list = ",\n".join(ctes)
+        coalesce_expr = ", ".join(f"{c}.time_bucket" for c in cte_names)
+        star_cols = ", ".join(f"{c}.*" for c in cte_names)
+        join_sql = "\n".join(join_clauses)
+        view_sql = (
+            f'CREATE OR REPLACE VIEW "{schema}"."{view_name}" AS\n'
+            f"WITH {cte_list}\n"
+            f"SELECT * EXCLUDE ({excludes})\n"
+            f"FROM (SELECT COALESCE({coalesce_expr}) AS time_bucket, {star_cols}\n"
+            f"FROM {first}\n"
+            f"{join_sql})\n"
+            f"ORDER BY time_bucket"
+        )
+
+        try:
+            from app.database import cursor
+
+            with cursor() as cur:
+                cur.execute(view_sql)
+            logger.info("Created timeseries view %s.%s (%d tables)", schema, view_name, len(ctes))
+        except Exception:
+            logger.exception("Failed to create timeseries view for %s", self.name)
 
     def _refresh_wide_views(self) -> None:
         """Post-sync hook: rebuild every per-type wide view.

@@ -149,10 +149,12 @@ class DailyStats(_DailyAggregate):
         float | None, Field(db_type="DOUBLE", description="Active kilocalories", display_name="Active Calories", unit="kcal")
     ] = None
     restingHeartRate: Annotated[
-        int | None, Field(db_type="INTEGER", description="Resting heart rate", display_name="Resting HR", unit="bpm")
+        int | None,
+        Field(db_type="INTEGER", description="Resting heart rate", display_name="Resting HR", unit="bpm", aggregation="avg"),
     ] = None
     maxHeartRate: Annotated[
-        int | None, Field(db_type="INTEGER", description="Max heart rate", display_name="Max HR", unit="bpm")
+        int | None,
+        Field(db_type="INTEGER", description="Max heart rate", display_name="Max HR", unit="bpm", aggregation="max"),
     ] = None
     stressQualifier: Annotated[
         str | None, Field(db_type="VARCHAR", description="Stress qualifier", display_name="Stress Qualifier")

@@ -48,9 +48,10 @@ ENVIRONMENT_INDICATORS: dict[str, tuple[str, str, str, str | None]] = {
 def _pivot_rows(
     raw_rows: list[dict[str, Any]],
     indicator_map: dict[str, tuple[str, str, str, str | None]],
+    city_uuid_map: dict[str, str] | None = None,
 ) -> dict[tuple[str, str], dict[str, Any]]:
     """Pivot Eurostat rows from (city, year, indicator) -> value
-    to (city, year) -> {col1: val1, col2: val2, ...}.
+    to (city, year) -> {city_uuid, city_code, city_name, year, col1: val1, ...}.
     """
     pivoted: dict[tuple[str, str], dict[str, Any]] = {}
     for row in raw_rows:
@@ -66,7 +67,13 @@ def _pivot_rows(
         col_name = indicator_map[indic][0]
         key = (geo, time_code)
         if key not in pivoted:
-            pivoted[key] = {"city_code": geo, "city_name": geo_label, "year": time_code}
+            city_uuid = (city_uuid_map or {}).get(geo, "")
+            pivoted[key] = {
+                "city_uuid": city_uuid,
+                "city_code": geo,
+                "city_name": geo_label,
+                "year": time_code,
+            }
         pivoted[key][col_name] = val
     return pivoted
 
@@ -78,12 +85,13 @@ class CityPopulation(SnapshotTable):
         name = "city_population"
         display_name = "City Population"
         description = "Total resident population per city per year from Eurostat Urban Audit."
-        pk = ("city_code", "year")
+        pk = ("city_uuid", "year")
 
+    city_uuid: Annotated[str, Field(db_type="VARCHAR", description="City entity UUID", display_name="City")] = ""
     city_code: Annotated[
         str, Field(db_type="VARCHAR", description="Urban Audit city code (e.g. DE004C)", display_name="City Code")
     ] = ""
-    city_name: Annotated[str, Field(db_type="VARCHAR", description="City name", display_name="City")] = ""
+    city_name: Annotated[str, Field(db_type="VARCHAR", description="City name", display_name="City Name")] = ""
     year: Annotated[str, Field(db_type="VARCHAR", description="Reference year", display_name="Year")] = ""
     total_population: Annotated[
         float | None,
@@ -91,9 +99,9 @@ class CityPopulation(SnapshotTable):
     ] = None
 
     @classmethod
-    def extract(cls, client: EurostatClient, **_: Any) -> Iterator[dict[str, Any]]:
+    def extract(cls, client: EurostatClient, **context: Any) -> Iterator[dict[str, Any]]:
         raw = client.get_population()
-        pivoted = _pivot_rows(raw, POPULATION_INDICATORS)
+        pivoted = _pivot_rows(raw, POPULATION_INDICATORS, context.get("city_uuid_map"))
         yield from pivoted.values()
 
 
@@ -104,10 +112,11 @@ class CityLabourMarket(SnapshotTable):
         name = "city_labour_market"
         display_name = "City Labour Market"
         description = "Employment, unemployment, and activity rates per city."
-        pk = ("city_code", "year")
+        pk = ("city_uuid", "year")
 
+    city_uuid: Annotated[str, Field(db_type="VARCHAR", description="City entity UUID", display_name="City")] = ""
     city_code: Annotated[str, Field(db_type="VARCHAR", description="Urban Audit city code", display_name="City Code")] = ""
-    city_name: Annotated[str, Field(db_type="VARCHAR", description="City name", display_name="City")] = ""
+    city_name: Annotated[str, Field(db_type="VARCHAR", description="City name", display_name="City Name")] = ""
     year: Annotated[str, Field(db_type="VARCHAR", description="Reference year", display_name="Year")] = ""
     unemployment_rate: Annotated[
         float | None,
@@ -154,10 +163,11 @@ class CityLivingConditions(SnapshotTable):
         name = "city_living_conditions"
         display_name = "City Living Conditions"
         description = "Housing prices, rents, and living condition indicators per city."
-        pk = ("city_code", "year")
+        pk = ("city_uuid", "year")
 
+    city_uuid: Annotated[str, Field(db_type="VARCHAR", description="City entity UUID", display_name="City")] = ""
     city_code: Annotated[str, Field(db_type="VARCHAR", description="Urban Audit city code", display_name="City Code")] = ""
-    city_name: Annotated[str, Field(db_type="VARCHAR", description="City name", display_name="City")] = ""
+    city_name: Annotated[str, Field(db_type="VARCHAR", description="City name", display_name="City Name")] = ""
     year: Annotated[str, Field(db_type="VARCHAR", description="Reference year", display_name="Year")] = ""
     avg_price_sqm_apartment: Annotated[
         float | None,
@@ -192,10 +202,11 @@ class CityEnvironment(SnapshotTable):
         name = "city_environment"
         display_name = "City Environment"
         description = "Annual air quality and environmental indicators per city."
-        pk = ("city_code", "year")
+        pk = ("city_uuid", "year")
 
+    city_uuid: Annotated[str, Field(db_type="VARCHAR", description="City entity UUID", display_name="City")] = ""
     city_code: Annotated[str, Field(db_type="VARCHAR", description="Urban Audit city code", display_name="City Code")] = ""
-    city_name: Annotated[str, Field(db_type="VARCHAR", description="City name", display_name="City")] = ""
+    city_name: Annotated[str, Field(db_type="VARCHAR", description="City name", display_name="City Name")] = ""
     year: Annotated[str, Field(db_type="VARCHAR", description="Reference year", display_name="Year")] = ""
     pm10_annual_mean: Annotated[
         float | None,

@@ -128,7 +128,8 @@ class Activities(IntervalTable):
     ] = None
     timezone: Annotated[str | None, Field(db_type="VARCHAR", description="Activity timezone", display_name="Timezone")] = None
     distance_m: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Distance (meters)", display_name="Distance", unit="m")
+        float | None,
+        Field(db_type="DOUBLE", description="Distance (meters)", display_name="Distance", unit="m", aggregation="sum"),
     ] = None
     moving_time_s: Annotated[
         int | None, Field(db_type="INTEGER", description="Moving time (seconds)", display_name="Moving Time", unit="s")
@@ -137,45 +138,59 @@ class Activities(IntervalTable):
         int | None, Field(db_type="INTEGER", description="Elapsed time (seconds)", display_name="Elapsed Time", unit="s")
     ] = None
     elevation_gain_m: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Elevation gain (meters)", display_name="Elevation Gain", unit="m")
+        float | None,
+        Field(
+            db_type="DOUBLE", description="Elevation gain (meters)", display_name="Elevation Gain", unit="m", aggregation="sum"
+        ),
     ] = None
     average_speed_mps: Annotated[
         float | None, Field(db_type="DOUBLE", description="Average speed (m/s)", display_name="Average Speed", unit="m/s")
     ] = None
     max_speed_mps: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Max speed (m/s)", display_name="Max Speed", unit="m/s")
+        float | None,
+        Field(db_type="DOUBLE", description="Max speed (m/s)", display_name="Max Speed", unit="m/s", aggregation="max"),
     ] = None
     average_heartrate: Annotated[
         float | None, Field(db_type="DOUBLE", description="Average heart rate (bpm)", display_name="Average HR", unit="bpm")
     ] = None
     max_heartrate: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Max heart rate (bpm)", display_name="Max HR", unit="bpm")
+        float | None,
+        Field(db_type="DOUBLE", description="Max heart rate (bpm)", display_name="Max HR", unit="bpm", aggregation="max"),
     ] = None
     average_temp: Annotated[
         float | None,
         Field(db_type="DOUBLE", description="Average temperature (degC)", display_name="Average Temp", unit="degC"),
     ] = None
     kilojoules: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Total work (kJ)", display_name="Total Work", unit="kJ")
+        float | None,
+        Field(db_type="DOUBLE", description="Total work (kJ)", display_name="Total Work", unit="kJ", aggregation="sum"),
     ] = None
     calories: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Calories (kcal)", display_name="Calories", unit="kcal")
+        float | None,
+        Field(db_type="DOUBLE", description="Calories (kcal)", display_name="Calories", unit="kcal", aggregation="sum"),
     ] = None
     average_watts: Annotated[
         float | None, Field(db_type="DOUBLE", description="Average power (W)", display_name="Average Power", unit="W")
     ] = None
     max_watts: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Max power (W)", display_name="Max Power", unit="W")
+        float | None,
+        Field(db_type="DOUBLE", description="Max power (W)", display_name="Max Power", unit="W", aggregation="max"),
     ] = None
     suffer_score: Annotated[
         float | None, Field(db_type="DOUBLE", description="Strava suffer score", display_name="Suffer Score")
     ] = None
     achievement_count: Annotated[
-        int, Field(db_type="INTEGER", description="Achievement count", display_name="Achievements")
+        int, Field(db_type="INTEGER", description="Achievement count", display_name="Achievements", aggregation="sum")
     ] = 0
-    kudos_count: Annotated[int, Field(db_type="INTEGER", description="Kudos count", display_name="Kudos")] = 0
-    comment_count: Annotated[int, Field(db_type="INTEGER", description="Comment count", display_name="Comments")] = 0
-    photo_count: Annotated[int, Field(db_type="INTEGER", description="Photo count", display_name="Photos")] = 0
+    kudos_count: Annotated[
+        int, Field(db_type="INTEGER", description="Kudos count", display_name="Kudos", aggregation="sum")
+    ] = 0
+    comment_count: Annotated[
+        int, Field(db_type="INTEGER", description="Comment count", display_name="Comments", aggregation="sum")
+    ] = 0
+    photo_count: Annotated[
+        int, Field(db_type="INTEGER", description="Photo count", display_name="Photos", aggregation="sum")
+    ] = 0
     gear_id: Annotated[str | None, Field(db_type="VARCHAR", description="Associated gear ID", display_name="Gear ID")] = None
     device_name: Annotated[
         str | None, Field(db_type="VARCHAR", description="Recording device name", display_name="Device Name")
@@ -248,7 +263,8 @@ class Laps(IntervalTable):
     ] = None
     end_date: Annotated[str | None, Field(db_type="TIMESTAMP", description="Computed end", display_name="End Time")] = None
     distance_m: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Distance (meters)", display_name="Distance", unit="m")
+        float | None,
+        Field(db_type="DOUBLE", description="Distance (meters)", display_name="Distance", unit="m", aggregation="sum"),
     ] = None
     moving_time_s: Annotated[
         int | None, Field(db_type="INTEGER", description="Moving time (seconds)", display_name="Moving Time", unit="s")
@@ -257,19 +273,24 @@ class Laps(IntervalTable):
         int | None, Field(db_type="INTEGER", description="Elapsed time (seconds)", display_name="Elapsed Time", unit="s")
     ] = None
     elevation_gain_m: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Elevation gain (meters)", display_name="Elevation Gain", unit="m")
+        float | None,
+        Field(
+            db_type="DOUBLE", description="Elevation gain (meters)", display_name="Elevation Gain", unit="m", aggregation="sum"
+        ),
     ] = None
     average_speed_mps: Annotated[
         float | None, Field(db_type="DOUBLE", description="Average speed (m/s)", display_name="Average Speed", unit="m/s")
     ] = None
     max_speed_mps: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Max speed (m/s)", display_name="Max Speed", unit="m/s")
+        float | None,
+        Field(db_type="DOUBLE", description="Max speed (m/s)", display_name="Max Speed", unit="m/s", aggregation="max"),
     ] = None
     average_heartrate: Annotated[
         float | None, Field(db_type="DOUBLE", description="Average HR (bpm)", display_name="Average HR", unit="bpm")
     ] = None
     max_heartrate: Annotated[
-        float | None, Field(db_type="DOUBLE", description="Max HR (bpm)", display_name="Max HR", unit="bpm")
+        float | None,
+        Field(db_type="DOUBLE", description="Max HR (bpm)", display_name="Max HR", unit="bpm", aggregation="max"),
     ] = None
     average_watts: Annotated[
         float | None, Field(db_type="DOUBLE", description="Average power (W)", display_name="Average Power", unit="W")
@@ -470,11 +491,23 @@ class AthleteStats(SnapshotTable):
     athlete_id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID", display_name="Athlete ID")]
     biggest_ride_distance_m: Annotated[
         float | None,
-        Field(db_type="DOUBLE", description="Biggest ride distance", display_name="Biggest Ride Distance", unit="m"),
+        Field(
+            db_type="DOUBLE",
+            description="Biggest ride distance",
+            display_name="Biggest Ride Distance",
+            unit="m",
+            aggregation="max",
+        ),
     ] = None
     biggest_climb_elevation_m: Annotated[
         float | None,
-        Field(db_type="DOUBLE", description="Biggest climb elevation", display_name="Biggest Climb Elevation", unit="m"),
+        Field(
+            db_type="DOUBLE",
+            description="Biggest climb elevation",
+            display_name="Biggest Climb Elevation",
+            unit="m",
+            aggregation="max",
+        ),
     ] = None
     recent_run_count: Annotated[
         int, Field(db_type="INTEGER", description="Recent (28d) run count", display_name="Recent Run Count")
@@ -594,10 +627,12 @@ class AthleteZones(SnapshotTable):
         pk = ("athlete_id",)
 
     athlete_id: Annotated[int, Field(db_type="BIGINT", description="Athlete ID", display_name="Athlete ID")]
-    heart_rate_zones: Annotated[str | None, Field(db_type="TEXT", description="HR zones JSON", display_name="HR Zones")] = None
-    power_zones: Annotated[str | None, Field(db_type="TEXT", description="Power zones JSON", display_name="Power Zones")] = (
-        None
-    )
+    heart_rate_zones: Annotated[
+        str | None, Field(db_type="TEXT", description="HR zones JSON", display_name="HR Zones", aggregation="skip")
+    ] = None
+    power_zones: Annotated[
+        str | None, Field(db_type="TEXT", description="Power zones JSON", display_name="Power Zones", aggregation="skip")
+    ] = None
 
     @staticmethod
     def _zone_list(zone_obj: Any) -> str | None:

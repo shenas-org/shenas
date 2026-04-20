@@ -48,7 +48,7 @@ class TestMetrics:
         assert "savings_rate" in field_names
 
     def test_monthly_category_pk(self) -> None:
-        assert MonthlyCategory._Meta.pk == ("month", "category", "source")
+        assert MonthlyCategory._Meta.pk == ("month", "category", "transform_id")
 
 
 class TestDDL:
@@ -56,7 +56,7 @@ class TestDDL:
         ddl = Transaction.to_ddl()
         assert 'CREATE TABLE IF NOT EXISTS "datasets"."finance__transactions"' in ddl
         assert '"id" VARCHAR NOT NULL' in ddl
-        assert '"source" VARCHAR NOT NULL' in ddl
+        assert '"transform_id" INTEGER NOT NULL' in ddl
         assert '"amount" DOUBLE' in ddl
         assert "PRIMARY KEY" in ddl
 
@@ -91,8 +91,8 @@ class TestIntrospect:
     def test_table_metadata_structure(self) -> None:
         meta = Transaction.metadata()
         assert meta["table"] == "finance__transactions"
-        assert meta["primary_key"] == ["id", "source"]
-        assert len(meta["columns"]) == 12
+        assert meta["primary_key"] == ["id", "transform_id"]
+        assert len(meta["columns"]) == 13
 
     def test_column_metadata_has_description(self) -> None:
         meta = Transaction.metadata()

@@ -66,7 +66,7 @@ class Transformer(Plugin):
 
     @property
     def has_data(self) -> bool:
-        return True
+        return False
 
     @abc.abstractmethod
     def execute(

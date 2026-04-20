@@ -804,6 +804,7 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "wikidata_seed": True,
         "wikidata_properties": [
             {"pid": "P17", "label": "country"},
+            {"pid": "P605", "label": "NUTS code"},
             {"pid": "P625", "label": "coordinate location"},
             {"pid": "P421", "label": "located in time zone"},
             {"pid": "P1082", "label": "population"},

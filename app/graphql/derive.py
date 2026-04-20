@@ -92,25 +92,9 @@ def _resolve_python_type(hint: Any, field_meta: Field | None) -> Any:
 def _get_field_meta(hint: Any) -> Field | None:
     """Extract the Field metadata from an Annotated type hint.
 
-    Handles both ``Annotated[T, Field(...)]`` and
-    ``Optional[Annotated[T, Field(...)]]`` (i.e. ``Annotated[T, ...] | None``).
+    Delegates to :meth:`Field.from_hint`.
     """
-    origin = get_origin(hint)
-    args = get_args(hint)
-    # Unwrap Optional/Union to find the Annotated inner type.
-    import typing
-
-    if (origin is type(int | str) or origin is typing.Union) and args:
-        for arg in args:
-            if arg is not type(None) and get_origin(arg) is Annotated:
-                hint = arg
-                break
-    if get_origin(hint) is not Annotated:
-        return None
-    for arg in get_args(hint)[1:]:
-        if isinstance(arg, Field):
-            return arg
-    return None
+    return Field.from_hint(hint)
 
 
 def gql_type_from_table(

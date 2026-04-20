@@ -62,21 +62,30 @@ class FreedomHouseClient:
         self._http.close()
 
     def _download_excel(self) -> bytes:
-        """Try to download the aggregate Excel file, trying recent year ranges."""
+        """Try to download the aggregate Excel file, trying recent year ranges.
+
+        Freedom House periodically changes the URL structure and may gate
+        downloads behind a request form. If no URL works, raises with a
+        helpful message.
+        """
         current_year = datetime.now(UTC).year
         # Try the most recent edition first, then fall back
-        for end_year in range(current_year, current_year - 3, -1):
+        for end_year in range(current_year, current_year - 4, -1):
             filename = FILE_PATTERN.format(start=2013, end=end_year)
-            url = f"{BASE_URL}/{end_year}-02/{filename}"
-            resp = self._http.get(url)
-            if resp.status_code == 200:
-                return resp.content
-            # Try alternate month
-            url = f"{BASE_URL}/{end_year}-03/{filename}"
-            resp = self._http.get(url)
-            if resp.status_code == 200:
-                return resp.content
-        msg = "Could not download Freedom House aggregate data file."
+            for month in ("02", "03", "01"):
+                url = f"{BASE_URL}/{end_year}-{month}/{filename}"
+                try:
+                    resp = self._http.get(url)
+                    if resp.status_code == 200:
+                        return resp.content
+                except httpx.HTTPError:
+                    continue
+        msg = (
+            "Could not download Freedom House aggregate data file. "
+            "Freedom House may have changed their URL structure or "
+            "restricted public access. Check https://freedomhouse.org/report/freedom-world "
+            "for the current download location."
+        )
         raise RuntimeError(msg)
 
     def _parse_excel(self, content: bytes) -> list[dict[str, Any]]:

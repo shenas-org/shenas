@@ -21,10 +21,19 @@ for downstream projections.
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from app.schema import DATASETS
-from app.table import DataTable
+from app.table import DataTable, Field
+
+TransformId = Annotated[
+    int,
+    Field(
+        db_type="INTEGER",
+        description="Transform instance that produced this row",
+        display_name="Transform ID",
+    ),
+]
 
 
 class MetricTable(DataTable):
@@ -32,6 +41,8 @@ class MetricTable(DataTable):
 
     A metric table is a downstream projection: nothing extracts it from an
     external API, and it has no SCD2 / cursor / write-disposition concerns.
+    Every row carries ``transform_id`` identifying which Transform instance
+    produced it, so multi-source transforms work and provenance is tracked.
     Concrete metric tables should inherit from one of the grain-specific
     subclasses below (``DailyMetricTable`` etc.) so the catalog advertises
     their time semantics.
@@ -44,7 +55,7 @@ class MetricTable(DataTable):
 
 
 class DailyMetricTable(MetricTable):
-    """Per-day metric. PK should include ``date``; ``_Meta.time_at = "date"``."""
+    """Per-day metric. PK should include ``(date, transform_id)``; ``_Meta.time_at = "date"``."""
 
     _abstract: ClassVar[bool] = True
 
@@ -71,7 +82,7 @@ class MonthlyMetricTable(MetricTable):
 
 
 class EventMetricTable(MetricTable):
-    """Discrete event metric. PK is typically (source, source_id).
+    """Discrete event metric. PK typically includes ``transform_id``.
 
     Distinct from a ``DailyMetricTable``: events have point-in-time
     timestamps, not window keys. Use this for the unified event timeline

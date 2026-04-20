@@ -128,7 +128,7 @@ class LlmCategorizeTransformer(ColumnTransformer):
             },
             {
                 "name": "output_column",
-                "label": "Output column",
+                "label": "Target column",
                 "type": "target_column",
                 "required": False,
                 "description": "Column name for the category in the target table",

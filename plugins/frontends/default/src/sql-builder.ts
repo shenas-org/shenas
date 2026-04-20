@@ -423,8 +423,8 @@ class SqlBuilder extends LitElement {
                     @change=${(e: Event) =>
                       this._updateOrderBy(idx, "direction", (e.target as HTMLSelectElement).value)}
                   >
-                    <option value="asc" ?selected=${ob.direction === "asc"}>ASC</option>
-                    <option value="desc" ?selected=${ob.direction === "desc"}>DESC</option>
+                    <option value="asc" ?selected=${ob.direction === "asc"}>Ascending</option>
+                    <option value="desc" ?selected=${ob.direction === "desc"}>Descending</option>
                   </select>
                   <button class="remove-btn" @click=${() => this._removeOrderBy(idx)}>x</button>
                 </div>

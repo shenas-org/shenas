@@ -141,6 +141,14 @@ class Transform(Table):
     is_suggested: (
         Annotated[bool, Field(db_type="BOOLEAN", description="LLM-suggested, not yet accepted", db_default="FALSE")] | None
     ) = None
+    materialization: Annotated[
+        str,
+        Field(
+            db_type="VARCHAR",
+            description="Output mode: table or view",
+            db_default="'table'",
+        ),
+    ] = "table"
     added_at: Annotated[str, Field(db_type="TIMESTAMP", description="When added", db_default="current_timestamp")] | None = (
         None
     )
@@ -269,6 +277,7 @@ class Transform(Table):
         params: str = "{}",
         description: str = "",
         is_default: bool = False,
+        materialization: str = "table",
         steps: list[dict[str, Any]] | None = None,
     ) -> Transform:
         TransformStep.ensure()
@@ -280,6 +289,7 @@ class Transform(Table):
             params=params,
             description=description,
             is_default=is_default,
+            materialization=materialization,
         )
         transform = transform.insert()
         # Create steps if provided, otherwise auto-create from legacy fields

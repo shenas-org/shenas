@@ -104,6 +104,51 @@ class SourceTable(DataTable):
     #   (e.g. "Q1334294" for repositories).
 
     # ------------------------------------------------------------------
+    # Grain detection
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def detect_grain(tables: list[type], time_kinds: tuple[type, ...]) -> str:
+        """Detect the lowest common time grain across source tables.
+
+        Examines the ``db_type`` of each table's declared time column:
+        - All ``DATE`` -> ``day``
+        - Any ``TIMESTAMP`` -> ``hour``
+        - All ``INTEGER`` (year columns) -> ``year``
+        - Mixed or unknown -> ``hour`` (safe default)
+        """
+        from typing import get_type_hints
+
+        from app.relation import Field as FieldMeta
+
+        db_types: set[str] = set()
+        for table_cls in tables:
+            if not any(issubclass(table_cls, k) for k in time_kinds):
+                continue
+            meta = table_cls._Meta  # ty: ignore[unresolved-attribute]
+            time_col = getattr(meta, "time_at", None) or getattr(meta, "time_start", None)
+            if not time_col:
+                continue
+            try:
+                hints = get_type_hints(table_cls, include_extras=True)
+                hint = hints.get(time_col)
+                if not hint:
+                    continue
+                field_meta = FieldMeta.from_hint(hint)
+                if field_meta:
+                    db_types.add(field_meta.db_type.upper())
+            except Exception:
+                continue
+
+        if not db_types:
+            return "hour"
+        if db_types <= {"DATE"}:
+            return "day"
+        if db_types <= {"INTEGER"}:
+            return "year"
+        return "hour"
+
+    # ------------------------------------------------------------------
     # dlt translation -- kind base classes override write_disposition()
     # ------------------------------------------------------------------
 
@@ -152,6 +197,46 @@ class SourceTable(DataTable):
         Overridden by kind base classes that always inject (counter) or never (interval).
         """
         return False
+
+    @classmethod
+    def timeseries_time_col(cls) -> str | None:
+        """Return the column name to use as the time axis for the wide timeseries view.
+
+        Kind base classes override to return the appropriate column.
+        Returns None for kinds that have no natural time axis.
+        """
+        return None
+
+    @classmethod
+    def timeseries_cte(
+        cls,
+        *,
+        cte_name: str,
+        short: str,
+        qualified: str,
+        grain: str,
+        time_col: str,
+        agg_exprs: list[tuple[str, str, str]],
+        where: str,
+    ) -> str:
+        """Build the CTE SQL for this table in the timeseries wide view.
+
+        ``agg_exprs`` is a list of ``(agg_fn, column_name, alias)`` tuples.
+        The default implementation groups rows by ``date_trunc(grain, time_col)``.
+        ``IntervalTable`` overrides to expand intervals across all time buckets
+        they span using ``generate_series``.
+        """
+        cols = [f'{agg_fn}("{col}") AS "{alias}"' for agg_fn, col, alias in agg_exprs]
+        cols.append(f'COUNT(*) AS "{short}__count"')
+        cols_sql = ",\n    ".join(cols)
+        return (
+            f"{cte_name} AS (\n"
+            f"  SELECT date_trunc('{grain}', CAST(\"{time_col}\" AS TIMESTAMP)) AS time_bucket,\n"
+            f"    {cols_sql}\n"
+            f"  FROM {qualified}{where}\n"
+            f"  GROUP BY 1\n"
+            f")"
+        )
 
     @classmethod
     def extract(cls, client: Any, **context: Any) -> Iterator[dict[str, Any]]:
@@ -232,6 +317,10 @@ class EventTable(SourceTable):
     def _needs_observed_at(cls) -> bool:
         return getattr(cls._Meta, "time_at", None) is None
 
+    @classmethod
+    def timeseries_time_col(cls) -> str | None:
+        return getattr(cls._Meta, "time_at", None) or "observed_at"
+
 
 class IntervalTable(SourceTable):
     """A discrete occurrence with both a start and an end timestamp. Merge on PK.
@@ -244,6 +333,58 @@ class IntervalTable(SourceTable):
     @classmethod
     def write_disposition(cls) -> dict[str, str] | str:
         return "merge"
+
+    @classmethod
+    def timeseries_time_col(cls) -> str | None:
+        return getattr(cls._Meta, "time_start", None)
+
+    @classmethod
+    def timeseries_cte(
+        cls,
+        *,
+        cte_name: str,
+        short: str,
+        qualified: str,
+        grain: str,
+        time_col: str,
+        agg_exprs: list[tuple[str, str, str]],
+        where: str,  # noqa: ARG003
+    ) -> str:
+        """Expand intervals across all time buckets they span.
+
+        Uses ``LATERAL generate_series(start, end, interval)`` to produce one
+        row per bucket. Adds ``{short}__active`` (always true) and attributes
+        metrics only to the start bucket via CASE WHEN.
+        """
+        time_end_col = getattr(cls._Meta, "time_end", None) or time_col
+        grain_interval = {"hour": "1 hour", "day": "1 day", "year": "1 year"}.get(grain, "1 hour")
+
+        # Metrics attributed only to the start bucket
+        cols = [
+            f'{agg_fn}(CASE WHEN time_bucket = start_bucket THEN "{col}" END) AS "{alias}"' for agg_fn, col, alias in agg_exprs
+        ]
+        cols_sql = ",\n    ".join(cols)
+        return (
+            f"{cte_name} AS (\n"
+            f"  SELECT time_bucket,\n"
+            f'    CAST(true AS BOOLEAN) AS "{short}__active",\n'
+            f"    {cols_sql},\n"
+            f'    COUNT(*) AS "{short}__count"\n'
+            f"  FROM (\n"
+            f"    SELECT\n"
+            f"      date_trunc('{grain}', CAST(b.bucket AS TIMESTAMP)) AS time_bucket,\n"
+            f"      date_trunc('{grain}', CAST(\"{time_col}\" AS TIMESTAMP)) AS start_bucket,\n"
+            f"      t.*\n"
+            f"    FROM {qualified} t,\n"
+            f"    LATERAL generate_series(\n"
+            f'      CAST("{time_col}" AS TIMESTAMP),\n'
+            f'      COALESCE(CAST("{time_end_col}" AS TIMESTAMP), CAST("{time_col}" AS TIMESTAMP)),\n'
+            f"      INTERVAL '{grain_interval}'\n"
+            f"    ) AS b(bucket)\n"
+            f"  ) expanded\n"
+            f"  GROUP BY 1\n"
+            f")"
+        )
 
     @classmethod
     def _validate(cls) -> None:
@@ -265,6 +406,10 @@ class AggregateTable(SourceTable):
     def write_disposition(cls) -> dict[str, str] | str:
         return "merge"
 
+    @classmethod
+    def timeseries_time_col(cls) -> str | None:
+        return getattr(cls._Meta, "time_at", None)
+
 
 class DimensionTable(SourceTable):
     """Reference / lookup data that other tables join against. Loaded as SCD2.
@@ -279,6 +424,10 @@ class DimensionTable(SourceTable):
     def write_disposition(cls) -> dict[str, str] | str:
         return {"disposition": "merge", "strategy": "scd2"}
 
+    @classmethod
+    def timeseries_time_col(cls) -> str | None:
+        return "_dlt_valid_from"
+
 
 class SnapshotTable(SourceTable):
     """Current self-state with no temporal axis. Loaded as SCD2 (hash-then-version).
@@ -292,6 +441,10 @@ class SnapshotTable(SourceTable):
     @classmethod
     def write_disposition(cls) -> dict[str, str] | str:
         return {"disposition": "merge", "strategy": "scd2"}
+
+    @classmethod
+    def timeseries_time_col(cls) -> str | None:
+        return "_dlt_valid_from"
 
 
 class CounterTable(SourceTable):
@@ -309,6 +462,10 @@ class CounterTable(SourceTable):
     @classmethod
     def _needs_observed_at(cls) -> bool:
         return True
+
+    @classmethod
+    def timeseries_time_col(cls) -> str | None:
+        return "observed_at"
 
     @classmethod
     def _validate(cls) -> None:
@@ -339,6 +496,10 @@ class M2MTable(SourceTable):
     @classmethod
     def write_disposition(cls) -> dict[str, str] | str:
         return {"disposition": "merge", "strategy": "scd2"}
+
+    @classmethod
+    def timeseries_time_col(cls) -> str | None:
+        return "_dlt_valid_from"
 
     @classmethod
     def _validate(cls) -> None:

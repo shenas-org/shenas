@@ -400,8 +400,13 @@ class Plugin(abc.ABC):
 
     @property
     def has_entities(self) -> bool:
-        """True if this plugin declares ``entity_types`` or ``entity_projection``."""
-        if getattr(self, "entity_types", None):
+        """True if this plugin declares non-device ``entity_types`` or ``entity_projection``.
+
+        Device-only sources (entity_types = ["device"]) don't need the
+        Entities tab -- the device association is automatic via source_device.
+        """
+        declared = getattr(self, "entity_types", None) or []
+        if declared and set(declared) != {"device"}:
             return True
 
         def _has_projection(classes: tuple[type, ...]) -> bool:
@@ -412,9 +417,7 @@ class Plugin(abc.ABC):
                 for relation in classes
             )
 
-        if _has_projection(Plugin.load_tables(self.name, kind="source")):
-            return True
-        return _has_projection(Plugin.load_views(self.name))
+        return _has_projection(Plugin.load_tables(self.name, kind="source")) or _has_projection(Plugin.load_views(self.name))
 
     def get_config_entries(self) -> list[dict[str, str | None]]:
         return []

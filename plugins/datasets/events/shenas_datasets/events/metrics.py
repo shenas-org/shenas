@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from app.table import Field
-from shenas_datasets.core import EventMetricTable
+from shenas_datasets.core import EventMetricTable, TransformId
 
 # Shared type aliases
 Timestamp = Annotated[str, Field(db_type="TIMESTAMP", description="Event start time", display_name="Event Time")]
@@ -26,19 +26,17 @@ class Event(EventMetricTable):
         name = "events"
         display_name = "Events"
         description = "Unified timeline of events from all sources."
-        pk = ("source", "source_id")
+        pk = ("id",)
         time_at = "start_at"
+        sequences = ("datasets.events_seq",)
 
-    source: Source
-    source_id: Annotated[
-        str,
-        Field(
-            db_type="VARCHAR",
-            description="Unique ID within the source (e.g. calendar event ID, track URI)",
-            display_name="Source ID",
-        ),
-    ]
     start_at: Timestamp
+    id: Annotated[
+        int,
+        Field(db_type="INTEGER", description="Auto-increment event ID", db_default="nextval('datasets.events_seq')"),
+    ] = 0
+    source: Source = ""
+    transform_id: TransformId = 0
     end_at: Annotated[
         str | None,
         Field(db_type="TIMESTAMP", description="Event end time (null for instantaneous events)", display_name="End Time"),

@@ -89,15 +89,21 @@ class Measurements(EventTable):
     ] = None
     diastolic_bp: Annotated[
         int | None,
-        Field(db_type="INTEGER", description="Diastolic blood pressure", display_name="Diastolic BP"),
+        Field(db_type="INTEGER", description="Diastolic blood pressure", display_name="Diastolic BP", aggregation="avg"),
     ] = None
     systolic_bp: Annotated[
         int | None,
-        Field(db_type="INTEGER", description="Systolic blood pressure", display_name="Systolic BP"),
+        Field(db_type="INTEGER", description="Systolic blood pressure", display_name="Systolic BP", aggregation="avg"),
     ] = None
     heart_pulse: Annotated[
         int | None,
-        Field(db_type="INTEGER", description="Heart rate at measurement time", display_name="Heart Rate", unit="bpm"),
+        Field(
+            db_type="INTEGER",
+            description="Heart rate at measurement time",
+            display_name="Heart Rate",
+            unit="bpm",
+            aggregation="avg",
+        ),
     ] = None
     spo2_pct: Annotated[
         float | None,
@@ -159,7 +165,13 @@ class SleepSummary(AggregateTable):
     ] = None
     sleep_score: Annotated[
         int | None,
-        Field(db_type="INTEGER", description="Sleep score", display_name="Sleep Score", value_range=(0, 100)),
+        Field(
+            db_type="INTEGER",
+            description="Sleep score",
+            display_name="Sleep Score",
+            value_range=(0, 100),
+            aggregation="avg",
+        ),
     ] = None
     breathing_disturbances_intensity: Annotated[
         float | None,

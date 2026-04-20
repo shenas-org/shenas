@@ -35,6 +35,39 @@ class Field:
     db_default: str | None = None
     ui_widget: str | None = None
     options: tuple[str, ...] | None = None
+    aggregation: str | None = None
+    """How to aggregate this field in timeseries views.
+
+    Valid values: ``sum``, ``avg``, ``min``, ``max``, ``first``, ``last``,
+    ``count``, ``bool_or``, ``bool_and``, ``skip`` (exclude from view).
+    When ``None``, falls back to the db_type default (SUM for integers,
+    AVG for floats, BOOL_OR for booleans, FIRST for text).
+    """
+
+    @staticmethod
+    def from_hint(hint: Any) -> Field | None:
+        """Extract a ``Field`` from an ``Annotated`` type hint.
+
+        Handles ``Annotated[T, Field(...)]``, ``Annotated[T, ...] | None``,
+        and ``Optional[Annotated[T, ...]]``.  Returns ``None`` if the hint
+        does not contain a ``Field`` annotation.
+        """
+        import typing
+
+        origin = get_origin(hint)
+        args = get_args(hint)
+        # Unwrap Optional / Union to find the Annotated inner type.
+        if (origin is types.UnionType or origin is typing.Union) and args:
+            for arg in args:
+                if arg is not type(None) and get_origin(arg) is Annotated:
+                    hint = arg
+                    break
+        if get_origin(hint) is not Annotated:
+            return None
+        for arg in get_args(hint)[1:]:
+            if isinstance(arg, Field):
+                return arg
+        return None
 
 
 @dataclass(frozen=True)

@@ -293,6 +293,7 @@ class Mutation:
             source_plugin=transform_input.source_plugin,
             params=transform_input.params,
             description=transform_input.description,
+            materialization=transform_input.materialization,
             steps=steps,
         )
         return _transform_to_gql(t)
