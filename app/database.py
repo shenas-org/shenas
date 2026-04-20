@@ -253,6 +253,13 @@ class DatabaseManager:
                     cur.register(tmp_name, arrow_tbl)
                     cur.execute(f'CREATE OR REPLACE TABLE "{schema}"."{table_name}" AS SELECT * FROM {tmp_name}')
                     cur.unregister(tmp_name)
+                    # Notify subscribers that table data changed
+                    try:
+                        from app.pubsub import pubsub
+
+                        pubsub.publish_sync("table_data_changed", {"schema": schema, "table": table_name})
+                    except Exception:
+                        pass
 
         mem_con.close()
 

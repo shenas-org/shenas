@@ -1,6 +1,0 @@
-<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-  <rect width="400" height="400" fill="#E1D7C6"/>
-  <line x1="100" y1="200" x2="300" y2="200" stroke="#728F67" stroke-width="2"/>
-  <path d="M190 185 L200 175 L210 185" fill="none" stroke="#728F67" stroke-width="2"/>
-  <text x="200" y="240" font-family="Arial, sans-serif" font-size="32" fill="#728F67" text-anchor="middle" letter-spacing="2">shenas</text>
-</svg>

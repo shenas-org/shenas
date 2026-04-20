@@ -518,7 +518,14 @@ class Source(Plugin):
     def _mark_synced(self) -> None:
         """Update the synced_at timestamp in the plugin state table and data catalog."""
         try:
-            self.get_or_create_instance().mark_synced()
+            inst = self.get_or_create_instance()
+            inst.mark_synced()
+            from app.pubsub import pubsub
+
+            pubsub.publish_sync(
+                "plugin_state_changed",
+                {"kind": "source", "name": self.name, "synced_at": inst.synced_at, "enabled": inst.enabled},
+            )
         except Exception:
             logger.exception("Failed to update synced_at for %s", self.name)
         try:

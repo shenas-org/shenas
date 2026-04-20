@@ -14,7 +14,7 @@ import {
   tableStyles,
   renderMessage,
 } from "shenas-frontends";
-import { GET_ENTITIES_DATA, GET_ENTITY_WITH_STATEMENTS } from "./graphql/queries.ts";
+import { ENTITY_CHANGED, GET_ENTITIES_DATA, GET_ENTITY_WITH_STATEMENTS } from "./graphql/queries.ts";
 import {
   CREATE_ENTITY,
   UPDATE_ENTITY,
@@ -196,6 +196,7 @@ class EntitiesPage extends LitElement {
 
   private _cy: cytoscape.Core | null = null;
   private _resizeObserver: ResizeObserver | null = null;
+  private _entitySub: { unsubscribe: () => void } | null = null;
 
   private _entitiesQuery = new ApolloQueryController(this, GET_ENTITIES_DATA, { client: getClient() });
   private _createEntityMutation = new ApolloMutationController(this, CREATE_ENTITY, { client: getClient() });
@@ -264,7 +265,19 @@ class EntitiesPage extends LitElement {
     return { name: "", type: "animal", description: "", pickedUuid: null };
   }
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    // Subscribe to entity changes -- auto-refetch when any entity is
+    // created, updated, or gains new statements (from this client or another).
+    const client = getClient();
+    this._entitySub = client
+      .subscribe({ query: ENTITY_CHANGED })
+      .subscribe({ next: () => this._entitiesQuery.refetch() });
+  }
+
   disconnectedCallback(): void {
+    this._entitySub?.unsubscribe();
+    this._entitySub = null;
     super.disconnectedCallback();
     if (this._cy) {
       this._cy.destroy();

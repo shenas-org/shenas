@@ -455,3 +455,35 @@ export const GET_ENTITY_WITH_STATEMENTS = gql`
     }
   }
 `;
+
+// --- Subscriptions ---
+
+export const ENTITY_CHANGED = gql`
+  subscription EntityChanged {
+    entityChanged {
+      uuid
+      type
+      name
+    }
+  }
+`;
+
+export const TABLE_DATA_CHANGED = gql`
+  subscription TableDataChanged($schemaName: String) {
+    tableDataChanged(schemaName: $schemaName) {
+      schemaName
+      table
+    }
+  }
+`;
+
+export const PLUGIN_STATE_CHANGED = gql`
+  subscription PluginStateChanged($kind: String) {
+    pluginStateChanged(kind: $kind) {
+      kind
+      name
+      syncedAt
+      enabled
+    }
+  }
+`;

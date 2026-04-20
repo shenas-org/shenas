@@ -280,6 +280,15 @@ class Transform(Table):
                     catalog().mark_refreshed(transform.target_ref.schema, transform.target_ref.table)
                 except Exception:
                     pass
+                try:
+                    from app.pubsub import pubsub
+
+                    pubsub.publish_sync(
+                        "table_data_changed",
+                        {"schema": transform.target_ref.schema, "table": transform.target_ref.table},
+                    )
+                except Exception:
+                    pass
             count += result
         return count
 
@@ -309,6 +318,15 @@ class Transform(Table):
                     from app.data_catalog import catalog
 
                     catalog().mark_refreshed(transform.target_ref.schema, transform.target_ref.table)
+                except Exception:
+                    pass
+                try:
+                    from app.pubsub import pubsub
+
+                    pubsub.publish_sync(
+                        "table_data_changed",
+                        {"schema": transform.target_ref.schema, "table": transform.target_ref.table},
+                    )
                 except Exception:
                     pass
             count += result

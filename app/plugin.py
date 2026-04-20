@@ -95,6 +95,12 @@ class PluginInstance(Table):
             self.status_changed_at = now
         self.updated_at = now
         self.save()
+        try:
+            from app.pubsub import pubsub
+
+            pubsub.publish_sync("plugin_state_changed", {"kind": self.kind, "name": self.name, "enabled": self.enabled})
+        except Exception:
+            pass
 
     @property
     def _is_single_active(self) -> bool:

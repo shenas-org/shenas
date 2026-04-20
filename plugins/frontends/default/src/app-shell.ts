@@ -8,7 +8,14 @@ import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
-import { GET_DASHBOARDS, GET_HOTKEYS, GET_SHELL_DATA, GET_SIDEBAR_PLUGINS, GET_WORKSPACE } from "./graphql/queries.ts";
+import {
+  GET_DASHBOARDS,
+  GET_HOTKEYS,
+  GET_SHELL_DATA,
+  GET_SIDEBAR_PLUGINS,
+  GET_WORKSPACE,
+  PLUGIN_STATE_CHANGED,
+} from "./graphql/queries.ts";
 import {
   SAVE_WORKSPACE,
   SEED_TRANSFORMS,
@@ -1285,6 +1292,23 @@ class ShenasApp extends LitElement {
         this._pluginDisplayNames = displayNames;
       })
       .catch(() => {});
+
+    // Subscribe to plugin state changes so the sidebar updates live
+    // when a sync completes or a plugin is enabled/disabled.
+    this._client.subscribe({ query: PLUGIN_STATE_CHANGED }).subscribe({
+      next: () => {
+        this._client
+          .query({ query: GET_SIDEBAR_PLUGINS, fetchPolicy: "network-only" })
+          .then(({ data: pluginData }: { data: Record<string, unknown> }) => {
+            const allPlugins: Record<string, PluginSummary[]> = {};
+            for (const { id } of this._pluginKinds) {
+              allPlugins[id] = (pluginData?.[id] as PluginSummary[]) || [];
+            }
+            this._allPlugins = allPlugins;
+          })
+          .catch(() => {});
+      },
+    });
   }
 
   async _checkUserSession(): Promise<void> {

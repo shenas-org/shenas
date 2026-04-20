@@ -217,8 +217,14 @@ describe("shenas-plugin-detail", () => {
     (globalThis.fetch as any).mockResolvedValue(mockResponse({ data: { disablePlugin: { ok: true, message: "ok" } } }));
     await el._toggle();
     const calls = (globalThis.fetch as any).mock.calls;
-    const body = JSON.parse(calls[0][1].body);
-    expect(body.query).toContain("disablePlugin");
+    const mutationCall = calls.find((c: any[]) => {
+      try {
+        return JSON.parse(c[1]?.body)?.query?.includes("disablePlugin");
+      } catch {
+        return false;
+      }
+    });
+    expect(mutationCall).toBeTruthy();
   });
 
   it("_toggle calls enable when currently disabled", async () => {
@@ -229,8 +235,14 @@ describe("shenas-plugin-detail", () => {
     (globalThis.fetch as any).mockResolvedValue(mockResponse({ data: { enablePlugin: { ok: true, message: "ok" } } }));
     await el._toggle();
     const calls = (globalThis.fetch as any).mock.calls;
-    const body = JSON.parse(calls[0][1].body);
-    expect(body.query).toContain("enablePlugin");
+    const mutationCall = calls.find((c: any[]) => {
+      try {
+        return JSON.parse(c[1]?.body)?.query?.includes("enablePlugin");
+      } catch {
+        return false;
+      }
+    });
+    expect(mutationCall).toBeTruthy();
   });
 
   it("_sync handles error response", async () => {

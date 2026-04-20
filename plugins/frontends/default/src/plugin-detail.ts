@@ -11,7 +11,13 @@ import {
   tabStyles,
 } from "shenas-frontends";
 import "shenas-components";
-import { GET_THEME, GET_SUGGESTED_DATASETS, GET_SOURCE_ENTITIES } from "./graphql/queries.ts";
+import {
+  GET_THEME,
+  GET_SUGGESTED_DATASETS,
+  GET_SOURCE_ENTITIES,
+  TABLE_DATA_CHANGED,
+  PLUGIN_STATE_CHANGED,
+} from "./graphql/queries.ts";
 import {
   ENABLE_PLUGIN,
   DISABLE_PLUGIN,
@@ -317,6 +323,7 @@ class PluginDetail extends LitElement {
   private _loadingTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _client = getClient();
+  private _subs: Array<{ unsubscribe: () => void }> = [];
   private _setEntityStatusMutation = new ApolloMutationController(this, SET_ENTITY_STATUS, { client: this._client });
   private _updateEntityMutation = new ApolloMutationController(this, UPDATE_ENTITY, { client: this._client });
   private _createEntityTypeMutation = new ApolloMutationController(this, CREATE_ENTITY_TYPE, { client: this._client });
@@ -354,6 +361,26 @@ class PluginDetail extends LitElement {
     this._entities = [];
     this._entityTypes = [];
     this._entitiesLoading = false;
+  }
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    // Subscribe to live data changes so the Data tab, sidebar stats,
+    // and entity list update without manual refresh.
+    this._subs.push(
+      this._client
+        .subscribe({ query: TABLE_DATA_CHANGED })
+        .subscribe({ next: () => (this._dataRefreshKey = this._dataRefreshKey + 1) }),
+    );
+    this._subs.push(
+      this._client.subscribe({ query: PLUGIN_STATE_CHANGED }).subscribe({ next: () => this._fetchInfo() }),
+    );
+  }
+
+  disconnectedCallback(): void {
+    for (const sub of this._subs) sub.unsubscribe();
+    this._subs = [];
+    super.disconnectedCallback();
   }
 
   willUpdate(changed: Map<string, unknown>): void {
