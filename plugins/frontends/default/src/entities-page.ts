@@ -298,6 +298,11 @@ class EntitiesPage extends LitElement {
     return this._entities.find((e) => e.uuid === uuid);
   }
 
+  _isAbstractType(typeName: string): boolean {
+    const entityType = this._entityTypes.find((x) => x.name === typeName);
+    return entityType?.isAbstract ?? false;
+  }
+
   _typeDisplayName(name: string): string {
     const t = this._entityTypes.find((x) => x.name === name);
     return t ? t.displayName : name;
@@ -879,7 +884,9 @@ class EntitiesPage extends LitElement {
 
   _buildGraphElements(): CyElement[] {
     const elements: CyElement[] = [];
-    const enabledEntities = this._entities.filter((entity) => entity.status === "enabled");
+    const enabledEntities = this._entities.filter(
+      (entity) => entity.status === "enabled" && !this._isAbstractType(entity.type),
+    );
     const byUuid: Record<string, Entity> = {};
     for (const entity of enabledEntities) byUuid[entity.uuid] = entity;
 
@@ -1281,7 +1288,9 @@ class EntitiesPage extends LitElement {
             },
           },
         ]}
-        .rows=${this._entities.filter((e) => e.status === "enabled") as unknown as Record<string, unknown>[]}
+        .rows=${this._entities.filter(
+          (e) => e.status === "enabled" && !this._isAbstractType(e.type),
+        ) as unknown as Record<string, unknown>[]}
         .actions=${(row: Record<string, unknown>) => {
           const e = row as unknown as Entity;
           return e.isMe

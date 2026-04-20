@@ -20,7 +20,7 @@
     "@types/node": "^25.5.2",
     "echarts": "^6.0.0",
     "graphql": "^16.13.2",
-    "happy-dom": "~17.6.3",
+    "happy-dom": "^20.9.0",
     "typescript": "^5.9.3",
     "urlpattern-polyfill": "^10.1.0",
     "vite": "^6.0.0",
