@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { apiFetch, apiFetchFull, renderMessage, registerCommands } from "../shenas-frontends/api.ts";
+import { apiFetch, apiFetchFull, renderMessage, registerCommands, openExternal } from "../shenas-frontends/api.ts";
 
 const mockFetch = vi.fn();
 
@@ -87,5 +87,22 @@ describe("registerCommands", () => {
       componentId: "test-component",
       commands: [{ id: "act1", label: "Action 1", category: "Test" }],
     });
+  });
+});
+
+describe("openExternal", () => {
+  it("opens a new tab in browser", () => {
+    const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+    openExternal("https://example.com");
+    expect(openSpy).toHaveBeenCalledWith("https://example.com", "_blank", "noopener");
+    openSpy.mockRestore();
+  });
+
+  it("uses Tauri invoke when available", async () => {
+    const invokeMock = vi.fn().mockResolvedValue(undefined);
+    (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = { invoke: invokeMock };
+    openExternal("https://example.com");
+    expect(invokeMock).toHaveBeenCalledWith("plugin:shell|open", { path: "https://example.com" });
+    delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
   });
 });

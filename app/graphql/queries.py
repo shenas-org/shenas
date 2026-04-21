@@ -834,11 +834,10 @@ class Query:
         # One Statement.all() with a source filter replaces 1454 per-entity queries.
         sources_by_entity: dict[str, list[str]] = {}
         try:
-            all_sourced = Statement.all(where="source IS NOT NULL AND source != ''")
-            source_sets: dict[str, set[str]] = {}
-            for stmt in all_sourced:
-                source_sets.setdefault(stmt.entity_id, set()).add(stmt.source)
-            sources_by_entity = {k: sorted(v) for k, v in source_sets.items()}
+            _sources_sets: dict[str, set[str]] = {}
+            for stmt in Statement.all(where="source IS NOT NULL AND source != ''"):
+                _sources_sets.setdefault(stmt.entity_id, set()).add(stmt.source)
+            sources_by_entity = {k: sorted(v) for k, v in _sources_sets.items()}
         except Exception:
             pass
 

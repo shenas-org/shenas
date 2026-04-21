@@ -20,6 +20,7 @@ import dataclasses
 from typing import Annotated, Any, Optional, get_args, get_origin, get_type_hints
 
 import strawberry
+import strawberry.types.field
 
 from app.relation import Field
 
