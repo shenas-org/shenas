@@ -485,7 +485,7 @@ class EntitiesPage extends LitElement {
     const rows = statements
       .map((s) => {
         const label = s.propertyLabel || s.propertyId;
-        const value = s.valueLabel || s.value;
+        const value = s.valueLabel && s.valueLabel !== s.value ? `${s.value} (${s.valueLabel})` : s.value;
         const sourceTag =
           s.source !== "user" ? ` <span style="opacity:0.5;font-size:0.85em">[${this._escape(s.source)}]</span>` : "";
         return `

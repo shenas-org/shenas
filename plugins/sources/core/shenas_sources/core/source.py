@@ -766,13 +766,14 @@ class Source(Plugin):
 
         Joins all time-series tables from this source into a single view
         bucketed to the auto-detected grain (day for all-DATE sources,
-        hour for TIMESTAMP sources, year for INTEGER-year sources).
+        15mins for TIMESTAMP sources, year for INTEGER-year sources).
         Each table becomes a CTE aggregated to that grain, then all CTEs
         are FULL OUTER JOINed on ``time_bucket``.
 
         Columns are prefixed with the table's short name (without the source
         prefix) to avoid collisions: ``daily_stats__calories``, ``sleep__score``.
         """
+        from app.plugin import Plugin
         from shenas_sources.core.table import (
             AggregateTable,
             CounterTable,
@@ -784,7 +785,7 @@ class Source(Plugin):
             SourceTable,
         )
 
-        tables = list(getattr(type(self), "_source_tables", ()))
+        tables = list(Plugin.load_tables(self.name, kind="source"))
         if not tables:
             return
 
@@ -816,14 +817,25 @@ class Source(Plugin):
         skip_cols = {"id", "entity_id", "observed_at", "source", "source_device"}
 
         for table_cls in tables:
-            meta = table_cls._Meta
+            meta = table_cls._Meta  # ty: ignore[unresolved-attribute]
             full_name = meta.name
             qualified = f'"{schema}"."{full_name}"'
             # Short name: strip the source prefix (garmin__daily_stats -> daily_stats)
             short = full_name.removeprefix(f"{self.name}__") if full_name.startswith(f"{self.name}__") else full_name
 
-            time_col = table_cls.timeseries_time_col()
+            time_col = table_cls.timeseries_time_col()  # ty: ignore[unresolved-attribute]
             if not time_col:
+                continue
+
+            # Skip tables where the time column doesn't exist in the physical table
+            # (e.g. SCD2 tables using _dlt_valid_from before first dlt sync)
+            physical = table_cls.physical_columns()  # ty: ignore[unresolved-attribute]
+            if time_col not in physical:
+                logger.debug(
+                    "Skipping %s from timeseries view: time column %r not in physical columns",
+                    full_name,
+                    time_col,
+                )
                 continue
 
             # Get column metadata for aggregation
@@ -864,13 +876,13 @@ class Source(Plugin):
             if not agg_cols:
                 continue
 
-            # For SCD2 tables, filter to current slice
+            # For SCD2 tables, filter to current slice (only if column exists)
             where = ""
-            if issubclass(table_cls, (DimensionTable, SnapshotTable, M2MTable)):
+            if issubclass(table_cls, (DimensionTable, SnapshotTable, M2MTable)) and "_dlt_valid_to" in physical:
                 where = " WHERE _dlt_valid_to IS NULL"
 
             cte_name = f"cte_{short}"
-            cte_sql = table_cls.timeseries_cte(
+            cte_sql = table_cls.timeseries_cte(  # ty: ignore[unresolved-attribute]
                 cte_name=cte_name,
                 short=short,
                 qualified=qualified,

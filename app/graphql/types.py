@@ -470,18 +470,11 @@ _EntityBase = _derive(
 @strawberry.type(description="A typed node in the entity graph.")
 class GqlEntityType(_EntityBase):
     is_me: bool = False
+    sources: list[str] = strawberry.field(default_factory=list)
 
     @classmethod
     def build(cls, *, is_me: bool = False, **kwargs: Any) -> GqlEntityType:
         return cls(**kwargs, is_me=is_me)
-
-    @strawberry.field
-    def sources(self) -> list[str]:
-        """Distinct source plugin names that produced statements for this entity."""
-        from app.entities.statements import Statement
-
-        stmts = Statement.all(where="entity_id = ? AND source IS NOT NULL", params=[self.uuid])
-        return sorted({s.source for s in stmts if s.source})
 
     @strawberry.field
     def statements(self) -> list[StatementType]:

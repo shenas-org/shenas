@@ -60,6 +60,29 @@ if TYPE_CHECKING:
 
 # Map DuckDB types (as produced by shenas_plugins.core.ddl._duckdb_type) to
 # dlt's type system. Used by SourceTable.to_dlt_columns().
+_GRAIN_INTERVALS: dict[str, str] = {
+    "15mins": "15 minutes",
+    "hour": "1 hour",
+    "day": "1 day",
+    "year": "1 year",
+}
+
+
+def _bucket_expr(grain: str, time_col: str) -> str:
+    """Build a SQL expression that buckets a timestamp column by grain.
+
+    For simple grains (day, hour, year) uses ``date_trunc``.
+    For ``15mins`` uses DuckDB's ``time_bucket``.
+
+    ``time_col`` can be a simple column name (quoted) or a table-qualified
+    reference like ``b.bucket`` (not quoted as a single identifier).
+    """
+    col_ref = time_col if "." in time_col else f'"{time_col}"'
+    if grain == "15mins":
+        return f"time_bucket(INTERVAL '15 minutes', CAST({col_ref} AS TIMESTAMP))"
+    return f"date_trunc('{grain}', CAST({col_ref} AS TIMESTAMP))"
+
+
 _DLT_TYPE_MAP: dict[str, str] = {
     "varchar": "text",
     "text": "text",
@@ -113,9 +136,9 @@ class SourceTable(DataTable):
 
         Examines the ``db_type`` of each table's declared time column:
         - All ``DATE`` -> ``day``
-        - Any ``TIMESTAMP`` -> ``hour``
+        - Any ``TIMESTAMP`` -> ``15mins`` (15-minute buckets)
         - All ``INTEGER`` (year columns) -> ``year``
-        - Mixed or unknown -> ``hour`` (safe default)
+        - Mixed or unknown -> ``quarter`` (safe default)
         """
         from typing import get_type_hints
 
@@ -141,12 +164,12 @@ class SourceTable(DataTable):
                 continue
 
         if not db_types:
-            return "hour"
+            return "15mins"
         if db_types <= {"DATE"}:
             return "day"
         if db_types <= {"INTEGER"}:
             return "year"
-        return "hour"
+        return "15mins"
 
     # ------------------------------------------------------------------
     # dlt translation -- kind base classes override write_disposition()
@@ -229,9 +252,10 @@ class SourceTable(DataTable):
         cols = [f'{agg_fn}("{col}") AS "{alias}"' for agg_fn, col, alias in agg_exprs]
         cols.append(f'COUNT(*) AS "{short}__count"')
         cols_sql = ",\n    ".join(cols)
+        bucket_expr = _bucket_expr(grain, time_col)
         return (
             f"{cte_name} AS (\n"
-            f"  SELECT date_trunc('{grain}', CAST(\"{time_col}\" AS TIMESTAMP)) AS time_bucket,\n"
+            f"  SELECT {bucket_expr} AS time_bucket,\n"
             f"    {cols_sql}\n"
             f"  FROM {qualified}{where}\n"
             f"  GROUP BY 1\n"
@@ -357,7 +381,9 @@ class IntervalTable(SourceTable):
         metrics only to the start bucket via CASE WHEN.
         """
         time_end_col = getattr(cls._Meta, "time_end", None) or time_col
-        grain_interval = {"hour": "1 hour", "day": "1 day", "year": "1 year"}.get(grain, "1 hour")
+        grain_interval = _GRAIN_INTERVALS.get(grain, "15 minutes")
+        bucket = _bucket_expr(grain, "b.bucket")
+        start_bucket = _bucket_expr(grain, time_col)
 
         # Metrics attributed only to the start bucket
         cols = [
@@ -372,8 +398,8 @@ class IntervalTable(SourceTable):
             f'    COUNT(*) AS "{short}__count"\n'
             f"  FROM (\n"
             f"    SELECT\n"
-            f"      date_trunc('{grain}', CAST(b.bucket AS TIMESTAMP)) AS time_bucket,\n"
-            f"      date_trunc('{grain}', CAST(\"{time_col}\" AS TIMESTAMP)) AS start_bucket,\n"
+            f"      {bucket} AS time_bucket,\n"
+            f"      {start_bucket} AS start_bucket,\n"
             f"      t.*\n"
             f"    FROM {qualified} t,\n"
             f"    LATERAL generate_series(\n"

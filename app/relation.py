@@ -255,6 +255,19 @@ class Relation:
         return [f.name for f in dataclasses.fields(cls)]
 
     @classmethod
+    def physical_columns(cls) -> list[str]:
+        """Return column names from the actual DuckDB table (not the dataclass)."""
+        from app.database import cursor
+
+        schema = cls._Meta.schema.name if hasattr(cls._Meta.schema, "name") else str(cls._Meta.schema)
+        with cursor(database=cls._resolve_database()) as cur:
+            rows = cur.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ?",
+                [schema, cls._Meta.name],
+            ).fetchall()
+        return [r[0] for r in rows]
+
+    @classmethod
     def from_row(cls, row: tuple[Any, ...]) -> Self:
         """Build an instance from a row tuple in dataclass field order."""
         return cls(**dict(zip(cls._column_names(), row, strict=True)))

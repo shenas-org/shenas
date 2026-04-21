@@ -822,12 +822,26 @@ class Query:
 
     @strawberry.field
     def entities(self, info: strawberry.types.Info, status: str | None = None) -> list[GqlEntityType]:  # noqa: ARG002
+        from app.entities.statements import Statement
         from app.entity import Entity
 
         # Find the "me" entity: the first human entity created at bootstrap.
         me_candidates = Entity.all(where="type = 'human'", order_by="id", limit=1)
         me_uuid = me_candidates[0].uuid if me_candidates else None
         where = f"status = '{status}'" if status else None
+
+        # Batch-load sources for all entities in one query to avoid N+1.
+        # One Statement.all() with a source filter replaces 1454 per-entity queries.
+        sources_by_entity: dict[str, list[str]] = {}
+        try:
+            all_sourced = Statement.all(where="source IS NOT NULL AND source != ''")
+            source_sets: dict[str, set[str]] = {}
+            for stmt in all_sourced:
+                source_sets.setdefault(stmt.entity_id, set()).add(stmt.source)
+            sources_by_entity = {k: sorted(v) for k, v in source_sets.items()}
+        except Exception:
+            pass
+
         return [
             GqlEntityType.build(
                 uuid=e.uuid,
@@ -838,6 +852,7 @@ class Query:
                 added_at=str(e.added_at) if e.added_at else None,
                 updated_at=str(e.updated_at) if e.updated_at else None,
                 is_me=(e.uuid == me_uuid),
+                sources=sources_by_entity.get(e.uuid, []),
             )
             for e in Entity.all(where=where, order_by="name")
         ]

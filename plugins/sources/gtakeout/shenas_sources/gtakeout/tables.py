@@ -16,12 +16,17 @@ from typing import TYPE_CHECKING, Annotated, Any
 
 from app.table import Field
 from shenas_sources.core.table import (
+    AggregateTable,
     EventTable,
+    IntervalTable,
     SnapshotTable,
     SourceTable,
 )
 from shenas_sources.gtakeout.drive import iter_files
+from shenas_sources.gtakeout.parsers.chrome import parse_browser_history
+from shenas_sources.gtakeout.parsers.fit import parse_activity_sessions, parse_daily_metrics
 from shenas_sources.gtakeout.parsers.location import parse_location_records, parse_semantic_locations
+from shenas_sources.gtakeout.parsers.mail import parse_mbox
 from shenas_sources.gtakeout.parsers.photos import parse_photos_metadata
 from shenas_sources.gtakeout.parsers.youtube import parse_search_history, parse_subscriptions, parse_watch_history
 
@@ -212,6 +217,164 @@ class YouTubeSubscriptions(SnapshotTable):
         yield from parse_subscriptions(files)
 
 
+class ChromeBrowserHistory(EventTable):
+    """Chrome browser history from Takeout."""
+
+    class _Meta:
+        name = "chrome_browser_history"
+        display_name = "Chrome Browser History"
+        description = "Browser history entries exported from Chrome."
+        pk = ("url", "timestamp")
+        time_at = "timestamp"
+
+    url: Annotated[str, Field(db_type="VARCHAR", description="Page URL", display_name="URL")] = ""
+    timestamp: Annotated[str, Field(db_type="VARCHAR", description="Visit timestamp (ISO)", display_name="Timestamp")] = ""
+    title: Annotated[str | None, Field(db_type="VARCHAR", description="Page title", display_name="Title")] = None
+    favicon_url: Annotated[str | None, Field(db_type="VARCHAR", description="Favicon URL", display_name="Favicon URL")] = None
+    page_transition: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Page transition type", display_name="Transition")
+    ] = None
+    client_id: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Chrome client/profile ID", display_name="Client ID")
+    ] = None
+
+    @classmethod
+    def extract(cls, client: Path, **_: Any) -> Iterator[dict[str, Any]]:
+        files = iter_files(client, "Chrome")
+        yield from parse_browser_history(files)
+
+
+class Fit15minMetrics(AggregateTable):
+    """Google Fit activity metrics at 15-minute intervals from daily CSV files."""
+
+    class _Meta:
+        name = "fit_15min_metrics"
+        display_name = "Fit 15min Metrics"
+        description = "Activity metrics from Google Fit at 15-minute intervals (steps, calories, distance, heart rate)."
+        pk = ("date", "start_time")
+        time_at = "start_time"
+
+    date: Annotated[str, Field(db_type="DATE", description="Date", display_name="Date")] = ""
+    start_time: Annotated[
+        str, Field(db_type="VARCHAR", description="Interval start time (ISO)", display_name="Start Time")
+    ] = ""
+    calories_kcal: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Calories burned", display_name="Calories", unit="kcal")
+    ] = None
+    distance_m: Annotated[float | None, Field(db_type="DOUBLE", description="Distance", display_name="Distance", unit="m")] = (
+        None
+    )
+    move_minutes: Annotated[
+        int | None, Field(db_type="INTEGER", description="Active move minutes", display_name="Move Minutes", unit="min")
+    ] = None
+    step_count: Annotated[int | None, Field(db_type="INTEGER", description="Step count", display_name="Steps")] = None
+    heart_points: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Heart points earned", display_name="Heart Points")
+    ] = None
+    walking_duration_ms: Annotated[
+        int | None,
+        Field(db_type="INTEGER", description="Walking duration", display_name="Walking Duration", unit="ms"),
+    ] = None
+    avg_heart_rate_bpm: Annotated[
+        float | None,
+        Field(db_type="DOUBLE", description="Average heart rate", display_name="Avg Heart Rate", unit="bpm"),
+    ] = None
+    max_heart_rate_bpm: Annotated[
+        float | None,
+        Field(db_type="DOUBLE", description="Maximum heart rate", display_name="Max Heart Rate", unit="bpm"),
+    ] = None
+    avg_speed_ms: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Average speed", display_name="Avg Speed", unit="m/s")
+    ] = None
+    weight_kg: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Average weight", display_name="Weight", unit="kg")
+    ] = None
+
+    @classmethod
+    def extract(cls, client: Path, **_: Any) -> Iterator[dict[str, Any]]:
+        files = iter_files(client, "Fit/Daily activity metrics", suffix=".csv")
+        yield from parse_daily_metrics(files)
+
+
+class FitActivitySessions(IntervalTable):
+    """Google Fit activity sessions (workouts, walks, runs)."""
+
+    class _Meta:
+        name = "fit_activity_sessions"
+        display_name = "Fit Activity Sessions"
+        description = "Activity sessions from Google Fit (running, walking, strength training, etc.)."
+        pk = ("activity", "start_time")
+        time_start = "start_time"
+        time_end = "end_time"
+
+    activity: Annotated[
+        str, Field(db_type="VARCHAR", description="Activity type (running, walking, etc.)", display_name="Activity")
+    ] = ""
+    start_time: Annotated[str, Field(db_type="VARCHAR", description="Session start time (ISO)", display_name="Start Time")] = (
+        ""
+    )
+    end_time: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Session end time (ISO)", display_name="End Time")
+    ] = None
+    duration_s: Annotated[int | None, Field(db_type="INTEGER", description="Duration", display_name="Duration", unit="s")] = (
+        None
+    )
+    calories_kcal: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Calories burned", display_name="Calories", unit="kcal")
+    ] = None
+    step_count: Annotated[int | None, Field(db_type="INTEGER", description="Steps during session", display_name="Steps")] = (
+        None
+    )
+    distance_m: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Distance covered", display_name="Distance", unit="m")
+    ] = None
+    avg_speed_ms: Annotated[
+        float | None, Field(db_type="DOUBLE", description="Average speed", display_name="Avg Speed", unit="m/s")
+    ] = None
+
+    @classmethod
+    def extract(cls, client: Path, **_: Any) -> Iterator[dict[str, Any]]:
+        files = iter_files(client, "Fit/All Sessions")
+        yield from parse_activity_sessions(files)
+
+
+class GmailMessages(EventTable):
+    """Gmail message metadata from mbox export."""
+
+    class _Meta:
+        name = "gmail_messages"
+        display_name = "Gmail Messages"
+        description = "Email metadata from Gmail mbox export (no body content)."
+        pk = ("message_id",)
+        time_at = "timestamp"
+
+    message_id: Annotated[str, Field(db_type="VARCHAR", description="Email Message-ID", display_name="Message ID")] = ""
+    timestamp: Annotated[
+        str, Field(db_type="VARCHAR", description="Send/receive timestamp (ISO)", display_name="Timestamp")
+    ] = ""
+    from_addr: Annotated[str | None, Field(db_type="VARCHAR", description="From address", display_name="From")] = None
+    to_addr: Annotated[str | None, Field(db_type="VARCHAR", description="To address", display_name="To")] = None
+    subject: Annotated[str | None, Field(db_type="VARCHAR", description="Email subject", display_name="Subject")] = None
+    labels: Annotated[
+        str | None, Field(db_type="VARCHAR", description="Gmail labels (comma-separated)", display_name="Labels")
+    ] = None
+    thread_id: Annotated[str | None, Field(db_type="VARCHAR", description="Gmail thread ID", display_name="Thread ID")] = None
+    content_type: Annotated[
+        str | None, Field(db_type="VARCHAR", description="MIME content type", display_name="Content Type")
+    ] = None
+    has_attachments: Annotated[
+        bool, Field(db_type="BOOLEAN", description="Whether the message has attachments", display_name="Has Attachments")
+    ] = False
+
+    @classmethod
+    def extract(cls, client: Path, **_: Any) -> Iterator[dict[str, Any]]:
+        # mbox files can be under Takeout/Mail/ or directly in the local folder
+        files = iter_files(client, "Mail", suffix=".mbox")
+        if not files:
+            files = sorted(client.glob("*.mbox"))
+        yield from parse_mbox(files)
+
+
 TABLES: tuple[type[SourceTable], ...] = (
     PhotosMetadata,
     LocationRecords,
@@ -219,4 +382,8 @@ TABLES: tuple[type[SourceTable], ...] = (
     YouTubeWatchHistory,
     YouTubeSearchHistory,
     YouTubeSubscriptions,
+    ChromeBrowserHistory,
+    Fit15minMetrics,
+    FitActivitySessions,
+    GmailMessages,
 )
