@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import importlib.metadata
 import platform
 import shutil
@@ -115,13 +116,6 @@ _IMPORTS_CLI = [
     "shenasctl.commands.ui_cmd",
 ]
 
-_IMPORTS_SCHEDULER = [
-    "scheduler",
-    "scheduler.cli",
-    "scheduler.daemon",
-    "shenasctl.client",
-]
-
 # Modules to exclude globally
 _EXCLUDES_GLOBAL = [
     "pytest",
@@ -134,24 +128,6 @@ _EXCLUDES_GLOBAL = [
     "xmlrpc",
     "pydoc",
     "doctest",
-]
-
-# Extra excludes for lightweight targets (scheduler/CLI don't need these)
-_EXCLUDES_LIGHTWEIGHT = [
-    "pyarrow",
-    "numpy",
-    "pandas",
-    "uvicorn",
-    "fastapi",
-    "starlette",
-    "opentelemetry",
-    "dlt",
-    "pendulum",
-    "fsspec",
-    "google",
-    "googleapiclient",
-    "google_auth_httplib2",
-    "httplib2",
 ]
 
 # Extra excludes for CLI (doesn't need server runtime)
@@ -194,7 +170,6 @@ def _target_triple() -> str:
 # fitness-dashboard, etc.) are installed separately by the user.
 _INTERNAL_PACKAGES = {
     "shenas-app",
-    "shenas-scheduler",
     "shenas-source-core",
     "shenas-dataset-core",
     "shenas-frontend-default",
@@ -228,31 +203,24 @@ def _collect_llama_cpp_binaries() -> list[tuple[str, str]]:
     return out
 
 
-def _collect_dist_info_datas(target_name: str) -> list[tuple[str, str]]:
+def _collect_dist_info_datas(_target_name: str) -> list[tuple[str, str]]:
     """Collect .dist-info directories so importlib.metadata.entry_points() works at runtime."""
     datas: list[tuple[str, str]] = []
-    # Scheduler only needs its own dist-info + shenas-app (for the client)
-    scheduler_only = {"shenas-scheduler", "shenas-app"}
-
     for dist in importlib.metadata.distributions():
         name = dist.metadata["Name"] or ""
         if name not in _INTERNAL_PACKAGES:
-            continue
-        if target_name == "shenas-scheduler" and name not in scheduler_only:
             continue
         if dist._path and dist._path.exists():
             datas.append((str(dist._path), dist._path.name))
     return datas
 
 
-def _collect_package_datas(target_name: str) -> list[str]:
+def _collect_package_datas(_target_name: str) -> list[str]:
     """Packages whose non-.py data files (JSON, CSS, HTML, static) must be included.
 
     Only internal packages are bundled. User plugins (sources, schemas,
     components, themes, UI) are installed separately via shenasctl.
     """
-    if target_name == "shenas-scheduler":
-        return []
     return [
         "shenas_sources.core",
         "shenas_datasets.core",
@@ -261,10 +229,8 @@ def _collect_package_datas(target_name: str) -> list[str]:
     ]
 
 
-def _collect_explicit_datas(target_name: str) -> list[tuple[str, str]]:
+def _collect_explicit_datas(_target_name: str) -> list[tuple[str, str]]:
     """Specific data files from app/ that are needed at runtime."""
-    if target_name == "shenas-scheduler":
-        return []
     datas: list[tuple[str, str]] = []
     static_dir = ROOT / "app" / "static"
     if static_dir.is_dir():
@@ -277,21 +243,15 @@ def _collect_explicit_datas(target_name: str) -> list[tuple[str, str]]:
 
 def _get_hidden_imports(target_name: str) -> list[str]:
     """Return hidden imports for a specific target."""
-    if target_name == "shenas":
-        return _IMPORTS_SERVER
     if target_name == "shenasctl":
         return _IMPORTS_CLI
-    if target_name == "shenas-scheduler":
-        return _IMPORTS_SCHEDULER
-    return _IMPORTS_SERVER  # fallback to full
+    return _IMPORTS_SERVER
 
 
 def _get_excludes(target_name: str) -> list[str]:
     """Return module exclusions for a specific target."""
     excludes = list(_EXCLUDES_GLOBAL)
-    if target_name == "shenas-scheduler":
-        excludes.extend(_EXCLUDES_LIGHTWEIGHT)
-    elif target_name == "shenasctl":
+    if target_name == "shenasctl":
         excludes.extend(_EXCLUDES_CLI)
     return excludes
 
@@ -420,28 +380,29 @@ TARGETS = {
         "entry": BUILD_DIR / "shenasctl_entry.py",
         "description": "Shenas CLI",
     },
-    "shenas-scheduler": {
-        "entry": BUILD_DIR / "shenas_scheduler_entry.py",
-        "description": "Shenas sync scheduler",
-    },
 }
 
 
-def build_target(
+def build_target(  # noqa: PLR0912
     name: str,
     target: dict[str, Path | str],
     *,
     onefile: bool,
     dist_dir: Path,
     patched_libpython: Path | None = None,
+    capture: bool = False,
 ) -> Path:
-    """Build a single PyInstaller target. Returns the output path."""
+    """Build a single PyInstaller target. Returns the output path.
+
+    When ``capture`` is True, PyInstaller's stdout/stderr are buffered and
+    flushed at the end as one block, so concurrent builds don't interleave.
+    """
     triple = _target_triple()
     output_name = f"{name}-{triple}"
 
-    print(f"\n{'=' * 60}")
-    print(f"Building {name} ({target['description']}) [{'onefile' if onefile else 'onedir'}]")
-    print(f"{'=' * 60}\n")
+    header = f"\n{'=' * 60}\nBuilding {name} ({target['description']}) [{'onefile' if onefile else 'onedir'}]\n{'=' * 60}\n"
+    if not capture:
+        print(header, end="")
 
     sep = _sep()
     hidden_imports = _get_hidden_imports(name)
@@ -482,9 +443,21 @@ def build_target(
         str(target["entry"]),
     ]
 
-    print(f"Running PyInstaller with {len(cmd)} args...")
-    print(f"  Hidden imports: {len(hidden_imports)}, Excludes: {len(excludes)}")
-    result = subprocess.run(cmd, cwd=str(ROOT))
+    if capture:
+        result = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True)
+        sys.stdout.write(header)
+        sys.stdout.write(f"Running PyInstaller with {len(cmd)} args...\n")
+        sys.stdout.write(f"  Hidden imports: {len(hidden_imports)}, Excludes: {len(excludes)}\n")
+        if result.stdout:
+            sys.stdout.write(result.stdout)
+        if result.stderr:
+            sys.stderr.write(result.stderr)
+        sys.stdout.flush()
+        sys.stderr.flush()
+    else:
+        print(f"Running PyInstaller with {len(cmd)} args...")
+        print(f"  Hidden imports: {len(hidden_imports)}, Excludes: {len(excludes)}")
+        result = subprocess.run(cmd, cwd=str(ROOT))
     if result.returncode != 0:
         print(f"\nFailed to build {name} (exit code {result.returncode})")
         sys.exit(result.returncode)
@@ -586,7 +559,7 @@ def _sep() -> str:
     return ";" if platform.system() == "Windows" else ":"
 
 
-def main() -> None:
+def main() -> None:  # noqa: PLR0912
     parser = argparse.ArgumentParser(description="Build shenas binaries with PyInstaller")
     parser.add_argument("targets", nargs="*", help="Targets to build (default: all)")
     parser.add_argument("--list", action="store_true", help="List available targets")
@@ -594,6 +567,13 @@ def main() -> None:
         "--onefile",
         action="store_true",
         help="Build single-file binaries (for Tauri sidecars). Default is --onedir.",
+    )
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=None,
+        help="Number of PyInstaller targets to build in parallel. Default: one per target.",
     )
     args = parser.parse_args()
 
@@ -628,15 +608,37 @@ def main() -> None:
     dist_dir.mkdir(parents=True, exist_ok=True)
     WORK_DIR.mkdir(parents=True, exist_ok=True)
 
-    results = {}
-    for name in to_build:
-        results[name] = build_target(
-            name,
-            TARGETS[name],
-            onefile=onefile,
-            dist_dir=dist_dir,
-            patched_libpython=patched_libpython,
-        )
+    requested_jobs = args.jobs if args.jobs is not None else len(to_build)
+    jobs = max(1, min(requested_jobs, len(to_build)))
+
+    results: dict[str, Path] = {}
+    if jobs <= 1 or len(to_build) == 1:
+        for name in to_build:
+            results[name] = build_target(
+                name,
+                TARGETS[name],
+                onefile=onefile,
+                dist_dir=dist_dir,
+                patched_libpython=patched_libpython,
+            )
+    else:
+        print(f"\nBuilding {len(to_build)} targets with up to {jobs} parallel jobs...")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
+            future_to_name = {
+                ex.submit(
+                    build_target,
+                    name,
+                    TARGETS[name],
+                    onefile=onefile,
+                    dist_dir=dist_dir,
+                    patched_libpython=patched_libpython,
+                    capture=True,
+                ): name
+                for name in to_build
+            }
+            for future in concurrent.futures.as_completed(future_to_name):
+                name = future_to_name[future]
+                results[name] = future.result()
 
     # For --onedir with multiple targets, merge into shared directory
     if not onefile and len(results) > 1:

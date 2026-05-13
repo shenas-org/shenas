@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from app.table import Field
-from shenas_datasets.core import DailyMetricTable, EventMetricTable, MonthlyMetricTable, TransformId
+from shenas_datasets.core import DatasetTable, TransformId
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date", category="time")]
 Source = Annotated[
@@ -9,7 +9,7 @@ Source = Annotated[
 ]
 
 
-class Transaction(EventMetricTable):
+class Transaction(DatasetTable):
     """Individual financial transaction -- one row per (id, source)."""
 
     class _Meta:
@@ -18,6 +18,7 @@ class Transaction(EventMetricTable):
         description = "Per-transaction financial events from spending sources."
         pk = ("id", "transform_id")
         time_at = "date"
+        kind = "event_metric"
 
     id: Annotated[
         str,
@@ -144,14 +145,15 @@ class Transaction(EventMetricTable):
     ) = None
 
 
-class DailySpending(DailyMetricTable):
+class DailySpending(DatasetTable):
     """Aggregated daily spending -- one row per (date, source)."""
 
     class _Meta:
         name = "daily_spending"
-        display_name = "Daily Spending"
+        display_name = "Spending"
         description = "Per-day rollup of transaction outflows / inflows."
         pk = ("date", "transform_id")
+        time_at = "date"
 
     date: Date
     source: Source = ""
@@ -202,14 +204,15 @@ class DailySpending(DailyMetricTable):
     ) = None
 
 
-class MonthlyCategory(MonthlyMetricTable):
+class MonthlyCategory(DatasetTable):
     """Monthly spending by category -- one row per (month, category, source)."""
 
     class _Meta:
         name = "monthly_category"
-        display_name = "Monthly Spending by Category"
+        display_name = "Spending by Category"
         description = "Per-month spend totals broken down by category."
         pk = ("month", "category", "transform_id")
+        time_at = "month"
 
     month: Annotated[
         str,
@@ -276,14 +279,15 @@ class MonthlyCategory(MonthlyMetricTable):
     ) = None
 
 
-class MonthlyOverview(MonthlyMetricTable):
+class MonthlyOverview(DatasetTable):
     """Monthly financial summary -- one row per (month, source)."""
 
     class _Meta:
         name = "monthly_overview"
-        display_name = "Monthly Overview"
+        display_name = "Overview"
         description = "Per-month income, spending, net, and savings rate summary."
         pk = ("month", "transform_id")
+        time_at = "month"
 
     month: Annotated[
         str,

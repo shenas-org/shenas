@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import LOCAL_DB
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
@@ -42,6 +43,7 @@ class ShellHistorySource(Source):
         "  source ~/.bash_profile\n\n"
         "Only commands entered after this change will have timestamps."
     )
+    access_types = (LOCAL_DB,)
 
     @dataclass
     class Config(SourceConfig):

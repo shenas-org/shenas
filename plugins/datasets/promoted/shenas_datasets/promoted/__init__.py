@@ -7,7 +7,7 @@ This package owns the ``PromotedMetric`` row class plus the
 column shape, and the provenance back to the originating hypothesis.
 
 At catalog-walk time :meth:`PromotedSchema.all_tables` queries the row
-table and constructs a ``MetricTable`` subclass per row via ``type()``.
+table and constructs a ``DatasetTable`` subclass per row via ``type()``.
 The constructed class carries:
 
 - ``_Meta``  with name / schema / pk derived from the row
@@ -29,7 +29,7 @@ from typing import Annotated, Any
 
 from app.schema import ANALYSIS
 from app.table import Field, Table
-from shenas_datasets.core import Dataset, MetricTable
+from shenas_datasets.core import Dataset, DatasetTable
 
 
 @dataclass
@@ -79,12 +79,12 @@ _DUCKDB_TO_PYTHON: dict[str, type] = {
 }
 
 
-def _make_promoted_class(record: PromotedMetric) -> type[MetricTable]:
-    """Build a MetricTable subclass for one PromotedMetric row.
+def _make_promoted_class(record: PromotedMetric) -> type[DatasetTable]:
+    """Build a DatasetTable subclass for one PromotedMetric row.
 
     Uses ``type()`` -- same machinery as ``Source.__init_subclass__``
     when it builds per-source ``Config`` / ``Auth`` classes. The
-    constructed class is a real ``MetricTable`` peer of the
+    constructed class is a real ``DatasetTable`` peer of the
     hand-written canonical metrics, just synthesized from data instead
     of declared in source.
     """
@@ -124,7 +124,7 @@ def _make_promoted_class(record: PromotedMetric) -> type[MetricTable]:
         "transform": classmethod(_make_transform(record)),
         **defaults,
     }
-    return type(cls_name, (MetricTable,), namespace)
+    return type(cls_name, (DatasetTable,), namespace)
 
 
 def _make_transform(record: PromotedMetric):
@@ -178,7 +178,7 @@ def _make_transform(record: PromotedMetric):
     return transform
 
 
-def _discover_promoted_classes() -> list[type[MetricTable]]:
+def _discover_promoted_classes() -> list[type[DatasetTable]]:
     """Walk analysis.promoted_metrics and synthesize one class per row.
 
     Returns ``[]`` if the row table doesn't exist yet (e.g. during
@@ -202,7 +202,7 @@ class _AllTablesDescriptor:
     every access return the current synthesized class list.
     """
 
-    def __get__(self, instance: object, owner: type | None = None) -> list[type[MetricTable]]:
+    def __get__(self, instance: object, owner: type | None = None) -> list[type[DatasetTable]]:
         return _discover_promoted_classes()
 
 

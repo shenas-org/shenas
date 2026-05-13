@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from app.table import Field
-from shenas_datasets.core import EventMetricTable, TransformId
+from shenas_datasets.core import DatasetTable, TransformId
 
 # Shared type aliases
 Timestamp = Annotated[str, Field(db_type="TIMESTAMP", description="Event start time", display_name="Event Time")]
@@ -14,7 +14,7 @@ Source = Annotated[
 ]
 
 
-class Event(EventMetricTable):
+class Event(DatasetTable):
     """A single event in the unified timeline.
 
     Events come from different sources: calendar appointments, music plays,

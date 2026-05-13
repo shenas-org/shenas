@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { copyFileSync } from "fs";
 import { resolve } from "path";
 
 const repoRoot = resolve(import.meta.dirname, "../../..");
@@ -31,6 +32,8 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
+    allowedHosts: true,
     port: 5174,
     strictPort: true,
     proxy: {
@@ -48,6 +51,16 @@ export default defineConfig({
     exclude: ["lit", "shenas-frontends"],
   },
   plugins: [
+    {
+      name: "copy-production-html",
+      apply: "build",
+      closeBundle() {
+        copyFileSync(
+          resolve(import.meta.dirname, "focus.html"),
+          resolve(import.meta.dirname, "shenas_frontends/focus/static/focus.html"),
+        );
+      },
+    },
     {
       name: "vendor-externals",
       enforce: "pre",

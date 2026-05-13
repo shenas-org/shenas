@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import OFFICIAL_API
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
@@ -30,6 +31,7 @@ class OpenAQSource(Source):
         "must have latitude and longitude statements set.\n\n"
         "Requires a free API key from explore.openaq.org."
     )
+    access_types = (OFFICIAL_API,)
     auth_instructions = (
         "1. Go to https://explore.openaq.org and create a free account.\n"
         "2. Generate an API key in your account settings.\n"

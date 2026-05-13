@@ -894,6 +894,7 @@ DEFAULT_ENTITY_TYPES: list[dict[str, Any]] = [
         "wikidata_seed": True,
         "wikidata_properties": [
             {"pid": "P297", "label": "ISO 3166-1 alpha-2 code"},
+            {"pid": "P298", "label": "ISO 3166-1 alpha-3 code"},
             {"pid": "P36", "label": "capital"},
             {"pid": "P37", "label": "official language"},
             {"pid": "P38", "label": "currency"},

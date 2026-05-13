@@ -79,8 +79,8 @@ def _bucket_expr(grain: str, time_col: str) -> str:
     """
     col_ref = time_col if "." in time_col else f'"{time_col}"'
     if grain == "15mins":
-        return f"time_bucket(INTERVAL '15 minutes', CAST({col_ref} AS TIMESTAMP))"
-    return f"date_trunc('{grain}', CAST({col_ref} AS TIMESTAMP))"
+        return f"time_bucket(INTERVAL '15 minutes', TRY_CAST({col_ref} AS TIMESTAMP))"
+    return f"date_trunc('{grain}', TRY_CAST({col_ref} AS TIMESTAMP))"
 
 
 _DLT_TYPE_MAP: dict[str, str] = {
@@ -167,7 +167,7 @@ class SourceTable(DataTable):
             return "15mins"
         if db_types <= {"DATE"}:
             return "day"
-        if db_types <= {"INTEGER"}:
+        if db_types <= {"INTEGER"} or db_types <= {"VARCHAR"}:
             return "year"
         return "15mins"
 
@@ -229,6 +229,56 @@ class SourceTable(DataTable):
         Returns None for kinds that have no natural time axis.
         """
         return None
+
+    @classmethod
+    def _time_extremum(cls, func: str) -> str | None:
+        """Return MIN or MAX of this table's time column as an ISO date string (10 chars)."""
+        time_col = cls.timeseries_time_col()
+        if not time_col:
+            return None
+        try:
+            from app.database import cursor
+
+            schema = getattr(cls._Meta, "schema", None)
+            schema_name = schema.name if hasattr(schema, "name") else str(schema or "sources")
+            qualified = f'"{schema_name}"."{cls._Meta.name}"'
+            with cursor() as cur:
+                row = cur.execute(f'SELECT {func}("{time_col}") FROM {qualified}').fetchone()
+                if row and row[0]:
+                    return str(row[0])[:10]
+        except Exception:
+            pass
+        return None
+
+    @classmethod
+    def get_earliest_datetime(cls) -> str | None:
+        """Return the earliest value of this table's time column as an ISO date string."""
+        return cls._time_extremum("MIN")
+
+    @classmethod
+    def get_latest_datetime(cls) -> str | None:
+        """Return the latest value of this table's time column as an ISO date string."""
+        return cls._time_extremum("MAX")
+
+    @classmethod
+    def live_stats(cls) -> dict[str, Any]:
+        """Query DuckDB for row count, earliest, and latest datetime of this table."""
+        try:
+            from app.database import cursor
+
+            schema = getattr(cls._Meta, "schema", None)
+            schema_name = schema.name if hasattr(schema, "name") else str(schema or "sources")
+            qualified = f'"{schema_name}"."{cls._Meta.name}"'
+            with cursor() as cur:
+                row = cur.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()
+                rows = row[0] if row else 0
+            return {
+                "rows": rows,
+                "earliest": cls.get_earliest_datetime(),
+                "latest": cls.get_latest_datetime(),
+            }
+        except Exception:
+            return {"rows": 0, "earliest": None, "latest": None}
 
     @classmethod
     def timeseries_cte(
@@ -445,10 +495,18 @@ class DimensionTable(SourceTable):
     """
 
     _abstract: ClassVar[bool] = True
+    is_scd2: ClassVar[bool] = True
 
     @classmethod
     def write_disposition(cls) -> dict[str, str] | str:
         return {"disposition": "merge", "strategy": "scd2"}
+
+    @classmethod
+    def scd2_filter(cls, as_of: str | None = None, *, alias: str = "") -> str:
+        pfx = f"{alias}." if alias else ""
+        if as_of is None:
+            return f"{pfx}_dlt_valid_to IS NULL"
+        return f"{pfx}_dlt_valid_from <= '{as_of}' AND ({pfx}_dlt_valid_to IS NULL OR {pfx}_dlt_valid_to > '{as_of}')"
 
     @classmethod
     def timeseries_time_col(cls) -> str | None:
@@ -463,10 +521,18 @@ class SnapshotTable(SourceTable):
     """
 
     _abstract: ClassVar[bool] = True
+    is_scd2: ClassVar[bool] = True
 
     @classmethod
     def write_disposition(cls) -> dict[str, str] | str:
         return {"disposition": "merge", "strategy": "scd2"}
+
+    @classmethod
+    def scd2_filter(cls, as_of: str | None = None, *, alias: str = "") -> str:
+        pfx = f"{alias}." if alias else ""
+        if as_of is None:
+            return f"{pfx}_dlt_valid_to IS NULL"
+        return f"{pfx}_dlt_valid_from <= '{as_of}' AND ({pfx}_dlt_valid_to IS NULL OR {pfx}_dlt_valid_to > '{as_of}')"
 
     @classmethod
     def timeseries_time_col(cls) -> str | None:
@@ -518,10 +584,18 @@ class M2MTable(SourceTable):
     """
 
     _abstract: ClassVar[bool] = True
+    is_scd2: ClassVar[bool] = True
 
     @classmethod
     def write_disposition(cls) -> dict[str, str] | str:
         return {"disposition": "merge", "strategy": "scd2"}
+
+    @classmethod
+    def scd2_filter(cls, as_of: str | None = None, *, alias: str = "") -> str:
+        pfx = f"{alias}." if alias else ""
+        if as_of is None:
+            return f"{pfx}_dlt_valid_to IS NULL"
+        return f"{pfx}_dlt_valid_from <= '{as_of}' AND ({pfx}_dlt_valid_to IS NULL OR {pfx}_dlt_valid_to > '{as_of}')"
 
     @classmethod
     def timeseries_time_col(cls) -> str | None:

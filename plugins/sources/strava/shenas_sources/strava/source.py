@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar, cast
 
 from app.table import Field
+from shenas_sources.core.access_type import OFFICIAL_API
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
@@ -40,6 +41,7 @@ class StravaSource(Source):
         "Syncs activities (with laps, kudos, comments), athlete profile, "
         "athlete totals, heart rate / power zones, and gear from Strava."
     )
+    access_types = (OFFICIAL_API,)
 
     @dataclass
     class Config(SourceConfig):

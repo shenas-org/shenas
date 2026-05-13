@@ -25,11 +25,13 @@ def _seed_entity_graph() -> None:
         seed_properties,
         seed_relationship_types,
     )
+    from app.timeseries import ensure_timeseries_views
 
     seed_entity_types()
     seed_relationship_types()
     seed_properties()
     ensure_all_wide_views()
+    ensure_timeseries_views()
 
 
 def _register_source_entity_types() -> None:
@@ -163,7 +165,7 @@ class LocalUser(Table):
         except Exception:
             pass
 
-        # Dataset plugins define MetricTable subclasses (metrics.daily_sleep,
+        # Dataset plugins define DatasetTable subclasses (metrics.daily_sleep,
         # metrics.events, etc.) that transforms write into. Ensure them so
         # the first sync doesn't fail with "table does not exist".
         try:

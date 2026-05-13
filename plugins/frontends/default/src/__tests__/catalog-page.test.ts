@@ -48,7 +48,7 @@ const SAMPLE_RESOURCES = [
     id: "metrics.daily_hrv",
     schemaName: "metrics",
     tableName: "daily_hrv",
-    displayName: "Daily HRV",
+    displayName: "HRV",
     description: "Heart rate variability metrics",
     plugin: { name: "fitness", displayName: "Fitness" },
     kind: "aggregate",
@@ -155,7 +155,7 @@ describe("shenas-catalog", () => {
     el._search = "HRV";
     const filtered = el._filtered();
     expect(filtered.length).toBe(1);
-    expect(filtered[0].displayName).toBe("Daily HRV");
+    expect(filtered[0].displayName).toBe("HRV");
   });
 
   it("filters by search term against description", () => {

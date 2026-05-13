@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import SCRAPING
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
@@ -22,6 +23,7 @@ class CronometerSource(Source):
         "the CSV files into a configured directory. Supports the "
         '"Daily Nutrition" and "Servings" export formats.'
     )
+    access_types = (SCRAPING,)
 
     @dataclass
     class Config(SourceConfig):

@@ -53,6 +53,18 @@ def _iso8601_recurring_to_minutes(value: str) -> int | None:
     return total or None
 
 
+def _clean_auth_error(message: str) -> str:
+    """Turn raw OAuth / credential exceptions into user-friendly messages."""
+    lower = message.lower()
+    if "invalid_grant" in lower or "token has been expired" in lower or "token has been revoked" in lower:
+        return "Authentication expired or revoked. Re-authenticate in the Auth tab."
+    if "invalid_client" in lower:
+        return "Invalid client credentials. Check your API key or client ID in the Auth tab."
+    if "access_denied" in lower:
+        return "Access denied. Re-authenticate with the required permissions in the Auth tab."
+    return message
+
+
 class Source(Plugin):
     """Data source plugin.
 
@@ -69,6 +81,9 @@ class Source(Plugin):
     auth_instructions: ClassVar[str] = ""
     primary_table: ClassVar[str] = ""
     entity_types: ClassVar[list[str]] = []  # references EntityType.name
+    # How this source accesses data. Tuple of AccessType instances from
+    # shenas_sources.core.access_type (OFFICIAL_API, LOCAL_DB, etc.).
+    access_types: ClassVar[tuple] = ()
     # ISO 8601 recurring interval describing the source's natural cadence
     # (e.g. "R/P1D" for daily, "R/P1W" for weekly, "R/PT1H" for hourly).
     # Mirrors DCAT's `dct:accrualPeriodicity`. Used as the fallback when
@@ -269,8 +284,8 @@ class Source(Plugin):
         if self.has_config:
             self.Config.clear_rows()  # ty: ignore[unresolved-attribute]
 
-    def get_info(self) -> dict[str, Any]:
-        return {
+    def get_info(self, *, include_table_metadata: bool = False) -> dict[str, Any]:
+        info = {
             **super().get_info(),
             "is_authenticated": self.is_authenticated,
             "sync_frequency": self.sync_frequency,
@@ -279,8 +294,11 @@ class Source(Plugin):
             "entity_uuids": self._source_entity_uuids(),
             "default_update_frequency": self.default_update_frequency,
             "commands": self.commands,
-            "table_metadata": self._table_metadata(),
+            "access_types": [at.to_dict() for at in self.access_types],
         }
+        if include_table_metadata:
+            info["table_metadata"] = self._table_metadata()
+        return info
 
     def _qualified_primary_table(self) -> str:
         """Return the primary_table with source prefix if not already qualified."""
@@ -290,10 +308,11 @@ class Source(Plugin):
         return f"{self.name}__{table}"
 
     def _table_metadata(self) -> list[dict[str, Any]]:
-        """Return table metadata from the TABLES tuple, enriched with live stats.
+        """Return relation metadata (tables + views), enriched with live stats.
 
-        Each entry gets ``rows``, ``earliest``, and ``latest`` from DuckDB
-        when the table exists (0/null otherwise).
+        Includes registered Table/View classes and any additional DuckDB
+        views in the source's schema (e.g. dynamically created timeseries
+        views) that aren't covered by registered classes.
         """
 
         from app.plugin import Plugin
@@ -301,6 +320,7 @@ class Source(Plugin):
         tables = list(Plugin.load_tables(self.name, kind="source"))
         views = list(Plugin.load_views(self.name))
         result: list[dict[str, Any]] = []
+        known_tables: set[str] = set()
         for relation in [*tables, *views]:
             if not (isinstance(relation, type) and hasattr(relation, "metadata")):
                 continue
@@ -308,15 +328,45 @@ class Source(Plugin):
                 meta = relation.metadata()  # ty: ignore[call-non-callable]
                 if hasattr(meta.get("schema"), "name"):
                     meta["schema"] = meta["schema"].name
-                meta.update(self._live_table_stats(meta.get("schema", "sources"), meta["table"]))
+                if hasattr(relation, "live_stats"):
+                    meta.update(relation.live_stats())  # ty: ignore[call-non-callable]
+                known_tables.add(meta["table"])
                 result.append(meta)
             except Exception:
                 continue
+
+        # Discover additional DuckDB views in this source's schema (e.g. timeseries)
+        result.extend(self._discover_dynamic_views(known_tables))
         return result
+
+    def _discover_dynamic_views(self, known_tables: set[str]) -> list[dict[str, Any]]:
+        """Find DuckDB views in the sources schema for this source not already known."""
+        try:
+            from app.database import cursor
+
+            schema = self.dataset_name
+            prefix = f"{self.name}__"
+            with cursor() as cur:
+                rows = cur.execute(
+                    "SELECT table_name FROM information_schema.tables "
+                    "WHERE table_schema = ? AND table_name LIKE ? AND table_type = 'VIEW'",
+                    [schema, f"{prefix}%"],
+                ).fetchall()
+            result: list[dict[str, Any]] = []
+            for (view_name,) in rows:
+                if view_name in known_tables or view_name.startswith("_dlt_"):
+                    continue
+                display = view_name.removeprefix(prefix).replace("_", " ").title()
+                meta: dict[str, Any] = {"table": view_name, "schema": schema, "display_name": display, "kind": "view"}
+                meta.update(self._live_table_stats(schema, view_name))
+                result.append(meta)
+            return result
+        except Exception:
+            return []
 
     @staticmethod
     def _live_table_stats(schema: str, table: str) -> dict[str, Any]:
-        """Query DuckDB for row count and date range of a table."""
+        """Query DuckDB for row count and date range of a dynamic view (no table class)."""
         try:
             from app.database import cursor
 
@@ -462,6 +512,35 @@ class Source(Plugin):
             logger.exception("_lookback_start_date: failed to read config")
         return f"{default_days} days ago"
 
+    def _resolve_country_codes(self, *, alpha3: bool = False) -> list[str]:
+        """Resolve selected country entity UUIDs to ISO country codes.
+
+        Reads ``country_uuids`` from Config (comma-separated UUIDs set by
+        the entity_picker widget), then looks up each entity's ISO code
+        statement (P297 for alpha-2, P298 for alpha-3).
+
+        Returns a list of ISO codes like ``["SE", "DE", "US"]`` (alpha-2)
+        or ``["SWE", "DEU", "USA"]`` (alpha-3).
+        """
+        from app.entities.statements import Statement
+
+        cfg = self.Config.read_row()  # ty: ignore[unresolved-attribute]
+        raw = (cfg or {}).get("country_uuids")
+        if not raw:
+            return []
+        property_id = "P298" if alpha3 else "P297"
+        uuids = [u.strip() for u in raw.split(",") if u.strip()]
+        codes = []
+        for uuid in uuids:
+            stmts = Statement.all(
+                where="entity_id = ? AND property_id = ?",
+                params=[uuid, property_id],
+                limit=1,
+            )
+            if stmts:
+                codes.append(stmts[0].value)
+        return codes
+
     @abc.abstractmethod
     def resources(self, client: Any) -> list[Any]:
         """Return dlt @resource objects for this sync."""
@@ -601,6 +680,12 @@ class Source(Plugin):
             self._ensure_timeseries_view()
         except Exception:
             logger.exception("Failed timeseries view for %s", self.name)
+        try:
+            from app.timeseries import ensure_timeseries_views
+
+            ensure_timeseries_views()
+        except Exception:
+            logger.exception("Failed unified timeseries views for %s", self.name)
         self._mark_synced()
         self._log_sync_event(full_refresh)
 
@@ -898,8 +983,11 @@ class Source(Plugin):
             return
 
         # Build the final SELECT with FULL OUTER JOINs
-        select_cols = ["COALESCE(" + ", ".join(f"{c}.time_bucket" for c in cte_names) + ") AS time_bucket"]
-        select_cols.extend(f"{cte_name}.*" for cte_name in cte_names)
+        coalesce_expr = "COALESCE(" + ", ".join(f"{c}.time_bucket" for c in cte_names) + ") AS time_bucket"
+
+        # Each CTE's .* EXCLUDE (time_bucket) drops the per-CTE bucket column
+        # so only the COALESCE'd one remains.
+        star_cols = ", ".join(f"{c}.* EXCLUDE (time_bucket)" for c in cte_names)
 
         # Build JOIN chain
         first = cte_names[0]
@@ -907,21 +995,14 @@ class Source(Plugin):
             f"FULL OUTER JOIN {cte_name} ON {first}.time_bucket = {cte_name}.time_bucket" for cte_name in cte_names[1:]
         ]
 
-        # Assemble the view DDL — use SELECT with explicit EXCLUDE to drop
-        # the per-CTE time_bucket columns (we have the COALESCE'd one).
-        excludes = ", ".join(f"{c}.time_bucket" for c in cte_names)
-
         cte_list = ",\n".join(ctes)
-        coalesce_expr = ", ".join(f"{c}.time_bucket" for c in cte_names)
-        star_cols = ", ".join(f"{c}.*" for c in cte_names)
         join_sql = "\n".join(join_clauses)
         view_sql = (
             f'CREATE OR REPLACE VIEW "{schema}"."{view_name}" AS\n'
             f"WITH {cte_list}\n"
-            f"SELECT * EXCLUDE ({excludes})\n"
-            f"FROM (SELECT COALESCE({coalesce_expr}) AS time_bucket, {star_cols}\n"
+            f"SELECT {coalesce_expr}, {star_cols}\n"
             f"FROM {first}\n"
-            f"{join_sql})\n"
+            f"{join_sql}\n"
             f"ORDER BY time_bucket"
         )
 
@@ -978,7 +1059,7 @@ class Source(Plugin):
             pre_client = self.build_client()
             self.cleanup_client(pre_client)
         except Exception as exc:
-            msg = str(exc)
+            msg = _clean_auth_error(str(exc))
             logger.warning("Sync skipped: %s -- %s", source_label, msg)
             yield ("error", msg)
             return

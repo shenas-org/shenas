@@ -11,30 +11,30 @@ from app.graphql.types import (
     AuthFieldsType,
     CategorySetType,
     CategoryValueType,
-    ColumnInfoType,
+    ColumnType,
     ConfigEntryType,
     DashboardType,
     DataResourceType,
     DependencyEdge,
     EntityRelationshipTypeType,
     EntityTypeType,
-    FreshnessInfoType,
+    FreshnessType,
     GqlEntityRelationshipType,
     GqlEntityType,
     HypothesisType,
-    ModelInfoType,
+    ModelType,
     ParamFieldType,
-    PluginInfoType,
+    PluginType,
     PropertyType,
     QualityCheckType,
-    QualityInfoType,
-    ScheduleInfoType,
+    QualityType,
+    ScheduleType,
     SuggestedAnalysisType,
     SuggestedDatasetType,
     TableEntry,
     ThemeInfo,
-    TimeColumnsInfoType,
-    TransformerInfoType,
+    TimeColumnsType,
+    TransformerType,
     TransformStepType,
     TransformType,
 )
@@ -46,10 +46,10 @@ if TYPE_CHECKING:
     from app.plugin import Plugin
 
 
-def _plugin_to_gql(plugin: Plugin) -> PluginInfoType:
+def _plugin_to_gql(plugin: Plugin) -> PluginType:
     from app.models import PluginInfo
 
-    return PluginInfoType.from_pydantic(  # ty: ignore[unresolved-attribute]
+    return PluginType.from_pydantic(  # ty: ignore[unresolved-attribute]
         PluginInfo(
             name=plugin.name,
             display_name=getattr(plugin, "display_name", plugin.name),
@@ -74,7 +74,7 @@ def _data_resource_to_gql(resource: DataResource) -> DataResourceType:
         as_of_macro=meta.get("as_of_macro"),
         primary_key=meta.get("primary_key", []),
         columns=[
-            ColumnInfoType(
+            ColumnType(
                 name=column.get("name", ""),
                 db_type=column.get("db_type", ""),
                 nullable=column.get("nullable", True),
@@ -86,19 +86,19 @@ def _data_resource_to_gql(resource: DataResource) -> DataResourceType:
             )
             for column in columns_raw
         ],
-        time_columns=TimeColumnsInfoType(
+        time_columns=TimeColumnsType(
             time_at=time_raw.get("time_at"),
             time_start=time_raw.get("time_start"),
             time_end=time_raw.get("time_end"),
             cursor_column=time_raw.get("cursor_column"),
             observed_at_injected=time_raw.get("observed_at_injected", False),
         ),
-        freshness=FreshnessInfoType(
+        freshness=FreshnessType(
             last_refreshed=resource.last_refreshed,
             sla_minutes=resource.freshness_sla_minutes,
             is_stale=resource.is_stale,
         ),
-        quality=QualityInfoType(
+        quality=QualityType(
             expected_row_count_min=resource.expected_row_count_min,
             expected_row_count_max=resource.expected_row_count_max,
             actual_row_count=resource.actual_row_count,
@@ -134,24 +134,24 @@ def _stub_resource(ref: Any) -> DataResourceType:
         table_name=ref.table if ref else "",
         display_name=ref.table if ref else "(unknown)",
         description="",
-        plugin=PluginInfoType.from_pydantic(PluginInfo(name="", display_name="")),  # ty: ignore[unresolved-attribute]
+        plugin=PluginType.from_pydantic(PluginInfo(name="", display_name="")),  # ty: ignore[unresolved-attribute]
         primary_key=[],
         columns=[],
-        time_columns=TimeColumnsInfoType(),
-        freshness=FreshnessInfoType(),
-        quality=QualityInfoType(latest_checks=[]),
+        time_columns=TimeColumnsType(),
+        freshness=FreshnessType(),
+        quality=QualityType(latest_checks=[]),
         tags=[],
     )
 
 
-def _transformer_info(transformer_name: str) -> TransformerInfoType:
+def _transformer_info(transformer_name: str) -> TransformerType:
     from app.plugin import Plugin
 
     try:
         for cls in Plugin.load_by_kind("transformer"):
             if getattr(cls, "name", "") == transformer_name:
                 inst = cls()
-                return TransformerInfoType(
+                return TransformerType(
                     name=transformer_name,
                     display_name=getattr(cls, "display_name", transformer_name),
                     description=getattr(cls, "description", ""),
@@ -159,7 +159,7 @@ def _transformer_info(transformer_name: str) -> TransformerInfoType:
                 )
     except Exception:
         pass
-    return TransformerInfoType(
+    return TransformerType(
         name=transformer_name,
         display_name=transformer_name,
         param_schema=[],
@@ -288,14 +288,40 @@ class Query:
         return sorted(kinds, key=lambda x: x["label"])  # ty: ignore[invalid-return-type]
 
     @strawberry.field
-    def plugins(self, kind: str) -> list[PluginInfoType]:
-        from app.api.db import schema_plugin_ownership
-        from app.models import ConfigEntry, PluginInfo
+    def plugins(self, kind: str, full: bool = False) -> list[PluginType]:
+        from app.models import AccessTypeInfo, ConfigEntry, PluginInfo
         from app.plugin import Plugin
 
-        ownership = schema_plugin_ownership()
-        plugin_rows = Plugin.compute_plugin_rows()
+        has_data = kind in ("source", "dataset")
+        plugin_rows = Plugin.compute_plugin_rows() if has_data else {}
 
+        if not full:
+            # Lightweight: skip get_info() / DuckDB queries -- just ClassVars + PluginInstance
+            items = []
+            for pi in Plugin.list_installed_lightweight(kind):
+                name = pi.get("name", "")
+                items.append(
+                    PluginType.from_pydantic(  # ty: ignore[unresolved-attribute]
+                        PluginInfo(
+                            name=name,
+                            display_name=pi.get("display_name", ""),
+                            package=pi.get("package", ""),
+                            version=pi.get("version", ""),
+                            description=pi.get("description", ""),
+                            enabled=pi.get("enabled", True),
+                            has_auth=pi.get("has_auth", False),
+                            synced_at=pi.get("synced_at"),
+                            total_rows=plugin_rows.get(name, 0),
+                            access_types=[AccessTypeInfo(**at) for at in pi.get("access_types", [])],
+                        )
+                    )
+                )
+            return items
+
+        # Full: includes auth status, config entries, entity UUIDs, etc.
+        from app.api.db import dataset_plugin_ownership
+
+        ownership = dataset_plugin_ownership()
         items = []
         for pi in Plugin.list_installed(kind):
             config_entries = [
@@ -309,7 +335,7 @@ class Query:
             ]
             name = pi.get("name", "")
             items.append(
-                PluginInfoType.from_pydantic(  # ty: ignore[unresolved-attribute]
+                PluginType.from_pydantic(  # ty: ignore[unresolved-attribute]
                     PluginInfo(
                         name=name,
                         display_name=pi.get("display_name", ""),
@@ -334,6 +360,7 @@ class Query:
                         updated_at=pi.get("updated_at"),
                         status_changed_at=pi.get("status_changed_at"),
                         synced_at=pi.get("synced_at"),
+                        access_types=[AccessTypeInfo(**at) for at in pi.get("access_types", [])],
                     )
                 )
             )
@@ -372,7 +399,7 @@ class Query:
         cls = Plugin.load_by_name_and_kind(name, kind) or Plugin._load_fresh(kind, name)
         if not cls:
             return {"name": name, "kind": kind, "display_name": name.replace("-", " ").title()}  # ty: ignore[invalid-return-type]
-        return cls().get_info()  # ty: ignore[invalid-return-type]
+        return cls().get_info(include_table_metadata=True)  # ty: ignore[invalid-return-type, unknown-argument]
 
     @strawberry.field
     def available_plugins(self, kind: str) -> list[str]:
@@ -384,7 +411,7 @@ class Query:
     # -- Sync --
 
     @strawberry.field
-    def sync_schedule(self) -> list[ScheduleInfoType]:
+    def sync_schedule(self) -> list[ScheduleType]:
         from app.models import ScheduleInfo
         from shenas_sources.core.source import Source
 
@@ -398,7 +425,7 @@ class Query:
             if not s or not s.enabled:
                 continue
             result.append(
-                ScheduleInfoType.from_pydantic(  # ty: ignore[unresolved-attribute]
+                ScheduleType.from_pydantic(  # ty: ignore[unresolved-attribute]
                     ScheduleInfo(
                         name=source.name,
                         sync_frequency=freq,
@@ -412,7 +439,7 @@ class Query:
     # -- Transforms --
 
     @strawberry.field
-    def transform_types(self) -> list[TransformerInfoType]:
+    def transform_types(self) -> list[TransformerType]:
         """Return available transformer plugin types with their param schemas."""
         from importlib.metadata import entry_points
 
@@ -423,7 +450,7 @@ class Query:
                 inst = cls()
                 schema = inst.param_schema() if hasattr(inst, "param_schema") else []
                 result.append(
-                    TransformerInfoType(
+                    TransformerType(
                         name=ep.name,
                         display_name=getattr(inst, "display_name", ep.name),
                         description=getattr(inst, "description", ""),
@@ -644,14 +671,14 @@ class Query:
     # -- Models --
 
     @strawberry.field
-    def models(self) -> list[ModelInfoType]:
+    def models(self) -> list[ModelType]:
         from shenas_models.core import Model
 
         result = []
         for cls in Model.load_all(include_internal=False):
             info = cls().get_info()
             result.append(
-                ModelInfoType(
+                ModelType(
                     name=info.get("name", cls.name),
                     display_name=info.get("display_name", cls.name),
                     description=info.get("description", ""),
@@ -830,16 +857,12 @@ class Query:
         me_uuid = me_candidates[0].uuid if me_candidates else None
         where = f"status = '{status}'" if status else None
 
-        # Batch-load sources for all entities in one query to avoid N+1.
-        # One Statement.all() with a source filter replaces 1454 per-entity queries.
+        # Batch-load distinct sources per entity via a single aggregation query.
+        import contextlib
+
         sources_by_entity: dict[str, list[str]] = {}
-        try:
-            _sources_sets: dict[str, set[str]] = {}
-            for stmt in Statement.all(where="source IS NOT NULL AND source != ''"):
-                _sources_sets.setdefault(stmt.entity_id, set()).add(stmt.source)
-            sources_by_entity = {k: sorted(v) for k, v in _sources_sets.items()}
-        except Exception:
-            pass
+        with contextlib.suppress(Exception):
+            sources_by_entity = Statement.sources_by_entity()
 
         return [
             GqlEntityType.build(

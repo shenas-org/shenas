@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from app.table import Field
+from shenas_sources.core.access_type import CLOUD_IMPORT, EXPORT_FILE, LOCAL_FILES
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
@@ -24,6 +25,7 @@ class GTakeoutSource(Source):
         "Alternatively, set local_folder in config to point at a directory containing "
         "Takeout archives or an already-extracted Takeout folder, skipping Drive entirely."
     )
+    access_types = (CLOUD_IMPORT, EXPORT_FILE, LOCAL_FILES)
 
     @dataclass
     class Auth(SourceAuth):
@@ -213,6 +215,20 @@ class GTakeoutSource(Source):
                 shutil.rmtree(extract_dir, ignore_errors=True)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
+
+        # Process loose files (e.g. .mbox) directly in the local folder
+        loose_files = list(folder.glob("*.mbox"))
+        if loose_files:
+            resources = [t.to_resource(folder) for t in TABLES]
+            run_sync(
+                self.name,
+                dataset,
+                resources,
+                full_refresh,
+                self._auto_transform,
+                display_name=self.display_name,
+                resource_display_names=resource_display_names,
+            )
 
     def _sync_drive(
         self,

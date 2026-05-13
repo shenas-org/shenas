@@ -1,4 +1,4 @@
-"""Promote a hypothesis into a canonical MetricTable.
+"""Promote a hypothesis into a canonical DatasetTable.
 
 Promotion is the only path that writes canonical state. Until a user
 explicitly promotes a hypothesis, every analytical transformation is
@@ -13,7 +13,7 @@ inserts one row into ``analysis.promoted_metrics`` capturing the
 recipe (frozen at promotion time), the column shape, and the
 provenance back to the originating hypothesis. At catalog-walk time
 :func:`shenas_datasets.promoted.PromotedSchema.all_tables` walks that
-table and constructs a ``MetricTable`` subclass per row via
+table and constructs a ``DatasetTable`` subclass per row via
 ``type()`` -- the same machinery ``Source.__init_subclass__`` already
 uses to build per-source ``Config`` / ``Auth`` classes.
 
@@ -67,7 +67,7 @@ def _columns_from_result(hypothesis: Hypothesis) -> tuple[list[ColumnSpec], list
     Returns ``([ColumnSpec, ...], [pk_col, ...])``.
     Falls back to a single ``value`` column when the hypothesis has
     never been run or the result shape is opaque. The dataclass fields
-    on the eventual ``MetricTable`` subclass are derived from this.
+    on the eventual ``DatasetTable`` subclass are derived from this.
     """
     columns: list[ColumnSpec] = []
     pk: list[str] = []

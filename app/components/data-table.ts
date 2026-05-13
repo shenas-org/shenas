@@ -64,6 +64,57 @@ function _formatNumericTime(value: number, dbType: string): string {
   return _epochToTimestampISO(ms);
 }
 
+/** Conversion factors from a given unit to seconds. */
+const _TO_SECONDS: Record<string, number> = {
+  ms: 0.001,
+  s: 1,
+  min: 60,
+  h: 3600,
+  d: 86400,
+};
+
+/** Duration tiers for human-readable output (largest first). */
+const _DURATION_TIERS: [number, string][] = [
+  [86400, "d"],
+  [3600, "h"],
+  [60, "min"],
+  [1, "s"],
+  [0.001, "ms"],
+];
+
+/**
+ * Format a numeric duration value into a human-readable string.
+ * Converts the value from its declared unit to the most natural tier.
+ * Examples: 0.024 s -> "24 ms", 161.6 s -> "2 min 42 s", 3700 s -> "1 h 1 min"
+ */
+function _formatDuration(value: number, unit: string): string {
+  const factor = _TO_SECONDS[unit];
+  if (factor === undefined) return `${value} ${unit}`;
+  const totalSeconds = value * factor;
+  if (totalSeconds === 0) return `0 ${unit}`;
+
+  const abs = Math.abs(totalSeconds);
+  const sign = totalSeconds < 0 ? "-" : "";
+
+  // Find the largest tier that fits
+  for (let i = 0; i < _DURATION_TIERS.length; i++) {
+    const [tierSeconds, tierLabel] = _DURATION_TIERS[i];
+    if (abs >= tierSeconds) {
+      const major = Math.floor(abs / tierSeconds);
+      const remainder = abs - major * tierSeconds;
+      // Add one smaller tier if there's a meaningful remainder
+      if (i + 1 < _DURATION_TIERS.length && remainder >= _DURATION_TIERS[i + 1][0]) {
+        const [subSeconds, subLabel] = _DURATION_TIERS[i + 1];
+        const minor = Math.round(remainder / subSeconds);
+        if (minor > 0) return `${sign}${major} ${tierLabel} ${minor} ${subLabel}`;
+      }
+      return `${sign}${major} ${tierLabel}`;
+    }
+  }
+  // Sub-millisecond: show as ms with decimals
+  return `${sign}${(abs * 1000).toFixed(1)} ms`;
+}
+
 export class ShenasDataTable extends LitElement {
   static properties = {
     apiBase: { type: String, attribute: "api-base" },
@@ -81,7 +132,6 @@ export class ShenasDataTable extends LitElement {
     _filters: { state: true },
     _searchTerm: { state: true },
     _page: { state: true },
-    _colWidths: { state: true },
     _colMeta: { state: true },
     _loading: { state: true },
     _error: { state: true },
@@ -489,6 +539,17 @@ export class ShenasDataTable extends LitElement {
     if (changed.has("_page") && !changed.has("_rows")) {
       this._pushUrlState();
     }
+    // Recompute sorted/filtered cache only when inputs that affect it change
+    if (
+      changed.has("_data") ||
+      changed.has("_sortCol") ||
+      changed.has("_sortDesc") ||
+      changed.has("_searchTerm") ||
+      changed.has("_filters") ||
+      changed.has("_columns")
+    ) {
+      this._recomputeSorted();
+    }
   }
 
   async _fetchTables(): Promise<void> {
@@ -540,7 +601,13 @@ export class ShenasDataTable extends LitElement {
       this._page = 0;
       this._filters = {};
       this._searchTerm = "";
-      this._sortCol = null;
+      // Default sort: first time column, descending (most recent first)
+      if (timeCols.length > 0) {
+        this._sortCol = timeCols[0];
+        this._sortDesc = true;
+      } else {
+        this._sortCol = null;
+      }
     } catch (error) {
       const message = (error as Error).message || "";
       if (message.includes("does not exist")) {
@@ -552,7 +619,12 @@ export class ShenasDataTable extends LitElement {
     this._loading = false;
   }
 
-  get _filteredData(): RowData[] {
+  // Cached sorted/filtered data -- only recomputed when data, sort, search, or filters change.
+  private _cachedSorted: RowData[] = [];
+  private _cachedSortedLength = 0;
+  private _cachedStats: ReturnType<typeof ShenasDataTable.prototype._computeStats> | null = null;
+
+  private _recomputeSorted(): void {
     let data = this._data;
     const term = this._searchTerm.toLowerCase();
     if (term) {
@@ -572,33 +644,36 @@ export class ShenasDataTable extends LitElement {
         return cell != null && String(cell).toLowerCase().includes(v);
       });
     }
-    return data;
+    if (this._sortCol) {
+      const sortCol = this._sortCol;
+      const desc = this._sortDesc;
+      data = [...data].sort((a, b) => {
+        const va = a[sortCol],
+          vb = b[sortCol];
+        if (va == null && vb == null) return 0;
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        if (va < vb) return desc ? 1 : -1;
+        if (va > vb) return desc ? -1 : 1;
+        return 0;
+      });
+    }
+    this._cachedSorted = data;
+    this._cachedSortedLength = data.length;
+    this._cachedStats = null;
   }
 
   get _sortedData(): RowData[] {
-    const data = [...this._filteredData];
-    if (!this._sortCol) return data;
-    const col = this._sortCol;
-    const desc = this._sortDesc;
-    return data.sort((a, b) => {
-      const va = a[col],
-        vb = b[col];
-      if (va == null && vb == null) return 0;
-      if (va == null) return 1;
-      if (vb == null) return -1;
-      if (va < vb) return desc ? 1 : -1;
-      if (va > vb) return desc ? -1 : 1;
-      return 0;
-    });
+    return this._cachedSorted;
   }
 
   get _pagedData(): RowData[] {
     const start = this._page * this.pageSize;
-    return this._sortedData.slice(start, start + this.pageSize);
+    return this._cachedSorted.slice(start, start + this.pageSize);
   }
 
   get _pageCount(): number {
-    return Math.max(1, Math.ceil(this._sortedData.length / this.pageSize));
+    return Math.max(1, Math.ceil(this._cachedSortedLength / this.pageSize));
   }
 
   _onTableChange(e: Event): void {
@@ -606,7 +681,11 @@ export class ShenasDataTable extends LitElement {
     this._fetchData();
   }
 
-  _onSort(col: string): void {
+  private _resizing = false;
+
+  _onSort(col: string, event?: MouseEvent): void {
+    if (this._resizing) return;
+    if (event && (event.target as HTMLElement)?.closest?.(".resize-handle")) return;
     if (this._sortCol === col) {
       this._sortDesc = !this._sortDesc;
     } else {
@@ -646,6 +725,7 @@ export class ShenasDataTable extends LitElement {
     }
     if (typeof value === "number") {
       if (isTime) return _formatNumericTime(value, effectiveDbType);
+      if (meta?.unit && meta.unit in _TO_SECONDS) return _formatDuration(value, meta.unit);
     }
 
     return String(value);
@@ -687,7 +767,12 @@ export class ShenasDataTable extends LitElement {
         if (measured > maxWidth) maxWidth = measured;
       }
     }
-    this._colWidths = { ...this._colWidths, [col]: Math.max(50, Math.ceil(maxWidth)) };
+    const newWidth = Math.max(50, Math.ceil(maxWidth));
+    this._colWidths[col] = newWidth;
+    // Apply directly to DOM without triggering re-render
+    this.renderRoot.querySelectorAll<HTMLElement>(`[data-col="${col}"]`).forEach((el) => {
+      el.style.width = `${newWidth}px`;
+    });
   }
 
   _setView(view: "table" | "stats" | "graph"): void {
@@ -711,14 +796,35 @@ export class ShenasDataTable extends LitElement {
   _onResizeStart(e: MouseEvent, col: string): void {
     e.preventDefault();
     e.stopPropagation();
+    this._resizing = true;
     const startX = e.clientX;
     const startWidth = this._colWidths[col] || 150;
+    let currentWidth = startWidth;
+    let rafId = 0;
+
+    // Apply width directly to DOM during drag to avoid Lit re-renders
+    const applyWidth = (): void => {
+      const root = this.renderRoot;
+      root.querySelectorAll<HTMLElement>(`[data-col="${col}"]`).forEach((el) => {
+        el.style.width = `${currentWidth}px`;
+      });
+      rafId = 0;
+    };
+
     const onMove = (ev: MouseEvent): void => {
-      this._colWidths = { ...this._colWidths, [col]: Math.max(50, startWidth + ev.clientX - startX) };
+      currentWidth = Math.max(50, startWidth + ev.clientX - startX);
+      if (!rafId) rafId = requestAnimationFrame(applyWidth);
     };
     const onUp = (): void => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
+      if (rafId) cancelAnimationFrame(rafId);
+      this._colWidths[col] = currentWidth;
+      // The click event fires asynchronously after mouseup; use setTimeout
+      // to clear the flag after it has been processed.
+      setTimeout(() => {
+        this._resizing = false;
+      }, 0);
     };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
@@ -752,22 +858,13 @@ export class ShenasDataTable extends LitElement {
             </select>
           </div>`;
 
-    if (this._loading)
-      return html`${tableSelector}
-        <div class="loading">Loading...</div>`;
-    if (this._data.length === 0)
-      return html`${tableSelector}
-        <div class="loading">No data</div>`;
-
+    // Always show the search bar and view toggle, even while loading
     const rows = this._pagedData;
-
-    // Hide numeric-only "id" columns that are just PKs
     const visibleCols = this._columns.filter(
       (c) => !(c === "id" && this._data.length > 0 && typeof this._data[0][c] === "number"),
     );
 
-    return html`
-      ${tableSelector}
+    const searchBar = html`
       <div class="search-bar">
         <input
           type="text"
@@ -800,10 +897,22 @@ export class ShenasDataTable extends LitElement {
           </button>
         </div>
       </div>
-      ${this.dataView === "table" ? this._renderTableView(visibleCols, rows) : ""}
-      ${this.dataView === "stats" ? this._renderStatsView(visibleCols) : ""}
-      ${this.dataView === "graph" ? this._renderGraphView() : ""}
     `;
+
+    let viewContent;
+    if (this._loading) {
+      viewContent = html`<div class="loading">Loading...</div>`;
+    } else if (this._data.length === 0) {
+      viewContent = html`<div class="loading">No data</div>`;
+    } else if (this.dataView === "table") {
+      viewContent = this._renderTableView(visibleCols, rows);
+    } else if (this.dataView === "stats") {
+      viewContent = this._renderStatsView(visibleCols);
+    } else {
+      viewContent = this._renderGraphView();
+    }
+
+    return html` ${tableSelector} ${searchBar} ${viewContent} `;
   }
 
   _renderTableView(visibleCols: string[], rows: RowData[]): TemplateResult {
@@ -815,11 +924,16 @@ export class ShenasDataTable extends LitElement {
               ${visibleCols.map(
                 (col) => html`
                   <th
+                    data-col="${col}"
                     style="width:${this._colWidths[col] || 120}px"
                     title="${this._colTooltip(col)}"
-                    @click=${() => this._onSort(col)}
+                    @click=${(e: MouseEvent) => this._onSort(col, e)}
                   >
-                    ${this._colMeta[col]?.displayName || col}${this._getTimeRoles()[col]
+                    ${this._colMeta[col]?.displayName || col}${this._colMeta[col]?.unit
+                      ? html`<span style="opacity:0.5;font-weight:400;margin-left:2px"
+                          >(${this._colMeta[col].unit})</span
+                        >`
+                      : ""}${this._getTimeRoles()[col]
                       ? html`<shenas-badge style="margin-left:4px">${this._getTimeRoles()[col]}</shenas-badge>`
                       : ""}
                     ${this._sortCol === col
@@ -827,6 +941,7 @@ export class ShenasDataTable extends LitElement {
                       : ""}
                     <div
                       class="resize-handle"
+                      @click=${(e: MouseEvent) => e.stopPropagation()}
                       @mousedown=${(e: MouseEvent) => this._onResizeStart(e, col)}
                       @dblclick=${(e: MouseEvent) => this._autoResizeColumn(e, col)}
                     ></div>
@@ -841,7 +956,9 @@ export class ShenasDataTable extends LitElement {
                 <tr>
                   ${visibleCols.map(
                     (col) =>
-                      html`<td style="width:${this._colWidths[col] || 120}px">${this._formatCell(row[col], col)}</td>`,
+                      html`<td data-col="${col}" style="width:${this._colWidths[col] || 120}px">
+                        ${this._formatCell(row[col], col)}
+                      </td>`,
                   )}
                 </tr>
               `,
@@ -881,10 +998,9 @@ export class ShenasDataTable extends LitElement {
     `;
   }
 
-  _renderStatsView(visibleCols: string[]): TemplateResult {
+  _computeStats(visibleCols: string[]) {
     const data = this._sortedData;
-
-    const stats = visibleCols.map((col) => {
+    return visibleCols.map((col) => {
       const values = data.map((r) => r[col]);
       const nonNull = values.filter((v) => v != null);
       const count = nonNull.length;
@@ -933,6 +1049,13 @@ export class ShenasDataTable extends LitElement {
       const top = freqMap.size > 0 ? [...freqMap.entries()].sort((a, b) => b[1] - a[1])[0] : null;
       return { col, type: "text" as const, count, nullCount, unique, top: top ? `${top[0]} (${top[1]})` : "-" };
     });
+  }
+
+  _renderStatsView(visibleCols: string[]): TemplateResult {
+    if (!this._cachedStats) {
+      this._cachedStats = this._computeStats(visibleCols);
+    }
+    const stats = this._cachedStats;
 
     const timeRoles = this._getTimeRoles();
     const statsCols: { key: string; label: string; default: number; cell: (s: (typeof stats)[number]) => unknown }[] = [
@@ -972,6 +1095,7 @@ export class ShenasDataTable extends LitElement {
                     ${c.label}
                     <div
                       class="resize-handle"
+                      @click=${(e: MouseEvent) => e.stopPropagation()}
                       @mousedown=${(e: MouseEvent) => this._onResizeStart(e, `__stats__${c.key}`)}
                       @dblclick=${(e: MouseEvent) => this._autoResizeColumn(e, `__stats__${c.key}`)}
                     ></div>
@@ -1067,7 +1191,8 @@ export class ShenasDataTable extends LitElement {
     if (tc.timeAt) roles[tc.timeAt] = "time";
     if (tc.timeStart) roles[tc.timeStart] = "start";
     if (tc.timeEnd) roles[tc.timeEnd] = "end";
-    if (tc.cursorColumn && tc.cursorColumn !== tc.timeAt) roles[tc.cursorColumn] = "cursor";
+    if (tc.cursorColumn && tc.cursorColumn !== tc.timeAt && tc.cursorColumn !== tc.timeStart)
+      roles[tc.cursorColumn] = "cursor";
     if (tc.observedAtInjected && this._columns.includes("observed_at")) roles["observed_at"] = "observed";
     return roles;
   }

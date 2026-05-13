@@ -14,11 +14,11 @@ from typing import Any
 import httpx
 
 SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
-USER_AGENT = "shenas-source-wikidata/0.1 (https://shenas.net; contact@shenas.net)"
+USER_AGENT = "shenas-source-wikidata/0.1 (https://shenas.ai; contact@shenas.ai)"
 
 # How many entities to fetch per SPARQL request. The public endpoint
 # has a 60-second query timeout; keep batches small to stay under it.
-BATCH_SIZE = 50
+BATCH_SIZE = 25
 
 # How many instances to seed per type.
 SEED_LIMIT = 100
@@ -46,8 +46,9 @@ class WikidataClient:
 
         for attempt in range(retries + 1):
             resp = self._http.get(SPARQL_ENDPOINT, params={"query": query, "format": "json"})
-            if resp.status_code >= 500 and attempt < retries:
-                time.sleep(2 * (attempt + 1))
+            if (resp.status_code == 429 or resp.status_code >= 500) and attempt < retries:
+                delay = int(resp.headers.get("Retry-After", 2 * (attempt + 1)))
+                time.sleep(delay)
                 continue
             resp.raise_for_status()
             data = resp.json()
@@ -72,8 +73,12 @@ class WikidataClient:
         if not qids or not pids:
             return []
         pid_values = " ".join(f"wd:{p}" for p in pids)
+        import time
+
         results: list[dict[str, Any]] = []
         for i in range(0, len(qids), BATCH_SIZE):
+            if i > 0:
+                time.sleep(1)  # pace requests to avoid 429
             batch = qids[i : i + BATCH_SIZE]
             item_values = " ".join(f"wd:{q}" for q in batch)
             query = f"""

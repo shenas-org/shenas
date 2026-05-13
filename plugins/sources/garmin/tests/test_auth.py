@@ -24,12 +24,12 @@ def auth_mock():
 class TestBuildClient:
     def test_no_tokens_raises(self, source: GarminSource, auth_mock) -> None:
         auth_mock.read.return_value = None
-        with pytest.raises(RuntimeError, match="No valid tokens"):
+        with pytest.raises(RuntimeError, match="No saved tokens"):
             source.build_client()
 
     def test_empty_tokens_raises(self, source: GarminSource, auth_mock) -> None:
         auth_mock.read.return_value = {"tokens": None}
-        with pytest.raises(RuntimeError, match="No valid tokens"):
+        with pytest.raises(RuntimeError, match="No saved tokens"):
             source.build_client()
 
     @patch("garminconnect.Garmin")
@@ -54,5 +54,5 @@ class TestBuildClient:
         mock_client.login.side_effect = Exception("expired")
         mock_garmin_cls.return_value = mock_client
 
-        with pytest.raises(RuntimeError, match="No valid tokens"):
+        with pytest.raises(Exception, match="expired"):
             source.build_client()

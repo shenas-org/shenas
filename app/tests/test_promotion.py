@@ -1,7 +1,7 @@
 """Tests for app.promotion.
 
 Promotion writes to ``analysis.promoted_metrics`` and the
-``PromotedSchema`` dataset synthesizes ``MetricTable`` subclasses
+``PromotedSchema`` dataset synthesizes ``DatasetTable`` subclasses
 from the rows at catalog-walk time. No filesystem.
 """
 

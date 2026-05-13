@@ -61,14 +61,15 @@ class Dataset(Plugin):
                     t._Meta = type("_Meta", (t._Meta,), overrides)  # ty: ignore[unresolved-attribute]
             cls.tables = [t._Meta.name for t in cls.all_tables]  # ty: ignore[unresolved-attribute]
 
-    def get_info(self) -> dict[str, Any]:
+    def get_info(self, *, include_table_metadata: bool = False) -> dict[str, Any]:
         info = super().get_info()
         info["primary_table"] = self.primary_table
         info["default_update_frequency"] = self.default_update_frequency
         info["entity_types"] = list(self.entity_types)
         info["entity_uuids"] = self.resolve_entity_uuids(self.entity_types)
         info["tables"] = list(getattr(self, "tables", []))
-        info["table_metadata"] = self._table_metadata()
+        if include_table_metadata:
+            info["table_metadata"] = self._table_metadata()
         return info
 
     def _table_metadata(self) -> list[dict[str, Any]]:
@@ -79,36 +80,12 @@ class Dataset(Plugin):
                 meta = table_cls.metadata()
                 if hasattr(meta.get("schema"), "name"):
                     meta["schema"] = meta["schema"].name
-                meta.update(self._live_table_stats(meta.get("schema", "datasets"), meta["table"]))
+                if hasattr(table_cls, "live_stats"):
+                    meta.update(table_cls.live_stats())
                 result.append(meta)
             except Exception:
                 continue
         return result
-
-    @staticmethod
-    def _live_table_stats(schema: str, table: str) -> dict[str, Any]:
-        """Query DuckDB for row count and date range of a table."""
-        try:
-            from app.database import cursor
-
-            qualified = f'"{schema}"."{table}"'
-            with cursor() as cur:
-                row = cur.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()
-                rows = row[0] if row else 0
-                earliest = None
-                latest = None
-                for date_col in ("date", "calendar_date", "start_time_local", "occurred_at", "month"):
-                    try:
-                        result = cur.execute(f"SELECT MIN({date_col}), MAX({date_col}) FROM {qualified}").fetchone()
-                        if result and result[0]:
-                            earliest = str(result[0])[:10]
-                            latest = str(result[1])[:10]
-                            break
-                    except Exception:
-                        continue
-                return {"rows": rows, "earliest": earliest, "latest": latest}
-        except Exception:
-            return {"rows": 0, "earliest": None, "latest": None}
 
     @classmethod
     def ensure(cls) -> None:

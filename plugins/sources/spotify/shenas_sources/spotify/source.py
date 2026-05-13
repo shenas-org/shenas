@@ -3,20 +3,23 @@
 from __future__ import annotations
 
 import json
-import threading
+import os
 from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
 from spotipy.cache_handler import CacheHandler
 
 from app.table import Field
+from shenas_sources.core.access_type import OFFICIAL_API
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.source import Source
 
 REDIRECT_URI = "http://127.0.0.1:8090/callback"
-SCOPES = "user-read-recently-played user-top-read user-library-read"
+SCOPES = "user-read-recently-played user-top-read user-library-read user-follow-read playlist-read-private user-read-email"
+DEFAULT_CLIENT_ID = "07f7c412747c406ca429189cb724ec36"
 
-_pending_auth: dict[str, Any] = {}
+# Module-level storage for the PKCE manager between start_oauth and complete_oauth
+_pending_pkce: dict[str, Any] = {}
 
 
 class _MemoryCacheHandler(CacheHandler):
@@ -37,10 +40,11 @@ class SpotifySource(Source):
     entity_types: ClassVar[list[str]] = ["human"]
     description = (
         "Syncs listening data from Spotify.\n\n"
-        "Uses OAuth2 PKCE flow (no client secret needed). Create an app at "
-        "developer.spotify.com/dashboard with redirect URI http://127.0.0.1:8090/callback.\n\n"
+        "Uses OAuth2 PKCE flow. Click Authenticate to sign in with your "
+        "Spotify account.\n\n"
         "Poll frequently (~1-2 hours) to build complete listening history."
     )
+    access_types = (OFFICIAL_API,)
 
     @dataclass
     class Auth(SourceAuth):
@@ -56,20 +60,67 @@ class SpotifySource(Source):
             | None
         ) = None
 
-    auth_instructions = (
-        "Spotify requires an API application for OAuth2 access.\n"
-        "\n"
-        "  1. Go to https://developer.spotify.com/dashboard\n"
-        "  2. Create an app (select 'Web API')\n"
-        "  3. Add Redirect URI: http://127.0.0.1:8090/callback\n"
-        "  4. Enter the Client ID below"
-    )
+    auth_instructions = "Click Authenticate to sign in with your Spotify account."
 
     @property
-    def auth_fields(self) -> list[dict[str, str | bool]]:
-        return [
-            {"name": "client_id", "prompt": "Client ID", "hide": False},
-        ]
+    def auth_fields(self) -> list:  # No user input -- uses hardcoded client ID
+        return []
+
+    @property
+    def supports_oauth_redirect(self) -> bool:
+        return True
+
+    def start_oauth(self, redirect_uri: str, credentials: dict[str, str] | None = None) -> str:  # noqa: ARG002
+        """Start the Spotify PKCE OAuth flow and return the authorization URL."""
+        from spotipy.oauth2 import SpotifyPKCE
+
+        client_id = os.environ.get("SPOTIFY_CLIENT_ID", DEFAULT_CLIENT_ID)
+
+        cache = _MemoryCacheHandler()
+        pkce = SpotifyPKCE(
+            client_id=client_id,
+            redirect_uri=redirect_uri,
+            scope=SCOPES,
+            open_browser=False,
+            cache_handler=cache,
+        )
+
+        auth_url = pkce.get_authorize_url()
+        _pending_pkce["spotify"] = {
+            "pkce": pkce,
+            "cache": cache,
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+        }
+        return auth_url
+
+    def complete_oauth(self, *, code: str, state: str | None = None) -> None:  # noqa: ARG002
+        """Complete the Spotify PKCE flow with the authorization code."""
+        pending = _pending_pkce.pop("spotify", None)
+        if not pending:
+            msg = "No pending Spotify auth flow. Start authentication again."
+            raise RuntimeError(msg)
+
+        pkce = pending["pkce"]
+        cache = pending["cache"]
+        client_id = pending["client_id"]
+
+        pkce.get_access_token(code, check_cache=False)
+        token_info = cache.token_info
+        if not token_info:
+            msg = "Token exchange failed -- no token received from Spotify"
+            raise RuntimeError(msg)
+
+        self.Auth.write_row(
+            tokens=json.dumps(
+                {
+                    "access_token": token_info["access_token"],
+                    "refresh_token": token_info["refresh_token"],
+                    "expires_at": token_info["expires_at"],
+                    "client_id": client_id,
+                }
+            ),
+        )
 
     def build_client(self) -> Any:
         import spotipy
@@ -94,9 +145,11 @@ class SpotifySource(Source):
             "scope": SCOPES,
         }
 
+        redirect_uri = tokens.get("redirect_uri", "http://127.0.0.1:7280/api/auth/source/spotify/callback")
+        client_id = tokens.get("client_id") or os.environ.get("SPOTIFY_CLIENT_ID", DEFAULT_CLIENT_ID)
         pkce = SpotifyPKCE(
-            client_id=tokens["client_id"],
-            redirect_uri=REDIRECT_URI,
+            client_id=client_id,
+            redirect_uri=redirect_uri,
             scope=SCOPES,
             cache_handler=cache,
         )
@@ -120,100 +173,6 @@ class SpotifySource(Source):
             )
 
         return spotipy.Spotify(auth=token_info["access_token"])
-
-    def authenticate(self, credentials: dict[str, str]) -> None:
-
-        if credentials.get("auth_complete") == "true":
-            state = _pending_auth.pop("spotify", None)
-            if state is None:
-                msg = "No pending auth flow. Start auth again."
-                raise ValueError(msg)
-            thread = state["thread"]
-            thread.join(timeout=120)
-            if state.get("error"):
-                raise RuntimeError(state["error"])
-            return
-
-        client_id = (credentials.get("client_id") or "").strip()
-        if not client_id:
-            msg = "client_id is required"
-            raise ValueError(msg)
-
-        from spotipy.oauth2 import SpotifyPKCE
-
-        cache = _MemoryCacheHandler()
-        pkce = SpotifyPKCE(
-            client_id=client_id,
-            redirect_uri=REDIRECT_URI,
-            scope=SCOPES,
-            open_browser=False,
-            cache_handler=cache,
-        )
-
-        auth_url = pkce.get_authorize_url()
-        state: dict[str, Any] = {}
-        auth_cls = self.Auth
-
-        def _run_flow() -> None:
-            from http.server import BaseHTTPRequestHandler, HTTPServer
-            from urllib.parse import parse_qs, urlparse
-
-            code_result: dict[str, str] = {}
-
-            class Handler(BaseHTTPRequestHandler):
-                def do_GET(self) -> None:
-                    qs = parse_qs(urlparse(self.path).query)
-                    if "code" in qs:
-                        code_result["code"] = qs["code"][0]
-                        self.send_response(200)
-                        self.send_header("Content-Type", "text/html")
-                        self.end_headers()
-                        self.wfile.write(b"<html><body><h2>Authorization complete. You can close this tab.</h2></body></html>")
-                    else:
-                        code_result["error"] = qs.get("error", ["unknown"])[0]
-                        self.send_response(400)
-                        self.end_headers()
-
-                def log_message(self, fmt: str, *args: Any) -> None:  # ty: ignore[invalid-method-override]
-                    pass
-
-            try:
-                server = HTTPServer(("localhost", 8090), Handler)
-                server.timeout = 120
-                server.handle_request()
-                server.server_close()
-
-                if "error" in code_result:
-                    state["error"] = f"Authorization denied: {code_result['error']}"
-                    return
-                if "code" not in code_result:
-                    state["error"] = "Authorization timed out"
-                    return
-
-                pkce.get_access_token(code_result["code"], check_cache=False)
-                token_info = cache.token_info
-                if not token_info:
-                    state["error"] = "Token exchange failed -- no token received"
-                    return
-                auth_cls.write_row(
-                    tokens=json.dumps(
-                        {
-                            "access_token": token_info["access_token"],
-                            "refresh_token": token_info["refresh_token"],
-                            "expires_at": token_info["expires_at"],
-                            "client_id": client_id,
-                        }
-                    ),
-                )
-            except Exception as exc:
-                state["error"] = str(exc)
-
-        thread = threading.Thread(target=_run_flow, daemon=True)
-        thread.start()
-        state["thread"] = thread
-        _pending_auth["spotify"] = state
-
-        raise ValueError(f"OAUTH_URL:{auth_url}")
 
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.spotify.tables import TABLES, reset_track_id_cache

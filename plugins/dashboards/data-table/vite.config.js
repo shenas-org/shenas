@@ -35,6 +35,8 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
+    allowedHosts: true,
     proxy: {
       "/api": "https://127.0.0.1:7280",
     },

@@ -50,6 +50,7 @@ interface PluginInfo {
   primary_table?: string;
   icon_url?: string;
   tables?: string[];
+  access_types?: Array<{ name: string; label: string; icon: string; description: string }>;
 }
 
 interface TableInfo {
@@ -1027,7 +1028,9 @@ class PluginDetail extends LitElement {
     const tableNames = new Set(tables.map((t) => t.name));
     const urlTable = new URLSearchParams(window.location.search).get("table");
     const preferred = urlTable || this._dataTable || primaryFallbackTable || this._info?.primary_table || "";
-    const table = (preferred && tableNames.has(preferred) ? preferred : tables[0]?.name) || "";
+    const firstWithData = tables.find((t) => (t.rows ?? 0) > 0)?.name;
+    const fallback = firstWithData || tables[0]?.name;
+    const table = (preferred && tableNames.has(preferred) ? preferred : fallback) || "";
     if (!this._dataTable && table) {
       requestAnimationFrame(() => {
         this._dataTable = table;
@@ -1391,6 +1394,11 @@ class PluginDetail extends LitElement {
   _renderDetails(info: PluginInfo, enabled: boolean) {
     return html`
       ${info.description ? html`<div class="description">${info.description}</div>` : ""}
+      ${info.access_types && info.access_types.length > 0
+        ? html`<div class="access-types" style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap">
+            ${info.access_types.map((at) => html`<shenas-badge title="${at.description}">${at.label}</shenas-badge>`)}
+          </div>`
+        : ""}
 
       <div class="state-table">
         <div class="state-row">

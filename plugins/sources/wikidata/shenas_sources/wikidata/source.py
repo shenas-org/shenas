@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from shenas_sources.core.access_type import PUBLIC_DATASET
 from shenas_sources.core.source import Source
 
 if TYPE_CHECKING:
@@ -33,6 +34,7 @@ class WikidataSource(Source):
         "Wikidata property for each entity whose wikidata:qid is set, "
         "and stores the result as rows in entities.statements."
     )
+    access_types = (PUBLIC_DATASET,)
 
     def build_client(self) -> Any:
         from shenas_sources.wikidata.client import WikidataClient

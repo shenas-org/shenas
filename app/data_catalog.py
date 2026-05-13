@@ -226,16 +226,17 @@ class QualityMeasurement(Table):
 
 
 def _walk_sources() -> list[tuple[dict, Plugin]]:
-    """Return [(table_metadata, plugin_instance)] for source tables."""
+    """Return [(metadata, plugin_instance)] for source tables and views."""
     out: list[tuple[dict, Plugin]] = []
     for src_cls in Plugin.load_by_kind("source", include_internal=False):
         plugin = src_cls()
         out.extend((t.metadata(), plugin) for t in Plugin.load_tables(src_cls.name, kind="source"))  # ty: ignore[unresolved-attribute]
+        out.extend((v.metadata(), plugin) for v in Plugin.load_views(src_cls.name) if hasattr(v, "metadata"))  # ty: ignore[call-non-callable]
     return out
 
 
-def _walk_metrics() -> list[tuple[dict, Plugin]]:
-    """Return [(table_metadata, plugin_instance)] for metric tables."""
+def _walk_datasets() -> list[tuple[dict, Plugin]]:
+    """Return [(metadata, plugin_instance)] for dataset tables and views."""
     from app.plugin import PluginInstance
     from shenas_datasets.core import Dataset
 
@@ -253,8 +254,17 @@ def _walk_metrics() -> list[tuple[dict, Plugin]]:
         stub = Plugin.__new__(Plugin)
         stub.name = pi.name
         stub.display_name = pi.name
-        stub._kind = "dataset"
         out.extend((meta, stub) for meta in Dataset.suggested_metadata(pi))
+
+    # Timeseries views (unified cross-dataset views)
+    from app.timeseries import TIMESERIES_VIEWS
+
+    if TIMESERIES_VIEWS:
+        ts_stub = Plugin.__new__(Plugin)
+        ts_stub.name = "timeseries"
+        ts_stub.display_name = "Timeseries"
+        out.extend((view_cls.metadata(), ts_stub) for view_cls in TIMESERIES_VIEWS)
+
     return out
 
 
@@ -293,7 +303,7 @@ class DataCatalog:
         resources: list[DataResource] = []
         for meta, plugin in _walk_sources():
             resources.append(DataResource.from_metadata(meta, plugin=plugin))
-        for meta, plugin in _walk_metrics():
+        for meta, plugin in _walk_datasets():
             resources.append(DataResource.from_metadata(meta, plugin=plugin))
         return resources
 
@@ -389,7 +399,7 @@ class DataCatalog:
     def metadata_by_id(self) -> dict[str, dict[str, Any]]:
         """Return {data_resource_id: table_metadata_dict}."""
         out: dict[str, dict[str, Any]] = {}
-        for meta, _name in _walk_sources() + _walk_metrics():
+        for meta, _name in _walk_sources() + _walk_datasets():
             schema = meta.get("schema") or "datasets"
             key = f"{schema}.{meta['table']}"
             out[key] = meta

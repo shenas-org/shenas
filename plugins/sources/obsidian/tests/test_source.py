@@ -31,7 +31,7 @@ mood: 7
 - 7:30 - 8:30 Morning Routine
     - [x] Toothbrush  [scheduled:: 2026-04-03]  [completion:: 2026-04-03]
     - [ ] Clean face [scheduled:: 2026-04-03]
-- 9:00 - 16:00 IKEA Day
+- 9:00 - 16:00 Day job
 """
 
 

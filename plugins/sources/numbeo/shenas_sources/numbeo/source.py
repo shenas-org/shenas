@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 from app.table import Field
+from shenas_sources.core.access_type import SCRAPING
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
@@ -25,6 +26,7 @@ class NumbeoSource(Source):
         "Covers 9000+ cities worldwide. Requires a Numbeo API key.\n\n"
         "Set your API key in the Auth tab and list cities in the Config tab."
     )
+    access_types = (SCRAPING,)
     auth_instructions = (
         "1. Go to https://www.numbeo.com/api/ and request API access.\n"
         "2. Once approved, find your API key in your account.\n"

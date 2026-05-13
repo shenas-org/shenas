@@ -1,20 +1,21 @@
 from typing import Annotated
 
 from app.table import Field
-from shenas_datasets.core import DailyMetricTable, TransformId
+from shenas_datasets.core import DatasetTable, TransformId
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date", category="time")]
 Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier", display_name="Source")]
 
 
-class DailyHRV(DailyMetricTable):
+class DailyHRV(DatasetTable):
     """Heart Rate Variability -- one row per (date, source)."""
 
     class _Meta:
         name = "daily_hrv"
-        display_name = "Daily HRV"
+        display_name = "HRV"
         description = "Per-day heart rate variability summary."
         pk = ("date", "transform_id")
+        time_at = "date"
 
     date: Date
     source: Source = ""
@@ -53,14 +54,15 @@ class DailyHRV(DailyMetricTable):
     ) = None
 
 
-class DailySleep(DailyMetricTable):
+class DailySleep(DatasetTable):
     """Sleep summary -- one row per (date, source)."""
 
     class _Meta:
         name = "daily_sleep"
-        display_name = "Daily Sleep"
+        display_name = "Sleep"
         description = "Per-day sleep summary (duration, score, stage breakdown)."
         pk = ("date", "transform_id")
+        time_at = "date"
 
     date: Date
     source: Source = ""
@@ -162,14 +164,15 @@ class DailySleep(DailyMetricTable):
     ) = None
 
 
-class DailyVitals(DailyMetricTable):
+class DailyVitals(DatasetTable):
     """Key daily vitals -- one row per (date, source)."""
 
     class _Meta:
         name = "daily_vitals"
-        display_name = "Daily Vitals"
+        display_name = "Vitals"
         description = "Per-day vital signs and activity totals (HR, steps, calories, SpO2)."
         pk = ("date", "transform_id")
+        time_at = "date"
 
     date: Date
     source: Source = ""
@@ -240,14 +243,15 @@ class DailyVitals(DailyMetricTable):
     ) = None
 
 
-class DailyBody(DailyMetricTable):
+class DailyBody(DatasetTable):
     """Body composition -- one row per (date, source)."""
 
     class _Meta:
         name = "daily_body"
-        display_name = "Daily Body Composition"
+        display_name = "Body Composition"
         description = "Per-day body weight, BMI, body fat, and muscle mass."
         pk = ("date", "transform_id")
+        time_at = "date"
 
     date: Date
     source: Source = ""

@@ -1,20 +1,21 @@
 from typing import Annotated
 
 from app.table import Field
-from shenas_datasets.core import DailyMetricTable, TransformId
+from shenas_datasets.core import DatasetTable, TransformId
 
 Date = Annotated[str, Field(db_type="DATE", description="Calendar date", display_name="Date", category="time")]
 Source = Annotated[str, Field(db_type="VARCHAR", description="Data source identifier (e.g. obsidian)", display_name="Source")]
 
 
-class DailyOutcome(DailyMetricTable):
+class DailyOutcome(DatasetTable):
     """Daily self-reported outcomes -- one row per (date, source)."""
 
     class _Meta:
         name = "daily_outcomes"
-        display_name = "Daily Outcomes"
+        display_name = "Outcomes"
         description = "Per-day self-reported wellbeing, social, and health signals."
         pk = ("date", "transform_id")
+        time_at = "date"
 
     date: Date
     source: Source = ""
@@ -190,7 +191,7 @@ class DailyOutcome(DailyMetricTable):
             Field(
                 db_type="INTEGER",
                 description="Duolingo XP earned today",
-                display_name="Daily Duolingo XP",
+                display_name="Duolingo XP",
                 unit="xp",
                 value_range=(0, 5000),
                 example_value=150,

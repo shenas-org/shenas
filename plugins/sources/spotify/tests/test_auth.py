@@ -74,19 +74,11 @@ class TestBuildClient:
         mock_spotify.assert_called_once_with(auth="tok")
 
 
-class TestAuthenticate:
-    def test_missing_credentials(self, source: SpotifySource) -> None:
-        with pytest.raises(ValueError, match="client_id is required"):
-            source.authenticate({})
-
-    def test_raises_oauth_url(self, source: SpotifySource) -> None:
+class TestStartOAuth:
+    def test_returns_auth_url(self, source: SpotifySource) -> None:
         mock_pkce = MagicMock()
         mock_pkce.get_authorize_url.return_value = "https://accounts.spotify.com/authorize?foo=bar"
 
-        mock_thread = MagicMock()
-        with (
-            patch("spotipy.oauth2.SpotifyPKCE", return_value=mock_pkce),
-            patch("threading.Thread", return_value=mock_thread),
-            pytest.raises(ValueError, match=r"OAUTH_URL:https://accounts.spotify.com/authorize"),
-        ):
-            source.authenticate({"client_id": "cid"})
+        with patch("spotipy.oauth2.SpotifyPKCE", return_value=mock_pkce):
+            url = source.start_oauth("http://127.0.0.1:8090/callback")
+            assert url.startswith("https://accounts.spotify.com/authorize")

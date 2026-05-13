@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import PUBLIC_DATASET
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
@@ -25,6 +26,7 @@ class EurostatSource(Source):
         "and living condition indicators. No API key required.\n\n"
         "Set Urban Audit city codes in the Config tab (e.g. DE004C for Berlin)."
     )
+    access_types = (PUBLIC_DATASET,)
 
     @dataclass
     class Config(SourceConfig):

@@ -13,7 +13,7 @@ from shenas_datasets.finance.metrics import (
 
 class FinanceSchema(Dataset):
     name = "finance"
-    display_name = "Finance Metrics"
+    display_name = "Finance"
     description = "Canonical finance metrics: transactions, spending, budgets"
     all_tables = ALL_TABLES
     primary_table = "transactions"

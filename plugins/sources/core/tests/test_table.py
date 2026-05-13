@@ -488,7 +488,7 @@ class TestTableKindAndMetadata:
 
     def test_non_source_table_has_no_kind(self) -> None:
         # A bare Table subclass (not a SourceTable kind) should report
-        # kind=None and have no kind-specific keys. This covers MetricTable
+        # kind=None and have no kind-specific keys. This covers DatasetTable
         # subclasses, system tables (Plugin._Table, Workspace._Table, ...),
         # and SourceConfig / SourceAuth.
         from app.table import Table

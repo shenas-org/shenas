@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import { readdirSync, existsSync } from "fs";
+import { readdirSync, existsSync, copyFileSync } from "fs";
 import http from "http";
 import { resolve } from "path";
 
@@ -107,7 +107,8 @@ export default defineConfig({
     },
   },
   server: {
-    host: "127.0.0.1",
+    host: true,
+    allowedHosts: true,
     port: 5173,
     strictPort: true,
     proxy: {
@@ -124,6 +125,16 @@ export default defineConfig({
     exclude: ["lit", "cytoscape", "apache-arrow", "echarts", "shenas-components", "shenas-frontends"],
   },
   plugins: [
+    {
+      name: "copy-production-html",
+      apply: "build",
+      closeBundle() {
+        copyFileSync(
+          resolve(import.meta.dirname, "default.html"),
+          resolve(import.meta.dirname, "shenas_frontends/default/static/default.html"),
+        );
+      },
+    },
     {
       name: "vendor-externals",
       enforce: "pre",

@@ -10,6 +10,7 @@ from strawberry.scalars import JSON
 
 from app.graphql.derive import gql_type_from_table as _derive
 from app.models import (
+    AccessTypeInfo,
     AuthField,
     AuthFieldsResponse,
     AuthResponse,
@@ -50,8 +51,13 @@ class ConfigEntryType:
     pass
 
 
+@strawberry.experimental.pydantic.type(model=AccessTypeInfo, all_fields=True)
+class AccessType:
+    pass
+
+
 @strawberry.experimental.pydantic.type(model=PluginInfo, all_fields=True)
-class PluginInfoType:
+class PluginType:
     pass
 
 
@@ -71,7 +77,7 @@ class RemoveResponseType:
 
 
 @strawberry.experimental.pydantic.type(model=ScheduleInfo, all_fields=True)
-class ScheduleInfoType:
+class ScheduleType:
     pass
 
 
@@ -159,7 +165,7 @@ class TransformCreateInput:
 
 
 @strawberry.type
-class ModelInfoType:
+class ModelType:
     name: str
     display_name: str = ""
     description: str = ""
@@ -268,7 +274,7 @@ class ParamFieldType:
 
 
 @strawberry.type
-class TransformerInfoType:
+class TransformerType:
     name: str
     display_name: str
     description: str = ""
@@ -279,7 +285,7 @@ class TransformerInfoType:
 class TransformStepType:
     id: int
     ordinal: int
-    transformer: TransformerInfoType
+    transformer: TransformerType
     params: str
     description: str
 
@@ -347,7 +353,7 @@ class DataResourceRefType:
 
 
 @strawberry.type
-class ColumnInfoType:
+class ColumnType:
     name: str
     db_type: str
     nullable: bool = True
@@ -361,7 +367,7 @@ class ColumnInfoType:
 
 
 @strawberry.type
-class TimeColumnsInfoType:
+class TimeColumnsType:
     time_at: str | None = None
     time_start: str | None = None
     time_end: str | None = None
@@ -387,14 +393,14 @@ class QualityCheckType:
 
 
 @strawberry.type
-class FreshnessInfoType:
+class FreshnessType:
     last_refreshed: str | None = None
     sla_minutes: int | None = None
     is_stale: bool = False
 
 
 @strawberry.type
-class QualityInfoType:
+class QualityType:
     expected_row_count_min: int | None = None
     expected_row_count_max: int | None = None
     actual_row_count: int | None = None
@@ -408,15 +414,15 @@ class DataResourceType:
     table_name: str
     display_name: str
     description: str
-    plugin: PluginInfoType
+    plugin: PluginType
     kind: str | None = None
     query_hint: str | None = None
     as_of_macro: str | None = None
     primary_key: list[str]
-    columns: list[ColumnInfoType]
-    time_columns: TimeColumnsInfoType
-    freshness: FreshnessInfoType
-    quality: QualityInfoType
+    columns: list[ColumnType]
+    time_columns: TimeColumnsType
+    freshness: FreshnessType
+    quality: QualityType
     user_notes: str = ""
     tags: list[str]
     upstream_transforms: list[TransformType] | None = None
@@ -437,7 +443,7 @@ class DataResourceAnnotationInput:
 
 
 # -- Entity types: auto-derived from Table classes --------------------------
-# See docs/graphql-architecture.md for the rationale. The derive helper reads
+# See docs/architecture/graphql-architecture.md for the rationale. The derive helper reads
 # _Meta + dataclass fields from the Table class and generates a @strawberry.type
 # with matching fields. Extra resolver fields (sources, statements) are added
 # by subclassing.
@@ -608,7 +614,7 @@ __all__ = [
     "AuthFieldType",
     "AuthFieldsType",
     "AuthResponseType",
-    "ColumnInfoType",
+    "ColumnType",
     "ConfigEntryType",
     "DataResourceAnnotationInput",
     "DataResourceRefType",
@@ -618,18 +624,18 @@ __all__ = [
     "EntityTypeCreateInput",
     "EntityTypeType",
     "EntityUpdateInput",
-    "FreshnessInfoType",
+    "FreshnessType",
     "GqlEntityRelationshipType",
     "GqlEntityType",
     "InstallResponseType",
     "InstallResultType",
     "OkType",
     "PlotHintType",
-    "PluginInfoType",
+    "PluginType",
     "PropertyCreateInput",
     "PropertyType",
     "RemoveResponseType",
-    "ScheduleInfoType",
+    "ScheduleType",
     "StatementType",
     "StatementUpsertInput",
     "TableEntry",

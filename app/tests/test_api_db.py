@@ -63,26 +63,30 @@ class TestDbTables:
 class TestSchemaPluginEndpoints:
     def test_schema_tables(self) -> None:
         with patch(
-            "app.api.db._load_schema_plugins", return_value={"fitness": ["fitness__daily_hrv", "fitness__daily_sleep"]}
+            "app.api.db._load_dataset_plugins", return_value={"fitness": ["fitness__daily_hrv", "fitness__daily_sleep"]}
         ):
-            result = api_db.schema_plugin_tables()
+            result = api_db.dataset_tables()
         assert result == {"datasets": ["fitness__daily_hrv", "fitness__daily_sleep"]}
 
     def test_schema_tables_empty(self) -> None:
-        with patch("app.api.db._load_schema_plugins", return_value={}):
-            assert api_db.schema_plugin_tables() == {}
+        with patch("app.api.db._load_dataset_plugins", return_value={}):
+            assert api_db.dataset_tables() == {}
 
-    def test_schema_plugins(self) -> None:
-        with patch("app.api.db._load_schema_plugins", return_value={"fitness": ["fitness__daily_hrv"]}):
-            assert api_db.schema_plugin_ownership() == {"fitness": ["fitness__daily_hrv"]}
+    def test_dataset_plugin_ownership(self) -> None:
+        api_db._dataset_ownership_cache = None  # clear cache for test
+        with patch("app.api.db._load_dataset_plugins", return_value={"fitness": ["fitness__daily_hrv"]}):
+            assert api_db.dataset_plugin_ownership() == {"fitness": ["fitness__daily_hrv"]}
+        api_db._dataset_ownership_cache = None
 
-    def test_load_schema_plugins_uses_dataset_loader(self) -> None:
+    def test_load_dataset_plugins_uses_dataset_loader(self) -> None:
+        api_db._dataset_ownership_cache = None  # clear cache for test
         fake_dataset = MagicMock(name="fitness")
         fake_dataset.name = "fitness"
         fake_dataset.tables = {"fitness__daily_hrv", "fitness__daily_sleep"}
         with patch("shenas_datasets.core.dataset.Dataset.load_all", return_value=[fake_dataset]):
-            result = api_db._load_schema_plugins()
+            result = api_db._load_dataset_plugins()
         assert result == {"fitness": ["fitness__daily_hrv", "fitness__daily_sleep"]}
+        api_db._dataset_ownership_cache = None
 
 
 class TestTablePreview:
@@ -113,7 +117,7 @@ class TestTablePreview:
 
 class TestFlushSchema:
     def test_flushes_known_plugin(self, fake_db) -> None:
-        with patch("app.api.db._load_schema_plugins", return_value={"fitness": ["fitness__daily_hrv"]}):
+        with patch("app.api.db._load_dataset_plugins", return_value={"fitness": ["fitness__daily_hrv"]}):
             result = api_db.flush_schema("fitness")
         assert result["schema"] == "fitness"
         assert result["rows_deleted"] == 1
@@ -121,19 +125,19 @@ class TestFlushSchema:
 
     def test_unknown_plugin_raises_404(self) -> None:
         with (
-            patch("app.api.db._load_schema_plugins", return_value={}),
+            patch("app.api.db._load_dataset_plugins", return_value={}),
             pytest.raises(HTTPException) as exc,
         ):
             api_db.flush_schema("missing")
         assert exc.value.status_code == 404
 
     def test_skips_invalid_table_names(self, fake_db) -> None:
-        with patch("app.api.db._load_schema_plugins", return_value={"fitness": ["$bad"]}):
+        with patch("app.api.db._load_dataset_plugins", return_value={"fitness": ["$bad"]}):
             result = api_db.flush_schema("fitness")
         assert result["rows_deleted"] == 0
 
     def test_handles_missing_metric_tables(self, fake_db) -> None:
-        with patch("app.api.db._load_schema_plugins", return_value={"fitness": ["nonexistent"]}):
+        with patch("app.api.db._load_dataset_plugins", return_value={"fitness": ["nonexistent"]}):
             result = api_db.flush_schema("fitness")
         assert result["rows_deleted"] == 0
 

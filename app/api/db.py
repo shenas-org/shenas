@@ -55,17 +55,24 @@ def db_tables() -> dict[str, list[str]]:
         return {}
 
 
-def _load_schema_plugins() -> dict[str, list[str]]:
-    """Load schema plugin name -> table names from entry points."""
+_dataset_ownership_cache: dict[str, list[str]] | None = None
+
+
+def _load_dataset_plugins() -> dict[str, list[str]]:
+    """Load dataset plugin name -> table names from entry points. Cached after first call."""
+    global _dataset_ownership_cache
+    if _dataset_ownership_cache is not None:
+        return _dataset_ownership_cache
     from shenas_datasets.core.dataset import Dataset
 
-    return {s.name: sorted(s.tables) for s in Dataset.load_all(include_internal=False)}
+    _dataset_ownership_cache = {s.name: sorted(s.tables) for s in Dataset.load_all(include_internal=False)}
+    return _dataset_ownership_cache
 
 
 @router.get("/schema-tables")
-def schema_plugin_tables() -> dict[str, list[str]]:
-    """Return DuckDB schema -> tables for installed schema plugins."""
-    plugins = _load_schema_plugins()
+def dataset_tables() -> dict[str, list[str]]:
+    """Return DuckDB schema -> tables for installed dataset plugins."""
+    plugins = _load_dataset_plugins()
     all_tables: list[str] = []
     for tables in plugins.values():
         all_tables.extend(tables)
@@ -73,9 +80,13 @@ def schema_plugin_tables() -> dict[str, list[str]]:
 
 
 @router.get("/schema-plugins")
-def schema_plugin_ownership() -> dict[str, list[str]]:
-    """Return schema plugin name -> list of table names it owns."""
-    return _load_schema_plugins()
+def dataset_plugin_ownership() -> dict[str, list[str]]:
+    """Return dataset plugin name -> list of table names it owns."""
+    return _load_dataset_plugins()
+
+
+# Backward-compatible alias
+schema_plugin_ownership = dataset_plugin_ownership
 
 
 _IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
@@ -116,7 +127,7 @@ def table_preview(schema: str, table: str, limit: int = 50) -> list[dict[str, An
 @router.delete("/schema/{schema_plugin}/flush")
 def flush_schema(schema_plugin: str) -> dict[str, Any]:
     """Delete all rows from tables owned by a schema plugin."""
-    plugins = _load_schema_plugins()
+    plugins = _load_dataset_plugins()
     tables = plugins.get(schema_plugin)
     if not tables:
         raise HTTPException(status_code=404, detail=f"Schema plugin not found: {schema_plugin}")

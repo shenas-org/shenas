@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import SCRAPING
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
@@ -26,6 +27,7 @@ class GoodreadsSource(Source):
         "Uses RSS feeds -- no API key needed. Set your Goodreads user ID in config.\n"
         "Find it in your profile URL: goodreads.com/user/show/<user_id>"
     )
+    access_types = (SCRAPING,)
 
     @dataclass
     class Config(SourceConfig):

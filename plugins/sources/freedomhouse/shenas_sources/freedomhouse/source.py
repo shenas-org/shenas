@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from shenas_sources.core.access_type import PUBLIC_DATASET
 from shenas_sources.core.source import Source
 
 
@@ -22,6 +23,7 @@ class FreedomHouseSource(Source):
         "breakdown (25 questions across 7 subcategories).\n\n"
         "No API key required. Downloads the aggregate Excel dataset directly."
     )
+    access_types = (PUBLIC_DATASET,)
 
     def build_client(self) -> Any:
         from shenas_sources.freedomhouse.client import FreedomHouseClient

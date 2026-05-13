@@ -15,3 +15,7 @@ A local-first quantified-self platform. shenas collects health, finance, and lif
 
 - [Discourse forum](https://shenas.discourse.group/) -- questions, feature requests, show-and-tell
 - [Discord server](https://discord.gg/VKsUVT9q) -- real-time chat and support
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE).

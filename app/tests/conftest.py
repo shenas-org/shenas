@@ -46,6 +46,21 @@ class _StubDB:
         pass
 
 
+@pytest.fixture(autouse=True)
+def _clear_plugin_packages_cache() -> Iterator[None]:
+    """Reset Plugin._get_installed_packages between tests.
+
+    The function is decorated with functools.cache; without this fixture,
+    the first test that calls it pollutes subsequent tests with the real
+    set of installed plugins, defeating subprocess.run mocks.
+    """
+    from app.plugin import Plugin
+
+    Plugin._get_installed_packages.cache_clear()
+    yield
+    Plugin._get_installed_packages.cache_clear()
+
+
 @pytest.fixture
 def db_con() -> Iterator[duckdb.DuckDBPyConnection]:
     """In-memory DuckDB with system tables initialized."""

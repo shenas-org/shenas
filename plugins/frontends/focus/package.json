@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cp focus.html shenas_frontends/focus/static/focus.html",
+    "build": "vite build",
     "test": "vitest run",
     "preview": "vite preview",
     "coverage": "vitest run --coverage"

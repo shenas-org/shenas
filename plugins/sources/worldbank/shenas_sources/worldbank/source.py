@@ -7,9 +7,10 @@ Over 1400 indicators available back to 1960.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import PUBLIC_DATASET
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
@@ -18,32 +19,35 @@ class WorldBankSource(Source):
     name = "worldbank"
     display_name = "World Bank"
     primary_table = "indicators"
+    entity_types: ClassVar[list[str]] = ["country"]
     description = (
         "Country-level development indicators from the World Bank Open Data API.\n\n"
         "Covers GDP, population, inflation, trade, education, health, and 1400+ "
         "other indicators for 200+ countries. Annual data back to 1960.\n\n"
-        "No API key required. Set ISO country codes in the Config tab."
+        "No API key required. Select countries in the Config tab."
     )
+    access_types = (PUBLIC_DATASET,)
 
     @dataclass
     class Config(SourceConfig):
-        country_codes: Annotated[
+        country_uuids: Annotated[
             str | None,
             Field(
                 db_type="VARCHAR",
-                description="Comma-separated ISO 3166-1 alpha-2 country codes (e.g. SE,DE,US) or 'all' for all countries",
+                display_name="Countries",
+                description="Select countries to fetch data for",
+                ui_widget="entity_picker",
             ),
         ] = None
 
     def build_client(self) -> Any:
         from shenas_sources.worldbank.client import WorldBankClient
 
-        cfg = self.Config.read_row()
-        if not cfg or not cfg.get("country_codes"):
-            msg = "Set country codes in the Config tab (e.g. SE,DE,US or 'all')."
+        codes = self._resolve_country_codes()
+        if not codes:
+            msg = "Select countries in the Config tab."
             raise RuntimeError(msg)
-        codes = cfg["country_codes"].strip()
-        return WorldBankClient(country_codes=codes)
+        return WorldBankClient(country_codes=",".join(codes))
 
     def resources(self, client: Any) -> list[Any]:
         from shenas_sources.worldbank.tables import TABLES

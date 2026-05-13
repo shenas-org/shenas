@@ -10,6 +10,7 @@ from typing import Annotated, Any, ClassVar
 from urllib.parse import urlencode
 
 from app.table import Field
+from shenas_sources.core.access_type import OFFICIAL_API
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
@@ -42,6 +43,7 @@ class WithingsSource(Source):
         "Syncs body measurements (weight, body fat, blood pressure, SpO2), "
         "sleep summaries, daily activity, and device info from Withings."
     )
+    access_types = (OFFICIAL_API,)
 
     @dataclass
     class Config(SourceConfig):

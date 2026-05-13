@@ -31,7 +31,7 @@ def main(
     frontend: str = typer.Option("default", "--frontend", help="Frontend plugin to render as the app shell"),
     default_theme: str = typer.Option("default", "--default-theme", help="Theme to enable if none is set"),
     api_url: str = typer.Option(
-        "", "--api-url", help="shenas.net API server URL (default: SHENAS_NET_URL or https://shenas.net)"
+        "", "--api-url", help="shenas.net API server URL (default: SHENAS_NET_URL or https://shenas.ai)"
     ),
     reload: bool = typer.Option(False, "--reload", help="Auto-reload on file changes (development)"),
     headless: bool = typer.Option(False, "--headless", help="Skip UI, run as sync/transform worker only"),
@@ -48,7 +48,7 @@ def main(
     os.environ["SHENAS_DEFAULT_THEME"] = default_theme
     if api_url:
         os.environ["SHENAS_NET_URL"] = api_url
-    os.environ.setdefault("SHENAS_NET_URL", "https://shenas.net")
+    os.environ.setdefault("SHENAS_NET_URL", "https://shenas.ai")
     os.environ.setdefault("SHENAS_PACKAGE_INDEX", os.environ["SHENAS_NET_URL"].rstrip("/"))
 
     if reload:

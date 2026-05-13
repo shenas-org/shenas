@@ -71,6 +71,9 @@ shenas-source-openaq = { workspace = true }
 shenas-source-who = { workspace = true }
 shenas-source-wikidata = { workspace = true }
 shenas-source-worldbank = { workspace = true }
+shenas-source-imap = { workspace = true }
+shenas-source-proton-mail-bridge = { workspace = true }
+shenas-source-paperclip = { workspace = true }
 shenas-dataset-core = { workspace = true }
 shenas-dataset-fitness = { workspace = true }
 shenas-dataset-events = { workspace = true }
@@ -137,6 +140,9 @@ dev = [
     "shenas-source-who",
     "shenas-source-wikidata",
     "shenas-source-worldbank",
+    "shenas-source-imap",
+    "shenas-source-proton-mail-bridge",
+    "shenas-source-paperclip",
     "shenas-dataset-fitness",
     "shenas-dataset-finance",
     "shenas-dataset-outcomes",

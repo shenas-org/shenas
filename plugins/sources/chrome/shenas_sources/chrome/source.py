@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import LOCAL_DB
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
@@ -40,6 +41,7 @@ class ChromeSource(Source):
         "temporary location before reading. No API auth needed -- just "
         "configure the profile directory path."
     )
+    access_types = (LOCAL_DB,)
 
     @dataclass
     class Config(SourceConfig):

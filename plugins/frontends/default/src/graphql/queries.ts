@@ -6,11 +6,10 @@ import { gqlTag as gql } from "shenas-frontends";
 
 /** Sidebar plugin card: fields for the plugin list, counts, stats, and flow graph. */
 export const PLUGIN_CARD_FRAGMENT = gql`
-  fragment PluginCard on PluginInfoType {
+  fragment PluginCard on PluginType {
     name
     displayName
     enabled
-    entityUuids
     tables
     totalRows
   }

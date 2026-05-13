@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import LOCAL_FILES
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
@@ -27,6 +28,7 @@ class ClaudeCodeSource(Source):
         "(response times, message counts) from ~/.claude. "
         "No API auth needed -- just configure the Claude data directory path."
     )
+    access_types = (LOCAL_FILES,)
 
     @dataclass
     class Config(SourceConfig):

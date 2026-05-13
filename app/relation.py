@@ -386,10 +386,13 @@ class DataRelation:
         "SnapshotTable": "snapshot",
         "CounterTable": "counter",
         "M2MTable": "m2m_relation",
-        "DailyMetricTable": "daily_metric",
-        "WeeklyMetricTable": "weekly_metric",
-        "MonthlyMetricTable": "monthly_metric",
-        "EventMetricTable": "event_metric",
+    }
+
+    # Dataset tables derive their kind from _Meta.time_at instead of class name.
+    _DATASET_KIND_BY_TIME_AT: ClassVar[dict[str, str]] = {
+        "date": "daily_metric",
+        "week": "weekly_metric",
+        "month": "monthly_metric",
     }
 
     _QUERY_HINT_BY_KIND: ClassVar[dict[str, str]] = {
@@ -400,23 +403,38 @@ class DataRelation:
         "snapshot": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to read the value at time ts.",
         "counter": "ORDER BY `observed_at` and use `lag()` to compute per-period deltas; raw values are cumulative.",
         "m2m_relation": "AS-OF lookup via the `<schema>.<table>_as_of(ts)` macro to find which entities were linked at ts.",
-        "daily_metric": "Per-day rollup. Filter or join on `date` (DATE). PK includes (date, source). Lag in days.",
-        "weekly_metric": "Per-week rollup. Filter or join on `week` (DATE/VARCHAR). PK includes (week, source). Lag in weeks.",
+        "daily_metric": "Per-day rollup. Filter or join on `date` (DATE). PK includes (date, transform_id). Lag in days.",
+        "weekly_metric": (
+            "Per-week rollup. Filter or join on `week` (DATE/VARCHAR). PK includes (week, transform_id). Lag in weeks."
+        ),
         "monthly_metric": (
-            "Per-month rollup. Filter or join on `month` (VARCHAR YYYY-MM). PK includes (month, source). Lag in months."
+            "Per-month rollup. Filter or join on `month` (VARCHAR YYYY-MM). PK includes (month, transform_id). Lag in months."
         ),
-        "event_metric": (
-            "Discrete event in the unified timeline. Filter or window by `occurred_at`. PK is typically (source, source_id)."
-        ),
+        "event_metric": ("Discrete event in the unified timeline. Filter or window by the time column."),
     }
 
     @classmethod
     def kind(cls) -> str | None:
-        """Return the kind string from the MRO."""
+        """Return the kind string for this table.
+
+        Priority:
+        1. Explicit ``_Meta.kind`` (for dataset tables that need to override).
+        2. Source table MRO check (EventTable -> "event", etc.).
+        3. Dataset table ``_Meta.time_at`` inference (date -> "daily_metric", etc.).
+        """
+        # Explicit kind on _Meta takes precedence
+        explicit = getattr(getattr(cls, "_Meta", None), "kind", None)
+        if explicit:
+            return explicit
+        # Source table kinds: check class name in MRO
         for base in cls.__mro__:
             result = cls._KIND_BY_BASE_NAME.get(base.__name__)
             if result is not None:
                 return result
+        # Dataset table kinds: infer from _Meta.time_at
+        time_at = getattr(getattr(cls, "_Meta", None), "time_at", None)
+        if time_at and any(base.__name__ == "DatasetTable" for base in cls.__mro__):
+            return cls._DATASET_KIND_BY_TIME_AT.get(time_at, "event_metric")
         return None
 
     @classmethod

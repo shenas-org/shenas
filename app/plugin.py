@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import functools
 import json
 import logging
 import os
@@ -400,20 +401,11 @@ class Plugin(abc.ABC):
 
     @property
     def has_entities(self) -> bool:
-        """True if this plugin declares non-device ``entity_types`` or ``entity_projection``.
-
-        Device-only sources (entity_types = ["device"]) don't need the
-        Entities tab -- the device association is automatic via source_device.
-        """
-        declared = getattr(self, "entity_types", None) or []
-        if declared and set(declared) != {"device"}:
-            return True
+        """True if any table or view has an ``entity_projection`` in its _Meta."""
 
         def _has_projection(classes: tuple[type, ...]) -> bool:
             return any(
-                isinstance(relation, type)
-                and getattr(getattr(relation, "_Meta", None), "entity_type", None)
-                and getattr(getattr(relation, "_Meta", None), "entity_projection", None)
+                isinstance(relation, type) and getattr(getattr(relation, "_Meta", None), "entity_projection", None)
                 for relation in classes
             )
 
@@ -637,6 +629,7 @@ class Plugin(abc.ABC):
             del sys.path_importer_cache[p]
 
         importlib.invalidate_caches()
+        Plugin._get_installed_packages.cache_clear()
 
         for hook in cls._cache_clear_hooks:
             hook()
@@ -654,28 +647,38 @@ class Plugin(abc.ABC):
     # -- Package management (classmethods) --
 
     @staticmethod
-    def list_installed(kind: str) -> list[dict[str, Any]]:
-        """List installed plugins of a given kind with full info."""
-        prefix = Plugin.pkg(kind, "")
+    @functools.cache
+    def _get_installed_packages() -> tuple[dict[str, str], ...]:
+        """Return installed packages (cached; cleared by clear_caches)."""
         result = subprocess.run(
             ["uv", "pip", "list", "--format", "json", "--python", _python_executable()],
             capture_output=True,
             text=True,
         )
         if result.returncode != 0:
-            return []
+            return ()
+        return tuple(json.loads(result.stdout))
 
-        installed = json.loads(result.stdout)
-        items = []
-        for p in sorted(installed, key=lambda x: x["name"]):
-            if not p["name"].startswith(prefix):
+    @staticmethod
+    def _iter_installed_plugins(kind: str):
+        """Yield (short_name, package_info, plugin_cls) for installed plugins of a kind."""
+        prefix = Plugin.pkg(kind, "")
+        for package in sorted(Plugin._get_installed_packages(), key=lambda x: x["name"]):
+            if not package["name"].startswith(prefix):
                 continue
-            short_name = p["name"].removeprefix(prefix)
+            short_name = package["name"].removeprefix(prefix)
             if short_name == "core":
                 continue
             plugin_cls = Plugin.load_by_name_and_kind(short_name, kind) or Plugin._load_fresh(kind, short_name)
             if plugin_cls and plugin_cls.internal:
                 continue
+            yield short_name, package, plugin_cls
+
+    @staticmethod
+    def list_installed(kind: str) -> list[dict[str, Any]]:
+        """List installed plugins of a given kind with full info."""
+        items = []
+        for short_name, package, plugin_cls in Plugin._iter_installed_plugins(kind):
             if plugin_cls:
                 plugin = plugin_cls()
                 pi = plugin.get_info()
@@ -691,39 +694,75 @@ class Plugin(abc.ABC):
                 {
                     **pi,
                     "name": pi.get("name", short_name),
-                    "package": p["name"],
-                    "version": p["version"],
-                    "signature": _check_signature(p["name"], p["version"]),
+                    "package": package["name"],
+                    "version": package["version"],
+                    "signature": _check_signature(package["name"], package["version"]),
                     "config_entries": config_entries,
                 }
             )
         return items
 
     @staticmethod
+    def list_installed_lightweight(kind: str) -> list[dict[str, Any]]:
+        """List installed plugins with minimal info (no DuckDB queries).
+
+        Returns only ClassVar metadata + PluginInstance state. Used by
+        the sidebar where only name/displayName/enabled/tables are needed.
+        """
+        items = []
+        for short_name, package, plugin_cls in Plugin._iter_installed_plugins(kind):
+            if plugin_cls:
+                plugin = plugin_cls()
+                instance = PluginInstance.find(kind, short_name)
+                items.append(
+                    {
+                        "name": plugin_cls.name,
+                        "display_name": getattr(plugin_cls, "display_name", short_name),
+                        "kind": kind,
+                        "version": package["version"],
+                        "description": getattr(plugin_cls, "description", ""),
+                        "enabled": instance.enabled if instance else getattr(plugin_cls, "enabled_by_default", True),
+                        "has_auth": plugin.has_auth,
+                        "access_types": [at.to_dict() for at in getattr(plugin_cls, "access_types", ())],
+                        "synced_at": str(instance.synced_at) if instance and instance.synced_at else None,
+                        "package": package["name"],
+                    }
+                )
+            else:
+                items.append(
+                    {
+                        "name": short_name,
+                        "display_name": short_name.replace("-", " ").title(),
+                        "kind": kind,
+                        "version": package["version"],
+                        "enabled": True,
+                        "package": package["name"],
+                    }
+                )
+        return items
+
     @staticmethod
     def compute_plugin_rows() -> dict[str, int]:
-        """Count total rows per plugin across sources + datasets schemas."""
+        """Count total rows per plugin across sources + datasets schemas.
+
+        Uses DuckDB catalog metadata (estimated_size) instead of COUNT(*)
+        per table, which is orders of magnitude faster on large databases.
+        """
         from app.database import cursor
 
         plugin_rows: dict[str, int] = {}
         try:
             with cursor() as cur:
-                for schema_name in ("sources", "datasets"):
-                    try:
-                        tables = cur.execute(
-                            "SELECT table_name FROM information_schema.tables "
-                            "WHERE table_schema = ? AND table_name NOT LIKE '_dlt_%'",
-                            [schema_name],
-                        ).fetchall()
-                        for (table_name,) in tables:
-                            row = cur.execute(f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}"').fetchone()
-                            count = row[0] if row else 0
-                            prefix_end = table_name.find("__")
-                            if prefix_end > 0:
-                                plugin_name = table_name[:prefix_end]
-                                plugin_rows[plugin_name] = plugin_rows.get(plugin_name, 0) + count
-                    except Exception:
-                        continue
+                rows = cur.execute(
+                    "SELECT table_name, estimated_size FROM duckdb_tables() "
+                    "WHERE schema_name IN ('sources', 'datasets') "
+                    "AND table_name NOT LIKE '_dlt_%'",
+                ).fetchall()
+                for table_name, estimated_size in rows:
+                    prefix_end = table_name.find("__")
+                    if prefix_end > 0:
+                        plugin_name = table_name[:prefix_end]
+                        plugin_rows[plugin_name] = plugin_rows.get(plugin_name, 0) + (estimated_size or 0)
         except Exception:
             pass
         return plugin_rows

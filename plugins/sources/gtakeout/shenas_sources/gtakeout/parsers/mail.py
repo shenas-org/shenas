@@ -12,6 +12,12 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
+def _sanitize(value: str) -> str:
+    """Remove null bytes and other characters that break SQL insert values."""
+    # Re-encode to UTF-8 and back to drop surrogate and invalid sequences
+    return value.encode("utf-8", errors="replace").decode("utf-8").replace("\x00", "")
+
+
 def parse_mbox(files: list[Path]) -> Iterator[dict[str, Any]]:
     """Yield email metadata from mbox files (streamed, no body content stored)."""
     for path in files:
@@ -29,25 +35,20 @@ def parse_mbox(files: list[Path]) -> Iterator[dict[str, Any]]:
             if not timestamp:
                 continue
 
-            labels = message.get("X-Gmail-Labels", "")
-            from_addr = message.get("From", "")
-            to_addr = message.get("To", "")
-            subject = message.get("Subject", "")
-
-            # Decode encoded headers
-            from_addr = _decode_header(from_addr)
-            to_addr = _decode_header(to_addr)
-            subject = _decode_header(subject)
+            labels = str(message.get("X-Gmail-Labels", "") or "")
+            from_addr = _decode_header(message.get("From", ""))
+            to_addr = _decode_header(message.get("To", ""))
+            subject = _decode_header(message.get("Subject", ""))
 
             yield {
-                "message_id": message_id.strip("<>"),
+                "message_id": _sanitize(message_id.strip("<>")),
                 "timestamp": timestamp,
-                "from_addr": from_addr,
-                "to_addr": to_addr,
-                "subject": subject,
-                "labels": labels,
-                "thread_id": message.get("X-GM-THRID", ""),
-                "content_type": message.get_content_type(),
+                "from_addr": _sanitize(from_addr),
+                "to_addr": _sanitize(to_addr),
+                "subject": _sanitize(subject),
+                "labels": _sanitize(labels),
+                "thread_id": _sanitize(str(message.get("X-GM-THRID", "") or "")),
+                "content_type": str(message.get_content_type()),
                 "has_attachments": _has_attachments(message),
             }
 
@@ -63,23 +64,23 @@ def _parse_date(date_str: str) -> str | None:
         return None
 
 
-def _decode_header(value: str) -> str:
-    """Decode RFC 2047 encoded header value."""
+def _decode_header(value: object) -> str:
+    """Decode RFC 2047 encoded header value. Always returns a plain str."""
     if not value:
         return ""
     try:
         import email.header
 
-        parts = email.header.decode_header(value)
+        parts = email.header.decode_header(str(value))
         decoded = []
         for part, charset in parts:
             if isinstance(part, bytes):
                 decoded.append(part.decode(charset or "utf-8", errors="replace"))
             else:
-                decoded.append(part)
+                decoded.append(str(part))
         return " ".join(decoded)
     except Exception:
-        return value
+        return str(value)
 
 
 def _has_attachments(message: mailbox.mboxMessage) -> bool:

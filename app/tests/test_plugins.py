@@ -652,18 +652,25 @@ class TestResolveEntityUuids:
 
 
 class TestHasEntities:
-    def test_has_entities_true_when_entity_types_set(self) -> None:
+    def test_has_entities_true_when_table_has_entity_projection(self) -> None:
         class _TestPlugin(Plugin):
             name = "test"
             display_name = "Test"
-            entity_types: ClassVar[list[str]] = ["human"]
 
             @property
             def _kind(self):
                 return "source"
 
-        plugin = _TestPlugin()
-        assert plugin.has_entities is True
+        class _TableWithEntityProjection:
+            class _Meta:
+                entity_projection = "human"
+
+        with (
+            patch("app.plugin.Plugin.load_tables", return_value=(_TableWithEntityProjection,)),
+            patch("app.plugin.Plugin.load_views", return_value=()),
+        ):
+            plugin = _TestPlugin()
+            assert plugin.has_entities is True
 
     def test_has_entities_false_when_empty(self) -> None:
         class _TestPlugin(Plugin):

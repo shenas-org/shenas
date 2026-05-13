@@ -32,11 +32,11 @@ class Evt(EventTable):
 
 
 def test_dimension_is_scd2() -> None:
-    assert Dim.is_scd2() is True
+    assert Dim.is_scd2 is True
 
 
 def test_event_is_not_scd2() -> None:
-    assert Evt.is_scd2() is False
+    assert Evt.is_scd2 is False
 
 
 def test_scd2_filter_current() -> None:

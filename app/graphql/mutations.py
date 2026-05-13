@@ -557,11 +557,11 @@ class Mutation:
 
     @strawberry.mutation
     def promote_hypothesis(self, hypothesis_id: int, name: str, metric_schema: str = "datasets") -> JSON:
-        """Promote a hypothesis into a canonical MetricTable.
+        """Promote a hypothesis into a canonical DatasetTable.
 
         Inserts a row into ``analysis.promoted_metrics``. The
         promoted thing is then visible to the catalog walker as a
-        synthesized ``MetricTable`` subclass; no Python source files
+        synthesized ``DatasetTable`` subclass; no Python source files
         are generated.
         """
         from app.hypotheses import Hypothesis
@@ -616,7 +616,10 @@ class Mutation:
         except KeyError as exc:
             return {"ok": False, "error": {"message": str(exc)}}  # ty: ignore[invalid-return-type]
 
-        provider = get_llm_provider()
+        try:
+            provider = get_llm_provider()
+        except RuntimeError as exc:
+            return {"ok": False, "error": {"message": str(exc)}}  # ty: ignore[invalid-return-type]
         wall_start = time.monotonic()
 
         # Step 1: create empty hypothesis row so we can persist failures.
@@ -744,19 +747,22 @@ class Mutation:
 
         from shenas_transformers.core.transform import Transform
 
-        from app.data_catalog import _walk_metrics, _walk_sources
+        from app.data_catalog import _walk_datasets, _walk_sources
         from app.llm import get_llm_provider
         from app.plugin import PluginInstance
         from shenas_datasets.core.suggest import ask_for_dataset_suggestions, validate_dataset_payload
 
-        provider = get_llm_provider()
+        try:
+            provider = get_llm_provider()
+        except RuntimeError as exc:
+            return {"ok": False, "error": str(exc), "suggestions": []}  # ty: ignore[invalid-return-type]
         wall_start = time.monotonic()
 
         # Build catalogs
         source_catalog = [meta for meta, _plugin in _walk_sources()]
         if source:
             source_catalog = [t for t in source_catalog if t.get("schema") == source]
-        existing_metrics = [meta for meta, _plugin in _walk_metrics()]
+        existing_metrics = [meta for meta, _plugin in _walk_datasets()]
 
         if not source_catalog:
             return {"ok": False, "error": "No source tables found", "suggestions": []}  # ty: ignore[invalid-return-type]
@@ -835,14 +841,17 @@ class Mutation:
 
         from shenas_analyses.suggestion import ask_for_analysis_suggestions, validate_analysis_payload
 
-        from app.data_catalog import _walk_metrics
+        from app.data_catalog import _walk_datasets
         from app.hypotheses import Hypothesis
         from app.llm import get_llm_provider
 
-        provider = get_llm_provider()
+        try:
+            provider = get_llm_provider()
+        except RuntimeError as exc:
+            return {"ok": False, "error": str(exc), "suggestions": []}  # ty: ignore[invalid-return-type]
         wall_start = time.monotonic()
 
-        metrics_catalog = [meta for meta, _plugin in _walk_metrics()]
+        metrics_catalog = [meta for meta, _plugin in _walk_datasets()]
         if not metrics_catalog:
             return {"ok": False, "error": "No metric tables found", "suggestions": []}  # ty: ignore[invalid-return-type]
 

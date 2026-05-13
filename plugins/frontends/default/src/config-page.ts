@@ -12,12 +12,17 @@ import { GET_PLUGIN_CONFIG } from "./graphql/queries.ts";
 import { SET_CONFIG } from "./graphql/mutations.ts";
 import { gqlTag as gql } from "shenas-frontends";
 
-const GET_ENTITIES_BY_STATUS = gql`
+const GET_ENTITIES_AND_TYPES = gql`
   {
     entities(status: "enabled") {
       uuid
       type
       name
+    }
+    entityTypes {
+      name
+      parent
+      isAbstract
     }
   }
 `;
@@ -187,10 +192,31 @@ class ConfigPage extends LitElement {
   private _client = getClient();
 
   async _fetchEntities(): Promise<void> {
-    const { data } = await this._client.query({ query: GET_ENTITIES_BY_STATUS, fetchPolicy: "network-only" });
+    const { data } = await this._client.query({ query: GET_ENTITIES_AND_TYPES, fetchPolicy: "network-only" });
     const all = (data?.entities || []) as EntityOption[];
-    const typeSet = new Set(this.entityTypes);
-    this._entityOptions = all.filter((entity) => typeSet.has(entity.type));
+    const types = (data?.entityTypes || []) as Array<{ name: string; parent: string | null; isAbstract: boolean }>;
+
+    // Expand declared entity types to include all subtypes (e.g. "place" -> "city", "residence")
+    const childrenOf = new Map<string, string[]>();
+    for (const entityType of types) {
+      if (entityType.parent) {
+        const siblings = childrenOf.get(entityType.parent) || [];
+        siblings.push(entityType.name);
+        childrenOf.set(entityType.parent, siblings);
+      }
+    }
+    const expandedTypes = new Set<string>();
+    const expand = (typeName: string): void => {
+      expandedTypes.add(typeName);
+      for (const child of childrenOf.get(typeName) || []) {
+        expand(child);
+      }
+    };
+    for (const typeName of this.entityTypes) {
+      expand(typeName);
+    }
+
+    this._entityOptions = all.filter((entity) => expandedTypes.has(entity.type));
   }
 
   _startEdit(key: string, currentValue: string): void {

@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import Annotated
 
 from app.table import Field
-from shenas_datasets.core import EventMetricTable, TransformId
+from shenas_datasets.core import DatasetTable, TransformId
 
 Source = Annotated[str, Field(db_type="VARCHAR", description="Source plugin (e.g. gtakeout)", display_name="Source")]
 
 
-class LocationVisit(EventMetricTable):
+class LocationVisit(DatasetTable):
     """A location visit matched against a user-defined geofence.
 
     Each row represents a period of time spent at a recognized place.

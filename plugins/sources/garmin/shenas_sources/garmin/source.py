@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import tempfile
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ from pathlib import Path
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import UNOFFICIAL_API
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
@@ -27,6 +29,7 @@ class GarminSource(Source):
         "Authenticates via email/password with MFA support. Tokens are stored "
         "in the database."
     )
+    access_types = (UNOFFICIAL_API,)
 
     @dataclass
     class Auth(SourceAuth):
@@ -66,20 +69,22 @@ class GarminSource(Source):
         from garminconnect import Garmin
 
         row = self.Auth.read_row()
-        if row and row.get("tokens"):
-            tokens = json.loads(row["tokens"])
-            tmp = Path(tempfile.mkdtemp(prefix="garmin_tokens_"))
-            for name, content in tokens.items():
-                (tmp / name).write_text(content)
-            client = Garmin()
-            try:
-                client.login(str(tmp))
-                return client
-            except Exception:
-                pass
+        if not row or not row.get("tokens"):
+            msg = "No saved tokens. Authenticate in the Auth tab."
+            raise RuntimeError(msg)
 
-        msg = "No valid tokens found. Configure authentication in the Auth tab."
-        raise RuntimeError(msg)
+        tokens = json.loads(row["tokens"])
+        tmp = Path(tempfile.mkdtemp(prefix="garmin_tokens_"))
+        for name, content in tokens.items():
+            (tmp / name).write_text(content)
+        client = Garmin()
+        client.login(str(tmp))
+        return client
+
+    def cleanup_client(self, client: Any) -> None:
+        """Persist refreshed tokens after sync so the next login reuses them."""
+        with contextlib.suppress(Exception):
+            self._save_tokens_from_client(client)
 
     def _save_tokens_from_client(self, client: Any) -> None:
         """Serialize garth tokens from client to the auth store."""

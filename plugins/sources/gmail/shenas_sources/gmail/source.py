@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import OFFICIAL_API
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
@@ -21,6 +22,7 @@ class GmailSource(Source):
         "Uses Google OAuth2 with shared credentials from shenas-source-core. "
         "Authorization URL is passed back to the CLI for browser-based consent."
     )
+    access_types = (OFFICIAL_API,)
 
     @dataclass
     class Auth(SourceAuth):

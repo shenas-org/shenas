@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import OFFICIAL_API
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.source import Source
 
@@ -20,6 +21,7 @@ class GithubSource(Source):
         "Uses a personal access token (classic or fine-grained) for "
         "authentication. Events cover the last 90 days of activity."
     )
+    access_types = (OFFICIAL_API,)
     auth_instructions = (
         "Create a personal access token at "
         "https://github.com/settings/tokens.\n"

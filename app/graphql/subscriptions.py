@@ -2,7 +2,7 @@
 
 Each subscription wraps a topic from :mod:`app.pubsub` and yields
 typed payloads to connected WebSocket clients. See
-``docs/graphql-subscriptions.md`` for the architecture.
+``docs/architecture/graphql-subscriptions.md`` for the architecture.
 """
 
 from __future__ import annotations

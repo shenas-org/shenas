@@ -208,23 +208,45 @@ class DataTable(Table, DataRelation):
     """
 
     _abstract: ClassVar[bool] = True
-
-    _SCD2_KINDS: ClassVar[frozenset[str]] = frozenset({"dimension", "snapshot", "m2m_relation"})
-
-    @classmethod
-    def is_scd2(cls) -> bool:
-        """True if this table uses SCD2 versioning."""
-        return cls.kind() in cls._SCD2_KINDS
+    is_scd2: ClassVar[bool] = False
 
     @classmethod
-    def scd2_filter(cls, as_of: str | None = None, *, alias: str = "") -> str:
-        """Return a SQL WHERE fragment for reading SCD2 tables."""
-        if not cls.is_scd2():
-            return ""
-        pfx = f"{alias}." if alias else ""
-        if as_of is None:
-            return f"{pfx}_dlt_valid_to IS NULL"
-        return f"{pfx}_dlt_valid_from <= '{as_of}' AND ({pfx}_dlt_valid_to IS NULL OR {pfx}_dlt_valid_to > '{as_of}')"
+    def scd2_filter(cls, as_of: str | None = None, *, alias: str = "") -> str:  # noqa: ARG003
+        """Return a SQL WHERE fragment for SCD2 tables. Override on SCD2 kinds."""
+        return ""
+
+    @classmethod
+    def get_datetime_range(cls) -> tuple[str | None, str | None]:
+        """Query DuckDB for the earliest and latest values of this table's time column.
+
+        Uses ``timeseries_time_col()`` if available (source tables), otherwise
+        falls back to ``_Meta.time_at`` (dataset tables).
+
+        Returns ``(earliest, latest)`` as ISO date strings (truncated to 10 chars),
+        or ``(None, None)`` if no time column or no data.
+        """
+        time_col = None
+        if hasattr(cls, "timeseries_time_col"):
+            time_col = cls.timeseries_time_col()  # ty: ignore[call-non-callable]
+        if not time_col:
+            time_col = getattr(getattr(cls, "_Meta", None), "time_at", None)
+        if not time_col:
+            return None, None
+        try:
+            from app.database import cursor
+
+            schema = getattr(cls._Meta, "schema", None)
+            schema_name = schema.name if hasattr(schema, "name") else str(schema or "sources")
+            qualified = f'"{schema_name}"."{cls._Meta.name}"'
+            with cursor() as cur:
+                row = cur.execute(
+                    f'SELECT MIN("{time_col}"), MAX("{time_col}") FROM {qualified}',
+                ).fetchone()
+                if row and row[0]:
+                    return str(row[0])[:10], str(row[1])[:10]
+        except Exception:
+            pass
+        return None, None
 
 
 # ---------------------------------------------------------------------------

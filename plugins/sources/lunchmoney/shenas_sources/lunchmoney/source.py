@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import OFFICIAL_API
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
@@ -17,6 +18,7 @@ class LunchMoneySource(Source):
     primary_table = "transactions"
     entity_types: ClassVar[list[str]] = ["human"]
     description = "Syncs financial data from Lunch Money.\n\nAuthenticates via API key from Lunch Money Settings > Developers."
+    access_types = (OFFICIAL_API,)
 
     @dataclass
     class Config(SourceConfig):

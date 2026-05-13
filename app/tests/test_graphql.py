@@ -90,16 +90,17 @@ def _gql(client: TestClient, query: str, variables: dict | None = None) -> dict:
 # and `Field` from this module's namespace.
 from app.schema import DATASETS  # noqa: E402
 from app.table import Field  # noqa: E402
-from shenas_datasets.core import DailyMetricTable  # noqa: E402
+from shenas_datasets.core import DatasetTable  # noqa: E402
 
 
-class _CatalogMood(DailyMetricTable):
+class _CatalogMood(DatasetTable):
     class _Meta:
         name = "daily_mood_test"
         display_name = "Daily Mood (test)"
         description = "Test metric."
         schema = DATASETS
         pk = ("date", "source")
+        time_at = "date"
 
     date: Annotated[str, Field(db_type="DATE", description="Calendar date")] = ""
     source: Annotated[str, Field(db_type="VARCHAR", description="Source")] = ""
@@ -238,7 +239,10 @@ class TestGraphQLQueries:
                 "config_entries": [],
             }
         ]
-        with patch("app.plugin.Plugin.list_installed", return_value=mock_data):
+        with (
+            patch("app.plugin.Plugin.list_installed_lightweight", return_value=mock_data),
+            patch("app.plugin.Plugin.compute_plugin_rows", return_value={}),
+        ):
             result = _gql(client, '{ plugins(kind: "source") { name displayName enabled version } }')
         assert "errors" not in result
         plugins = result["data"]["plugins"]

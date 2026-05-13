@@ -198,7 +198,10 @@ class EntitiesPage extends LitElement {
   private _resizeObserver: ResizeObserver | null = null;
   private _entitySub: { unsubscribe: () => void } | null = null;
 
-  private _entitiesQuery = new ApolloQueryController(this, GET_ENTITIES_DATA, { client: getClient() });
+  private _entitiesQuery = new ApolloQueryController(this, GET_ENTITIES_DATA, {
+    client: getClient(),
+    options: { fetchPolicy: "cache-and-network" },
+  });
   private _createEntityMutation = new ApolloMutationController(this, CREATE_ENTITY, { client: getClient() });
   private _updateEntityMutation = new ApolloMutationController(this, UPDATE_ENTITY, { client: getClient() });
   private _deleteEntityMutation = new ApolloMutationController(this, DELETE_ENTITY, { client: getClient() });
@@ -635,13 +638,16 @@ class EntitiesPage extends LitElement {
 
   // -- CRUD: relationship panel -------------------------------------------
 
-  _openRelationshipPanel(): void {
+  _openRelationshipPanel(existing?: EntityRelationshipRow): void {
     if (this._entities.length < 2 || this._relationshipTypes.length === 0) {
       this._message = { type: "error", text: "Add at least two entities and a relationship type first." };
       return;
     }
 
-    const form: RelationshipForm = { fromUuid: "", toUuid: "", type: "" };
+    const isEdit = !!existing;
+    const form: RelationshipForm = existing
+      ? { fromUuid: existing.fromUuid, toUuid: existing.toUuid, type: existing.type }
+      : { fromUuid: "", toUuid: "", type: "" };
     const panel = document.createElement("div");
     panel.style.padding = "1rem";
 
@@ -656,6 +662,7 @@ class EntitiesPage extends LitElement {
       // A type matches if its domain_types is empty (any) or includes the from entity's type,
       // AND its range_types is empty (any) or includes the to entity's type.
       const filteredRelTypes = this._relationshipTypes.filter((relType) => {
+        if (existing && relType.name === existing.type) return true;
         if (fromType && relType.domainTypes.length > 0 && !relType.domainTypes.includes(fromType)) return false;
         if (toType && relType.rangeTypes.length > 0 && !relType.rangeTypes.includes(toType)) return false;
         return true;
@@ -670,9 +677,9 @@ class EntitiesPage extends LitElement {
       render(
         html`
           <shenas-form-panel
-            title="Add relationship"
-            submit-label="Add"
-            @submit=${() => void this._saveRelationship(form)}
+            title=${isEdit ? "Edit relationship" : "Add relationship"}
+            submit-label=${isEdit ? "Save" : "Add"}
+            @submit=${() => void this._saveRelationship(form, existing)}
             @cancel=${() => this._closePanel()}
           >
             <shenas-dropdown
@@ -717,24 +724,32 @@ class EntitiesPage extends LitElement {
     );
   }
 
-  async _saveRelationship(r: RelationshipForm): Promise<void> {
-    if (!r.fromUuid || !r.toUuid || !r.type) {
+  async _saveRelationship(form: RelationshipForm, existing?: EntityRelationshipRow): Promise<void> {
+    if (!form.fromUuid || !form.toUuid || !form.type) {
       this._message = { type: "error", text: "From, to, and type are all required." };
       return;
     }
-    if (r.fromUuid === r.toUuid) {
+    if (form.fromUuid === form.toUuid) {
       this._message = { type: "error", text: "Cannot relate an entity to itself." };
       return;
     }
     try {
+      if (existing) {
+        await this._deleteRelMutation.mutate({
+          variables: { from: existing.fromUuid, to: existing.toUuid, type: existing.type },
+        });
+      }
       await this._createRelMutation.mutate({
-        variables: { from: r.fromUuid, to: r.toUuid, type: r.type },
+        variables: { from: form.fromUuid, to: form.toUuid, type: form.type },
       });
-      this._message = { type: "success", text: "Relationship added." };
+      this._message = { type: "success", text: existing ? "Relationship updated." : "Relationship added." };
       this._closePanel();
       this._entitiesQuery.refetch();
     } catch {
-      this._message = { type: "error", text: "Could not add relationship." };
+      this._message = {
+        type: "error",
+        text: existing ? "Could not update relationship." : "Could not add relationship.",
+      };
     }
   }
 
@@ -1337,7 +1352,10 @@ class EntitiesPage extends LitElement {
         .rows=${this._relationships as unknown as Record<string, unknown>[]}
         .actions=${(row: Record<string, unknown>) => {
           const r = row as unknown as EntityRelationshipRow;
-          return html`<button class="danger" @click=${() => this._deleteRelationship(r)}>Delete</button>`;
+          return html`
+            <button @click=${() => this._openRelationshipPanel(r)}>Edit</button>
+            <button class="danger" @click=${() => this._deleteRelationship(r)}>Delete</button>
+          `;
         }}
         empty-text="No relationships yet."
       ></shenas-data-list>

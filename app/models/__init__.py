@@ -82,6 +82,13 @@ class ConfigValueResponse(BaseModel):
 # --- Plugins ---
 
 
+class AccessTypeInfo(BaseModel):
+    name: str = ""
+    label: str = ""
+    icon: str = ""
+    description: str = ""
+
+
 class PluginInfo(BaseModel):
     name: str
     display_name: str = ""
@@ -106,6 +113,7 @@ class PluginInfo(BaseModel):
     updated_at: str | None = None
     status_changed_at: str | None = None
     synced_at: str | None = None
+    access_types: list[AccessTypeInfo] = []
 
 
 class InstallResult(BaseModel):

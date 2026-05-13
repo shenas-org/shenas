@@ -97,5 +97,19 @@ class Statement(DimensionTable):
         ),
     ] = "user"
 
+    @classmethod
+    def sources_by_entity(cls) -> dict[str, list[str]]:
+        """Return {entity_id: [source, ...]} for all entities with statements."""
+        from app.database import cursor
+
+        with cursor() as cur:
+            rows = cur.execute(
+                f"SELECT entity_id, LIST(DISTINCT source ORDER BY source) "
+                f"FROM {cls._qualified()} "
+                f"WHERE source IS NOT NULL AND source != '' "
+                f"GROUP BY entity_id"
+            ).fetchall()
+        return {row[0]: row[1] for row in rows}
+
 
 __all__ = ["Statement"]

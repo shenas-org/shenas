@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import OFFICIAL_API
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
 
@@ -30,6 +31,7 @@ class OpenMeteoSource(Source):
         "Enable place entities (cities, residences) in the Entities tab. Each "
         "must have latitude and longitude statements set."
     )
+    access_types = (OFFICIAL_API,)
 
     @dataclass
     class Config(SourceConfig):

@@ -14,7 +14,7 @@ either read the cached result or replay the recipe against current data.
 
 Promotion is the bridge from a hypothesis to a canonical metric table:
 when the user explicitly says "save this analysis as a permanent
-metric," the recipe gets converted into a ``MetricTable`` subclass and
+metric," the recipe gets converted into a ``DatasetTable`` subclass and
 ``promoted_to`` captures the qualified name of the new metric.
 **Promotion is the only path that creates canonical state**; until
 promotion, every analytical transformation is transient.
@@ -115,7 +115,7 @@ class Hypothesis(Table):
             str,
             Field(
                 db_type="VARCHAR",
-                description="Qualified metric name if this hypothesis was promoted to a canonical MetricTable",
+                description="Qualified metric name if this hypothesis was promoted to a canonical DatasetTable",
             ),
         ]
         | None

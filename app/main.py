@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 
 @asynccontextmanager
-async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:
+async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:  # noqa: PLR0912, PLR0915
     from app.telemetry.dispatcher import set_loop
 
     set_loop(_asyncio.get_running_loop())
@@ -42,6 +42,22 @@ async def _lifespan(_application: FastAPI) -> AsyncIterator[None]:
         from app.local_users import LocalUser
 
         LocalUser.attach_remembered()
+    except Exception:
+        pass
+
+    # Ensure system tables exist early so the first page load doesn't pay the DDL cost.
+    try:
+        from app.plugin import PluginInstance
+
+        PluginInstance.ensure()
+    except Exception:
+        pass
+
+    # Pre-warm dataset ownership cache.
+    try:
+        from app.api.db import dataset_plugin_ownership
+
+        dataset_plugin_ownership()
     except Exception:
         pass
 

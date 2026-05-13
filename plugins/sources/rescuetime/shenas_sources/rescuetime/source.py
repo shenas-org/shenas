@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import OFFICIAL_API
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.base_config import SourceConfig
 from shenas_sources.core.source import Source
@@ -21,6 +22,7 @@ class RescueTimeSource(Source):
         "from RescueTime.\n\n"
         "Uses the RescueTime Analytics API with an API key for authentication."
     )
+    access_types = (OFFICIAL_API,)
     auth_instructions = "Get your API key from https://www.rescuetime.com/anapi/manage.\nClick 'Create a new API key'."
 
     @dataclass

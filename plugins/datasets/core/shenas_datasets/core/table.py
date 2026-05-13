@@ -1,27 +1,21 @@
-"""Dataset-side metric-table base class + grain-specific subclasses.
+"""Dataset-side table base class.
 
-``MetricTable`` extends the common :class:`shenas_plugins.core.table.Table`
-for canonical metric tables in the ``datasets.*`` schema. Concrete metric
-tables should inherit from one of the **grain-specific subclasses** below
-rather than from ``MetricTable`` directly, so the catalog can advertise
-their natural query axis to LLM consumers:
+``DatasetTable`` extends :class:`app.table.DataTable` for canonical metric
+tables in the ``datasets.*`` schema. Concrete tables set ``_Meta.time_at``
+to declare their time axis (``"date"`` for daily, ``"week"`` for weekly,
+``"month"`` for monthly, ``"occurred_at"`` etc. for discrete events).
 
-- :class:`DailyMetricTable`   -- one row per (date, source); ``time_at = "date"``
-- :class:`WeeklyMetricTable`  -- one row per (week, source); ``time_at = "week"``
-- :class:`MonthlyMetricTable` -- one row per (month, source); ``time_at = "month"``
-- :class:`EventMetricTable`   -- discrete events keyed on (source, source_id);
-  ``time_at = "occurred_at"``
+The kind string is derived from ``_Meta.time_at`` at runtime:
 
-These exist purely so the catalog knows the time semantics of derived
-metric tables. They mirror the seven *source-side* kind base classes
-(``EventTable``, ``IntervalTable``, ...) which encode load semantics for
-raw sync data; the metric kinds encode the equivalent *query semantics*
-for downstream projections.
+- ``"date"``        -> kind ``"daily_metric"``
+- ``"week"``        -> kind ``"weekly_metric"``
+- ``"month"``       -> kind ``"monthly_metric"``
+- anything else     -> kind ``"event_metric"``
 """
 
 from __future__ import annotations
 
-from typing import Annotated, ClassVar
+from typing import Annotated, Any, ClassVar
 
 from app.schema import DATASETS
 from app.table import DataTable, Field
@@ -36,16 +30,15 @@ TransformId = Annotated[
 ]
 
 
-class MetricTable(DataTable):
+class DatasetTable(DataTable):
     """Base class for canonical metric tables (the ``datasets.*`` schema).
 
-    A metric table is a downstream projection: nothing extracts it from an
+    A dataset table is a downstream projection: nothing extracts it from an
     external API, and it has no SCD2 / cursor / write-disposition concerns.
     Every row carries ``transform_id`` identifying which Transform instance
     produced it, so multi-source transforms work and provenance is tracked.
-    Concrete metric tables should inherit from one of the grain-specific
-    subclasses below (``DailyMetricTable`` etc.) so the catalog advertises
-    their time semantics.
+
+    Concrete tables must set ``_Meta.time_at`` to declare the time column.
     """
 
     _abstract: ClassVar[bool] = True
@@ -53,43 +46,52 @@ class MetricTable(DataTable):
     class _Meta:
         schema = DATASETS
 
+    @classmethod
+    def _time_extremum(cls, func: str) -> str | None:
+        """Return MIN or MAX of this table's time column as an ISO date string (10 chars)."""
+        time_col = getattr(cls._Meta, "time_at", None)
+        if not time_col:
+            return None
+        try:
+            from app.database import cursor
 
-class DailyMetricTable(MetricTable):
-    """Per-day metric. PK should include ``(date, transform_id)``; ``_Meta.time_at = "date"``."""
+            schema = getattr(cls._Meta, "schema", None)
+            schema_name = schema.name if hasattr(schema, "name") else str(schema or "datasets")
+            qualified = f'"{schema_name}"."{cls._Meta.name}"'  # ty: ignore[unresolved-attribute]
+            with cursor() as cur:
+                row = cur.execute(f'SELECT {func}("{time_col}") FROM {qualified}').fetchone()
+                if row and row[0]:
+                    return str(row[0])[:10]
+        except Exception:
+            pass
+        return None
 
-    _abstract: ClassVar[bool] = True
+    @classmethod
+    def get_earliest_datetime(cls) -> str | None:
+        """Return the earliest value of this table's time column as an ISO date string."""
+        return cls._time_extremum("MIN")
 
-    class _Meta:
-        time_at = "date"
+    @classmethod
+    def get_latest_datetime(cls) -> str | None:
+        """Return the latest value of this table's time column as an ISO date string."""
+        return cls._time_extremum("MAX")
 
+    @classmethod
+    def live_stats(cls) -> dict[str, Any]:
+        """Query DuckDB for row count, earliest, and latest datetime of this table."""
+        try:
+            from app.database import cursor
 
-class WeeklyMetricTable(MetricTable):
-    """Per-week metric. PK should include ``week``; ``_Meta.time_at = "week"``."""
-
-    _abstract: ClassVar[bool] = True
-
-    class _Meta:
-        time_at = "week"
-
-
-class MonthlyMetricTable(MetricTable):
-    """Per-month metric. PK should include ``month``; ``_Meta.time_at = "month"``."""
-
-    _abstract: ClassVar[bool] = True
-
-    class _Meta:
-        time_at = "month"
-
-
-class EventMetricTable(MetricTable):
-    """Discrete event metric. PK typically includes ``transform_id``.
-
-    Distinct from a ``DailyMetricTable``: events have point-in-time
-    timestamps, not window keys. Use this for the unified event timeline
-    (``metrics.events``), individual financial transactions, etc.
-
-    Subclasses must set ``time_at`` explicitly because the column naming
-    convention varies (``occurred_at``, ``start_at``, ``date``, ...).
-    """
-
-    _abstract: ClassVar[bool] = True
+            schema = getattr(cls._Meta, "schema", None)
+            schema_name = schema.name if hasattr(schema, "name") else str(schema or "datasets")
+            qualified = f'"{schema_name}"."{cls._Meta.name}"'  # ty: ignore[unresolved-attribute]
+            with cursor() as cur:
+                row = cur.execute(f"SELECT COUNT(*) FROM {qualified}").fetchone()
+                rows = row[0] if row else 0
+            return {
+                "rows": rows,
+                "earliest": cls.get_earliest_datetime(),
+                "latest": cls.get_latest_datetime(),
+            }
+        except Exception:
+            return {"rows": 0, "earliest": None, "latest": None}

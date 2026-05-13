@@ -8,4 +8,4 @@ from __future__ import annotations
 
 import os
 
-SHENAS_NET_URL = os.environ.get("SHENAS_NET_URL", "https://shenas.net")
+SHENAS_NET_URL = os.environ.get("SHENAS_NET_URL", "https://shenas.ai")

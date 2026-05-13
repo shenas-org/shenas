@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, ClassVar
 
 from app.table import Field
+from shenas_sources.core.access_type import UNOFFICIAL_API
 from shenas_sources.core.base_auth import SourceAuth
 from shenas_sources.core.source import Source
 
@@ -21,6 +22,7 @@ class TileSource(Source):
         "from Tile Bluetooth trackers.\n\n"
         "Authenticates via email and password for your Tile account."
     )
+    access_types = (UNOFFICIAL_API,)
 
     @dataclass
     class Auth(SourceAuth):

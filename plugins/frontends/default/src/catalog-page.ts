@@ -326,6 +326,16 @@ class CatalogPage extends LitElement {
     );
   }
 
+  _inspectTable(r: DataResource): void {
+    this.dispatchEvent(
+      new CustomEvent("inspect-table", {
+        bubbles: true,
+        composed: true,
+        detail: { schema: r.schemaName, table: r.tableName, displayName: r.displayName },
+      }),
+    );
+  }
+
   _formatRows(n: number | null): string {
     if (n === null || n === undefined) return "--";
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -398,11 +408,13 @@ class CatalogPage extends LitElement {
               label: "Name",
               render: (r: DataResource) =>
                 html`<a
-                    @click=${() => this._expand(r.id)}
+                    @click=${() => this._inspectTable(r)}
                     style="cursor:pointer;text-decoration:underline;color:inherit"
                     >${r.displayName}</a
                   >
-                  <shenas-badge>${r.kind || "table"}</shenas-badge>`,
+                  <a @click=${() => this._expand(r.id)} style="cursor:pointer"
+                    ><shenas-badge>${r.kind || "table"}</shenas-badge></a
+                  >`,
             },
             {
               label: "Rows",

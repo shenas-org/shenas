@@ -103,6 +103,7 @@ class ShenasApp extends LitElement {
     _activeTabId: { state: true },
     _allPlugins: { state: true },
     _rightOpen: { state: true },
+    _rightExpanded: { state: true },
     _mobileDrawerOpen: { state: true },
     _multiuserEnabled: { state: true },
     _localUser: { state: true },
@@ -130,6 +131,7 @@ class ShenasApp extends LitElement {
   declare _activeTabId: number | null;
   declare _allPlugins: Record<string, PluginSummary[]>;
   declare _rightOpen: boolean;
+  declare _rightExpanded: boolean;
   declare _mobileDrawerOpen: boolean;
   declare _multiuserEnabled: boolean;
   declare _localUser: { id: number; username: string } | null;
@@ -390,6 +392,7 @@ class ShenasApp extends LitElement {
         overflow-y: auto;
         padding: 1.5rem 1rem;
         border-left: 1px solid var(--shenas-border, #e0e0e0);
+        position: relative;
       }
       .divider {
         width: 4px;
@@ -600,6 +603,49 @@ class ShenasApp extends LitElement {
         background: var(--shenas-bg-hover, #f5f5f5);
         color: var(--shenas-text-secondary, #666);
       }
+      .right-expand {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        z-index: 5;
+        cursor: pointer;
+        background: transparent;
+        border: none;
+        color: var(--shenas-text-muted, #888);
+        font-size: 0.85rem;
+        padding: 2px 5px;
+        border-radius: 3px;
+        line-height: 1;
+      }
+      .right-expand:hover {
+        background: var(--shenas-bg-hover, #f5f5f5);
+        color: var(--shenas-text, #222);
+      }
+      .expanded-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 4px 8px;
+        background: var(--shenas-bg-secondary, #fafafa);
+        border-bottom: 1px solid var(--shenas-border, #e0e0e0);
+        font-size: 0.75rem;
+        color: var(--shenas-text-muted, #888);
+        flex-shrink: 0;
+      }
+      .expanded-restore {
+        background: none;
+        border: 1px solid var(--shenas-border, #e0e0e0);
+        border-radius: 3px;
+        padding: 2px 8px;
+        cursor: pointer;
+        color: var(--shenas-text-secondary, #666);
+        font-size: 0.75rem;
+        font-family: inherit;
+      }
+      .expanded-restore:hover {
+        background: var(--shenas-bg-hover, #f5f5f5);
+        color: var(--shenas-text, #222);
+      }
       .panel-right.collapsed {
         display: none;
       }
@@ -700,7 +746,7 @@ class ShenasApp extends LitElement {
   constructor() {
     super();
     this.apiBase = "/api";
-    this._serverUrl = "https://shenas.net";
+    this._serverUrl = "https://shenas.ai";
     this._dashboards = [];
     this._loading = true;
     this._loadedScripts = new Set();
@@ -717,6 +763,7 @@ class ShenasApp extends LitElement {
     this._activeTabId = null;
     this._allPlugins = {};
     this._rightOpen = false;
+    this._rightExpanded = false;
     this._mobileDrawerOpen = false;
     this._multiuserEnabled = false;
     this._localUser = null;
@@ -1147,6 +1194,7 @@ class ShenasApp extends LitElement {
         activeTabId: this._activeTabId,
         nextTabId: this._nextTabId,
         rightPanelOpen: this._rightOpen,
+        rightPanelExpanded: this._rightExpanded,
       };
       this._client.mutate({ mutation: SAVE_WORKSPACE, variables: { data: state } }).catch(() => {});
     }, 300);
@@ -1239,6 +1287,7 @@ class ShenasApp extends LitElement {
       // Restore workspace
       const ws = shellData?.workspace as Record<string, unknown> | undefined;
       if (ws?.rightPanelOpen !== undefined) this._rightOpen = ws.rightPanelOpen as boolean;
+      if (ws?.rightPanelExpanded !== undefined) this._rightExpanded = ws.rightPanelExpanded as boolean;
       if (ws?.tabs && (ws.tabs as TabInfo[]).length > 0) {
         this._tabs = ws.tabs as TabInfo[];
         this._activeTabId = (ws.activeTabId as number) || (ws.tabs as TabInfo[])[0].id;
@@ -1291,6 +1340,7 @@ class ShenasApp extends LitElement {
           }
         }
         this._pluginDisplayNames = displayNames;
+        this._registerGlobalCommands();
       })
       .catch(() => {});
 
@@ -1306,6 +1356,7 @@ class ShenasApp extends LitElement {
               allPlugins[id] = (pluginData?.[id] as PluginSummary[]) || [];
             }
             this._allPlugins = allPlugins;
+            this._registerGlobalCommands();
           })
           .catch(() => {});
       },
@@ -1479,48 +1530,67 @@ class ShenasApp extends LitElement {
         </div>
         <div class="divider" @mousedown=${this._startDrag("left")}></div>
         <div class="panel-middle">
-          ${this._tabs.length > 0
-            ? html` <div class="tab-bar">
-                  ${this._tabs.map(
-                    (t) => html`
-                      <div
-                        class="tab-item ${t.id === this._activeTabId ? "active" : ""}"
-                        @click=${() => this._switchTab(t.id)}
-                      >
-                        <span>${t.label}</span>
-                        <button
-                          class="tab-close"
-                          @click=${(e: MouseEvent) => {
-                            e.stopPropagation();
-                            this._closeTab(t.id);
-                          }}
-                        >
-                          x
-                        </button>
-                      </div>
-                    `,
-                  )}
-                  <button class="tab-add" title="New tab" @click=${this._addTab}>+</button>
+          ${this._rightExpanded
+            ? html` <div class="expanded-bar">
+                  <button
+                    class="expanded-restore"
+                    title="Restore to right panel"
+                    @click=${() => {
+                      this._rightExpanded = false;
+                      this._saveWorkspace();
+                    }}
+                  >
+                    ⇥ Restore to right
+                  </button>
+                  <span>Right panel expanded</span>
                 </div>
                 <div class="tab-content">
-                  <div class="tab-content-inner">${this._router.outlet()}</div>
+                  <div class="tab-content-inner">${this._renderRightPanelContent()}</div>
                 </div>`
-            : html` <div class="empty-state">
-                <img src="/static/images/shenas.svg" alt="shenas" />
-                <p>Open a page from the sidebar</p>
-              </div>`}
+            : this._tabs.length > 0
+              ? html` <div class="tab-bar">
+                    ${this._tabs.map(
+                      (t) => html`
+                        <div
+                          class="tab-item ${t.id === this._activeTabId ? "active" : ""}"
+                          @click=${() => this._switchTab(t.id)}
+                        >
+                          <span>${t.label}</span>
+                          <button
+                            class="tab-close"
+                            @click=${(e: MouseEvent) => {
+                              e.stopPropagation();
+                              this._closeTab(t.id);
+                            }}
+                          >
+                            x
+                          </button>
+                        </div>
+                      `,
+                    )}
+                    <button class="tab-add" title="New tab" @click=${this._addTab}>+</button>
+                  </div>
+                  <div class="tab-content">
+                    <div class="tab-content-inner">${this._router.outlet()}</div>
+                  </div>`
+              : html` <div class="empty-state">
+                  <img src="/static/images/shenas.svg" alt="shenas" />
+                  <p>Open a page from the sidebar</p>
+                </div>`}
           <shenas-job-panel></shenas-job-panel>
         </div>
-        <button
-          class="right-toggle"
-          @click=${() => {
-            this._rightOpen = !this._rightOpen;
-            this._saveWorkspace();
-          }}
-          title="${this._rightOpen ? "Collapse" : "Expand"} panel"
-        >
-          ${this._rightOpen ? "\u203a" : "\u2039"}
-        </button>
+        ${this._rightExpanded
+          ? ""
+          : html`<button
+              class="right-toggle"
+              @click=${() => {
+                this._rightOpen = !this._rightOpen;
+                this._saveWorkspace();
+              }}
+              title="${this._rightOpen ? "Collapse" : "Expand"} panel"
+            >
+              ${this._rightOpen ? "\u203a" : "\u2039"}
+            </button>`}
         <div class="divider" @mousedown=${this._startDrag("right")}></div>
         <div
           class="drawer-overlay ${this._mobileDrawerOpen ? "visible" : ""}"
@@ -1530,16 +1600,26 @@ class ShenasApp extends LitElement {
           }}
         ></div>
         <div
-          class="panel-right ${this._rightOpen ? "" : "collapsed"} ${this._mobileDrawerOpen ? "mobile-open" : ""}"
+          class="panel-right ${this._rightOpen && !this._rightExpanded ? "" : "collapsed"} ${this._mobileDrawerOpen
+            ? "mobile-open"
+            : ""}"
           style="width: ${this._rightWidth}px"
         >
-          ${this._rightPanelComponent
-            ? this._rightPanelComponent
-            : this._inspectTable
-              ? this._renderInspect()
-              : this._catalogDetail
-                ? this._renderCatalogDetail()
-                : this._renderDbStats()}
+          ${this._rightExpanded
+            ? ""
+            : html`
+                <button
+                  class="right-expand"
+                  title="Expand panel to main"
+                  @click=${() => {
+                    this._rightExpanded = true;
+                    this._saveWorkspace();
+                  }}
+                >
+                  ⤢
+                </button>
+                ${this._renderRightPanelContent()}
+              `}
         </div>
         <div class="bottom-nav">
           <nav>
@@ -1726,7 +1806,7 @@ class ShenasApp extends LitElement {
     const actions: Command[] = [];
     for (const cmds of this._registeredCommands.values()) {
       for (const cmd of cmds) {
-        if (!seen.has(cmd.id) && cmd.action) {
+        if (!seen.has(cmd.id) && (cmd.action || cmd.path)) {
           seen.add(cmd.id);
           actions.push({ id: cmd.id, label: cmd.label, category: cmd.category });
         }
@@ -2066,6 +2146,16 @@ class ShenasApp extends LitElement {
         </div>
       </div>
     `;
+  }
+
+  _renderRightPanelContent() {
+    return this._rightPanelComponent
+      ? this._rightPanelComponent
+      : this._inspectTable
+        ? this._renderInspect()
+        : this._catalogDetail
+          ? this._renderCatalogDetail()
+          : this._renderDbStats();
   }
 
   _renderInspect() {
