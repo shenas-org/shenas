@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 80" role="img" aria-label="shenas">
+  <!-- Horizontal lockup · mark + "shenas" · for nav contexts -->
+  <!-- Mark 100x80 + 20u gap + wordmark in Arial 600 at 48u, sage #728f67 -->
+  <g>
+    <line x1="50" y1="60" x2="50" y2="14" stroke="#728f67" stroke-width="3" stroke-linecap="round"/>
+    <line x1="50" y1="60" x2="92" y2="60" stroke="#728f67" stroke-width="3" stroke-linecap="round"/>
+    <path d="M6 48 L18 48 L21 45 L24 48 L30 48 L34 18 L38 58 L41 48 L44 48"
+          fill="none" stroke="#728f67" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="68" cy="34" r="2.6" fill="#728f67"/>
+    <circle cx="80" cy="34" r="2.6" fill="#728f67"/>
+    <circle cx="74" cy="24" r="2.6" fill="#728f67"/>
+  </g>
+  <text x="120" y="58"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="48"
+        font-weight="600"
+        letter-spacing="-0.72"
+        fill="#728f67">shenas</text>
+</svg>
