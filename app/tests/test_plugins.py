@@ -47,7 +47,7 @@ class _FakePluginCls:
     def get_config_entries(self) -> list:
         return []
 
-    def get_info(self) -> dict:
+    def get_info(self, *, include_table_metadata: bool = False) -> dict:
         return {
             "display_name": "Fake Plugin",
             "description": "A fake plugin for testing",
@@ -306,8 +306,8 @@ class TestListPluginsData:
         proc = subprocess.CompletedProcess(args=[], returncode=0, stdout=json.dumps(installed), stderr="")
 
         class _StatefulPlugin(_FakePluginCls):
-            def get_info(self):
-                info = super().get_info()
+            def get_info(self, *, include_table_metadata: bool = False) -> dict:
+                info = super().get_info(include_table_metadata=include_table_metadata)
                 info.update({"enabled": False, "added_at": "2026-01-01"})
                 return info
 

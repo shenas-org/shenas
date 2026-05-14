@@ -39,8 +39,8 @@ class Model(Plugin):
     batch_size: ClassVar[int] = 32
     learning_rate: ClassVar[float] = 0.001
 
-    def get_info(self) -> dict[str, Any]:
-        info = super().get_info()
+    def get_info(self, *, include_table_metadata: bool = False) -> dict[str, Any]:
+        info = super().get_info(include_table_metadata=include_table_metadata)
         info.update(
             {
                 "datasets": self.datasets,

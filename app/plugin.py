@@ -461,7 +461,7 @@ class Plugin(abc.ABC):
             return f"/api/plugins/{self._kind}s/{self.name}/icon.svg"
         return None
 
-    def get_info(self) -> dict[str, Any]:
+    def get_info(self, *, include_table_metadata: bool = False) -> dict[str, Any]:  # noqa: ARG002
         s = self.instance()
         return {
             "name": self.name,

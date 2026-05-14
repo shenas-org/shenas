@@ -88,8 +88,8 @@ class Transformer(Plugin):
     def seed_defaults_for_source(self, source_name: str) -> None:
         """Seed default transform instances for a given source plugin."""
 
-    def get_info(self) -> dict[str, Any]:
-        info = super().get_info()
+    def get_info(self, *, include_table_metadata: bool = False) -> dict[str, Any]:
+        info = super().get_info(include_table_metadata=include_table_metadata)
         info["param_schema"] = self.param_schema()
         return info
 

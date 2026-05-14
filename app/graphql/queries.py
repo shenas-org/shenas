@@ -399,7 +399,7 @@ class Query:
         cls = Plugin.load_by_name_and_kind(name, kind) or Plugin._load_fresh(kind, name)
         if not cls:
             return {"name": name, "kind": kind, "display_name": name.replace("-", " ").title()}  # ty: ignore[invalid-return-type]
-        return cls().get_info(include_table_metadata=True)  # ty: ignore[invalid-return-type, unknown-argument]
+        return cls().get_info(include_table_metadata=True)  # ty: ignore[invalid-return-type]
 
     @strawberry.field
     def available_plugins(self, kind: str) -> list[str]:
