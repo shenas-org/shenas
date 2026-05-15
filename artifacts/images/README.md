@@ -10,10 +10,31 @@ Canonical SVG sources for the shenas mark and full logo. **Edit here first, then
 | `shenas.svg` | Full logo for square contexts (app icons, hero, social) | viewBox 100×100, mark centred in cream `#faf8f5` rounded-square (rx=18) |
 | `shenas-lockup-horizontal.svg` | Mark + "shenas" side-by-side, for nav | viewBox 260×80, wordmark Arial 600 at 48u, sage `#728f67`, letter-spacing -0.015em |
 | `shenas-lockup-stacked.svg` | Mark above "shenas", for splash / app icon | viewBox 100×122, wordmark Arial 600 at 32u, sage `#728f67`, letter-spacing -0.015em |
+| `shenas-org-lockup-horizontal.svg` | shenas.org variant — mark + "shenas" side-by-side | ViewBox 260×80, wordmark Arial 600 at 48u, copper `#c47a3a`, letter-spacing -0.015em |
+| `shenas-org-lockup-stacked.svg` | shenas.org variant — mark above "shenas" | ViewBox 100×122, wordmark Arial 600 at 32u, copper `#c47a3a`, letter-spacing -0.015em |
 
 The PNGs in this folder (`shenas-192.png`, `shenas-512.png`, `shenas-mark-192.png`, `shenas-mark.png`, `shenas.png`) are **generated** from the SVGs above via `make logos-generate`. Don't edit the PNGs directly; rerun the target after editing the SVGs.
 
 The lockup wordmark is set in system Arial/Helvetica rather than a custom typeface — the SVG renders consistently when served as `<img>` without external font CSS. If we later adopt a custom brand face, replace the `font-family` attribute in both lockup files.
+
+## Colorways
+
+### Sage — `#728f67` (default)
+
+Used for the main `shenas.ai` product site and the primary mark. All files without a `-org-` infix use sage.
+
+### Copper — `#c47a3a` (shenas.org community site)
+
+The copper colorway distinguishes the OSS community surface (`shenas.org`) from the product surface (`shenas.ai`). It uses the same mark geometry and wordmark metrics as the sage lockups — only the stroke and fill color changes.
+
+**Files:**
+
+| File | When to use |
+|---|---|
+| `shenas-org-lockup-horizontal.svg` | shenas.org nav, community-site horizontal contexts |
+| `shenas-org-lockup-stacked.svg` | shenas.org splash, community-site square/portrait contexts |
+
+Both files are deployed to `server/shenas.org/public/` via `make logos-generate`. Use the copper lockups only on the shenas.org community surface. Do not use them on `shenas.ai` or in the desktop/mobile app.
 
 ## Construction notes
 
