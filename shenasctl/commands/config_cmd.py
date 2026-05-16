@@ -52,7 +52,7 @@ def _default(ctx: typer.Context) -> None:
 @app.command("list")
 def list_cmd(
     kind: str = typer.Argument(None, help="Package type: source, schema, or component"),
-    name: str = typer.Argument(None, help="Package name (e.g. 'garmin')"),
+    name: str = typer.Argument(None, help="Package name (e.g. 'gcalendar')"),
 ) -> None:
     """List config entries. Secrets are masked."""
     try:

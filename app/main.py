@@ -23,7 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Stre
 from fastapi.staticfiles import StaticFiles
 
 from app.api import api_router
-from app.config import SHENAS_NET_URL
+from app.config import KANIDM_URL, SHENAS_NET_URL
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -331,20 +331,69 @@ async def stream_spans() -> StreamingResponse:
 
 
 # ---------------------------------------------------------------------------
-# Remote auth (shenas.net login from the local app)
+# Remote auth — Kanidm device-authorization-grant
 # ---------------------------------------------------------------------------
 
 
 @app.get("/api/auth/login")
-def remote_login(request: Request) -> RedirectResponse:
-    """Redirect to shenas.net OAuth, which will redirect back with a token."""
-    callback = str(request.url_for("remote_callback"))
-    return RedirectResponse(url=f"{SHENAS_NET_URL}/api/auth/login?redirect_uri={callback}")
+def remote_login() -> JSONResponse:
+    """Initiate Kanidm device-authorization-grant.
+
+    Returns device_code, user_code, verification_uri, and poll interval so the
+    UI can show the code and let the user visit the URL to authenticate.
+    The caller then polls /api/auth/poll with the device_code until authorized.
+    """
+    if not KANIDM_URL:
+        return JSONResponse(content={"error": "KANIDM_URL is not configured"}, status_code=503)
+    from app.auth_kanidm import start_device_flow
+
+    try:
+        data = start_device_flow()
+        return JSONResponse(
+            content={
+                "device_code": data["device_code"],
+                "user_code": data["user_code"],
+                "verification_uri": data["verification_uri"],
+                "verification_uri_complete": data.get("verification_uri_complete", ""),
+                "expires_in": data.get("expires_in", 300),
+                "interval": data.get("interval", 5),
+            }
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=502)
+
+
+@app.post("/api/auth/poll")
+async def remote_poll(request: Request) -> JSONResponse:
+    """Poll Kanidm once for device-auth-grant completion.
+
+    Body: {"device_code": "<device_code>"}
+    Returns {"status": "pending"} or {"status": "authorized"} on success.
+    """
+    from app.auth_kanidm import poll_device_token
+    from app.database import current_user_id
+    from app.local_users import LocalUser
+
+    body = await request.json()
+    device_code = body.get("device_code", "")
+    if not device_code:
+        return JSONResponse(content={"error": "missing device_code"}, status_code=400)
+    try:
+        result = poll_device_token(device_code)
+        if result is None:
+            return JSONResponse(content={"status": "pending"})
+        user_id = current_user_id.get()
+        LocalUser.set_remote_token(user_id, result["access_token"])
+        return JSONResponse(content={"status": "authorized"})
+    except ValueError as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=400)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=502)
 
 
 @app.post("/api/auth/logout")
 def remote_logout() -> JSONResponse:
-    """Clear the stored shenas.net token."""
+    """Clear the stored Kanidm token."""
     from app.database import current_user_id
     from app.local_users import LocalUser
 
@@ -354,18 +403,6 @@ def remote_logout() -> JSONResponse:
         user.remote_token = None
         user.save()
     return JSONResponse(content={"ok": True})
-
-
-@app.get("/api/auth/callback")
-def remote_callback(token: str | None = None) -> RedirectResponse:
-    """Receive the token from shenas.net after OAuth and redirect to profile."""
-    if token:
-        from app.database import current_user_id
-        from app.local_users import LocalUser
-
-        user_id = current_user_id.get()
-        LocalUser.set_remote_token(user_id, token)
-    return RedirectResponse(url="/settings/profile")
 
 
 @app.get("/api/auth/source/{name}/callback")
@@ -391,15 +428,23 @@ def source_auth_callback(name: str, request: Request) -> RedirectResponse:
 
 @app.get("/api/auth/me")
 def remote_me() -> dict:
-    """Check if locally stored remote token is valid."""
+    """Validate the stored Kanidm token against shenas.ai.
+
+    If the stored token is a legacy opaque session token (pre-Phase 4), returns
+    {"user": None, "needs_reauth": true} so the UI can prompt the user to
+    re-authenticate via the new device-auth-grant flow.
+    """
     import httpx
 
+    from app.auth_kanidm import is_legacy_token
     from app.local_users import LocalUser
 
     try:
         token = LocalUser.get_remote_token()
         if not token:
-            return {"user": None}
+            return {"user": None, "server_url": SHENAS_NET_URL}
+        if is_legacy_token(token):
+            return {"user": None, "server_url": SHENAS_NET_URL, "needs_reauth": True}
         resp = httpx.get(
             f"{SHENAS_NET_URL}/api/auth/me",
             headers={"Authorization": f"Bearer {token}"},

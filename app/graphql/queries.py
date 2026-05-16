@@ -253,9 +253,9 @@ class Query:
     @strawberry.field
     def device_name(self) -> str:
         try:
-            from app.mesh.identity import get_device_info
+            from app.mesh.identity import get_local_device_info
 
-            return get_device_info()["device_name"]
+            return get_local_device_info()["device_name"]
         except Exception:
             return ""
 

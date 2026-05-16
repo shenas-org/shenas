@@ -74,7 +74,7 @@ class TestGetOrCreateIdentity:
 
 class TestGetDeviceInfo:
     def test_returns_public_fields_only(self, patch_db: None) -> None:
-        info = identity.get_device_info()
+        info = identity.get_local_device_info()
         assert set(info.keys()) == {"device_name", "public_key", "device_type"}
         assert "private_key" not in info
         assert info["device_type"] in {"desktop", "mobile", "unknown"}

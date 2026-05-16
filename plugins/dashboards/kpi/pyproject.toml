@@ -1,0 +1,25 @@
+[project]
+name = "shenas-dashboard-kpi"
+dynamic = ["version"]
+description = "Paperclip KPI dashboard — rework rate, stranded issues, and decision queue"
+requires-python = ">=3.11"
+dependencies = [
+    "shenas-dashboard-core",
+    "shenas-dataset-paperclip-kpi",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project.entry-points."shenas.dashboards"]
+kpi = "shenas_dashboards.kpi_dashboard:KpiDashboardComponent"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "dashboard-kpi/v(?P<version>[^+]+)"
+raw-options.root = "../../.."
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "dashboard-kpi/v*"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["shenas_dashboards"]

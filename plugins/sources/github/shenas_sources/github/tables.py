@@ -244,6 +244,10 @@ class PullRequests(EventTable):
         str | None,
         Field(db_type="TIMESTAMP", description="PR merge time", display_name="Merged At"),
     ] = None
+    body: Annotated[
+        str | None,
+        Field(db_type="VARCHAR", description="PR body text (used for issue-ref parsing)", display_name="Body"),
+    ] = None
 
     @classmethod
     def extract(cls, client: GithubClient, *, username: str = "", **_: Any) -> Iterator[dict[str, Any]]:
@@ -260,6 +264,7 @@ class PullRequests(EventTable):
                 "created_at": item.get("created_at"),
                 "closed_at": item.get("closed_at"),
                 "merged_at": pr.get("merged_at") if pr else None,
+                "body": item.get("body"),
             }
 
 

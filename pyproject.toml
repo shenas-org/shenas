@@ -42,7 +42,6 @@ shenas-cli = { workspace = true }
 shenas-repository = { workspace = true }
 shenas-plugin-core = { workspace = true }
 shenas-source-core = { workspace = true }
-shenas-source-garmin = { workspace = true }
 shenas-source-lunchmoney = { workspace = true }
 shenas-source-obsidian = { workspace = true }
 shenas-source-gmail = { workspace = true }
@@ -82,11 +81,13 @@ shenas-dataset-outcomes = { workspace = true }
 shenas-dataset-habits = { workspace = true }
 shenas-dataset-promoted = { workspace = true }
 shenas-dataset-location = { workspace = true }
+shenas-dataset-paperclip-kpi = { workspace = true }
 shenas-dashboard-core = { workspace = true }
 shenas-dashboard-fitness = { workspace = true }
 shenas-dashboard-data-table = { workspace = true }
 shenas-dashboard-event-gantt = { workspace = true }
 shenas-dashboard-timeline = { workspace = true }
+shenas-dashboard-kpi = { workspace = true }
 shenas-model-core = { workspace = true }
 shenas-model-sleep-forecast = { workspace = true }
 shenas-transformer-core = { workspace = true }
@@ -111,7 +112,6 @@ shenas-theme-dark = { workspace = true }
 dev = [
     "shenas-app",
     "shenas-cli",
-    "shenas-source-garmin",
     "shenas-source-lunchmoney",
     "shenas-source-obsidian",
     "shenas-source-gmail",
@@ -149,9 +149,11 @@ dev = [
     "shenas-dataset-habits",
     "shenas-dataset-promoted",
     "shenas-dataset-location",
+    "shenas-dataset-paperclip-kpi",
     "shenas-dashboard-fitness",
     "shenas-dashboard-data-table",
     "shenas-dashboard-timeline",
+    "shenas-dashboard-kpi",
     "shenas-frontend-default",
     "shenas-frontend-focus",
     "shenas-theme-default",

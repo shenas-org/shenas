@@ -274,13 +274,13 @@ class TestGraphQLQueries:
         assert info["kind"] == "source"
 
     def test_device_name(self, client: TestClient) -> None:
-        with patch("app.mesh.identity.get_device_info", return_value={"device_name": "my-laptop"}):
+        with patch("app.mesh.identity.get_local_device_info", return_value={"device_name": "my-laptop"}):
             result = _gql(client, "{ deviceName }")
         assert "errors" not in result
         assert result["data"]["deviceName"] == "my-laptop"
 
     def test_device_name_fallback(self, client: TestClient) -> None:
-        with patch("app.mesh.identity.get_device_info", side_effect=RuntimeError("no identity")):
+        with patch("app.mesh.identity.get_local_device_info", side_effect=RuntimeError("no identity")):
             result = _gql(client, "{ deviceName }")
         assert "errors" not in result
         assert result["data"]["deviceName"] == ""

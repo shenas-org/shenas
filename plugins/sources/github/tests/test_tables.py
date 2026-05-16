@@ -54,7 +54,8 @@ class FakeClient:
             {
                 "id": 200,
                 "number": 7,
-                "title": "Fix a bug",
+                "title": "Fix a bug SHE-123",
+                "body": "Closes SHE-123. See also SHE-456.",
                 "state": "closed",
                 "repository_url": "https://api.github.com/repos/user/my-repo",
                 "created_at": "2024-01-10T10:00:00Z",
@@ -115,7 +116,8 @@ def test_repositories_extract() -> None:
 def test_pull_requests_extract() -> None:
     rows = list(PullRequests.extract(FakeClient(), username="user"))  # ty: ignore[invalid-argument-type]
     assert len(rows) == 1
-    assert rows[0]["title"] == "Fix a bug"
+    assert rows[0]["title"] == "Fix a bug SHE-123"
+    assert rows[0]["body"] == "Closes SHE-123. See also SHE-456."
     assert rows[0]["state"] == "closed"
     assert rows[0]["merged_at"] == "2024-01-12T14:00:00Z"
     assert rows[0]["repo_full_name"] == "user/my-repo"

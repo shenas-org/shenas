@@ -78,7 +78,7 @@ class TestRunMeshDaemon:
             raise asyncio.CancelledError
 
         with (
-            patch("app.mesh.identity.get_device_info", return_value={"device_name": "x", "device_type": "desktop"}),
+            patch("app.mesh.identity.get_local_device_info", return_value={"device_name": "x", "device_type": "desktop"}),
             patch("app.mesh.identity.register_with_server") as mock_reg,
             patch("app.mesh.relay_sync.sync_with_peers") as mock_sync,
             patch("app.mesh.transport.SyncListener", return_value=listener),
@@ -105,7 +105,7 @@ class TestRunMeshDaemon:
             raise asyncio.CancelledError
 
         with (
-            patch("app.mesh.identity.get_device_info", return_value={"device_name": "x", "device_type": "desktop"}),
+            patch("app.mesh.identity.get_local_device_info", return_value={"device_name": "x", "device_type": "desktop"}),
             patch("app.mesh.identity.register_with_server", return_value={"id": "srv-dev"}) as mock_reg,
             patch("app.mesh.relay_sync.sync_with_peers", return_value={"pushed": 2, "pulled": 3}) as mock_sync,
             patch("app.mesh.transport.SyncListener", return_value=listener),
@@ -133,7 +133,7 @@ class TestRunMeshDaemon:
             raise asyncio.CancelledError
 
         with (
-            patch("app.mesh.identity.get_device_info", return_value={"device_name": "x", "device_type": "desktop"}),
+            patch("app.mesh.identity.get_local_device_info", return_value={"device_name": "x", "device_type": "desktop"}),
             patch("app.mesh.identity.register_with_server"),
             patch("app.mesh.relay_sync.sync_with_peers", side_effect=RuntimeError("boom")),
             patch("app.mesh.transport.SyncListener", return_value=listener),

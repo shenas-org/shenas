@@ -144,31 +144,65 @@ class TestSSEGenerators:
 
 
 class TestRemoteAuth:
-    def test_login_redirects(self, client: TestClient) -> None:
-        resp = client.get("/api/auth/login", follow_redirects=False)
-        assert resp.status_code in (302, 307)
-        assert "shenas" in resp.headers["location"].lower() or "redirect_uri" in resp.headers["location"]
+    def test_login_returns_device_flow_when_configured(self, client: TestClient) -> None:
+        """When KANIDM_URL is set, /api/auth/login starts device-auth-grant and returns JSON."""
+        fake_flow = {
+            "device_code": "dc123",
+            "user_code": "ABCD-1234",
+            "verification_uri": "https://auth.shenas.net/oauth2/device",
+            "expires_in": 300,
+            "interval": 5,
+        }
+        with (
+            patch("app.auth_kanidm.start_device_flow", return_value=fake_flow),
+            patch("app.main.KANIDM_URL", "https://auth.shenas.net"),
+        ):
+            resp = client.get("/api/auth/login")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["user_code"] == "ABCD-1234"
+        assert body["verification_uri"] == "https://auth.shenas.net/oauth2/device"
 
-    def test_callback_stores_token(self, client: TestClient) -> None:
-        resp = client.get("/api/auth/callback?token=abc123", follow_redirects=False)
-        assert resp.status_code == 307
-        assert "/settings/profile" in resp.headers["location"]
+    def test_login_503_when_kanidm_not_configured(self, client: TestClient) -> None:
+        with patch("app.main.KANIDM_URL", ""):
+            resp = client.get("/api/auth/login")
+        assert resp.status_code == 503
 
-    def test_callback_no_token(self, client: TestClient) -> None:
-        resp = client.get("/api/auth/callback", follow_redirects=False)
-        assert resp.status_code == 307
+    def test_poll_pending(self, client: TestClient) -> None:
+        with patch("app.auth_kanidm.poll_device_token", return_value=None):
+            resp = client.post("/api/auth/poll", json={"device_code": "dc123"})
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "pending"}
+
+    def test_poll_authorized(self, client: TestClient) -> None:
+        with patch("app.auth_kanidm.poll_device_token", return_value={"access_token": "hdr.pld.sig"}):
+            resp = client.post("/api/auth/poll", json={"device_code": "dc123"})
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "authorized"}
 
     def test_me_no_token(self, client: TestClient) -> None:
         resp = client.get("/api/auth/me")
         assert resp.status_code == 200
-        assert resp.json() == {"user": None}
+        assert resp.json()["user"] is None
 
-    def test_me_with_token(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
+    def test_me_with_legacy_token(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
+        """Legacy opaque tokens (pre-Phase 4) trigger a re-auth prompt."""
         test_con.execute(
             "INSERT INTO shenas.local_users (id, username, remote_token) VALUES (0, 'default', 'tok')"
             " ON CONFLICT (id) DO UPDATE SET remote_token = 'tok'"
         )
+        resp = client.get("/api/auth/me")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["user"] is None
+        assert body.get("needs_reauth") is True
 
+    def test_me_with_token(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
+        """JWT-shaped tokens are forwarded to shenas.ai for validation."""
+        test_con.execute(
+            "INSERT INTO shenas.local_users (id, username, remote_token) VALUES (0, 'default', 'hdr.pld.sig')"
+            " ON CONFLICT (id) DO UPDATE SET remote_token = 'hdr.pld.sig'"
+        )
         fake_resp = MagicMock()
         fake_resp.json.return_value = {"user": {"id": 1, "name": "alex"}}
         with patch("httpx.get", return_value=fake_resp):
@@ -180,10 +214,9 @@ class TestRemoteAuth:
 
     def test_me_handles_httpx_error(self, client: TestClient, test_con: duckdb.DuckDBPyConnection) -> None:
         test_con.execute(
-            "INSERT INTO shenas.local_users (id, username, remote_token) VALUES (0, 'default', 'tok')"
-            " ON CONFLICT (id) DO UPDATE SET remote_token = 'tok'"
+            "INSERT INTO shenas.local_users (id, username, remote_token) VALUES (0, 'default', 'hdr.pld.sig')"
+            " ON CONFLICT (id) DO UPDATE SET remote_token = 'hdr.pld.sig'"
         )
-
         with patch("httpx.get", side_effect=Exception("network down")):
             resp = client.get("/api/auth/me")
         assert resp.json()["user"] is None
