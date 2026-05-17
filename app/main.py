@@ -172,7 +172,7 @@ if not _headless:
 
     # App-level static dirs
     _app_dir = _pathlib.Path(__file__).parent
-    _artifacts_images = _app_dir.parent / "artifacts" / "images"
+    _artifacts_images = _app_dir.parent / "artifacts" / "oss" / "images"
     if _artifacts_images.is_dir():
         app.mount("/static/images", StaticFiles(directory=str(_artifacts_images)), name="images")
     app.mount("/static", StaticFiles(directory=str(_app_dir / "static")), name="static")
