@@ -15,4 +15,4 @@ This plugin is part of Shenas's source-plugin cohort. It ships under the [Shenas
 > 3. **No off-device transmission** — fetched data is stored locally and is not sent off-device by the plugin.
 > 4. **No aggregation** — Shenas does not aggregate, resell, or redistribute Cronometer-sourced data.
 >
-> If any of these change, the basis must be re-reviewed before shipping. See [SHE-408 plan §7.1](/SHE/issues/SHE-408#document-plan) and the SHE-409 audit-table for the audit trail.
+> If any of these change, the basis must be re-reviewed before shipping. See [SHE-408 plan §7.1](/SHE/issues/SHE-408#document-plan) and the [SHE-409](/SHE/issues/SHE-409) audit-table for the audit trail.
