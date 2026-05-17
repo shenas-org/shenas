@@ -13,6 +13,7 @@ const mockChart = {
   resize: vi.fn(),
 };
 vi.mock("echarts/core", () => ({
+  default: { use: vi.fn(), init: vi.fn(() => mockChart) },
   use: vi.fn(),
   init: vi.fn(() => mockChart),
 }));
@@ -21,6 +22,7 @@ vi.mock("echarts/components", () => ({
   GridComponent: {},
   TooltipComponent: {},
   LegendComponent: {},
+  DataZoomComponent: {},
 }));
 vi.mock("echarts/renderers", () => ({ CanvasRenderer: {} }));
 
@@ -41,6 +43,10 @@ function setAllEmpty(element: AnyEl): void {
   element._reworkRows = [];
   element._strandedRows = [];
   element._decisionRows = [];
+  element._blockerRows = [];
+  element._latencyRows = [];
+  element._throughputData = null;
+  element._throughputAgents = [];
 }
 
 describe("shenas-kpi-dashboard", () => {
@@ -62,7 +68,7 @@ describe("shenas-kpi-dashboard", () => {
   it("renders loading state initially", async () => {
     const element = document.createElement("shenas-kpi-dashboard") as AnyEl;
     document.body.appendChild(element);
-    await element.updateComplete;
+    await (element as unknown as { updateComplete: Promise<void> }).updateComplete;
     const text = element.shadowRoot?.textContent ?? "";
     expect(text.toLowerCase()).toContain("loading");
   });
@@ -74,7 +80,7 @@ describe("shenas-kpi-dashboard", () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     element._loading = false;
     element._error = "connection refused";
-    await element.updateComplete;
+    await (element as unknown as { updateComplete: Promise<void> }).updateComplete;
     const text = element.shadowRoot?.textContent ?? "";
     expect(text).toContain("connection refused");
   });
@@ -129,7 +135,7 @@ describe("shenas-kpi-dashboard", () => {
     expect(activeButton?.textContent?.trim()).toBe("Last 30d");
   });
 
-  it("renders three phase-3 sections (rework, stranded, decision queue) when data is loaded", async () => {
+  it("renders six sections when data is loaded", async () => {
     const element = document.createElement("shenas-kpi-dashboard") as AnyEl;
     document.body.appendChild(element);
     await element.updateComplete;
@@ -140,13 +146,13 @@ describe("shenas-kpi-dashboard", () => {
     await element.updateComplete;
 
     const sections = element.shadowRoot?.querySelectorAll(".section");
-    expect(sections?.length).toBe(3);
+    expect(sections?.length).toBe(6);
   });
 
   it("renders rework rows in rework section", async () => {
     const element = document.createElement("shenas-kpi-dashboard") as AnyEl;
     document.body.appendChild(element);
-    await element.updateComplete;
+    await (element as unknown as { updateComplete: Promise<void> }).updateComplete;
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     setAllEmpty(element);
@@ -161,7 +167,7 @@ describe("shenas-kpi-dashboard", () => {
   it("renders stranded issue rows with status badges", async () => {
     const element = document.createElement("shenas-kpi-dashboard") as AnyEl;
     document.body.appendChild(element);
-    await element.updateComplete;
+    await (element as unknown as { updateComplete: Promise<void> }).updateComplete;
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     setAllEmpty(element);
@@ -184,7 +190,7 @@ describe("shenas-kpi-dashboard", () => {
   it("sorts stranded rows on column header click", async () => {
     const element = document.createElement("shenas-kpi-dashboard") as AnyEl;
     document.body.appendChild(element);
-    await element.updateComplete;
+    await (element as unknown as { updateComplete: Promise<void> }).updateComplete;
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     setAllEmpty(element);
@@ -194,7 +200,7 @@ describe("shenas-kpi-dashboard", () => {
     ];
     element._strandedSortCol = "idle_s";
     element._strandedSortDir = "desc";
-    await element.updateComplete;
+    await (element as unknown as { updateComplete: Promise<void> }).updateComplete;
 
     const cells = element.shadowRoot?.querySelectorAll("tbody td.issue-id");
     const ids = Array.from(cells ?? []).map((cell) => cell.textContent?.trim());
@@ -213,5 +219,66 @@ describe("shenas-kpi-dashboard", () => {
 
     const text = element.shadowRoot?.textContent ?? "";
     expect(text).toContain("No stranded issues");
+  });
+
+  it("renders blocker-table and chart-panel elements when phase-4 data is set", async () => {
+    const element = document.createElement("shenas-kpi-dashboard") as AnyEl;
+    document.body.appendChild(element);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    element._loading = false;
+    element._error = null;
+    element._reworkRows = [];
+    element._strandedRows = [];
+    element._decisionRows = [];
+    element._blockerRows = [];
+    element._latencyRows = [];
+    element._throughputData = null;
+    element._throughputAgents = [];
+    await (element as unknown as { updateComplete: Promise<void> }).updateComplete;
+    await (element as unknown as { updateComplete: Promise<void> }).updateComplete;
+
+    const blockerTable = element.shadowRoot?.querySelector("blocker-table");
+    expect(blockerTable).toBeTruthy();
+
+    const panels = element.shadowRoot?.querySelectorAll("chart-panel");
+    expect(panels && panels.length).toBe(2);
+  });
+});
+
+describe("blocker-table", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("renders no-data state when rows is empty", async () => {
+    const element = document.createElement("blocker-table") as AnyEl;
+    element.rows = [];
+    document.body.appendChild(element);
+    await (element as unknown as { updateComplete: Promise<void> }).updateComplete;
+    const text = element.shadowRoot?.textContent ?? "";
+    expect(text.toLowerCase()).toContain("no blocker");
+  });
+
+  it("renders rows when provided", async () => {
+    const element = document.createElement("blocker-table") as AnyEl;
+    element.rows = [
+      {
+        root_identifier: "SHE-100",
+        root_title: "Root issue",
+        node_identifier: "SHE-50",
+        node_title: "Blocker",
+        max_chain_depth: 3,
+        chain_path: "SHE-100,SHE-75,SHE-50",
+      },
+    ];
+    document.body.appendChild(element);
+    await (element as unknown as { updateComplete: Promise<void> }).updateComplete;
+    const text = element.shadowRoot?.textContent ?? "";
+    expect(text).toContain("SHE-100");
+    expect(text).toContain("SHE-50");
   });
 });

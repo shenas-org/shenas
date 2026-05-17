@@ -1,7 +1,7 @@
 [project]
 name = "shenas-dashboard-kpi"
 dynamic = ["version"]
-description = "Paperclip KPI dashboard — cycle time, lead time, WIP, cost, rework rate, stranded issues, and decision queue"
+description = "Paperclip KPI dashboard — cycle time, lead time, WIP, cost, rework rate, stranded issues, decision queue, blocker chains, approval latency, and throughput vs. spend"
 requires-python = ">=3.11"
 dependencies = [
     "shenas-dashboard-core",

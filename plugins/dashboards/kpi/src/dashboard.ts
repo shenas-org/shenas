@@ -1,7 +1,9 @@
 import { LitElement, html, css } from "lit";
 import type { TemplateResult, CSSResult } from "lit";
-import { query, arrowToRows } from "shenas-frontends";
-import type { Table, RowData } from "shenas-frontends";
+import { query, arrowToRows, arrowToColumns, arrowDatesToUnix } from "shenas-frontends";
+import type { RowData, Table } from "shenas-frontends";
+import "./chart-panel.ts";
+import "./blocker-table.ts";
 import "./kpi-chart.ts";
 import type { KpiSeries } from "./kpi-chart.ts";
 
@@ -86,7 +88,129 @@ const SQL_DECISION_QUEUE = `
   ORDER BY decisions_last_30d DESC
 `.trim();
 
+const SQL_BLOCKER_CHAINS = `
+  SELECT
+    b.root_issue_id,
+    ri.identifier AS root_identifier,
+    ri.title AS root_title,
+    b.node_issue_id,
+    ni.identifier AS node_identifier,
+    ni.title AS node_title,
+    b.max_chain_depth,
+    b.chain_path
+  FROM datasets.paperclip_kpi__fact_blocker_chain b
+  LEFT JOIN (
+    SELECT DISTINCT ON (issue_id) issue_id, identifier, title
+    FROM sources.paperclip__paperclip_issues
+    WHERE _dlt_valid_to IS NULL
+    ORDER BY issue_id, _dlt_valid_from DESC
+  ) ri ON ri.issue_id = b.root_issue_id
+  LEFT JOIN (
+    SELECT DISTINCT ON (issue_id) issue_id, identifier, title
+    FROM sources.paperclip__paperclip_issues
+    WHERE _dlt_valid_to IS NULL
+    ORDER BY issue_id, _dlt_valid_from DESC
+  ) ni ON ni.issue_id = b.node_issue_id
+  WHERE b.is_leaf = true
+  ORDER BY b.max_chain_depth DESC, b.root_issue_id
+  LIMIT 10
+`.trim();
+
+const SQL_APPROVAL_LATENCY = `
+  SELECT
+    COALESCE(a.identifier, al.decider_agent_id) AS approver,
+    al.decision_type,
+    COUNT(*) AS decision_count,
+    MEDIAN(al.time_to_decide_s) AS median_latency_s,
+    PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY al.time_to_decide_s) AS p90_latency_s
+  FROM datasets.paperclip_kpi__fact_approval_latency al
+  LEFT JOIN (
+    SELECT DISTINCT ON (id) id, identifier
+    FROM sources.paperclip__paperclip_agents
+    WHERE _dlt_valid_to IS NULL
+    ORDER BY id, _dlt_valid_from DESC
+  ) a ON a.id = al.decider_agent_id
+  WHERE al.time_to_decide_s IS NOT NULL
+  GROUP BY COALESCE(a.identifier, al.decider_agent_id), al.decision_type
+  ORDER BY median_latency_s DESC
+`.trim();
+
+const SQL_THROUGHPUT_VS_BURN = `
+  WITH weekly_throughput AS (
+    SELECT
+      date_trunc('week', lc.transition_ts) AS week_start,
+      COALESCE(a.identifier, lc.issue_id) AS agent_label,
+      COUNT(DISTINCT lc.issue_id) AS issues_closed
+    FROM datasets.paperclip_kpi__fact_issue_lifecycle lc
+    LEFT JOIN (
+      SELECT DISTINCT ON (id) id, identifier
+      FROM sources.paperclip__paperclip_agents
+      WHERE _dlt_valid_to IS NULL
+      ORDER BY id, _dlt_valid_from DESC
+    ) a ON a.id = (
+      SELECT DISTINCT ON (issue_id) assignee_agent_id
+      FROM sources.paperclip__paperclip_issues
+      WHERE issue_id = lc.issue_id AND _dlt_valid_to IS NULL
+      ORDER BY issue_id, _dlt_valid_from DESC
+      LIMIT 1
+    )
+    WHERE lc.to_status = 'done'
+      AND lc.transition_ts >= current_timestamp - INTERVAL '8 weeks'
+    GROUP BY 1, 2
+  ),
+  weekly_cost AS (
+    SELECT
+      date_trunc('week', rc.started_at) AS week_start,
+      COALESCE(a.identifier, rc.agent_id) AS agent_label,
+      SUM(rc.cost_usd) AS cost_usd
+    FROM datasets.paperclip_kpi__fact_run_cost rc
+    LEFT JOIN (
+      SELECT DISTINCT ON (id) id, identifier
+      FROM sources.paperclip__paperclip_agents
+      WHERE _dlt_valid_to IS NULL
+      ORDER BY id, _dlt_valid_from DESC
+    ) a ON a.id = rc.agent_id
+    WHERE rc.started_at >= current_timestamp - INTERVAL '8 weeks'
+    GROUP BY 1, 2
+  )
+  SELECT
+    COALESCE(t.week_start, c.week_start) AS week_start,
+    COALESCE(t.agent_label, c.agent_label) AS agent_label,
+    COALESCE(t.issues_closed, 0) AS issues_closed,
+    COALESCE(c.cost_usd, 0) AS cost_usd
+  FROM weekly_throughput t
+  FULL OUTER JOIN weekly_cost c
+    ON t.week_start = c.week_start AND t.agent_label = c.agent_label
+  ORDER BY week_start, agent_label
+`.trim();
+
 type SortDir = "asc" | "desc";
+
+type BlockerRow = {
+  root_identifier: string | null;
+  root_title: string | null;
+  node_identifier: string | null;
+  node_title: string | null;
+  max_chain_depth: number;
+  chain_path: string | null;
+};
+
+type LatencyRow = {
+  approver: string | null;
+  decision_type: string | null;
+  decision_count: number;
+  median_latency_s: number | null;
+  p90_latency_s: number | null;
+};
+
+type ThroughputRow = {
+  week_start: unknown;
+  agent_label: string | null;
+  issues_closed: number;
+  cost_usd: number;
+};
+
+const AGENT_COLORS = ["#4a90d9", "#27ae60", "#8e44ad", "#e67e22", "#e74c3c", "#16a085"];
 
 function formatIdleTime(idle_s: unknown): string {
   if (idle_s == null) return "—";
@@ -138,6 +262,10 @@ export class ShenasKpiDashboard extends LitElement {
     _decisionRows: { state: true },
     _strandedSortCol: { state: true },
     _strandedSortDir: { state: true },
+    _blockerRows: { state: true },
+    _latencyRows: { state: true },
+    _throughputData: { state: true },
+    _throughputAgents: { state: true },
   };
 
   declare apiBase: string;
@@ -154,6 +282,10 @@ export class ShenasKpiDashboard extends LitElement {
   declare _decisionRows: RowData[] | null;
   declare _strandedSortCol: string;
   declare _strandedSortDir: SortDir;
+  declare _blockerRows: BlockerRow[];
+  declare _latencyRows: LatencyRow[];
+  declare _throughputData: [Float64Array, ...Float64Array[]] | null;
+  declare _throughputAgents: string[];
 
   static styles: CSSResult = css`
     :host {
@@ -346,6 +478,9 @@ export class ShenasKpiDashboard extends LitElement {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .panel-wrap {
+      padding: 16px 20px;
+    }
   `;
 
   constructor() {
@@ -364,6 +499,10 @@ export class ShenasKpiDashboard extends LitElement {
     this._decisionRows = null;
     this._strandedSortCol = "idle_s";
     this._strandedSortDir = "desc";
+    this._blockerRows = [];
+    this._latencyRows = [];
+    this._throughputData = null;
+    this._throughputAgents = [];
   }
 
   connectedCallback(): void {
@@ -392,6 +531,9 @@ export class ShenasKpiDashboard extends LitElement {
         reworkTable,
         strandedTable,
         decisionTable,
+        blockerTable,
+        latencyTable,
+        throughputTable,
       ] = await Promise.all([
         this._queryAgentNames(),
         this._queryCycleTime(tf),
@@ -402,6 +544,9 @@ export class ShenasKpiDashboard extends LitElement {
         query(this.apiBase, SQL_REWORK_RATE),
         query(this.apiBase, SQL_STRANDED),
         query(this.apiBase, SQL_DECISION_QUEUE),
+        query(this.apiBase, SQL_BLOCKER_CHAINS),
+        query(this.apiBase, SQL_APPROVAL_LATENCY),
+        query(this.apiBase, SQL_THROUGHPUT_VS_BURN),
       ]);
 
       const nameMap = new Map<string, string>(
@@ -425,10 +570,49 @@ export class ShenasKpiDashboard extends LitElement {
       this._reworkRows = arrowToRows(reworkTable);
       this._strandedRows = arrowToRows(strandedTable);
       this._decisionRows = arrowToRows(decisionTable);
+      this._blockerRows = arrowToRows(blockerTable) as BlockerRow[];
+      this._latencyRows = arrowToRows(latencyTable) as LatencyRow[];
+      this._throughputData = this._prepThroughputSeries(throughputTable);
     } catch (error) {
       this._error = (error as Error).message;
     }
     this._loading = false;
+  }
+
+  _prepThroughputSeries(table: Table): [Float64Array, ...Float64Array[]] | null {
+    const cols = arrowToColumns(table);
+    if (!cols.week_start || (cols.week_start as ArrayLike<unknown>).length === 0) return null;
+
+    const timestamps = arrowDatesToUnix(cols.week_start);
+    const agents = Array.from(new Set(Array.from(cols.agent_label as ArrayLike<unknown>).map(String)));
+    this._throughputAgents = agents;
+
+    const rows = arrowToRows(table) as ThroughputRow[];
+    const weekSet = Array.from(new Set(Array.from(timestamps)));
+
+    const throughputByAgent: Map<string, Map<number, number>> = new Map();
+    const costByAgent: Map<string, Map<number, number>> = new Map();
+    for (const agent of agents) {
+      throughputByAgent.set(agent, new Map());
+      costByAgent.set(agent, new Map());
+    }
+
+    rows.forEach((row, index) => {
+      const agent = String(row.agent_label ?? "");
+      const ts = timestamps[index];
+      if (ts == null) return;
+      throughputByAgent.get(agent)?.set(ts, row.issues_closed ?? 0);
+      costByAgent.get(agent)?.set(ts, row.cost_usd ?? 0);
+    });
+
+    const series: Float64Array[] = [timestamps];
+    for (const agent of agents) {
+      const tMap = throughputByAgent.get(agent)!;
+      const cMap = costByAgent.get(agent)!;
+      series.push(Float64Array.from(weekSet, (ts) => tMap.get(ts) ?? 0));
+      series.push(Float64Array.from(weekSet, (ts) => cMap.get(ts) ?? 0));
+    }
+    return series as [Float64Array, ...Float64Array[]];
   }
 
   private _queryAgentNames(): Promise<Table> {
@@ -786,6 +970,79 @@ export class ShenasKpiDashboard extends LitElement {
     `;
   }
 
+  _renderBlockerChainsSection(): TemplateResult {
+    return html`
+      <div class="section">
+        <div class="section-header">
+          <p class="section-title">Blocker Chains</p>
+          <p class="section-desc">Top-10 deepest blocker chains for currently open issues (root → leaf)</p>
+        </div>
+        <div class="panel-wrap">
+          <blocker-table .rows=${this._blockerRows}></blocker-table>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderApprovalLatencySection(): TemplateResult {
+    const latencyApprovers = this._latencyRows.map((r) => r.approver ?? "—");
+    const latencyMedians = this._latencyRows.map((r) => (r.median_latency_s ?? 0) / 60);
+    const latencyP90s = this._latencyRows.map((r) => (r.p90_latency_s ?? 0) / 60);
+
+    return html`
+      <div class="section">
+        <div class="section-header">
+          <p class="section-title">Median Approval Latency by Approver</p>
+          <p class="section-desc">Median and P90 time-to-decide for each approver, in minutes</p>
+        </div>
+        <div class="panel-wrap">
+          <chart-panel
+            title=""
+            .type=${"bar"}
+            .categories=${latencyApprovers}
+            .barSeries=${[
+              { name: "Median (min)", data: latencyMedians, color: "#4a90d9" },
+              { name: "P90 (min)", data: latencyP90s, color: "#e74c3c" },
+            ]}
+          ></chart-panel>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderThroughputSection(): TemplateResult {
+    const throughputSeries = this._throughputAgents.flatMap((agent, i) => [
+      { label: `${agent} issues`, color: AGENT_COLORS[i % AGENT_COLORS.length] },
+      {
+        label: `${agent} cost ($)`,
+        color: AGENT_COLORS[i % AGENT_COLORS.length],
+        dashed: true,
+        yAxisIndex: 1,
+      },
+    ]);
+
+    return html`
+      <div class="section">
+        <div class="section-header">
+          <p class="section-title">Throughput vs. Burn-down</p>
+          <p class="section-desc">Per-agent issues closed per week (left axis) vs. cost in USD (right axis)</p>
+        </div>
+        <div class="panel-wrap">
+          <chart-panel
+            title=""
+            .type=${"line-dual"}
+            .data=${this._throughputData}
+            .series=${throughputSeries}
+            .axes=${[
+              { label: "Issues closed", stroke: "#888" },
+              { label: "Cost (USD)", stroke: "#e67e22" },
+            ]}
+          ></chart-panel>
+        </div>
+      </div>
+    `;
+  }
+
   render(): TemplateResult {
     if (this._loading) return html`<div class="loading">Loading KPI data…</div>`;
     if (this._error) return html`<div class="error">Error: ${this._error}</div>`;
@@ -806,9 +1063,13 @@ export class ShenasKpiDashboard extends LitElement {
           )}
         </div>
       </div>
-      <p class="subtitle">Cycle time, lead time, WIP, cost, rework rate, stranded issues, and decision throughput</p>
+      <p class="subtitle">
+        Cycle time, lead time, WIP, cost, rework rate, stranded issues, decision throughput, blocker chains, approval
+        latency, and throughput vs. spend
+      </p>
       ${this._renderChartsGrid()} ${this._renderReworkSection()} ${this._renderStrandedSection()}
-      ${this._renderDecisionQueueSection()}
+      ${this._renderDecisionQueueSection()} ${this._renderBlockerChainsSection()}
+      ${this._renderApprovalLatencySection()} ${this._renderThroughputSection()}
     `;
   }
 }
