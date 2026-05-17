@@ -11,11 +11,6 @@
 
 A local-first quantified-self platform. shenas collects health, finance, and lifestyle data from the services you already use, normalizes it into canonical schemas, trains models on-device via federated learning, and visualizes it through pluggable web components. Your raw data stays on your machine.
 
-## Community
-
-- [Discourse forum](https://shenas.discourse.group/) -- questions, feature requests, show-and-tell
-- [Discord server](https://discord.gg/VKsUVT9q) -- real-time chat and support
-
 ## License
 
 Licensed under the [Apache License, Version 2.0](LICENSE).
