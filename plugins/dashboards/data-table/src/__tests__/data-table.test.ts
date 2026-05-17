@@ -181,7 +181,13 @@ describe("DataTable component", () => {
     document.body.appendChild(el);
     el._columns = columns;
     el._data = data;
+    // _recomputeSorted normally runs in willUpdate, which is skipped here.
+    (el as unknown as { _recomputeSorted: () => void })._recomputeSorted();
     return el;
+  }
+
+  function recompute(el: ShenasDataTable & HTMLElement): void {
+    (el as unknown as { _recomputeSorted: () => void })._recomputeSorted();
   }
 
   it("renders an empty table when no data", async () => {
@@ -202,8 +208,9 @@ describe("DataTable component", () => {
     expect(el.shadowRoot).not.toBeNull();
   });
 
-  it("renders data rows", () => {
+  it("renders data rows", async () => {
     const el = makeEl(["name", "age"], [{ name: "Alice", age: 30 }]);
+    await el.updateComplete;
     // Verify the component's paged data (the source of rendered <td>s)
     const paged = el._pagedData;
     expect(paged.length).toBe(1);
@@ -211,7 +218,7 @@ describe("DataTable component", () => {
     expect(paged[0].age).toBe(30);
   });
 
-  it("shows correct row count", () => {
+  it("shows correct row count", async () => {
     const data: TestRow[] = [
       { name: "A", age: 1 },
       { name: "B", age: 2 },
@@ -220,36 +227,42 @@ describe("DataTable component", () => {
       { name: "E", age: 5 },
     ];
     const el = makeEl(["name", "age"], data);
+    await el.updateComplete;
     expect(el._pagedData.length).toBe(5);
     expect(el._sortedData.length).toBe(5);
   });
 
-  it("filter narrows visible rows", () => {
+  it("filter narrows visible rows", async () => {
     const data: TestRow[] = [
       { name: "Alice", age: 30 },
       { name: "Bob", age: 25 },
       { name: "Alicia", age: 40 },
     ];
     const el = makeEl(["name", "age"], data);
+    await el.updateComplete;
     el._onFilter("name", "ali");
+    recompute(el);
     expect(el._filteredData.length).toBe(2);
     expect(el._page).toBe(0);
   });
 
-  it("sort on header click changes order", () => {
+  it("sort on header click changes order", async () => {
     const data: TestRow[] = [
       { name: "Charlie", age: 30 },
       { name: "Alice", age: 25 },
       { name: "Bob", age: 40 },
     ];
     const el = makeEl(["name", "age"], data);
+    await el.updateComplete;
     // Simulate header click through the component's sort handler
     el._onSort("name");
+    recompute(el);
     expect(el._sortCol).toBe("name");
     expect(el._sortDesc).toBe(false);
     expect(el._sortedData[0].name).toBe("Alice");
     // Clicking the same column again toggles descending order
     el._onSort("name");
+    recompute(el);
     expect(el._sortDesc).toBe(true);
     expect(el._sortedData[0].name).toBe("Charlie");
   });

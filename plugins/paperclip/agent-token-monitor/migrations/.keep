@@ -1,0 +1,2 @@
+# This plugin reads from core Paperclip tables (cost_events, heartbeat_runs, agents)
+# and does not define its own schema migrations.

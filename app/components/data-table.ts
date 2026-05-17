@@ -663,6 +663,10 @@ export class ShenasDataTable extends LitElement {
     this._cachedStats = null;
   }
 
+  get _filteredData(): RowData[] {
+    return this._cachedSorted;
+  }
+
   get _sortedData(): RowData[] {
     return this._cachedSorted;
   }
