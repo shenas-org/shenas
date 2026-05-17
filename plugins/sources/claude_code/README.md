@@ -1,0 +1,9 @@
+# Claude Code (`shenas-source-claude-code`)
+
+Claude Code usage-history connector for Shenas — reads the user's own prompts and turn metadata.
+
+## Basis
+
+This plugin is part of Shenas's source-plugin cohort. It ships under the [Shenas inclusion policy for source plugins](https://shenas.org/policy/sources) because Anthropic's Commercial Terms affirm that the customer retains all rights to its Inputs and owns its Outputs, and the Consumer Terms grant data portability. The plugin reads the user's own local Claude Code transcripts and forwards user-owned metadata under the user's own Anthropic API key; no Shenas-side Anthropic account is involved. Terms reference: [Anthropic Commercial Terms](https://www.anthropic.com/legal/commercial-terms) (§B — Customer Content) and [Anthropic Consumer Terms](https://www.anthropic.com/legal/consumer-terms) (§12 — Data Switching and Portability). Load-bearing clauses: Commercial §B — "As between the parties and to the extent permitted by applicable law, Anthropic agrees that Customer (a) retains all rights to its Inputs, and (b) owns its Outputs." Consumer §12 — "You may write to us in accordance with your legal rights and ask to switch to another service provider or port all your exportable data and digital assets to an on-premise ICT infrastructure." Scope: this plugin reads the user's own Claude Code transcripts and metadata from the local filesystem and forwards user-owned metadata under the user's own Anthropic API key; no Shenas-side Anthropic account is used.
+
+> Note: this basis rests on the current Commercial Terms §B and Consumer §12 framing. If Anthropic later restricts third-party tools that read the user's own local transcripts (for example, via a future Acceptable Use Policy clause), this basis must be re-reviewed. See [SHE-408 plan §7.2](/SHE/issues/SHE-408#document-plan) and the [SHE-489 audit-table](/SHE/issues/SHE-489#document-audit-table) for the audit trail.

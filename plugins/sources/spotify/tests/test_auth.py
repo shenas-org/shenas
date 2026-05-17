@@ -80,5 +80,46 @@ class TestStartOAuth:
         mock_pkce.get_authorize_url.return_value = "https://accounts.spotify.com/authorize?foo=bar"
 
         with patch("spotipy.oauth2.SpotifyPKCE", return_value=mock_pkce):
-            url = source.start_oauth("http://127.0.0.1:8090/callback")
+            url = source.start_oauth(
+                "http://127.0.0.1:8090/callback",
+                credentials={"client_id": "user-cid"},
+            )
             assert url.startswith("https://accounts.spotify.com/authorize")
+
+    def test_missing_client_id_raises(self, source: SpotifySource, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("SPOTIFY_CLIENT_ID", raising=False)
+        with pytest.raises(RuntimeError, match="client_id is required"):
+            source.start_oauth("http://127.0.0.1:8090/callback")
+
+    def test_env_fallback_used_when_no_credentials(self, source: SpotifySource, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("SPOTIFY_CLIENT_ID", "env-cid")
+        mock_pkce = MagicMock()
+        mock_pkce.get_authorize_url.return_value = "https://accounts.spotify.com/authorize?foo=bar"
+
+        with patch("spotipy.oauth2.SpotifyPKCE", return_value=mock_pkce) as ctor:
+            source.start_oauth("http://127.0.0.1:8090/callback")
+            assert ctor.call_args.kwargs["client_id"] == "env-cid"
+
+
+class TestAuthFields:
+    def test_prompts_for_client_id(self, source: SpotifySource) -> None:
+        fields = source.auth_fields
+        assert any(f["name"] == "client_id" for f in fields)
+
+
+class TestBuildClientClientIdRequired:
+    def test_missing_client_id_in_tokens_raises(
+        self, source: SpotifySource, auth_mock, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("SPOTIFY_CLIENT_ID", raising=False)
+        auth_mock.read.return_value = {
+            "tokens": json.dumps(
+                {
+                    "access_token": "tok",
+                    "refresh_token": "ref",
+                    "expires_at": 9999999999,
+                }
+            )
+        }
+        with pytest.raises(RuntimeError, match="client_id is required"):
+            source.build_client()
