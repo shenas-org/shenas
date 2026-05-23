@@ -18,19 +18,22 @@ from shenas_sources.core.source import Source
 SCOPES = "user.info,user.metrics,user.activity,user.sleepevents"
 AUTHORIZE_URL = "https://account.withings.com/oauth2_user/authorize2"
 
-# Shared OAuth client credentials (safe to embed -- see Google's guidance on
-# "installed app" secrets: they identify the app, not the user).
-DEFAULT_CLIENT_ID = "50f00c6627ece624760c2fc4158848d7e378bcde7be73e4912dc90d4dcc9e866"
-DEFAULT_CLIENT_SECRET = "04260e425cd60bc11c4f8755a7e76f0641df62daeec68d28d3ee9b0082bf74dc"
-
 # Pending OAuth state for the redirect flow
 _pending_oauth: dict[str, dict[str, Any]] = {}
 
+_CREDENTIAL_HELP = (
+    "Set SHENAS_WITHINGS_CLIENT_ID and SHENAS_WITHINGS_CLIENT_SECRET "
+    "to your Withings developer app credentials. "
+    "Register at https://developer.withings.com/ — see the plugin README."
+)
+
 
 def _get_credentials() -> tuple[str, str]:
-    """Return (client_id, client_secret) with env-var override support."""
-    client_id = os.environ.get("SHENAS_WITHINGS_CLIENT_ID", DEFAULT_CLIENT_ID)
-    client_secret = os.environ.get("SHENAS_WITHINGS_CLIENT_SECRET", DEFAULT_CLIENT_SECRET)
+    """Return (client_id, client_secret) from required env vars."""
+    client_id = os.environ.get("SHENAS_WITHINGS_CLIENT_ID")
+    client_secret = os.environ.get("SHENAS_WITHINGS_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise RuntimeError(_CREDENTIAL_HELP)
     return client_id, client_secret
 
 

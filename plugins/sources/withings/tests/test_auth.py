@@ -1,10 +1,16 @@
 import json
+import os
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from shenas_sources.withings.source import WithingsSource
+
+_TEST_CREDS = {
+    "SHENAS_WITHINGS_CLIENT_ID": "test-client-id",
+    "SHENAS_WITHINGS_CLIENT_SECRET": "test-client-secret",
+}
 
 
 @pytest.fixture
@@ -67,7 +73,8 @@ class TestBuildClient:
         mock_client = MagicMock()
         mock_cls.return_value = mock_client
 
-        result = source.build_client()
+        with patch.dict(os.environ, _TEST_CREDS):
+            result = source.build_client()
 
         assert result is mock_client
         mock_cls.assert_called_once_with("new_access")
@@ -77,9 +84,23 @@ class TestBuildClient:
         assert saved["refresh_token"] == "new_refresh"
 
 
+class TestCredentials:
+    def test_missing_env_vars_raises(self, source: WithingsSource, auth_mock) -> None:
+        for key in ("SHENAS_WITHINGS_CLIENT_ID", "SHENAS_WITHINGS_CLIENT_SECRET"):
+            os.environ.pop(key, None)
+        tokens = {"access_token": "a", "refresh_token": "b", "expires_at": 0}
+        auth_mock.read.return_value = {"tokens": json.dumps(tokens)}
+        with (
+            patch("shenas_sources.withings.client.WithingsClient"),
+            pytest.raises(RuntimeError, match="SHENAS_WITHINGS_CLIENT_SECRET"),
+        ):
+            source.build_client()
+
+
 class TestOAuth:
     def test_start_oauth_returns_url(self, source: WithingsSource, auth_mock) -> None:
-        url = source.start_oauth("http://localhost/callback")
+        with patch.dict(os.environ, _TEST_CREDS):
+            url = source.start_oauth("http://localhost/callback")
         assert "account.withings.com" in url
 
     def test_complete_oauth_no_pending_raises(self, source: WithingsSource, auth_mock) -> None:
@@ -101,7 +122,8 @@ class TestOAuth:
             "userid": "12345",
         }
 
-        source.complete_oauth(code="test_code")
+        with patch.dict(os.environ, _TEST_CREDS):
+            source.complete_oauth(code="test_code")
 
         auth_mock.write.assert_called_once()
         saved = json.loads(auth_mock.write.call_args.kwargs["tokens"])
