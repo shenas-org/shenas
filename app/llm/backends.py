@@ -92,7 +92,7 @@ class ShenasNetProvider:
                 data = json.loads(resp.read())
         except urllib.error.HTTPError as exc:
             body = exc.read().decode() if exc.fp else ""
-            msg = f"shenas.net LLM proxy error: {exc.code} -- {body}"
+            msg = f"shenas.ai LLM proxy error: {exc.code} -- {body}"
             raise RuntimeError(msg) from exc
 
         usage = data.get("usage", {})
@@ -127,7 +127,7 @@ class Backend(abc.ABC):
 
             token = LocalUser.get_remote_token()
             if not token:
-                msg = "Cloud backend requires a shenas.net account. Sign in via Settings or set backend=local."
+                msg = "Cloud backend requires a shenas.ai account. Sign in via Settings or set backend=local."
                 raise RuntimeError(msg)
             return ShenasProxyBackend(token=token, model=config.get("proxy_model") or "claude-sonnet-4-6")
         msg = f"unknown llm backend: {backend!r}"

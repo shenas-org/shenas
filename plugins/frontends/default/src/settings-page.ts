@@ -787,8 +787,8 @@ class SettingsPage extends LitElement {
       return html`
         <div class="profile">
           ${multiuserSection}
-          <p>You are not signed in to shenas.net.</p>
-          <button @click=${() => (this._showDeviceLoginModal = true)}>Sign in with shenas.net</button>
+          <p>You are not signed in to shenas.ai.</p>
+          <button @click=${() => (this._showDeviceLoginModal = true)}>Sign in with shenas.ai</button>
           ${this._showDeviceLoginModal
             ? html`<shenas-device-login-modal
                 api-base="${this.apiBase}"
@@ -830,7 +830,7 @@ class SettingsPage extends LitElement {
             @click=${async () => {
               await fetch("/api/auth/logout", { method: "POST" });
               this.remoteUser = null;
-              this._actionMessage = { type: "success", text: "Logged out from shenas.net" };
+              this._actionMessage = { type: "success", text: "Logged out from shenas.ai" };
               this.dispatchEvent(new CustomEvent("auth-changed", { bubbles: true, composed: true }));
             }}
           >

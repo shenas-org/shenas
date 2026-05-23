@@ -82,7 +82,7 @@ class LocalUser(Table):
     username: Annotated[str, Field(db_type="VARCHAR", description="Unique display name")] = ""
     password_hash: Annotated[str, Field(db_type="VARCHAR", description="scrypt password hash")] = ""
     key_salt: Annotated[str, Field(db_type="VARCHAR", description="Salt for deriving DB encryption key")] = ""
-    remote_token: Annotated[str | None, Field(db_type="VARCHAR", description="shenas.net JWT (optional)")] = None
+    remote_token: Annotated[str | None, Field(db_type="VARCHAR", description="shenas.ai JWT (optional)")] = None
     remote_server: Annotated[str | None, Field(db_type="VARCHAR", description="Server URL the remote_token belongs to")] = None
     created_at: Annotated[
         str | None,

@@ -39,5 +39,5 @@ def get_llm_provider() -> LLMProvider:
     except Exception:
         log.exception("Failed to look up remote_token")
 
-    msg = "Sign in to shenas.net first (Settings > Profile) to use AI features."
+    msg = "Sign in to your shenas.ai account first (Settings > Profile) to use AI features."
     raise RuntimeError(msg)

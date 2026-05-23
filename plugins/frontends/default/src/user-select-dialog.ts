@@ -338,7 +338,7 @@ class UserSelectDialog extends LitElement {
             this._showDeviceLoginModal = true;
           }}
         >
-          Sign in with shenas.net
+          Sign in with shenas.ai
         </button>
 
         ${this._showDeviceLoginModal

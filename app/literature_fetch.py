@@ -209,7 +209,7 @@ def refresh_findings(
 
     token = LocalUser.get_remote_token()
     if not token:
-        msg = "Literature refresh requires a shenas.net account. Sign in via Settings to use this feature."
+        msg = "Literature refresh requires a shenas.ai account. Sign in via Settings to use this feature."
         raise RuntimeError(msg)
 
     known_refs = [f.source_ref for f in Finding.all() if f.source_ref]
