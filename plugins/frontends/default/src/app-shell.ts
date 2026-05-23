@@ -27,6 +27,7 @@ import {
 } from "./graphql/mutations.ts";
 import { SETTINGS_NAV_ITEMS } from "./settings-page.ts";
 import "./user-select-dialog.ts";
+import "./device-login-modal.ts";
 
 // Inject the session token into all /api requests automatically so that
 // the session middleware can scope workspace, hotkeys, etc. per-user.
@@ -108,6 +109,7 @@ class ShenasApp extends LitElement {
     _multiuserEnabled: { state: true },
     _localUser: { state: true },
     _showUserDialog: { state: true },
+    _showDeviceLoginModal: { state: true },
   };
 
   declare apiBase: string;
@@ -136,6 +138,7 @@ class ShenasApp extends LitElement {
   declare _multiuserEnabled: boolean;
   declare _localUser: { id: number; username: string } | null;
   declare _showUserDialog: boolean;
+  declare _showDeviceLoginModal: boolean;
   private _elementCache = new Map<string, HTMLElement>();
   private _registeredCommands = new Map<string, Command[]>();
   private _keyHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -768,6 +771,7 @@ class ShenasApp extends LitElement {
     this._multiuserEnabled = false;
     this._localUser = null;
     this._showUserDialog = false;
+    this._showDeviceLoginModal = false;
   }
 
   connectedCallback(): void {
@@ -1484,7 +1488,7 @@ class ShenasApp extends LitElement {
             if (this._remoteUser) {
               openExternal(`${this._serverUrl}/dashboard`);
             } else {
-              window.location.href = "/api/auth/login";
+              this._showDeviceLoginModal = true;
             }
           }}
         >
@@ -1712,6 +1716,17 @@ class ShenasApp extends LitElement {
           this._navPaletteOpen = false;
         }}
       ></shenas-command-palette>
+      ${this._showDeviceLoginModal
+        ? html`<shenas-device-login-modal
+            api-base="${this.apiBase}"
+            @auth-changed=${() => {
+              this._showDeviceLoginModal = false;
+            }}
+            @device-login-cancel=${() => {
+              this._showDeviceLoginModal = false;
+            }}
+          ></shenas-device-login-modal>`
+        : ""}
     `;
   }
 
@@ -1835,15 +1850,18 @@ class ShenasApp extends LitElement {
     const jobId = `${id}-${Date.now()}`;
     const panel = this._getJobPanel();
     panel?.addJob(jobId, label);
+    let finished = false;
     try {
       const resp = await fetch(url, { method: "POST" });
       if (!resp.ok || !resp.body) {
         panel?.finishJob(jobId, false, `Request failed (${resp.status})`);
+        finished = true;
         return;
       }
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
+      let currentEvent = "";
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -1851,23 +1869,37 @@ class ShenasApp extends LitElement {
         const lines = buf.split("\n");
         buf = lines.pop() || "";
         for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const evt = JSON.parse(line.slice(6));
-            if (evt.event === "done") {
-              panel?.finishJob(jobId, evt.ok !== false, evt.message || label);
-            } else if (evt.event === "error") {
-              panel?.appendLine(jobId, evt.message || "error");
-            } else {
-              panel?.appendLine(jobId, evt.message || evt.text || "");
+          if (line.startsWith("event: ")) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              const message: string = data.message || "";
+              if (currentEvent === "complete") {
+                panel?.finishJob(jobId, true, message || label);
+                finished = true;
+              } else if (currentEvent === "error") {
+                panel?.finishJob(jobId, false, message || "Sync failed");
+                finished = true;
+              } else {
+                panel?.appendLine(jobId, message);
+              }
+            } catch {
+              /* ignore parse errors */
             }
-          } catch {
-            /* ignore parse errors */
+          } else if (line === "") {
+            currentEvent = "";
           }
         }
       }
+      if (!finished) {
+        panel?.finishJob(jobId, true, label);
+        finished = true;
+      }
     } catch (err) {
-      panel?.finishJob(jobId, false, String(err));
+      if (!finished) {
+        panel?.finishJob(jobId, false, String(err));
+      }
     }
   }
 

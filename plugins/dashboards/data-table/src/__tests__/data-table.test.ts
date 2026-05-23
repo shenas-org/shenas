@@ -173,21 +173,25 @@ describe("DataTable component", () => {
     });
   });
 
+  type ElInternals = { shouldUpdate: () => boolean; _recomputeSorted: () => void };
+
   function makeEl(columns: string[], data: TestRow[]): ShenasDataTable & HTMLElement {
     const el = document.createElement("shenas-data-table") as ShenasDataTable & HTMLElement;
-    // Disable rendering to sidestep a happy-dom/lit template parsing quirk;
-    // we exercise the component's reactive state and getters directly.
-    (el as unknown as { shouldUpdate: () => boolean }).shouldUpdate = () => false;
+    // Prevent Lit rendering to avoid a happy-dom/Lit template-parsing quirk:
+    // happy-dom's HTML parser de-duplicates @click attributes across nested
+    // elements (parent <th> and child <div> both have @click), which trips
+    // Lit's DEV-mode duplicate-attribute check. We bypass the render path and
+    // call _recomputeSorted() directly to populate the sorted/filtered cache.
+    (el as unknown as ElInternals).shouldUpdate = () => false;
     document.body.appendChild(el);
     el._columns = columns;
     el._data = data;
-    // _recomputeSorted normally runs in willUpdate, which is skipped here.
-    (el as unknown as { _recomputeSorted: () => void })._recomputeSorted();
+    (el as unknown as ElInternals)._recomputeSorted();
     return el;
   }
 
   function recompute(el: ShenasDataTable & HTMLElement): void {
-    (el as unknown as { _recomputeSorted: () => void })._recomputeSorted();
+    (el as unknown as ElInternals)._recomputeSorted();
   }
 
   it("renders an empty table when no data", async () => {

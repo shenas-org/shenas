@@ -15,6 +15,7 @@ dependencies = [
   "opentelemetry-instrumentation-fastapi>=0.46b0",
   "opentelemetry-instrumentation-httpx>=0.46b0",
   "pyarrow>=23.0.1",
+  "pyjwt[crypto]>=2.8.0",
   "rich>=14.3.3",
   "typer>=0.24.1",
   "strawberry-graphql[fastapi]>=0.276.0",

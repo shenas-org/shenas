@@ -619,7 +619,7 @@ export class ShenasKpiDashboard extends LitElement {
     return query(
       this.apiBase,
       `SELECT DISTINCT ON (agent_id) agent_id, COALESCE(name, agent_id) AS agent_name
-       FROM sources.paperclip_agents
+       FROM sources.paperclip__paperclip_agents
        ORDER BY agent_id, _dlt_valid_from DESC`,
     );
   }

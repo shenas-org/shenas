@@ -331,64 +331,126 @@ async def stream_spans() -> StreamingResponse:
 
 
 # ---------------------------------------------------------------------------
-# Remote auth — Kanidm device-authorization-grant
+# Remote auth — Kanidm OAuth2 authorization-code + PKCE (RFC 8252 native app)
 # ---------------------------------------------------------------------------
 
 
 @app.get("/api/auth/login")
 def remote_login() -> JSONResponse:
-    """Initiate Kanidm device-authorization-grant.
+    """Start the Kanidm auth-code flow.
 
-    Returns device_code, user_code, verification_uri, and poll interval so the
-    UI can show the code and let the user visit the URL to authenticate.
-    The caller then polls /api/auth/poll with the device_code until authorized.
+    Returns the authorization URL the UI should open in the system browser, and
+    a `state` value the UI polls via /api/auth/status until the loopback
+    callback completes.
     """
     if not KANIDM_URL:
         return JSONResponse(content={"error": "KANIDM_URL is not configured"}, status_code=503)
-    from app.auth_kanidm import start_device_flow
+    from app.auth_kanidm import build_authorization_url
 
     try:
-        data = start_device_flow()
-        return JSONResponse(
-            content={
-                "device_code": data["device_code"],
-                "user_code": data["user_code"],
-                "verification_uri": data["verification_uri"],
-                "verification_uri_complete": data.get("verification_uri_complete", ""),
-                "expires_in": data.get("expires_in", 300),
-                "interval": data.get("interval", 5),
-            }
-        )
+        url, state = build_authorization_url()
+        return JSONResponse(content={"authorization_url": url, "state": state})
     except Exception as exc:
         return JSONResponse(content={"error": str(exc)}, status_code=502)
 
 
-@app.post("/api/auth/poll")
-async def remote_poll(request: Request) -> JSONResponse:
-    """Poll Kanidm once for device-auth-grant completion.
+@app.get("/api/auth/status")
+def remote_auth_status(state: str) -> JSONResponse:
+    """Return the status of an in-flight auth-code flow keyed by `state`."""
+    from app.auth_kanidm import pending_auth_store
 
-    Body: {"device_code": "<device_code>"}
-    Returns {"status": "pending"} or {"status": "authorized"} on success.
+    entry = pending_auth_store.get(state)
+    if entry is None:
+        return JSONResponse(content={"status": "expired"}, status_code=404)
+    body: dict[str, str] = {"status": entry.status}
+    if entry.error:
+        body["error"] = entry.error
+    return JSONResponse(content=body)
+
+
+@app.get("/callback")
+def remote_callback(request: Request) -> HTMLResponse:
+    """Loopback redirect target for the Kanidm auth-code flow.
+
+    Exchanges the code for an access token and stores it on the current local
+    user. Returns a small HTML page the user can close.
     """
-    from app.auth_kanidm import poll_device_token
-    from app.database import current_user_id
+    from app.auth_kanidm import exchange_code, pending_auth_store
     from app.local_users import LocalUser
 
-    body = await request.json()
-    device_code = body.get("device_code", "")
-    if not device_code:
-        return JSONResponse(content={"error": "missing device_code"}, status_code=400)
+    state = request.query_params.get("state", "")
+    code = request.query_params.get("code", "")
+    error = request.query_params.get("error", "")
+
+    entry = pending_auth_store.get(state) if state else None
+    if entry is None:
+        return _render_callback_page(ok=False, message="Sign-in session expired or unknown state.")
+    if error:
+        entry.status = "error"
+        entry.error = error
+        return _render_callback_page(ok=False, message=f"Sign-in failed: {error}")
+    if not code:
+        entry.status = "error"
+        entry.error = "missing authorization code"
+        return _render_callback_page(ok=False, message="Sign-in failed: missing authorization code.")
+
     try:
-        result = poll_device_token(device_code)
-        if result is None:
-            return JSONResponse(content={"status": "pending"})
-        user_id = current_user_id.get()
-        LocalUser.set_remote_token(user_id, result["access_token"])
-        return JSONResponse(content={"status": "authorized"})
-    except ValueError as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=400)
+        token = exchange_code(code, entry.code_verifier, entry.redirect_uri)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=502)
+        entry.status = "error"
+        entry.error = str(exc)
+        return _render_callback_page(ok=False, message=f"Sign-in failed: {exc}")
+
+    user_id = _resolve_signin_user_id(request)
+    if user_id is None:
+        entry.status = "error"
+        entry.error = "no local user to attach the sign-in to"
+        return _render_callback_page(
+            ok=False,
+            message="Sign-in succeeded with shenas.net but no local user exists to attach it to. Create a local user first.",
+        )
+    LocalUser.set_remote_token(user_id, token["access_token"])
+    entry.status = "authorized"
+    entry.access_token = token["access_token"]
+    return _render_callback_page(ok=True, message="Sign-in complete. You can close this tab.")
+
+
+def _resolve_signin_user_id(request: Request) -> int | None:
+    """Pick the local user to attach the Kanidm token to.
+
+    1. Honor the X-Shenas-Session-derived `request.state.user_id` if it points
+       at a real row.
+    2. Otherwise (single-user-mode default of 0, or stale id with no row),
+       fall back to the lowest registered user id -- the common case where the
+       desktop app has exactly one local user.
+    Returns None if there are zero registered users.
+    """
+    from app.local_users import LocalUser
+
+    candidate = getattr(request.state, "user_id", 0) or 0
+    if candidate and LocalUser.find(candidate):
+        return candidate
+    rows = sorted(LocalUser.list_all(), key=lambda u: u["id"])
+    return rows[0]["id"] if rows else None
+
+
+def _render_callback_page(ok: bool, message: str) -> HTMLResponse:
+    color = "#2e7d32" if ok else "#c62828"
+    return HTMLResponse(
+        f"""<!doctype html>
+<html><head><meta charset="utf-8"><title>shenas sign-in</title>
+<style>
+  body {{ font-family: system-ui, sans-serif; background: #faf8f5; color: #2c2c28;
+          display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+  .card {{ background: #fff; padding: 2rem 2.5rem; border-radius: 10px;
+           box-shadow: 0 8px 32px rgba(0,0,0,0.12); max-width: 420px; text-align: center; }}
+  h1 {{ font-size: 1.1rem; color: {color}; margin: 0 0 0.75rem; }}
+  p {{ margin: 0; color: #5a5850; line-height: 1.45; font-size: 0.95rem; }}
+</style></head>
+<body><div class="card"><h1>{"Signed in" if ok else "Sign-in failed"}</h1><p>{message}</p></div>
+<script>setTimeout(() => window.close(), 1500);</script>
+</body></html>"""
+    )
 
 
 @app.post("/api/auth/logout")
@@ -428,34 +490,36 @@ def source_auth_callback(name: str, request: Request) -> RedirectResponse:
 
 @app.get("/api/auth/me")
 def remote_me() -> dict:
-    """Validate the stored Kanidm token against shenas.ai.
+    """Validate the stored Kanidm JWT locally and return the signed-in user.
 
-    If the stored token is a legacy opaque session token (pre-Phase 4), returns
-    {"user": None, "needs_reauth": true} so the UI can prompt the user to
-    re-authenticate via the new device-auth-grant flow.
+    The desktop app trusts Kanidm directly (signature + expiry) instead of
+    round-tripping through shenas.ai -- each Kanidm OAuth2 client signs with
+    its own key, and shenas.ai only knows the web client's JWKS. Legacy opaque
+    session tokens trigger a re-auth prompt.
     """
-    import httpx
-
-    from app.auth_kanidm import is_legacy_token
+    from app.auth_kanidm import fetch_userinfo, is_legacy_token, validate_kanidm_jwt
     from app.local_users import LocalUser
 
-    try:
-        token = LocalUser.get_remote_token()
-        if not token:
-            return {"user": None, "server_url": SHENAS_NET_URL}
-        if is_legacy_token(token):
-            return {"user": None, "server_url": SHENAS_NET_URL, "needs_reauth": True}
-        resp = httpx.get(
-            f"{SHENAS_NET_URL}/api/auth/me",
-            headers={"Authorization": f"Bearer {token}"},
-            verify=False,
-            timeout=5,
-        )
-        data = resp.json()
-        data["server_url"] = SHENAS_NET_URL
-        return data
-    except Exception:
+    token = LocalUser.get_remote_token()
+    if not token:
         return {"user": None, "server_url": SHENAS_NET_URL}
+    if is_legacy_token(token):
+        return {"user": None, "server_url": SHENAS_NET_URL, "needs_reauth": True}
+
+    claims = validate_kanidm_jwt(token)
+    if claims is None:
+        return {"user": None, "server_url": SHENAS_NET_URL, "needs_reauth": True}
+
+    userinfo = fetch_userinfo(token) or {}
+    return {
+        "user": {
+            "id": claims.get("sub", ""),
+            "email": userinfo.get("email", ""),
+            "name": userinfo.get("name") or userinfo.get("preferred_username") or "",
+            "picture": userinfo.get("picture", ""),
+        },
+        "server_url": SHENAS_NET_URL,
+    }
 
 
 # ---------------------------------------------------------------------------

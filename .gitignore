@@ -21,5 +21,5 @@ coverage.json
 .cache
 *.egg-info/
 .vite/
-.claude/worktrees/
+.claude
 

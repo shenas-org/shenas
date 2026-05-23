@@ -305,6 +305,11 @@ class LocalUser(Table):
         falls back to the stored token in local_users. Returns None if
         the stored token belongs to a different server than the current
         SHENAS_NET_URL.
+
+        In single-user mode (current_user_id contextvar defaults to 0, but
+        the local_users table has no row with id 0), the call falls back to
+        the lowest registered user id -- matching the convention used by the
+        /callback endpoint when persisting the token after sign-in.
         """
         import os
 
@@ -315,9 +320,12 @@ class LocalUser(Table):
             from app.database import current_user_id
 
             uid = current_user_id.get()
-            if uid is None:
-                return None
-            user = LocalUser.find(uid)
+            user = LocalUser.find(uid) if uid else None
+            if user is None:
+                rows = sorted(cls.list_all(), key=lambda u: u["id"])
+                if not rows:
+                    return None
+                user = LocalUser.find(rows[0]["id"])
             if user is None or not user.remote_token:
                 return None
             if user.remote_server and user.remote_server != SHENAS_NET_URL:

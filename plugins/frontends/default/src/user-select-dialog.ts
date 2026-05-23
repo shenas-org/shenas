@@ -1,5 +1,6 @@
 import { LitElement, html, css } from "lit";
 import { buttonStyles, formStyles, messageStyles } from "shenas-frontends";
+import "./device-login-modal.ts";
 
 interface LocalUser {
   id: number;
@@ -24,6 +25,7 @@ class UserSelectDialog extends LitElement {
     _regPassword: { state: true },
     _error: { state: true },
     _loading: { state: true },
+    _showDeviceLoginModal: { state: true },
   };
 
   static styles = [
@@ -138,6 +140,7 @@ class UserSelectDialog extends LitElement {
   declare _regPassword: string;
   declare _error: string | null;
   declare _loading: boolean;
+  declare _showDeviceLoginModal: boolean;
 
   constructor() {
     super();
@@ -150,6 +153,7 @@ class UserSelectDialog extends LitElement {
     this._regPassword = "";
     this._error = null;
     this._loading = false;
+    this._showDeviceLoginModal = false;
   }
 
   async connectedCallback(): Promise<void> {
@@ -331,12 +335,23 @@ class UserSelectDialog extends LitElement {
         <button
           class="shenas-net-btn"
           @click=${() => {
-            window.location.href = "/api/auth/login";
+            this._showDeviceLoginModal = true;
           }}
         >
           Sign in with shenas.net
         </button>
 
+        ${this._showDeviceLoginModal
+          ? html`<shenas-device-login-modal
+              api-base="${this.apiBase}"
+              @auth-changed=${() => {
+                this._showDeviceLoginModal = false;
+              }}
+              @device-login-cancel=${() => {
+                this._showDeviceLoginModal = false;
+              }}
+            ></shenas-device-login-modal>`
+          : ""}
         ${this.cancellable
           ? html`
               <div class="actions">

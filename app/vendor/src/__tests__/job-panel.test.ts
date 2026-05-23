@@ -143,4 +143,15 @@ describe("shenas-job-panel", () => {
     const clearBtn = el.shadowRoot.querySelector(".dismiss") as HTMLButtonElement;
     expect(clearBtn).toBeTruthy();
   });
+
+  it("finishJob is idempotent: second call does not mutate an already-finished job", async () => {
+    const el = makeEl();
+    document.body.appendChild(el);
+    el.addJob("j1", "Job");
+    el.finishJob("j1", true, "First finish");
+    el.finishJob("j1", false, "Should be ignored");
+    await el.updateComplete;
+    expect(el._jobs[0].status).toBe("done");
+    expect(el._jobs[0].message).toBe("First finish");
+  });
 });

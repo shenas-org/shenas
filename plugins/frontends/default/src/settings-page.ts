@@ -1,4 +1,5 @@
 import "./categories-page.ts";
+import "./device-login-modal.ts";
 import { LitElement, html, css, render } from "lit";
 import {
   ApolloMutationController,
@@ -119,6 +120,7 @@ class SettingsPage extends LitElement {
     _selectedPlugin: { state: true },
     _pluginKinds: { state: true },
     _menuOpen: { state: true },
+    _showDeviceLoginModal: { state: true },
   };
 
   static styles = [
@@ -347,6 +349,7 @@ class SettingsPage extends LitElement {
   declare _selectedPlugin: string;
   declare _menuOpen: boolean;
   declare _pluginKinds: PluginKind[];
+  declare _showDeviceLoginModal: boolean;
 
   private _enablePluginMutation = new ApolloMutationController(this, ENABLE_PLUGIN, { client: getClient() });
   private _disablePluginMutation = new ApolloMutationController(this, DISABLE_PLUGIN, { client: getClient() });
@@ -377,6 +380,7 @@ class SettingsPage extends LitElement {
     this._selectedPlugin = "";
     this._menuOpen = false;
     this._pluginKinds = [];
+    this._showDeviceLoginModal = false;
   }
 
   connectedCallback(): void {
@@ -784,7 +788,18 @@ class SettingsPage extends LitElement {
         <div class="profile">
           ${multiuserSection}
           <p>You are not signed in to shenas.net.</p>
-          <button @click=${() => (window.location.href = "/api/auth/login")}>Sign in with shenas.net</button>
+          <button @click=${() => (this._showDeviceLoginModal = true)}>Sign in with shenas.net</button>
+          ${this._showDeviceLoginModal
+            ? html`<shenas-device-login-modal
+                api-base="${this.apiBase}"
+                @auth-changed=${() => {
+                  this._showDeviceLoginModal = false;
+                }}
+                @device-login-cancel=${() => {
+                  this._showDeviceLoginModal = false;
+                }}
+              ></shenas-device-login-modal>`
+            : ""}
         </div>
       `;
     }

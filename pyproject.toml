@@ -191,7 +191,7 @@ filterwarnings = [
 
 [tool.ruff]
 line-length = 127
-extend-exclude = ["app/desktop/src-tauri/target"]
+extend-exclude = ["app/desktop/src-tauri/target", ".tmp-*.py"]
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -228,10 +228,10 @@ fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "PLR2004", "ARG"]
-"**/tests/**/*.py" = ["S101", "PLR2004", "ARG"]
+"tests/**/*.py" = ["S101", "PLR2004", "ARG", "TRY301"]
+"**/tests/**/*.py" = ["S101", "PLR2004", "ARG", "TRY301"]
 "build/**/*.py" = ["SLF001"]
-"scripts/**/*.py" = ["T20"]
+"scripts/**/*.py" = ["T20", "PLR0911", "PLR0912", "PLR0915"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app", "shenas_plugins", "shenas_sources", "shenas_datasets", "shenas_dashboards", "shenas_themes", "shenas_frontends", "repository", "scheduler"]

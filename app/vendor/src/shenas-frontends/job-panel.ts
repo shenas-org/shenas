@@ -147,7 +147,10 @@ class JobPanel extends LitElement {
   }
 
   finishJob(id: string, ok: boolean, message?: string): void {
-    this._jobs = this._jobs.map((j) => (j.id === id ? { ...j, status: ok ? "done" : "error", message } : j));
+    this._jobs = this._jobs.map((j) => {
+      if (j.id !== id || j.status !== "running") return j;
+      return { ...j, status: ok ? "done" : "error", message };
+    });
   }
 
   _scrollToBottom(): void {

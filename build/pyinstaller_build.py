@@ -417,8 +417,13 @@ def build_target(  # noqa: PLR0912
         f"--distpath={dist_dir}",
         f"--workpath={WORK_DIR / name}",
         f"--specpath={WORK_DIR}",
-        # Strip debug symbols from shared libraries
-        "--strip",
+        # Strip debug symbols from shared libraries.
+        # PyInstaller upstream warns "--strip" is "not recommended for Windows"
+        # because GH `windows-latest` runners ship MSYS2 `strip.exe` and stripping
+        # PE files like `python311.dll` corrupts their import tables, which then
+        # surfaces at runtime as PYI-2504 "LoadLibrary: Invalid access to memory
+        # location." Keep stripping on Linux/macOS where it works correctly.
+        *(["--strip"] if platform.system() != "Windows" else []),
         # Hidden imports (target-specific)
         *[f"--hidden-import={mod}" for mod in hidden_imports],
         # Package data (target-specific)
@@ -572,8 +577,12 @@ def main() -> None:  # noqa: PLR0912
         "-j",
         "--jobs",
         type=int,
-        default=None,
-        help="Number of PyInstaller targets to build in parallel. Default: one per target.",
+        default=1,
+        help=(
+            "Number of PyInstaller targets to build in parallel. Default: 1 (sequential). "
+            "Parallel builds share PyInstaller's bincache and race on strip(1); only raise this "
+            "if you can accept occasional flaky failures."
+        ),
     )
     args = parser.parse_args()
 
@@ -608,8 +617,7 @@ def main() -> None:  # noqa: PLR0912
     dist_dir.mkdir(parents=True, exist_ok=True)
     WORK_DIR.mkdir(parents=True, exist_ok=True)
 
-    requested_jobs = args.jobs if args.jobs is not None else len(to_build)
-    jobs = max(1, min(requested_jobs, len(to_build)))
+    jobs = max(1, min(args.jobs, len(to_build)))
 
     results: dict[str, Path] = {}
     if jobs <= 1 or len(to_build) == 1:

@@ -23,18 +23,18 @@ The lockup wordmark is set in system Arial/Helvetica rather than a custom typefa
 
 Used for the main `shenas.ai` product site and the primary mark. All files without a `-org-` infix use sage.
 
-### Copper — `#c47a3a` (shenas.org community site)
+### Copper — `#c47a3a` (OSS / community surface)
 
-The copper colorway distinguishes the OSS community surface (`shenas.org`) from the product surface (`shenas.ai`). It uses the same mark geometry and wordmark metrics as the sage lockups — only the stroke and fill color changes.
+The copper colorway distinguishes the OSS community surface (the `shenas.ai/oss/*` pages — formerly the standalone `shenas.org` Astro site, retired in SHE-681) from the product surface (`shenas.ai`). It uses the same mark geometry and wordmark metrics as the sage lockups — only the stroke and fill color changes.
 
 **Files:**
 
 | File | When to use |
 |---|---|
-| `shenas-org-lockup-horizontal.svg` | shenas.org nav, community-site horizontal contexts |
-| `shenas-org-lockup-stacked.svg` | shenas.org splash, community-site square/portrait contexts |
+| `shenas-org-lockup-horizontal.svg` | OSS surface nav (`shenas.ai/oss/*`), chooser OSS link, horizontal OSS contexts |
+| `shenas-org-lockup-stacked.svg` | OSS square/portrait contexts (source — no current deploy target after SHE-681) |
 
-Both files are deployed to `server/shenas.org/public/` via `make logos-generate`. Use the copper lockups only on the shenas.org community surface. Do not use them on `shenas.ai` or in the desktop/mobile app.
+`shenas-org-lockup-horizontal.svg` is still copied to `server/shenas.net/public/shenas-org-lockup.svg` via `make logos-generate` so the chooser page can reference the OSS variant. `server/shenas.org/public/` is no longer a deploy target — the one-brand consolidation (SHE-633) replaced the Astro site with GCLB-level 301s to `shenas.ai/oss/*`, so the copper lockups are surfaced through the shenas.ai/oss/ pages and the chooser. The stacked copper variant is no longer copied anywhere; keep it in `artifacts/oss/images/` as the source for any future surface that needs it.
 
 ## Construction notes
 
@@ -55,9 +55,6 @@ From the Claude Design study (`logo-mark.html`, round 6, 2026-05-11):
 - `server/shenas.ai/public/logo-192.png` ← rendered 192px from `shenas.svg`
 - `server/shenas.ai/public/logo-horizontal.svg` ← copy of `shenas-lockup-horizontal.svg`
 - `server/shenas.ai/public/logo-stacked.svg` ← copy of `shenas-lockup-stacked.svg`
-- `server/shenas.org/public/favicon.svg` ← copy of `shenas-mark.svg`
-- `server/shenas.org/public/logo-horizontal.svg` ← copy of `shenas-org-lockup-horizontal.svg`
-- `server/shenas.org/public/logo-stacked.svg` ← copy of `shenas-org-lockup-stacked.svg`
 - `server/shenas.net/public/favicon.svg` ← copy of `shenas-mark.svg`
 - `server/shenas.net/public/logo.svg` ← copy of `shenas.svg`
 - `server/shenas.net/public/shenas-lockup.svg` ← copy of `shenas-lockup-horizontal.svg`
